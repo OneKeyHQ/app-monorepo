@@ -21,62 +21,34 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappConnection';
 
-import { useShouldUpdateConnectedAccount } from '../../../Discovery/hooks/useDAppNotifyChanges';
 import useActiveTabDAppInfo from '../../hooks/useActiveTabDAppInfo';
 import { useDappAccountSwitch } from '../../hooks/useDappAccountSwitch';
-import {
-  type IHandleAccountChangedParams,
-  useHandleDiscoveryAccountChanged,
-} from '../../hooks/useHandleAccountChanged';
 
 import type { IExtensionActiveTabDAppInfo } from '../../hooks/useActiveTabDAppInfo';
 
 function SingleAccountAddressSelectorTrigger({
-  origin,
   num,
-  account,
-  afterChangeAccount,
+  onPress,
 }: {
-  origin: string;
   num: number;
-  account: IConnectionAccountInfoWithNum;
-  afterChangeAccount: () => void;
+  onPress: () => void;
 }) {
-  const { handleAccountInfoChanged } = useShouldUpdateConnectedAccount();
-  const handleAccountChanged = useCallback(
-    async (accountChangedParams: IHandleAccountChangedParams) => {
-      await handleAccountInfoChanged({
-        origin,
-        accountSelectorNum: num,
-        prevAccountInfo: account,
-        accountChangedParams,
-        storageType: account.storageType,
-        afterUpdate: afterChangeAccount,
-      });
-    },
-    [num, account, afterChangeAccount, handleAccountInfoChanged, origin],
-  );
-
-  useHandleDiscoveryAccountChanged({
-    num,
-    handleAccountChanged,
-  });
-  return <AccountSelectorTriggerAddressSingle num={num} />;
+  return <AccountSelectorTriggerAddressSingle num={num} onPress={onPress} />;
 }
 
 function SingleAccountAddressSelectorTriggerWithProvider({
   result,
-  refreshConnectionInfo,
+  onPress,
 }: {
   result: IExtensionActiveTabDAppInfo | null;
-  refreshConnectionInfo: () => void;
+  onPress: () => void;
 }) {
   if (result?.connectedAccountsInfo?.length !== 1) {
     return null;
@@ -103,12 +75,8 @@ function SingleAccountAddressSelectorTriggerWithProvider({
       )}
     >
       <SingleAccountAddressSelectorTrigger
-        origin={result?.origin ?? ''}
         num={result?.connectedAccountsInfo?.[0]?.num}
-        account={result?.connectedAccountsInfo?.[0]}
-        afterChangeAccount={() => {
-          void refreshConnectionInfo();
-        }}
+        onPress={onPress}
       />
     </AccountSelectorProviderMirror>
   );
@@ -146,46 +114,49 @@ function SingleAccountAddressSelectorTriggerWrapper({
 
 function DAppConnectExtensionFloatingTrigger() {
   const { result, refreshConnectionInfo } = useActiveTabDAppInfo();
+
+  const memoizedResult = useMemo(() => result, [result]);
+
   const {
     shouldSwitchAccount,
     isSwitching,
+    onSwitchAccount,
     hideAccountSelectorTrigger,
     switchProcessText,
-    onSwitchAccount,
     onCancelSwitchAccount,
-  } = useDappAccountSwitch({ result, refreshConnectionInfo });
+  } = useDappAccountSwitch({ result: memoizedResult, refreshConnectionInfo });
 
   const navigation = useAppNavigation();
   const handlePressFloatingButton = useCallback(() => {
     navigation.pushModal(EModalRoutes.DAppConnectionModal, {
       screen: EDAppConnectionModal.CurrentConnectionModal,
-      params: {
-        origin: result?.origin ?? '',
-        faviconUrl: result?.faviconUrl ?? '',
-      },
     });
-  }, [result, navigation]);
+  }, [navigation]);
 
   const onDisconnect = useCallback(async () => {
-    if (result?.connectedAccountsInfo?.[0].storageType) {
+    if (memoizedResult?.connectedAccountsInfo?.[0].storageType) {
       await backgroundApiProxy.serviceDApp.disconnectWebsite({
-        origin: result?.origin ?? '',
-        storageType: result?.connectedAccountsInfo?.[0].storageType,
+        origin: memoizedResult?.origin ?? '',
+        storageType: memoizedResult?.connectedAccountsInfo?.[0].storageType,
         entry: 'ExtFloatingTrigger',
       });
       void refreshConnectionInfo();
     }
-  }, [result?.origin, result?.connectedAccountsInfo, refreshConnectionInfo]);
+  }, [
+    memoizedResult?.origin,
+    memoizedResult?.connectedAccountsInfo,
+    refreshConnectionInfo,
+  ]);
 
   const renderAccountTrigger = useCallback(() => {
-    if (result?.connectedAccountsInfo?.length === 1) {
+    if (memoizedResult?.connectedAccountsInfo?.length === 1) {
       return (
         <SingleAccountAddressSelectorTriggerWrapper
           hideAccountSelectorTrigger={hideAccountSelectorTrigger}
         >
           <SingleAccountAddressSelectorTriggerWithProvider
-            result={result}
-            refreshConnectionInfo={refreshConnectionInfo}
+            result={memoizedResult}
+            onPress={handlePressFloatingButton}
           />
         </SingleAccountAddressSelectorTriggerWrapper>
       );
@@ -208,7 +179,7 @@ function DAppConnectExtensionFloatingTrigger() {
         }}
         onPress={() => {}}
       >
-        {result?.networkIcons.slice(0, 2).map((icon, index) => (
+        {memoizedResult?.networkIcons.slice(0, 2).map((icon, index) => (
           <Token
             key={icon}
             size="xs"
@@ -217,31 +188,27 @@ function DAppConnectExtensionFloatingTrigger() {
             borderColor={index === 1 ? '$bgApp' : undefined}
             borderWidth={index === 1 ? 2 : undefined}
             borderStyle={index === 1 ? 'solid' : undefined}
-            style={
-              // @ts-expect-error
-              index === 1 ? { boxSizing: 'content-box' } : undefined
-            }
+            style={index === 1 ? { boxSizing: 'content-box' } : undefined}
           />
         ))}
         <SizableText pl="$1" size="$bodySm" numberOfLines={1}>
-          {result?.addressLabel}
+          {memoizedResult?.addressLabel}
         </SizableText>
         <Icon size="$4" color="$iconSubdued" name="ChevronRightSmallOutline" />
       </XStack>
     );
-  }, [result, hideAccountSelectorTrigger, refreshConnectionInfo]);
+  }, [memoizedResult, hideAccountSelectorTrigger, handlePressFloatingButton]);
 
-  const renderSyncDappAccountToHomeProvider = useMemo(
-    () => (
+  const renderSyncDappAccountToHomeProvider = useMemo(() => {
+    return (
       <SyncDappAccountToHomeProvider
-        origin={result?.origin ?? ''}
-        dAppAccountInfos={result?.connectedAccountsInfo ?? null}
+        origin={memoizedResult?.origin ?? ''}
+        dAppAccountInfos={memoizedResult?.connectedAccountsInfo ?? null}
       />
-    ),
-    [result?.connectedAccountsInfo, result?.origin],
-  );
+    );
+  }, [memoizedResult?.connectedAccountsInfo, memoizedResult?.origin]);
 
-  if (!result?.showFloatingPanel) {
+  if (!memoizedResult?.showFloatingPanel) {
     return null;
   }
 
@@ -305,17 +272,16 @@ function DAppConnectExtensionFloatingTrigger() {
             borderRadius="$2"
             borderColor="$border"
             borderWidth="$px"
-          >
-            <Image.Source
-              src={result?.faviconUrl || result?.originFaviconUrl}
-            />
-            <Image.Fallback>
-              <Icon size="$10" name="GlobusOutline" />
-            </Image.Fallback>
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          </Image>
+            source={{
+              uri:
+                memoizedResult?.faviconUrl || memoizedResult?.originFaviconUrl,
+            }}
+            fallback={
+              <Image.Fallback>
+                <Icon size="$9" name="GlobusOutline" />
+              </Image.Fallback>
+            }
+          />
           <Stack
             position="absolute"
             bottom={-2}
@@ -333,7 +299,7 @@ function DAppConnectExtensionFloatingTrigger() {
         </Stack>
         <YStack flex={1} alignItems="flex-start">
           <SizableText size="$bodyMdMedium" numberOfLines={1}>
-            {result?.connectLabel}
+            {memoizedResult?.connectLabel}
           </SizableText>
           {renderAccountTrigger()}
         </YStack>
@@ -349,15 +315,19 @@ function DAppConnectExtensionFloatingTrigger() {
 }
 
 export default function DAppConnectExtensionFloatingTriggerWithHomeProvider() {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <DAppConnectExtensionFloatingTrigger />
-    </AccountSelectorProviderMirror>
-  );
+  if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+    return (
+      <AccountSelectorProviderMirror
+        config={{
+          sceneName: EAccountSelectorSceneName.home,
+          sceneUrl: '',
+        }}
+        enabledNum={[0]}
+      >
+        <DAppConnectExtensionFloatingTrigger />
+      </AccountSelectorProviderMirror>
+    );
+  }
+
+  return null;
 }

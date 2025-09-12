@@ -150,18 +150,26 @@ function AssetProtocolListContent({
   const { accountId, indexedAccountId, symbol } = appRoute.params;
   const appNavigation = useAppNavigation();
   const onPress = useCallback(
-    ({ item }: { item: IStakeProtocolListItem }) => {
+    async ({ item }: { item: IStakeProtocolListItem }) => {
       defaultLogger.staking.page.selectProvider({
         network: item.network.networkId,
         stakeProvider: item.provider.name,
       });
-      appNavigation.navigate(EModalStakingRoutes.ProtocolDetails, {
-        accountId,
+      const networkId = item.network.networkId;
+      const earnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId: accountId || '',
+          indexedAccountId,
+          networkId,
+        });
+      appNavigation.navigate(EModalStakingRoutes.ProtocolDetailsV2, {
+        accountId: earnAccount?.accountId || accountId,
         networkId: item.network.networkId,
-        indexedAccountId,
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccountId,
         symbol,
         provider: item.provider.name,
-        vault: earnUtils.isMorphoProvider({ providerName: item.provider.name })
+        vault: earnUtils.useVaultProvider({ providerName: item.provider.name })
           ? item.provider.vault
           : undefined,
       });
@@ -268,8 +276,7 @@ function AssetProtocolList() {
         symbol,
         accountId,
         indexedAccountId,
-        networkId,
-        filter,
+        filterNetworkId: filter ? networkId : undefined,
       }),
     [filter, symbol, networkId, accountId, indexedAccountId],
     { watchLoading: true },

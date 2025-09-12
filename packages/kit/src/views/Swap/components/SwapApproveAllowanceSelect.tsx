@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { ISelectItem } from '@onekeyhq/components';
 import {
   Icon,
+  Popover,
   Select,
   SizableText,
   Skeleton,
@@ -57,11 +58,38 @@ const SwapApproveAllowanceSelect = ({
   }, [currentSelectAllowanceValue?.label, isLoading]);
   return (
     <XStack justifyContent="space-between">
-      <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
-        {intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_amount,
-        })}
-      </SizableText>
+      <XStack alignItems="center" gap="$1">
+        <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
+          {intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_amount,
+          })}
+        </SizableText>
+        <Popover
+          title={intl.formatMessage({
+            id: ETranslations.swap_page_provider_approve_amount,
+          })}
+          renderTrigger={
+            <Icon
+              name="InfoCircleOutline"
+              size="$3.5"
+              cursor="pointer"
+              color="$iconSubdued"
+            />
+          }
+          renderContent={
+            <SizableText
+              p="$4"
+              $gtMd={{
+                size: '$bodyMd',
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.swap_page_swap_steps_1_approve_dialog,
+              })}
+            </SizableText>
+          }
+        />
+      </XStack>
       <Select
         placement="bottom-end"
         items={selectItems}

@@ -10,7 +10,6 @@ import {
   useSystemIdleLockSupport,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
-import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { setUser as setSentryUser } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -29,13 +28,13 @@ const LastActivityTracker = () => {
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
       analytics.init({
         instanceId,
-        baseURL: buildServiceEndpoint({
-          serviceName: EServiceEndpointEnum.Utility,
-          env:
-            devSettings.enabled && devSettings.settings?.enableTestEndpoint
-              ? 'test'
-              : 'prod',
-        }),
+        baseURL: (
+          await backgroundApiProxy.serviceApp.getEndpointInfo({
+            name: EServiceEndpointEnum.Utility,
+          })
+        ).endpoint,
+        enableAnalyticsInDev:
+          devSettings.enabled && devSettings.settings?.enableAnalyticsRequest,
       });
       setSentryUser({
         id: instanceId,

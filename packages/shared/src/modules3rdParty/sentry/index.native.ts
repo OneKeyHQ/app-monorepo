@@ -10,7 +10,7 @@ import {
   wrap,
 } from '@sentry/react-native';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import appGlobals from '../../appGlobals';
 
 import { buildBasicOptions, navigationIntegration } from './basicOptions';
 
@@ -25,10 +25,10 @@ export const initSentry = () => {
     return;
   }
   init({
-    dsn: 'https://efa7cea7131f10dc294bd2c64bd636bf@o4508208799809536.ingest.de.sentry.io/4508208802627664',
+    dsn: process.env.SENTRY_DSN_REACT_NATIVE || '',
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
-        defaultLogger.app.error.log(errorMessage, stacktrace);
+        appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
       },
     }),
     maxCacheItems: 60,
@@ -53,7 +53,12 @@ export const withSentryHOC = (
 ): ComponentType<any> =>
   withErrorBoundary(withProfiler(wrap(Component)), {
     onError: (error, info) => {
-      console.error('error', error, info);
+      console.error('withErrorBoundary', error, info);
+      appGlobals.$defaultLogger?.app.error.log(
+        `${
+          typeof error === 'string' ? error : (error as Error)?.message || ''
+        } ${typeof info === 'string' ? info : ''}`,
+      );
     },
     fallback: errorBoundaryFallback,
   });

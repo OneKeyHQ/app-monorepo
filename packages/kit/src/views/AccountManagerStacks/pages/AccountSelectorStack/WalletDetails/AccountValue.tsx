@@ -1,15 +1,11 @@
 import { useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { useIntl } from 'react-intl';
+import { isNil, map } from 'lodash';
 
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
-import { Spotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -19,10 +15,20 @@ function AccountValue(accountValue: {
   value: Record<string, string> | string;
   linkedAccountId?: string;
   linkedNetworkId?: string;
+  indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
 }) {
   const [activeAccountValue] = useActiveAccountValueAtom();
   const isActiveAccount =
     activeAccountValue?.accountId === accountValue?.accountId;
+
+  const {
+    linkedAccountId,
+    linkedNetworkId,
+    mergeDeriveAssetsEnabled,
+    isSingleAddress,
+  } = accountValue;
 
   const { currency, value } = useMemo(() => {
     if (activeAccountValue && isActiveAccount) {
@@ -36,7 +42,32 @@ function AccountValue(accountValue: {
       return value;
     }
 
-    const { linkedAccountId, linkedNetworkId } = accountValue;
+    if (linkedNetworkId && mergeDeriveAssetsEnabled && !isSingleAddress) {
+      let mergedValue = new BigNumber(0);
+      let accountValueExist = false;
+
+      const matchedAccountValues = map(value, (v, k) => {
+        const keyArray = k.split('_');
+        const networkId = keyArray[keyArray.length - 1];
+        if (networkId === linkedNetworkId) {
+          return v;
+        }
+      }).filter((v) => !isNil(v));
+
+      if (matchedAccountValues.length > 0) {
+        accountValueExist = true;
+        mergedValue = matchedAccountValues.reduce(
+          (acc: BigNumber, v: string) => {
+            return acc.plus(v);
+          },
+          mergedValue,
+        );
+      } else {
+        accountValueExist = false;
+      }
+
+      return accountValueExist ? mergedValue.toFixed() : undefined;
+    }
 
     if (
       linkedAccountId &&
@@ -55,7 +86,13 @@ function AccountValue(accountValue: {
       (acc, v) => new BigNumber(acc ?? '0').plus(v ?? '0').toFixed(),
       '0',
     );
-  }, [value, accountValue]);
+  }, [
+    value,
+    linkedAccountId,
+    linkedNetworkId,
+    mergeDeriveAssetsEnabled,
+    isSingleAddress,
+  ]);
 
   return accountValueString ? (
     <Currency
@@ -82,10 +119,11 @@ function AccountValue(accountValue: {
 
 function AccountValueWithSpotlight({
   accountValue,
-  isOthersUniversal,
-  index,
   linkedAccountId,
   linkedNetworkId,
+  indexedAccountId,
+  mergeDeriveAssetsEnabled,
+  isSingleAddress,
 }: {
   accountValue:
     | {
@@ -98,39 +136,30 @@ function AccountValueWithSpotlight({
   index: number;
   linkedAccountId?: string;
   linkedNetworkId?: string;
+  indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
+  isSingleAddress?: boolean;
 }) {
-  const isFocused = useIsFocused();
-  const shouldShowSpotlight = isFocused && !isOthersUniversal && index === 0;
-  const intl = useIntl();
-  return (
-    <Spotlight
-      delayMs={300}
-      containerProps={{ flexShrink: 1 }}
-      isVisible={shouldShowSpotlight}
-      message={intl.formatMessage({
-        id: ETranslations.spotlight_enable_account_asset_message,
-      })}
-      tourName={ESpotlightTour.allNetworkAccountValue}
+  return accountValue && accountValue.currency ? (
+    <AccountValue
+      accountId={accountValue.accountId}
+      currency={accountValue.currency}
+      value={accountValue.value ?? ''}
+      linkedAccountId={linkedAccountId}
+      linkedNetworkId={linkedNetworkId}
+      indexedAccountId={indexedAccountId}
+      mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
+      isSingleAddress={isSingleAddress}
+    />
+  ) : (
+    <NumberSizeableTextWrapper
+      formatter="value"
+      hideValue
+      size="$bodyMd"
+      color="$textDisabled"
     >
-      {accountValue && accountValue.currency ? (
-        <AccountValue
-          accountId={accountValue.accountId}
-          currency={accountValue.currency}
-          value={accountValue.value ?? ''}
-          linkedAccountId={linkedAccountId}
-          linkedNetworkId={linkedNetworkId}
-        />
-      ) : (
-        <NumberSizeableTextWrapper
-          formatter="value"
-          hideValue
-          size="$bodyMd"
-          color="$textDisabled"
-        >
-          --
-        </NumberSizeableTextWrapper>
-      )}
-    </Spotlight>
+      --
+    </NumberSizeableTextWrapper>
   );
 }
 

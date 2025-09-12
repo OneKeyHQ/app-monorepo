@@ -21,6 +21,7 @@ const SwitchDemo = ({ ...rest }: ISwitchProps) => {
 
 const SwitchGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Switch"
     elements={[
       {
@@ -57,6 +58,41 @@ const SwitchGallery = () => (
             <Stack flexDirection="row" alignItems="center" gap="$2">
               <SwitchDemo value size={ESwitchSize.large} disabled />
               <SizableText>Checked and disabled</SizableText>
+            </Stack>
+          </Stack>
+        ),
+      },
+      {
+        title: 'ThumbProps',
+        element: (
+          <Stack gap="$4">
+            <Stack flexDirection="row" alignItems="center" gap="$2">
+              <SwitchDemo
+                size={ESwitchSize.large}
+                thumbProps={{
+                  bg: '$bgWarning',
+                }}
+              />
+              <SizableText>Custom thumb color</SizableText>
+            </Stack>
+            <Stack flexDirection="row" alignItems="center" gap="$2">
+              <SwitchDemo
+                size={ESwitchSize.large}
+                thumbProps={{
+                  animation: '0ms',
+                }}
+              />
+              <SizableText>Custom thumb animation</SizableText>
+            </Stack>
+            <Stack flexDirection="row" alignItems="center" gap="$2">
+              <SwitchDemo
+                size={ESwitchSize.large}
+                thumbProps={{
+                  borderWidth: '$1',
+                  borderColor: '$borderStrong',
+                }}
+              />
+              <SizableText>Custom thumb border</SizableText>
             </Stack>
           </Stack>
         ),

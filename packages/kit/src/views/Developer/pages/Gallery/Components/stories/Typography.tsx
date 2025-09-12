@@ -6,6 +6,7 @@ import { Layout } from './utils/Layout';
 
 const TypographyGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Typography"
     elements={[
       {

@@ -91,24 +91,15 @@ function WebContent({
         title,
         url: navUrl,
       } = navigationStateChangeEvent;
-      if (loading) {
-        onNavigation({
-          url: navUrl,
-          title,
-          canGoBack: navCanGoBack,
-          canGoForward,
-          loading,
-          id,
-        });
-      } else {
-        onNavigation({
-          title,
-          canGoBack: navCanGoBack,
-          canGoForward,
-          loading,
-          id,
-        });
-      }
+
+      onNavigation({
+        url: navUrl,
+        title,
+        canGoBack: navCanGoBack,
+        canGoForward,
+        loading,
+        id,
+      });
     },
     [id, onNavigation],
   );
@@ -178,7 +169,7 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, siteMode, gotoSite, showHome, androidLayerType],
+    [id, siteMode, gotoSite, showHome, androidLayerType, url],
   );
 
   const progressBar = useMemo(() => {

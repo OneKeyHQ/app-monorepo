@@ -5,6 +5,7 @@ import type {
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
 import type { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
@@ -17,6 +18,7 @@ import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
+import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -26,6 +28,7 @@ import type ServiceCustomRpc from '../services/ServiceCustomRpc';
 import type ServiceCustomToken from '../services/ServiceCustomToken';
 import type ServiceDApp from '../services/ServiceDApp';
 import type ServiceDappSide from '../services/ServiceDappSide';
+import type ServiceDBBackup from '../services/ServiceDBBackup';
 import type ServiceDefi from '../services/ServiceDefi';
 import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceDevSetting from '../services/ServiceDevSetting';
@@ -38,10 +41,19 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidInfo from '../services/ServiceHyperLiquid/ServiceHyperliquidInfo';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
+import type ServiceMarketV2 from '../services/ServiceMarketV2';
+import type ServiceMarketWS from '../services/ServiceMarketWS';
+import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -50,6 +62,8 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
+import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
+import type ServicePrimeTransfer from '../services/ServicePrimeTransfer';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -65,7 +79,9 @@ import type ServiceToken from '../services/ServiceToken';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { IWebembedApiKeys } from '../webembeds/instance/IWebembedApi';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -120,6 +136,7 @@ export interface IBackgroundApiBridge {
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
   simpleDb: SimpleDb;
+  localDb: LocalDbBase;
 
   // TODO move to serviceWalletConnect.walletSide
   // **** WalletConnect
@@ -128,6 +145,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   // **** services
   servicePromise: ServicePromise;
   servicePassword: ServicePassword;
+  serviceWebviewPerp: ServiceWebviewPerp;
   serviceDevSetting: ServiceDevSetting;
   serviceSetting: ServiceSetting;
   serviceApp: ServiceApp;
@@ -155,6 +173,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWalletConnect: ServiceWalletConnect;
   serviceNotification: ServiceNotification;
   servicePrime: ServicePrime;
+  servicePrimeCloudSync: ServicePrimeCloudSync;
   serviceQrWallet: ServiceQrWallet;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
@@ -169,11 +188,17 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAppUpdate: ServiceAppUpdate;
   serviceSpotlight: ServiceSpotlight;
   serviceMarket: ServiceMarket;
+  serviceMarketV2: ServiceMarketV2;
+  serviceMarketWS: ServiceMarketWS;
   serviceContextMenu: ServiceContextMenu;
   serviceExplorer: ServiceExplorer;
   serviceCustomToken: ServiceCustomToken;
   serviceCustomRpc: ServiceCustomRpc;
   serviceReferralCode: ServiceReferralCode;
+  serviceDBBackup: ServiceDBBackup;
+  serviceWalletBanner: ServiceWalletBanner;
+  serviceApproval: ServiceApproval;
+  serviceInternalSignAndVerify: ServiceInternalSignAndVerify;
 
   serviceE2E: ServiceE2E;
   serviceLogger: ServiceLogger;
@@ -183,4 +208,11 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceUniversalSearch: ServiceUniversalSearch;
   serviceStaking: ServiceStaking;
   serviceSignatureConfirm: ServiceSignatureConfirm;
+  serviceMasterPassword: ServiceMasterPassword;
+  servicePrimeTransfer: ServicePrimeTransfer;
+  serviceHyperliquid: ServiceHyperliquid;
+  serviceHyperliquidInfo: ServiceHyperliquidInfo;
+  serviceHyperliquidExchange: ServiceHyperliquidExchange;
+  serviceHyperliquidWallet: ServiceHyperliquidWallet;
+  serviceHyperliquidSubscription: ServiceHyperliquidSubscription;
 }

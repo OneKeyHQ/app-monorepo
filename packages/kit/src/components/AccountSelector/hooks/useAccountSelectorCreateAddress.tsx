@@ -38,7 +38,7 @@ export function useAccountSelectorCreateAddress() {
     backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
-  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { createQrWalletAccount } = useCreateQrWallet();
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
@@ -47,6 +47,7 @@ export function useAccountSelectorCreateAddress() {
       selectAfterCreate,
       account,
       createAllDeriveTypes,
+      customNetworks,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -57,6 +58,10 @@ export function useAccountSelectorCreateAddress() {
         deriveType: IAccountDeriveTypes;
       };
       createAllDeriveTypes?: boolean;
+      customNetworks?: {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[];
     }) => {
       if (
         !account ||
@@ -129,6 +134,7 @@ export function useAccountSelectorCreateAddress() {
           await serviceBatchCreateAccount.addDefaultNetworkAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
+            customNetworks,
             ...hwUiControlParams,
           });
         if (
@@ -179,7 +185,7 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          await createQrWalletByAccount({
+          await createQrWalletAccount({
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId: account.indexedAccountId,
@@ -231,7 +237,7 @@ export function useAccountSelectorCreateAddress() {
                       ]}
                     />
 
-                    <XStack mt="$2" gap="$1.5">
+                    <XStack mt="$2" gap="$1.5" alignItems="center">
                       <SizableText color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.contact_us_instruction,
@@ -260,7 +266,7 @@ export function useAccountSelectorCreateAddress() {
     },
     [
       actions,
-      createQrWalletByAccount,
+      createQrWalletAccount,
       intl,
       requestsUrl,
       serviceAccount,

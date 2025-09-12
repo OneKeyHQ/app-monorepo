@@ -1,0 +1,64 @@
+import { useMemo } from 'react';
+
+import { useCalendars } from 'expo-localization';
+
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
+
+interface IUseTradingViewUrlOptions {
+  tradingViewUrl?: string;
+  additionalParams?: Record<string, string>;
+}
+
+export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
+  const { tradingViewUrl, additionalParams } = options;
+
+  const calendars = useCalendars();
+  const systemLocale = useLocaleVariant();
+  const theme = useThemeVariant();
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  const baseUrl = useMemo(() => {
+    if (tradingViewUrl) {
+      return tradingViewUrl;
+    }
+
+    return devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
+      ? 'http://localhost:5173/'
+      : TRADING_VIEW_URL;
+  }, [
+    tradingViewUrl,
+    devSettings.enabled,
+    devSettings.settings?.useLocalTradingViewUrl,
+  ]);
+
+  const finalUrl = useMemo(() => {
+    const timezone = getTradingViewTimezone(calendars);
+    const locale = systemLocale;
+
+    const url = new URL(baseUrl);
+    url.searchParams.set('timezone', timezone);
+    url.searchParams.set('locale', locale);
+    url.searchParams.set('platform', platformEnv.appPlatform ?? 'web');
+    url.searchParams.set('theme', theme);
+
+    // Add any additional parameters
+    if (additionalParams) {
+      Object.entries(additionalParams).forEach(([key, value]) => {
+        url.searchParams.set(key, value);
+      });
+    }
+
+    return url.toString();
+  }, [baseUrl, calendars, systemLocale, theme, additionalParams]);
+
+  return {
+    baseUrl,
+    finalUrl,
+  };
+}

@@ -14,8 +14,10 @@ import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hook
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
 
@@ -25,8 +27,9 @@ import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type {
   BottomTabBarProps,
   BottomTabNavigationOptions,
-} from '@react-navigation/bottom-tabs/src/types';
-import type { NavigationState } from '@react-navigation/routers/src/types';
+} from '@react-navigation/bottom-tabs';
+import type { NavigationState } from '@react-navigation/routers';
+import type { MotiTransition } from 'moti';
 
 function TabItemView({
   isActive,
@@ -40,6 +43,9 @@ function TabItemView({
   options: BottomTabNavigationOptions & {
     actionList?: IActionListSection[];
     shortcutKey?: EShortcutEvents;
+    tabbarOnPress?: () => void;
+    onPressWhenSelected?: () => void;
+    trackId?: string;
   };
   isCollapse?: boolean;
 }) {
@@ -51,10 +57,13 @@ function TabItemView({
     // Avoid icon jitter during lazy loading by prefetching icons.
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
+
   const contentMemo = useMemo(
     () => (
       <DesktopTabItem
-        onPress={onPress}
+        onPress={options.tabbarOnPress ?? onPress}
+        onPressWhenSelected={options.onPressWhenSelected}
+        trackId={options.trackId}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         shortcutKey={options.shortcutKey}
@@ -98,6 +107,7 @@ export function DesktopLeftSideBar({
 
   const { gtMd } = useMedia();
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
+
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -109,7 +119,11 @@ export function DesktopLeftSideBar({
             target: route.key,
             canPreventDefault: true,
           });
-
+          if (route.name === 'Swap') {
+            defaultLogger.swap.enterSwap.enterSwap({
+              enterFrom: ESwapSource.TAB,
+            });
+          }
           if (!focus && !event.defaultPrevented) {
             navigation.dispatch({
               ...CommonActions.navigate({
@@ -146,10 +160,10 @@ export function DesktopLeftSideBar({
       state.key,
       descriptors,
       isShowWebTabBar,
+      gtMd,
       extraConfig?.name,
       isCollapse,
       navigation,
-      gtMd,
     ],
   );
 
@@ -157,10 +171,12 @@ export function DesktopLeftSideBar({
     <MotiView
       testID="Desktop-AppSideBar-Container"
       animate={{ width: isCollapse ? 0 : sidebarWidth }}
-      transition={{
-        duration: 200,
-        type: 'timing',
-      }}
+      transition={
+        {
+          duration: 200,
+          type: 'timing',
+        } as MotiTransition
+      }
       style={{
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
@@ -170,7 +186,16 @@ export function DesktopLeftSideBar({
       }}
     >
       {platformEnv.isDesktopMac ? (
-        <XStack h={52} ai="center" jc="flex-end" px="$4">
+        // @ts-expect-error https://www.electronjs.org/docs/latest/tutorial/custom-window-interactions
+        <XStack
+          $platform-web={{
+            'app-region': 'drag',
+          }}
+          h={52}
+          ai="center"
+          jc="flex-end"
+          px="$4"
+        >
           <HeaderCollapseButton isRootScreen hideWhenCollapse />
         </XStack>
       ) : null}
@@ -188,10 +213,12 @@ export function DesktopLeftSideBar({
             width: sidebarWidth,
             bottom: 0,
           }}
-          transition={{
-            duration: 120,
-            type: 'timing',
-          }}
+          transition={
+            {
+              duration: 120,
+              type: 'timing',
+            } as MotiTransition
+          }
         >
           <YStack flex={1}>
             {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (

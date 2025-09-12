@@ -5,6 +5,11 @@ import { CardErrors } from '@onekeyfe/react-native-lite-card/src/types';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
@@ -17,6 +22,7 @@ import useReadMnemonic from './useReadMnemonic';
 
 export default function useLiteCard() {
   const nfc = useNFC();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const { showPINFormDialog } = usePIN();
   const { readMnemonicWithWalletId } = useReadMnemonic();
   const {
@@ -35,7 +41,8 @@ export default function useLiteCard() {
       defaultLogger.setting.page.oneKeyLiteBackup();
       try {
         await nfc.checkNFCEnabledPermission();
-        const mnemonic = await readMnemonicWithWalletId(walletId);
+        const { mnemonic, walletId: selectedWalletId } =
+          await readMnemonicWithWalletId(walletId);
         const createLiteInfoConnection = nfc.createNFCConnection(async () => {
           const { error: oldError, cardInfo: oldCard } =
             await LiteCard.getLiteInfo();
@@ -62,12 +69,20 @@ export default function useLiteCard() {
 
           const createSetMnemonicConnection = nfc.createNFCConnection(
             async () => {
+              defaultLogger.hardware.liteCard.log(
+                'connected lite setMnemonic',
+                { cardInfo: oldCard },
+              );
               const { error: newError, cardInfo: newCard } =
                 await LiteCard.setMnemonic(
                   encodeMnemonic,
                   pin.current,
                   !isNewCard,
                 );
+              defaultLogger.hardware.liteCard.log('setMnemonic result', {
+                cardInfo: newCard,
+                error: newError,
+              });
               await nfc.handlerLiteCardError({
                 error: newError,
                 cardInfo: newCard,
@@ -76,14 +91,25 @@ export default function useLiteCard() {
                 retryPINAction: createPINConnection,
               });
               showBackupSuccessDialog();
+              if (selectedWalletId) {
+                await backgroundApiProxy.serviceAccount.updateWalletBackupStatus(
+                  {
+                    walletId: selectedWalletId,
+                    isBackedUp: true,
+                  },
+                );
+                appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+              }
             },
           );
           await createSetMnemonicConnection();
         });
         await createLiteInfoConnection();
         defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess: true });
+        return true;
       } catch {
         defaultLogger.setting.page.oneKeyLiteBackupResult({ isSuccess: false });
+        return false;
       }
     },
     [
@@ -95,7 +121,13 @@ export default function useLiteCard() {
     ],
   );
   const importWallet = useCallback(async () => {
-    defaultLogger.account.wallet.importWallet({ importMethod: 'liteCard' });
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'lite',
+      },
+      isSoftwareWalletOnlyUser,
+    });
     try {
       await nfc.checkNFCEnabledPermission();
       const createPINConnection = async () => {
@@ -106,6 +138,10 @@ export default function useLiteCard() {
         const { error, data, cardInfo } = await LiteCard.getMnemonicWithPin(
           pin.current,
         );
+        defaultLogger.hardware.liteCard.log('getMnemonicWithPin result', {
+          cardInfo,
+          error,
+        });
         await nfc.handlerLiteCardError({
           error,
           cardInfo,
@@ -123,15 +159,31 @@ export default function useLiteCard() {
         );
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.FinalizeWalletSetup,
-          params: { mnemonic: mnemonicEncoded },
+          params: { mnemonic: mnemonicEncoded, isWalletBackedUp: true },
         });
       });
       await createGetMnemonicConnection();
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: true });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'success',
+        addMethod: 'ImportWallet',
+        details: {
+          importType: 'lite',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     } catch {
       defaultLogger.setting.page.oneKeyLiteImportResult({ isSuccess: false });
+      defaultLogger.account.wallet.walletAdded({
+        status: 'failure',
+        addMethod: 'ImportWallet',
+        details: {
+          importType: 'lite',
+        },
+        isSoftwareWalletOnlyUser,
+      });
     }
-  }, [nfc, showPINFormDialog, navigation]);
+  }, [nfc, showPINFormDialog, navigation, isSoftwareWalletOnlyUser]);
   const changePIN = useCallback(async () => {
     await nfc.checkNFCEnabledPermission();
     const createPINConnection = async () => {
@@ -183,6 +235,10 @@ export default function useLiteCard() {
     await showResetWarningDialog();
     const createResetConnection = nfc.createNFCConnection(async () => {
       const { error, cardInfo } = await LiteCard.reset();
+      defaultLogger.hardware.liteCard.log('reset card result', {
+        cardInfo,
+        error,
+      });
       await nfc.handlerLiteCardError({
         error,
         cardInfo,

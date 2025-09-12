@@ -1,8 +1,10 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
@@ -22,7 +24,7 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
   override checkEnvAvailable(): void {
     if (!platformEnv.isNative) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'WebembedApiProxy should only be used in iOS/Android Native env.',
       );
     }
@@ -33,13 +35,20 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     if (!ready) {
       return new Promise((resolve, reject) => {
         const timerId = setTimeout(() => {
-          reject(new Error('WebEmbedApi not ready after 5s.'));
-        }, 5000);
+          defaultLogger.app.webembed.initTimeout();
+          globalThis.$onekeyAppWebembedApiWebviewInitFailed = true;
+          reject(new Error('WebEmbedApi not ready after 30s.'));
+        }, 30 * 1000);
         appEventBus.once(EAppEventBusNames.LoadWebEmbedWebViewComplete, () => {
+          defaultLogger.app.webembed.loadWebEmbedWebViewComplete();
           clearTimeout(timerId);
+          globalThis.$onekeyAppWebembedApiWebviewInitFailed = false;
           resolve();
         });
+
+        // use event emit to trigger the webview to render
         appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebView, undefined);
+        defaultLogger.app.webembed.emitRenderEvent();
       });
     }
   }
@@ -55,6 +64,8 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
       method,
       params,
     };
+
+    // await timerUtils.wait(5*1000);
 
     return checkIsDefined(
       appGlobals?.$backgroundApiProxy,

@@ -1,6 +1,8 @@
 import BigNumber from 'bignumber.js';
 import { get } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type {
   ICosmosCw20AssetInfo,
   ICosmosCw20TokenBalance,
@@ -57,7 +59,7 @@ export class CosmwasmQuery implements IQuery {
     contractAddressArray: string[],
   ): Promise<ICosmosCw20AssetInfo[]> {
     const { axios } = chainInfo;
-    if (!axios) throw new Error('axios is not defined');
+    if (!axios) throw new OneKeyLocalError('axios is not defined');
 
     return Promise.all(
       contractAddressArray.map((contractAddress) =>
@@ -79,7 +81,7 @@ export class CosmwasmQuery implements IQuery {
     address: string[],
   ): Promise<ICosmosCw20TokenBalance[]> {
     const { axios } = chainInfo;
-    if (!axios) throw new Error('axios is not defined');
+    if (!axios) throw new OneKeyLocalError('axios is not defined');
 
     return Promise.all(
       address.map((i) =>

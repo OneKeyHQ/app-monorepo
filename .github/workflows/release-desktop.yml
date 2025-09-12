@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - daily-build
+      - daily-build-dev
     types:
       - completed
   workflow_dispatch:
@@ -17,6 +18,10 @@ jobs:
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -29,6 +34,13 @@ jobs:
           sentry_project: 'desktop'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
 
       - name: 'Setup ENV'
@@ -40,9 +52,6 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-        env:
-          github_ref: ${{ github.ref }}
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -75,7 +84,7 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
 
-      - name: Publish and Sign Static Linux / Macos / Windows Installer
+      - name: Publish and Sign Static Linux / Macos
         if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -87,7 +96,7 @@ jobs:
           CSC_LINK: './sign.p12'
         run: 'cd apps/desktop && yarn publish:all'
 
-      - name: Build and Sign Static Linux / Macos / Windows Installer
+      - name: Build and Sign Static Linux / Macos
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -105,31 +114,38 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*.yml
 
-      - name: Upload Artifacts Mac
+      - name: Upload universal Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mac
+          name: onekey-desktop-mac-universal-dmg
           path: |
-            ./apps/desktop/build-electron/*.dmg
+            ./apps/desktop/build-electron/*-universal.dmg
 
-      - name: Upload Artifacts Windows
+      - name: Upload x64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-windows
+          name: onekey-desktop-mac-x64-dmg
           path: |
-            ./apps/desktop/build-electron/*.exe
+            ./apps/desktop/build-electron/*-x64.dmg
 
-      - name: Upload Artifacts Linux
+      - name: Upload arm64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-linux
+          name: onekey-desktop-mac-arm64-dmg
           path: |
-            ./apps/desktop/build-electron/*.AppImage
+            ./apps/desktop/build-electron/*-arm64.dmg
+
+      - name: Upload Linux x86_64 AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-linux-x86_64-appimage
+          path: |
+            ./apps/desktop/build-electron/*-x86_64.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: release-desktop-mac-and-linux
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked

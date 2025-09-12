@@ -23,7 +23,7 @@ export function Slider({
   ...props
 }: ISliderProps) {
   const isSlidingRef = useRef(false);
-  const isSlideEndRef = useRef<ReturnType<typeof setTimeout>>();
+  const isSlideEndRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -47,7 +47,9 @@ export function Slider({
       onChange?.(value);
       onSlideMove?.(value);
       if (platformEnv.isNativeAndroid) {
-        clearTimeout(isSlideEndRef.current);
+        if (isSlideEndRef.current) {
+          clearTimeout(isSlideEndRef.current);
+        }
         isSlideEndRef.current = setTimeout(() => {
           handleSlideEnd();
         }, 50);

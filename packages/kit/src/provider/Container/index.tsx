@@ -7,8 +7,11 @@ import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { useVersionCompatible } from '../../hooks/useVersionCompatible';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
+import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
@@ -16,17 +19,21 @@ import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
+import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
-import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
 import { FullWindowOverlayContainer } from './FullWindowOverlayContainer';
+import { GlobalErrorHandlerContainer } from './GlobalErrorHandlerContainer';
 import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalContainer';
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
-import { KeyboardContainer } from './KeyboardContainer';
+import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
+import { NotificationHandlerContainer } from './NotificationHandlerContainer';
+import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -40,6 +47,8 @@ function GlobalRootAppNavigationUpdate() {
 }
 
 export function ColdStartByNotification() {
+  const { isVersionCompatible, showFallbackUpdateDialog } =
+    useVersionCompatible();
   useEffect(() => {
     const options: IJPushRemotePushMessageInfo | null =
       ColdStartByNotification.launchNotification as IJPushRemotePushMessageInfo | null;
@@ -83,8 +92,9 @@ export function ColdStartByNotification() {
         },
       );
     }
-  }, []);
-  return null;
+  }, [isVersionCompatible, showFallbackUpdateDialog]);
+
+  return <NotificationHandlerContainer />;
 }
 ColdStartByNotification.launchNotification = null;
 
@@ -92,29 +102,30 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
-        <KeyboardContainer />
         <NavigationContainer>
+          <InAppNotification />
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
           <Bootstrap />
           <AirGapQrcodeDialogContainer />
           <CreateAddressContainer />
           <PrevCheckBeforeSendingContainer />
+          <WalletBackupPreCheckContainer />
           <HardwareUiStateContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
+          <DiskFullWarningDialogContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />
           <PageTrackerContainer />
           <ErrorToastContainer />
+          <GlobalErrorHandlerContainer />
           <ForceFirmwareUpdateContainer />
-          {process.env.NODE_ENV !== 'production' ? (
-            <>
-              <FlipperPluginsContainer />
-            </>
-          ) : null}
           <ColdStartByNotification />
+          <PrimeGlobalEffect />
+          <WebPerformanceMonitorContainer />
+          <PasswordVerifyPortalContainer />
         </NavigationContainer>
         <GlobalWalletConnectModalContainer />
       </AppStateLockContainer>

@@ -2,8 +2,10 @@ import { useCallback } from 'react';
 
 import { useMedia } from 'tamagui';
 
+import { XStack } from '../../../primitives';
 import { SearchBar } from '../../SearchBar';
 
+import type { IInputAddOnProps } from '../../../forms/Input/InputAddOnItem';
 import type {
   NativeSyntheticEvent,
   TargetedEvent,
@@ -43,6 +45,9 @@ type IHeaderSearchBarProps = {
    * Test ID for e2e testing purposes.For different search bars.
    */
   testID?: string;
+
+  addOns?: IInputAddOnProps[];
+  searchBarInputValue?: string;
 };
 
 function HeaderSearchBar({
@@ -54,6 +59,8 @@ function HeaderSearchBar({
   onChangeText,
   onSearchButtonPress,
   placeholder,
+  addOns,
+  searchBarInputValue,
 }: IHeaderSearchBarProps) {
   const media = useMedia();
 
@@ -90,31 +97,34 @@ function HeaderSearchBar({
   );
 
   return (
-    <SearchBar
-      containerProps={{
-        alignSelf: 'stretch',
-        mb: '$4',
-        mx: '$5',
-        $gtMd: {
-          ...(!isModalScreen && {
-            width: '$52',
-            alignSelf: 'auto',
-            mb: '$0',
-          }),
-        },
-      }}
-      {...(media.gtMd &&
-        !isModalScreen && {
-          size: 'small',
-        })}
-      autoFocus={autoFocus}
-      onBlur={onBlurCallback}
-      onFocus={onFocusCallback}
-      onSearchTextChange={onSearchTextChange}
-      onChangeText={handleChangeCallback}
-      onSubmitEditing={onSubmitEditingCallback}
-      placeholder={placeholder}
-    />
+    <XStack px="$5" w="100%">
+      <SearchBar
+        containerProps={{
+          alignSelf: 'stretch',
+          mb: '$4',
+          $gtMd: {
+            ...(!isModalScreen && {
+              width: '$52',
+              alignSelf: 'auto',
+              mb: '$0',
+            }),
+          },
+        }}
+        {...(media.gtMd &&
+          !isModalScreen && {
+            size: 'small',
+          })}
+        autoFocus={autoFocus}
+        onBlur={onBlurCallback}
+        onFocus={onFocusCallback}
+        onSearchTextChange={onSearchTextChange}
+        onChangeText={handleChangeCallback}
+        onSubmitEditing={onSubmitEditingCallback}
+        placeholder={placeholder}
+        addOns={addOns}
+        value={searchBarInputValue}
+      />
+    </XStack>
   );
 }
 

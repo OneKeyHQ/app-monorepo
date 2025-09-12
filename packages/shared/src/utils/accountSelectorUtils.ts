@@ -1,4 +1,5 @@
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { EAccountSelectorSceneName } from '../../types';
 
@@ -37,11 +38,11 @@ function buildAccountSelectorSceneId({
 }): string {
   if (sceneName === EAccountSelectorSceneName.discover) {
     if (!sceneUrl) {
-      throw new Error('buildSceneId ERROR: sceneUrl is required');
+      throw new OneKeyLocalError('buildSceneId ERROR: sceneUrl is required');
     }
     const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
     if (origin !== sceneUrl) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `buildSceneId ERROR: sceneUrl should be equal to origin, full url is not allowed: ${sceneUrl}`,
       );
     }
@@ -49,7 +50,7 @@ function buildAccountSelectorSceneId({
   }
 
   if (!sceneName) {
-    throw new Error('buildSceneId ERROR: sceneName is required');
+    throw new OneKeyLocalError('buildSceneId ERROR: sceneName is required');
   }
   return sceneName;
 }
@@ -146,6 +147,7 @@ function isSceneCanAutoSelect({
   return true;
 }
 
+// In the discover page scene, BTC can select a different derive type from the global derive type
 function isSceneUseGlobalDeriveType({
   sceneName,
 }: {

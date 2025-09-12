@@ -13,8 +13,13 @@ export type IAppPlatform =
   | 'android'
   | 'desktop'
   | 'web'
-  | 'webEmbed';
-export type IPlatformLegacy = 'native' | 'desktop' | 'ext' | 'web' | 'webEmbed';
+  | 'web-embed';
+export type IPlatformLegacy =
+  | 'native'
+  | 'desktop'
+  | 'ext'
+  | 'web'
+  | 'web-embed';
 export type IAppChannel =
   | 'chrome'
   | 'firefox'
@@ -39,6 +44,7 @@ export type IPlatformEnv = {
   appFullName: string;
   version: string | undefined;
   buildNumber: string | undefined;
+  buildTime: number | undefined;
   githubSHA: string | undefined;
   NODE_ENV?: string;
   JEST_WORKER_ID?: string;
@@ -113,6 +119,7 @@ export type IPlatformEnv = {
   isExtensionUiExpandTab?: boolean;
   isExtensionUiSidePanel?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
+  isExtensionDevelopmentBuild?: boolean;
 
   isRuntimeBrowser?: boolean;
   isRuntimeMacOSBrowser?: boolean;
@@ -124,6 +131,8 @@ export type IPlatformEnv = {
   supportAutoUpdate?: boolean;
 
   isAppleStoreEnv?: boolean;
+  isSupportWebUSB?: boolean;
+  isSupportDesktopBle?: boolean;
 };
 
 const {
@@ -181,7 +190,7 @@ const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 // for platform building by file extension
 const getAppPlatform = (): IAppPlatform | undefined => {
   if (isWeb) return 'web';
-  if (isWebEmbed) return 'webEmbed';
+  if (isWebEmbed) return 'web-embed';
   if (isDesktop) return 'desktop';
   if (isExtension) return 'extension';
   if (isNativeIOS) return 'ios';
@@ -190,7 +199,7 @@ const getAppPlatform = (): IAppPlatform | undefined => {
 
 const getPlatformSymbolLegacy = (): IPlatformLegacy | undefined => {
   if (isWeb) return 'web';
-  if (isWebEmbed) return 'webEmbed';
+  if (isWebEmbed) return 'web-embed';
   if (isDesktop) return 'desktop';
   if (isExtension) return 'ext';
   if (isNative) return 'native';
@@ -376,6 +385,9 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
+const isSupportWebUSB = isExtension || isWeb;
+
+const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -423,6 +435,13 @@ export const isExtensionUiStandaloneWindow: boolean =
   isExtensionUi &&
   globalThis.location.pathname.startsWith('/ui-standalone-window.html');
 
+export const isExtensionDevelopmentBuild: boolean =
+  isExtension &&
+  (globalThis.chrome?.runtime
+    ?.getManifest?.()
+    ?.name?.includes('DEVELOPMENT BUILD') ||
+    false);
+
 export const isManifestV3: boolean =
   // TODO firefox check v3
   isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
@@ -439,7 +458,8 @@ const platformEnv: IPlatformEnv = {
   appFullName: '',
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
-  githubSHA: process.env.GITHUB_SHA,
+  buildTime: Number(process.env.BUILD_TIME) || undefined,
+  githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,
 
   isJest,
 
@@ -498,6 +518,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
+  isExtensionDevelopmentBuild,
 
   isRuntimeBrowser,
   isRuntimeMacOSBrowser,
@@ -508,6 +529,8 @@ const platformEnv: IPlatformEnv = {
 
   supportAutoUpdate,
   isAppleStoreEnv,
+  isSupportWebUSB,
+  isSupportDesktopBle,
 };
 
 if (isDev) {

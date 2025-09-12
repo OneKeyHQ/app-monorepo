@@ -34,6 +34,7 @@ function TxFeeSelectorTrigger(props: IProps) {
         id: getFeeLabel({
           feeType: sendSelectedFee.feeType,
           presetIndex: sendSelectedFee.presetIndex,
+          feeSource: sendSelectedFee.source,
           isSinglePreset,
         }),
       })}

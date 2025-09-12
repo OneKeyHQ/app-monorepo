@@ -7,3 +7,4 @@ export * from './Shortcut';
 export * from './Toast';
 export * from './Tooltip';
 export * from './Trigger';
+export * from './Pagination';

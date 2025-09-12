@@ -22,6 +22,7 @@ import {
   BalanceLowerMinimum,
   InvalidTransferValue,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -170,7 +171,7 @@ export default class VaultDot extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || !transfersInfo[0].to) {
-      throw new Error('Invalid transferInfo.to params');
+      throw new OneKeyLocalError('Invalid transferInfo.to params');
     }
     const networkInfo = await this.getNetworkInfo();
 

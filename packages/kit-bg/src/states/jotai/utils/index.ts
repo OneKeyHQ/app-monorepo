@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 import { atom, useAtom } from 'jotai';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -232,7 +233,7 @@ export function globalAtomComputedAll<Value, Args extends unknown[], Result>({
       }),
     );
   }
-  throw new Error('write or read is missing');
+  throw new OneKeyLocalError('write or read is missing');
 }
 
 export function globalAtomComputedRW<Value, Args extends unknown[], Result>({

@@ -6,31 +6,36 @@ import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IToken } from '@onekeyhq/shared/types/token';
+
+import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 
 interface IUseEarnPermitApproveParams {
   networkId: string;
   accountId: string;
   token: IToken;
   amountValue: string;
-  details: {
-    provider: {
-      name: string;
-      vault?: string;
-    };
-  };
+  providerName: string;
+  vaultAddress: string;
 }
 
 export function useEarnPermitApprove() {
+  const { navigationToMessageConfirmAsync } = useSignatureConfirm({
+    accountId: '',
+    networkId: '',
+  });
+
   const getPermitSignature = useCallback(
     async ({
       networkId,
       accountId,
       token,
       amountValue,
-      details,
+      providerName,
+      vaultAddress,
     }: IUseEarnPermitApproveParams) => {
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -40,10 +45,10 @@ export function useEarnPermitApprove() {
       const permit2Data =
         await backgroundApiProxy.serviceStaking.buildPermit2ApproveSignData({
           networkId,
-          provider: details.provider.name,
+          provider: providerName,
           symbol: token.symbol,
           accountAddress: account.address,
-          vault: details.provider.vault ?? '',
+          vault: vaultAddress,
           amount: new BigNumber(amountValue).toFixed(),
         });
 
@@ -63,18 +68,16 @@ export function useEarnPermitApprove() {
 
       const unsignedMessage = JSON.stringify(permit2Data);
 
-      const signHash =
-        (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-          accountId,
-          networkId,
-          request: { origin: 'https://app.morpho.org/', scope: 'ethereum' },
-          unsignedMessage: {
-            type: EMessageTypesEth.TYPED_DATA_V4,
-            message: unsignedMessage,
-            payload: [account.address, unsignedMessage],
-          },
-          walletInternalSign: true,
-        })) as string;
+      const signHash = await navigationToMessageConfirmAsync({
+        accountId,
+        networkId,
+        unsignedMessage: {
+          type: EMessageTypesEth.TYPED_DATA_V4,
+          message: unsignedMessage,
+          payload: [account.address, unsignedMessage],
+        },
+        walletInternalSign: true,
+      });
 
       let permitBundlerAction;
       if (token.symbol === 'USDC') {
@@ -88,7 +91,7 @@ export function useEarnPermitApprove() {
         );
       } else if (token.symbol === 'DAI') {
         if (!permit2Data.message.expiry) {
-          throw new Error('Expiry is required for DAI');
+          throw new OneKeyLocalError('Expiry is required for DAI');
         }
         permitBundlerAction = BundlerAction.permitDai(
           permit2Data.message.nonce,
@@ -99,12 +102,12 @@ export function useEarnPermitApprove() {
           false,
         );
       } else {
-        throw new Error('Unsupported token');
+        throw new OneKeyLocalError('Unsupported token');
       }
 
       return permitBundlerAction;
     },
-    [],
+    [navigationToMessageConfirmAsync],
   );
 
   return { getPermitSignature };

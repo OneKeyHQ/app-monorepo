@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable spellcheck/spell-checker */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
@@ -1346,7 +1347,7 @@ const blast: IServerNetwork = {
   'chainId': '81457',
   'id': 'evm--81457',
   'name': 'Blast',
-  'symbol': 'BLAST',
+  'symbol': 'ETH',
   'code': 'blast',
   'shortcode': 'blast',
   'shortname': 'blast',
@@ -1755,6 +1756,118 @@ const sei: IServerNetwork = {
   'backendIndex': false,
 };
 
+const unichain: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '130',
+  'id': 'evm--130',
+  'name': 'Unichain',
+  'symbol': 'ETH',
+  'code': 'unichain',
+  'shortcode': 'unichain',
+  'shortname': 'unichain',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/unichain.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const worldChain: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '480',
+  'id': 'evm--480',
+  'name': 'World Chain',
+  'symbol': 'ETH',
+  'code': 'worldchain',
+  'shortcode': 'worldchain',
+  'shortname': 'worldchain',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/world-chain.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const hyperEvm: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '999',
+  'id': 'evm--999',
+  'name': 'HyperEVM',
+  'symbol': 'HYPE',
+  'code': 'hyperevm',
+  'shortcode': 'hyperevm',
+  'shortname': 'hyperevm',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hyper-evm.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const monadTestnet: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '10143',
+  'id': 'evm--10143',
+  'name': 'Monad Testnet',
+  'symbol': 'TMON',
+  'code': 'tmon',
+  'shortcode': 'tmon',
+  'shortname': 'tmon',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': true,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': false,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/monad-testnet.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -1982,17 +2095,17 @@ const akash: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const cryptoorgchain: IServerNetwork = {
+const cronosPosChain: IServerNetwork = {
   'chainId': 'crypto-org-chain-mainnet-1',
-  'code': 'cryptoorgchain',
+  'code': 'cronosposchain',
   'decimals': 8,
   'id': 'cosmos--crypto-org-chain-mainnet-1',
   'impl': 'cosmos',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/cryptoorg.png',
-  'name': 'Crypto.org',
-  'shortcode': 'cryptoorgchain',
-  'shortname': 'Crypto.org',
+  'name': 'Cronos POS Chain',
+  'shortcode': 'cronosposchain',
+  'shortname': 'Cronos POS Chain',
   'symbol': 'CRO',
   'feeMeta': {
     'decimals': 8,
@@ -2082,21 +2195,61 @@ const celestia: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const bbn: IServerNetwork = {
+  'chainId': 'bbn-1',
+  'code': 'bbn',
+  'decimals': 6,
+  'id': 'cosmos--bbn-1',
+  'impl': 'cosmos',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
+  'name': 'Babylon Genesis',
+  'shortcode': 'bbn',
+  'shortname': 'BBN',
+  'symbol': 'BABY',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'UBBN',
+  },
+  'defaultEnabled': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const bbnTestnet: IServerNetwork = {
   'chainId': 'bbn-test-5',
-  'code': 'bbn',
+  'code': 'tbbn',
   'decimals': 6,
   'id': 'cosmos--bbn-test-5',
   'impl': 'cosmos',
   'isTestnet': true,
   'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
   'name': 'Babylon Testnet',
-  'shortcode': 'bbn',
-  'shortname': 'BBN',
-  'symbol': 'BBN',
+  'shortcode': 'tbbn',
+  'shortname': 'TBBN',
+  'symbol': 'TBABY',
   'feeMeta': {
     'decimals': 6,
     'symbol': 'UBBN',
+  },
+  'defaultEnabled': false,
+  'status': ENetworkStatus.LISTED,
+};
+
+const noble: IServerNetwork = {
+  'chainId': 'noble-1',
+  'code': 'noble',
+  'decimals': 6,
+  'id': 'cosmos--noble-1',
+  'impl': 'cosmos',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/noble.png',
+  'name': 'Noble',
+  'shortcode': 'noble',
+  'shortname': 'Noble',
+  'symbol': 'USDC',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'UUSDC',
   },
   'defaultEnabled': false,
   'status': ENetworkStatus.LISTED,
@@ -2246,6 +2399,27 @@ const tron: IServerNetwork = {
   },
   'defaultEnabled': true,
   'backendIndex': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const nile: IServerNetwork = {
+  'chainId': 'tron--0xcd8690dc',
+  'code': 'ttrx',
+  'decimals': 6,
+  'id': 'tron--0xcd8690dc',
+  'impl': 'tron',
+  'isTestnet': true,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/tron.png',
+  'name': 'Tron Nile Testnet',
+  'shortcode': 'ttrx',
+  'shortname': 'TTRX',
+  'symbol': 'TTRX',
+  'feeMeta': {
+    'decimals': 6,
+    'symbol': 'TTRX',
+  },
+  'defaultEnabled': true,
+  'backendIndex': false,
   'status': ENetworkStatus.LISTED,
 };
 
@@ -2737,16 +2911,19 @@ export const presetNetworksMap = {
   sonic,
   hsk,
   rsk,
+  unichain,
 
   // cosmos
   celestia,
   secret,
   juno,
   fetchai,
-  cryptoorgchain,
+  cronosPosChain,
   akash,
   osmosis,
   cosmoshub,
+  noble,
+
   // polkadot
   polkadot,
   astar,
@@ -2779,9 +2956,12 @@ export const presetNetworksMap = {
   neoN3,
 };
 
-// top 20 tvl evm networks
-export const getDefaultEnabledEVMNetworksInAllNetworks = memoFn(
+export const getDefaultEnabledNetworksInAllNetworks = memoFn(
   (): IServerNetwork[] => [
+    btc,
+    tron,
+    sol,
+    // top 20 tvl evm networks
     eth,
     bsc,
     base,
@@ -2817,7 +2997,7 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
   );
 
   if (mismatchedNetworks.length > 0) {
-    throw new Error(
+    throw new OneKeyLocalError(
       `Found networks with mismatched code and shortcode values: ${mismatchedNetworks
         .map((n) => `${n.name} (code: ${n.code}, shortcode: ${n.shortcode})`)
         .join(', ')}`,
@@ -2837,7 +3017,7 @@ function validateNetworkCodes(networks: IServerNetwork[]): void {
   }
 
   if (duplicateCodes.length > 0) {
-    throw new Error(
+    throw new OneKeyLocalError(
       `Found networks with duplicate code values: ${duplicateCodes
         .map((n) => `${n.name} (code: ${n.code})`)
         .join(', ')}`,
@@ -2922,17 +3102,23 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     rsk,
     berachain,
     sei,
+    unichain,
+    worldChain,
+    hyperEvm,
+    monadTestnet,
 
     // cosmos
     celestia,
     secret,
     juno,
     fetchai,
-    cryptoorgchain,
+    cronosPosChain,
     akash,
     osmosis,
     cosmoshub,
+    bbn,
     bbnTestnet,
+    noble,
 
     // polkadot
     polkadot,
@@ -2949,6 +3135,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     nostr,
     near,
     tron,
+    nile,
     cfx,
     sol,
     nexa,
@@ -2996,6 +3183,7 @@ export const getNetworksSupportMevProtection = memoFn(
     {
       name: string;
       logoURI: string;
+      logoURIDark?: string;
     }
   > => ({
     [eth.id]: {
@@ -3006,5 +3194,31 @@ export const getNetworksSupportMevProtection = memoFn(
       name: 'Block Razor',
       logoURI: 'https://uni.onekey-asset.com/static/logo/block_razor.png',
     },
+    [base.id]: {
+      name: 'Blink',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
+    },
+    [sol.id]: {
+      name: 'Blink',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/blink.png',
+      logoURIDark: 'https://uni.onekey-asset.com/static/logo/blink_dark.png',
+    },
+    [sui.id]: {
+      name: 'Shio',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/shio.png',
+    },
+  }),
+);
+
+export const getNetworksSupportBulkRevokeApproval = memoFn(
+  (): Record<string, boolean> => ({
+    [eth.id]: true,
+    [bsc.id]: true,
+    [polygon.id]: true,
+    [arbitrum.id]: true,
+    [avalanche.id]: true,
+    [optimism.id]: true,
+    [base.id]: true,
   }),
 );

@@ -52,11 +52,13 @@ function DefaultWalletSettingsModal() {
     [],
   );
   const previousResultRef = useRef<IDefaultWalletSettingsWithLogo | null>(null);
+
   useEffect(() => {
     if (result) {
       previousResultRef.current = result;
     }
   }, [result]);
+
   useEffect(() => {
     appEventBus.addListener(EAppEventBusNames.ExtensionContextMenuUpdate, run);
     return () => {
@@ -73,17 +75,36 @@ function DefaultWalletSettingsModal() {
 
   const getCurrentOrigin = useCallback(
     () =>
-      new Promise<string>((resolve, reject) => {
+      new Promise<string>((resolve) => {
+        // Check if chrome.tabs API is available
+        if (!chrome?.tabs?.query) {
+          resolve(''); // Return empty string for sidepanel mode
+          return;
+        }
+
         chrome.tabs.query(
           { active: true, currentWindow: true },
           async (tabs) => {
-            if (tabs[0]) {
-              try {
-                const currentOrigin = new URL(tabs[0]?.url ?? '').origin;
-                resolve(currentOrigin);
-              } catch (e) {
-                reject(e);
+            try {
+              const tab = tabs[0];
+              if (!tab || !tab.url) {
+                resolve(''); // Return empty string when no tab URL available
+                return;
               }
+
+              // Check if URL is valid before creating URL object
+              if (
+                !tab.url.startsWith('http://') &&
+                !tab.url.startsWith('https://')
+              ) {
+                resolve(''); // Return empty string for non-http(s) URLs
+                return;
+              }
+
+              const currentOrigin = new URL(tab.url).origin;
+              resolve(currentOrigin);
+            } catch (e) {
+              resolve(''); // Return empty string on error instead of rejecting
             }
           },
         );
@@ -97,12 +118,18 @@ function DefaultWalletSettingsModal() {
       if (!previousResultRef.current) return;
 
       const currentOrigin = await getCurrentOrigin();
+
+      // Skip context menu update if no valid origin is available
+      if (!currentOrigin && !origin) {
+        return;
+      }
+
       if (origin && origin !== currentOrigin) {
         return;
       }
 
       return backgroundApiProxy.serviceContextMenu.updateAndNotify({
-        origin: currentOrigin,
+        origin: currentOrigin || origin || '', // Use provided origin as fallback
         previousResult: previousResultRef.current,
       });
     },
@@ -111,27 +138,38 @@ function DefaultWalletSettingsModal() {
 
   const onToggleDefaultWallet = useCallback(async () => {
     const isDefaultWallet = !result?.isDefaultWallet;
-    await setIsDefaultWallet(isDefaultWallet);
-    Toast.success({
-      title: isDefaultWallet
-        ? intl.formatMessage({
-            id: ETranslations.explore_default_wallet_set,
-          })
-        : intl.formatMessage({
-            id: ETranslations.explore_default_wallet_canceled,
-          }),
-      message: isDefaultWallet
-        ? intl.formatMessage({
-            id: ETranslations.explore_set_default_wallet_description,
-          })
-        : intl.formatMessage({
-            id: ETranslations.explore_default_wallet_canceled_desc,
-          }),
-    });
-    await refreshContextMenu();
-    setTimeout(() => {
-      void run();
-    }, 200);
+
+    try {
+      await setIsDefaultWallet(isDefaultWallet);
+
+      Toast.success({
+        title: isDefaultWallet
+          ? intl.formatMessage({
+              id: ETranslations.explore_default_wallet_set,
+            })
+          : intl.formatMessage({
+              id: ETranslations.explore_default_wallet_canceled,
+            }),
+        message: isDefaultWallet
+          ? intl.formatMessage({
+              id: ETranslations.explore_set_default_wallet_description,
+            })
+          : intl.formatMessage({
+              id: ETranslations.explore_default_wallet_canceled_desc,
+            }),
+      });
+
+      await refreshContextMenu();
+
+      setTimeout(() => {
+        void run({ alwaysSetState: true });
+      }, 200);
+    } catch (error) {
+      // Still try to refresh the data even if context menu update fails
+      setTimeout(() => {
+        void run({ alwaysSetState: true });
+      }, 200);
+    }
   }, [
     intl,
     refreshContextMenu,
@@ -154,7 +192,7 @@ function DefaultWalletSettingsModal() {
         });
       }
       await refreshContextMenu(origin);
-      void run();
+      void run({ alwaysSetState: true });
     },
     [intl, run, result?.isDefaultWallet, refreshContextMenu],
   );

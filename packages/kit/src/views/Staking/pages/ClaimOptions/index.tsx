@@ -16,6 +16,7 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IEarnToken } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { type IOnSelectOption, OptionList } from '../../components/OptionList';
@@ -26,7 +27,6 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { useUniversalClaim } from '../../hooks/useUniversalHooks';
-import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 const ClaimOptions = () => {
   const appRoute = useAppRoute<
@@ -34,8 +34,10 @@ const ClaimOptions = () => {
     EModalStakingRoutes.ClaimOptions
   >();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, symbol, provider, details } = appRoute.params;
+  const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
 
+  const provider = protocolInfo?.provider || '';
+  const symbol = tokenInfo?.token.symbol || '';
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getClaimableList({
@@ -55,18 +57,23 @@ const ClaimOptions = () => {
       await handleClaim({
         identity: item.id,
         amount: item.amount,
-        symbol: details.token.info.symbol,
+        symbol,
         provider,
-        morphoVault: details.provider.vault,
-        vault: details.provider.vault || '',
+        protocolVault:
+          protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '',
+        vault:
+          protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
             providerName: provider,
           }),
-          protocolLogoURI: details.provider.logoURI,
-          receive: { token: details.token.info, amount: item.amount },
-          tags: [buildLocalTxStatusSyncId(details)],
+          protocolLogoURI: protocolInfo?.providerDetail.logoURI,
+          receive: {
+            token: tokenInfo?.token as IEarnToken,
+            amount: item.amount,
+          },
+          tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
         onSuccess: async (txs) => {
           const tx = txs[0];
@@ -82,7 +89,7 @@ const ClaimOptions = () => {
           }
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
-            token: details.token.info,
+            token: tokenInfo?.token,
             stakingProtocol: provider,
           });
           if (provider === 'babylon') {
@@ -98,13 +105,17 @@ const ClaimOptions = () => {
       });
     },
     [
-      appNavigation,
-      details,
       handleClaim,
+      symbol,
       provider,
+      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
+      protocolInfo?.providerDetail.logoURI,
+      protocolInfo?.stakeTag,
+      tokenInfo?.token,
+      appNavigation,
       accountId,
       networkId,
-      symbol,
     ],
   );
 

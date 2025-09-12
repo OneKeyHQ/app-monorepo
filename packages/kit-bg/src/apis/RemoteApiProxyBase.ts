@@ -1,13 +1,18 @@
+/* eslint-disable no-restricted-syntax */
 /* eslint-disable @typescript-eslint/no-unsafe-return,  @typescript-eslint/no-unsafe-member-access */
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import platformEnvLite from '@onekeyhq/shared/src/platformEnvLite';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
   moduleGetter: (module: any) => Promise<any>,
-  remoteApiType: 'webEmbedApi' | 'offscreenApi',
+  remoteApiType:
+    | 'webEmbedApi'
+    | 'offscreenApi'
+    | 'desktopApi'
+    | 'e2eeClientToClientApi',
 ) {
   return async function callRemoteApiMethod(message: T) {
     const { method, params = [] } = message;
@@ -32,14 +37,20 @@ export function buildCallRemoteApiMethod<T extends IJsonRpcRequest>(
 
     if (remoteApiType === 'webEmbedApi') {
       errorMessage += ' please run "yarn app:web-embed:build" again';
-      if (!platformEnv.isWebEmbed) {
+      if (!platformEnvLite.isWebEmbed) {
         throw new Error('webEmbedApi is only available in webEmbed');
       }
     }
 
     if (remoteApiType === 'offscreenApi') {
-      if (!platformEnv.isExtensionOffscreen) {
+      if (!platformEnvLite.isExtensionOffscreen) {
         throw new Error('offscreenApi is only available in offscreen');
+      }
+    }
+
+    if (remoteApiType === 'desktopApi') {
+      if (!platformEnvLite.isDesktop) {
+        throw new Error('desktopApi is only available in desktop');
       }
     }
 

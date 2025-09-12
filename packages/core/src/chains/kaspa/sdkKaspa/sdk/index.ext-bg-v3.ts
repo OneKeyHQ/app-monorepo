@@ -19,6 +19,9 @@ const signRevealTransactionHardware = async (...args: any[]) =>
 const buildUnsignedTxForHardware = async (...args: any[]) =>
   appGlobals.$offscreenApiProxy.kaspaSdk.buildUnsignedTxForHardware(...args);
 
+const deserializeFromSafeJSON = async (...args: any[]) =>
+  appGlobals.$offscreenApiProxy.kaspaSdk.deserializeFromSafeJSON(...args);
+
 const getKaspaApi: IGetKaspaApi = async () =>
   Promise.resolve({
     buildCommitTxInfo,
@@ -26,6 +29,7 @@ const getKaspaApi: IGetKaspaApi = async () =>
     signRevealTransactionSoftware,
     signRevealTransactionHardware,
     buildUnsignedTxForHardware,
+    deserializeFromSafeJSON,
   });
 
 const sdk: IKaspaSdk = { getKaspaApi, ensureSDKReady };

@@ -42,6 +42,7 @@ const SwapNetworkToggleGroup = ({
           key={network.networkId}
           disabled={Boolean(disableNetworks?.includes(network.networkId))}
           networkImageUri={network.logoURI}
+          isAllNetworks={network.isAllNetworks}
           tooltipContent={
             network.isAllNetworks
               ? intl.formatMessage({ id: ETranslations.global_all_networks })

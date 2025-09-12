@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Divider,
   Empty,
   Heading,
   Icon,
@@ -31,16 +32,77 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  IEarnAccount,
+  IEarnAlert,
   IEarnInvestmentItem,
   IEarnRewardNum,
+  IEarnSummary,
   IInvestment,
 } from '@onekeyhq/shared/types/staking';
 
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import { EarnActionIcon } from '../../components/ProtocolDetails/EarnActionIcon';
+import { EarnAlert } from '../../components/ProtocolDetails/EarnAlert';
+import { EarnIcon } from '../../components/ProtocolDetails/EarnIcon';
+import { EarnText } from '../../components/ProtocolDetails/EarnText';
+import { EarnTooltip } from '../../components/ProtocolDetails/EarnTooltip';
+
+function EarnOverview({
+  earnSummary,
+  onHistory,
+}: {
+  earnSummary: IEarnSummary | undefined;
+  onHistory: (params?: { filterType?: string }) => void;
+}) {
+  if (!earnSummary?.items?.length) {
+    return null;
+  }
+  return (
+    <YStack px="$5">
+      <EarnAlert alerts={earnSummary.alerts} />
+      <XStack ai="center" jc="space-between" h={44}>
+        <XStack ai="center" gap="$1.5">
+          <EarnIcon size="$5" icon={earnSummary.icon} />
+          <EarnText
+            text={earnSummary.title}
+            size="$bodyMdMedium"
+            color="$textSubdued"
+          />
+        </XStack>
+        <EarnActionIcon
+          actionIcon={earnSummary.items[0].button}
+          onHistory={onHistory}
+        />
+      </XStack>
+      <YStack>
+        {earnSummary.items.map((item) => (
+          <XStack ai="center" h="$10" jc="space-between" key={item.title.text}>
+            <XStack gap="$1.5" key={item.title.text}>
+              <EarnText
+                key={item.title.text}
+                text={item.title}
+                size="$bodyMd"
+              />
+              <EarnText
+                text={item.description}
+                size="$bodyMd"
+                color="$textSubdued"
+              />
+              <EarnTooltip tooltip={item.tooltip} />
+            </XStack>
+          </XStack>
+        ))}
+      </YStack>
+      <Divider my="$3" />
+    </YStack>
+  );
+}
 
 function ListSkeletonItem() {
   return (
@@ -58,7 +120,8 @@ function ListSkeletonItem() {
   );
 }
 
-const isTrue = (value: number | string) => Number(value) > 0;
+const isTrue = (value: number | string | undefined) =>
+  value && Number(value) > 0;
 const hasPositiveReward = ({
   rewardNum,
 }: {
@@ -75,50 +138,140 @@ const hasPositiveReward = ({
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
-  const [{ earnAccount }] = useEarnAtom();
+  const [EarnData] = useEarnAtom();
+  const earnAccount = EarnData.earnAccount;
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const allNetworkId = useMemo(() => getNetworkIdsMap().onekeyall, []);
+  const evmNetworkId = useMemo(() => getNetworkIdsMap().eth, []);
 
-  const { result: earnInvestmentItems = [], isLoading } = usePromiseResult(
-    () => {
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        accountInfo.activeAccount?.account?.id,
-        accountInfo.activeAccount?.network?.id,
-      );
-      const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
-      return list.length
-        ? backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
+  const { result, isLoading } = usePromiseResult(
+    async () => {
+      const totalFiatMapKey = actions.current.buildEarnAccountsKey({
+        accountId: accountInfo.activeAccount?.account?.id,
+        indexAccountId: accountInfo.activeAccount?.indexedAccount?.id,
+        networkId: allNetworkId,
+      });
+      let list = earnAccount?.[totalFiatMapKey]?.accounts || [];
+      if (list.length === 0) {
+        const earnAccountOnNetwork =
+          await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
+            accountId: accountInfo.activeAccount?.account?.id ?? '',
+            networkId: allNetworkId,
+            indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id,
+          });
+        list = earnAccountOnNetwork.accounts;
+      }
+
+      if (list.length > 0) {
+        const response =
+          await backgroundApiProxy.serviceStaking.fetchInvestmentDetail(
             list.map(({ networkId, accountAddress, publicKey }) => ({
               networkId,
               accountAddress,
               publicKey,
             })),
-          )
-        : new Promise<IEarnInvestmentItem[]>((resolve) => {
-            setTimeout(() => resolve([]), 1500);
-          });
+          );
+        const evmAccount = list.find((item) => item.networkId === evmNetworkId);
+        if (evmAccount) {
+          const earnSummary =
+            await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);
+          return {
+            evmAccount,
+            earnSummary,
+            earnInvestmentItems: response,
+          };
+        }
+        return {
+          earnSummary: undefined,
+          evmAccount: undefined,
+          earnInvestmentItems: response,
+        };
+      }
+
+      return {
+        earnSummary: undefined,
+        evmAccount: undefined,
+        earnInvestmentItems: [],
+      };
     },
     [
       accountInfo.activeAccount?.account?.id,
-      accountInfo.activeAccount?.network?.id,
+      accountInfo.activeAccount?.indexedAccount?.id,
       actions,
+      allNetworkId,
       earnAccount,
+      evmNetworkId,
     ],
     {
       watchLoading: true,
     },
   );
 
-  const sectionData = earnInvestmentItems
-    .map((item) => ({
-      title: item.name,
-      logoURI: item.logoURI,
-      data: item.investment
-        .map((i) => ({ ...i, providerName: item.name }))
-        .filter((i) => !new BigNumber(i.staked).isZero()),
-    }))
-    .filter((i) => i.data.length > 0);
+  const {
+    earnSummary,
+    evmAccount,
+    earnInvestmentItems = [],
+  } = result ||
+  ({} as {
+    earnSummary: IEarnSummary | undefined;
+    evmAccount: IEarnAccount | undefined;
+    earnInvestmentItems: IEarnInvestmentItem[];
+  });
+
+  const appNavigation = useAppNavigation();
+  const onHistory = useMemo(() => {
+    return async (params?: { filterType?: string }) => {
+      if (!evmAccount) {
+        return;
+      }
+      const { filterType } = params || {};
+      const currentEarnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          accountId: accountInfo.activeAccount?.account?.id || '',
+          indexedAccountId: accountInfo.activeAccount?.indexedAccount?.id || '',
+          networkId: evmNetworkId,
+          btcOnlyTaproot: true,
+        });
+      appNavigation.navigate(EModalStakingRoutes.HistoryList, {
+        title: intl.formatMessage({
+          id: ETranslations.referral_reward_history,
+        }),
+        alerts: [
+          {
+            key: ESpotlightTour.earnRewardHistory,
+            badge: 'info',
+            alert: intl.formatMessage({
+              id: ETranslations.earn_reward_distribution_schedule,
+            }),
+          } as IEarnAlert,
+        ],
+        accountId: currentEarnAccount?.account.id,
+        networkId: evmNetworkId,
+        filterType,
+      });
+    };
+  }, [
+    evmAccount,
+    accountInfo.activeAccount?.account?.id,
+    accountInfo.activeAccount?.indexedAccount?.id,
+    evmNetworkId,
+    appNavigation,
+    intl,
+  ]);
+
+  const sectionData = useMemo(() => {
+    return earnInvestmentItems
+      .map((item) => ({
+        title: item.name,
+        logoURI: item.logoURI,
+        data: item.investment
+          .map((i) => ({ ...i, providerName: item.name }))
+          .filter((i) => !new BigNumber(i.staked).isZero()),
+      }))
+      .filter((i) => i.data.length > 0);
+  }, [earnInvestmentItems]);
   const renderItem = useCallback(
     ({
       item: {
@@ -129,6 +282,7 @@ function BasicInvestmentDetails() {
         overflow,
         providerName,
         rewardNum,
+        rewards,
         vault,
       },
     }: {
@@ -137,14 +291,20 @@ function BasicInvestmentDetails() {
       <ListItem
         userSelect="none"
         drillIn
-        onPress={() => {
+        onPress={async () => {
           const {
             activeAccount: { account, indexedAccount },
           } = accountInfo;
-          if (account && tokenInfo) {
-            navigation.push(EModalStakingRoutes.ProtocolDetails, {
+          const pageEarnAccount =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              accountId: account?.id || '',
               indexedAccountId: indexedAccount?.id,
-              accountId: account?.id ?? '',
+              networkId: tokenInfo.networkId,
+            });
+          if ((account || indexedAccount) && tokenInfo) {
+            navigation.push(EModalStakingRoutes.ProtocolDetailsV2, {
+              indexedAccountId: pageEarnAccount?.account.indexedAccountId,
+              accountId: pageEarnAccount?.accountId,
               networkId: tokenInfo.networkId,
               symbol: tokenInfo.symbol,
               provider: providerName,
@@ -178,7 +338,9 @@ function BasicInvestmentDetails() {
               </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
-              {isTrue(claimable) || hasPositiveReward({ rewardNum }) ? (
+              {isTrue(claimable) ||
+              hasPositiveReward({ rewardNum }) ||
+              isTrue(rewards) ? (
                 <Badge
                   badgeType="info"
                   badgeSize="sm"
@@ -218,6 +380,9 @@ function BasicInvestmentDetails() {
       />
       <Page.Body>
         <SectionList
+          ListHeaderComponent={
+            <EarnOverview earnSummary={earnSummary} onHistory={onHistory} />
+          }
           ListFooterComponent={<YStack height="$5" />}
           ListEmptyComponent={
             isLoading ? (
@@ -254,26 +419,32 @@ function BasicInvestmentDetails() {
             };
           }) => (
             <XStack px="$5" gap="$3" py="$3" alignItems="center">
-              <Image height="$6" width="$6" borderRadius="$1">
-                <Image.Source
-                  source={{
-                    uri: logoURI,
-                  }}
-                />
-                <Image.Fallback
-                  alignItems="center"
-                  justifyContent="center"
-                  bg="$bgStrong"
-                  delayMs={1000}
-                >
-                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-                </Image.Fallback>
-              </Image>
+              <Image
+                size="$6"
+                borderRadius="$1"
+                source={{ uri: logoURI }}
+                fallback={
+                  <Image.Fallback
+                    w="$6"
+                    h="$6"
+                    alignItems="center"
+                    justifyContent="center"
+                    bg="$bgStrong"
+                  >
+                    <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                  </Image.Fallback>
+                }
+              />
               <Heading color="$textSubdued" size="$headingSm">
                 {`${title.charAt(0).toUpperCase()}${title.slice(1)}`}
               </Heading>
             </XStack>
           )}
+          SectionSeparatorComponent={
+            <XStack h="$6" px="$5" ai="center">
+              <Divider />
+            </XStack>
+          }
           estimatedItemSize={60}
         />
       </Page.Body>

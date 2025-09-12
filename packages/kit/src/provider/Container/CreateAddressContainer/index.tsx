@@ -191,7 +191,7 @@ function BasicCreateAddressContainer() {
         renderContent: (
           <CreateAddressDialogContent
             onCreate={async (params) => {
-              const isCreated = !!params;
+              const isCreated = params && params.accounts.length > 0;
               await backgroundApiProxy.servicePromise.resolveCallback({
                 id: promiseId,
                 data: isCreated,

@@ -24,13 +24,14 @@ const WebAuthSwitchContainer = ({
   const intl = useIntl();
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ webAuthCredentialId: credId }] = usePasswordPersistAtom();
-  const { setWebAuthEnable } = useWebAuthActions();
+  const { setWebAuthEnable, clearWebAuthCredentialId } = useWebAuthActions();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const onChange = useCallback(
     async (checked: boolean) => {
       try {
         if (!skipRegistration) {
           if (checked) {
+            await clearWebAuthCredentialId();
             const res = await setWebAuthEnable(checked);
             if (res) {
               await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(
@@ -46,11 +47,11 @@ const WebAuthSwitchContainer = ({
         }
       } catch (e: any) {
         Toast.error({
-          title: intl.formatMessage({ id: ETranslations.Toast_web_auth }),
+          title: intl.formatMessage({ id: ETranslations.toast_web_auth }),
         });
       }
     },
-    [skipRegistration, setWebAuthEnable, intl],
+    [skipRegistration, clearWebAuthCredentialId, setWebAuthEnable, intl],
   );
   return (
     <WebAuthSwitch

@@ -5,12 +5,11 @@ import {
   toLegacyAddress,
 } from 'bchaddrjs';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 export function decodeAddress(address: string): string {
-  if (
-    !isValidAddress(address) ||
-    (isCashAddress(address) && !address.startsWith('bitcoincash:'))
-  ) {
-    throw new Error(`Invalid address: ${address}`);
+  if (!isValidAddress(address)) {
+    throw new OneKeyLocalError(`Invalid address: ${address}`);
   }
   if (isCashAddress(address)) {
     return toLegacyAddress(address);
@@ -21,7 +20,7 @@ export function decodeAddress(address: string): string {
 
 export function encodeAddress(address: string): string {
   if (!isValidAddress(address)) {
-    throw new Error(`Invalid address: ${address}`);
+    throw new OneKeyLocalError(`Invalid address: ${address}`);
   }
   if (!isCashAddress(address)) {
     return toCashAddress(address);

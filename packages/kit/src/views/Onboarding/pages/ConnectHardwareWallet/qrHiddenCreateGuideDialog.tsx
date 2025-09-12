@@ -11,18 +11,18 @@ function showDialog() {
   const tutorials: ITutorialsListItem[] = [
     {
       title: appLocale.intl.formatMessage({
-        id: ETranslations.create_qr_bassed_hidden_wallet_create_standard_wallet_title,
+        id: ETranslations.create_qr_based_hidden_wallet_create_standard_wallet_title,
       }),
       description: appLocale.intl.formatMessage({
-        id: ETranslations.create_qr_bassed_hidden_wallet_create_standard_wallet_desc,
+        id: ETranslations.create_qr_based_hidden_wallet_create_standard_wallet_desc,
       }),
     },
     {
       title: appLocale.intl.formatMessage({
-        id: ETranslations.create_qr_bassed_hidden_wallet_create_hidden_wallet_title,
+        id: ETranslations.create_qr_based_hidden_wallet_create_hidden_wallet_title,
       }),
       description: appLocale.intl.formatMessage({
-        id: ETranslations.create_qr_bassed_hidden_wallet_create_hidden_wallet_desc,
+        id: ETranslations.create_qr_based_hidden_wallet_create_hidden_wallet_desc,
       }),
     },
   ];
@@ -55,4 +55,28 @@ function showDialogIfErrorMatched(error: IOneKeyError | unknown) {
   }
 }
 
-export default { showDialog, showDialogIfErrorMatched };
+function showDialogForCreatingStandardWallet({
+  onConfirm,
+}: {
+  onConfirm: () => void;
+}) {
+  Dialog.show({
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.create_qr_based_hidden_wallet_create_standard_wallet_title,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.create_qr_based_hidden_wallet_create_standard_wallet_desc,
+    }),
+    onConfirmText: appLocale.intl.formatMessage({
+      id: ETranslations.global_continue,
+    }),
+    onConfirm,
+    showCancelButton: false,
+  });
+}
+
+export default {
+  showDialog,
+  showDialogIfErrorMatched,
+  showDialogForCreatingStandardWallet,
+};

@@ -3,10 +3,9 @@
 import { atom } from 'jotai';
 import { isEqual, isString, merge } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import appStorage, {
-  mockStorage,
-} from '@onekeyhq/shared/src/storage/appStorage';
+import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import appStorageUtils from '@onekeyhq/shared/src/storage/appStorageUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 
@@ -21,6 +20,9 @@ import type {
   SyncStorage,
   WritableAtom,
 } from './types';
+
+const appStorage = storageHub.$webStorageGlobalStates || storageHub.appStorage;
+const mockStorage = storageHub._mockStorage;
 
 class JotaiStorage implements AsyncStorage<any> {
   async getItem(key: string, initialValue: any): Promise<any> {
@@ -60,7 +62,7 @@ export const onekeyJotaiStorage = platformEnv.isExtensionUi
   ? mockStorage // extension real storage is running at bg, the ui is a mock storage
   : new JotaiStorage();
 
-export function buildJotaiStorageKey(name: string) {
+export function buildJotaiStorageKey(name: IAtomNameKeys) {
   const key = `g_states_v5:${name}`;
   return key;
 }
@@ -163,7 +165,7 @@ export function atomWithStorage<Value>(
 
   // TODO : A component suspended while responding to synchronous input. This will cause the UI to be replaced with a loading indicator. To fix, updates that suspend should be wrapped with startTransition.
   // error muted by withSentryHOC
-  const anAtom8888 = atom(
+  atom(
     (get) => get(baseAtom),
     async (
       get,
@@ -233,13 +235,13 @@ export function atomWithStorage<Value>(
 class GlobalJotaiStorageReadyHandler {
   resolveReady: (value: boolean | PromiseLike<boolean>) => void = () => {
     // do nothing
-    throw new Error('this is not expected to be called');
+    throw new OneKeyLocalError('this is not expected to be called');
   };
 
   ready = new Promise<boolean>((resolve) => {
     this.resolveReady = resolve;
     if (this.resolveReady !== resolve) {
-      throw new Error('update resolveReady callback failed');
+      throw new OneKeyLocalError('update resolveReady callback failed');
     }
   });
 }

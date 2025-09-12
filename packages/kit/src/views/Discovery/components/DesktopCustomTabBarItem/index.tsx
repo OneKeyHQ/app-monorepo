@@ -203,6 +203,7 @@ function DesktopCustomTabBarItem({
 
   return (
     <DesktopTabItem
+      size="small"
       showAvatar={!isHomeTab}
       icon={isHomeTab ? 'Ai3StarOutline' : undefined}
       shortcutKey={shortcutKey}

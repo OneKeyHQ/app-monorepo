@@ -1,18 +1,19 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
+import { Image as RNImage } from 'react-native';
 
 import {
   Button,
   HeaderButtonGroup,
-  HeaderIconButton,
   Image,
   Popover,
   SizableText,
   Skeleton,
   YStack,
   useMedia,
+  useThemeName,
 } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworksSupportMevProtection } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -21,6 +22,8 @@ import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const mevProtectionProviders = getNetworksSupportMevProtection();
 
+const DEFAULT_IMAGE_HEIGHT = 40;
+
 function TxConfirmHeaderRight(props: {
   decodedTxs: IDecodedTx[] | undefined;
   unsignedTxs: IUnsignedTxPro[] | undefined;
@@ -28,11 +31,18 @@ function TxConfirmHeaderRight(props: {
   const { decodedTxs, unsignedTxs } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const theme = useThemeName();
 
   const decodedTx = decodedTxs?.[0];
 
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
+
+    const unsignedTx = unsignedTxs[0];
+
+    if (unsignedTx.disableMev) {
+      return null;
+    }
 
     if (decodedTx?.txDisplay?.mevProtectionProvider) {
       return decodedTx.txDisplay.mevProtectionProvider;
@@ -62,7 +72,43 @@ function TxConfirmHeaderRight(props: {
     }
   }, [unsignedTxs, decodedTx?.txDisplay?.mevProtectionProvider]);
 
-  if (!mevProtectionProvider) return null;
+  const imageUri = useMemo(() => {
+    if (!mevProtectionProvider) {
+      return '';
+    }
+    return theme === 'dark'
+      ? mevProtectionProvider?.logoURIDark || mevProtectionProvider?.logoURI
+      : mevProtectionProvider?.logoURI;
+  }, [mevProtectionProvider, theme]);
+
+  const [providerImageSize, setProviderImageSize] = useState<
+    | {
+        width: number;
+        height: number;
+      }
+    | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (imageUri) {
+      void Image.loadImage({ uri: imageUri }).then((imageRef) => {
+        if (imageRef) {
+          setProviderImageSize({
+            width: imageRef.width,
+            height: imageRef.height,
+          });
+        }
+      });
+    }
+  }, [imageUri]);
+
+  if (!mevProtectionProvider) {
+    return null;
+  }
+
+  const ratio = providerImageSize
+    ? DEFAULT_IMAGE_HEIGHT / providerImageSize.height
+    : 1;
 
   return (
     <HeaderButtonGroup>
@@ -91,18 +137,20 @@ function TxConfirmHeaderRight(props: {
               </SizableText>
               <YStack gap="$2">
                 <SizableText size={gtMd ? '$bodyMd' : '$bodyLg'}>
-                  Power by
+                  {intl.formatMessage({ id: ETranslations.global_power_by })}
                 </SizableText>
-                <Image width={160} height={40}>
-                  <Image.Source
+                {providerImageSize ? (
+                  <Image
+                    width={providerImageSize.width * ratio}
+                    height={DEFAULT_IMAGE_HEIGHT}
+                    resizeMode="contain"
                     source={{
-                      uri: mevProtectionProvider.logoURI,
+                      uri: imageUri,
                     }}
                   />
-                  <Image.Loading>
-                    <Skeleton width="100%" height="100%" />
-                  </Image.Loading>
-                </Image>
+                ) : (
+                  <Skeleton height={DEFAULT_IMAGE_HEIGHT} width="100%" />
+                )}
               </YStack>
               <SizableText
                 size="$bodyMd"

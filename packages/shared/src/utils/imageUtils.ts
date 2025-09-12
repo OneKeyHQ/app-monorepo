@@ -7,6 +7,8 @@ import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 
@@ -120,6 +122,14 @@ function convertToBlackAndWhiteImageBase64(
   });
 }
 
+export type IResizeImageResult = {
+  hex: string;
+  uri: string;
+  width: number;
+  height: number;
+  base64?: string;
+};
+
 async function resizeImage(params: {
   uri: string;
   width: number;
@@ -127,9 +137,9 @@ async function resizeImage(params: {
   originW: number;
   originH: number;
   isMonochrome?: boolean;
-}) {
+}): Promise<IResizeImageResult> {
   const { uri, width, height, isMonochrome } = params;
-  if (!uri) return;
+  if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
   const actions: ExpoImageManipulatorAction[] = [
     // resize first
     {
@@ -152,7 +162,7 @@ async function resizeImage(params: {
     });
   }
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
-    compress: 0.9,
+    compress: 0.8,
     format: SaveFormat.JPEG,
     base64: true,
   });
@@ -271,7 +281,7 @@ async function getRNLocalImageBase64({
 
   const base64 = base64a || base64a1 || base64b || base64c || base64d;
   if (!base64) {
-    throw new Error('getRNLocalImageBase64 failed');
+    throw new OneKeyLocalError('getRNLocalImageBase64 failed');
   }
 
   return base64;
@@ -444,7 +454,7 @@ function htmlImageToCanvas({
 
   const ctx = canvas.getContext('2d');
   if (ctx == null) {
-    throw new Error('2D context is null');
+    throw new OneKeyLocalError('2D context is null');
   }
 
   ctx.clearRect(0, 0, width, height);
@@ -538,6 +548,7 @@ async function getBase64ImageFromUrl(imageUrl: string) {
 export default {
   resizeImage,
   prefixBase64Uri,
+  stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,
   getUriFromRequiredImageSource,
   getBase64FromRequiredImageSource,

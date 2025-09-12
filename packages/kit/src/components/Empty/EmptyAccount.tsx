@@ -4,8 +4,13 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Empty } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorCreateAddressButton } from '../AccountSelector/AccountSelectorCreateAddressButton';
@@ -16,12 +21,14 @@ type IProps = {
   type: string;
   autoCreateAddress?: boolean;
   createAllDeriveTypes?: boolean;
+  createAllEnabledNetworks?: boolean;
 };
 
 const num = 0;
 
 function EmptyAccount(props: IProps) {
-  const { autoCreateAddress, createAllDeriveTypes } = props;
+  const { autoCreateAddress, createAllDeriveTypes, createAllEnabledNetworks } =
+    props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
 
@@ -71,6 +78,7 @@ function EmptyAccount(props: IProps) {
             selectAfterCreate
             autoCreateAddress={autoCreateAddress}
             createAllDeriveTypes={createAllDeriveTypes}
+            createAllEnabledNetworks={createAllEnabledNetworks}
             account={{
               walletId: activeAccount?.wallet?.id,
               networkId: activeAccount?.network?.id,
@@ -78,6 +86,18 @@ function EmptyAccount(props: IProps) {
               deriveType: activeAccount?.deriveType,
             }}
             buttonRender={Empty.Button}
+            onCreateDone={() => {
+              if (
+                networkUtils.isAllNetwork({
+                  networkId: activeAccount?.network?.id,
+                })
+              ) {
+                appEventBus.emit(
+                  EAppEventBusNames.AccountDataUpdate,
+                  undefined,
+                );
+              }
+            }}
           />
         ) : null
       }

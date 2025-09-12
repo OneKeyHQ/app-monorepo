@@ -15,7 +15,7 @@ import type {
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase | undefined = undefined;
 
-  override verifySignedTxMatched(...args: any[]): Promise<void> {
+  override verifySignedTxMatched(..._args: any[]): Promise<void> {
     throw new NotImplemented();
   }
 
@@ -39,7 +39,7 @@ export class KeyringQr extends KeyringQrBase {
   }
 
   override async normalizeGetMultiAccountsPath(
-    params: INormalizeGetMultiAccountsPathParams,
+    _params: INormalizeGetMultiAccountsPathParams,
   ): Promise<string> {
     throw new NotImplemented();
   }

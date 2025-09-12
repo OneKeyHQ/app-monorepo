@@ -6,7 +6,7 @@ import {
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
 import {
-  getDefaultEnabledEVMNetworksInAllNetworks,
+  getDefaultEnabledNetworksInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
 import {
@@ -16,6 +16,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_SOL,
+  IMPL_TRON,
   SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
@@ -24,8 +25,8 @@ import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
 
-const defaultEnabledEVMNetworks = getDefaultEnabledEVMNetworksInAllNetworks();
-const defaultEnabledEVMNetworkIds = defaultEnabledEVMNetworks.map((n) => n.id);
+const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
+const defaultEnabledNetworkIds = defaultEnabledNetworks.map((n) => n.id);
 
 function parseNetworkId({ networkId }: { networkId: string }) {
   const [impl, chainId] = networkId.split(SEPERATOR);
@@ -54,6 +55,25 @@ function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
   return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
 }
 
+function isTronNetworkByNetworkId(networkId?: string) {
+  return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_TRON);
+}
+
+function getNetworkImplOrNetworkId({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): string | undefined {
+  if (networkId) {
+    const impl = getNetworkImpl({ networkId });
+    if (impl === IMPL_EVM) {
+      return impl;
+    }
+    return networkId;
+  }
+  return networkId;
+}
+
 function isLightningNetwork(coinType: string) {
   return (
     coinType === COINTYPE_LIGHTNING || coinType === COINTYPE_LIGHTNING_TESTNET
@@ -77,6 +97,7 @@ function isSolanaNetworkByNetworkId(networkId?: string) {
 }
 
 function isBTCNetwork(networkId?: string) {
+  // networkId === getNetworkIdsMap().rbtc // TODO
   return (
     networkId === getNetworkIdsMap().btc ||
     networkId === getNetworkIdsMap().tbtc ||
@@ -135,14 +156,11 @@ export function isEnabledNetworksInAllNetworks({
     return !!enabledNetworks[networkId];
   }
 
-  if (getNetworkImpl({ networkId }) === IMPL_EVM) {
-    if (defaultEnabledEVMNetworkIds.includes(networkId)) {
-      return !disabledNetworks[networkId];
-    }
-
-    return !!enabledNetworks[networkId];
+  if (defaultEnabledNetworkIds.includes(networkId)) {
+    return !disabledNetworks[networkId];
   }
-  return !disabledNetworks[networkId];
+
+  return !!enabledNetworks[networkId];
 }
 
 function isAllNetwork({
@@ -171,6 +189,14 @@ function getDefaultDeriveTypeVisibleNetworks() {
       ];
 }
 
+function isViewInExplorerDisabled({ networkId }: { networkId: string }) {
+  return (
+    networkId === getNetworkIdsMap().lightning ||
+    networkId === getNetworkIdsMap().tlightning ||
+    networkId === getNetworkIdsMap().nostr
+  );
+}
+
 function toNetworkIdFallback({
   networkId,
   allNetworkFallbackId,
@@ -197,12 +223,14 @@ function getLocalNetworkInfo(networkId: string) {
 export default {
   getNetworkChainId,
   getNetworkImpl,
+  getNetworkImplOrNetworkId,
   isEvmNetwork,
   parseNetworkId,
   isLightningNetwork,
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
   isSolanaNetworkByNetworkId,
+  isTronNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
   isAllNetwork,
@@ -210,4 +238,5 @@ export default {
   toNetworkIdFallback,
   getBtcDappUniSetChainName,
   getLocalNetworkInfo,
+  isViewInExplorerDisabled,
 };

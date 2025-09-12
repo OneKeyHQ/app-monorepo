@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
-import { Dialog, Toast } from '@onekeyhq/components';
+import {
+  Dialog,
+  LottieView,
+  Toast,
+  YStack,
+  useInTabDialog,
+} from '@onekeyhq/components';
+import UpdateNotificationDark from '@onekeyhq/kit/assets/animations/update-notification-dark.json';
+import UpdateNotificationLight from '@onekeyhq/kit/assets/animations/update-notification-light.json';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
@@ -10,6 +20,7 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
@@ -19,11 +30,13 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
@@ -204,7 +217,10 @@ export const useDownloadPackage = () => {
   );
 };
 
+let isFirstLaunch = true;
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
+  const intl = useIntl();
+  const themeVariant = useThemeVariant();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
   const {
@@ -276,6 +292,71 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
   }, []);
 
+  const dialog = useInTabDialog();
+  const showUpdateDialog = useCallback(
+    (
+      isFull = false,
+      params?: {
+        latestVersion?: string;
+        isForceUpdate?: boolean;
+        summary?: string;
+        storeUrl?: string;
+      },
+    ) => {
+      dialog.show({
+        dismissOnOverlayPress: false,
+        renderIcon: (
+          <YStack
+            borderRadius="$5"
+            borderCurve="continuous"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
+            overflow="hidden"
+          >
+            <LottieView
+              loop={false}
+              height={56}
+              width={56}
+              source={
+                themeVariant === 'light'
+                  ? UpdateNotificationLight
+                  : UpdateNotificationDark
+              }
+            />
+          </YStack>
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.update_notification_dialog_title,
+        }),
+        description:
+          params?.summary ||
+          intl.formatMessage({
+            id: ETranslations.update_notification_dialog_desc,
+          }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.update_update_now,
+        }),
+        showCancelButton: false,
+        onHeaderCloseButtonPress: () => {
+          console.log('onHeaderCloseButtonPress');
+          defaultLogger.app.component.closedInUpdateDialog();
+        },
+        onConfirm: () => {
+          if (!platformEnv.isExtension && params?.storeUrl) {
+            openUrlExternal(params.storeUrl);
+          } else {
+            setTimeout(() => {
+              toUpdatePreviewPage(isFull, params);
+            }, 120);
+          }
+          defaultLogger.app.component.confirmedInUpdateDialog();
+        },
+      });
+    },
+    [dialog, intl, themeVariant, toUpdatePreviewPage],
+  );
+
   // run only once
   useEffect(() => {
     if (!autoCheck) {
@@ -296,9 +377,22 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
-          if (isForceUpdate && needUpdate) {
-            toUpdatePreviewPage(true, response);
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+          if (needUpdate) {
+            if (isForceUpdate) {
+              toUpdatePreviewPage(true, response);
+            } else if (
+              !platformEnv.isDev &&
+              (platformEnv.isNative || platformEnv.isDesktop) &&
+              response?.isShowUpdateDialog &&
+              isFirstLaunch
+            ) {
+              isFirstLaunch = false;
+              await whenAppUnlocked();
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
+            }
           }
         },
       );
@@ -308,6 +402,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
+      case EAppUpdateStatus.done:
       case EAppUpdateStatus.notify:
         toUpdatePreviewPage(isFullModal);
         break;

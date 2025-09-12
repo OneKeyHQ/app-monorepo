@@ -327,9 +327,14 @@ const LimitOrderCard = ({
             borderRadius="$2.5"
             borderWidth={1}
             borderColor={cancelLoading ? '$borderActive' : '$borderSubdued'}
-            onPress={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
+            onPress={(e: {
+              stopPropagation?: () => void;
+              preventDefault?: () => void;
+            }) => {
+              if (e) {
+                e.stopPropagation?.();
+                e.preventDefault?.();
+              }
               onCancel?.();
             }}
             userSelect="none"

@@ -8,18 +8,16 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
-import { DeriveTypeSelectorTriggerForSwap } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  ESwapDirectionType,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
@@ -31,9 +29,10 @@ const SwapAccountAddressContainer = ({
 }: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();
   const [toToken] = useSwapSelectToTokenAtom();
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
 
   const networkComponent = useMemo(() => {
     const networkInfo = swapSupportAllNetwork.find(
@@ -46,7 +45,7 @@ const SwapAccountAddressContainer = ({
 
     return (
       <AnimatePresence>
-        {swapTypeSwitch === ESwapTabSwitchType.BRIDGE && networkInfo ? (
+        {networkInfo ? (
           <XStack
             key="network-component"
             animation="quick"
@@ -75,7 +74,6 @@ const SwapAccountAddressContainer = ({
     );
   }, [
     swapSupportAllNetwork,
-    swapTypeSwitch,
     onClickNetwork,
     type,
     fromToken?.networkId,
@@ -98,8 +96,29 @@ const SwapAccountAddressContainer = ({
         })}
       </SizableText>
       {networkComponent}
-      {type === ESwapDirectionType.FROM && !!fromToken ? (
-        <DeriveTypeSelectorTriggerForSwap num={0} />
+      {type === ESwapDirectionType.FROM &&
+      activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
+      !!fromToken ? (
+        <AddressTypeSelector
+          placement="bottom-start"
+          networkId={fromToken.networkId}
+          indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
+          walletId={activeAccount.wallet?.id ?? ''}
+          activeDeriveType={activeAccount.deriveType}
+          activeDeriveInfo={activeAccount.deriveInfo}
+          renderSelectorTrigger={
+            <DeriveTypeSelectorTriggerIconRenderer
+              autoShowLabel={false}
+              onPress={() => {}}
+              iconProps={{
+                size: '$4',
+              }}
+              labelProps={{
+                pl: '$1',
+              }}
+            />
+          }
+        />
       ) : null}
     </XStack>
   );

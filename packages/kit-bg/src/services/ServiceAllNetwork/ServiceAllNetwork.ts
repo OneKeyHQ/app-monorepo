@@ -7,6 +7,7 @@ import {
   IMPL_EVM,
   getEnabledNFTNetworkIds,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
@@ -15,11 +16,15 @@ import perfUtils, {
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceBase from '../ServiceBase';
 
 import type { IDBAccount } from '../../dbs/local/types';
-import type { IAccountDeriveTypes } from '../../vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '../../vaults/types';
 
 export type IAllNetworkAccountInfo = {
   networkId: string;
@@ -31,6 +36,7 @@ export type IAllNetworkAccountInfo = {
   isNftEnabled: boolean;
   isBackendIndexed: boolean | undefined;
   deriveType: IAccountDeriveTypes | undefined;
+  deriveInfo: IAccountDeriveInfo | undefined;
   isTestnet: boolean;
 };
 export type IAllNetworkAccountsInfoResult = {
@@ -46,9 +52,12 @@ export type IAllNetworkAccountsParams = {
   nftEnabledOnly?: boolean;
   includingNonExistingAccount?: boolean;
   includingNotEqualGlobalDeriveTypeAccount?: boolean;
+  includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
   fetchAllNetworkAccounts?: boolean;
   networksEnabledOnly?: boolean;
   excludeTestNetwork?: boolean;
+  indexedAccountId?: string;
+  excludeIncompatibleWithWalletAccounts?: boolean;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -93,7 +102,9 @@ class ServiceAllNetwork extends ServiceBase {
 
     if (isOthersWallet) {
       if (!othersWalletAccountId) {
-        throw new Error('getAllNetworkDbAccounts ERROR: accountId is required');
+        throw new OneKeyLocalError(
+          'getAllNetworkDbAccounts ERROR: accountId is required',
+        );
       }
       const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId: othersWalletAccountId,
@@ -101,7 +112,7 @@ class ServiceAllNetwork extends ServiceBase {
       dbAccounts = [dbAccount].filter(Boolean);
     } else {
       if (!indexedAccountId) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'getAllNetworkDbAccounts ERROR: indexedAccountId is required',
         );
       }
@@ -114,7 +125,7 @@ class ServiceAllNetwork extends ServiceBase {
           ));
       } else {
         if (!singleNetworkDeriveType) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'getAllNetworkDbAccounts ERROR: deriveType is required',
           );
         }
@@ -164,21 +175,28 @@ class ServiceAllNetwork extends ServiceBase {
       deriveType: singleNetworkDeriveType,
       includingNonExistingAccount,
       includingNotEqualGlobalDeriveTypeAccount,
+      includingDeriveTypeMismatchInDefaultVisibleNetworks = true,
       fetchAllNetworkAccounts,
       networksEnabledOnly,
       excludeTestNetwork = true,
+      indexedAccountId,
     } = params;
 
     const isAllNetwork =
       fetchAllNetworkAccounts || networkUtils.isAllNetwork({ networkId });
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAccount');
-
-    // single network account or all network mocked account
-    const networkAccount = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    let networkAccount: INetworkAccount | undefined;
+    try {
+      // single network account or all network mocked account
+      networkAccount = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+        indexedAccountId,
+      });
+    } catch (error) {
+      console.log('getAccount error', error);
+    }
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAccount done');
 
@@ -188,7 +206,7 @@ class ServiceAllNetwork extends ServiceBase {
     const dbAccounts = await this.getAllNetworkDbAccounts({
       networkId,
       singleNetworkDeriveType,
-      indexedAccountId: networkAccount.indexedAccountId,
+      indexedAccountId: indexedAccountId ?? networkAccount?.indexedAccountId,
       othersWalletAccountId: accountId,
       fetchAllNetworkAccounts,
     });
@@ -271,8 +289,9 @@ class ServiceAllNetwork extends ServiceBase {
               ? isCompatible
               : networkId === realNetworkId;
 
-            const { deriveType } =
+            const { deriveType, deriveInfo } =
               await this.backgroundApi.serviceNetwork.getDeriveTypeByTemplate({
+                accountId: a.id,
                 networkId: realNetworkId,
                 template: a.template,
               });
@@ -282,9 +301,12 @@ class ServiceAllNetwork extends ServiceBase {
               isAllNetwork &&
               isMatched &&
               a.template &&
-              !networkUtils
-                .getDefaultDeriveTypeVisibleNetworks()
-                .includes(realNetworkId)
+              !(
+                networkUtils
+                  .getDefaultDeriveTypeVisibleNetworks()
+                  .includes(realNetworkId) &&
+                includingDeriveTypeMismatchInDefaultVisibleNetworks
+              )
             ) {
               const globalDeriveType =
                 await this.backgroundApi.serviceNetwork.getGlobalDeriveTypeOfNetwork(
@@ -305,14 +327,15 @@ class ServiceAllNetwork extends ServiceBase {
             let accountXpub: string | undefined;
             if (isMatched) {
               perf.markStart('getAccountAddressForApi');
-              apiAddress =
-                await this.backgroundApi.serviceAccount.getAccountAddressForApi(
+              let theMatchedNetworkAccount: INetworkAccount | undefined;
+              ({ address: apiAddress, account: theMatchedNetworkAccount } =
+                await this.backgroundApi.serviceAccount.getAccountAddressInfoForApi(
                   {
                     dbAccount: a,
                     accountId: a.id,
                     networkId: realNetworkId,
                   },
-                );
+                ));
               perf.markEnd('getAccountAddressForApi');
 
               // TODO pass dbAccount for better performance
@@ -336,9 +359,14 @@ class ServiceAllNetwork extends ServiceBase {
                 isTestnet: n.isTestnet,
                 dbAccount: a,
                 deriveType,
+                deriveInfo,
               };
 
               appendAccountInfo(accountInfo);
+              void this.backgroundApi.serviceAccount.saveAccountAddresses({
+                networkId: realNetworkId,
+                account: theMatchedNetworkAccount,
+              });
 
               compatibleAccountExists = true;
             }
@@ -363,6 +391,7 @@ class ServiceAllNetwork extends ServiceBase {
             isBackendIndexed,
             dbAccount: undefined,
             deriveType: undefined,
+            deriveInfo: undefined,
             isTestnet: n.isTestnet,
           });
         }
@@ -409,13 +438,36 @@ class ServiceAllNetwork extends ServiceBase {
           includingNonExistingAccount: true,
         },
       );
+
+    const allNetworkAccounts = accountsInfo.map((acc) => ({
+      accountId: params.withoutAccountId ? undefined : acc.accountId,
+      networkId: acc.networkId,
+      accountAddress: acc.apiAddress,
+      accountXpub: acc.accountXpub,
+    }));
+
+    if (params.excludeIncompatibleWithWalletAccounts) {
+      const compatibleResp =
+        await this.backgroundApi.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
+          {
+            networkIds: allNetworkAccounts.map((acc) => acc.networkId),
+            walletId: accountUtils.getWalletIdFromAccountId({
+              accountId: params.accountId,
+            }),
+          },
+        );
+      const incompatibleNetworksSet = new Set(
+        compatibleResp.networkIdsIncompatible,
+      );
+      return {
+        allNetworkAccounts: allNetworkAccounts.filter(
+          (acc) => !incompatibleNetworksSet.has(acc.networkId),
+        ),
+      };
+    }
+
     return {
-      allNetworkAccounts: accountsInfo.map((acc) => ({
-        accountId: params.withoutAccountId ? undefined : acc.accountId,
-        networkId: acc.networkId,
-        accountAddress: acc.apiAddress,
-        accountXpub: acc.accountXpub,
-      })),
+      allNetworkAccounts,
     };
   }
 }

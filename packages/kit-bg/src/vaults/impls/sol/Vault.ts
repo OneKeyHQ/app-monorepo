@@ -43,7 +43,9 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
+import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import { verifySignedMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/signMessage';
 import type {
   IDecodedTxExtraSol,
   IEncodedTxSol,
@@ -55,9 +57,11 @@ import {
   encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   CanNotSendZeroAmountError,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -75,6 +79,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -102,6 +107,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  isCustomProgram,
   isTxOverSize,
   masterEditionAddress,
   metadataAddress,
@@ -133,6 +139,7 @@ import type {
   TransferInstructionArgs,
 } from '@metaplex-foundation/mpl-token-metadata';
 import type { AccountInfo, TransactionInstruction } from '@solana/web3.js';
+import type { FailedAttemptError } from 'p-retry';
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.sol.hd;
@@ -216,7 +223,9 @@ export default class Vault extends VaultBase {
     const { from, to: firstReceiver } = transferInfo;
 
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const client = await this.getClient();
     const source = new PublicKey(from);
@@ -250,7 +259,7 @@ export default class Vault extends VaultBase {
       const { amount, to, tokenInfo, nftInfo } = transfersInfo[i];
 
       if (!tokenInfo && !nftInfo) {
-        throw new Error(
+        throw new OneKeyLocalError(
           'buildEncodedTx ERROR: transferInfo.tokenInfo and transferInfo.nftInfo are both missing',
         );
       }
@@ -393,7 +402,7 @@ export default class Vault extends VaultBase {
       await timerUtils.wait(1000);
     }
 
-    throw new Error(
+    throw new OneKeyLocalError(
       `Solana getLatestBlockHash retry times exceeded: ${
         lastRpcErrorMessage || ''
       }`,
@@ -511,9 +520,9 @@ export default class Vault extends VaultBase {
       })[0];
 
       if (tokenRecord.state === TokenState.Locked) {
-        throw new Error('token account is locked');
+        throw new OneKeyLocalError('token account is locked');
       } else if (tokenRecord.state === TokenState.Listed) {
-        throw new Error('token is listed');
+        throw new OneKeyLocalError('token is listed');
       }
 
       let authorizationRules: PublicKey | undefined;
@@ -688,7 +697,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx, transferPayload, saveToLocalHistory } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
     const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
 
@@ -798,11 +807,17 @@ export default class Vault extends VaultBase {
     isNFT: boolean | undefined;
     amountToSend: string | undefined;
   }) {
-    const actions: Array<IDecodedTxAction> = [];
+    let actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
 
+    let hasCustomProgram = false;
+
     for (const instruction of instructions) {
+      if (isCustomProgram(instruction.programId.toString())) {
+        hasCustomProgram = true;
+      }
+
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -979,6 +994,14 @@ export default class Vault extends VaultBase {
         }
       }
     }
+
+    // If the instruction contains custom instructions,
+    // the client will parse it as an unknown instruction,
+    // and the server will parse it specifically
+    if (hasCustomProgram) {
+      actions = [];
+    }
+
     if (actions.length === 0) {
       const accountAddress = await this.getAccountAddress();
       actions.push({
@@ -1083,41 +1106,45 @@ export default class Vault extends VaultBase {
     const network = await this.getNetwork();
     const nativeTx = parseToNativeTx(encodedTx) as Transaction;
 
-    // max native token transfer update
-    if (
-      !isNil(nativeAmountInfo.maxSendAmount) &&
-      nativeTx instanceof Transaction &&
-      nativeTx.instructions.length === 2
-    ) {
-      for (let i = 0; i < nativeTx.instructions.length; i += 1) {
-        const instruction = nativeTx.instructions[i];
-        if (
-          instruction.programId.toString() ===
-          SystemProgram.programId.toString()
-        ) {
-          const instructionType =
-            SystemInstruction.decodeInstructionType(instruction);
-          if (instructionType === 'Transfer') {
-            const { fromPubkey, toPubkey } =
-              SystemInstruction.decodeTransfer(instruction);
+    try {
+      // max native token transfer update
+      if (
+        !isNil(nativeAmountInfo.maxSendAmount) &&
+        nativeTx instanceof Transaction &&
+        nativeTx.instructions.length === 2
+      ) {
+        for (let i = 0; i < nativeTx.instructions.length; i += 1) {
+          const instruction = nativeTx.instructions[i];
+          if (
+            instruction.programId.toString() ===
+            SystemProgram.programId.toString()
+          ) {
+            const instructionType =
+              SystemInstruction.decodeInstructionType(instruction);
+            if (instructionType === 'Transfer') {
+              const { fromPubkey, toPubkey } =
+                SystemInstruction.decodeTransfer(instruction);
 
-            nativeTx.instructions[i] = SystemProgram.transfer({
-              fromPubkey,
-              toPubkey,
-              lamports: BigInt(
-                new BigNumber(nativeAmountInfo.maxSendAmount)
-                  .shiftedBy(network.decimals)
-                  .toFixed(),
-              ),
-            });
-            return bs58.encode(
-              nativeTx.serialize({
-                requireAllSignatures: false,
-              }),
-            );
+              nativeTx.instructions[i] = SystemProgram.transfer({
+                fromPubkey,
+                toPubkey,
+                lamports: BigInt(
+                  new BigNumber(nativeAmountInfo.maxSendAmount)
+                    .shiftedBy(network.decimals)
+                    .toFixed(),
+                ),
+              });
+              return bs58.encode(
+                nativeTx.serialize({
+                  requireAllSignatures: false,
+                }),
+              );
+            }
           }
         }
       }
+    } catch (e) {
+      return Promise.resolve(encodedTx);
     }
 
     return Promise.resolve(encodedTx);
@@ -1289,6 +1316,22 @@ export default class Vault extends VaultBase {
     return result;
   }
 
+  override async verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const { message, address, signature } = params;
+
+    const valid = verifySignedMessage({
+      message,
+      address,
+      signature,
+    });
+
+    return Promise.resolve({
+      valid,
+    });
+  }
+
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
@@ -1444,5 +1487,18 @@ export default class Vault extends VaultBase {
 
   override async buildOkxSwapEncodedTx(params: IBuildOkxSwapEncodedTxParams) {
     return Promise.resolve(params.okxTx.data);
+  }
+
+  override async checkShouldRetryBroadcastTx(
+    error: FailedAttemptError,
+  ): Promise<boolean> {
+    if (
+      (error as unknown as OneKeyError)?.code ===
+      BLOCK_HASH_NOT_FOUND_ERROR_CODE
+    ) {
+      await timerUtils.wait((error?.attemptNumber || 1) * 1000);
+      return true;
+    }
+    return false;
   }
 }

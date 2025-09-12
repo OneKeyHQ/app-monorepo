@@ -1,5 +1,6 @@
 export * from './Checkbox';
 export * from './Form';
+export * from './Form/formInstances';
 export * from './Input';
 export * from './Radio';
 export * from './Select';

@@ -16,8 +16,12 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyErrorAirGapInvalidQrCode } from '@onekeyhq/shared/src/errors';
+import { BTC_FIRST_TAPROOT_PATH } from '@onekeyhq/shared/src/consts/chainConsts';
+import { IMPL_EVM, IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  OneKeyErrorAirGapInvalidQrCode,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -64,9 +68,10 @@ class ServiceQrWallet extends ServiceBase {
         reject,
       });
       // **** 1. Device scan App Qrcode
+      const valueUr = airGapUrUtils.urToJson({ ur: requestUr });
       appEventBus.emit(EAppEventBusNames.ShowAirGapQrcode, {
         drawType: 'animated',
-        valueUr: airGapUrUtils.urToJson({ ur: requestUr }),
+        valueUr,
         promiseId,
         title: appQrCodeModalTitle,
       });
@@ -121,6 +126,11 @@ class ServiceQrWallet extends ServiceBase {
     if (impl === IMPL_EVM) {
       return 'ETH';
     }
+
+    if (impl === IMPL_TRON) {
+      return 'TRON';
+    }
+
     return network.symbol.toUpperCase();
   }
 
@@ -134,6 +144,7 @@ class ServiceQrWallet extends ServiceBase {
     indexedAccountId: string;
   }) {
     const { serviceAccount } = this.backgroundApi;
+    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
 
     const items =
       await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork({
@@ -145,7 +156,7 @@ class ServiceQrWallet extends ServiceBase {
     });
     const index = indexedAccount.index;
 
-    const paths: string[] = [];
+    let paths: string[] = [];
     for (const deriveInfo of items) {
       const fullPath = accountUtils.buildPathFromTemplate({
         template: deriveInfo.item.template,
@@ -159,7 +170,12 @@ class ServiceQrWallet extends ServiceBase {
       paths.push(normalizedPath);
     }
 
-    const chain = await this.getDeviceChainNameByNetworkId({ networkId });
+    if (chain === 'BTC') {
+      // for fullXfp build
+      paths.push(BTC_FIRST_TAPROOT_PATH);
+    }
+
+    paths = uniq([...paths]);
 
     return {
       chain,
@@ -204,7 +220,9 @@ class ServiceQrWallet extends ServiceBase {
     const { serviceAccount } = this.backgroundApi;
     let byDevice: IDBDevice | undefined;
     if (!walletId) {
-      throw new Error('prepareQrcodeWalletAddressAdd ERROR: walletId missing ');
+      throw new OneKeyLocalError(
+        'prepareQrcodeWalletAddressAdd ERROR: walletId missing ',
+      );
     }
     const byWallet = await serviceAccount.getWallet({
       walletId,
@@ -221,16 +239,20 @@ class ServiceQrWallet extends ServiceBase {
         backgroundApi: this.backgroundApi,
         includingNetworkWithGlobalDeriveType: true,
       });
-    const allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
+    let allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
       (item) => item.networkId,
     );
+    allDefaultAddAccountNetworksIds = uniq([
+      ...allDefaultAddAccountNetworksIds,
+    ]);
     if (networkUtils.isAllNetwork({ networkId })) {
-      networkIds = allDefaultAddAccountNetworksIds;
+      networkIds = uniq([...allDefaultAddAccountNetworksIds]);
     } else {
       // networkIds = [networkId];
       // TODO always create all default networks?
       networkIds = uniq([...allDefaultAddAccountNetworksIds, networkId]);
     }
+    networkIds = uniq([...networkIds]);
 
     const params: {
       chain: string;
@@ -262,7 +284,8 @@ class ServiceQrWallet extends ServiceBase {
       appQrCodeModalTitle,
     });
 
-    return airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });
+    const jsonData = airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });
+    return jsonData;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     //   const { wallet: walletCreated } = await createQrWallet({
     //     isOnboarding: false,
@@ -310,7 +333,7 @@ class ServiceQrWallet extends ServiceBase {
       };
       buildBy = 'hdkey';
     } else {
-      throw new Error(`Invalid UR type: ${ur.type}`);
+      throw new OneKeyLocalError(`Invalid UR type: ${ur.type}`);
     }
     const qrDevice: IQrWalletDevice = {
       name: airGapMultiAccounts.device || 'QR Wallet',

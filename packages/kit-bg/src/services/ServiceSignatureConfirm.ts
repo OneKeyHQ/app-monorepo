@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -11,6 +12,7 @@ import {
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
   EParseTxComponentRole,
   EParseTxComponentType,
@@ -141,6 +143,11 @@ class ServiceSignatureConfirm extends ServiceBase {
 
       if (isBridge && (isSwftOrder || isChangellyOrder)) {
         disableParseTxThroughApi = true;
+      } else if (
+        networkUtils.isTronNetworkByNetworkId(networkId) &&
+        (isSwftOrder || isChangellyOrder)
+      ) {
+        disableParseTxThroughApi = true;
       }
     }
 
@@ -185,6 +192,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (parsedTx) {
       decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+      decodedTx.txParseType = parsedTx.type;
     }
 
     if (parsedTx && parsedTx.parsedTx?.data) {
@@ -213,6 +221,10 @@ class ServiceSignatureConfirm extends ServiceBase {
         alerts: [],
       };
       decodedTx.isLocalParsed = true;
+    }
+
+    if (transferPayload?.isCustomHexData) {
+      decodedTx.isCustomHexData = true;
     }
 
     return decodedTx;
@@ -325,6 +337,26 @@ class ServiceSignatureConfirm extends ServiceBase {
     }
   }
 
+  @toastIfError()
+  @backgroundMethod()
+  async preActionsBeforeSending(params: {
+    accountId: string;
+    networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
+    tronResourceRentalInfo?: ITronResourceRentalInfo;
+  }) {
+    const { accountId, networkId, unsignedTxs, tronResourceRentalInfo } =
+      params;
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.preActionsBeforeSending({
+      unsignedTxs,
+      tronResourceRentalInfo,
+    });
+  }
+
   @backgroundMethod()
   async afterSendTxAction(
     params: IAfterSendTxActionParams & {
@@ -336,6 +368,35 @@ class ServiceSignatureConfirm extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     await vault.afterSendTxAction({
       result,
+    });
+  }
+
+  @backgroundMethod()
+  async updateRecentRecipients({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }) {
+    await this.backgroundApi.simpleDb.recentRecipients.updateRecentRecipients({
+      networkId,
+      address,
+      updatedAt: Date.now(),
+    });
+  }
+
+  @backgroundMethod()
+  async getRecentRecipients({
+    networkId,
+    limit,
+  }: {
+    networkId: string;
+    limit?: number;
+  }) {
+    return this.backgroundApi.simpleDb.recentRecipients.getRecentRecipients({
+      networkId,
+      limit,
     });
   }
 }

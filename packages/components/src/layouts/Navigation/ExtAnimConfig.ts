@@ -4,7 +4,7 @@ import { Easing } from 'react-native';
 import type {
   StackCardStyleInterpolator,
   TransitionPreset,
-} from '@react-navigation/stack/lib/typescript/src/types';
+} from '@react-navigation/stack';
 
 export const extAnimConfig: {
   transition: Omit<

@@ -2,85 +2,70 @@ import { Semaphore } from 'async-mutex';
 import { isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
-import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
-  OneKeyErrorPrimeLoginExceedDeviceLimit,
-  OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyLocalError,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  IPrimeDeviceInfo,
   IPrimeServerUserInfo,
   IPrimeSubscriptionInfo,
   IPrimeUserInfo,
 } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { getEndpointInfo } from '../../endpoints';
 import {
   primeLoginDialogAtom,
   primePersistAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 
-import type { IPrimeLoginDialogKeys } from '../../states/jotai/atoms/prime';
-import type { AxiosInstance } from 'axios';
+import type {
+  IPrimeLoginDialogAtomData,
+  IPrimeLoginDialogKeys,
+  IPrimePersistAtomData,
+} from '../../states/jotai/atoms/prime';
 
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
-  _primeAuthClient: AxiosInstance | undefined;
-
   async getPrimeClient() {
-    if (this._primeAuthClient) {
-      return this._primeAuthClient;
-    }
-    const endpointInfo = await getEndpointInfo({
-      name: EServiceEndpointEnum.Prime,
-    });
-    const client = await appApiClient.getBasicClient(endpointInfo);
-    client.interceptors.request.use(async (config) => {
-      const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-      if (authToken) {
-        // TODO use cookie instead of simpleDb
-        config.headers['X-Onekey-Request-Token'] = `${authToken}`;
-      }
-      return config;
-    });
-    client.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        // check invalid token and logout
-        const errorCode: number | undefined = (
-          error as { data: { code: number } }
-        )?.data?.code;
-        // TODO 90_002 sdk refresh token required
-        // TODO 90_003 user login required
-        if ([90_002, 90_003, 90_008].includes(errorCode)) {
-          appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
-          throw new OneKeyErrorPrimeLoginInvalidToken();
-        }
-        if ([90_004].includes(errorCode)) {
-          appEventBus.emit(EAppEventBusNames.PrimeExceedDeviceLimit, undefined);
-          throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
-        }
-        throw error;
+    return this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+  }
+
+  @backgroundMethod()
+  async apiDeleteAccount({
+    uuid,
+    emailOTP,
+  }: {
+    uuid: string;
+    emailOTP: string;
+  }) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const result = await client.post<IApiClientResponse<{ ok: boolean }>>(
+      '/prime/v1/user/delete',
+      {
+        uuid,
+        emailOTP,
       },
     );
-    this._primeAuthClient = client;
-    return this._primeAuthClient;
+    return result?.data?.data;
   }
 
   loginMutex = new Semaphore(1);
@@ -95,7 +80,14 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.saveAuthToken('');
       const client = await this.getPrimeClient();
       try {
-        await client.post(
+        const response = await client.post<{
+          data: {
+            userId: string;
+            inviteCode: string;
+            emails: string[];
+            createdAt: string;
+          };
+        }>(
           '/prime/v1/user/login',
           {},
           {
@@ -106,11 +98,18 @@ class ServicePrime extends ServiceBase {
         );
         // only save authToken if api login success
         await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
-
-        await primePersistAtom.set((v) => ({
-          ...v,
-          isLoggedInOnServer: true,
-        }));
+        if (response.data.data.inviteCode) {
+          await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+            response.data.data.inviteCode,
+          );
+        }
+        await primePersistAtom.set(
+          (v): IPrimePersistAtomData => ({
+            ...v,
+            displayEmail: response?.data?.data?.emails?.[0],
+            isLoggedInOnServer: true,
+          }),
+        );
       } catch (error) {
         await this.backgroundApi.simpleDb.prime.saveAuthToken('');
         throw error;
@@ -126,7 +125,16 @@ class ServicePrime extends ServiceBase {
       return;
     }
     const client = await this.getPrimeClient();
-    await client.post('/prime/v1/user/logout');
+    try {
+      await client.post('/prime/v1/user/logout');
+    } catch (e) {
+      console.error(e);
+      const error = e as OneKeyError | undefined;
+      if (error && error?.key === 'id.login_expired_description') {
+        error.autoToast = false;
+      }
+      throw e;
+    }
     await this.setPrimePersistAtomNotLoggedIn();
   }
 
@@ -163,29 +171,43 @@ class ServicePrime extends ServiceBase {
     // eslint-disable-next-line no-param-reassign
     accessToken =
       accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
-    const result = await client.get<
-      IApiClientResponse<
-        Array<{
-          instanceId: string;
-          lastLoginTime: string;
-          platform: string;
-          version: string;
-          deviceName: string;
-        }>
-      >
-    >('/prime/v1/user/devices', {
-      headers: {
-        'X-Onekey-Request-Token': `${accessToken}`,
+    const result = await client.get<IApiClientResponse<IPrimeDeviceInfo[]>>(
+      '/prime/v1/user/devices',
+      {
+        headers: {
+          'X-Onekey-Request-Token': `${accessToken}`,
+        },
       },
-    });
+    );
     const devices = result?.data?.data;
     return devices;
+  }
+
+  @backgroundMethod()
+  async callApiFetchPrimeUserInfo() {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<IPrimeServerUserInfo>>(
+      '/prime/v1/user/info',
+    );
+    const serverUserInfo = result?.data?.data;
+    return serverUserInfo;
+  }
+
+  @backgroundMethod()
+  async apiFetchServerRandomIdInfo() {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<{ uuid: string }>>(
+      '/prime/v1/general/get-random-id',
+    );
+    const randomId = result?.data?.data;
+    return randomId;
   }
 
   @backgroundMethod()
   async apiFetchPrimeUserInfo(): Promise<{
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
+    primeSubscription: IPrimeSubscriptionInfo | undefined;
   }> {
     console.log('call servicePrime.apiFetchPrimeUserInfo');
     await this.loginMutex.waitForUnlock();
@@ -200,56 +222,89 @@ class ServicePrime extends ServiceBase {
       return {
         userInfo: localUserInfo,
         serverUserInfo: undefined,
+        primeSubscription: undefined,
       };
     }
-    const client = await this.getPrimeClient();
-    const result = await client.get<IApiClientResponse<IPrimeServerUserInfo>>(
-      '/prime/v1/user/info',
-    );
-    const serverUserInfo = result?.data?.data;
+    const serverUserInfo = await this.callApiFetchPrimeUserInfo();
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
+    void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordNotSet(
+      {
+        serverUserInfo,
+      },
+    );
+    void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordChanged(
+      {
+        serverUserInfo,
+      },
+    );
     if (serverUserInfo.isPrime) {
       primeSubscription = {
         isActive: true,
         expiresAt: serverUserInfo.primeExpiredAt,
+        willRenew: serverUserInfo.willRenew,
+        subscriptions: serverUserInfo.subscriptions,
       };
     } else {
       primeSubscription = undefined;
     }
-    await primePersistAtom.set((v) => ({
-      ...v,
-      isLoggedIn: true,
-      isLoggedInOnServer: true,
-      primeSubscription,
-    }));
+
+    if (serverUserInfo?.inviteCode) {
+      await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+        serverUserInfo.inviteCode,
+      );
+    }
+    await primePersistAtom.set(
+      (v): IPrimePersistAtomData => ({
+        ...v,
+        displayEmail: serverUserInfo?.emails?.[0] || v?.displayEmail,
+        isEnablePrime: serverUserInfo?.isEnablePrime,
+        isEnableSandboxPay: serverUserInfo?.isEnableSandboxPay,
+        isLoggedIn: true,
+        isLoggedInOnServer: true,
+        primeSubscription,
+        // salt: serverUserInfo.salt,
+        // pwdHash: serverUserInfo.pwdHash,
+      }),
+    );
+    const localUserInfo = await primePersistAtom.get();
     return {
-      userInfo: await primePersistAtom.get(),
+      userInfo: localUserInfo,
       serverUserInfo,
+      primeSubscription,
     };
   }
 
   @backgroundMethod()
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
-    await primePersistAtom.set(() => ({
-      isLoggedIn: false,
-      isLoggedInOnServer: false,
-      privyUserId: undefined,
-      email: undefined,
-      primeSubscription: undefined,
-      subscriptionManageUrl: undefined,
-    }));
+    await primePersistAtom.set(
+      (): IPrimePersistAtomData => ({
+        isLoggedIn: false,
+        isLoggedInOnServer: false,
+        isEnablePrime: undefined,
+        isEnableSandboxPay: undefined,
+        privyUserId: undefined,
+        email: undefined,
+        displayEmail: undefined,
+        primeSubscription: undefined,
+        subscriptionManageUrl: undefined,
+        // salt: undefined,
+        // pwdHash: undefined,
+      }),
+    );
+    await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
   }
 
   @backgroundMethod()
-  async isPrimeLoggedIn() {
-    const { isLoggedIn } = await primePersistAtom.get();
-    return Boolean(isLoggedIn);
+  async isLoggedIn() {
+    const { isLoggedIn, isLoggedInOnServer } = await primePersistAtom.get();
+    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    return Boolean(isLoggedIn && isLoggedInOnServer && authToken);
   }
 
   @backgroundMethod()
   async isPrimeSubscriptionActive() {
-    if (!(await this.isPrimeLoggedIn())) {
+    if (!(await this.isLoggedIn())) {
       return false;
     }
     const { primeSubscription } = await primePersistAtom.get();
@@ -257,7 +312,7 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiPreparePrimeLogin({ email }: { email: string }): Promise<{
+  async apiPreparePrimeLogin(_props: { email: string }): Promise<{
     isRegistered: boolean;
     verifyUUID: string;
     captchaRequired: boolean;
@@ -299,7 +354,7 @@ class ServicePrime extends ServiceBase {
     //   emailCodeRequired: true,
     // };
 
-    throw new Error('Deprecated, use Privy instead');
+    throw new OneKeyLocalError('Deprecated, use Privy instead');
   }
 
   @backgroundMethod()
@@ -364,20 +419,7 @@ class ServicePrime extends ServiceBase {
   async ensurePrimeLoginValidEmail(email: string) {
     if (!stringUtils.isValidEmail(email)) {
       // TODO i18n error
-      throw new Error('Invalid email');
-    }
-  }
-
-  @backgroundMethod()
-  @toastIfError()
-  async ensurePrimeLoginValidPassword(password: string) {
-    ensureSensitiveTextEncoded(password);
-    const rawPassword =
-      await this.backgroundApi.servicePassword.decodeSensitiveText({
-        encodedText: password,
-      });
-    if (!rawPassword) {
-      throw new Error('Invalid password');
+      throw new OneKeyLocalError('Invalid email');
     }
   }
 
@@ -391,7 +433,10 @@ class ServicePrime extends ServiceBase {
       // TODO close loading dialog and reject promise
       await this.withDialogLoading(
         {
-          title: 'Checking email',
+          // title: 'Checking email',
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.global_processing,
+          }),
         },
         async () =>
           this.apiPreparePrimeLogin({
@@ -400,11 +445,11 @@ class ServicePrime extends ServiceBase {
       );
     const isRegister = !isRegistered;
 
-    const { password } = await this.promptPrimeLoginPasswordDialog({
+    const { masterPassword } = await this.promptPrimeLoginPasswordDialog({
       email,
       isRegister,
     });
-    ensureSensitiveTextEncoded(password);
+    ensureSensitiveTextEncoded(masterPassword);
 
     if (captchaRequired) {
       // TODO captcha verify (register, or login retry 5 times)
@@ -420,11 +465,16 @@ class ServicePrime extends ServiceBase {
 
     // TODO move to UI
     const { success } = await this.withDialogLoading(
-      { title: 'Logging in' },
+      {
+        // title: 'Logging in',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_processing,
+        }),
+      },
       async () =>
         this.apiPrimeLogin({
           email,
-          password,
+          password: masterPassword,
           emailCode: code,
           verifyUUID,
           isRegister,
@@ -434,38 +484,12 @@ class ServicePrime extends ServiceBase {
     return {
       success,
       email,
-      password,
+      masterPassword,
       isRegister,
       code,
       captcha: 'mock-captcha',
       verifyUUID,
     };
-  }
-
-  @backgroundMethod()
-  async startForgetPassword({
-    email,
-    passwordDialogPromiseId,
-  }: {
-    email: string;
-    passwordDialogPromiseId: number;
-  }) {
-    console.log('startForgetPassword', passwordDialogPromiseId);
-    if (passwordDialogPromiseId) {
-      await this.cancelPrimeLogin({
-        promiseId: passwordDialogPromiseId,
-        dialogType: 'promptPrimeLoginPasswordDialog',
-      });
-    }
-
-    // TODO show forget password dialog
-
-    return { success: true };
-  }
-
-  @backgroundMethod()
-  async startChangePassword() {
-    // TODO show change password dialog
   }
 
   @backgroundMethod()
@@ -510,30 +534,80 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
+  async promptForgetMasterPasswordDialog() {
+    const result = await new Promise(
+      // eslint-disable-next-line no-async-promise-executor
+      async (resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        await primeLoginDialogAtom.set((v) => ({
+          ...v,
+          promptForgetMasterPasswordDialog: {
+            promiseId,
+          },
+        }));
+      },
+    );
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async resolveForgetMasterPasswordDialog({
+    promiseId,
+  }: {
+    promiseId: number;
+  }) {
+    await primeLoginDialogAtom.set((v) => ({
+      ...v,
+      promptForgetMasterPasswordDialog: undefined,
+    }));
+    await this.backgroundApi.servicePromise.resolveCallback({
+      id: promiseId,
+      data: true,
+    });
+  }
+
+  @backgroundMethod()
   async promptPrimeLoginPasswordDialog({
     email,
     isRegister,
+    isVerifyMasterPassword,
+    isChangeMasterPassword,
+    serverUserInfo,
   }: {
-    email: string;
-    isRegister?: boolean;
+    email?: string;
+    isRegister: boolean;
+    isVerifyMasterPassword?: boolean;
+    isChangeMasterPassword?: boolean;
+    serverUserInfo?: IPrimeServerUserInfo;
   }) {
-    // eslint-disable-next-line no-async-promise-executor
-    const password = await new Promise<string>(async (resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      await primeLoginDialogAtom.set((v) => ({
-        ...v,
-        promptPrimeLoginPasswordDialog: {
-          email,
-          isRegister,
-          promiseId,
-        },
-      }));
-    });
-    ensureSensitiveTextEncoded(password);
-    return { password };
+    const masterPassword = await new Promise<string>(
+      // eslint-disable-next-line no-async-promise-executor
+      async (resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        await primeLoginDialogAtom.set(
+          (v): IPrimeLoginDialogAtomData => ({
+            ...v,
+            promptPrimeLoginPasswordDialog: {
+              email: email || '',
+              isRegister,
+              isVerifyMasterPassword,
+              isChangeMasterPassword,
+              serverUserInfo,
+              promiseId,
+            },
+          }),
+        );
+      },
+    );
+    ensureSensitiveTextEncoded(masterPassword);
+    return { masterPassword };
   }
 
   @backgroundMethod()
@@ -593,7 +667,7 @@ class ServicePrime extends ServiceBase {
     code: string;
   }) {
     if (!code || code.length !== 6) {
-      throw new Error('Invalid code');
+      throw new OneKeyLocalError('Invalid code');
     }
     await primeLoginDialogAtom.set((v) => ({
       ...v,
@@ -625,9 +699,34 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isLoggedIn() {
-    const { isLoggedIn } = await primePersistAtom.get();
-    return isLoggedIn;
+  async sendEmailOTP(scene: string) {
+    if (!scene) {
+      throw new OneKeyLocalError('sendEmailOTP ERROR: Invalid scene');
+    }
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Prime);
+    const result = await client.post<
+      IApiClientResponse<{
+        resendAt: number;
+        uuid: string;
+      }>
+    >('/prime/v1/general/emailOTP', {
+      scene,
+    });
+    return result?.data?.data;
+  }
+
+  @backgroundMethod()
+  async apiGetCustomerJWT() {
+    const client = await this.getPrimeClient();
+    const result = await client.get<IApiClientResponse<{ token: string }>>(
+      '/prime/v1/general/customer_jwt',
+    );
+    return result?.data?.data;
+  }
+
+  @backgroundMethod()
+  async getLocalUserInfo() {
+    return primePersistAtom.get();
   }
 }
 

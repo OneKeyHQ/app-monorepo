@@ -42,7 +42,6 @@ function Address() {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
 
-  const media = useMedia();
   return (
     <XStack alignItems="center">
       {/* use navigation built-in back button */}
@@ -50,18 +49,6 @@ function Address() {
       <SizableText size="$headingLg">
         {accountUtils.shortenAddress({ address: account?.address })}
       </SizableText>
-      {platformEnv.isDev && media.gtLg ? (
-        <SizableText
-          ml="$4"
-          onPress={() => {
-            void backgroundApiProxy.serviceAccount.removeAccount({
-              account,
-            });
-          }}
-        >
-          {account?.id || ''} {account?.name || ''}
-        </SizableText>
-      ) : null}
     </XStack>
   );
 }

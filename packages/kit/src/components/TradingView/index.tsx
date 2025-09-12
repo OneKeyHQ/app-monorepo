@@ -1,38 +1,35 @@
-import { Stack, usePropsAndStyle } from '@onekeyhq/components';
-import type { IStackStyle } from '@onekeyhq/components';
+import { TradingViewV1 } from './TradingViewV1';
+import { TradingViewV2 } from './TradingViewV2';
 
-import { useTradingViewProps } from './useTradingViewProps';
-import { WebView } from './WebView';
-
-import type { ViewStyle } from 'react-native';
+import type { ITradingViewProps } from './TradingViewV1';
 import type { WebViewProps } from 'react-native-webview';
 
-interface IBaseTradingViewProps {
-  mode: 'overview' | 'realtime';
-  identifier: string;
-  baseToken: string;
-  targetToken: string;
-  onLoadEnd: () => void;
+interface ITradingViewWithVersionProps extends ITradingViewProps {
+  version?: 'v1' | 'v2';
+  symbol?: string;
+  decimal?: number;
+  onPanesCountChange?: (count: number) => void;
 }
 
-export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
-
-export function TradingView(props: ITradingViewProps & WebViewProps) {
-  const [restProps, style] = usePropsAndStyle(props);
-  const { targetToken, identifier, baseToken, ...otherProps } =
-    restProps as IBaseTradingViewProps;
-  const tradingViewProps = useTradingViewProps({
-    targetToken,
-    identifier,
-    baseToken,
-  });
-  return (
-    <Stack bg="$bgApp" style={style as ViewStyle}>
-      <WebView
-        tradingViewProps={tradingViewProps}
-        style={{ flex: 1 }}
-        {...otherProps}
+export function TradingView({
+  version = 'v1',
+  symbol,
+  decimal,
+  onPanesCountChange,
+  ...props
+}: ITradingViewWithVersionProps & WebViewProps) {
+  if (version === 'v2') {
+    return (
+      <TradingViewV2
+        {...props}
+        decimal={decimal || 2}
+        symbol={symbol ?? ''}
+        onPanesCountChange={onPanesCountChange}
       />
-    </Stack>
-  );
+    );
+  }
+
+  return <TradingViewV1 {...props} />;
 }
+
+export type { ITradingViewProps, ITradingViewWithVersionProps, TradingViewV2 };

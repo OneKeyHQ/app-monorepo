@@ -1,3 +1,5 @@
+import { cloneDeep } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 
@@ -18,7 +20,7 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
       const data: ICustomRpcDBStruct = {
         data: { ...(rawData?.data || {}) },
       };
-      let updatedAt = Date.now();
+      let updatedAt = rpcInfo.updatedAt ?? Date.now();
       if (
         data.data[rpcInfo.networkId]?.updatedAt &&
         data.data[rpcInfo.networkId]?.rpc === rpcInfo.rpc
@@ -78,6 +80,6 @@ export class SimpleDbEntityCustomRpc extends SimpleDbEntityBase<ICustomRpcDBStru
     networkId: string,
   ): Promise<IDBCustomRpc | undefined> {
     const rawData = await this.getRawData();
-    return rawData?.data?.[networkId];
+    return cloneDeep(rawData?.data?.[networkId]);
   }
 }

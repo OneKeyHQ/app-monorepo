@@ -3,7 +3,9 @@ import {
   AptosConfig,
   Aptos as AptosRpcClient,
   Deserializer,
+  Ed25519PublicKey,
   MimeType,
+  MultiAgentTransaction,
   RawTransaction,
   Serializer,
   SignedTransaction,
@@ -11,13 +13,23 @@ import {
   TransactionPayloadEntryFunction,
   TransactionPayloadScript,
   U64,
+  generateSignedTransactionForSimulation,
   postAptosFullNode,
 } from '@aptos-labs/ts-sdk';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 
+import {
+  normalizePrivateKey,
+  validatePrivateKey,
+} from '@onekeyhq/core/src/chains/aptos/helper/privateUtils';
+import { deserializeTransaction } from '@onekeyhq/core/src/chains/aptos/helper/transactionUtils';
 import type { IEncodedTxAptos } from '@onekeyhq/core/src/chains/aptos/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import {
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
+} from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
   ISignedTxPro,
@@ -27,6 +39,7 @@ import {
   InvalidAccount,
   NetworkFeeInsufficient,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -87,7 +100,10 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import type { PendingTransactionResponse } from '@aptos-labs/ts-sdk';
+import type {
+  AnyRawTransaction,
+  PendingTransactionResponse,
+} from '@aptos-labs/ts-sdk';
 
 export default class VaultAptos extends VaultBase {
   override coreApi = coreChainApi.aptos.hd;
@@ -129,13 +145,13 @@ export default class VaultAptos extends VaultBase {
   ): Promise<IEncodedTx> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0 || !transfersInfo[0].to) {
-      throw new Error('Invalid transferInfo.to params');
+      throw new OneKeyLocalError('Invalid transferInfo.to params');
     }
     const transferInfo = transfersInfo[0];
     const { to, amount, tokenInfo } = transferInfo;
 
     if (!tokenInfo) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'Invalid transferInfo.tokenInfo params, should not be empty',
       );
     }
@@ -164,9 +180,8 @@ export default class VaultAptos extends VaultBase {
     const expect = getExpirationTimestampSecs();
     const { bcsTxn, disableEditTx } = encodedTx;
     if (!isNil(bcsTxn) && !isEmpty(bcsTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-      const simpleTxn = SimpleTransaction.deserialize(deserializer);
-      const rawTx = simpleTxn.rawTransaction;
+      const originalTxn = deserializeTransaction(bcsTxn);
+      const rawTx = originalTxn.rawTransaction;
 
       let expirationTimestampSecs = rawTx.expiration_timestamp_secs;
       if (!disableEditTx && rawTx.expiration_timestamp_secs < expect) {
@@ -183,12 +198,24 @@ export default class VaultAptos extends VaultBase {
         rawTx.chain_id,
       );
 
-      const newSimpleTxn = new SimpleTransaction(
-        newRawTx,
-        simpleTxn.feePayerAddress,
-      );
+      let newTxn: AnyRawTransaction;
+      if (originalTxn instanceof MultiAgentTransaction) {
+        newTxn = new MultiAgentTransaction(
+          newRawTx,
+          originalTxn.secondarySignerAddresses,
+          originalTxn.feePayerAddress,
+        );
+      } else if (originalTxn instanceof SimpleTransaction) {
+        newTxn = new SimpleTransaction(newRawTx, originalTxn.feePayerAddress);
+      } else {
+        const _exhaustiveCheck: never = originalTxn;
+        throw new OneKeyLocalError(
+          `Unhandled transaction type: ${_exhaustiveCheck as string}`,
+        );
+      }
+
       const serializer = new Serializer();
-      newSimpleTxn.serialize(serializer);
+      newTxn.serialize(serializer);
       encodedTx.bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     } else if (
       !encodedTx.expiration_timestamp_secs ||
@@ -757,10 +784,16 @@ export default class VaultAptos extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    return this.baseGetPrivateKeyFromImported(params);
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
+    const privateKey = normalizePrivateKey(input, 'legacy');
+    return {
+      privateKey: await encodeSensitiveTextAsync({ text: privateKey }),
+    };
   }
 
   override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
@@ -772,7 +805,9 @@ export default class VaultAptos extends VaultBase {
   override validatePrivateKey(
     privateKey: string,
   ): Promise<IPrivateKeyValidation> {
-    return this.baseValidatePrivateKey(privateKey);
+    return Promise.resolve({
+      isValid: validatePrivateKey(privateKey),
+    });
   }
 
   override async validateGeneralInput(
@@ -789,35 +824,38 @@ export default class VaultAptos extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
+    encodedTx: IEncodedTxAptos | undefined;
   }) {
     if (!encodedTx) {
       return { encodedTx };
     }
 
-    let rawTx: SimpleTransaction;
-    const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
+    let rawTx: AnyRawTransaction;
+    const unSignedEncodedTx = encodedTx;
     const { bcsTxn } = unSignedEncodedTx;
     if (bcsTxn && !isEmpty(bcsTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
-      rawTx = SimpleTransaction.deserialize(deserializer);
+      rawTx = deserializeTransaction(bcsTxn);
     } else {
-      const network = await this.getNetwork();
       try {
         rawTx = await generateUnsignedTransaction(this.client, {
           encodedTx,
         });
       } catch (error) {
         if (error instanceof InvalidAccount) {
-          throw new NetworkFeeInsufficient({
-            info: {
-              symbol: network.symbol,
-            },
+          throw new InvalidAccount({
+            message: error.message,
           });
         }
 
         throw error;
       }
+    }
+
+    const account = await this.getAccount();
+    let pubkey = account.pub;
+    if (!pubkey) {
+      const accountOnChain = await this.client.getAccount(account.address);
+      pubkey = accountOnChain.authentication_key;
     }
 
     const rawTxn = rawTx.rawTransaction;
@@ -831,25 +869,52 @@ export default class VaultAptos extends VaultBase {
       rawTxn.chain_id,
     );
 
-    const account = await this.getAccount();
-    const invalidSigBytes = new Uint8Array(64);
-    let pubkey = account.pub;
-    if (!pubkey) {
-      const accountOnChain = await this.client.getAccount(account.address);
-      pubkey = accountOnChain.authentication_key;
+    if (rawTx instanceof MultiAgentTransaction) {
+      rawTx = new MultiAgentTransaction(
+        newRawTx,
+        rawTx.secondarySignerAddresses,
+        rawTx.feePayerAddress,
+      );
+    } else if (rawTx instanceof SimpleTransaction) {
+      rawTx = new SimpleTransaction(newRawTx, rawTx.feePayerAddress);
+    } else {
+      const _exhaustiveCheck: never = rawTx;
+      throw new OneKeyLocalError(
+        `Unhandled transaction type: ${_exhaustiveCheck as string}`,
+      );
     }
-    const { rawTx: rawSignTx } = await buildSignedTx(
-      new SimpleTransaction(newRawTx),
-      pubkey,
-      bufferUtils.bytesToHex(invalidSigBytes),
-    );
 
-    return {
+    const rawSignTxBytes = generateSignedTransactionForSimulation({
+      transaction: rawTx,
+      signerPublicKey: new Ed25519PublicKey(
+        bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+      ),
+      feePayerPublicKey: rawTx.feePayerAddress
+        ? new Ed25519PublicKey(
+            bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+          )
+        : undefined,
+      secondarySignersPublicKeys: rawTx.secondarySignerAddresses
+        ? rawTx.secondarySignerAddresses.map(
+            () =>
+              new Ed25519PublicKey(
+                bufferUtils.hexToBytes(hexUtils.stripHexPrefix(pubkey)),
+              ),
+          )
+        : undefined,
+    });
+
+    const params = {
       encodedTx: {
-        ...(encodedTx as object),
-        rawSignTx,
-      } as unknown as IEncodedTx,
+        ...encodedTx,
+        ...encodedTx.payload,
+        rawSignTx: bufferUtils.bytesToHex(rawSignTxBytes),
+      },
     };
+
+    delete params.encodedTx.payload;
+
+    return params;
   }
 
   override async attachFeeInfoToDAppEncodedTx(params: {

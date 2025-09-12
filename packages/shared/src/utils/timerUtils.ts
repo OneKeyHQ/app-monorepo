@@ -12,7 +12,7 @@ function interceptTimeout(
   ) {
     return methodOld(() => {
       if (global[checkProp]) {
-        console.error(`${method} is disabled`);
+        console.error(`interceptTimeout ERROR: ${method} is disabled`);
         return;
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -118,6 +118,14 @@ const sleepUntil = ({
     checkCondition();
   });
 
+const setTimeoutPromised = (fn?: () => void, delay = 0) =>
+  new Promise<void>((resolve) => {
+    setTimeout(() => {
+      fn?.();
+      resolve();
+    }, delay);
+  });
+
 export default {
   interceptTimerWithDisable,
   enableSetTimeout,
@@ -128,4 +136,5 @@ export default {
   timeout,
   wait,
   getTimeDurationMs,
+  setTimeoutPromised,
 };

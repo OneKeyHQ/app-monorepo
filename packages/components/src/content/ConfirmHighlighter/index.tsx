@@ -1,6 +1,8 @@
 import { MotiView } from 'moti';
 import { getTokenValue } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useThemeValue } from '../../hooks';
 import { Stack } from '../../primitives';
 
@@ -28,18 +30,21 @@ export function ConfirmHighlighter({
           from={{
             borderWidth: 0,
             opacity: 0,
-            shadowOpacity: 0.5,
+            //  WARN  (ADVICE) View #10569 of type RCTView has a shadow set but cannot calculate shadow efficiently. Consider setting a background color to fix this, or apply the shadow to a more specific component.
+            shadowOpacity: platformEnv.isNative ? undefined : 0.5,
           }}
           animate={{
             borderWidth: 2,
             opacity: 1,
-            shadowOpacity: 1,
+            shadowOpacity: platformEnv.isNative ? undefined : 1,
           }}
-          transition={{
-            type: 'timing',
-            duration: 1000,
-            loop: true,
-          }}
+          transition={
+            {
+              type: 'timing',
+              duration: 1000,
+              loop: true,
+            } as any
+          }
           style={{
             position: 'absolute',
             left: -2,
@@ -53,7 +58,7 @@ export function ConfirmHighlighter({
             borderColor: highlightColor,
             shadowColor: highlightColor,
             shadowRadius: 10,
-            shadowOpacity: 1,
+            shadowOpacity: platformEnv.isNative ? undefined : 1,
             shadowOffset: {
               width: 0,
               height: 0,

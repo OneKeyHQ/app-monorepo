@@ -1,22 +1,15 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useThrottledCallback } from 'use-debounce';
 
-import type {
-  IKeyOfIcons,
-  ISizableTextProps,
-  IYStackProps,
-} from '@onekeyhq/components';
+import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
   Badge,
   Banner,
   Button,
-  Dialog,
-  HeaderButtonGroup,
-  HeaderIconButton,
   Icon,
   IconButton,
   Image,
@@ -28,6 +21,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Tabs,
   XStack,
   YStack,
   useMedia,
@@ -37,12 +31,16 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
+// import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -50,27 +48,34 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
-  IEarnAccount,
-  IEarnAccountToken,
-  IEarnRewardUnit,
-} from '@onekeyhq/shared/types/staking';
+  IEarnAvailableAsset,
+  IEarnAvailableAssetProtocol,
+} from '@onekeyhq/shared/types/earn';
+import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
+import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
-import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { useReferFriends } from '../../hooks/useReferFriends';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
+import {
+  AvailableAssetsTabViewList,
+  AvailableAssetsTabViewListMobile,
+} from './components/AvailableAssetsTabViewList';
+import { FAQPanel } from './components/FAQPanel';
+import { showProtocolListDialog } from './components/showProtocolListDialog';
 import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 
-interface ITokenAccount extends IEarnAccountToken {
-  account: IEarnAccount;
-}
+import type { LayoutChangeEvent } from 'react-native';
 
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
@@ -78,6 +83,7 @@ const BANNER_TITLE_OFFSET = {
 };
 
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
+const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
   value: string | number,
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
@@ -93,21 +99,49 @@ const toTokenProviderListPage = async (
     accountId,
     indexedAccountId,
     symbol,
+    protocols,
   }: {
     networkId: string;
     accountId: string;
     indexedAccountId?: string;
     symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
   },
 ) => {
   defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
-  navigation.pushModal(EModalRoutes.StakingModal, {
-    screen: EModalStakingRoutes.AssetProtocolList,
-    params: {
-      networkId,
-      accountId,
-      indexedAccountId,
-      symbol,
+  const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+    accountId,
+    indexedAccountId,
+    networkId,
+  });
+
+  if (protocols.length === 1) {
+    const protocol = protocols[0];
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.ProtocolDetailsV2,
+      params: {
+        networkId: protocol.networkId,
+        accountId: earnAccount?.accountId || accountId,
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccountId,
+        symbol,
+        provider: protocol.provider,
+        vault: protocol.vault,
+      },
+    });
+    return;
+  }
+
+  // Show dialog for multiple protocols instead of navigating to modal
+  showProtocolListDialog({
+    symbol,
+    accountId: earnAccount?.accountId || accountId,
+    indexedAccountId: earnAccount?.account.indexedAccountId || indexedAccountId,
+    onProtocolSelect: async (params) => {
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetailsV2,
+        params,
+      });
     },
   });
 };
@@ -116,28 +150,24 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
   return (
     <YStack
       gap="$4"
-      px="$4"
+      px="$5"
       py="$3.5"
       borderRadius="$3"
       bg="$bg"
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       borderCurve="continuous"
+      alignItems="flex-start"
       {...rest}
     >
-      <XStack gap="$3" alignItems="center">
-        <Skeleton width="$8" height="$8" radius="round" />
-        <YStack py="$1">
-          <Skeleton w={56} h={16} borderRadius="$2" />
-        </YStack>
-      </XStack>
-      <YStack gap="$1">
-        <YStack py="$1">
-          <Skeleton w={80} h={20} borderRadius="$2" />
-        </YStack>
-        <YStack py="$1">
-          <Skeleton w={120} h={12} borderRadius="$2" />
-        </YStack>
+      <YStack alignItems="flex-start" gap="$4">
+        <XStack gap="$3" ai="center" width="100%">
+          <Skeleton width="$8" height="$8" radius="round" />
+          <YStack py="$1">
+            <Skeleton w={56} h={24} borderRadius="$2" />
+          </YStack>
+        </XStack>
+        <Skeleton w={118} h={28} borderRadius="$2" pt="$4" pb="$1" />
       </YStack>
     </YStack>
   );
@@ -146,29 +176,36 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
 function RecommendedItem({
   token,
   ...rest
-}: { token?: ITokenAccount } & IYStackProps) {
-  const intl = useIntl();
+}: { token?: IEarnAvailableAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-  const [decorationColor, setDecorationColor] = useState<string | null>(null);
 
-  useEffect(() => {
-    const url = token?.logoURI;
-    if (url) {
-      void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
-    }
-  }, [token?.logoURI]);
+  // if you want to use the primary color, you can uncomment the following code
+  // useEffect(() => {
+  //   const url = token?.logoURI;
+  //   if (url) {
+  //     void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
+  //   }
+  // }, [token?.logoURI]);
 
   const onPress = useCallback(async () => {
     const {
       activeAccount: { account, indexedAccount },
     } = accountInfo;
-    if (account && token) {
+    if (token) {
+      const earnAccount =
+        await backgroundApiProxy.serviceStaking.getEarnAccount({
+          indexedAccountId: indexedAccount?.id,
+          accountId: account?.id ?? '',
+          networkId: token.protocols[0]?.networkId,
+        });
       await toTokenProviderListPage(navigation, {
-        indexedAccountId: indexedAccount?.id,
-        accountId: account?.id ?? '',
-        networkId: token.account.networkId,
+        indexedAccountId:
+          earnAccount?.account.indexedAccountId || indexedAccount?.id,
+        accountId: earnAccount?.accountId || account?.id || '',
+        networkId: token.protocols[0]?.networkId,
         symbol: token.symbol,
+        protocols: token.protocols,
       });
     }
   }, [accountInfo, navigation, token]);
@@ -181,12 +218,11 @@ function RecommendedItem({
     <YStack
       role="button"
       flex={1}
-      px="$4"
+      px="$5"
       py="$3.5"
       borderRadius="$3"
       borderCurve="continuous"
-      // bg={decorationColor || '$bgSubdued'} // $bgSubdued is the default color. Will cause a blink.
-      bg={decorationColor}
+      bg={token.bgColor}
       borderWidth={StyleSheet.hairlineWidth}
       borderColor="$borderSubdued"
       animation="quick"
@@ -198,171 +234,213 @@ function RecommendedItem({
       }}
       onPress={onPress}
       userSelect="none"
+      alignItems="flex-start"
+      overflow="hidden"
       {...rest}
     >
-      <XStack gap="$3" alignItems="center">
-        <YStack>
-          <Image size="$8">
-            <Image.Source
-              source={{
-                uri: token.logoURI,
-              }}
+      <YStack alignItems="flex-start">
+        <XStack gap="$3" ai="center" width="100%">
+          <YStack>
+            <Image
+              size="$8"
+              source={{ uri: token.logoURI }}
+              fallback={
+                <Image.Fallback
+                  w="$8"
+                  h="$8"
+                  alignItems="center"
+                  justifyContent="center"
+                  bg="$bgStrong"
+                >
+                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                </Image.Fallback>
+              }
             />
-            <Image.Fallback
-              alignItems="center"
-              justifyContent="center"
-              bg="$bgStrong"
-              delayMs={1000}
-            >
-              <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
-            </Image.Fallback>
-          </Image>
-        </YStack>
-        <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
-      </XStack>
-      <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.aprWithoutFee, token.rewardUnit)}
-      </SizableText>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="balance"
-          formatterOptions={{ tokenSymbol: token.symbol }}
-        >
-          {token.balanceParsed}
-        </NumberSizeableText>
-      </SizableText>
+          </YStack>
+          <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
+        </XStack>
+        <SizableText size="$headingXl" pt="$4" pb="$1">
+          {buildAprText(
+            token.aprWithoutFee,
+            token.rewardUnit as IEarnRewardUnit,
+          )}
+        </SizableText>
+      </YStack>
     </YStack>
   );
 }
 
-function RecommendedContainer({
-  profit,
-  children,
-}: PropsWithChildren<{ profit: BigNumber }>) {
-  const [settings] = useSettingsPersistAtom();
+function RecommendedContainer({ children }: PropsWithChildren) {
   const intl = useIntl();
   return (
-    <YStack gap="$3">
+    <YStack
+      gap="$3"
+      px="$0"
+      $md={
+        platformEnv.isNative
+          ? {
+              mx: -20,
+            }
+          : undefined
+      }
+    >
       {/* since the children have been used negative margin, so we should use zIndex to make sure the trigger of popover is on top of the children */}
-      <YStack gap="$1" zIndex={10}>
-        <SizableText size="$headingLg">
-          {intl.formatMessage({ id: ETranslations.earn_recommended })}
+      <YStack
+        gap="$1"
+        pointerEvents="box-none"
+        zIndex={10}
+        $md={
+          platformEnv.isNative
+            ? {
+                px: '$5',
+              }
+            : undefined
+        }
+      >
+        <SizableText size="$headingLg" pointerEvents="box-none">
+          {intl.formatMessage({ id: ETranslations.market_trending })}
         </SizableText>
-        <XStack gap="$1.5">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {`${intl.formatMessage({
-              id: ETranslations.earn_missing_rewards,
-            })}: `}
-            <NumberSizeableText
-              size="$bodyMdMedium"
-              color="$textSuccess"
-              formatter="balance"
-              formatterOptions={{
-                currency: settings.currencyInfo.symbol,
-              }}
-            >
-              {profit.toFixed()}
-            </NumberSizeableText>
-          </SizableText>
-          <Popover
-            placement="bottom-start"
-            title={intl.formatMessage({
-              id: ETranslations.earn_missing_rewards,
-            })}
-            renderContent={
-              <SizableText px="$5" py="$4">
-                {intl.formatMessage({
-                  id: ETranslations.earn_missing_rewards_tooltip,
-                })}
-              </SizableText>
-            }
-            renderTrigger={
-              <IconButton
-                variant="tertiary"
-                size="small"
-                icon="InfoCircleOutline"
-              />
-            }
-          />
-        </XStack>
       </YStack>
       {children}
     </YStack>
   );
 }
 
-function Recommended({
-  isFetchingAccounts = false,
-}: {
-  isFetchingAccounts: boolean;
-}) {
-  const {
-    activeAccount: { account, network },
-  } = useActiveAccount({ num: 0 });
+function Recommended() {
   const actions = useEarnActions();
-  const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
-    [account?.id, actions, network?.id],
+  const { md } = useMedia();
+  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
+
+  // Throttled function to fetch recommended assets
+  const fetchRecommendedAssets = useThrottledCallback(
+    async () => {
+      const loadingKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
+      actions.current.setLoadingState(loadingKey, true);
+
+      try {
+        const recommendedAssets =
+          await backgroundApiProxy.serviceStaking.getAvailableAssets({
+            type: EAvailableAssetsTypeEnum.Recommend,
+          });
+
+        // Update the corresponding data in atom
+        actions.current.updateAvailableAssetsByType(
+          EAvailableAssetsTypeEnum.Recommend,
+          recommendedAssets,
+        );
+        return recommendedAssets;
+      } finally {
+        actions.current.setLoadingState(loadingKey, false);
+      }
+    },
+    timerUtils.getTimeDurationMs({ seconds: 2 }),
+    { leading: true, trailing: false },
   );
-  const [{ earnAccount }] = useEarnAtom();
-  const { tokens, profit } = useMemo(() => {
-    const accountTokens: ITokenAccount[] = [];
-    let totalProfit = new BigNumber(0);
-    const list = earnAccount?.[totalFiatMapKey]?.accounts || [];
-    list?.forEach((accountItem) => {
-      accountItem.tokens.forEach((token) => {
-        totalProfit = totalProfit.plus(token.profit || 0);
-        accountTokens.push({
-          ...token,
-          account: accountItem,
-        });
-      });
-    });
-    return {
-      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
-      profit: totalProfit,
-    };
-  }, [earnAccount, totalFiatMapKey]);
-  if (isFetchingAccounts && tokens.length < 1) {
+
+  // Get recommended assets
+  usePromiseResult(
+    async () => {
+      const result = await fetchRecommendedAssets();
+      return result || [];
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [refreshTrigger, fetchRecommendedAssets], // Add refreshTrigger as dependency
+    {
+      watchLoading: true,
+      initResult: [],
+    },
+  );
+
+  const tokens = useMemo(() => {
+    const recommendAssets =
+      availableAssetsByType[EAvailableAssetsTypeEnum.Recommend] || [];
+    return recommendAssets;
+  }, [availableAssetsByType]);
+
+  // Render skeleton when loading and no data
+  const shouldShowSkeleton = tokens.length === 0;
+  if (shouldShowSkeleton) {
     return (
-      <RecommendedContainer profit={profit}>
-        <XStack m="$-5" p="$3.5">
-          {Array.from({ length: 2 }).map((_, index) => (
-            <YStack
-              key={index}
-              p="$1.5"
-              flexBasis="50%"
-              $gtLg={{
-                flexBasis: '33.33%',
-              }}
-            >
-              <RecommendedSkeletonItem />
-            </YStack>
-          ))}
-        </XStack>
+      <RecommendedContainer>
+        {/* Desktop/Extension with larger screen: 4 items per row */}
+        {platformEnv.isNative ? (
+          // Mobile: horizontal scrolling skeleton
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+            }}
+          >
+            <XStack gap="$3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <YStack key={index} width="$40">
+                  <RecommendedSkeletonItem />
+                </YStack>
+              ))}
+            </XStack>
+          </ScrollView>
+        ) : (
+          // Desktop/Extension: grid layout
+          <XStack m="$-5" p="$3.5" flexWrap="wrap">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <YStack
+                key={index}
+                p="$1.5"
+                flexBasis={
+                  md
+                    ? '50%' // Extension small screen: 2 per row
+                    : '25%' // Desktop: 4 per row
+                }
+              >
+                <RecommendedSkeletonItem />
+              </YStack>
+            ))}
+          </XStack>
+        )}
       </RecommendedContainer>
     );
   }
+
+  // Render actual tokens
   if (tokens.length) {
     return (
-      <RecommendedContainer profit={profit}>
-        <XStack m="$-5" p="$3.5" flexWrap="wrap">
-          {tokens.map((token) => (
-            <YStack
-              key={token.symbol}
-              p="$1.5"
-              flexBasis="50%"
-              $gtLg={{
-                flexBasis: '33.33%',
-              }}
-            >
-              <RecommendedItem token={token} />
-            </YStack>
-          ))}
-        </XStack>
+      <RecommendedContainer>
+        {platformEnv.isNative ? (
+          // Mobile: horizontal scrolling
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+            }}
+          >
+            <XStack gap="$3">
+              {tokens.map((token) => (
+                <YStack key={token.symbol} width="$40">
+                  <RecommendedItem token={token} />
+                </YStack>
+              ))}
+            </XStack>
+          </ScrollView>
+        ) : (
+          // Desktop/Extension: grid layout
+          <XStack m="$-5" p="$3.5" flexWrap="wrap">
+            {tokens.map((token) => (
+              <YStack
+                key={token.symbol}
+                p="$1.5"
+                flexBasis={
+                  md
+                    ? '50%' // Extension small screen: 2 per row
+                    : '25%' // Desktop: 4 per row
+                }
+              >
+                <RecommendedItem token={token} />
+              </YStack>
+            ))}
+          </XStack>
+        )}
       </RecommendedContainer>
     );
   }
@@ -370,21 +448,25 @@ function Recommended({
 }
 
 function Overview({
-  isFetchingAccounts,
   isLoading,
   onRefresh,
 }: {
-  isFetchingAccounts: boolean;
   isLoading: boolean;
   onRefresh: () => void;
 }) {
   const {
-    activeAccount: { account, network },
+    activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
+  const allNetworkId = useAllNetworkId();
   const totalFiatMapKey = useMemo(
-    () => actions.current.buildEarnAccountsKey(account?.id, network?.id),
-    [account?.id, actions, network?.id],
+    () =>
+      actions.current.buildEarnAccountsKey({
+        accountId: account?.id,
+        indexAccountId: indexedAccount?.id,
+        networkId: allNetworkId,
+      }),
+    [account?.id, actions, allNetworkId, indexedAccount?.id],
   );
   const [{ earnAccount }] = useEarnAtom();
   const [settings] = useSettingsPersistAtom();
@@ -411,6 +493,13 @@ function Overview({
     });
   }, [navigation]);
   const intl = useIntl();
+
+  const handleRefresh = useCallback(() => {
+    onRefresh();
+    void backgroundApiProxy.serviceStaking.clearAvailableAssetsCache();
+    actions.current.triggerRefresh();
+  }, [onRefresh, actions]);
+
   return (
     <YStack
       gap="$1"
@@ -418,6 +507,7 @@ function Overview({
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
+        flexWrap: 'wrap',
         flex: 1,
         gap: '$8',
         p: '$8',
@@ -436,6 +526,7 @@ function Overview({
           $gtLg={{
             pl: '$0.5',
           }}
+          pointerEvents="box-none"
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
@@ -446,18 +537,16 @@ function Overview({
             color={getNumberColor(totalFiatValue, '$text')}
             formatterOptions={{ currency: settings.currencyInfo.symbol }}
             numberOfLines={1}
+            pointerEvents="box-none"
           >
             {totalFiatValue}
           </NumberSizeableText>
-          {platformEnv.isNative && isLoading ? (
-            <IconButton loading icon="RefreshCcwOutline" variant="tertiary" />
-          ) : null}
           {platformEnv.isNative ? null : (
             <IconButton
               icon="RefreshCcwOutline"
               variant="tertiary"
               loading={isLoading}
-              onPress={onRefresh}
+              onPress={handleRefresh}
             />
           )}
         </XStack>
@@ -465,6 +554,7 @@ function Overview({
       {/* 24h earnings */}
       <XStack
         gap="$1.5"
+        paddingRight="$24"
         flexShrink={1}
         $gtLg={{
           flexDirection: 'column-reverse',
@@ -482,6 +572,7 @@ function Overview({
           $gtLg={{
             size: '$heading5xl',
           }}
+          pointerEvents="box-none"
         >
           {earnings24h}
         </NumberSizeableText>
@@ -494,6 +585,7 @@ function Overview({
               color: '$text',
               size: '$bodyLgMedium',
             }}
+            pointerEvents="box-none"
           >
             {intl.formatMessage({ id: ETranslations.earn_24h_earnings })}
           </SizableText>
@@ -550,212 +642,68 @@ function Overview({
     </YStack>
   );
 }
-function AvailableAssets() {
-  const {
-    activeAccount: { account, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const [{ availableAssets: assets = [] }] = useEarnAtom();
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  const media = useMedia();
-
-  if (assets.length) {
-    return (
-      <YStack gap="$3">
-        <YStack gap="$1">
-          <SizableText size="$headingLg">
-            {intl.formatMessage({ id: ETranslations.earn_available_assets })}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.earn_available_assets_desc,
-            })}
-          </SizableText>
-        </YStack>
-        <YStack
-          mx="$-5"
-          $gtLg={{
-            mx: 0,
-            overflow: 'hidden',
-            bg: '$bg',
-            borderRadius: '$3',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: '$borderSubdued',
-            borderCurve: 'continuous',
-          }}
-        >
-          {assets.map(
-            (
-              {
-                name,
-                logoURI,
-                aprWithoutFee,
-                networkId,
-                symbol,
-                rewardUnit,
-                tags = [],
-              },
-              index,
-            ) => (
-              <ListItem
-                userSelect="none"
-                key={name}
-                onPress={async () => {
-                  await toTokenProviderListPage(navigation, {
-                    networkId,
-                    accountId: account?.id ?? '',
-                    indexedAccountId: indexedAccount?.id,
-                    symbol,
-                  });
-                }}
-                avatarProps={{
-                  src: logoURI,
-                  fallbackProps: {
-                    borderRadius: '$full',
-                  },
-                  ...(media.gtLg
-                    ? {
-                        size: '$8',
-                      }
-                    : {}),
-                }}
-                {...(media.gtLg
-                  ? {
-                      drillIn: true,
-                      mx: '$0',
-                      px: '$4',
-                      borderRadius: '$0',
-                    }
-                  : {})}
-                {...(index !== 0 && media.gtLg
-                  ? {
-                      borderTopWidth: StyleSheet.hairlineWidth,
-                      borderTopColor: '$borderSubdued',
-                    }
-                  : {})}
-              >
-                <ListItem.Text
-                  flexGrow={1}
-                  flexBasis={0}
-                  primary={
-                    <XStack gap="$2" alignItems="center">
-                      <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-                      <XStack gap="$1">
-                        {tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            badgeType="success"
-                            badgeSize="sm"
-                            userSelect="none"
-                          >
-                            <Badge.Text>{tag}</Badge.Text>
-                          </Badge>
-                        ))}
-                      </XStack>
-                    </XStack>
-                  }
-                />
-                <ListItem.Text
-                  $gtLg={{
-                    flexGrow: 1,
-                    flexBasis: 0,
-                  }}
-                  primary={buildAprText(aprWithoutFee, rewardUnit)}
-                />
-              </ListItem>
-            ),
-          )}
-        </YStack>
-      </YStack>
-    );
-  }
-  return null;
-}
 
 function BasicEarnHome() {
-  const {
-    activeAccount: { account, network, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-  const intl = useIntl();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { account, indexedAccount } = activeAccount;
   const media = useMedia();
   const actions = useEarnActions();
-  const {
-    isLoading: isFetchingAccounts,
-    result,
-    run: refreshOverViewData,
-  } = usePromiseResult(
-    async () => {
-      const totalFiatMapKey = actions.current.buildEarnAccountsKey(
-        account?.id,
-        network?.id,
-      );
-      let assets = actions.current.getAvailableAssets();
-      if (assets.length === 0) {
-        assets = await backgroundApiProxy.serviceStaking.getAvailableAssets();
-        actions.current.updateAvailableAssets(assets);
-      } else {
-        setTimeout(() => {
-          void backgroundApiProxy.serviceStaking
-            .getAvailableAssets()
-            .then(actions.current.updateAvailableAssets);
-        });
-      }
+  const allNetworkId = useAllNetworkId();
 
-      const fetchAndUpdateAction = async () => {
-        const earnAccount =
-          await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-          });
-        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-        actions.current.updateEarnAccounts({
-          key: totalFiatMapKey,
-          earnAccount: {
-            ...earnAccountData,
-            ...earnAccount,
-          },
+  const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
+    usePromiseResult(
+      async () => {
+        if (!account && !indexedAccount) {
+          return;
+        }
+        const totalFiatMapKey = actions.current.buildEarnAccountsKey({
+          accountId: account?.id,
+          indexAccountId: indexedAccount?.id,
+          networkId: allNetworkId,
         });
-      };
-      const fetchAndUpdateOverview = async () => {
-        const overviewData =
-          await backgroundApiProxy.serviceStaking.fetchAccountOverview({
-            assets,
-            accountId: account?.id ?? '',
-            networkId: network?.id ?? '',
-          });
-        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-        actions.current.updateEarnAccounts({
-          key: totalFiatMapKey,
-          earnAccount: {
-            accounts: earnAccountData?.accounts || [],
-            ...overviewData,
-            isOverviewLoaded: true,
-          },
-        });
-      };
-      const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-      const fetchData = async () => {
-        await fetchAndUpdateAction();
-        await fetchAndUpdateOverview();
-      };
-      if (earnAccountData) {
-        await timerUtils.wait(350);
-        void fetchData();
-      } else {
-        await fetchData();
-      }
-      return { loaded: true };
-    },
-    [actions, account?.id, network?.id],
-    {
-      watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
-      revalidateOnReconnect: true,
-      alwaysSetState: true,
-    },
-  );
 
-  const { result: earnBanners } = usePromiseResult(
+        const fetchAndUpdateOverview = async () => {
+          if (!account && !indexedAccount) {
+            return;
+          }
+
+          const overviewData =
+            await backgroundApiProxy.serviceStaking.fetchAccountOverview({
+              accountId: account?.id ?? '',
+              networkId: allNetworkId,
+              indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+            });
+          const earnAccountData =
+            actions.current.getEarnAccount(totalFiatMapKey);
+          actions.current.updateEarnAccounts({
+            key: totalFiatMapKey,
+            earnAccount: {
+              accounts: earnAccountData?.accounts || [],
+              ...overviewData,
+              isOverviewLoaded: true,
+            },
+          });
+        };
+
+        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
+        if (earnAccountData) {
+          await timerUtils.wait(350);
+          await fetchAndUpdateOverview();
+        } else {
+          await fetchAndUpdateOverview();
+        }
+        return { loaded: true };
+      },
+      [actions, account, allNetworkId, indexedAccount],
+      {
+        watchLoading: true,
+        pollingInterval: timerUtils.getTimeDurationMs({ minute: 3 }),
+        revalidateOnReconnect: true,
+        alwaysSetState: true,
+      },
+    );
+
+  const { result: earnBanners, run: refetchBanners } = usePromiseResult(
     async () => {
       const bannerResult =
         await backgroundApiProxy.serviceStaking.fetchEarnHomePageData();
@@ -773,44 +721,83 @@ function BasicEarnHome() {
     [],
     {
       revalidateOnReconnect: true,
+      revalidateOnFocus: true,
     },
   );
 
-  const INTRODUCTION_ITEMS: {
-    icon: IKeyOfIcons;
-    title: string;
-    description: string;
-  }[] = [
-    {
-      icon: 'HandCoinsOutline',
-      title: intl.formatMessage({
-        id: ETranslations.earn_feature_1_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.earn_feature_1_desc,
-      }),
+  const {
+    result: faqList,
+    isLoading: isFaqLoading,
+    run: refetchFAQ,
+  } = usePromiseResult(
+    async () => {
+      const result =
+        await backgroundApiProxy.serviceStaking.getFAQListForHome();
+      return result;
     },
+    [],
     {
-      icon: 'LockOutline',
-      title: intl.formatMessage({
-        id: ETranslations.earn_feature_2_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.earn_feature_2_desc,
-      }),
+      initResult: [],
+      watchLoading: true,
+      revalidateOnFocus: true,
     },
-    {
-      icon: 'ChartColumnar3Outline',
-      title: intl.formatMessage({
-        id: ETranslations.earn_feature_3_title,
-      }),
-      description: intl.formatMessage({
-        id: ETranslations.earn_feature_3_desc,
-      }),
-    },
-  ];
+  );
 
   const navigation = useAppNavigation();
+
+  const accountSelectorActions = useAccountSelectorActions();
+
+  // Listen to tab focus state and refetch incomplete data
+  useListenTabFocusState(
+    ETabRoutes.Earn,
+    useCallback(
+      (isFocus, isHideByModal) => {
+        if (isFocus && !isHideByModal) {
+          // Check and refetch incomplete data when tab becomes focused
+          const recommendKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
+          const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
+          const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
+          const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
+
+          // Check loading states and data for each key
+          const keys = [recommendKey, allKey, stableKey, nativeKey];
+
+          // Check if any data is incomplete and trigger refresh
+          const hasIncompleteData = keys.some((key) =>
+            actions.current.isDataIncomplete(key),
+          );
+
+          if (hasIncompleteData) {
+            // Clear loading states and trigger refresh to restart data fetching
+            keys.forEach((key) => {
+              actions.current.setLoadingState(key, false);
+            });
+            actions.current.triggerRefresh();
+          }
+
+          // Always refetch banner and FAQ data when tab becomes focused
+          // since they are not managed by atom loading states
+          void refetchBanners();
+          void refetchFAQ();
+        }
+      },
+      [actions, refetchBanners, refetchFAQ],
+    ),
+  );
+
+  // Create adapter function for AvailableAssetsTabViewList
+  const handleTokenPress = useCallback(
+    async (params: {
+      networkId: string;
+      accountId: string;
+      indexedAccountId?: string;
+      symbol: string;
+      protocols: IEarnAvailableAssetProtocol[];
+    }) => {
+      await toTokenProviderListPage(navigation, params);
+    },
+    [navigation],
+  );
 
   const onBannerPress = useCallback(
     async ({
@@ -827,22 +814,44 @@ function BasicEarnHome() {
       useSystemBrowser: boolean;
       theme?: 'light' | 'dark';
     }) => {
-      if (account) {
-        if (href.includes('/earn/staking')) {
+      if (account || indexedAccount) {
+        if (href.includes('/defi/staking')) {
           const [path, query] = href.split('?');
           const paths = path.split('/');
           const provider = paths.pop();
           const symbol = paths.pop();
           const params = new URLSearchParams(query);
           const networkId = params.get('networkId');
+          const vault = params.get('vault');
           if (provider && symbol && networkId) {
-            void EarnNavigation.pushDetailPageFromDeeplink(navigation, {
-              accountId: account?.id ?? '',
-              indexedAccountId: indexedAccount?.id,
+            const earnAccount =
+              await backgroundApiProxy.serviceStaking.getEarnAccount({
+                indexedAccountId: indexedAccount?.id,
+                accountId: account?.id ?? '',
+                networkId,
+              });
+            const navigationParams: {
+              accountId?: string;
+              networkId: string;
+              indexedAccountId?: string;
+              symbol: string;
+              provider: string;
+              vault?: string;
+            } = {
+              accountId: earnAccount?.accountId || account?.id || '',
+              indexedAccountId:
+                earnAccount?.account.indexedAccountId || indexedAccount?.id,
               provider,
               symbol,
               networkId,
-            });
+            };
+            if (vault) {
+              navigationParams.vault = vault;
+            }
+            void EarnNavigation.pushDetailPageFromDeeplink(
+              navigation,
+              navigationParams,
+            );
           }
           return;
         }
@@ -851,12 +860,22 @@ function BasicEarnHome() {
         } else {
           openUrlInApp(href);
         }
+      } else {
+        await accountSelectorActions.current.showAccountSelector({
+          navigation,
+          activeWallet: undefined,
+          num: 0,
+          sceneName: EAccountSelectorSceneName.home,
+        });
       }
     },
-    [account, indexedAccount?.id, navigation],
+    [account, accountSelectorActions, indexedAccount, navigation],
   );
 
   const banners = useMemo(() => {
+    // Only show skeleton if earnBanners is undefined
+    const shouldShowSkeleton = earnBanners === undefined;
+
     if (earnBanners) {
       return earnBanners.length ? (
         <Banner
@@ -879,54 +898,211 @@ function BasicEarnHome() {
         />
       ) : null;
     }
-    return (
-      <Skeleton
-        height="$36"
-        $md={{
-          height: '$28',
-        }}
-        width="100%"
-      />
-    );
+
+    if (shouldShowSkeleton) {
+      return (
+        <Skeleton
+          height="$36"
+          $md={{
+            height: '$28',
+          }}
+          width="100%"
+        />
+      );
+    }
+
+    return null;
   }, [earnBanners, media.gtLg, onBannerPress]);
 
   const isLoading = !!isFetchingAccounts;
 
-  const { shareReferRewards } = useReferFriends();
+  const faqPanel = useMemo(() => {
+    // Only show loading if we have no data
+    const shouldShowLoading =
+      isFaqLoading && (!faqList || faqList.length === 0);
+    return <FAQPanel faqList={faqList || []} isLoading={shouldShowLoading} />;
+  }, [faqList, isFaqLoading]);
 
-  const handleShareReferRewards = useCallback(() => {
-    void shareReferRewards();
-  }, [shareReferRewards]);
-
-  const [devSettings] = useDevSettingsPersistAtom();
-  const renderCustomHeaderRight = useCallback(
-    () => (
-      <HeaderButtonGroup
-        testID="ear-Page-Header-Right"
-        className="app-region-no-drag"
+  const gtLgFaqPanel = useMemo(() => {
+    return media.gtLg && (isFaqLoading || faqList.length > 0) ? (
+      <YStack
+        gap="$6"
+        py="$4"
+        px="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderCurve="continuous"
+        $gtMd={{
+          w: EARN_RIGHT_PANEL_WIDTH,
+        }}
       >
-        <HeaderIconButton
-          title={intl.formatMessage({ id: ETranslations.referral_title })}
-          icon="GiftOutline"
-          onPress={handleShareReferRewards}
-        />
-      </HeaderButtonGroup>
-    ),
-    [intl, handleShareReferRewards],
+        {faqPanel}
+      </YStack>
+    ) : null;
+  }, [media.gtLg, isFaqLoading, faqList.length, faqPanel]);
+  const intl = useIntl();
+
+  const tabData = useMemo(
+    () => [
+      {
+        title: intl.formatMessage({ id: ETranslations.global_all }),
+        type: EAvailableAssetsTypeEnum.All,
+      },
+      {
+        // eslint-disable-next-line spellcheck/spell-checker
+        title: intl.formatMessage({ id: ETranslations.earn_stablecoins }),
+        type: EAvailableAssetsTypeEnum.StableCoins,
+      },
+      {
+        title: intl.formatMessage({ id: ETranslations.earn_native_tokens }),
+        type: EAvailableAssetsTypeEnum.NativeTokens,
+      },
+    ],
+    [intl],
   );
 
-  const headerRight = useMemo(
-    () =>
-      devSettings.settings?.showOneKeyId
-        ? renderCustomHeaderRight()
-        : undefined,
-    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
   );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // Use the actual measured height without arbitrary adjustments
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
+
+  if (platformEnv.isNative && media.md) {
+    return (
+      <Page fullPage>
+        <Page.Body>
+          <Stack h={tabPageHeight} />
+          <Tabs.Container
+            allowHeaderOverscroll
+            renderHeader={() => (
+              <YStack
+                flex={1}
+                gap="$4"
+                pt="$5"
+                bg="$bgApp"
+                pointerEvents="box-none"
+              >
+                {/* overview and banner */}
+                <YStack gap="$8">
+                  <Overview
+                    onRefresh={refreshOverViewData}
+                    isLoading={isLoading}
+                  />
+                  {banners ? (
+                    <YStack
+                      px="$5"
+                      minHeight="$36"
+                      $md={{
+                        minHeight: '$28',
+                      }}
+                      borderRadius="$3"
+                      width="100%"
+                      borderCurve="continuous"
+                    >
+                      {banners}
+                    </YStack>
+                  ) : null}
+                </YStack>
+                {/* Recommended, available assets and introduction */}
+                <YStack px="$5" gap="$8">
+                  <YStack pt="$3.5" gap="$8">
+                    <Recommended />
+                  </YStack>
+                  {/* FAQ Panel */}
+                  {banners ? gtLgFaqPanel : null}
+                </YStack>
+                <SizableText
+                  mx="$5"
+                  pb="$4"
+                  size="$headingLg"
+                  pointerEvents="box-none"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.earn_available_assets,
+                  })}
+                </SizableText>
+              </YStack>
+            )}
+            renderTabBar={(props) => (
+              <Tabs.TabBar
+                {...props}
+                containerStyle={{
+                  px: '$5',
+                }}
+                divider={false}
+                renderItem={({ name, isFocused, onPress }) => (
+                  <XStack
+                    px="$2"
+                    py="$1.5"
+                    mr="$1"
+                    bg={isFocused ? '$bgActive' : '$bg'}
+                    borderRadius="$2"
+                    borderCurve="continuous"
+                    onPress={() => onPress(name)}
+                  >
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={isFocused ? '$text' : '$textSubdued'}
+                      letterSpacing={-0.15}
+                    >
+                      {name}
+                    </SizableText>
+                  </XStack>
+                )}
+              />
+            )}
+          >
+            {tabData.map((item) => (
+              <Tabs.Tab name={item.title} key={item.type}>
+                <Tabs.ScrollView
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={isLoading}
+                      onRefresh={refreshOverViewData}
+                    />
+                  }
+                >
+                  <AvailableAssetsTabViewListMobile
+                    onTokenPress={handleTokenPress}
+                    assetType={item.type}
+                    faqList={faqList}
+                  />
+                </Tabs.ScrollView>
+              </Tabs.Tab>
+            ))}
+          </Tabs.Container>
+          {platformEnv.isNative ? (
+            <YStack
+              position="absolute"
+              top={-20}
+              left={0}
+              bg="$bgApp"
+              pt="$5"
+              width="100%"
+              onLayout={handleTabPageLayout}
+            >
+              <TabPageHeader
+                sceneName={EAccountSelectorSceneName.home}
+                tabRoute={ETabRoutes.Earn}
+              />
+            </YStack>
+          ) : null}
+        </Page.Body>
+      </Page>
+    );
+  }
 
   return (
     <Page fullPage>
-      <TabPageHeader showHeaderRight sceneName={EAccountSelectorSceneName.earn}>
-        {headerRight}
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+      >
+        {/* {headerRight} */}
       </TabPageHeader>
       <Page.Body>
         <ScrollView
@@ -939,97 +1115,76 @@ function BasicEarnHome() {
           }
         >
           {/* container */}
-          <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
-            {/* overview and banner */}
-            <YStack
-              gap="$8"
-              $gtLg={{
-                px: '$5',
-                flexDirection: 'row',
-              }}
-            >
-              <Overview
-                onRefresh={refreshOverViewData}
-                isLoading={isLoading}
-                isFetchingAccounts={Boolean(result === undefined || isLoading)}
-              />
+          <YStack
+            w="100%"
+            maxWidth={EARN_PAGE_MAX_WIDTH}
+            mx="auto"
+            flexDirection={banners ? 'column' : 'row'}
+          >
+            <YStack flex={1} gap="$4">
+              {/* overview and banner */}
               <YStack
-                px="$5"
-                minHeight="$36"
-                $md={{
-                  minHeight: '$28',
-                }}
-                borderRadius="$3"
-                width="100%"
-                borderCurve="continuous"
-                $gtLg={{
-                  px: '$0',
-                  w: EARN_RIGHT_PANEL_WIDTH,
-                }}
-              >
-                {banners}
-              </YStack>
-            </YStack>
-            {/* Recommended, available assets and introduction */}
-            <YStack
-              px="$5"
-              gap="$8"
-              $gtLg={{
-                flexDirection: 'row',
-                alignItems: 'flex-start',
-              }}
-            >
-              <YStack
-                pt="$3.5"
                 gap="$8"
                 $gtLg={{
-                  flex: 1,
+                  px: '$5',
+                  flexDirection: 'row',
                 }}
               >
-                <Recommended isFetchingAccounts={isLoading} />
-                <AvailableAssets />
+                <Overview
+                  onRefresh={refreshOverViewData}
+                  isLoading={isLoading}
+                />
+                {banners ? (
+                  <YStack
+                    px="$5"
+                    minHeight="$36"
+                    $md={{
+                      minHeight: '$28',
+                    }}
+                    borderRadius="$3"
+                    width="100%"
+                    borderCurve="continuous"
+                    $gtLg={{
+                      px: '$0',
+                      w: EARN_RIGHT_PANEL_WIDTH,
+                    }}
+                  >
+                    {banners}
+                  </YStack>
+                ) : null}
               </YStack>
-              {media.gtLg ? (
+              {/* Recommended, available assets and introduction */}
+              <YStack
+                px="$5"
+                gap="$8"
+                $gtLg={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                }}
+              >
                 <YStack
-                  gap="$6"
-                  p="$4"
-                  borderWidth={StyleSheet.hairlineWidth}
-                  borderColor="$transparent"
-                  borderRadius="$3"
-                  borderCurve="continuous"
-                  bg="$bgSubdued"
-                  $gtMd={{
-                    w: EARN_RIGHT_PANEL_WIDTH,
+                  pt="$3.5"
+                  gap="$8"
+                  $gtLg={{
+                    flex: 1,
                   }}
                 >
-                  <SizableText size="$headingSm">
-                    {intl.formatMessage({
-                      id: ETranslations.earn_feature_list_title,
-                    })}
-                  </SizableText>
-                  {INTRODUCTION_ITEMS.map((item, index) => (
-                    <YStack key={index} gap="$3" alignItems="flex-start">
-                      <YStack
-                        p="$2"
-                        bg="$bgStrong"
-                        borderRadius="$3"
-                        borderCurve="continuous"
-                      >
-                        <Icon name={item.icon} color="$iconSubdued" />
-                      </YStack>
-                      <YStack gap="$1.5">
-                        <SizableText size="$bodyMdMedium">
-                          {item.title}
-                        </SizableText>
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {item.description}
-                        </SizableText>
-                      </YStack>
-                    </YStack>
-                  ))}
+                  <Recommended />
+                  <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
                 </YStack>
-              ) : null}
+                {/* FAQ Panel */}
+                {banners ? gtLgFaqPanel : null}
+              </YStack>
+              {banners &&
+              (media.gtLg || (faqList.length === 0 && !isFaqLoading)) ? null : (
+                <YStack mt="$1" px="$4" py="$4">
+                  {faqPanel}
+                </YStack>
+              )}
             </YStack>
+            {media.gtLg && !banners ? (
+              <YStack mr="$5">{gtLgFaqPanel}</YStack>
+            ) : null}
           </YStack>
         </ScrollView>
       </Page.Body>

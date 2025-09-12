@@ -12,7 +12,6 @@ import {
   useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
-  withSendConfirmProvider,
 } from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {

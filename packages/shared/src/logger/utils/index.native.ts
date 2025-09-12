@@ -1,14 +1,15 @@
 import {
-  getBuildNumber,
-  getDeviceId,
-  getIncrementalSync,
-  getModel,
-  getSystemName,
-  getSystemVersion,
-  getTotalMemorySync,
-  getUsedMemorySync,
-} from 'react-native-device-info';
+  deviceType,
+  isDevice,
+  manufacturer,
+  modelName,
+  osName,
+  osVersion,
+  supportedCpuArchitectures,
+  totalMemory,
+} from 'expo-device';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   FileLogger,
   LogLevel,
@@ -27,8 +28,8 @@ void FileLogger.configure({
   captureConsole: false,
   dailyRolling: true,
   formatter: (_, msg: string) => msg,
-  maximumFileSize: 1024 * 1024 * 2, // 2MB
-  maximumNumberOfFiles: 2,
+  maximumFileSize: 1024 * 1024 * 20,
+  maximumNumberOfFiles: 3,
   logsDirectory: NATIVE_LOG_DIR_PATH,
   logLevel: LogLevel.Info,
 });
@@ -43,7 +44,7 @@ const consoleFunc = (msg: string) => {
 
 const getLogFilePath = async (filename: string) => {
   if (!RNFS) {
-    throw new Error('RNFS is not available');
+    throw new OneKeyLocalError('RNFS is not available');
   }
   const isExist = await RNFS.exists(NATIVE_LOG_ZIP_PATH);
   if (!isExist) {
@@ -58,11 +59,13 @@ const getLogFilePath = async (filename: string) => {
 
 const getDeviceInfo = () =>
   [
-    `Device: ${getModel()} ${getDeviceId()}`,
-    `System: ${getSystemName()} ${getSystemVersion()}`,
+    `Device: ${manufacturer ?? ''} ${modelName ?? ''}`,
+    `System: ${osName ?? ''} ${osVersion ?? ''}`,
+    `isDevice: ${isDevice ? 1 : 0}`,
+    `deviceType: ${deviceType ?? ''}`,
+    `arch: ${supportedCpuArchitectures?.join(',') ?? ''}`,
     `Version Hash: ${process.env.COMMITHASH || ''}`,
-    `Build Number: ${getBuildNumber()} ${getIncrementalSync()}`,
-    `Memory: ${getUsedMemorySync()}/${getTotalMemorySync()}`,
+    `Memory: ${totalMemory ?? 0}`,
     `appPlatform: ${platformEnv.appPlatform ?? ''}`,
     `appChannel: ${platformEnv.appChannel ?? ''}`,
     `buildNumber: ${platformEnv.buildNumber ?? ''}`,

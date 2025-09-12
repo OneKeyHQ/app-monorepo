@@ -1,4 +1,4 @@
-import { getColors } from 'react-native-image-colors';
+import colors from 'react-native-image-colors';
 
 import platformEnv from '../../platformEnv';
 
@@ -24,7 +24,7 @@ const parseColorResult = (result: ImageColorsResult, defaultColor: string) => {
 
 export const getPrimaryColor = async (url: string, defaultColor: string) => {
   try {
-    const result = await getColors(url, { cache: true, key: url });
+    const result = await colors.getColors(url, { cache: true, key: url });
     return parseColorResult(result, defaultColor);
   } catch (e) {
     return defaultColor;

@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 import { findIndex, isEmpty } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -133,6 +132,34 @@ export function calculateNativeAmountInActions(actions: IDecodedTxAction[]) {
   return {
     nativeAmount,
     nativeAmountValue,
+  };
+}
+
+export function calculateTokenAmountInActions({
+  actions,
+  tokenAddress,
+}: {
+  actions: IDecodedTxAction[];
+  tokenAddress: string;
+}) {
+  let tokenAmount = '0';
+  actions.forEach((item) => {
+    if (
+      item.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      item.assetTransfer
+    ) {
+      item.assetTransfer.sends.forEach((send) => {
+        if (
+          send.tokenIdOnNetwork.toLowerCase() === tokenAddress.toLowerCase()
+        ) {
+          tokenAmount = new BigNumber(tokenAmount).plus(send.amount).toFixed();
+        }
+      });
+    }
+  });
+
+  return {
+    tokenAmount,
   };
 }
 

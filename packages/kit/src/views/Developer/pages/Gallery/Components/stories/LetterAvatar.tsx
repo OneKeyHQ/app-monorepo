@@ -9,6 +9,7 @@ import { Layout } from './utils/Layout';
 
 const LetterAvatarGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="LetterAvatar"
     elements={[
       {

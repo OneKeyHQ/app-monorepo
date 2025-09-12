@@ -30,6 +30,7 @@ import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils'
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -46,7 +47,7 @@ import type { FontSizeTokens } from 'tamagui';
 function HomeOverviewContainer() {
   const num = 0;
   const {
-    activeAccount: { account, network, wallet, deriveInfoItems },
+    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
   } = useActiveAccount({ num });
   const intl = useIntl();
 
@@ -54,6 +55,8 @@ function HomeOverviewContainer() {
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
+  const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
+    useState(false);
 
   const listRefreshKey = useRef('');
 
@@ -63,14 +66,6 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
-
-  const { result: vaultSettings } = usePromiseResult(async () => {
-    if (!network) return;
-    const s = backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: network.id,
-    });
-    return s;
-  }, [network]);
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
@@ -120,6 +115,8 @@ function HomeOverviewContainer() {
         setIsRefreshingNftList(isRefreshing);
       } else if (type === EHomeTab.HISTORY) {
         setIsRefreshingHistoryList(isRefreshing);
+      } else if (type === EHomeTab.APPROVALS) {
+        setIsRefreshingApprovalList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
     };
@@ -134,7 +131,8 @@ function HomeOverviewContainer() {
       account &&
       network &&
       accountWorth.initialized &&
-      account.id === accountWorth.accountId
+      (account.id === accountWorth.accountId ||
+        account.indexedAccountId === accountWorth.accountId)
     ) {
       if (accountUtils.isOthersAccount({ accountId: account.id })) {
         if (!network.isAllNetworks && account.createAtNetwork !== network.id)
@@ -150,7 +148,6 @@ function HomeOverviewContainer() {
         });
       } else {
         const accountValueId = account.indexedAccountId as string;
-
         if (!network.isAllNetworks) {
           void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
             {
@@ -204,24 +201,17 @@ function HomeOverviewContainer() {
     isRefreshingWorth ||
     isRefreshingTokenList ||
     isRefreshingNftList ||
-    isRefreshingHistoryList;
+    isRefreshingHistoryList ||
+    isRefreshingApprovalList;
 
   const refreshButton = useMemo(() => {
-    if (platformEnv.isNative) {
-      return isLoading ? (
-        <IconButton
-          icon="RefreshCcwOutline"
-          variant="tertiary"
-          loading={isLoading}
-        />
-      ) : undefined;
-    }
     return platformEnv.isNative ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
         loading={isLoading}
         onPress={handleRefreshWorth}
+        trackID="wallet-refresh-manually"
       />
     );
   }, [handleRefreshWorth, isLoading]);
@@ -267,6 +257,15 @@ function HomeOverviewContainer() {
       );
       return allWorth;
     }
+
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      const allWorth = Object.values(accountWorth.worth).reduce(
+        (acc: string, cur: string) => new BigNumber(acc).plus(cur).toFixed(),
+        '0',
+      );
+      return allWorth;
+    }
+
     return (
       accountWorth.worth[
         accountUtils.buildAccountValueKey({
@@ -277,14 +276,13 @@ function HomeOverviewContainer() {
       Object.values(accountWorth.worth)[0] ??
       '0'
     );
-  }, [accountWorth.worth, account?.id, network?.id, network?.isAllNetworks]);
-
-  if (overviewState.isRefreshing && !overviewState.initialized)
-    return (
-      <Stack py="$2.5">
-        <Skeleton w="$40" h="$7" my="$2.5" />
-      </Stack>
-    );
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    accountWorth.worth,
+    account?.id,
+  ]);
 
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
@@ -296,52 +294,72 @@ function HomeOverviewContainer() {
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
+  const showSkeleton = useMemo(() => {
+    return overviewState.isRefreshing && !overviewState.initialized;
+  }, [overviewState.isRefreshing, overviewState.initialized]);
+
   return (
     <YStack gap="$2.5" alignItems="flex-start">
-      <XStack alignItems="center" gap="$3">
-        <XStack
-          flexShrink={1}
-          borderRadius="$3"
-          px="$1"
-          py="$0.5"
-          mx="$-1"
-          my="$-0.5"
-          cursor="default"
-          focusable
-          hoverStyle={{
-            bg: '$bgHover',
+      <YStack w="100%" gap="$2">
+        <AllNetworksManagerTrigger
+          num={0}
+          containerProps={{
+            ml: '$1',
           }}
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          focusVisibleStyle={{
-            outlineColor: '$focusRing',
-            outlineWidth: 2,
-            outlineOffset: 0,
-            outlineStyle: 'solid',
-          }}
-          onPress={handleBalanceOnPress}
-        >
-          <NumberSizeableTextWrapper
-            hideValue
-            flexShrink={1}
-            minWidth={0}
-            {...numberFormatter}
-            size={
-              md
-                ? balanceSizeList.find(
-                    (item) =>
-                      numberFormat(String(balanceString), numberFormatter, true)
-                        .length >= item.length,
-                  )?.size ?? defaultBalanceSize
-                : defaultBalanceSize
-            }
-          >
-            {balanceString}
-          </NumberSizeableTextWrapper>
-        </XStack>
-        {refreshButton}
-      </XStack>
+          showSkeleton={showSkeleton}
+        />
+        {showSkeleton ? (
+          <Skeleton.Heading5Xl my="$-0.5" />
+        ) : (
+          <XStack alignItems="center" gap="$3">
+            <XStack
+              flexShrink={1}
+              borderRadius="$3"
+              px="$1"
+              py="$0.5"
+              mx="$-1"
+              my="$-0.5"
+              cursor="default"
+              focusable
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineOffset: 0,
+                outlineStyle: 'solid',
+              }}
+              onPress={handleBalanceOnPress}
+            >
+              <NumberSizeableTextWrapper
+                hideValue
+                flexShrink={1}
+                minWidth={0}
+                {...numberFormatter}
+                size={
+                  md
+                    ? balanceSizeList.find(
+                        (item) =>
+                          numberFormat(
+                            String(balanceString),
+                            numberFormatter,
+                            true,
+                          ).length >= item.length,
+                      )?.size ?? defaultBalanceSize
+                    : defaultBalanceSize
+                }
+              >
+                {balanceString}
+              </NumberSizeableTextWrapper>
+            </XStack>
+            {refreshButton}
+          </XStack>
+        )}
+      </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button
           onPress={handleBalanceDetailsOnPress}

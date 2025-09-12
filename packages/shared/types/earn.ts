@@ -1,8 +1,13 @@
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+
 export enum EEarnProviderEnum {
   Lido = 'Lido',
   Everstake = 'Everstake',
   Babylon = 'Babylon',
   Morpho = 'Morpho',
+  Falcon = 'Falcon',
+  Ethena = 'Ethena',
+  Momentum = 'Momentum',
 }
 
 export type ISupportedSymbol =
@@ -13,12 +18,14 @@ export type ISupportedSymbol =
   | 'WETH'
   | 'cbBTC'
   | 'WBTC'
-  | 'MATIC'
+  | 'POL'
   | 'SOL'
   | 'ATOM'
   | 'APT'
   | 'BTC'
-  | 'SBTC';
+  | 'SBTC'
+  | 'USDf'
+  | 'USDe';
 
 export interface IStakingFlowConfig {
   enabled: boolean;
@@ -64,4 +71,55 @@ export interface IEarnPermitCacheKey {
   networkId: string;
   tokenAddress: string;
   amount: string;
+}
+
+export enum EAvailableAssetsTypeEnum {
+  All = 'all',
+  StableCoins = 'stableCoins',
+  NativeTokens = 'nativeTokens',
+  Recommend = 'recommend',
+}
+
+export interface IEarnAvailableAssetProtocol {
+  networkId: string;
+  provider: string;
+  vault?: string;
+}
+
+export interface IEarnAvailableAssetAprInfo {
+  highlight?: {
+    text: string;
+    color?: ColorTokens;
+    icon?: {
+      icon: IKeyOfIcons;
+      color?: ColorTokens;
+    };
+  };
+  normal?: {
+    text: string;
+    color?: ColorTokens;
+  };
+  deprecated?: {
+    text: string;
+    color?: ColorTokens;
+  };
+}
+
+export interface IEarnAvailableAssetBadge {
+  tag: string;
+  badgeType: string;
+}
+
+export interface IEarnAvailableAsset {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  apr: string;
+  aprWithoutFee: string;
+  tags: string[];
+  rewardUnit: string;
+  protocols: IEarnAvailableAssetProtocol[];
+  badges?: IEarnAvailableAssetBadge[];
+  aprInfo?: IEarnAvailableAssetAprInfo;
+  bgColor?: string;
 }

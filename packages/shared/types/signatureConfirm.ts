@@ -174,6 +174,7 @@ export interface ISignatureConfirmDisplay {
   mevProtectionProvider?: {
     name: string;
     logoURI: string;
+    logoURIDark?: string;
   };
 }
 

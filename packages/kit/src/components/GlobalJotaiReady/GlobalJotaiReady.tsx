@@ -9,6 +9,7 @@ export function GlobalJotaiReady({ children }: { children: any }) {
   useEffect(() => {
     void globalJotaiStorageReadyHandler.ready.then((ready) => {
       startTransition(() => {
+        console.log('GlobalJotaiReady ready', ready);
         setIsReady(ready);
       });
     });

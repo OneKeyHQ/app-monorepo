@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { Stack } from '@onekeyhq/components';
+import { SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
@@ -17,10 +17,11 @@ import {
   usePasswordModeAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   BIOLOGY_AUTH_ATTEMPTS_FACE,
@@ -34,6 +35,7 @@ import {
 } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
+import { useResetApp } from '../../../views/Setting/hooks';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
@@ -199,7 +201,7 @@ const PasswordVerifyContainer = ({
             onVerifyRes('');
             resetPasswordErrorAttempts();
           } else {
-            throw new Error('biology auth verify error');
+            throw new OneKeyLocalError('biology auth verify error');
           }
         } else {
           let biologyAuthRes;
@@ -222,7 +224,7 @@ const PasswordVerifyContainer = ({
             onVerifyRes(biologyAuthRes);
             resetPasswordErrorAttempts();
           } else {
-            throw new Error('biology auth verify error');
+            throw new OneKeyLocalError('biology auth verify error');
           }
         }
       } catch (e: any) {
@@ -283,6 +285,8 @@ const PasswordVerifyContainer = ({
     ],
   );
 
+  const resetApp = useResetApp({ silentReset: true });
+
   const onInputPasswordAuthenticate = useCallback(
     async (data: IPasswordVerifyForm) => {
       if (
@@ -335,21 +339,10 @@ const PasswordVerifyContainer = ({
             skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
-            // reset app
-            try {
-              // disable setInterval on ext popup
-              if (platformEnv.isExtensionUiPopup) {
-                resetUtils.startResetting();
-              }
-              await backgroundApiProxy.serviceApp.resetApp();
-            } catch (error) {
-              console.error('failed to reset app with error', error);
-            } finally {
-              // able setInterval on ext popup
-              if (platformEnv.isExtensionUiPopup) {
-                resetUtils.endResetting();
-              }
-            }
+            defaultLogger.setting.page.resetApp({
+              reason: 'WrongPasscodeMaxAttempts',
+            });
+            await resetApp();
           } else if (
             nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
             !skipProtection
@@ -391,6 +384,7 @@ const PasswordVerifyContainer = ({
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
+      resetApp,
       resetPasswordErrorAttempts,
       setPasswordAtom,
       setPasswordErrorProtectionTimeMinutesSurplus,
@@ -399,6 +393,46 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
     ],
   );
+
+  const [isPasswordEncryptorReady, setIsPasswordEncryptorReady] =
+    useState(false);
+  const [passwordEncryptorInitError, setPasswordEncryptorInitError] =
+    useState('');
+  useEffect(() => {
+    void (async () => {
+      try {
+        setPasswordEncryptorInitError('');
+        await timerUtils.wait(600);
+        const isReady =
+          await backgroundApiProxy.servicePassword.waitPasswordEncryptorReady();
+        if (isReady) {
+          setIsPasswordEncryptorReady(isReady);
+        }
+      } catch (e) {
+        console.error('failed to waitPasswordEncryptorReady with error', e);
+        const errorMessage = (e as Error)?.message || '';
+        if (errorMessage) {
+          // setPasswordEncryptorInitError(errorMessage);
+          // Toast.error({
+          //   title: errorMessage,
+          //   message: 'Please restart the app and try again later',
+          // });
+        }
+        throw e;
+      }
+    })();
+  }, []);
+
+  const loadingView = useMemo(() => {
+    return passwordEncryptorInitError ? (
+      <SizableText size="$bodyMd" color="$textCritical" textAlign="center">
+        {passwordEncryptorInitError}
+      </SizableText>
+    ) : (
+      <Spinner />
+    );
+  }, [passwordEncryptorInitError]);
+
   return (
     <Stack onLayout={onLayout}>
       <PasswordVerify
@@ -417,6 +451,16 @@ const PasswordVerifyContainer = ({
         isEnable={isBiologyAuthEnable}
         authType={isEnable ? authType : [AuthenticationType.FINGERPRINT]}
       />
+      {passwordEncryptorInitError ? (
+        <SizableText
+          size="$bodyMd"
+          color="$textCritical"
+          textAlign="center"
+          mt="$2"
+        >
+          {passwordEncryptorInitError}
+        </SizableText>
+      ) : null}
     </Stack>
   );
 };

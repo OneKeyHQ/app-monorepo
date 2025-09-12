@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, IconButton, Stack } from '@onekeyhq/components';
+import { Badge, Button, IconButton, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
@@ -10,11 +10,17 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IStakeTag } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnHistoryActionIcon,
+  IStakeTag,
+} from '@onekeyhq/shared/types/staking';
 
 type IStakingActivityIndicatorProps = {
   num: number;
   onPress?: () => void;
+  historyAction?: IEarnHistoryActionIcon;
+  shareUrl?: string;
+  onShare?: () => void;
 };
 
 const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
@@ -40,24 +46,53 @@ const PendingIndicator = ({ num, onPress }: IStakingActivityIndicatorProps) => {
 const StakingActivityIndicator = ({
   num,
   onPress,
+  historyAction,
+  shareUrl,
+  onShare,
 }: IStakingActivityIndicatorProps) => {
   const appNavigation = useAppNavigation();
   const headerRight = useCallback(() => {
     if (num > 0) {
-      return <PendingIndicator num={num} onPress={onPress} />;
-    }
-    if (onPress) {
       return (
-        <IconButton
-          variant="tertiary"
-          size="medium"
-          icon="ClockTimeHistoryOutline"
-          onPress={onPress}
-        />
+        <XStack gap="$4" alignItems="center">
+          <PendingIndicator num={num} onPress={onPress} />
+          {shareUrl && onShare ? (
+            <IconButton
+              icon="ShareOutline"
+              variant="tertiary"
+              size="medium"
+              onPress={onShare}
+            />
+          ) : null}
+        </XStack>
+      );
+    }
+    if ((historyAction && onPress) || (shareUrl && onShare)) {
+      return (
+        <XStack gap="$4" alignItems="center">
+          {historyAction && onPress ? (
+            <Button
+              variant="tertiary"
+              size="medium"
+              disabled={historyAction.disabled}
+              onPress={onPress}
+            >
+              {historyAction.text.text}
+            </Button>
+          ) : null}
+          {shareUrl && onShare ? (
+            <IconButton
+              icon="ShareOutline"
+              variant="tertiary"
+              size="medium"
+              onPress={onShare}
+            />
+          ) : null}
+        </XStack>
       );
     }
     return null;
-  }, [num, onPress]);
+  }, [historyAction, num, onPress, shareUrl, onShare]);
   useEffect(() => {
     appNavigation.setOptions({
       headerRight,
@@ -72,12 +107,18 @@ export const StakingTransactionIndicator = ({
   stakeTag,
   onRefresh,
   onPress,
+  historyAction,
+  shareUrl,
+  onShare,
 }: {
   accountId?: string;
   networkId: string;
   stakeTag: IStakeTag;
   onRefresh?: () => void;
   onPress?: () => void;
+  historyAction?: IEarnHistoryActionIcon;
+  shareUrl?: string;
+  onShare?: () => void;
 }) => {
   const { result: txs, run } = usePromiseResult(
     async () => {
@@ -140,5 +181,13 @@ export const StakingTransactionIndicator = ({
     }
   }, [prevIsPending, isPending, onRefresh]);
 
-  return <StakingActivityIndicator num={txs.length} onPress={onPress} />;
+  return (
+    <StakingActivityIndicator
+      num={txs.length}
+      onPress={onPress}
+      historyAction={historyAction}
+      shareUrl={shareUrl}
+      onShare={onShare}
+    />
+  );
 };

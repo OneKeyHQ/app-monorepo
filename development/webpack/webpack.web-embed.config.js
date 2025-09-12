@@ -12,6 +12,12 @@ module.exports = ({
   basePath,
   platform = babelTools.developmentConsts.platforms.webEmbed,
 }) => {
+  const config = {
+    entry: {
+      sentry: path.join(basePath, 'sentry.js'),
+      main: path.join(basePath, 'index.js'),
+    },
+  };
   switch (NODE_ENV) {
     case 'production':
       return merge(
@@ -29,6 +35,7 @@ module.exports = ({
             uniqueName: 'web',
             filename: 'web-embed.[contenthash:10].js',
           },
+          ...config,
         },
       );
     case 'development':
@@ -40,6 +47,7 @@ module.exports = ({
           output: {
             publicPath: '',
           },
+          ...config,
         },
       );
   }

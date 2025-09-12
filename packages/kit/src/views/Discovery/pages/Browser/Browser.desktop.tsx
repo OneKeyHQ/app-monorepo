@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 
@@ -47,23 +47,6 @@ function DesktopBrowser() {
     }
   }, [route.params, addBrowserHomeTab]);
 
-  const navigation = useAppNavigation();
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (
-      !firstRender.current &&
-      // unpin == 0
-      tabs.filter((x) => !x.isPinned).length === 0 &&
-      // pin & active == 0
-      tabs.filter((x) => x.isPinned && x.isActive).length === 0
-    ) {
-      navigation.switchTab(ETabRoutes.Discovery);
-    }
-    if (firstRender.current) {
-      firstRender.current = false;
-    }
-  }, [tabs, navigation]);
-
   useDAppNotifyChanges({ tabId: activeTabId });
 
   // Sort tabs by id to maintain stable order and prevent re-renders
@@ -72,6 +55,13 @@ function DesktopBrowser() {
     [tabs],
   );
 
+  const renderHeaderRight = useCallback(() => {
+    if (isHomeType) {
+      return <HistoryIconButton />;
+    }
+    return <HeaderRightToolBar />;
+  }, [isHomeType]);
+
   return (
     <Page>
       <Page.Header
@@ -79,8 +69,7 @@ function DesktopBrowser() {
         headerTitle={
           !isHomeType ? DesktopBrowserNavigationContainer : undefined
         }
-        // @ts-expect-error
-        headerRight={!isHomeType ? HeaderRightToolBar : HistoryIconButton}
+        headerRight={renderHeaderRight}
         headerRightContainerStyle={{
           flexBasis: 'auto',
           flexGrow: 0,

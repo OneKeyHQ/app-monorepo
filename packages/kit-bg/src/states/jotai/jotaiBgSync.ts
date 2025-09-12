@@ -1,9 +1,10 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { jotaiInitFromUi } from './jotaiInit';
+import { jotaiInitFromUi } from './jotaiInitFromUi';
 
 import type { EAtomNames } from './atomNames';
 import type BackgroundApiProxy from '../../apis/BackgroundApiProxy';
@@ -60,7 +61,7 @@ export class JotaiBgSync {
       payload,
     };
     if (!this.backgroundApi.bridgeExtBg) {
-      throw new Error('backgroundApi.bridgeExtBg is not ready');
+      throw new OneKeyLocalError('backgroundApi.bridgeExtBg is not ready');
     }
     this.backgroundApi.bridgeExtBg.requestToAllUi({
       method: GLOBAL_STATES_SYNC_BROADCAST_METHOD_NAME,

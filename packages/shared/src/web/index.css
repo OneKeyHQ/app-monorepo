@@ -62,7 +62,9 @@ body {
 */
 /* set width=0 to hide scrollbar */
 ::-webkit-scrollbar {
+  /* width: 0 controls vertical scrollbar, height: 0 controls horizontal scrollbar */
   width: 0;
+  height: 0;
   background: transparent;
 }
 
@@ -217,4 +219,23 @@ body > div.cet-container {
 
 .onekey-body >.cet-titlebar >.cet-menubar {
   margin-left: 16px;
+}
+
+.normal-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+}
+
+.normal-scrollbar::-webkit-scrollbar-track {
+  background: #F9F9F9;
+  border-radius: 100px;
+}
+
+.normal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.27);
+  border-radius: 100px;
+}
+
+w3m-modal { 
+  z-index: 99993173;
 }

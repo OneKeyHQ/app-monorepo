@@ -34,19 +34,24 @@ export function WalletAvatarBase({
   });
 
   if (isHidden) {
-    return <Icon size="$10" name="LockSolid" color="$iconSubdued" />;
+    return <Icon size={size || '$10'} name="LockSolid" />;
   }
 
   return (
-    <Image size={size}>
-      <Image.Source
-        source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
-      />
-
-      <Image.Fallback delayMs={300} justifyContent="center" alignItems="center">
-        <SizableText>{wallet?.avatarInfo?.emoji ?? ''}</SizableText>
-      </Image.Fallback>
-    </Image>
+    <Image
+      size={size}
+      source={AllWalletAvatarImages[theImg] ?? AllWalletAvatarImages.bear}
+      fallback={
+        <Image.Fallback
+          w={size}
+          h={size}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <SizableText>{wallet?.avatarInfo?.emoji ?? ''}</SizableText>
+        </Image.Fallback>
+      }
+    />
   );
 }
 

@@ -17,6 +17,13 @@
 - [Browser extensions: Chrome, Firefox, Edge & Brave](https://onekey.so/zh_CN/download?client=browserExtension)
 - [Bridge](https://onekey.so/zh_CN/download?client=bridge)
 
+## Document
+
+[Deepwiki](https://deepwiki.com/OneKeyHQ/app-monorepo)
+
+![CleanShot 2025-04-27 at 15 43 53@2x](https://github.com/user-attachments/assets/7e1a9c12-f79d-49da-be8e-9a8de8252563)
+
+
 ## Community & Enterprise Edition
 
 - 🏡 🧔🏻‍♂️ For Community Edition. It will always remain FREE FOREVER for open-source projects by individuals and communities.

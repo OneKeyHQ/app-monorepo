@@ -1,5 +1,5 @@
 import { useIntl } from 'react-intl';
-import { InteractionManager, Keyboard } from 'react-native';
+import { Keyboard } from 'react-native';
 
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
@@ -18,11 +18,14 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useV4MigrationActions } from '../V4Migration/hooks/useV4MigrationActions';
@@ -55,7 +58,7 @@ const closeKeyboard = platformEnv.isNative
           const subscription = Keyboard.addListener(
             KEYBOARD_HIDE_EVENT_NAME,
             () => {
-              void InteractionManager.runAfterInteractions(() => {
+              void timerUtils.setTimeoutPromised(() => {
                 subscription.remove();
                 resolve();
               });
@@ -79,6 +82,7 @@ export function ImportWalletOptions() {
   );
 
   const v4MigrationActions = useV4MigrationActions();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const handleConnectHardwareWalletPress = async () => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
@@ -88,55 +92,93 @@ export function ImportWalletOptions() {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportRecoveryPhrase);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'recoveryPhrase',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportKeyTag = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.ImportKeyTag);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'keyTag',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportPrivateKeyPress = async () => {
     await backgroundApiProxy.servicePassword.promptPasswordVerify();
     await closeKeyboard();
     navigation.push(EOnboardingPages.ImportPrivateKey);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'privateKey',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportAddressPress = async () => {
     navigation.push(EOnboardingPages.ImportAddress);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'address',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const handleImportFromCloud = async () => {
     await backupEntryStatus.check();
     navigation.push(EOnboardingPages.ImportCloudBackup);
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'cloud',
+      },
+      isSoftwareWalletOnlyUser,
+    });
+  };
+
+  const handleImportByTransfer = async () => {
+    // await backupEntryStatus.check();
+    navigation?.pushModal(EModalRoutes.PrimeModal, {
+      screen: EPrimePages.PrimeTransfer,
+    });
+    defaultLogger.account.wallet.addWalletStarted({
+      addMethod: 'ImportWallet',
+      details: {
+        importType: 'transfer',
+      },
+      isSoftwareWalletOnlyUser,
+    });
   };
 
   const options: IOptionSection[] = [
-    ...(!platformEnv.isWeb && platformEnv.isDev
-      ? [
-          {
-            sectionTitle: intl.formatMessage({
-              id: ETranslations.global_transfer,
-            }),
-            data: [
-              {
-                icon: 'MultipleDevicesOutline',
-                title: intl.formatMessage({
-                  id: ETranslations.global_transfer,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.onboarding_transfer_desc,
-                }),
-                onPress: handleImportFromCloud,
-              } as IOptionItem,
-            ],
-          },
-        ]
-      : []),
     {
       sectionTitle: intl.formatMessage({
         id: ETranslations.global_restore,
       }),
       data: [
+        {
+          icon: 'MultipleDevicesOutline',
+          title: intl.formatMessage({
+            id: ETranslations.transfer_transfer,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.prime_transfer_description,
+          }),
+          onPress: handleImportByTransfer,
+        },
         {
           title: intl.formatMessage({
             id: ETranslations.global_recovery_phrase,
@@ -163,7 +205,7 @@ export function ImportWalletOptions() {
                     testID="acknowledged"
                   >
                     {intl.formatMessage({
-                      id: ETranslations.global_acknowledged,
+                      id: ETranslations.global_ok,
                     })}
                   </Button>
                   <Button

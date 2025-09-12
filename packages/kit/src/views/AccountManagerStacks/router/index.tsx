@@ -23,6 +23,10 @@ const HardwareHomeScreenModal = LazyLoadPage(
   () => import('../pages/HardwareHomeScreen/HardwareHomeScreenModal'),
 );
 
+const PageResolveSameWallets = LazyLoadPage(
+  () => import('../pages/PageResolveSameWallets'),
+);
+
 export const AccountManagerStacks: IModalFlowNavigatorConfig<
   EAccountManagerStacksRoutes,
   IAccountManagerStacksParamList
@@ -46,5 +50,9 @@ export const AccountManagerStacks: IModalFlowNavigatorConfig<
   {
     name: EAccountManagerStacksRoutes.HardwareHomeScreenModal,
     component: HardwareHomeScreenModal,
+  },
+  {
+    name: EAccountManagerStacksRoutes.PageResolveSameWallets,
+    component: PageResolveSameWallets,
   },
 ];

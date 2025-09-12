@@ -1,4 +1,5 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IBitcoinValue, IQRCodeHandler } from '../type';
@@ -32,8 +33,9 @@ const bitcoin: IQRCodeHandler<IBitcoinValue> = async (value, options) => {
 
   if (queryList?.amount) {
     queryList.amount = Number(queryList?.amount);
-    if (!Number.isFinite(queryList?.amount)) throw new Error('Invalid amount');
-    if (queryList?.amount < 0) throw new Error('Invalid amount');
+    if (!Number.isFinite(queryList?.amount))
+      throw new OneKeyLocalError('Invalid amount');
+    if (queryList?.amount < 0) throw new OneKeyLocalError('Invalid amount');
   }
 
   const { amount, label, message, ...paramList } = queryList;

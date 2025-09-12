@@ -2,6 +2,8 @@
 import { uniq } from 'lodash';
 import { Platform } from 'react-native';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { ONEKEY_LOGO_ICON_URL } from '../consts';
 import {
   ONEKEY_APP_DEEP_LINK,
@@ -26,6 +28,7 @@ export const DAPP_SIDE_SINGLE_WALLET_MODE = true;
 export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 
 export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
+// type Level = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
 
 const platformName = uniq([
@@ -37,7 +40,7 @@ const platformName = uniq([
   .join('-');
 
 if (!platformName) {
-  throw new Error('platformName is empty');
+  throw new OneKeyLocalError('platformName is empty');
 }
 
 export const WALLET_CONNECT_CLIENT_NAME = platformEnv.appFullName;

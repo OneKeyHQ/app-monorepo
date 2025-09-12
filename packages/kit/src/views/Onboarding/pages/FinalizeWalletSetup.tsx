@@ -1,18 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Heading,
   Icon,
+  NavBackButton,
+  NavCloseButton,
   Page,
   Spinner,
   Stack,
-  Toast,
+  usePreventRemove,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
+import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -27,12 +32,16 @@ import type {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '../../../states/jotai/contexts/accountSelector';
 import { withPromptPasswordVerify } from '../../../utils/passwordUtils';
 
 function FinalizeWalletSetupPage({
@@ -49,13 +58,28 @@ function FinalizeWalletSetupPage({
   const navigation = useAppNavigation();
   const mnemonic = route?.params?.mnemonic;
   const mnemonicType = route?.params?.mnemonicType;
+  const isWalletBackedUp = route?.params?.isWalletBackedUp;
   const [onboardingError, setOnboardingError] = useState<
     IOneKeyError | undefined
   >(undefined);
+  const closePageCalled = useRef(false);
+
+  const {
+    shouldBondReferralCode,
+    getReferralCodeBondStatus,
+    bindWalletInviteCode,
+  } = useWalletBoundReferralCode({
+    entry: 'tab',
+    mnemonicType,
+  });
 
   useEffect(() => {
     setOnboardingError(undefined);
   }, []);
+
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({ num: 0 });
 
   const actions = useAccountSelectorActions();
   const steps: Record<EFinalizeWalletSetupSteps, string> = {
@@ -75,6 +99,14 @@ function FinalizeWalletSetupPage({
 
   const created = useRef(false);
 
+  const popPage = useCallback(
+    async ({ delay }: { delay?: number } = {}) => {
+      await timerUtils.wait(delay || 0);
+      navigation.pop();
+    },
+    [navigation],
+  );
+
   useEffect(() => {
     void (async () => {
       try {
@@ -90,20 +122,10 @@ function FinalizeWalletSetupPage({
                 setCurrentStep(EFinalizeWalletSetupSteps.Ready);
                 return;
               }
-
-              const createResult = await actions.current.createHDWallet({
+              await actions.current.createHDWallet({
                 mnemonic,
+                isWalletBackedUp,
               });
-              if (createResult.wallet && createResult.isOverrideWallet) {
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.feedback_wallet_exists_title,
-                  }),
-                  message: intl.formatMessage({
-                    id: ETranslations.feedback_wallet_exists_desc,
-                  }),
-                });
-              }
             },
           });
           created.current = true;
@@ -113,11 +135,11 @@ function FinalizeWalletSetupPage({
         }
         setShowStep(true);
       } catch (error) {
-        navigation.pop();
+        void popPage({ delay: 300 });
         throw error;
       }
     })();
-  }, [actions, intl, mnemonic, mnemonicType, navigation]);
+  }, [actions, intl, mnemonic, mnemonicType, popPage, isWalletBackedUp]);
 
   useEffect(() => {
     const fn = (
@@ -132,25 +154,68 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
-  useEffect(() => {
-    const fn = (
-      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
-    ) => {
-      setOnboardingError(event.error);
-    };
-
-    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
-    };
-  }, []);
-
   const isFirstCreateWallet = useRef(false);
   const readIsFirstCreateWallet = async () => {
     const { isOnboardingDone } =
       await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
     isFirstCreateWallet.current = !isOnboardingDone;
   };
+
+  const closePage = useCallback(() => {
+    closePageCalled.current = true;
+    void backgroundApiProxy.serviceHardware.clearForceTransportType();
+    navigation.navigate(ERootRoutes.Main, undefined, {
+      pop: true,
+    });
+  }, [navigation]);
+
+  useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
+    ) => {
+      setOnboardingError(event.error);
+      console.log('FinalizeWalletSetupError', event.error);
+      setTimeout(
+        () => {
+          if (
+            event.error instanceof OneKeyHardwareError ||
+            event.error?.name === 'OneKeyHardwareError'
+          ) {
+            void popPage();
+          }
+        },
+        platformEnv.isNative ? 450 : 200,
+      );
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    };
+  }, [popPage]);
+
+  const handleWalletSetupReadyInner = useCallback(async () => {
+    const needBondReferralCode = await getReferralCodeBondStatus({
+      walletId: wallet?.id,
+      skipIfTimeout: true,
+    });
+
+    if (!needBondReferralCode) {
+      setTimeout(() => {
+        closePage();
+        if (isFirstCreateWallet.current) {
+          // void useBackupToggleDialog().maybeShow(true);
+        }
+      }, 1000);
+    }
+  }, [getReferralCodeBondStatus, closePage, wallet]);
+
+  const handleWalletSetupReady = useThrottledCallback(
+    handleWalletSetupReadyInner,
+    500,
+    { leading: true, trailing: false },
+  );
+
   useEffect(() => {
     if (currentStep === EFinalizeWalletSetupSteps.CreatingWallet) {
       void readIsFirstCreateWallet();
@@ -159,22 +224,43 @@ function FinalizeWalletSetupPage({
       return;
     }
     if (currentStep === EFinalizeWalletSetupSteps.Ready) {
-      setTimeout(() => {
-        navigation.navigate(ERootRoutes.Main);
-        if (isFirstCreateWallet.current) {
-          // void useBackupToggleDialog().maybeShow(true);
-        }
-      }, 1000);
+      void handleWalletSetupReady();
     }
-  }, [currentStep, navigation, showStep]);
+  }, [currentStep, navigation, showStep, handleWalletSetupReady]);
+
+  const showCloseButton =
+    currentStep === EFinalizeWalletSetupSteps.Ready || onboardingError;
+
+  const renderHeaderLeft = useCallback(() => {
+    if (shouldBondReferralCode) {
+      return <NavCloseButton onPress={closePage} />;
+    }
+    return (
+      <NavBackButton
+        opacity={showCloseButton ? 1 : 0}
+        onPress={showCloseButton ? () => void popPage() : undefined}
+      />
+    );
+  }, [showCloseButton, shouldBondReferralCode, popPage, closePage]);
+
+  usePreventRemove(!showCloseButton, () => null);
 
   return (
-    <Page>
+    <Page
+      onClose={() => {
+        if (
+          currentStep === EFinalizeWalletSetupSteps.Ready &&
+          !closePageCalled.current
+        ) {
+          closePage();
+        }
+      }}
+    >
       <Page.Header
-        disableClose
         title={intl.formatMessage({
           id: ETranslations.onboarding_finalize_wallet_setup,
         })}
+        headerLeft={renderHeaderLeft}
       />
       <Page.Body p="$5" justifyContent="center" alignItems="center">
         <Stack
@@ -235,8 +321,26 @@ function FinalizeWalletSetupPage({
       {onboardingError ? (
         <Page.Footer
           onCancel={() => {
-            //
-            navigation.pop();
+            void popPage();
+          }}
+        />
+      ) : null}
+      {shouldBondReferralCode ? (
+        <Page.Footer
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.referral_onboard_bind_code,
+          })}
+          onConfirm={() => {
+            closePage();
+            bindWalletInviteCode({
+              wallet,
+            });
+          }}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.referral_onboard_bind_code_finish,
+          })}
+          onCancel={() => {
+            closePage();
           }}
         />
       ) : null}

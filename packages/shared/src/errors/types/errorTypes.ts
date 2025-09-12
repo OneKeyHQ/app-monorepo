@@ -16,18 +16,23 @@ export enum ECustomOneKeyHardwareError {
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
   OneKeyAppError = 'OneKeyAppError',
+  OneKeyLocalError = 'OneKeyLocalError',
   OneKeyHardwareError = 'OneKeyHardwareError',
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
+  LocalDBRecordNotFoundError = 'LocalDBRecordNotFoundError',
   OneKeyValidatorError = 'OneKeyValidatorError',
   OneKeyValidatorTip = 'OneKeyValidatorTip',
   OneKeyAbortError = 'OneKeyAbortError',
+  IncorrectPassword = 'IncorrectPassword',
+  IncorrectMasterPassword = 'IncorrectMasterPassword',
   AxiosAbortCancelError = 'AxiosAbortCancelError',
   AxiosNetworkError = 'AxiosNetworkError',
   OneKeyWalletConnectModalCloseError = 'OneKeyWalletConnectModalCloseError',
   OneKeyAlreadyExistWalletError = 'OneKeyAlreadyExistWalletError',
   PasswordPromptDialogCancel = 'PasswordPromptDialogCancel',
   PrimeLoginDialogCancelError = 'PrimeLoginDialogCancelError',
+  OneKeyErrorPrimeMasterPasswordInvalid = 'OneKeyErrorPrimeMasterPasswordInvalid',
   VaultKeyringNotDefinedError = 'VaultKeyringNotDefinedError',
   OneKeyErrorInsufficientNativeBalance = 'OneKeyErrorInsufficientNativeBalance',
   OneKeyErrorNotImplemented = 'OneKeyErrorNotImplemented',
@@ -39,6 +44,8 @@ export enum EOneKeyErrorClassNames {
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
   WebDeviceNotFoundOrNeedsPermission = 'WebDeviceNotFoundOrNeedsPermission',
+  DeviceNotOpenedPassphrase = 'DeviceNotOpenedPassphrase',
+  DeviceNotFound = 'DeviceNotFound',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;
@@ -117,3 +124,8 @@ export type IOneKeyRpcError = {
     };
   };
 };
+
+export type IOneKeyHardwareDeviceNotFoundPayload =
+  IOneKeyHardwareErrorPayload & {
+    inBluetoothCommunication?: boolean;
+  };

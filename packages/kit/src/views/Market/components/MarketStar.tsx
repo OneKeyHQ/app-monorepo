@@ -2,7 +2,11 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IIconButtonProps, IStackProps } from '@onekeyhq/components';
+import type {
+  IIconButtonProps,
+  IStackProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import { IconButton, useMedia } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
@@ -13,7 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 
-import { useWatchListAction } from './wachListHooks';
+import { useWatchListAction } from './watchListHooks';
 
 export const useStarChecked = ({
   coingeckoId,
@@ -64,7 +68,7 @@ export const useStarChecked = ({
     }
   }, [actions, coingeckoId, isFocused]);
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
     if (checked) {
       actions.removeFormWatchList(coingeckoId);
       defaultLogger.market.token.removeFromWatchlist({
@@ -72,7 +76,7 @@ export const useStarChecked = ({
         removeWatchlistFrom: from,
       });
     } else {
-      actions.addIntoWatchList(coingeckoId);
+      await actions.addIntoWatchList(coingeckoId);
       defaultLogger.market.token.addToWatchList({
         tokenSymbol: coingeckoId,
         addWatchlistFrom: from,
@@ -124,7 +128,7 @@ function BasicMarketStar({
         color: checked ? '$iconActive' : '$iconDisabled',
       }}
       onPress={onPress}
-      {...props}
+      {...(props as IXStackProps)}
     />
   );
 }

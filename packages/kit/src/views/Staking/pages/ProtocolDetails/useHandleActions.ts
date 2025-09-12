@@ -3,31 +3,41 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EApproveType,
-  type IStakeProtocolDetails,
+  EStakingActionType,
+} from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnTokenInfo,
+  IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
     async ({
-      details,
+      withdrawType,
+      tokenInfo,
+      protocolInfo,
       accountId,
       networkId,
       symbol,
       provider,
       onSuccess,
     }: {
-      details?: IStakeProtocolDetails;
+      withdrawType: EStakingActionType;
+      protocolInfo?: IProtocolInfo;
+      tokenInfo?: IEarnTokenInfo;
       accountId?: string;
       networkId: string;
       symbol: string;
       provider: string;
       onSuccess?: () => void;
     }) => {
-      if (!details || !accountId) return;
+      if (!accountId) return;
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,
@@ -35,13 +45,17 @@ export const useHandleWithdraw = () => {
           provider,
         });
       if (!stakingConfig) {
-        throw new Error('Staking config not found');
+        throw new OneKeyLocalError('Staking config not found');
       }
-      if (stakingConfig.withdrawWithTx) {
+      if (
+        withdrawType === EStakingActionType.WithdrawOrder ||
+        stakingConfig.withdrawWithTx
+      ) {
         appNavigation.push(EModalStakingRoutes.WithdrawOptions, {
           accountId,
           networkId,
-          details,
+          protocolInfo,
+          tokenInfo,
           symbol,
           provider,
         });
@@ -50,7 +64,8 @@ export const useHandleWithdraw = () => {
       appNavigation.push(EModalStakingRoutes.Withdraw, {
         accountId,
         networkId,
-        details,
+        protocolInfo,
+        tokenInfo,
         onSuccess,
       });
     },
@@ -62,24 +77,37 @@ export const useHandleStake = () => {
   const appNavigation = useAppNavigation();
   return useCallback(
     async ({
-      details,
       accountId,
       networkId,
       setStakeLoading,
       onSuccess,
       indexedAccountId,
+      tokenInfo,
+      protocolInfo,
     }: {
-      details?: IStakeProtocolDetails;
+      protocolInfo?: IProtocolInfo;
+      tokenInfo?: IEarnTokenInfo;
       accountId?: string;
       networkId: string;
-      symbol: string;
-      provider: string;
       indexedAccountId?: string;
       setStakeLoading?: (value: boolean) => void;
       onSuccess?: () => void;
     }) => {
-      if (!details || !accountId) return;
-      if (details.approveTarget) {
+      if (!accountId) return;
+
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+
+      if (
+        await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        })
+      ) {
+        return;
+      }
+
+      if (protocolInfo?.approve?.approveTarget) {
         setStakeLoading?.(true);
         try {
           const { allowanceParsed } =
@@ -87,15 +115,16 @@ export const useHandleStake = () => {
               accountId,
               networkId,
               spenderAddress:
-                details.provider.approveType === EApproveType.Permit
+                protocolInfo.approve?.approveType === EApproveType.Permit
                   ? MorphoBundlerContract
-                  : details.approveTarget,
-              tokenAddress: details.token.info.address,
+                  : protocolInfo.approve.approveTarget,
+              tokenAddress: tokenInfo?.token.address || '',
             });
-          appNavigation.push(EModalStakingRoutes.ApproveBaseStake, {
+          appNavigation.push(EModalStakingRoutes.Stake, {
             accountId,
             networkId,
-            details,
+            protocolInfo,
+            tokenInfo,
             currentAllowance: allowanceParsed,
           });
         } finally {
@@ -107,7 +136,8 @@ export const useHandleStake = () => {
         accountId,
         networkId,
         indexedAccountId,
-        details,
+        protocolInfo,
+        tokenInfo,
         onSuccess,
       });
     },

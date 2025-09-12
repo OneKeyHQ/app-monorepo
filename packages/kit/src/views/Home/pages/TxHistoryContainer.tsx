@@ -3,10 +3,12 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { isEmpty, uniqBy } from 'lodash';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
-import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useCurrencyPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
@@ -22,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
+import type { IAddressBadge } from '@onekeyhq/shared/types/address';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -31,16 +34,26 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  ProviderJotaiContextHistoryList,
   useHistoryListActions,
-  withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
+import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
-function TxHistoryListContainer(props: ITabPageProps) {
+function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
-  const { updateSearchKey } = useHistoryListActions().current;
+  const {
+    updateSearchKey,
+    updateAddressesInfo,
+    initAddressesInfoDataFromStorage,
+    setHasMoreOnChainHistory,
+  } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
+
+  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
@@ -65,6 +78,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
+  const [{ currencyMap }] = useCurrencyPersistAtom();
 
   const mergeDeriveAddressData =
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
@@ -130,13 +144,18 @@ function TxHistoryListContainer(props: ITabPageProps) {
           accountId: string;
           networkId: string;
         }[];
+        addressMap?: Record<string, IAddressBadge>;
+        hasMoreOnChainHistory?: boolean;
       } = {
         allAccounts: [],
         txs: [],
         accountsWithChangedPendingTxs: [],
+        addressMap: {},
+        hasMoreOnChainHistory: false,
       };
 
       if (mergeDeriveAddressData) {
+        let hasMoreOnChainHistory = false;
         const { networkAccounts } =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
             {
@@ -145,7 +164,6 @@ function TxHistoryListContainer(props: ITabPageProps) {
               excludeEmptyAccount: true,
             },
           );
-
         const resp = await Promise.all(
           networkAccounts.map((networkAccount) =>
             backgroundApiProxy.serviceHistory.fetchAccountHistory({
@@ -153,6 +171,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
               networkId: network.id,
               isManualRefresh: isManualRefresh.current,
               filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
+              sourceCurrency: settings.currencyInfo.id,
+              currencyMap,
             }),
           ),
         );
@@ -164,6 +185,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
             ...r.accountsWithChangedPendingTxs,
             ...item.accountsWithChangedPendingTxs,
           ];
+          r.addressMap = { ...r.addressMap, ...item.addressMap };
+          if (item.hasMoreOnChainHistory) {
+            hasMoreOnChainHistory = true;
+          }
         });
 
         r.txs = r.txs
@@ -173,13 +198,24 @@ function TxHistoryListContainer(props: ITabPageProps) {
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
           )
           .slice(0, HISTORY_PAGE_SIZE);
+        setHasMoreOnChainHistory(hasMoreOnChainHistory);
+        updateAddressesInfo({
+          data: r.addressMap ?? {},
+        });
       } else {
         r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId,
           networkId: network.id,
           isManualRefresh: isManualRefresh.current,
           filterScam: settings.isFilterScamHistoryEnabled,
+          filterLowValue: settings.isFilterLowValueHistoryEnabled,
           excludeTestNetwork: true,
+          sourceCurrency: settings.currencyInfo.id,
+          currencyMap,
+        });
+        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
+        updateAddressesInfo({
+          data: r.addressMap ?? {},
         });
       }
 
@@ -193,6 +229,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       });
       setIsHeaderRefreshing(false);
       setHistoryData(r.txs);
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.HISTORY,
@@ -207,13 +244,18 @@ function TxHistoryListContainer(props: ITabPageProps) {
       isManualRefresh.current = false;
     },
     [
-      account,
-      indexedAccount?.id,
-      mergeDeriveAddressData,
       network,
-      setIsHeaderRefreshing,
-      settings.isFilterScamHistoryEnabled,
+      account,
+      mergeDeriveAddressData,
       updateAllNetworksState,
+      setIsHeaderRefreshing,
+      indexedAccount?.id,
+      updateAddressesInfo,
+      settings.isFilterScamHistoryEnabled,
+      settings.isFilterLowValueHistoryEnabled,
+      settings.currencyInfo.id,
+      currencyMap,
+      setHasMoreOnChainHistory,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -246,6 +288,9 @@ function TxHistoryListContainer(props: ITabPageProps) {
               accountId: networkAccount.account?.id ?? '',
               networkId,
               filterScam: settings.isFilterScamHistoryEnabled,
+              filterLowValue: settings.isFilterLowValueHistoryEnabled,
+              sourceCurrency: settings.currencyInfo.id,
+              currencyMap,
             }),
           ),
         );
@@ -263,7 +308,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
             accountId,
             networkId,
             filterScam: settings.isFilterScamHistoryEnabled,
+            filterLowValue: settings.isFilterLowValueHistoryEnabled,
             excludeTestNetwork: true,
+            sourceCurrency: settings.currencyInfo.id,
+            currencyMap,
           });
       }
 
@@ -296,8 +344,11 @@ function TxHistoryListContainer(props: ITabPageProps) {
     mergeDeriveAddressData,
     network?.id,
     settings.isFilterScamHistoryEnabled,
+    settings.isFilterLowValueHistoryEnabled,
     updateSearchKey,
     wallet?.id,
+    settings.currencyInfo.id,
+    currencyMap,
   ]);
 
   useEffect(() => {
@@ -317,6 +368,10 @@ function TxHistoryListContainer(props: ITabPageProps) {
       setHistoryData((prev) =>
         prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
       );
+
+    const reloadCallback = () => run({ alwaysSetState: true });
+
+    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       clearCallback,
@@ -333,45 +388,56 @@ function TxHistoryListContainer(props: ITabPageProps) {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
       appEventBus.off(EAppEventBusNames.RefreshHistoryList, refresh);
+      appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
     };
   }, [isFocused, run]);
 
   useEffect(() => {
-    const reloadCallback = () => run({ alwaysSetState: true });
-
-    const fn = () => {
-      if (isFocused) {
-        void run();
-      }
-    };
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
-
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
-    return () => {
-      appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
-    };
-  }, [isFocused, run]);
+    void initAddressesInfoDataFromStorage();
+  }, [initAddressesInfoDataFromStorage]);
 
   return (
     <TxHistoryListView
       showIcon
       inTabList
       hideValue
+      onRefresh={onHomePageRefresh}
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
+      showFooter
+      walletId={wallet?.id}
+      accountId={account?.id}
+      networkId={network?.id}
+      indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
       {...(media.gtLg && {
         tableLayout: true,
       })}
+      listViewStyleProps={{
+        contentContainerStyle: {
+          mt: '$3',
+        },
+      }}
+      tokenMap={allTokenListMap}
     />
   );
 }
 
-const TxHistoryListContainerWithProvider = memo(
-  withHistoryListProvider(TxHistoryListContainer),
-);
+const TxHistoryListContainerWithProvider = memo(() => {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  return (
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
+      <ProviderJotaiContextHistoryList>
+        <TxHistoryListContainer />
+      </ProviderJotaiContextHistoryList>
+    </HomeTokenListProviderMirrorWrapper>
+  );
+});
+TxHistoryListContainerWithProvider.displayName =
+  'TxHistoryListContainerWithProvider';
 
 export { TxHistoryListContainerWithProvider };

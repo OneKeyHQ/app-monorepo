@@ -1,8 +1,6 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
-import { isPayUrl, parsePayUrl } from './utils';
-
 import type { IQRCodeHandler, ISolanaValue } from '../type';
 
 // eslint-disable-next-line spellcheck/spell-checker

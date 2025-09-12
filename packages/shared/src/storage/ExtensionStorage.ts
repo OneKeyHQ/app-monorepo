@@ -2,6 +2,7 @@
 
 // copy from:
 //    node_modules/@react-native-async-storage/async-storage/types/index.d.ts
+import { OneKeyLocalError } from '../errors/errors/localError';
 import platformEnv, { isManifestV3 } from '../platformEnv';
 
 import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
@@ -14,7 +15,9 @@ class ExtensionStorage implements AsyncStorageStatic {
 
   _checkOffscreen() {
     if (platformEnv.isExtensionOffscreen) {
-      throw new Error('ExtensionStorage is not supported in offscreen page.');
+      throw new OneKeyLocalError(
+        'ExtensionStorage is not supported in offscreen page.',
+      );
     }
   }
 
@@ -68,7 +71,7 @@ class ExtensionStorage implements AsyncStorageStatic {
   }
 
   multiMerge(
-    keyValuePairs: string[][],
+    keyValuePairs: [string, string][],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);
@@ -83,7 +86,7 @@ class ExtensionStorage implements AsyncStorageStatic {
   }
 
   multiSet(
-    keyValuePairs: string[][],
+    keyValuePairs: readonly (readonly [string, string])[],
     callback?: (errors?: Error[]) => void,
   ): Promise<void> {
     return Promise.resolve(undefined);

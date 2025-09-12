@@ -4,6 +4,7 @@ import {
 } from '@sentry/react-native';
 import wordLists from 'bip39/src/wordlists/english.json';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
@@ -51,11 +52,16 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
   return result;
 };
 
+export const SENTRY_IPC = 'sentry-ipc://';
+
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
+  EOneKeyErrorClassNames.OneKeyError,
+  EOneKeyErrorClassNames.OneKeyLocalError,
   EOneKeyErrorClassNames.OneKeyHardwareError,
   EOneKeyErrorClassNames.OneKeyAppError,
+  EOneKeyErrorClassNames.OneKeyServerApiError,
   EOneKeyErrorClassNames.OneKeyErrorNotImplemented,
   EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
   EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
@@ -66,6 +72,8 @@ const FILTERED_ERROR_TYPES = new Set([
   EOneKeyErrorClassNames.FirmwareUpdateExit,
   EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
+
+const FILTER_ERROR_VALUES = ['AbortError: AbortError', 'cancel timeout'];
 
 const isFilterErrorAndSkipSentry = (error?: {
   type?: string | undefined;
@@ -78,7 +86,21 @@ const isFilterErrorAndSkipSentry = (error?: {
     return true;
   }
 
-  if (error.type === 'Error' && error.value === 'AbortError: AbortError') {
+  if (
+    platformEnv.isDesktop &&
+    error.value &&
+    error.value.includes(
+      `Failed to execute 'define' on 'CustomElementRegistry'`,
+    )
+  ) {
+    return true;
+  }
+
+  if (
+    error.type === 'Error' &&
+    error.value &&
+    FILTER_ERROR_VALUES.includes(error.value)
+  ) {
     return true;
   }
 
@@ -93,8 +115,8 @@ export const buildBasicOptions = ({
   ({
     enabled: true,
     maxBreadcrumbs: 100,
-    tracesSampleRate: 1.0,
-    profilesSampleRate: 1.0,
+    tracesSampleRate: 0.1,
+    profilesSampleRate: 0.1,
     beforeSend: (event) => {
       if (Array.isArray(event.exception?.values)) {
         for (let index = 0; index < event.exception.values.length; index += 1) {
@@ -112,6 +134,11 @@ export const buildBasicOptions = ({
               const newErrorText = textSlices.join(' ');
               // Save error message locally
               onError(newErrorText, event.exception?.values[index].stacktrace);
+
+              // In webEmbed environment, network requests cannot be sent, so abort subsequent operations
+              if (platformEnv.isWebEmbed) {
+                return;
+              }
               if (isFilterErrorAndSkipSentry(event.exception.values[index])) {
                 return null;
               }

@@ -12,7 +12,7 @@ import { contextAtomMethod, universalSearchAtom } from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
 
-const MAX_RECENT_SEARCH_SIZE = 10;
+const MAX_RECENT_SEARCH_SIZE = 20;
 class ContextJotaiActionsRecentSearch extends ContextJotaiActionsBase {
   syncToDb = contextAtomMethod((_, set, payload: IUniversalSearchAtomData) => {
     set(universalSearchAtom(), payload);

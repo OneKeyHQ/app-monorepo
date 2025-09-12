@@ -11,7 +11,7 @@ const PassCodeProtectionDialogContent = () => {
     <XStack alignItems="center" gap="$3">
       <SizableText size="$bodyMdMedium" flex={1}>
         {intl.formatMessage({
-          id: ETranslations.Setting_Reset_app_description,
+          id: ETranslations.settings_reset_app_description,
         })}
       </SizableText>
       {/* <PassCodeProtectionSwitch /> */}

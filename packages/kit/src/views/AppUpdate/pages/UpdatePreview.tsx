@@ -1,4 +1,4 @@
-import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
+import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -24,7 +24,7 @@ const ExtPluginText = platformEnv.isExtension
   ? () => {
       const intl = useIntl();
       return (
-        <YStack>
+        <YStack px="$5">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.update_recommend_regular_check_and_update_plugin,
@@ -45,7 +45,8 @@ function UpdatePreview({
     autoClose = false,
   } = route.params || {};
   usePreventRemove(!!isForceUpdate, () => {});
-  const changeLog = useAppChangeLog(latestVersion);
+  const response = useAppChangeLog(latestVersion);
+  const { changeLog } = response ?? {};
   return (
     <Page>
       <Page.Header
@@ -54,12 +55,12 @@ function UpdatePreview({
           { ver: latestVersion || '' },
         )}
       />
-      <Page.Body m="$5" mt={0}>
+      <Page.Body mt={0}>
         <ExtPluginText />
         {changeLog ? (
           <ScrollView
             contentInsetAdjustmentBehavior="automatic"
-            contentContainerStyle={{ pb: '$5' }}
+            contentContainerStyle={{ pb: '$5', px: '$5' }}
           >
             <Markdown>{changeLog}</Markdown>
             <ViewUpdateHistory />

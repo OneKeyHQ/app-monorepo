@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce, noop } from 'lodash';
+import { debounce, isEqual, noop, upperFirst } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -8,6 +8,8 @@ import {
   Image,
   SizableText,
   YStack,
+  getDialogInstances,
+  getFormInstances,
   rootNavigationRef,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -15,18 +17,27 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
+  useOnboardingConnectWalletLoadingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
+  EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -34,7 +45,15 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
-import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
+import { useOnLock } from '../hooks/useOnLock';
+import {
+  isOpenedReferFriendsPage,
+  useReferFriends,
+} from '../hooks/useReferFriends';
+import {
+  isOpenedMyOneKeyModal,
+  useToMyOneKeyModal,
+} from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
 
 import type { IntlShape } from 'react-intl';
 
@@ -48,11 +67,16 @@ const useAppUpdateInfoCallback = platformEnv.isDesktop
 
 const useDesktopEvents = platformEnv.isDesktop
   ? () => {
+      const formInstances = getFormInstances();
+      const dialogInstances = getDialogInstances();
       const intl = useIntl();
       const navigation = useAppNavigation();
       const onLock = useOnLockCallback();
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
+
+      const { toReferFriendsPage } = useReferFriends();
+      const toMyOneKeyModal = useToMyOneKeyModal();
 
       const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
@@ -132,6 +156,83 @@ const useDesktopEvents = platformEnv.isDesktop
       const openSettingsRef = useRef(openSettings);
       openSettingsRef.current = openSettings;
 
+      const ensureModalClosedAndNavigate = useCallback(
+        (navigateAction?: () => void) => {
+          function getAllModalRoutes() {
+            const routeState = rootNavigationRef.current?.getRootState();
+            if (!routeState?.routes) {
+              return;
+            }
+            return routeState.routes.filter((_, index) => index !== 0);
+          }
+
+          function closeAllModalRoutes() {
+            const allModalRoutes = getAllModalRoutes();
+
+            if (!allModalRoutes) {
+              return;
+            }
+
+            let index = 1;
+            // close all modal routes
+            allModalRoutes.forEach((route) => {
+              const routeLength =
+                route.state?.routes?.[0]?.state?.routes.length || 1;
+              for (let i = 0; i < routeLength; i += 1)
+                setTimeout(() => {
+                  rootNavigationRef.current?.goBack();
+                }, index * 10);
+
+              index += 1;
+            });
+            index += 1;
+
+            setTimeout(() => {
+              navigateAction?.();
+            }, index * 10);
+          }
+
+          const allModalRoutes = getAllModalRoutes();
+
+          if (!allModalRoutes || dialogInstances.length !== 0) {
+            return;
+          }
+
+          const formInstance = formInstances[formInstances.length - 1];
+          const isFormChanged =
+            formInstance &&
+            !isEqual(
+              formInstance.formState.defaultValues,
+              formInstance.getValues(),
+            );
+
+          if (allModalRoutes.length > 0 && isFormChanged) {
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.global_close,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.global_close_confirm_description,
+              }),
+              showCancelButton: true,
+              showFooter: true,
+              showConfirmButton: true,
+              onConfirm: () => {
+                closeAllModalRoutes();
+              },
+            });
+            return;
+          }
+
+          closeAllModalRoutes();
+
+          setTimeout(() => {
+            navigateAction?.();
+          }, 100);
+        },
+        [intl, formInstances, dialogInstances],
+      );
+
       useEffect(() => {
         globalThis.desktopApi.on(ipcMessageKeys.CHECK_FOR_UPDATES, () => {
           void onCheckUpdateRef.current();
@@ -153,19 +254,47 @@ const useDesktopEvents = platformEnv.isDesktop
       useShortcuts(undefined, (eventName) => {
         switch (eventName) {
           case EShortcutEvents.TabWallet:
-            navigation.switchTab(ETabRoutes.Home);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Home);
+            });
             break;
           case EShortcutEvents.TabEarn:
-            navigation.switchTab(ETabRoutes.Earn);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Earn);
+            });
             break;
           case EShortcutEvents.TabSwap:
-            navigation.switchTab(ETabRoutes.Swap);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Swap);
+            });
             break;
           case EShortcutEvents.TabMarket:
-            navigation.switchTab(ETabRoutes.Market);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Market);
+            });
+            break;
+          case EShortcutEvents.TabReferAFriend:
+            if (!isOpenedReferFriendsPage()) {
+              ensureModalClosedAndNavigate(() => {
+                void toReferFriendsPage();
+              });
+            } else {
+              ensureModalClosedAndNavigate();
+            }
+            break;
+          case EShortcutEvents.TabMyOneKey:
+            if (!isOpenedMyOneKeyModal()) {
+              ensureModalClosedAndNavigate(() => {
+                void toMyOneKeyModal();
+              });
+            } else {
+              ensureModalClosedAndNavigate();
+            }
             break;
           case EShortcutEvents.TabBrowser:
-            navigation.switchTab(ETabRoutes.Discovery);
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Discovery);
+            });
             break;
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
@@ -220,7 +349,9 @@ const useAboutVersion =
                         globalThis.desktopApi.arch || 'unknown'
                       }`}
                     </SizableText>
-                    <SizableText size="$bodySm">{versionString}</SizableText>
+                    <SizableText size="$bodySm">
+                      {upperFirst(versionString)}
+                    </SizableText>
                     <SizableText size="$bodySm">Copyright © OneKey</SizableText>
                   </YStack>
                 </YStack>
@@ -238,8 +369,14 @@ export const useFetchCurrencyList = () => {
   }, []);
 };
 
+export const useFetchMarketBasicConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+  }, []);
+};
+
 const launchFloatingIconEvent = async (intl: IntlShape) => {
-  const visited = await backgroundApiProxy.serviceSpotlight.isFirstVisitTour(
+  const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
     ESpotlightTour.showFloatingIconDialog,
   );
   if (!visited) {
@@ -303,6 +440,13 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
   }
 };
 
+export const useIntercomInit = () => {
+  useEffect(() => {
+    // 初始化 Intercom
+    void initIntercom();
+  }, []);
+};
+
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
   const [isLocked] = useAppIsLockedAtom();
@@ -329,8 +473,9 @@ export const useLaunchEvents = (): void => {
   }, [isLocked]);
 };
 
-const getBuilderNumber = (builderNumber?: string) =>
-  builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+const getBuilderNumber = (builderNumber?: string) => {
+  return builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+};
 export const useCheckUpdateOnDesktop =
   platformEnv.isDesktop &&
   !platformEnv.isMas &&
@@ -365,10 +510,65 @@ export const useCheckUpdateOnDesktop =
       }
     : noop;
 
+export const useClearStorageOnExtension = platformEnv.isExtension
+  ? () => {
+      useEffect(() => {
+        appEventBus.on(EAppEventBusNames.ClearStorageOnExtension, () => {
+          try {
+            globalThis.localStorage.clear();
+          } catch {
+            console.error('window.localStorage.clear() error');
+          }
+          try {
+            globalThis.sessionStorage.clear();
+          } catch {
+            console.error('window.sessionStorage.clear() error');
+          }
+        });
+      }, []);
+    }
+  : noop;
+
+export const useRemindDevelopmentBuildExtension =
+  platformEnv.isExtensionDevelopmentBuild
+    ? () => {
+        useEffect(() => {
+          void (async () => {
+            const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
+              ESpotlightTour.showFloatingIconDialog,
+            );
+            if (visited) {
+              return;
+            }
+            Dialog.confirm({
+              title: 'RISK WARNING',
+              dismissOnOverlayPress: false,
+              disableDrag: true,
+              tone: 'warning',
+              description:
+                'This is a development build for testing purposes. While we strive for stability, some features may not work as expected. Please use with caution and consider backing up important data.',
+              onConfirm: async () => {
+                await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+                  ESpotlightTour.showDevelopmentBuildWarningDialog,
+                );
+              },
+            });
+          })();
+        }, []);
+      }
+    : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
+
+  const [, setOnboardingConnectWalletLoading] =
+    useOnboardingConnectWalletLoadingAtom();
+
+  useEffect(() => {
+    setOnboardingConnectWalletLoading(false);
+  }, [setOnboardingConnectWalletLoading]);
 
   useEffect(() => {
     if (
@@ -379,6 +579,12 @@ export function Bootstrap() {
     ) {
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+        // navigation.pushModal(EModalRoutes.PrimeModal, {
+        //   screen: EPrimePages.PrimeTransfer,
+        // });
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.ConnectWallet,
+        });
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -386,10 +592,23 @@ export function Bootstrap() {
     return undefined;
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
 
+  useEffect(() => {
+    if (devSettings.enabled) {
+      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
+    }
+    return () => {
+      performance.stop();
+    };
+  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
   useFetchCurrencyList();
+  useFetchMarketBasicConfig();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
+  useIntercomInit();
+  useClearStorageOnExtension();
+  useRemindDevelopmentBuildExtension();
   return null;
 }

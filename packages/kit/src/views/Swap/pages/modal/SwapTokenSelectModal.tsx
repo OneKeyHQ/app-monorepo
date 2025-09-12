@@ -38,6 +38,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
@@ -53,6 +54,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
+  ESwapSelectTokenSource,
   ESwapTabSwitchType,
   ETokenRiskLevel,
   type ISwapNetwork,
@@ -223,6 +225,11 @@ const SwapTokenSelectPage = () => {
       } else {
         selectTokenHandler(item);
       }
+      defaultLogger.swap.selectToken.selectToken({
+        selectFrom: item.isPopular
+          ? ESwapSelectTokenSource.POPULAR_SELECT
+          : ESwapSelectTokenSource.NORMAL_SELECT,
+      });
     },
     [checkRiskToken, navigation, route.params.storeName, selectTokenHandler],
   );
@@ -263,7 +270,14 @@ const SwapTokenSelectPage = () => {
   );
 
   const { md } = useMedia();
-  const { copyText } = useClipboard();
+  const { copyText, getClipboard } = useClipboard();
+
+  const handlePaste = useCallback(async () => {
+    const text = await getClipboard();
+    if (text) {
+      setSearchKeyword(text.trim());
+    }
+  }, [getClipboard]);
 
   const disableNetworks = useMemo(() => {
     let res: string[] = [];
@@ -480,7 +494,7 @@ const SwapTokenSelectPage = () => {
     return popularTokens;
   }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
   return (
-    <Page skipLoading={platformEnv.isNativeIOS} safeAreaEnabled={false}>
+    <Page lazyLoad={!platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         headerSearchBarOptions={{
@@ -491,6 +505,17 @@ const SwapTokenSelectPage = () => {
             const afterTrim = nativeEvent.text.trim();
             setSearchKeyword(afterTrim);
           },
+          searchBarInputValue: searchKeyword,
+          ...(searchKeyword?.length === 0 && !platformEnv.isExtension
+            ? {
+                addOns: [
+                  {
+                    iconName: 'ClipboardOutline',
+                    onPress: handlePaste,
+                  },
+                ],
+              }
+            : {}),
         }}
       />
       <Page.Body>
@@ -568,7 +593,7 @@ const SwapTokenSelectPage = () => {
               fetchLoading ? (
                 <>
                   {Array.from({ length: 5 }).map((_, index) => (
-                    <ListItem key={index}>
+                    <ListItem key={String(index)}>
                       <Skeleton w="$10" h="$10" radius="round" />
                       <YStack>
                         <YStack py="$1">

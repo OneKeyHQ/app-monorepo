@@ -278,7 +278,9 @@ class ServiceAppUpdate extends ServiceBase {
       latestVersion: '0.0.0',
       isForceUpdate: false,
       updateAt: 0,
+      summary: '',
       status: EAppUpdateStatus.done,
+      isShowUpdateDialog: false,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
@@ -311,7 +313,10 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async fetchChangeLog() {
     const response = await this.getAppLatestInfo();
-    return response?.changeLog;
+    return {
+      changeLog: response?.changeLog,
+      summary: response?.summary,
+    };
   }
 
   @backgroundMethod()
@@ -327,12 +332,14 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
+        summary: releaseInfo?.summary || '',
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:
           releaseInfo?.version && releaseInfo.version !== prev.latestVersion
             ? EAppUpdateStatus.notify
             : prev.status,
+        isShowUpdateDialog: platformEnv.version !== releaseInfo.version,
       }));
     } else {
       await this.reset();

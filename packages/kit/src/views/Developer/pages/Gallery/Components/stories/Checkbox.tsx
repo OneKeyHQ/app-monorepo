@@ -81,6 +81,7 @@ function CheckboxGroupDemo() {
 
 const CheckboxGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Checkbox"
     elements={[
       {
@@ -89,6 +90,7 @@ const CheckboxGallery = () => (
           <Stack>
             <CheckboxDemo />
             <CheckboxDemo label="With label" />
+            <CheckboxDemo label="With label" description="With description" />
             <CheckboxDemo
               label="Unchecked and disabled"
               disabled

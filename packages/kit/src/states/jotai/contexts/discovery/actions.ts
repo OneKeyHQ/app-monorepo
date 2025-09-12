@@ -25,10 +25,7 @@ import {
   processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -37,6 +34,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -95,7 +93,7 @@ export const homeTab: IWebTab = {
 };
 
 class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
-  closeTimeId: NodeJS.Timeout | null = null;
+  closeTimeId: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * Browser web tab action
@@ -125,7 +123,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const webTabs = get(webTabsAtom());
       let newTabs = data;
       if (!Array.isArray(data)) {
-        throw new Error('setWebTabsWriteAtom: payload must be an array');
+        throw new OneKeyLocalError(
+          'setWebTabsWriteAtom: payload must be an array',
+        );
       }
       if (!newTabs || !newTabs.length) {
         newTabs = [];
@@ -320,9 +320,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     (
       get,
       set,
-      payload: { tabId: string; entry: 'Menu' | 'ShortCut' | 'BlockView' },
+      payload: {
+        tabId: string;
+        entry: 'Menu' | 'ShortCut' | 'BlockView';
+        isDesktop?: boolean;
+        navigation?: ReturnType<typeof useAppNavigation>;
+      },
     ) => {
-      const { tabId, entry } = payload;
+      const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -358,6 +363,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTab) {
             newActiveTab.isActive = true;
             this.setCurrentWebTab.call(set, newActiveTab.id);
+          } else if (platformEnv.isDesktop) {
+            // if the new active tab is not in tabs, switch to Discovery (Desktop only)
+            navigation?.switchTab(ETabRoutes.Discovery);
           }
         };
 
@@ -497,40 +505,44 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       set,
       payload: {
         data: IBrowserBookmark[];
+        isRemove?: boolean; // remove payload.data
         options?: { isInitFromStorage?: boolean };
+        skipSaveLocalSyncItem?: boolean;
       },
     ) => {
-      const { data, options } = payload;
+      const { data, isRemove, options, skipSaveLocalSyncItem } = payload;
       const isReady = get(browserDataReadyAtom());
-      if (!isReady && !options?.isInitFromStorage) {
+      // web always ready
+      const isBrowserDataReady = isReady || platformEnv.isWeb;
+      if (!isBrowserDataReady && !options?.isInitFromStorage) {
         return;
       }
       if (!Array.isArray(data)) {
-        throw new Error('buildBookmarkData: payload must be an array');
+        throw new OneKeyLocalError(
+          'buildBookmarkData: payload must be an array',
+        );
       }
 
-      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(data);
-
-      setTimeout(() => {
-        // Trigger bookmark list refresh after building bookmark data
-        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
-      }, 200);
+      void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks({
+        bookmarks: data,
+        isRemove,
+        skipSaveLocalSyncItem,
+      });
     },
   );
 
-  addBrowserBookmark = contextAtomMethod(
+  addOrUpdateBrowserBookmark = contextAtomMethod(
     async (_, set, payload: IBrowserBookmark) => {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const bookmarks = await this.getBookmarkData.call(set);
-
-      // Filter out any bookmarks that have the same URL as the new one
-      const filteredBookmarks = bookmarks.filter(
-        (bookmark) => bookmark.url !== payload.url,
-      );
-      const newBookmark = { url: payload.url, title: payload.title };
-      const updatedBookmarks = [...filteredBookmarks, newBookmark];
+      const newBookmark: IBrowserBookmark = {
+        url: payload.url,
+        title: payload.title,
+        logo: payload.logo ?? undefined,
+        sortIndex: payload.sortIndex ?? undefined,
+      };
+      const updatedBookmarks = [newBookmark];
       this.buildBookmarkData.call(set, { data: updatedBookmarks });
       this.syncBookmark.call(set, { url: payload.url, isBookmark: true });
       void backgroundApiProxy.serviceCloudBackup.requestAutoBackup();
@@ -542,20 +554,21 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  removeBrowserBookmark = contextAtomMethod(async (_, set, payload: string) => {
+  removeBrowserBookmark = contextAtomMethod(async (_, set, url: string) => {
     const bookmarks = await this.getBookmarkData.call(set);
-    const removedBookmark = bookmarks.find(
-      (bookmark) => bookmark.url === payload,
-    );
-    const updatedBookmarks = bookmarks.filter(
-      (bookmark) => bookmark.url !== payload,
-    );
-    this.buildBookmarkData.call(set, { data: updatedBookmarks });
-    this.syncBookmark.call(set, { url: payload, isBookmark: false });
+    const removedBookmark = bookmarks.find((bookmark) => bookmark.url === url);
+    if (!removedBookmark) {
+      return;
+    }
+    this.buildBookmarkData.call(set, {
+      data: [removedBookmark],
+      isRemove: true,
+    });
+    this.syncBookmark.call(set, { url, isBookmark: false });
 
     defaultLogger.discovery.browser.removeBookmark({
       dappName: removedBookmark?.title || '',
-      dappDomain: payload,
+      dappDomain: url,
     });
   });
 
@@ -564,11 +577,30 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const bookmark = await this.getBookmarkData.call(set);
-      const updatedBookmark = bookmark.map((item) =>
-        item.url === payload.url ? { ...item, ...payload } : item,
-      );
-      this.buildBookmarkData.call(set, { data: updatedBookmark });
+      await this.addOrUpdateBrowserBookmark.call(set, payload);
+    },
+  );
+
+  sortBrowserBookmark = contextAtomMethod(
+    async (
+      _,
+      set,
+      payload: {
+        target: IBrowserBookmark;
+        prev: IBrowserBookmark | undefined;
+        next: IBrowserBookmark | undefined;
+      },
+    ) => {
+      const { target, prev, next } = payload;
+      const newSortIndex = sortUtils.buildNewSortIndex({
+        target,
+        prev,
+        next,
+      });
+      await this.modifyBrowserBookmark.call(set, {
+        ...target,
+        sortIndex: newSortIndex,
+      });
     },
   );
 
@@ -598,7 +630,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       if (!Array.isArray(data)) {
-        throw new Error('buildHistoryData: payload must be an array');
+        throw new OneKeyLocalError(
+          'buildHistoryData: payload must be an array',
+        );
       }
       void backgroundApiProxy.simpleDb.browserHistory.setRawData({
         data,
@@ -674,14 +708,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const tabId = tab?.id;
-        const maybeDeepLink =
-          !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
         const thisTab = this.getWebTabById.call(set, tabId ?? '');
         let isNewTab =
           typeof isNewWindow === 'boolean'
             ? isNewWindow
-            : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
+            : (isNewWindow || !tabId || tabId === 'home') &&
               browserTypeHandler === 'MultiTabBrowser';
 
         if (thisTab?.type === 'home') {
@@ -717,14 +749,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             url: validatedUrl,
             tabId,
           });
-        }
-        // close deep link tab after 1s
-        if (maybeDeepLink) {
-          if (browserTypeHandler === 'MultiTabBrowser' && tabId) {
-            setTimeout(() => {
-              this.closeWebTab.call(set, { tabId, entry: 'Menu' });
-            }, 1000);
-          }
         }
 
         return true;
@@ -880,17 +904,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return;
         }
 
-        void this.gotoSite.call(set, {
-          url,
-          title,
-          favicon,
-          isNewWindow,
-          isInPlace,
-          id: tab.id,
-        });
+        // Only call gotoSite for real navigation, not SPA route changes
+        // SPA route changes typically have loading: false and navigationType: "other"
+        if (loading) {
+          void this.gotoSite.call(set, {
+            url,
+            title,
+            favicon,
+            isNewWindow,
+            isInPlace,
+            id: tab.id,
+          });
+        }
       }
 
       this.setWebTabData.call(set, {
+        displayUrl: url,
         id: tab.id,
         title,
         favicon,
@@ -908,7 +937,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const cache = get(phishingLruCacheAtom());
         cache.set(origin, true);
         set(phishingLruCacheAtom(), cache);
-        globalThis.desktopApi?.setAllowedPhishingUrls(Array.from(cache.keys()));
+        void globalThis.desktopApiProxy?.webview.setAllowedPhishingUrls(
+          Array.from(cache.keys()),
+        );
       } catch {
         // ignore
       }
@@ -1044,16 +1075,18 @@ export function useBrowserBookmarkAction() {
   const actions = createActions();
   const buildBookmarkData = actions.buildBookmarkData.use();
   const getBookmarkData = actions.getBookmarkData.use();
-  const addBrowserBookmark = actions.addBrowserBookmark.use();
+  const addOrUpdateBrowserBookmark = actions.addOrUpdateBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
   const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
+  const sortBrowserBookmark = actions.sortBrowserBookmark.use();
 
   return useRef({
     buildBookmarkData,
     getBookmarkData,
-    addBrowserBookmark,
+    addOrUpdateBrowserBookmark,
     removeBrowserBookmark,
     modifyBrowserBookmark,
+    sortBrowserBookmark,
   });
 }
 

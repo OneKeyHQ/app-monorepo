@@ -25,6 +25,7 @@ import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import type {
@@ -423,6 +424,7 @@ export default class Vault extends VaultBase {
     estimateFeeParams?: IEstimateFeeParams;
   }> {
     const account = await this.getAccount();
+    defaultLogger.account.account.printAccount({ account });
     if (encodedTx?.type === EAlphTxType.Transfer) {
       const balance =
         await this.backgroundApi.serviceAccountProfile.fetchAccountNativeBalance(

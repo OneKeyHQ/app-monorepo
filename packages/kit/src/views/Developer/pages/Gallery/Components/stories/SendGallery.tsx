@@ -1,9 +1,11 @@
 import { type ReactNode, useCallback } from 'react';
 
+import { StorageUtil as StorageUtilCore } from '@reown/appkit-core-react-native';
 import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  Dialog,
   SizableText,
   Stack,
   Toast,
@@ -51,7 +53,24 @@ function ExternalAccountSign() {
     <PartContainer title="ExternalAccountSign">
       <Button
         onPress={async () => {
-          const r = await backgroundApiProxy.serviceDemo.testEvmPersonalSign({
+          Dialog.debugMessage({
+            title: 'walletconnect deeplink',
+            debugMessage: await StorageUtilCore.getWalletConnectDeepLink(),
+          });
+        }}
+      >
+        log walletconnect deeplink
+      </Button>
+      <Button
+        onPress={async () => {
+          await StorageUtilCore.removeWalletConnectDeepLink();
+        }}
+      >
+        remove walletconnect deeplink
+      </Button>
+      <Button
+        onPress={async () => {
+          const r = await backgroundApiProxy.serviceDemo.demoEvmPersonalSign({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',
           });
@@ -78,7 +97,7 @@ function ExternalAccountSign() {
             txid
               "0x63a5e9fdc8ae8c6cfb72c5662bee9e84a4c19887d01c25e8180ee10d24ac6601"
           */
-          const r = await backgroundApiProxy.serviceDemo.testEvmSendTxSign({
+          const r = await backgroundApiProxy.serviceDemo.demoEvmSendTxSign({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',
             encodedTx: {
@@ -112,7 +131,7 @@ function ExternalAccountSign() {
             txid
               "0x63a5e9fdc8ae8c6cfb72c5662bee9e84a4c19887d01c25e8180ee10d24ac6601"
           */
-          const r = await backgroundApiProxy.serviceDemo.testEvmSendTxSign({
+          const r = await backgroundApiProxy.serviceDemo.demoEvmSendTxSign({
             networkId: activeAccount.network?.id || '',
             accountId: activeAccount.account?.id || '',
             encodedTx: {
@@ -336,6 +355,7 @@ function BatchFetchRawTx() {
 
 const SendGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Send"
     elements={[
       {
@@ -352,7 +372,7 @@ const SendGallery = () => (
               <SendTestButton />
               <Button
                 onPress={() => {
-                  void backgroundApiProxy.serviceV4Migration.testShowData();
+                  void backgroundApiProxy.serviceV4Migration.demoShowDataOfV4Migration();
                 }}
               >
                 Test v4 migration

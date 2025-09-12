@@ -16,12 +16,14 @@ export enum EAtomNames {
   addressBookPersistAtom = 'addressBookPersistAtom',
   hardwareUiStateAtom = 'hardwareUiStateAtom',
   hardwareUiStateCompletedAtom = 'hardwareUiStateCompletedAtom',
+  hardwareWalletXfpStatusAtom = 'hardwareWalletXfpStatusAtom',
   // firmwareUpdatesDetectStatusAtom is reserved for firmwareUpdatesDetectStatusPersistAtom
   firmwareUpdatesDetectStatusPersistAtom = 'firmwareUpdatesDetectStatusPersistAtom', // persist
   firmwareUpdateStepInfoAtom = 'firmwareUpdateStepInfoAtom',
   firmwareUpdateRetryAtom = 'firmwareUpdateRetryAtom',
   firmwareUpdateWorkflowRunningAtom = 'firmwareUpdateWorkflowRunningAtom',
   firmwareUpdateDevSettingsPersistAtom = 'firmwareUpdateDevSettingsPersistAtom',
+  firmwareUpdateResultVerifyAtom = 'firmwareUpdateResultVerifyAtom',
   notificationsDevSettingsPersistAtom = 'notificationsDevSettingsPersistAtom',
   appUpdatePersistAtom = 'appUpdatePersistAtom',
   spotlightPersistAtom = 'spotlightPersistAtom',
@@ -35,13 +37,23 @@ export enum EAtomNames {
   galleryPersistAtom = 'galleryPersistAtom',
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
+  settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
+  notificationStatusAtom = 'notificationStatusAtom',
+  // prime
   primePersistAtom = 'primePersistAtom',
+  primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',
+  primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
+  primeTransferAtom = 'primeTransferAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
+  accountSelectorStatusAtom = 'accountSelectorStatusAtom',
+  allNetworksPersistAtom = 'allNetworksPersistAtom',
+  desktopBluetoothAtom = 'desktopBluetoothAtom',
+  hardwareForceTransportAtom = 'hardwareForceTransportAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

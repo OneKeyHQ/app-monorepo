@@ -8,6 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -15,10 +16,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
 import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
@@ -285,12 +288,12 @@ class ProviderApiPrivate extends ProviderApiBase {
             id: ETranslations.dapp_connect_verified_site,
           }),
           unknown: appLocale.intl.formatMessage({
-            id: ETranslations.global_unknown,
+            id: ETranslations.browser_risk_detection_unknown,
           }),
         },
       };
     }
-    throw new Error('Invalid request');
+    throw new OneKeyLocalError('Invalid request');
   }
 
   /*
@@ -306,10 +309,20 @@ class ProviderApiPrivate extends ProviderApiBase {
         await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
           { url: request.origin },
         );
+      const securityInfo =
+        await this.backgroundApi.serviceDiscovery.checkUrlSecurity({
+          url: request.origin,
+          from: 'script',
+        });
+
+      const inDapps = (securityInfo.dapp?.origins?.length || 0) > 0;
       const settings =
         await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
-        isShow,
+        isShow:
+          securityInfo.level === EHostSecurityLevel.Unknown && !inDapps
+            ? false
+            : isShow,
         settings,
         i18n: {
           title: appLocale.intl.formatMessage({
@@ -352,7 +365,7 @@ class ProviderApiPrivate extends ProviderApiBase {
             id: ETranslations.dapp_connect_verified_site,
           }),
           unknown: appLocale.intl.formatMessage({
-            id: ETranslations.global_unknown,
+            id: ETranslations.browser_risk_detection_unknown,
           }),
           lastVerifiedAt: appLocale.intl.formatMessage({
             id: ETranslations.browser_last_verified_at,
@@ -438,7 +451,7 @@ class ProviderApiPrivate extends ProviderApiBase {
       );
       return;
     }
-    throw new Error('Invalid request');
+    throw new OneKeyLocalError('Invalid request');
   }
 
   @providerApiMethod()
@@ -476,6 +489,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async getSensitiveEncodeKey(): Promise<string> {
+    defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
   }
 
@@ -483,6 +497,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async webEmbedApiReady(): Promise<void> {
+    defaultLogger.app.webembed.webembedApiReady();
     this.isWebEmbedApiReady = true;
     appEventBus.emit(EAppEventBusNames.LoadWebEmbedWebViewComplete, undefined);
     return Promise.resolve();
@@ -496,7 +511,7 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   async callWebEmbedApiProxy(data: IBackgroundApiWebembedCallMessage) {
     if (!platformEnv.isNative) {
-      throw new Error('call webembed api only support native env');
+      throw new OneKeyLocalError('call webembed api only support native env');
     }
     const bg = this.backgroundApi as unknown as BackgroundApiBase;
 
@@ -513,12 +528,12 @@ class ProviderApiPrivate extends ProviderApiBase {
     });
 
     if (!bg?.webEmbedBridge?.request) {
-      throw new Error('webembed webview bridge not ready.');
+      throw new OneKeyLocalError('webembed webview bridge not ready.');
     }
 
     const webviewOrigin = `${bg?.webEmbedBridge?.remoteInfo?.origin || ''}`;
     if (!isWebEmbedApiAllowedOrigin(webviewOrigin)) {
-      throw new Error(
+      throw new OneKeyLocalError(
         `callWebEmbedApiProxy not allowed origin: ${
           webviewOrigin || 'undefined'
         }`,

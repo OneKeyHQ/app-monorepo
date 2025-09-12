@@ -7,9 +7,11 @@ import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
+  usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
+  useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
@@ -19,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 interface IProps {
@@ -38,6 +41,8 @@ function TxConfirmAlert(props: IProps) {
   const { network } = useAccountData({
     networkId,
   });
+  const [payWithTokenInfo] = usePayWithTokenInfoAtom();
+  const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
 
   const renderDecodedTxsAlert = useCallback(() => {
     const alerts = flatMap(
@@ -77,9 +82,31 @@ function TxConfirmAlert(props: IProps) {
   }, [intl, sendFeeStatus.errMessage, sendFeeStatus.status]);
 
   const renderInsufficientNativeBalanceAlert = useCallback(() => {
-    if (!sendTxStatus.isInsufficientNativeBalance) {
+    if (
+      !sendTxStatus.isInsufficientNativeBalance &&
+      !sendTxStatus.isInsufficientTokenBalance
+    ) {
       return null;
     }
+
+    if (payWithTokenInfo.enabled && sendTxStatus.isInsufficientTokenBalance) {
+      return (
+        <Alert
+          icon="ErrorOutline"
+          type="critical"
+          title={intl.formatMessage(
+            {
+              id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+            },
+            {
+              symbol: payWithTokenInfo.symbol ?? '',
+              amount: sendTxStatus.fillUpTokenBalance ?? '0',
+            },
+          )}
+        />
+      );
+    }
+
     return (
       <Alert
         icon="ErrorOutline"
@@ -108,12 +135,16 @@ function TxConfirmAlert(props: IProps) {
       />
     );
   }, [
-    intl,
-    network?.symbol,
+    sendTxStatus.isInsufficientNativeBalance,
+    sendTxStatus.isInsufficientTokenBalance,
     sendTxStatus.fillUpNativeBalance,
     sendTxStatus.isBaseOnEstimateMaxFee,
-    sendTxStatus.isInsufficientNativeBalance,
     sendTxStatus.maxFeeNative,
+    sendTxStatus.fillUpTokenBalance,
+    payWithTokenInfo.enabled,
+    payWithTokenInfo.symbol,
+    intl,
+    network?.symbol,
   ]);
 
   const renderPreCheckTxAlert = useCallback(() => {
@@ -145,8 +176,31 @@ function TxConfirmAlert(props: IProps) {
         />
       );
     }
+
+    if (
+      networkUtils.isTronNetworkByNetworkId(networkId) &&
+      tronResourceRentalInfo.isResourceRentalNeeded &&
+      tronResourceRentalInfo.isResourceRentalEnabled &&
+      (accountUtils.isHwAccount({ accountId }) ||
+        accountUtils.isQrAccount({ accountId }))
+    ) {
+      return (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.wallet_energy_confirmations_required,
+          })}
+        />
+      );
+    }
     return null;
-  }, [accountId, intl, networkId, transferPayload?.tokenInfo]);
+  }, [
+    accountId,
+    intl,
+    networkId,
+    transferPayload?.tokenInfo,
+    tronResourceRentalInfo,
+  ]);
 
   return (
     <>

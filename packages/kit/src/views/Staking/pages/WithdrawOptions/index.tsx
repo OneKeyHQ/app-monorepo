@@ -34,7 +34,9 @@ const WithdrawOptions = () => {
   >();
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const { accountId, networkId, symbol, provider, details } = appRoute.params;
+  const { accountId, networkId, protocolInfo, tokenInfo } = appRoute.params;
+  const symbol = tokenInfo?.token.symbol || '';
+  const provider = protocolInfo?.provider || '';
   const { result, isLoading, run } = usePromiseResult(
     () =>
       backgroundApiProxy.serviceStaking.getWithdrawList({
@@ -52,18 +54,18 @@ const WithdrawOptions = () => {
       appNavigation.push(EModalStakingRoutes.Withdraw, {
         accountId,
         networkId,
-        symbol,
-        provider,
-        details,
+        protocolInfo,
+        tokenInfo,
         identity: item.id,
         amount: item.amount,
+        fromPage: EModalStakingRoutes.WithdrawOptions,
         onSuccess: () => {
           // pop to portfolio details page
           setTimeout(() => appNavigation.pop(), 4);
         },
       });
     },
-    [appNavigation, accountId, networkId, symbol, provider, details],
+    [appNavigation, accountId, networkId, protocolInfo, tokenInfo],
   );
 
   const babylonStatusMap = useBabylonStatusMap();

@@ -158,6 +158,7 @@ function JotaiDemo2() {
 
 const JotaiGlobalGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="JotaiGlobal"
     elements={[
       {

@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { isNil } from 'lodash';
+import { isNaN, isNil, isNumber } from 'lodash';
 
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
@@ -14,8 +14,13 @@ import {
   WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
+import {
+  type EHyperLiquidAgentName,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+} from '../consts/perp';
 import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
@@ -27,7 +32,6 @@ import {
   INDEX_PLACEHOLDER,
   SEPERATOR,
 } from '../engine/engineConsts';
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { OneKeyInternalError } from '../errors';
 
@@ -171,12 +175,12 @@ function formatUtxoPath(path: string): string {
 
   // Check if the path starts with 'm'
   if (parts[0] !== 'm') {
-    throw new Error('Invalid UTXO path: path should start with "m"');
+    throw new OneKeyLocalError('Invalid UTXO path: path should start with "m"');
   }
 
   // Check if the path has at least three hardened levels
   if (parts.length < 4) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Invalid UTXO path: path should have at least three hardened levels',
     );
   }
@@ -184,7 +188,9 @@ function formatUtxoPath(path: string): string {
   // Check if the first three levels are hardened
   for (let i = 1; i <= 3; i += 1) {
     if (!parts[i].endsWith("'")) {
-      throw new Error(`Invalid UTXO path: level ${i} should be hardened`);
+      throw new OneKeyLocalError(
+        `Invalid UTXO path: level ${i} should be hardened`,
+      );
     }
   }
 
@@ -298,7 +304,9 @@ function buildWatchingAccountId({
   }
   const pubOrAddress = xpub || address;
   if (!pubOrAddress) {
-    throw new Error('buildWatchingAccountId ERROR: publicKey is not defined');
+    throw new OneKeyLocalError(
+      'buildWatchingAccountId ERROR: publicKey is not defined',
+    );
   }
   let id = `${WALLET_TYPE_WATCHING}--${coinType}--${pubOrAddress}`;
   if (addressEncoding) {
@@ -347,7 +355,9 @@ function buildImportedAccountId({
 }) {
   const publicKey = xpub || pub;
   if (!publicKey) {
-    throw new Error('buildImportedAccountId ERROR: publicKey is not defined');
+    throw new OneKeyLocalError(
+      'buildImportedAccountId ERROR: publicKey is not defined',
+    );
   }
   let id = `${WALLET_TYPE_IMPORTED}--${coinType}--${publicKey}`;
   if (addressEncoding) {
@@ -374,11 +384,6 @@ function isImportedAccount({ accountId }: { accountId: string }) {
   return isImportedWallet({ walletId });
 }
 
-function isAllNetworkMockedAccount({ accountId }: { accountId: string }) {
-  // TODO There may be a misjudgment.
-  return accountId.includes(`${SEPERATOR}${COINTYPE_ALLNETWORKS}/`);
-}
-
 function buildHDAccountId({
   networkImpl,
   walletId,
@@ -402,12 +407,14 @@ function buildHDAccountId({
   let usedPath = path;
   if (!usedPath) {
     if (!template) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildHDAccountId ERROR: template or path must be provided',
       );
     }
     if (isNil(index)) {
-      throw new Error('buildHDAccountId ERROR: index must be provided');
+      throw new OneKeyLocalError(
+        'buildHDAccountId ERROR: index must be provided',
+      );
     }
     usedPath = buildPathFromTemplate({ template, index });
   }
@@ -431,6 +438,11 @@ function buildIndexedAccountId({
   walletId: string;
   index: number;
 }) {
+  if (index < 0) {
+    throw new OneKeyLocalError(
+      'buildIndexedAccountId ERROR: index must be positive',
+    );
+  }
   return `${walletId}--${index}`;
 }
 
@@ -455,6 +467,16 @@ function parseIndexedAccountId({
     walletId: walletIdArr.join(''),
     index,
   };
+}
+
+function isAllNetworkMockAccount({ accountId }: { accountId: string }) {
+  const parsed = parseAccountId({ accountId });
+  if (parsed?.usedPath) {
+    const [coinType, index] = parsed.usedPath.split('/') || [];
+    const r = coinType === COINTYPE_ALLNETWORKS && !Number.isNaN(Number(index));
+    return r;
+  }
+  return false;
 }
 
 function buildAllNetworkIndexedAccountIdFromAccountId({
@@ -501,7 +523,7 @@ function buildLocalHistoryId(params: {
   return historyId;
 }
 
-export function buildAccountLocalAssetsKey({
+function buildAccountLocalAssetsKey({
   networkId,
   accountAddress,
   xpub,
@@ -525,7 +547,7 @@ function isAccountCompatibleWithNetwork({
   networkId: string;
 }) {
   if (!networkId) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
     );
   }
@@ -594,7 +616,7 @@ function getAccountCompatibleNetwork({
     accountNetworkId &&
     !networkUtils.parseNetworkId({ networkId: accountNetworkId }).chainId
   ) {
-    throw new Error(
+    throw new OneKeyLocalError(
       `getAccountCompatibleNetwork ERROR: chainId not found in networkId: ${accountNetworkId}` ||
         '',
     );
@@ -644,6 +666,8 @@ function buildQrWalletId({
   xfpHash: string;
 }) {
   let dbWalletId = `qr-${dbDeviceId}`;
+
+  // hidden wallet pass xfpHash
   if (xfpHash) {
     dbWalletId = `qr-${dbDeviceId}-${xfpHash}`;
   }
@@ -681,7 +705,7 @@ function buildExternalAccountId({
   wcSessionTopic = wcSessionTopic || connectionInfo?.walletConnect?.topic;
   if (wcSessionTopic) {
     if (!networkId) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildExternalAccountId ERROR: walletconnect account required networkId ',
       );
     }
@@ -699,7 +723,9 @@ function buildExternalAccountId({
     accountId = `${WALLET_TYPE_EXTERNAL}--${COINTYPE_ETH}--injected--${connectionInfo?.evmInjected?.global}`;
   }
   if (!accountId) {
-    throw new Error('buildExternalAccountId ERROR: accountId is empty');
+    throw new OneKeyLocalError(
+      'buildExternalAccountId ERROR: accountId is empty',
+    );
   }
   // accountId = `${WALLET_TYPE_EXTERNAL}--injected--${walletKey}`;
   return accountId;
@@ -715,7 +741,9 @@ function buildLightningAccountId({
 }) {
   const parts = accountId.split(SEPERATOR);
   if (parts.length < 2) {
-    throw new Error('buildLightningAccountId ERROR: invalid accountId');
+    throw new OneKeyLocalError(
+      'buildLightningAccountId ERROR: invalid accountId',
+    );
   }
   const newPath = buildBtcToLnPath({
     path: parts[1],
@@ -745,6 +773,29 @@ function isTonMnemonicCredentialId(credentialId: string): boolean {
   return credentialId.endsWith('--ton_credential');
 }
 
+function getAccountIdFromTonMnemonicCredentialId({
+  credentialId,
+}: {
+  credentialId: string;
+}) {
+  return credentialId.replace(/--ton_credential$/, '');
+}
+
+function buildHyperLiquidAgentCredentialId({
+  userAddress,
+  agentName,
+}: {
+  userAddress: string;
+  agentName: EHyperLiquidAgentName;
+}) {
+  if (!userAddress) {
+    throw new OneKeyLocalError(
+      'buildHyperLiquidAgentCredentialId ERROR: userAddress is required',
+    );
+  }
+  return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
+}
+
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
   return `evm--${chainId}`;
 }
@@ -761,6 +812,43 @@ function buildAccountValueKey({
 
 function isAllNetworkMockAddress({ address }: { address?: string }) {
   return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
+}
+
+function isValidWalletXfp({ xfp }: { xfp: string | undefined }) {
+  return Boolean(xfp && xfp.length > 8 && xfp.includes('--'));
+}
+
+function buildFullXfp({
+  xfp,
+  firstTaprootXpub,
+}: {
+  xfp: string;
+  firstTaprootXpub: string;
+}) {
+  if (!xfp || !firstTaprootXpub) {
+    return undefined;
+  }
+  return `${xfp.toLowerCase()}--${firstTaprootXpub}`;
+}
+
+function getShortXfp({ xfp }: { xfp: string }) {
+  return xfp.split('--')[0];
+}
+
+function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
+  let index = account.pathIndex;
+  if (isNil(index) && account.indexedAccountId) {
+    index = parseIndexedAccountId({
+      indexedAccountId: account.indexedAccountId,
+    }).index;
+  }
+  if (isNil(index) && account.template) {
+    index = findIndexFromTemplate({
+      template: account.template,
+      path: account.path,
+    });
+  }
+  return isNumber(index) && !isNaN(index) ? index : undefined;
 }
 
 export default {
@@ -796,6 +884,8 @@ export default {
   isExternalAccount,
   isWatchingAccount,
   isImportedAccount,
+  isAllNetworkMockAccount,
+  isAllNetworkMockAddress,
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
@@ -816,11 +906,17 @@ export default {
   formatUtxoPath,
   buildPathFromTemplate,
   findIndexFromTemplate,
+  getHDAccountPathIndex,
   removePathLastSegment,
   buildHiddenWalletName,
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
+  getAccountIdFromTonMnemonicCredentialId,
+  buildHyperLiquidAgentCredentialId,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
   buildCustomEvmNetworkId,
-  isAllNetworkMockAddress,
+  isValidWalletXfp,
+  buildFullXfp,
+  getShortXfp,
 };

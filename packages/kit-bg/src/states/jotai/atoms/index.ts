@@ -18,3 +18,5 @@ export * from './gallery';
 export * from './activeAccountValue';
 export * from './prime';
 export * from './bannerClose';
+export * from './allNetworks';
+export * from './desktopBluetooth';

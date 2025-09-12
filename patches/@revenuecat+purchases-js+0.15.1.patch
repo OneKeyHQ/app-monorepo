@@ -1,0 +1,13 @@
+diff --git a/node_modules/@revenuecat/purchases-js/dist/Purchases.es.js b/node_modules/@revenuecat/purchases-js/dist/Purchases.es.js
+index 8ed0a0b..265f5a4 100644
+--- a/node_modules/@revenuecat/purchases-js/dist/Purchases.es.js
++++ b/node_modules/@revenuecat/purchases-js/dist/Purchases.es.js
+@@ -5396,7 +5396,7 @@ var so = "https://js.stripe.com/v3", ou = /^https:\/\/js\.stripe\.com\/v3\/?(\?.
+   return null;
+ }, ia = function(r) {
+   var t = "", n = document.createElement("script");
+-  n.src = "".concat(so).concat(t);
++  // n.src = "".concat(so).concat(t);
+   var a = document.head || document.body;
+   if (!a)
+     throw new Error("Expected document.body not to be null. Stripe.js requires a <body> element.");

@@ -13,6 +13,7 @@ import type {
   IAccountDeriveTypes,
   IVaultSettings,
 } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import type {
   EAccountSelectorSceneName,
@@ -48,7 +49,7 @@ export const defaultSelectedAccount: () => IAccountSelectorSelectedAccount =
     indexedAccountId: undefined,
     othersWalletAccountId: undefined,
     networkId: undefined,
-    deriveType: 'default',
+    deriveType: undefined,
     focusedWallet: undefined,
   });
 export type ISelectedAccountsAtomMap = Partial<{
@@ -84,10 +85,10 @@ export function useSelectedAccount({
   );
 
   if (debugName === 'HomePage') {
-    console.log(
-      'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
-      selectedAccountOfNum,
-    );
+    // console.log(
+    //   'AccountSelectorAtomChanged useSelectedAccount selectedAccountOfNum: ',
+    //   selectedAccountOfNum,
+    // );
   }
   return useMemo(() => {
     let selectedAccount = selectedAccountOfNum;
@@ -128,6 +129,7 @@ export const {
 });
 export type IAccountSelectorUpdateMeta = {
   eventEmitDisabled: boolean;
+  updatedAt: number;
 };
 export const {
   atom: accountSelectorUpdateMetaAtom,
@@ -161,7 +163,7 @@ export interface IAccountSelectorActiveAccountInfo {
   device: IDBDevice | undefined;
   network: IServerNetwork | undefined;
   vaultSettings: IVaultSettings | undefined;
-  deriveType: IAccountDeriveTypes;
+  deriveType: IAccountDeriveTypes | undefined;
   deriveInfo?: IAccountDeriveInfo | undefined;
   deriveInfoItems: IAccountDeriveInfoItems[];
   canCreateAddress?: boolean;
@@ -177,7 +179,7 @@ export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
     device: undefined,
     network: undefined,
     vaultSettings: undefined,
-    deriveType: 'default',
+    deriveType: undefined,
     deriveInfoItems: [],
     ready: false,
   });
@@ -207,7 +209,7 @@ export function useActiveAccount({ num }: { num: number }): {
 export function useAccountSelectorSceneInfo() {
   const { config } = useAccountSelectorContextData();
   if (!config) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'useAccountSelectorSceneInfo ERROR: context config not found',
     );
   }

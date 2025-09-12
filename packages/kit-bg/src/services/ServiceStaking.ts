@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+import { omit } from 'lodash';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
@@ -6,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -16,20 +18,27 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type {
+  EAvailableAssetsTypeEnum,
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
-import { earnMainnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import {
+  earnMainnetNetworkIds,
+  getSymbolSupportedNetworks,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
   IChangedPendingTxInfo,
 } from '@onekeyhq/shared/types/history';
 import type {
+  ECheckAmountActionType,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
   IBuildPermit2ApproveSignDataParams,
+  IBuildRegisterSignMessageParams,
+  ICheckAmountAlert,
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
@@ -41,18 +50,23 @@ import type {
   IEarnFAQList,
   IEarnInvestmentItem,
   IEarnPermit2ApproveSignData,
+  IEarnRegisterSignMessageResponse,
+  IEarnSummary,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
   IStakeClaimBaseParams,
+  IStakeEarnDetail,
   IStakeHistoriesResponse,
   IStakeHistoryParams,
   IStakeProtocolDetails,
   IStakeProtocolListItem,
   IStakeTag,
+  IStakeTransactionConfirmation,
   IStakeTx,
   IStakeTxResponse,
   IUnstakePushParams,
+  IVerifyRegisterSignMessageParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
@@ -63,6 +77,7 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
@@ -71,6 +86,9 @@ import type {
 interface ICheckAmountResponse {
   code: number;
   message: string;
+  data?: {
+    alerts?: ICheckAmountAlert[];
+  };
 }
 
 interface IRecommendResponse {
@@ -114,6 +132,26 @@ class ServiceStaking extends ServiceBase {
     });
 
     return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async getEarnSummary({
+    accountAddress,
+    networkId,
+  }: {
+    accountAddress: string;
+    networkId: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: IEarnSummary;
+    }>('/earn/v1/rebate', {
+      params: {
+        accountAddress,
+        networkId,
+      },
+    });
+    return response.data.data;
   }
 
   @backgroundMethod()
@@ -209,7 +247,7 @@ class ServiceStaking extends ServiceBase {
       accountId,
       provider,
       symbol,
-      morphoVault,
+      protocolVault,
       approveType,
       permitSignature,
       ...rest
@@ -223,11 +261,12 @@ class ServiceStaking extends ServiceBase {
       provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyLocalError('Staking config not found');
     }
-    const resp = await client.post<{
-      data: IStakeTxResponse;
-    }>(`/earn/v2/stake`, {
+    const useVaultProvider = earnUtils.useVaultProvider({
+      providerName: provider,
+    });
+    const paramsToSend: Record<string, any> = {
       accountAddress: account.address,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       term: params.term,
@@ -235,7 +274,6 @@ class ServiceStaking extends ServiceBase {
       networkId,
       symbol,
       provider,
-      vault: morphoVault,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
@@ -243,13 +281,29 @@ class ServiceStaking extends ServiceBase {
       permitSignature:
         approveType === EApproveType.Permit ? permitSignature : undefined,
       ...rest,
-    });
+    };
+
+    if (useVaultProvider) {
+      paramsToSend.vault = protocolVault;
+    }
+
+    const walletReferralCode =
+      await this.backgroundApi.serviceReferralCode.checkAndUpdateReferralCode({
+        accountId,
+      });
+    if (walletReferralCode) {
+      paramsToSend.bindedAccountAddress = walletReferralCode.address;
+      paramsToSend.bindedNetworkId = walletReferralCode.networkId;
+    }
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v2/stake`, paramsToSend);
     return resp.data.data;
   }
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, morphoVault, ...rest } = params;
+    const { networkId, accountId, protocolVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -259,8 +313,11 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyLocalError('Staking config not found');
     }
+    const useVaultProvider = earnUtils.useVaultProvider({
+      providerName: params.provider,
+    });
     const resp = await client.post<{
       data: IStakeTxResponse;
     }>(`/earn/v2/unstake`, {
@@ -270,7 +327,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: morphoVault,
+      vault: useVaultProvider ? protocolVault : '',
       ...rest,
     });
     return resp.data.data;
@@ -315,6 +372,7 @@ class ServiceStaking extends ServiceBase {
       networkId,
       accountId,
       claimTokenAddress: rewardTokenAddress,
+      vault: vaultAddress,
       ...rest
     } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -326,21 +384,31 @@ class ServiceStaking extends ServiceBase {
       provider: params.provider,
     });
     if (!stakingConfig) {
-      throw new Error('Staking config not found');
+      throw new OneKeyLocalError('Staking config not found');
     }
 
-    const resp = await client.post<{
-      data: IStakeTxResponse;
-    }>(`/earn/v2/claim`, {
+    const sendParams: Record<string, string | undefined> = {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      rewardTokenAddress,
       ...rest,
-    });
+    };
+
+    if (rewardTokenAddress) {
+      sendParams.rewardTokenAddress = rewardTokenAddress;
+    }
+    if (
+      earnUtils.useVaultProvider({ providerName: params.provider }) &&
+      vaultAddress
+    ) {
+      sendParams.vault = vaultAddress;
+    }
+    const resp = await client.post<{
+      data: IStakeTxResponse;
+    }>(`/earn/v2/claim`, sendParams);
     return resp.data.data;
   }
 
@@ -349,22 +417,22 @@ class ServiceStaking extends ServiceBase {
     params: IBuildPermit2ApproveSignDataParams,
   ) {
     if (!params?.networkId) {
-      throw new Error('networkId is required');
+      throw new OneKeyLocalError('networkId is required');
     }
     if (!params?.provider) {
-      throw new Error('provider is required');
+      throw new OneKeyLocalError('provider is required');
     }
     if (!params?.symbol) {
-      throw new Error('symbol is required');
+      throw new OneKeyLocalError('symbol is required');
     }
     if (!params?.accountAddress) {
-      throw new Error('accountAddress is required');
+      throw new OneKeyLocalError('accountAddress is required');
     }
     if (!params?.vault) {
-      throw new Error('vault is required');
+      throw new OneKeyLocalError('vault is required');
     }
     if (!params?.amount) {
-      throw new Error('amount is required');
+      throw new OneKeyLocalError('amount is required');
     }
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.post<{
@@ -374,24 +442,72 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async buildRegisterSignMessageData(params: IBuildRegisterSignMessageParams) {
+    if (!params?.networkId) {
+      throw new OneKeyLocalError('networkId is required');
+    }
+    if (!params?.provider) {
+      throw new OneKeyLocalError('provider is required');
+    }
+    if (!params?.symbol) {
+      throw new OneKeyLocalError('symbol is required');
+    }
+    if (!params?.accountAddress) {
+      throw new OneKeyLocalError('accountAddress is required');
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IEarnRegisterSignMessageResponse;
+    }>(`/earn/v1/permit-signature`, params);
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async verifyRegisterSignMessage(params: IVerifyRegisterSignMessageParams) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    let verifyParams = params;
+    if (earnUtils.isEthenaProvider({ providerName: params.provider })) {
+      verifyParams = omit(params, [
+        'signature',
+        'message',
+      ]) as IVerifyRegisterSignMessageParams;
+    }
+    const resp = await client.post<{
+      data: IEarnRegisterSignMessageResponse;
+    }>(`/earn/v1/verify-sig`, verifyParams);
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
   async getStakeHistory(params: IStakeHistoryParams) {
-    const { networkId, accountId, morphoVault, ...rest } = params;
+    const { networkId, accountId, protocolVault, type, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
         networkId,
         accountId,
       });
+    const useVaultProvider =
+      params.provider &&
+      earnUtils.useVaultProvider({
+        providerName: params.provider,
+      });
+    const data: Record<string, string | undefined> & { type?: string } = {
+      accountAddress,
+      networkId,
+      ...rest,
+    };
 
+    if (useVaultProvider) {
+      data.vault = protocolVault;
+    }
+    if (type) {
+      data.type = params.type;
+    }
     const resp = await client.get<{
       data: IStakeHistoriesResponse;
     }>(`/earn/v1/stake-histories`, {
-      params: {
-        accountAddress,
-        networkId,
-        vault: morphoVault,
-        ...rest,
-      },
+      params: data,
     });
     return resp.data.data;
   }
@@ -412,6 +528,10 @@ class ServiceStaking extends ServiceBase {
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
+      headers:
+        await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+          accountId,
+        }),
     });
     return resp.data.data;
   }
@@ -424,8 +544,9 @@ class ServiceStaking extends ServiceBase {
     symbol: string;
     provider: string;
     vault?: string;
+    isV2?: boolean;
   }) {
-    const { networkId, accountId, indexedAccountId, ...rest } = params;
+    const { networkId, accountId, indexedAccountId, isV2, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       accountAddress?: string;
@@ -434,6 +555,7 @@ class ServiceStaking extends ServiceBase {
       provider: string;
       publicKey?: string;
       vault?: string;
+      kycAccountAddress?: string;
     } = { networkId, ...rest };
     const account = await this.getEarnAccount({
       accountId: accountId ?? '',
@@ -447,31 +569,90 @@ class ServiceStaking extends ServiceBase {
     if (account?.account?.pub) {
       requestParams.publicKey = account?.account?.pub;
     }
+    if (requestParams.provider) {
+      requestParams.provider = requestParams.provider.toLowerCase();
+    }
+    if (
+      earnUtils.isEthenaProvider({ providerName: requestParams.provider }) &&
+      params.symbol?.toUpperCase() === 'USDE'
+    ) {
+      const ethenaKycAddress =
+        await this.backgroundApi.serviceStaking.getEthenaKycAddress();
+      if (ethenaKycAddress) {
+        requestParams.kycAccountAddress = ethenaKycAddress;
+      }
+    }
     const resp = await client.get<{ data: IStakeProtocolDetails }>(
-      '/earn/v1/stake-protocol/detail',
-      { params: requestParams },
+      isV2
+        ? '/earn/v2/stake-protocol/detail'
+        : '/earn/v1/stake-protocol/detail',
+      {
+        params: requestParams,
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
     );
     const result = resp.data.data;
     return result;
   }
 
+  @backgroundMethod()
+  async getProtocolDetailsV2(params: {
+    accountId?: string;
+    indexedAccountId?: string;
+    networkId: string;
+    symbol: string;
+    provider: string;
+    vault?: string;
+  }) {
+    const result = await this.getProtocolDetails({
+      ...params,
+      isV2: true,
+    });
+    return result as unknown as IStakeEarnDetail;
+  }
+
+  @backgroundMethod()
+  async getTransactionConfirmation(params: {
+    networkId: string;
+    provider: string;
+    symbol: string;
+    vault: string;
+    accountAddress: string;
+    action: 'stake' | 'unstake' | 'claim';
+    amount: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const amountNumber = BigNumber(params.amount);
+    params.amount = amountNumber.isNaN() ? '0' : amountNumber.toFixed();
+    const resp = await client.get<{
+      data: IStakeTransactionConfirmation;
+    }>(`/earn/v1/transaction-confirmation`, {
+      params,
+    });
+    return resp.data.data;
+  }
+
   _getProtocolList = memoizee(
     async (params: {
       symbol: string;
-      networkId?: string;
-      accountAddress?: string;
-      publicKey?: string;
+      items: Array<{
+        networkId: string;
+        accountAddress?: string;
+        publicKey?: string;
+      }>;
     }) => {
-      const { symbol, accountAddress, publicKey } = params;
+      const { symbol, items } = params;
       const client = await this.getClient(EServiceEndpointEnum.Earn);
-      const protocolListResp = await client.get<{
+
+      // Use v2 API that supports multiple networks
+      const protocolListResp = await client.post<{
         data: { protocols: IStakeProtocolListItem[] };
-      }>('/earn/v1/stake-protocol/list', {
-        params: {
-          symbol,
-          accountAddress,
-          publicKey,
-        },
+      }>('/earn/v2/stake-protocol/list', {
+        symbol,
+        items: items.filter((item) => item.accountAddress), // Only include items with account address
       });
       const protocols = protocolListResp.data.data.protocols;
       return protocols;
@@ -485,44 +666,79 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getProtocolList(params: {
     symbol: string;
-    networkId?: string;
     accountId?: string;
     indexedAccountId?: string;
-    filter?: boolean;
+    filterNetworkId?: string;
   }) {
-    const listParams: {
-      symbol: string;
-      networkId?: string;
-      accountAddress?: string;
-      publicKey?: string;
-    } = { symbol: params.symbol };
-    if (params.networkId && params.accountId) {
-      const earnAccount = await this.getEarnAccount({
-        accountId: params.accountId,
-        networkId: params.networkId,
-        indexedAccountId: params.indexedAccountId,
-        btcOnlyTaproot: true,
-      });
-      if (earnAccount) {
-        listParams.networkId = earnAccount.networkId;
-        listParams.accountAddress = earnAccount.accountAddress;
-        if (networkUtils.isBTCNetwork(listParams.networkId)) {
-          listParams.publicKey = earnAccount.account.pub;
+    const symbolSupportedNetworks = getSymbolSupportedNetworks();
+    const supportedNetworkIds =
+      symbolSupportedNetworks[
+        params.symbol as keyof typeof symbolSupportedNetworks
+      ] || [];
+
+    if (supportedNetworkIds.length === 0) {
+      return [];
+    }
+
+    // Get account info for each supported network
+    const networkAccountsPromises = supportedNetworkIds.map(
+      async (networkId) => {
+        if (!params.accountId) {
+          return { networkId, accountAddress: undefined, publicKey: undefined };
         }
-      }
-    }
-    let items = await this._getProtocolList(listParams);
 
+        const earnAccount = await this.getEarnAccount({
+          accountId: params.accountId,
+          networkId,
+          indexedAccountId: params.indexedAccountId,
+          btcOnlyTaproot: true,
+        });
+
+        if (!earnAccount) {
+          return { networkId, accountAddress: undefined, publicKey: undefined };
+        }
+
+        return {
+          networkId: earnAccount.networkId,
+          accountAddress: earnAccount.accountAddress,
+          publicKey: networkUtils.isBTCNetwork(earnAccount.networkId)
+            ? earnAccount.account.pub
+            : undefined,
+        };
+      },
+    );
+
+    const networkAccounts = await Promise.all(networkAccountsPromises);
+
+    // Use cached _getProtocolList method with v2 API
+    let allItems: IStakeProtocolListItem[] = [];
+    try {
+      allItems = await this._getProtocolList({
+        symbol: params.symbol,
+        items: networkAccounts,
+      });
+    } catch (error) {
+      console.warn(
+        `Failed to fetch protocol list for symbol ${params.symbol}:`,
+        error,
+      );
+      // Fall back to empty array if request fails
+      allItems = [];
+    }
+
+    // Apply network filter if specified
     if (
-      params.filter &&
-      params.networkId &&
-      !networkUtils.isAllNetwork({ networkId: params.networkId })
+      params.filterNetworkId &&
+      !networkUtils.isAllNetwork({ networkId: params.filterNetworkId })
     ) {
-      items = items.filter((o) => o.network.networkId === params.networkId);
+      allItems = allItems.filter(
+        (item) => item.network.networkId === params.filterNetworkId,
+      );
     }
 
+    // Check enabled status for all items
     const itemsWithEnabledStatus = await Promise.all(
-      items.map(async (item) => {
+      allItems.map(async (item) => {
         const stakingConfig = await this.getStakingConfigs({
           networkId: item.network.networkId,
           symbol: params.symbol,
@@ -536,6 +752,7 @@ class ServiceStaking extends ServiceBase {
     const enabledItems = itemsWithEnabledStatus
       .filter(({ isEnabled }) => isEnabled)
       .map(({ item }) => item);
+
     return enabledItems;
   }
 
@@ -630,13 +847,16 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccountsParams({
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
       networkId,
+      indexedAccountId,
     });
     const accountParams: {
       networkId: string;
@@ -670,7 +890,7 @@ class ServiceStaking extends ServiceBase {
   async fetchAccountOverview(params: {
     accountId: string;
     networkId: string;
-    assets: IAvailableAsset[];
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
@@ -697,13 +917,13 @@ class ServiceStaking extends ServiceBase {
       overviewData.reduce(
         (prev, item) => {
           prev.totalFiatValue = prev.totalFiatValue.plus(
-            BigNumber(item.data.data.totalFiatValue || 0),
+            BigNumber(item?.data?.data?.totalFiatValue || 0),
           );
           prev.earnings24h = prev.earnings24h.plus(
-            BigNumber(item.data.data.earnings24h || 0),
+            BigNumber(item?.data?.data?.earnings24h || 0),
           );
           prev.hasClaimableAssets =
-            prev.hasClaimableAssets || !!item.data.data.canClaim;
+            prev.hasClaimableAssets || !!item?.data?.data?.canClaim;
           return prev;
         },
         {
@@ -724,13 +944,16 @@ class ServiceStaking extends ServiceBase {
   async fetchAllNetworkAssets({
     accountId,
     networkId,
+    indexedAccountId,
   }: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const accounts = await this.getEarnAvailableAccountsParams({
       accountId,
       networkId,
+      indexedAccountId,
     });
     return this.getAccountAsset(accounts);
   }
@@ -752,19 +975,38 @@ class ServiceStaking extends ServiceBase {
     return response.data.data;
   }
 
-  @backgroundMethod()
-  async getAvailableAssets() {
-    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<
-      IAvailableAssetsResponse,
-      IAxiosResponse<IAvailableAssetsResponse>
-    >(`/earn/v1/available-assets`);
+  _getAvailableAssets = memoizee(
+    async ({ type }: { type?: EAvailableAssetsTypeEnum }) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+      const resp = await client.get<
+        IAvailableAssetsResponse,
+        IAxiosResponse<IAvailableAssetsResponse>
+      >(`/earn/v1/available-assets`, {
+        params: {
+          type,
+        },
+      });
 
-    this.handleServerError({
-      ...resp.data,
-      requestId: resp.$requestId,
-    });
-    return resp.data.data.assets;
+      this.handleServerError({
+        ...resp.data,
+        requestId: resp.$requestId,
+      });
+      return resp.data.data.assets;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getAvailableAssets({ type }: { type?: EAvailableAssetsTypeEnum } = {}) {
+    return this._getAvailableAssets({ type });
+  }
+
+  @backgroundMethod()
+  async clearAvailableAssetsCache() {
+    void this._getAvailableAssets.clear();
   }
 
   handleServerError(data: {
@@ -792,23 +1034,29 @@ class ServiceStaking extends ServiceBase {
     action,
     withdrawAll,
     amount,
-    morphoVault,
+    protocolVault,
   }: {
     accountId?: string;
     networkId?: string;
     symbol?: string;
     provider?: string;
-    action: 'stake' | 'unstake' | 'claim';
+    action: ECheckAmountActionType;
     withdrawAll: boolean;
     amount?: string;
-    morphoVault?: string;
+    protocolVault?: string;
   }) {
     if (!networkId || !accountId || !provider) {
-      throw new Error('networkId or accountId or provider not found');
+      throw new OneKeyLocalError(
+        'networkId or accountId or provider not found',
+      );
     }
+    const useVaultProvider = earnUtils.useVaultProvider({
+      providerName: provider,
+    });
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const amountNumber = BigNumber(amount || 0);
     const result = await client.get<
       ICheckAmountResponse,
       IAxiosResponse<ICheckAmountResponse>
@@ -819,18 +1067,12 @@ class ServiceStaking extends ServiceBase {
         symbol,
         provider: provider || '',
         action,
-        amount,
-        vault: morphoVault,
+        amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
+        vault: useVaultProvider ? protocolVault : '',
         withdrawAll,
       },
     });
-    const { code, message } = result.data;
-    this.handleServerError({
-      code,
-      message,
-      requestId: result.$requestId,
-    });
-    return Number(code) === 0 ? '' : message;
+    return result.data;
   }
 
   @backgroundMethod()
@@ -932,10 +1174,10 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
     if (networkUtils.isAllNetwork({ networkId })) {
-      throw new Error('networkId should not be all network');
+      throw new OneKeyLocalError('networkId should not be all network');
     }
     if (networkUtils.isAllNetwork({ networkId }) && !indexedAccountId) {
-      throw new Error('indexedAccountId should be provided');
+      throw new OneKeyLocalError('indexedAccountId should be provided');
     }
     if (accountUtils.isOthersAccount({ accountId }) || !indexedAccountId) {
       let account: INetworkAccount | null = null;
@@ -959,7 +1201,11 @@ class ServiceStaking extends ServiceBase {
           networkId,
           accountId,
         });
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: account.id,
+      });
       return {
+        walletId,
         accountId: account.id,
         networkId,
         accountAddress,
@@ -988,7 +1234,11 @@ class ServiceStaking extends ServiceBase {
           networkId,
           accountId: networkAccount.id,
         });
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId: networkAccount.id,
+      });
       return {
+        walletId,
         accountId: networkAccount.id,
         networkId,
         accountAddress,
@@ -1041,12 +1291,14 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccounts(params: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
   }) {
     const { accountId, networkId } = params;
     const { accountsInfo } =
       await this.backgroundApi.serviceAllNetwork.getAllNetworkAccounts({
         accountId,
         networkId,
+        indexedAccountId: params.indexedAccountId,
         fetchAllNetworkAccounts: accountUtils.isOthersAccount({ accountId })
           ? undefined
           : true,
@@ -1058,6 +1310,27 @@ class ServiceStaking extends ServiceBase {
           !isTaprootAddress(account.apiAddress)
         ),
     );
+  }
+
+  _getFAQListForHome = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const resp = await client.get<{
+        data: {
+          list: IEarnFAQList;
+        };
+      }>(`/earn/v1/faq/list`);
+      return resp.data.data.list;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  @backgroundMethod()
+  async getFAQListForHome() {
+    return this._getFAQListForHome();
   }
 
   @backgroundMethod()
@@ -1096,22 +1369,25 @@ class ServiceStaking extends ServiceBase {
     action: IEarnEstimateAction;
     amount: string;
     txId?: string;
-    morphoVault?: string;
+    protocolVault?: string;
     identity?: string;
     accountAddress?: string;
     approveType?: 'permit';
     permitSignature?: string;
   }) {
-    const { symbol, morphoVault, ...rest } = params;
+    const { symbol, protocolVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const sendParams: Record<string, string | undefined> = {
+      symbol,
+      ...rest,
+    };
+    if (earnUtils.useVaultProvider({ providerName: params.provider })) {
+      sendParams.vault = protocolVault;
+    }
     const resp = await client.get<{
       data: IEarnEstimateFeeResp;
     }>(`/earn/v1/estimate-fee`, {
-      params: {
-        symbol,
-        vault: morphoVault,
-        ...rest,
-      },
+      params: sendParams,
     });
     return resp.data.data;
   }
@@ -1266,6 +1542,92 @@ class ServiceStaking extends ServiceBase {
     const vaultSettings =
       await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
     return vaultSettings.stakingResultPollingInterval ?? 30;
+  }
+
+  @backgroundMethod()
+  async queryInviteCodeByAddress(params: {
+    networkId: string;
+    accountAddress: string;
+  }) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      data: {
+        referCode: string;
+      };
+    }>(`/earn/v1/account/invite-code/query`, {
+      params,
+    });
+    return response.data.data.referCode;
+  }
+
+  @backgroundMethod()
+  async checkInviteCode(inviteCode: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const response = await client.get<{
+      code: number;
+    }>(`/earn/v1/account/invite-code/check`, {
+      params: { inviteCode },
+    });
+    return response.data.code === 0;
+  }
+
+  @backgroundMethod()
+  async setFalconDepositDoNotShowAgain() {
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        falconDepositDoNotShowAgain: true,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getFalconDepositDoNotShowAgain() {
+    const v = await simpleDb.appStatus.getRawData();
+    return v?.falconDepositDoNotShowAgain ?? false;
+  }
+
+  @backgroundMethod()
+  async resetEarnCache() {
+    await this.backgroundApi.simpleDb.earn.resetEarnData();
+  }
+
+  @backgroundMethod()
+  async checkEthenaKycStatusByAccounts({
+    accounts,
+  }: {
+    accounts: Array<{ accountAddress: string; networkId: string }>;
+  }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.post<{
+        data: {
+          networkId: string;
+          accountAddress: string;
+          kycVerifyStatus: 'none' | 'pending' | 'verified' | 'rejected';
+        }[];
+      }>('/earn/v1/sumsub/status', {
+        accounts,
+      });
+      const result = response.data.data
+        .filter((i) => i.kycVerifyStatus === 'verified')
+        .map((i) => i.accountAddress);
+      if (Array.isArray(result) && result.length > 0) {
+        await this.backgroundApi.simpleDb.earnExtra.setEthenaKycAddresses(
+          result,
+        );
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('checkEthenaKycStatusByAccounts error:', e);
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  async getEthenaKycAddress() {
+    return this.backgroundApi.simpleDb.earnExtra.getEthenaKycAddress();
   }
 }
 

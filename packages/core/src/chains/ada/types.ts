@@ -21,6 +21,8 @@ export type IAdaUTXO = {
   tx_index: number;
   output_index: number;
   amount: IAdaAmount[];
+  // lock script hash
+  datum_hash: string | null | undefined;
 };
 
 export type IAdaEncodeInput = {

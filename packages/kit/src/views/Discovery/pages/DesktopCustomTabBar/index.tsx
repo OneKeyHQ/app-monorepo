@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
+  ESectionLayoutType,
   Icon,
   SizableText,
   SortableSectionList,
@@ -11,7 +12,10 @@ import {
   XStack,
   useShortcuts,
 } from '@onekeyhq/components';
-import type { ISortableSectionListRef } from '@onekeyhq/components';
+import type {
+  ISectionLayoutItem,
+  ISortableSectionListRef,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -69,7 +73,7 @@ function DesktopCustomTabBar() {
     addBrowserHomeTab,
     reOpenLastClosedTab,
   } = useBrowserTabActions().current;
-  const { addBrowserBookmark, removeBrowserBookmark } =
+  const { addOrUpdateBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
 
   const { result, setResult, run } = usePromiseResult(async () => {
@@ -102,19 +106,28 @@ function DesktopCustomTabBar() {
   );
   const handleCloseTab = useCallback(
     (id: string) => {
-      void closeWebTab({ tabId: id, entry: 'Menu' });
+      void closeWebTab({
+        tabId: id,
+        entry: 'Menu',
+        navigation,
+      });
     },
-    [closeWebTab],
+    [closeWebTab, navigation],
   );
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        void addBrowserBookmark({ url, title });
+        void addOrUpdateBrowserBookmark({
+          url,
+          title,
+          logo: undefined,
+          sortIndex: undefined,
+        });
       } else {
         void removeBrowserBookmark(url);
       }
     },
-    [addBrowserBookmark, removeBrowserBookmark],
+    [addOrUpdateBrowserBookmark, removeBrowserBookmark],
   );
 
   const handleDisconnect = useCallback(
@@ -176,8 +189,6 @@ function DesktopCustomTabBar() {
   const handleShortcuts = useCallback(
     (eventName: EShortcutEvents) => {
       switch (eventName) {
-        case EShortcutEvents.TabPin6:
-        case EShortcutEvents.TabPin7:
         case EShortcutEvents.TabPin8:
         case EShortcutEvents.TabPin9:
           if (result?.pinnedTabs?.length) {
@@ -331,6 +342,13 @@ function DesktopCustomTabBar() {
         SectionSeparatorComponent={null}
         onDragEnd={onDragEnd}
         allowCrossSection
+        getItemDragDisabled={(layoutItem) => {
+          // Disable dragging for section headers (which includes the new tab button)
+          return (
+            (layoutItem as ISectionLayoutItem).type ===
+            ESectionLayoutType.Header
+          );
+        }}
         renderSectionHeader={({ index }) =>
           index === 1 ? (
             <>
@@ -376,6 +394,7 @@ function DesktopCustomTabBar() {
                 ) : null}
               </XStack>
               <DesktopTabItem
+                size="small"
                 key="AddTabButton"
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,

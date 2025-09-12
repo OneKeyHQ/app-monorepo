@@ -24,6 +24,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -40,7 +41,8 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
-import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
+import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
+import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -55,8 +57,13 @@ function TxConfirm() {
 
   const intl = useIntl();
 
-  const { accountId, networkId, transferPayload, sourceInfo, unsignedTxs } =
-    route.params;
+  const {
+    transferPayload,
+    sourceInfo,
+    unsignedTxs,
+    isQueueMode,
+    unsignedTxQueue,
+  } = route.params;
 
   const {
     updateDecodedTxs,
@@ -71,6 +78,11 @@ function TxConfirm() {
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
   const decodedTxsInit = useRef(false);
   const txConfirmParamsInit = useRef(false);
+
+  const accountId =
+    reactiveUnsignedTxs?.[0]?.accountId ?? route.params.accountId;
+  const networkId =
+    reactiveUnsignedTxs?.[0]?.networkId ?? route.params.networkId;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -218,7 +230,7 @@ function TxConfirm() {
     }
   };
 
-  usePreCheckNativeBalance({
+  usePreCheckTokenBalance({
     networkId,
     transferPayload,
   });
@@ -232,7 +244,24 @@ function TxConfirm() {
     return () => {
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
     };
-  }, [unsignedTxs, updateSendFeeStatus, updateUnsignedTxs]);
+  }, [
+    isQueueMode,
+    unsignedTxQueue,
+    unsignedTxs,
+    updateSendFeeStatus,
+    updateUnsignedTxs,
+  ]);
+
+  useEffect(() => {
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId,
+      });
+    }
+  }, [sourceInfo, accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
     if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {
@@ -276,6 +305,13 @@ function TxConfirm() {
     stakingInfo,
   ]);
 
+  const renderTxQueueController = useCallback(() => {
+    if (!isQueueMode) {
+      return null;
+    }
+    return <TaskQueueController taskQueue={unsignedTxQueue} />;
+  }, [isQueueMode, unsignedTxQueue]);
+
   const renderHeaderRight = useCallback(
     () => (
       <TxConfirmHeaderRight decodedTxs={decodedTxs} unsignedTxs={unsignedTxs} />
@@ -287,6 +323,7 @@ function TxConfirm() {
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID="tx-confirmation-body" px="$5">
+        {renderTxQueueController()}
         {renderTxConfirmContent()}
       </Page.Body>
       <TxConfirmActions {...route.params} />

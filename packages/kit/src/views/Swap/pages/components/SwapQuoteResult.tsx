@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
-  useSwapApprovingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
@@ -79,8 +78,11 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
-  const [approving, setSwapApprovingAtom] = useSwapApprovingAtom();
-  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+
+  const [
+    { swapApprovingTransaction, swapApprovingLoading },
+    setInAppNotificationAtom,
+  ] = useInAppNotificationAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
@@ -92,7 +94,23 @@ const SwapQuoteResult = ({
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
-
+  const isFreeOneKeyFee = useMemo(() => {
+    if (
+      (quoteResult?.toAmount && quoteResult.kind === ESwapQuoteKind.SELL) ||
+      (quoteResult?.fromAmount && quoteResult.kind === ESwapQuoteKind.BUY)
+    ) {
+      return (
+        new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isZero() ||
+        new BigNumber(quoteResult?.fee?.percentageFee ?? '0').isNaN()
+      );
+    }
+    return false;
+  }, [
+    quoteResult?.fee?.percentageFee,
+    quoteResult?.fromAmount,
+    quoteResult?.toAmount,
+    quoteResult?.kind,
+  ]);
   const swapRecipientAddress = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -331,12 +349,15 @@ const SwapQuoteResult = ({
   ) {
     return null;
   }
-  if (swapApprovingTransaction && approving) {
+  if (swapApprovingTransaction && swapApprovingLoading) {
     return (
       <SwapApprovingItem
         approvingTransaction={swapApprovingTransaction}
         onComplete={() => {
-          setSwapApprovingAtom(false);
+          setInAppNotificationAtom((pre) => ({
+            ...pre,
+            swapApprovingLoading: false,
+          }));
         }}
       />
     );
@@ -375,6 +396,7 @@ const SwapQuoteResult = ({
           <SwapProviderInfoItem
             providerIcon={quoteResult?.info.providerLogo ?? ''}
             providerName={quoteResult?.info.providerName ?? ''}
+            isFreeOneKeyFee={isFreeOneKeyFee ?? false}
             // isLoading={swapQuoteLoading}
             fromToken={fromToken}
             onekeyFee={quoteResult?.fee?.percentageFee}
@@ -436,6 +458,7 @@ const SwapQuoteResult = ({
                 rate={quoteResult?.instantRate}
                 quoting={quoting}
                 fromToken={fromToken}
+                isFreeOneKeyFee={isFreeOneKeyFee ?? false}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
@@ -480,6 +503,18 @@ const SwapQuoteResult = ({
                       </SizableText>
                     </XStack>
                   }
+                  questionMarkContent={
+                    <SizableText
+                      p="$4"
+                      $gtMd={{
+                        size: '$bodyMd',
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.swap_review_recipient_popover,
+                      })}
+                    </SizableText>
+                  }
                 />
               ) : null}
               {quoteResult?.allowanceResult ? (
@@ -495,6 +530,7 @@ const SwapQuoteResult = ({
                   providerName={quoteResult?.info.providerName ?? ''}
                   isLoading={swapQuoteLoading}
                   isBest={quoteResult.isBest}
+                  isFreeOneKeyFee={isFreeOneKeyFee ?? false}
                   fromToken={fromToken}
                   onekeyFee={quoteResult?.fee?.percentageFee}
                   toToken={toToken}
@@ -551,6 +587,18 @@ const SwapQuoteResult = ({
                         {quoteResult.fee?.estimatedFeeFiatValue}
                       </NumberSizeableText>
                     )
+                  }
+                  questionMarkContent={
+                    <SizableText
+                      p="$4"
+                      $gtMd={{
+                        size: '$bodyMd',
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.swap_review_network_cost_popover_content,
+                      })}
+                    </SizableText>
                   }
                 />
               ) : null}

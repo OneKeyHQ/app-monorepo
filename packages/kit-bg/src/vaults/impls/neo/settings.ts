@@ -39,7 +39,7 @@ const settings: IVaultSettings = {
     EDeviceType.ClassicPure,
   ],
 
-  defaultFeePresetIndex: 0,
+  defaultFeePresetIndex: 1,
 
   isUtxo: false,
   isSingleToken: false,

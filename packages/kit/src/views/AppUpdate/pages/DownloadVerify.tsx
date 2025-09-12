@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
+import { usePreventRemove } from '@react-navigation/core';
 import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
 
@@ -232,7 +232,7 @@ function DownloadVerify({
           />
           <Stepper.Item
             title={intl.formatMessage({
-              id: ETranslations.update_verify_asc_labe,
+              id: ETranslations.update_verify_asc_label,
             })}
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Done) {

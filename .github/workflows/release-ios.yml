@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - daily-build
+      - daily-build-dev
     types:
       - completed
   workflow_dispatch:
@@ -18,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -33,6 +38,13 @@ jobs:
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -47,8 +59,8 @@ jobs:
           echo ${{ secrets.GOOGLE_SERVICE_IOS }} | base64 -d > apps/mobile/ios/OneKeyWallet/GoogleService-Info.plist
           echo ${{ secrets.ASC_API_KEY }} | base64 -d > apps/mobile/AscApiKey.p8
 
-      - name: Setup Expo
-        uses: OneKeyHQ/actions/expo-server@main
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
@@ -97,12 +109,18 @@ jobs:
         if: ${{ github.event.workflow_run }}
         run: |
           cd apps/mobile
-          # eas build --profile=production --platform ios --non-interactive --no-wait
-          # replace APP STORE provision
-          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
-          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
 
-          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
+          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
+            eas build --profile=production --platform ios --non-interactive --no-wait
+          else
+            # eas build --profile=production --platform ios --non-interactive --no-wait
+            # replace APP STORE provision
+            echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
+            echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
+
+            eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          fi
 
       - name: Build on EAS
         if: ${{ !github.event.workflow_run }}

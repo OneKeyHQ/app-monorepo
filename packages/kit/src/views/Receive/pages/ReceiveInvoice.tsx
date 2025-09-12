@@ -42,7 +42,7 @@ function ReceiveInvoice() {
   const navigation = useAppNavigation();
 
   // polling check for invoice status
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const timerRef = useRef<ReturnType<typeof setInterval>>(undefined);
   useEffect(() => {
     if (!paymentHash || !networkId || !accountId) return;
     const { serviceLightning } = backgroundApiProxy;
@@ -132,7 +132,7 @@ function ReceiveInvoice() {
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.lighting_invoice })}
+        title={intl.formatMessage({ id: ETranslations.lightning_invoice })}
       />
       <Page.Body
         flex={1}

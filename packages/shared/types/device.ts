@@ -1,4 +1,7 @@
-import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBDevice,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
 import type {
@@ -80,6 +83,7 @@ type IFirmwareUpdateInfoBase<T> = {
   toVersion: string;
   changelog: IFirmwareChangeLog | undefined;
   releasePayload: T;
+  githubReleaseUrl?: string;
 };
 export type IFirmwareUpdateInfo =
   IFirmwareUpdateInfoBase<IFirmwareReleasePayload>;
@@ -95,6 +99,7 @@ export type ICheckAllFirmwareReleaseResult = {
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
   deviceName: string | undefined;
+  deviceBleName: string | undefined;
   updatingConnectId: string | undefined;
   originalConnectId: string | undefined;
   updateInfos: {
@@ -136,6 +141,7 @@ export enum EConfirmOnDeviceType {
 
 export type IDeviceSharedCallParams = {
   dbDevice: IDBDevice;
+  dbWallet?: IDBWallet;
   // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
   confirmOnDevice?: EConfirmOnDeviceType;
   deviceCommonParams?: IDeviceCommonParams;
@@ -157,6 +163,10 @@ export type IHardwarePopup = {
   content?: string;
 };
 export type IPopupType = 'normal' | 'inputPin' | 'inputPassphrase';
+
+export type IHardwareGetPubOrAddressExtraInfo = {
+  rootFingerprint?: number;
+};
 
 export type ISYSFirmwareInfo = {
   required: boolean;
@@ -186,6 +196,12 @@ export type IResourceUpdateInfo = {
   needUpdate: boolean;
   minVersion?: string;
   limitVersion?: string;
+};
+
+export type IDeviceHomeScreen = {
+  deviceId: string;
+  imgBase64: string;
+  name: string;
 };
 
 export type IQrWalletDevice = {
@@ -260,8 +276,14 @@ export enum EFirmwareUpdateTipMessages {
   UpdateSysResourceSuccess = 'UpdateSysResourceSuccess',
   StartTransferData = 'StartTransferData',
   InstallingFirmware = 'InstallingFirmware',
+
+  // For V3
+  StartDownloadFirmware = 'StartDownloadFirmware',
+  FinishDownloadFirmware = 'FinishDownloadFirmware',
+  FirmwareUpdateCompleted = 'FirmwareUpdateCompleted',
 }
 /*
+FirmwareUpdateV2 flow
 ,AutoRebootToBootloader,GoToBootloaderSuccess,DownloadFirmware,DownloadFirmwareSuccess,ConfirmOnDevice,FirmwareEraseSuccess,AutoRebootToBootloader,GoToBootloaderSuccess,DownloadFirmware,DownloadFirmwareSuccess,ConfirmOnDevice,FirmwareEraseSuccess
 
 1. CheckLatestUiResource
@@ -277,6 +299,18 @@ export enum EFirmwareUpdateTipMessages {
 11. ConfirmOnDevice
 12. InstallingFirmware
 */
+
+/**
+ * FirmwareUpdateV3 flow
+   1. StartDownloadFirmware
+   2. FinishDownloadFirmware
+   3. AutoRebootToBootloader
+   4. GoToBootloaderSuccess
+   5. StartTransferData
+   6. ConfirmOnDevice
+   7. FirmwareUpdating
+   8. FirmwareUpdateCompleted
+ */
 
 export enum EFirmwareVerifyType {
   System = 'system',
@@ -349,3 +383,20 @@ export type IDeviceVersionCacheInfo = {
   onekey_boot_version: string | undefined;
   bootloader_version: string | undefined;
 };
+
+export type IFirmwareUpdateV3VersionParams = {
+  connectId: string | undefined;
+  bleVersion: string | undefined;
+  firmwareVersion: string | undefined;
+  bootloaderVersion: string | undefined;
+};
+
+export enum EHardwareCallContext {
+  USER_INTERACTION = 'user_interaction',
+  USER_INTERACTION_NO_BLE_DIALOG = 'user_interaction_no_ble_dialog',
+  BACKGROUND_TASK = 'background_task',
+  SDK_INITIALIZATION = 'sdk_initialization',
+  SILENT_CALL = 'silent_call',
+}
+
+export type IHardwareCallContext = EHardwareCallContext;

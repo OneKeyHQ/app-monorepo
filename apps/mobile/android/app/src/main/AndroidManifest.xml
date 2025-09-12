@@ -5,8 +5,21 @@
   <uses-permission
         android:name="android.permission.ACCESS_COARSE_LOCATION"
         tools:node="remove" />
+  <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        tools:node="remove" />
+  <uses-permission-sdk-23
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="30"
+        tools:node="replace" />
+  <uses-permission-sdk-23
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30"
+        tools:node="replace" />
+
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove" />
   <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove" />
 
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.INTERNET"/>
@@ -42,7 +55,7 @@
    android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:allowBackup="false" android:theme="@style/AppTheme" android:largeHeap="true" android:supportsRtl="true">
     <meta-data
         android:name="com.google.android.play.billingclient.version"
-        android:value="7.0.0"/>
+        android:value="7.1.1"/>
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
     <meta-data android:name="expo.modules.updates.EXPO_SDK_VERSION" android:value="49.0.0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
@@ -74,7 +87,7 @@
         <data android:scheme="ethereum" />
       </intent-filter>
     </activity>
-    <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
+    <!-- <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/> -->
     <provider
         android:name="so.onekey.app.wallet.OnekeyFileProvider"
         android:authorities="${applicationId}.onekeyfile"
@@ -90,5 +103,66 @@
     <meta-data
       android:name="JPUSH_APPKEY"
       android:value="${JPUSH_APPKEY}" />
+
+      <!-- overwrite -->
+      <!-- expo-file-system -->
+      <provider
+          android:name="expo.modules.filesystem.FileSystemFileProvider"
+          android:authorities="so.onekey.app.wallet.FileSystemFileProvider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/file_system_provider_paths" />
+      </provider>
+
+      <!-- expo-image-picker -->
+      <provider
+          android:name="expo.modules.imagepicker.fileprovider.ImagePickerFileProvider"
+          android:authorities="so.onekey.app.wallet.ImagePickerFileProvider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/image_picker_provider_paths" />
+      </provider>
+
+      <!-- react-mobile-cropper -->
+      <provider
+          android:name="com.canhub.cropper.CropFileProvider"
+          android:authorities="so.onekey.app.wallet.cropper.fileprovider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/library_file_paths" />
+      </provider>
+
+      <!-- expo-sharing -->
+      <provider
+          android:name="expo.modules.sharing.SharingFileProvider"
+          android:authorities="so.onekey.app.wallet.SharingFileProvider"
+          android:exported="false"
+          android:grantUriPermissions="true"
+          tools:ignore="MissingClass"
+          tools:node="replace"
+          tools:replace="android:authorities,android:exported,android:grantUriPermissions">
+          <meta-data
+              android:name="android.support.FILE_PROVIDER_PATHS"
+              tools:replace="android:resource"
+              android:resource="@xml/sharing_provider_paths" />
+      </provider>
   </application>
 </manifest>

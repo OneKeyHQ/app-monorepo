@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const InputGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Input"
     elements={[
       {
@@ -13,8 +14,8 @@ const InputGallery = () => (
             <Input
               size="small"
               placeholder="Placeholder"
-              onPaste={() => {
-                alert('onPaste');
+              onPaste={(event) => {
+                alert(JSON.stringify(event.nativeEvent.items));
               }}
             />
             <Input size="medium" placeholder="Placeholder" />
@@ -65,6 +66,11 @@ const InputGallery = () => (
                   },
                 },
               ]}
+            />
+            <Input
+              size="small"
+              placeholder="allowSecureTextEye"
+              allowSecureTextEye
             />
             <Input
               size="medium"

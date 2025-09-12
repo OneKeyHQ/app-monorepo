@@ -14,6 +14,13 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
   WalletConnectUniversalLinkPath,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -32,18 +39,29 @@ type IProcessDeepLinkParams = {
   parsedUrl: Linking.ParsedURL;
 };
 
-async function processDeepLinkUrlAccount({
-  parsedUrl,
-}: IProcessDeepLinkParams) {
+async function processDeepLinkUrlAccount(
+  params: IProcessDeepLinkParams,
+  times = 0,
+) {
+  if (times > 10) {
+    return;
+  }
   try {
-    const { hostname, queryParams, scheme } = parsedUrl;
+    const { parsedUrl } = params;
+    const { hostname, queryParams, scheme, path } = parsedUrl;
     if (
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
       console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
       const navigation = appGlobals.$rootAppNavigation;
-      switch (hostname) {
+      if (!navigation) {
+        setTimeout(() => {
+          void processDeepLinkUrlAccount(params, times + 1);
+        }, 1500);
+        return;
+      }
+      switch (platformEnv.isNative ? hostname : path?.slice(1)) {
         case EOneKeyDeepLinkPath.url_account: {
           const query =
             queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.url_account];
@@ -68,6 +86,28 @@ async function processDeepLinkUrlAccount({
               });
             }
           }
+          break;
+        case EOneKeyDeepLinkPath.invite_share:
+          {
+            const { utm_source: utmSource, code } =
+              queryParams as IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.invite_share];
+            if (navigation) {
+              navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+                screen: EModalReferFriendsRoutes.ReferAFriend,
+                params: {
+                  utmSource,
+                  code,
+                },
+              });
+            }
+            defaultLogger.referral.page.enterReferralGuideFromDeepLink(
+              code,
+              utmSource,
+            );
+          }
+          break;
+        case EOneKeyDeepLinkPath.cross_device_transfer:
+          console.log('TODO implement cross_device_transfer deeplink');
           break;
         default:
           break;
@@ -122,6 +162,7 @@ async function processDeepLinkWalletConnect({
     ) {
       if (
         (path === WALLET_CONNECT_DEEP_LINK_NAME && !hostname) ||
+        (path === `/${WALLET_CONNECT_DEEP_LINK_NAME}` && !hostname) ||
         (hostname === WALLET_CONNECT_DEEP_LINK_NAME && !path)
       ) {
         if (queryParams?.uri) {
@@ -145,7 +186,7 @@ async function processDeepLinkWalletConnect({
       // V1
       if (queryParams?.bridge && queryParams?.key) {
         // wcUri = url;
-        throw new Error('WalletConnect V1 is not supported');
+        throw new OneKeyLocalError('WalletConnect V1 is not supported');
       }
       // V2
       // eslint-disable-next-line spellcheck/spell-checker

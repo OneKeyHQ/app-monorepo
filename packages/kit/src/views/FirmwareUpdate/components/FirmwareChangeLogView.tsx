@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
+import type { IStackProps } from '@onekeyhq/components';
 import {
+  Accordion,
+  Dialog,
   Icon,
-  IconButton,
   Markdown,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
@@ -28,9 +30,9 @@ import type {
 
 import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
+import { FirmwareUpdateIntroduction } from './FirmwareUpdateIntroduction';
 import { FirmwareUpdatePageFooter } from './FirmwareUpdatePageLayout';
-import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
-import { FirmwareVersionProgressBar } from './FirmwareVersionProgressBar';
+import { FirmwareVersionProgressText } from './FirmwareVersionProgressBar';
 
 function ChangeLogMarkdown({
   changelog,
@@ -58,107 +60,131 @@ function ChangeLogMarkdown({
 
 function ChangeLogSection({
   title,
-  icon,
-  isDone,
   updateInfo,
+  accordionValue,
 }: {
   title: string;
-  icon: IKeyOfIcons;
-  isDone?: boolean;
+  accordionValue: string;
   updateInfo:
     | IFirmwareUpdateInfo
     | IBleFirmwareUpdateInfo
     | IBootloaderUpdateInfo
     | undefined;
 }) {
-  const intl = useIntl();
-
-  const [collapse, setCollapse] = useState(isDone);
-  const onDropDownPressed = useCallback(() => {
-    setCollapse(!collapse);
-  }, [collapse]);
   return (
-    <Stack>
-      <XStack gap="$3" py="$2" ai="center" onPress={onDropDownPressed}>
-        <Icon name={icon} size="$5" />
-        <Stack flex={1}>
-          <SizableText size="$bodyLgMedium">{title}</SizableText>
-          <SizableText
-            size="$bodyMd"
-            color={isDone ? '$textSubdued' : '$textInfo'}
-          >
-            {isDone
-              ? intl.formatMessage(
-                  { id: ETranslations.update_updated_to_latest_version },
-                  {
-                    version:
-                      updateInfo?.toVersion ||
-                      intl.formatMessage({ id: ETranslations.global_unknown }),
-                  },
-                )
-              : intl.formatMessage(
-                  { id: ETranslations.global_version_is_available },
-                  {
-                    version:
-                      updateInfo?.toVersion ||
-                      intl.formatMessage({ id: ETranslations.global_unknown }),
-                  },
-                )}
-          </SizableText>
-        </Stack>
-        <IconButton
-          icon={collapse ? 'ChevronDownSmallOutline' : 'ChevronTopSmallOutline'}
-          variant="tertiary"
-          onPress={onDropDownPressed}
-        />
-      </XStack>
-      {collapse ? null : (
-        <Stack bg="$bgStrong" p="$5" borderRadius="$3">
-          <FirmwareVersionProgressBar
-            fromVersion={updateInfo?.fromVersion}
-            toVersion={updateInfo?.toVersion}
-          />
-          <ChangeLogMarkdown changelog={updateInfo?.changelog} />
-        </Stack>
-      )}
-    </Stack>
+    <Accordion.Item value={accordionValue}>
+      <Accordion.Trigger
+        unstyled
+        borderWidth={0}
+        flexDirection="row"
+        alignItems="center"
+        px="$0"
+        py="$3"
+        mx="$5"
+        bg="$transparent"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        hoverStyle={{
+          bg: '$bgHover',
+        }}
+        pressStyle={{
+          bg: '$bgActive',
+        }}
+        focusVisibleStyle={{
+          outlineColor: '$focusRing',
+          outlineWidth: 2,
+          outlineStyle: 'solid',
+          outlineOffset: -2,
+        }}
+      >
+        {({ open }: { open: boolean }) => (
+          <>
+            <XStack ai="center" gap="$1.5" flex={1}>
+              <SizableText
+                size="$bodyLgMedium"
+                color={open ? '$text' : '$textSubdued'}
+              >
+                {title}
+              </SizableText>
+              <FirmwareVersionProgressText
+                fromVersion={updateInfo?.fromVersion}
+                toVersion={updateInfo?.toVersion}
+                githubReleaseUrl={updateInfo?.githubReleaseUrl}
+                active={open}
+              />
+            </XStack>
+            <Stack animation="quick" rotate={open ? '-180deg' : '0deg'}>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$6"
+                color={open ? '$icon' : '$iconSubdued'}
+              />
+            </Stack>
+          </>
+        )}
+      </Accordion.Trigger>
+      <Accordion.HeightAnimator animation="quick">
+        <Accordion.Content
+          animation="quick"
+          exitStyle={{ opacity: 0 }}
+          px="$5"
+          pb="$5"
+          pt="$0"
+        >
+          <Stack mt="$-2.5">
+            <ChangeLogMarkdown changelog={updateInfo?.changelog} />
+          </Stack>
+        </Accordion.Content>
+      </Accordion.HeightAnimator>
+    </Accordion.Item>
   );
 }
 
 export function FirmwareChangeLogContentView({
   result,
-  isDone,
+  ...rest
 }: {
   result: ICheckAllFirmwareReleaseResult | undefined;
-  isDone?: boolean;
-}) {
+} & IStackProps) {
   const intl = useIntl();
+  const defaultExpandedSections = useMemo(() => {
+    if (result?.updateInfos?.firmware?.hasUpgrade) return 'firmware';
+    if (result?.updateInfos?.bootloader?.hasUpgrade) return 'bootloader';
+    if (result?.updateInfos?.ble?.hasUpgrade) return 'ble';
+    return undefined;
+  }, [result?.updateInfos]);
+
   return (
-    <Stack mt="$8">
-      {result?.updateInfos?.bootloader?.hasUpgrade ? (
-        <ChangeLogSection
-          title={intl.formatMessage({ id: ETranslations.global_bootloader })}
-          icon="StorageOutline"
-          updateInfo={result?.updateInfos?.bootloader}
-          isDone={isDone}
-        />
-      ) : null}
-      {result?.updateInfos?.ble?.hasUpgrade ? (
-        <ChangeLogSection
-          title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
-          icon="BluetoothOutline"
-          updateInfo={result?.updateInfos?.ble}
-          isDone={isDone}
-        />
-      ) : null}
-      {result?.updateInfos?.firmware?.hasUpgrade ? (
-        <ChangeLogSection
-          title={intl.formatMessage({ id: ETranslations.global_firmware })}
-          icon="LaunchOutline"
-          updateInfo={result?.updateInfos?.firmware}
-          isDone={isDone}
-        />
-      ) : null}
+    <Stack {...rest}>
+      <Accordion
+        overflow="hidden"
+        width="100%"
+        type="single"
+        defaultValue={defaultExpandedSections}
+        collapsible
+      >
+        {result?.updateInfos?.firmware?.hasUpgrade ? (
+          <ChangeLogSection
+            title={intl.formatMessage({ id: ETranslations.global_firmware })}
+            updateInfo={result?.updateInfos?.firmware}
+            accordionValue="firmware"
+          />
+        ) : null}
+        {result?.updateInfos?.bootloader?.hasUpgrade ? (
+          <ChangeLogSection
+            title={intl.formatMessage({ id: ETranslations.global_bootloader })}
+            updateInfo={result?.updateInfos?.bootloader}
+            accordionValue="bootloader"
+          />
+        ) : null}
+        {result?.updateInfos?.ble?.hasUpgrade ? (
+          <ChangeLogSection
+            title={intl.formatMessage({ id: ETranslations.global_bluetooth })}
+            updateInfo={result?.updateInfos?.ble}
+            accordionValue="ble"
+          />
+        ) : null}
+      </Accordion>
     </Stack>
   );
 }
@@ -174,26 +200,43 @@ export function FirmwareChangeLogView({
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const { showCheckList } = useFirmwareUpdateActions();
 
+  const handleConfirmClick = useCallback(async () => {
+    const isUSBDeviceAvailable =
+      await backgroundApiProxy.serviceHardware.detectUSBDeviceAvailability();
+    if (!isUSBDeviceAvailable) {
+      Dialog.show({
+        icon: 'TypeCoutline',
+        title: intl.formatMessage({
+          id: ETranslations.upgrade_use_usb,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.upgrade_recommend_usb,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_got_it,
+        }),
+        showCancelButton: false,
+      });
+      return;
+    }
+    setStepInfo({
+      step: EFirmwareUpdateSteps.showCheckList,
+      payload: undefined,
+    });
+    showCheckList({ result });
+    onConfirmClick?.();
+  }, [result, showCheckList, onConfirmClick, setStepInfo, intl]);
+
   return (
     <>
       <FirmwareUpdatePageFooter
         onConfirmText={intl.formatMessage({
           id: ETranslations.update_update_now,
         })}
-        onConfirm={() => {
-          setStepInfo({
-            step: EFirmwareUpdateSteps.showCheckList,
-            payload: undefined,
-          });
-          showCheckList({ result });
-          onConfirmClick?.();
-        }}
+        onConfirm={handleConfirmClick}
       />
-      <Stack>
-        <FirmwareUpdateWalletProfile result={result} />
-
-        <FirmwareChangeLogContentView result={result} />
-      </Stack>
+      <FirmwareUpdateIntroduction />
+      <FirmwareChangeLogContentView result={result} />
     </>
   );
 }

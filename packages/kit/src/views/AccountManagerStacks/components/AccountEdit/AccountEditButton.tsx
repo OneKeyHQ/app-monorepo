@@ -6,6 +6,7 @@ import { ActionList, Divider } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { useAccountSelectorContextData } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBAccount,
@@ -17,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
+import { AccountCopyButton } from './AccountCopyButton';
 import { AccountExportPrivateKeyButton } from './AccountExportPrivateKeyButton';
 import { AccountMoveToTopButton } from './AccountMoveToTopButton';
 import { AccountRemoveButton } from './AccountRemoveButton';
@@ -29,6 +31,7 @@ function AccountEditButtonView({
   account,
   firstAccount,
   wallet,
+  networkId,
 }: {
   accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
@@ -36,21 +39,44 @@ function AccountEditButtonView({
   account?: IDBAccount;
   firstAccount?: IDBAccount;
   wallet?: IDBWallet;
+  networkId?: string;
 }) {
   const intl = useIntl();
   const { config } = useAccountSelectorContextData();
   const name = indexedAccount?.name || account?.name || '--';
+  const { network, vaultSettings } = useAccountData({
+    networkId: account?.createAtNetwork ?? networkId,
+  });
   // const { config } = useAccountSelectorContextData();
   // if (!config) {
   //   return null;
   // }
 
   const showRemoveButton = useMemo(() => {
+    if (accountUtils.isQrWallet({ walletId: wallet?.id })) {
+      return false;
+    }
     if (indexedAccount && accountsCount <= 1) {
       return false;
     }
     return true;
-  }, [accountsCount, indexedAccount]);
+  }, [accountsCount, indexedAccount, wallet?.id]);
+
+  const showCopyButton = useMemo(() => {
+    if (network?.isAllNetworks) {
+      return true;
+    }
+
+    if (vaultSettings?.copyAddressDisabled) {
+      return false;
+    }
+
+    if (!account && !indexedAccount?.associateAccount) {
+      return false;
+    }
+
+    return true;
+  }, [account, indexedAccount, network, vaultSettings?.copyAddressDisabled]);
 
   const isImportedAccount = useMemo(
     () =>
@@ -165,40 +191,6 @@ function AccountEditButtonView({
     wallet?.id,
   ]);
 
-  const estimatedContentHeight = useCallback(async () => {
-    let basicHeight = 56;
-    const exportKeysVisible = await getExportKeysVisible();
-    if (exportKeysVisible?.showExportPrivateKey) {
-      basicHeight += 44;
-    }
-
-    if (exportKeysVisible?.showExportPublicKey) {
-      basicHeight += 44;
-    }
-
-    if (exportKeysVisible?.showExportMnemonic) {
-      basicHeight += 44;
-    }
-
-    if (
-      firstIndexedAccount?.id !== indexedAccount?.id ||
-      firstAccount?.id !== account?.id
-    ) {
-      basicHeight += 44;
-    }
-
-    if (showRemoveButton) {
-      basicHeight += 54;
-    }
-    return basicHeight;
-  }, [
-    account?.id,
-    firstAccount?.id,
-    firstIndexedAccount?.id,
-    getExportKeysVisible,
-    indexedAccount?.id,
-    showRemoveButton,
-  ]);
   const renderItems = useCallback(
     async ({
       handleActionListClose,
@@ -220,12 +212,22 @@ function AccountEditButtonView({
             });
             return null;
           })()}
+          {showCopyButton ? (
+            <AccountCopyButton
+              wallet={wallet}
+              indexedAccount={indexedAccount}
+              account={account}
+              onClose={handleActionListClose}
+            />
+          ) : null}
           <AccountRenameButton
             name={name}
+            wallet={wallet}
             indexedAccount={indexedAccount}
             account={account}
             onClose={handleActionListClose}
           />
+
           {exportKeysVisible?.showExportPrivateKey ? (
             <AccountExportPrivateKeyButton
               testID={`popover-export-private-key-${name}`}
@@ -233,6 +235,7 @@ function AccountEditButtonView({
               accountName={name}
               indexedAccount={indexedAccount}
               account={account}
+              wallet={wallet}
               onClose={handleActionListClose}
               label={intl.formatMessage({
                 id: ETranslations.global_export_private_key,
@@ -247,6 +250,7 @@ function AccountEditButtonView({
               accountName={name}
               indexedAccount={indexedAccount}
               account={account}
+              wallet={wallet}
               onClose={handleActionListClose}
               label={intl.formatMessage({
                 id: ETranslations.global_public_key_export,
@@ -261,6 +265,7 @@ function AccountEditButtonView({
               accountName={name}
               indexedAccount={indexedAccount}
               account={account}
+              wallet={wallet}
               onClose={handleActionListClose}
               label={intl.formatMessage({
                 id: ETranslations.global_backup_recovery_phrase,
@@ -291,17 +296,18 @@ function AccountEditButtonView({
       );
     },
     [
-      accountsCount,
-      account,
       config,
-      firstAccount,
-      firstIndexedAccount,
       getExportKeysVisible,
-      indexedAccount,
-      intl,
       name,
-      showRemoveButton,
       wallet,
+      indexedAccount,
+      account,
+      showCopyButton,
+      intl,
+      firstIndexedAccount,
+      firstAccount,
+      showRemoveButton,
+      accountsCount,
     ],
   );
 
@@ -315,7 +321,6 @@ function AccountEditButtonView({
         />
       }
       renderItemsAsync={renderItems}
-      estimatedContentHeight={estimatedContentHeight}
     />
   );
 }

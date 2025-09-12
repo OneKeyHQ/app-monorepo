@@ -1,8 +1,9 @@
+/* eslint-disable spellcheck/spell-checker */
 import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import appGlobals from '../../appGlobals';
 
 import {
   buildBasicOptions,
@@ -17,10 +18,10 @@ export const initSentry = () => {
     return;
   }
   Sentry.init({
-    dsn: 'https://7850b8d23c313bf0df1bcaead128af6f@o4508208799809536.ingest.de.sentry.io/4508325155831888',
+    dsn: process.env.SENTRY_DSN_EXT || '',
     ...buildBasicOptions({
       onError: (errorMessage, stacktrace) => {
-        defaultLogger.app.error.log(errorMessage, stacktrace);
+        appGlobals.$defaultLogger?.app.error.log(errorMessage, stacktrace);
       },
     }),
     ...buildSentryOptions(Sentry),

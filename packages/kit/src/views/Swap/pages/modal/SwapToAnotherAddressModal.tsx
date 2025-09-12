@@ -72,10 +72,14 @@ const SwapToAnotherAddressPage = () => {
   useEffect(() => {
     if (address && accountInfo?.account?.address === address) {
       form.setValue('address', { raw: address });
-    } else if (paramAddress) {
+    }
+  }, [accountInfo?.account?.address, address, form]);
+
+  useEffect(() => {
+    if (paramAddress) {
       form.setValue('address', { raw: paramAddress });
     }
-  }, [accountInfo?.account?.address, address, form, paramAddress]);
+  }, [paramAddress, form]);
 
   const handleOnOpenAccountSelector = useCallback(() => {
     setSettings((v) => ({
@@ -142,7 +146,7 @@ const SwapToAnotherAddressPage = () => {
             networkId={accountInfo?.network?.id}
             enableAddressBook
             enableWalletName
-            enableVerifySendFundToSelf
+            // enableVerifySendFundToSelf
             enableAddressInteractionStatus
             enableAddressContract
             enableAllowListValidation

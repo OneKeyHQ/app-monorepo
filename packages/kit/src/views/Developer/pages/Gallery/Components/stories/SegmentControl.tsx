@@ -104,6 +104,7 @@ const SegmentControlExample3 = () => {
 
 const SegmentControlGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="SegmentControl"
     elements={[
       {

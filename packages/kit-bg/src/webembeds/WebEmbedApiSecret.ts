@@ -1,5 +1,5 @@
 import type {
-  IBatchGetPublicKeysAsyncParams,
+  IBatchGetPublicKeysParams,
   IDecryptAsyncParams,
   IEncryptAsyncParams,
   IGenerateRootFingerprintHexAsyncParams,
@@ -8,7 +8,7 @@ import type {
   ISecretPublicKeyInfoSerialized,
 } from '@onekeyhq/core/src/secret';
 import {
-  batchGetPublicKeysAsync,
+  batchGetPublicKeys,
   decryptAsync,
   encryptAsync,
   generateRootFingerprintHexAsync,
@@ -36,9 +36,9 @@ class WebEmbedApiSecret {
   }
 
   async batchGetPublicKeys(
-    params: IBatchGetPublicKeysAsyncParams,
+    params: IBatchGetPublicKeysParams,
   ): Promise<ISecretPublicKeyInfoSerialized[]> {
-    const keys = await batchGetPublicKeysAsync(params);
+    const keys = await batchGetPublicKeys(params);
 
     return keys.map((key) => ({
       path: key.path,

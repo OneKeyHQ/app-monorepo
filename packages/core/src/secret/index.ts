@@ -1,6 +1,6 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
-import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
+import { InvalidMnemonic, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -8,7 +8,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { BaseBip32KeyDeriver, ED25519Bip32KeyDeriver } from './bip32';
 import {
   mnemonicToRevealableSeed,
-  mnemonicToSeedSync,
+  mnemonicToSeed,
   revealEntropyToMnemonic,
   validateMnemonic,
 } from './bip39';
@@ -19,7 +19,7 @@ import {
   encryptStringAsync,
   ensureSensitiveTextEncoded,
 } from './encryptors/aes256';
-import { hash160 } from './hash';
+import { hash160, hash160Sync } from './hash';
 import ecc from './nobleSecp256k1Wrapper';
 import {
   tonMnemonicToRevealableSeed,
@@ -38,6 +38,8 @@ import type {
 import type { BaseCurve } from './curves';
 import type {
   ICoreHdCredentialEncryptHex,
+  ICoreHyperLiquidAgentCredential,
+  ICoreHyperLiquidAgentCredentialEncryptHex,
   ICoreImportedCredential,
   ICoreImportedCredentialEncryptHex,
   ICurveName,
@@ -49,7 +51,8 @@ export * from './bip39';
 export * from './curves';
 export * from './encryptors/aes256';
 export * from './encryptors/rsa';
-export * from './hash';
+
+export * from '@onekeyhq/shared/src/appCrypto/modules/hash';
 export * from './ton-mnemonic';
 export { ecc };
 
@@ -61,6 +64,7 @@ export enum EMnemonicType {
 const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string
+const EncryptPrefixHyperLiquidAgentCredential = '|HL|'; // hyperliquid agent credential
 
 const curves: Map<ICurveName, BaseCurve> = new Map([
   ['secp256k1', secp256k1],
@@ -136,8 +140,9 @@ async function publicFromPrivate(
 ): Promise<Buffer> {
   const decryptedPrivateKey = await decryptAsync({
     password,
-    data: encryptedPrivateKey,
+    data: bufferUtils.toBuffer(encryptedPrivateKey),
   });
+
   return getCurveByName(curveName).publicFromPrivate(decryptedPrivateKey);
 }
 
@@ -186,13 +191,16 @@ async function decryptVerifyString({
 async function encryptVerifyString({
   password,
   addPrefixString = true,
+  allowRawPassword,
 }: {
   password: string;
   addPrefixString?: boolean;
+  allowRawPassword?: boolean;
 }): Promise<string> {
   const encrypted = await encryptAsync({
     password,
     data: Buffer.from(DEFAULT_VERIFY_STRING),
+    allowRawPassword,
   });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
@@ -203,11 +211,14 @@ async function encryptVerifyString({
 async function decryptRevealableSeed({
   rs,
   password,
+  allowRawPassword,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
+  allowRawPassword?: boolean;
 }): Promise<IBip39RevealableSeed> {
   const decrypted = await decryptAsync({
+    allowRawPassword,
     password,
     data: rs.replace(EncryptPrefixHdCredential, ''),
   });
@@ -223,7 +234,7 @@ async function encryptRevealableSeed({
   password: string;
 }): Promise<IBip39RevealableSeedEncryptHex> {
   if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
-    throw new Error('Invalid seed object');
+    throw new OneKeyLocalError('Invalid seed object');
   }
   const encrypted = await encryptStringAsync({
     password,
@@ -236,11 +247,14 @@ async function encryptRevealableSeed({
 async function decryptImportedCredential({
   credential,
   password,
+  allowRawPassword,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
+  allowRawPassword?: boolean;
 }): Promise<ICoreImportedCredential> {
   const decrypted = await decryptAsync({
+    allowRawPassword,
     password,
     data:
       typeof credential === 'string'
@@ -254,19 +268,61 @@ async function decryptImportedCredential({
 async function encryptImportedCredential({
   credential,
   password,
+  allowRawPassword,
 }: {
   credential: ICoreImportedCredential;
   password: string;
+  allowRawPassword?: boolean;
 }): Promise<ICoreImportedCredentialEncryptHex> {
   if (!credential || !credential.privateKey) {
-    throw new Error('Invalid credential object');
+    throw new OneKeyLocalError('Invalid credential object');
   }
   const encrypted = await encryptStringAsync({
+    allowRawPassword,
     password,
     data: JSON.stringify(credential),
     dataEncoding: 'utf8',
   });
   return EncryptPrefixImportedCredential + encrypted;
+}
+
+async function decryptHyperLiquidAgentCredential({
+  credential,
+  password,
+  allowRawPassword,
+}: {
+  credential: ICoreHyperLiquidAgentCredentialEncryptHex;
+  password: string;
+  allowRawPassword?: boolean;
+}): Promise<ICoreHyperLiquidAgentCredential> {
+  const decrypted = await decryptAsync({
+    allowRawPassword,
+    password,
+    data: credential.replace(EncryptPrefixHyperLiquidAgentCredential, ''),
+  });
+  const text = bufferUtils.bytesToUtf8(decrypted);
+  return JSON.parse(text) as ICoreHyperLiquidAgentCredential;
+}
+
+async function encryptHyperLiquidAgentCredential({
+  credential,
+  password,
+  allowRawPassword,
+}: {
+  credential: ICoreHyperLiquidAgentCredential;
+  password: string;
+  allowRawPassword?: boolean;
+}): Promise<ICoreHyperLiquidAgentCredentialEncryptHex> {
+  if (!credential || !credential.privateKey) {
+    throw new OneKeyLocalError('Invalid credential object');
+  }
+  const encrypted = await encryptStringAsync({
+    allowRawPassword,
+    password,
+    data: JSON.stringify(credential),
+    dataEncoding: 'utf8',
+  });
+  return EncryptPrefixHyperLiquidAgentCredential + encrypted;
 }
 
 async function batchGetKeys(
@@ -283,11 +339,29 @@ async function batchGetKeys(
     extendedKey: IBip32ExtendedKey;
   }>
 > {
-  const ret: Array<{
-    path: string;
-    parentFingerPrint: Buffer;
-    extendedKey: IBip32ExtendedKey;
-  }> = [];
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const { seed } = await decryptRevealableSeed({
+    rs: hdCredential,
+    password,
+  });
+  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
+
+  // Generate master key
+  let key: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seedBuffer);
+
+  // Process prefix path components
+  const prefixComponents = prefix.split('/').filter((p) => p !== 'm');
+  const indices = prefixComponents.map((p) =>
+    p.endsWith("'")
+      ? Number.parseInt(p.slice(0, -1), 10) + 2 ** 31
+      : Number.parseInt(p, 10),
+  );
+
+  // Derive prefix path key
+  for (const index of indices) {
+    key = deriver.CKDPriv(key, index);
+  }
+
   const cache: Record<
     string,
     {
@@ -297,37 +371,20 @@ async function batchGetKeys(
     }
   > = {};
 
-  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = await decryptRevealableSeed({
-    rs: hdCredential,
-    password,
-  });
-  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
-  let key: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seedBuffer);
-
-  prefix.split('/').forEach((pathComponent) => {
-    if (pathComponent === 'm') {
-      return;
-    }
-    const index = pathComponent.endsWith("'")
-      ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
-      : parseInt(pathComponent, 10);
-    key = deriver.CKDPriv(key, index);
-  });
-
+  // Initialize cache with prefix key
   cache[prefix] = {
-    fingerPrint: hash160(deriver.N(key).key).slice(0, 4),
+    fingerPrint: hash160Sync(deriver.N(key).key).slice(0, 4),
     parentFingerPrint: Buffer.from([]),
     privkey: key,
   };
 
-  // Process paths sequentially to maintain order and handle async operations
-  for (const relPath of relPaths) {
+  // Process all relative paths in parallel
+  const results = relPaths.map(async (relPath) => {
     const pathComponents = relPath.split('/');
-
     let currentPath = prefix;
     let parent = cache[currentPath];
 
+    // Process path components sequentially within each path
     for (const pathComponent of pathComponents) {
       currentPath = `${currentPath}/${pathComponent}`;
       if (typeof cache[currentPath] === 'undefined') {
@@ -337,7 +394,7 @@ async function batchGetKeys(
         const privkey = deriver.CKDPriv(parent.privkey, index);
 
         if (typeof parent.fingerPrint === 'undefined') {
-          parent.fingerPrint = hash160(deriver.N(parent.privkey).key).slice(
+          parent.fingerPrint = hash160Sync(deriver.N(parent.privkey).key).slice(
             0,
             4,
           );
@@ -352,6 +409,7 @@ async function batchGetKeys(
       parent = cache[currentPath];
     }
 
+    // Generate extended key
     const extendedKey =
       type === 'private'
         ? {
@@ -363,14 +421,124 @@ async function batchGetKeys(
           }
         : deriver.N(cache[currentPath].privkey);
 
-    ret.push({
+    return {
       path: currentPath,
       parentFingerPrint: cache[currentPath].parentFingerPrint,
       extendedKey,
-    });
+    };
+  });
+
+  return Promise.all(results);
+}
+
+async function batchGetKeysByAsyncSubCalls(
+  curveName: ICurveName,
+  hdCredential: ICoreHdCredentialEncryptHex,
+  password: string,
+  prefix: string,
+  relPaths: Array<string>,
+  type: 'public' | 'private',
+): Promise<
+  Array<{
+    path: string;
+    parentFingerPrint: Buffer;
+    extendedKey: IBip32ExtendedKey;
+  }>
+> {
+  const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
+  const { seed } = await decryptRevealableSeed({
+    rs: hdCredential,
+    password,
+  });
+  const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
+
+  // Generate master key
+  let key: IBip32ExtendedKey = await deriver.generateMasterKeyFromSeedAsync(
+    seedBuffer,
+  );
+
+  // Process prefix path components
+  const prefixComponents = prefix.split('/').filter((p) => p !== 'm');
+  const indices = prefixComponents.map((p) =>
+    p.endsWith("'")
+      ? Number.parseInt(p.slice(0, -1), 10) + 2 ** 31
+      : Number.parseInt(p, 10),
+  );
+
+  // Derive prefix path key
+  for (const index of indices) {
+    // TODO await
+    key = deriver.CKDPriv(key, index);
   }
 
-  return ret;
+  const cache: Record<
+    string,
+    {
+      fingerPrint: Buffer | undefined;
+      parentFingerPrint: Buffer;
+      privkey: IBip32ExtendedKey;
+    }
+  > = {};
+
+  // Initialize cache with prefix key
+  cache[prefix] = {
+    fingerPrint: (await hash160(deriver.N(key).key)).slice(0, 4),
+    parentFingerPrint: Buffer.from([]),
+    privkey: key,
+  };
+
+  // Process all relative paths in parallel
+  const results = relPaths.map(async (relPath) => {
+    const pathComponents = relPath.split('/');
+    let currentPath = prefix;
+    let parent = cache[currentPath];
+
+    // Process path components sequentially within each path
+    for (const pathComponent of pathComponents) {
+      currentPath = `${currentPath}/${pathComponent}`;
+      if (typeof cache[currentPath] === 'undefined') {
+        const index = pathComponent.endsWith("'")
+          ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
+          : parseInt(pathComponent, 10);
+
+        // TODO await
+        const privkey = deriver.CKDPriv(parent.privkey, index);
+
+        if (typeof parent.fingerPrint === 'undefined') {
+          parent.fingerPrint = (
+            await hash160(deriver.N(parent.privkey).key)
+          ).slice(0, 4);
+        }
+
+        cache[currentPath] = {
+          fingerPrint: undefined,
+          parentFingerPrint: parent.fingerPrint,
+          privkey,
+        };
+      }
+      parent = cache[currentPath];
+    }
+
+    // Generate extended key
+    const extendedKey =
+      type === 'private'
+        ? {
+            chainCode: cache[currentPath].privkey.chainCode,
+            key: await encryptAsync({
+              password,
+              data: cache[currentPath].privkey.key,
+            }),
+          }
+        : deriver.N(cache[currentPath].privkey); // TODO await
+
+    return {
+      path: currentPath,
+      parentFingerPrint: cache[currentPath].parentFingerPrint,
+      extendedKey,
+    };
+  });
+
+  return Promise.all(results);
 }
 
 export type ISecretPrivateKeyInfo = {
@@ -405,33 +573,28 @@ export type ISecretPublicKeyInfo = {
   parentFingerPrint: Buffer;
   extendedKey: IBip32ExtendedKey;
 };
-async function batchGetPublicKeys(
-  curveName: ICurveName,
-  hdCredential: ICoreHdCredentialEncryptHex,
-  password: string,
-  prefix: string,
-  relPaths: Array<string>,
-): Promise<ISecretPublicKeyInfo[]> {
-  return batchGetKeys(
-    curveName,
-    hdCredential,
-    password,
-    prefix,
-    relPaths,
-    'public',
-  );
-}
-export type IBatchGetPublicKeysAsyncParams = {
+
+export type IBatchGetPublicKeysParams = {
   curveName: ICurveName;
   hdCredential: ICoreHdCredentialEncryptHex;
   password: string;
   prefix: string;
   relPaths: Array<string>;
+  byAsyncSubCalls?: boolean;
+  useWebembedApi?: boolean; // webembedApi is default to true
 };
-async function batchGetPublicKeysAsync(
-  params: IBatchGetPublicKeysAsyncParams,
+async function batchGetPublicKeys(
+  params: IBatchGetPublicKeysParams,
 ): Promise<ISecretPublicKeyInfo[]> {
-  if (platformEnv.isNative) {
+  const { curveName, hdCredential, password, prefix, relPaths } = params;
+  const { useWebembedApi = true } = params;
+
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const keys = await appGlobals.$webembedApiProxy.secret.batchGetPublicKeys(
       params,
     );
@@ -444,13 +607,25 @@ async function batchGetPublicKeysAsync(
       },
     }));
   }
-  const { curveName, hdCredential, password, prefix, relPaths } = params;
-  return batchGetPublicKeys(
+
+  if (params.byAsyncSubCalls) {
+    return batchGetKeysByAsyncSubCalls(
+      curveName,
+      hdCredential,
+      password,
+      prefix,
+      relPaths,
+      'public',
+    );
+  }
+
+  return batchGetKeys(
     curveName,
     hdCredential,
     password,
     prefix,
     relPaths,
+    'public',
   );
 }
 
@@ -466,14 +641,14 @@ async function generateMasterKeyFromSeed(
   });
   const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
   const masterKey: IBip32ExtendedKey =
-    deriver.generateMasterKeyFromSeed(seedBuffer);
+    await deriver.generateMasterKeyFromSeedAsync(seedBuffer);
   const encryptedKey = await encryptAsync({
     password,
-    data: masterKey.key,
+    data: bufferUtils.toBuffer(masterKey.key),
   });
   return {
-    key: encryptedKey,
-    chainCode: masterKey.chainCode,
+    key: bufferUtils.toBuffer(encryptedKey),
+    chainCode: bufferUtils.toBuffer(masterKey.chainCode),
   };
 }
 
@@ -521,11 +696,11 @@ async function CKDPriv(
   };
 }
 
-function CKDPub(
+async function CKDPub(
   curveName: ICurveName,
   parent: IBip32ExtendedKey,
   index: number,
-): IBip32ExtendedKey {
+): Promise<IBip32ExtendedKey> {
   return getDeriverByCurveName(curveName).CKDPub(parent, index);
 }
 
@@ -567,11 +742,18 @@ async function mnemonicFromEntropy(
 export type IMnemonicFromEntropyAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
+  useWebembedApi?: boolean; // webembedApi is default to false
 };
 async function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
-  if (platformEnv.isNative) {
+  const { useWebembedApi } = params;
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     return appGlobals.$webembedApiProxy.secret.mnemonicFromEntropyAsync(params);
   }
   return Promise.resolve(
@@ -582,11 +764,18 @@ async function mnemonicFromEntropyAsync(
 export type IMnemonicToSeedAsyncParams = {
   mnemonic: string;
   passphrase?: string;
+  useWebembedApi?: boolean; // webembedApi is default to true
 };
 async function mnemonicToSeedAsync(
   params: IMnemonicToSeedAsyncParams,
 ): Promise<Buffer> {
-  if (platformEnv.isNative) {
+  const { useWebembedApi = true } = params;
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     const hex = await appGlobals.$webembedApiProxy.secret.mnemonicToSeedAsync(
       params,
     );
@@ -596,20 +785,28 @@ async function mnemonicToSeedAsync(
   if (!isValid) {
     throw new InvalidMnemonic();
   }
-  return Promise.resolve(
-    mnemonicToSeedSync(params.mnemonic, params.passphrase),
-  );
+  return mnemonicToSeed(params.mnemonic, params.passphrase);
+  // return Promise.resolve(
+  //   mnemonicToSeedSync(params.mnemonic, params.passphrase),
+  // );
 }
 
 export type IGenerateRootFingerprintHexAsyncParams = {
   curveName: ICurveName;
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
+  useWebembedApi?: boolean; // webembedApi is default to false
 };
 async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
-  if (platformEnv.isNative) {
+  const { useWebembedApi } = params;
+  if (
+    useWebembedApi &&
+    platformEnv.isNative &&
+    !platformEnv.isJest &&
+    !globalThis.$onekeyAppWebembedApiWebviewInitFailed
+  ) {
     return appGlobals.$webembedApiProxy.secret.generateRootFingerprintHexAsync(
       params,
     );
@@ -620,8 +817,16 @@ async function generateRootFingerprintHexAsync(
     hdCredential,
     password,
   );
-  const publicKey = await publicFromPrivate(curveName, masterKey.key, password);
-  return hash160(publicKey).slice(0, 4).toString('hex');
+  const publicKey = await publicFromPrivate(
+    curveName,
+    bufferUtils.toBuffer(masterKey.key),
+    password,
+  );
+  const r = bufferUtils
+    .toBuffer(await hash160(bufferUtils.toBuffer(publicKey)))
+    .slice(0, 4)
+    .toString('hex');
+  return r;
 }
 
 async function revealableSeedFromTonMnemonic(
@@ -658,13 +863,14 @@ async function tonMnemonicFromEntropy(
 export {
   batchGetPrivateKeys,
   batchGetPublicKeys,
-  batchGetPublicKeysAsync,
   CKDPriv,
   CKDPub,
   compressPublicKey,
+  decryptHyperLiquidAgentCredential,
   decryptImportedCredential,
   decryptRevealableSeed,
   decryptVerifyString,
+  encryptHyperLiquidAgentCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,

@@ -57,6 +57,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
   };
   const description = {
     children: accountUtils.shortenAddress({ address: unknownTo }),
+    originalAddress: unknownTo,
   };
 
   return (

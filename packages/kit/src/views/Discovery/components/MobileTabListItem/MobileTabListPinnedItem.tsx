@@ -27,8 +27,7 @@ function MobileTabListPinnedItem({
   return (
     <Stack
       p="$0.5"
-      minWidth="$28"
-      maxWidth="$40"
+      width={125}
       borderRadius="$4"
       borderWidth={4}
       borderColor={isActive ? '$brand6' : '$transparent'}
@@ -51,15 +50,16 @@ function MobileTabListPinnedItem({
         borderRadius="$2.5"
         testID={`tab-list-stack-pinned-${id}`}
       >
-        <Image size="$4" borderRadius="$1">
-          <Image.Source src={tab?.favicon} />
-          <Image.Fallback delayMs={100}>
-            <Icon name="GlobusOutline" size="$4" />
-          </Image.Fallback>
-          <Image.Loading>
-            <Skeleton width="100%" height="100%" />
-          </Image.Loading>
-        </Image>
+        <Image
+          size="$4"
+          borderRadius="$1"
+          source={{ uri: tab?.favicon }}
+          fallback={
+            <Image.Fallback>
+              <Icon name="GlobusOutline" size="$4" />
+            </Image.Fallback>
+          }
+        />
         <SizableText flex={1} size="$bodySm" numberOfLines={1} ml="$2">
           {(tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title}
         </SizableText>

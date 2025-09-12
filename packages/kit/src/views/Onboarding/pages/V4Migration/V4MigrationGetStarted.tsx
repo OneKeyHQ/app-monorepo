@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
@@ -44,7 +45,7 @@ export function V4MigrationGetStarted({
       Toast.message({
         title: 'V4Migration Not supported in web dapp mode',
       });
-      throw new Error('V4Migration Not supported in web dapp mode');
+      throw new OneKeyLocalError('V4Migration Not supported in web dapp mode');
     }
     const startMigration = async () => {
       try {

@@ -7,10 +7,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
   IEstimateGasParams,
+  IFeeInfoUnit,
   IServerBatchEstimateFeeResponse,
 } from '@onekeyhq/shared/types/fee';
 
@@ -50,6 +52,7 @@ class ServiceGas extends ServiceBase {
         encodedTxList: encodedTxs,
       },
       {
+        signal: controller.signal,
         headers:
           await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
             accountId,
@@ -78,6 +81,7 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async estimateFee(params: IEstimateGasParams) {
+    const { transfersInfo, ...rest } = params;
     const controller = new AbortController();
     this._estimateFeeController = controller;
 
@@ -85,7 +89,7 @@ class ServiceGas extends ServiceBase {
       networkId: params.networkId,
       accountId: params.accountId,
     });
-    const resp = await vault.estimateFee(params);
+    const resp = await vault.estimateFee(rest);
 
     this._estimateFeeController = null;
 
@@ -135,7 +139,7 @@ class ServiceGas extends ServiceBase {
         .filter((item) => !!item),
       feeBudget: feeInfo.feeBudget?.map((item) => {
         if (!item.gasPrice) {
-          throw new Error('gasPrice is undefined');
+          throw new OneKeyLocalError('gasPrice is undefined');
         }
         return {
           ...item,
@@ -149,6 +153,7 @@ class ServiceGas extends ServiceBase {
         };
       }),
       feeNeoN3: feeInfo.feeNeoN3,
+      megafuelEligible: feeInfo.megafuelEligible,
     };
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic
@@ -169,6 +174,15 @@ class ServiceGas extends ServiceBase {
         gasLimit: item.gasLimit,
         gasLimitForDisplay: item.gasLimit,
       }));
+    }
+
+    if (transfersInfo && transfersInfo.length === 1 && feeInfo.feeAlgo) {
+      feeResult.feeAlgo = feeResult.feeAlgo.map((item) => {
+        return {
+          ...item,
+          baseFee: item.minFee,
+        };
+      });
     }
 
     return feeResult;
@@ -228,6 +242,30 @@ class ServiceGas extends ServiceBase {
     });
 
     return encodedTxWithFee;
+  }
+
+  @backgroundMethod()
+  async getCustomFeeInfo({ networkId }: { networkId: string }) {
+    return this.backgroundApi.simpleDb.feeInfo.getCustomFeeInfo({
+      networkId,
+    });
+  }
+
+  @backgroundMethod()
+  async updateCustomFeeInfo({
+    networkId,
+    enabled,
+    customFeeInfo,
+  }: {
+    networkId: string;
+    enabled: boolean;
+    customFeeInfo?: Omit<IFeeInfoUnit, 'common'>;
+  }) {
+    return this.backgroundApi.simpleDb.feeInfo.updateCustomFeeInfo({
+      networkId,
+      customFeeInfo,
+      enabled,
+    });
   }
 }
 

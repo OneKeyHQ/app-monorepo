@@ -9,12 +9,18 @@ import { WebViewWebEmbedSingleton } from '../components/WebViewWebEmbed';
 
 function BasicWebViewWebEmbedProvider() {
   const [isShow, setIsShow] = useState(false);
+  const [ts, setTs] = useState(0);
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.LoadWebEmbedWebView, () => {
+    const fn = () => {
       setIsShow(true);
-    });
+      setTs(Date.now());
+    };
+    appEventBus.on(EAppEventBusNames.LoadWebEmbedWebView, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LoadWebEmbedWebView, fn);
+    };
   }, []);
-  return isShow ? <WebViewWebEmbedSingleton /> : null;
+  return isShow ? <WebViewWebEmbedSingleton key={ts} /> : null;
 }
 
 export const WebViewWebEmbedProvider = memo(BasicWebViewWebEmbedProvider);

@@ -1,4 +1,5 @@
 import type { ComponentProps } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,9 +23,11 @@ type IStakedValueInfoProps = {
   stakedNumber: number;
   availableNumber: number;
   tokenSymbol: string;
+  shouldRegisterBeforeStake: boolean;
   provider: string;
   stakeButtonProps?: ComponentProps<typeof Button>;
   withdrawButtonProps?: ComponentProps<typeof Button>;
+  registerButtonProps?: ComponentProps<typeof Button>;
 };
 
 function StakedValueInfo({
@@ -32,9 +35,11 @@ function StakedValueInfo({
   stakedNumber = 0,
   availableNumber = 0,
   tokenSymbol,
+  shouldRegisterBeforeStake,
+  provider,
   stakeButtonProps,
   withdrawButtonProps,
-  provider,
+  registerButtonProps,
 }: IStakedValueInfoProps) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
@@ -44,6 +49,37 @@ function StakedValueInfo({
       currencyInfo: { symbol: currency },
     },
   ] = useSettingsPersistAtom();
+  const renderActionButtons = useCallback(() => {
+    if (!media.gtMd) {
+      return null;
+    }
+    if (shouldRegisterBeforeStake) {
+      return (
+        <XStack gap="$2">
+          <Button {...registerButtonProps}>
+            {intl.formatMessage({ id: ETranslations.earn_register })}
+          </Button>
+        </XStack>
+      );
+    }
+    return (
+      <XStack gap="$2">
+        <Button {...withdrawButtonProps}>
+          {intl.formatMessage({ id: ETranslations.global_withdraw })}
+        </Button>
+        <Button {...stakeButtonProps}>
+          {intl.formatMessage({ id: ETranslations.earn_deposit })}
+        </Button>
+      </XStack>
+    );
+  }, [
+    intl,
+    media.gtMd,
+    withdrawButtonProps,
+    stakeButtonProps,
+    shouldRegisterBeforeStake,
+    registerButtonProps,
+  ]);
   return (
     <YStack gap="$8">
       <YStack>
@@ -60,16 +96,7 @@ function StakedValueInfo({
           >
             {value || 0}
           </NumberSizeableText>
-          {media.gtMd ? (
-            <XStack gap="$2">
-              <Button {...withdrawButtonProps}>
-                {intl.formatMessage({ id: ETranslations.global_withdraw })}
-              </Button>
-              <Button {...stakeButtonProps}>
-                {intl.formatMessage({ id: ETranslations.earn_deposit })}
-              </Button>
-            </XStack>
-          ) : null}
+          {renderActionButtons()}
         </XStack>
         <NumberSizeableText
           size="$bodyLgMedium"
@@ -86,13 +113,17 @@ function StakedValueInfo({
 
 export const StakedValueSection = ({
   details,
+  shouldRegisterBeforeStake,
   stakeButtonProps,
   withdrawButtonProps,
+  registerButtonProps,
   alerts = [],
 }: {
   details?: IStakeProtocolDetails;
+  shouldRegisterBeforeStake: boolean;
   stakeButtonProps?: ComponentProps<typeof Button>;
   withdrawButtonProps?: ComponentProps<typeof Button>;
+  registerButtonProps?: ComponentProps<typeof Button>;
   alerts?: string[];
 }) => {
   if (!details) {
@@ -104,6 +135,7 @@ export const StakedValueSection = ({
     availableNumber: Number(details.available),
     provider: details.provider.name,
     tokenSymbol: details.token.info.symbol,
+    shouldRegisterBeforeStake,
   };
   return (
     <>
@@ -111,6 +143,7 @@ export const StakedValueSection = ({
         {...props}
         stakeButtonProps={stakeButtonProps}
         withdrawButtonProps={withdrawButtonProps}
+        registerButtonProps={registerButtonProps}
       />
       <AlertSection alerts={alerts} />
       <Divider />

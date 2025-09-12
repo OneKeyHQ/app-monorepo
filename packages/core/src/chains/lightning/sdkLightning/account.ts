@@ -30,13 +30,13 @@ export const generateNativeSegwitAccounts = async ({
     (index) => `${index.toString()}'`, // btc
   );
 
-  const pubkeyInfos = await batchGetPublicKeys(
-    curve,
+  const pubkeyInfos = await batchGetPublicKeys({
+    curveName: curve,
     hdCredential,
     password,
-    pathPrefix, // m/84'/0'
+    prefix: pathPrefix, // m/84'/0'
     relPaths, // 0'   1'
-  );
+  });
 
   if (pubkeyInfos.length !== indexes.length) {
     throw new OneKeyInternalError('Unable to get publick key.');
@@ -90,6 +90,7 @@ export const generateNativeSegwitAccounts = async ({
         publicKey: xpub,
         path,
         relPath: firstAddressRelPath,
+        __hwExtraInfo__: undefined,
       };
       return addressItem;
     }),

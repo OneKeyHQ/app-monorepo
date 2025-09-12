@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { SizableText, Spinner, XStack } from '@onekeyhq/components';
@@ -33,4 +35,4 @@ function CreateAccountView(props: IProps) {
   return null;
 }
 
-export { CreateAccountView };
+export default memo(CreateAccountView);

@@ -10,9 +10,9 @@ function decodeUrToDataItem(cbor: string) {
   return decodeToDataItem(cborBuffer);
 }
 
-function urToJson({ ur }: { ur: AirGapUR }): IAirGapUrJson {
-  const cbor = ur.cbor.toString('hex');
-  const type = ur.type;
+function urToJson({ ur }: { ur?: AirGapUR }): IAirGapUrJson {
+  const cbor = ur ? ur.cbor.toString('hex') : '';
+  const type = ur ? ur.type : '';
   return {
     type,
     cbor,
@@ -61,7 +61,11 @@ function createAnimatedUREncoder({
   maxFragmentLength?: number;
   firstSeqNum?: number;
   minFragmentLength?: number;
-}) {
+}): {
+  encoder: AirGapUREncoder;
+  nextPart: () => string;
+  encodeWhole: () => string[];
+} {
   // eslint-disable-next-line no-param-reassign
   ur = jsonToUr({ ur });
   const encoder = new AirGapUREncoder(
@@ -72,10 +76,23 @@ function createAnimatedUREncoder({
   );
   const nextPart = encoder.nextPart.bind(encoder); // animatedQrPart
   const encodeWhole = encoder.encodeWhole.bind(encoder); // animatedQr all parts
+
+  const nextPartToUpperCase = () => {
+    const part = nextPart();
+    return part.toUpperCase();
+  };
+
+  const encodeWholeToUpperCase = () => {
+    const parts = encodeWhole();
+    return parts.map((part) => part.toUpperCase());
+  };
+
   return {
     encoder,
-    encodeWhole,
-    nextPart,
+    // nextPart,
+    // encodeWhole,
+    nextPart: nextPartToUpperCase,
+    encodeWhole: encodeWholeToUpperCase,
   };
 }
 

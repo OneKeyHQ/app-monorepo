@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { IStackProps, IYStackProps } from '@onekeyhq/components';
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,7 +20,7 @@ function TxExtraInfoSol({ style }: { style?: IStackProps }) {
   if (!decodedTx || !extraInfo || !extraInfo.createTokenAccountFee) return null;
 
   return (
-    <SignatureConfirmItem {...style}>
+    <SignatureConfirmItem {...(style as IYStackProps)}>
       <SignatureConfirmItem.Label>
         {intl.formatMessage({
           id: ETranslations.sig_account_rent_label,

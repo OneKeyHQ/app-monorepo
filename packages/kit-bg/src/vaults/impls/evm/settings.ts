@@ -1,16 +1,16 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
-  BaseUSDC,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
-  EthereumMatic,
+  EthereumPol,
   EthereumUSDC,
+  EthereumUSDF,
   EthereumUSDT,
+  EthereumUSDe,
   EthereumWBTC,
   EthereumWETH,
-  SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_ETH,
@@ -48,25 +48,20 @@ const commonStakeConfigs = {
     displayProfit: true,
     stakingWithApprove: false,
   },
-  MATIC: {
+  POL: {
     enabled: true,
-    tokenAddress: EthereumMatic,
+    tokenAddress: EthereumPol,
     displayProfit: true,
     stakingWithApprove: true,
   },
 };
 
-const lidoConfig: { ETH: IStakingFlowConfig; MATIC: IStakingFlowConfig } = {
+const lidoConfig: { ETH: IStakingFlowConfig } = {
   ETH: {
     ...commonStakeConfigs.ETH,
     enabled: true,
     unstakeWithSignMessage: true,
     claimWithAmount: true,
-  },
-  MATIC: {
-    ...commonStakeConfigs.MATIC,
-    enabled: true,
-    claimWithTx: true,
   },
 };
 
@@ -74,18 +69,18 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().eth]: {
     providers: {
       [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH', 'MATIC'],
+        supportedSymbols: ['ETH'],
         configs: lidoConfig,
       },
       [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH', 'MATIC'],
+        supportedSymbols: ['ETH', 'POL'],
         configs: {
           ETH: {
             ...commonStakeConfigs.ETH,
             claimWithAmount: true,
           },
-          MATIC: {
-            ...commonStakeConfigs.MATIC,
+          POL: {
+            ...commonStakeConfigs.POL,
             claimWithTx: true,
           },
         },
@@ -131,30 +126,38 @@ const stakingConfig: IStakingConfig = {
           },
         },
       },
+      [EEarnProviderEnum.Falcon]: {
+        supportedSymbols: ['USDf'],
+        configs: {
+          USDf: {
+            enabled: true,
+            tokenAddress: EthereumUSDF,
+            displayProfit: true,
+            stakingWithApprove: true,
+            withdrawWithTx: true,
+          },
+        },
+      },
+      [EEarnProviderEnum.Ethena]: {
+        supportedSymbols: ['USDe'],
+        configs: {
+          USDe: {
+            enabled: true,
+            tokenAddress: EthereumUSDe,
+            displayProfit: true,
+            stakingWithApprove: false,
+            withdrawWithTx: false,
+          },
+        },
+      },
     },
   },
-  // [getNetworkIdsMap().base]: {
-  //   providers: {
-  //     [EEarnProviderEnum.Morpho]: {
-  //       supportedSymbols: ['USDC'],
-  //       configs: {
-  //         USDC: {
-  //           enabled: true,
-  //           tokenAddress: BaseUSDC,
-  //           displayProfit: true,
-  //           stakingWithApprove: true,
-  //         },
-  //       },
-  //     },
-  //   },
-  // },
   [getNetworkIdsMap().sepolia]: {
     providers: {
       [EEarnProviderEnum.Lido]: {
-        supportedSymbols: ['ETH', 'MATIC'],
+        supportedSymbols: ['ETH'],
         configs: {
           ...lidoConfig,
-          MATIC: { ...lidoConfig.MATIC, tokenAddress: SepoliaMatic },
         },
       },
     },
@@ -162,10 +165,10 @@ const stakingConfig: IStakingConfig = {
   [getNetworkIdsMap().holesky]: {
     providers: {
       [EEarnProviderEnum.Everstake]: {
-        supportedSymbols: ['ETH', 'MATIC'],
+        supportedSymbols: ['ETH', 'POL'],
         configs: {
           ETH: commonStakeConfigs.ETH,
-          MATIC: commonStakeConfigs.MATIC,
+          POL: commonStakeConfigs.POL,
         },
       },
       [EEarnProviderEnum.Lido]: {
@@ -275,6 +278,8 @@ const settings: IVaultSettings = {
 
   withTxMessage: true,
 
+  shouldFixMaxSendAmount: true,
+
   supportBatchEstimateFee: {
     [networkIdMap.eth]: true,
     [networkIdMap.sepolia]: true,
@@ -290,6 +295,8 @@ const settings: IVaultSettings = {
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
   },
+
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);

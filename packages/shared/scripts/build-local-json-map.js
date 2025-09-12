@@ -8,7 +8,9 @@ const jsonFiles = fs
   .readdirSync(localeJsonPath)
   .filter((file) => file.endsWith('.json'));
 
+const enJSONFile = 'en.json';
 const defaultLocaleJsonFile = jsonFiles.find((i) => i === 'en_US.json');
+const enJsonPath = path.join(localeJsonPath, enJSONFile);
 
 fs.writeFileSync(
   path.join(__dirname, '../src/locale/localeJsonMap.ts'),
@@ -21,7 +23,7 @@ import enUS from './json/${defaultLocaleJsonFile}';
 export const LOCALES = {
 ${jsonFiles
   .map((file) =>
-    file !== defaultLocaleJsonFile
+    file !== defaultLocaleJsonFile && file !== enJSONFile
       ? `  '${file
           .split('.')[0]
           .replace(/_/g, '-')}': () => import('./json/${file}'),`
@@ -51,3 +53,8 @@ fs.writeFileSync(
     .replaceAll('  =', ' =')}`,
   'utf8',
 );
+
+// Delete en.json file if exists
+if (fs.existsSync(enJsonPath)) {
+  fs.unlinkSync(enJsonPath);
+}

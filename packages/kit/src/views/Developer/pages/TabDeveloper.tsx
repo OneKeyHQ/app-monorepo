@@ -25,7 +25,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useCookie from '../../../hooks/useCookie';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { StartTimePanel } from '../../Setting/pages/List/DevSettingsSection/StartTimePanel';
 
 const useStorage = platformEnv.isNative
   ? (key: EAppSyncStorageKeys, initialValue?: boolean) => {
@@ -63,14 +62,6 @@ function PartContainer({
         {children}
       </YStack>
     </YStack>
-  );
-}
-
-function StartTimePanelContainer() {
-  return (
-    <PartContainer title="Startup Time(ms)">
-      <StartTimePanel />
-    </PartContainer>
   );
 }
 
@@ -198,6 +189,37 @@ const TabDeveloper = () => {
                   </>
                 )}
               </Button>
+
+              {platformEnv.isSupportDesktopBle ? (
+                <Button
+                  onPress={async () => {
+                    await backgroundApiProxy.serviceSetting.setDesktopBluetoothAtom(
+                      {
+                        isRequestedPermission: false,
+                      },
+                    );
+                    console.log('Reset Bluetooth Permission');
+                  }}
+                >
+                  Reset Bluetooth Permission
+                </Button>
+              ) : null}
+
+              <Button
+                onPress={async () => {
+                  try {
+                    await backgroundApiProxy.serviceHardware.clearAllBleConnectIdsForTesting();
+                    console.log('Successfully cleared all bleConnectId fields');
+                  } catch (error) {
+                    console.error(
+                      'Failed to clear bleConnectId fields:',
+                      error,
+                    );
+                  }
+                }}
+              >
+                Clear All BLE ConnectIds (Test)
+              </Button>
             </PartContainer>
 
             {platformEnv.isNative ? (
@@ -222,7 +244,6 @@ const TabDeveloper = () => {
                 Async Import Test
               </Button>
             </PartContainer>
-            <StartTimePanelContainer />
             <ConnectWalletConnectDapp />
             <TestRefresh />
             {/* <WalletConnectModalNative2 /> */}

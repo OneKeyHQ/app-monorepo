@@ -17,37 +17,39 @@ import { OnboardingOnMount } from '../../Onboarding/components';
 import { HomePageView } from './HomePageView';
 
 function EmptyRenderTest() {
-  console.log('AccountSelectorAtomChanged EmptyRenderTest render');
+  // console.log('AccountSelectorAtomChanged EmptyRenderTest render');
   return null;
 }
 
 function ActiveAccountTest() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { activeAccount } = useActiveAccount({ num: 0 });
-  console.log('AccountSelectorAtomChanged activeAccount: ', activeAccount);
+  // console.log('AccountSelectorAtomChanged activeAccount: ', activeAccount);
   return null;
 }
 
 function SelectedAccountTest() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { selectedAccount } = useSelectedAccount({
     num: 0,
     debugName: 'HomePage',
   });
-  console.log('AccountSelectorAtomChanged selectedAccount: ', selectedAccount);
+  // console.log('AccountSelectorAtomChanged selectedAccount: ', selectedAccount);
   return null;
 }
 
 function SelectedAccountsMapTest() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedAccounts] = useSelectedAccountsAtom();
-  console.log(
-    'AccountSelectorAtomChanged selectedAccountsMap: ',
-    selectedAccounts,
-  );
+  // console.log(
+  //   'AccountSelectorAtomChanged selectedAccountsMap: ',
+  //   selectedAccounts,
+  // );
   return null;
 }
 
 function HomePageContainer() {
   const [isHide, setIsHide] = useState(false);
-  console.log('AccountSelectorAtomChanged HomePageContainer render');
 
   useDebugComponentRemountLog({ name: 'HomePageContainer' });
 

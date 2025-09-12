@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - daily-build
+      - daily-build-dev
     types:
       - completed
   workflow_dispatch:
@@ -17,6 +18,10 @@ jobs:
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -29,6 +34,13 @@ jobs:
           sentry_project: 'chrome-extension'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: 'Setup ENV'
         run: |
@@ -39,9 +51,6 @@ jobs:
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
-        env:
-          github_ref: ${{ github.ref }}
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -82,6 +91,13 @@ jobs:
           name: onekey-extension-rn
           path: |
             ./apps/ext/build/_dist/*.zip
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-extension-rn-development-build
+          path: |
+            ./apps/ext/build/_development_build_dist/*.zip
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}

@@ -4,12 +4,13 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  GOOGLE_LOGO_URL,
+  SEARCH_ITEM_ID,
+} from '@onekeyhq/shared/src/consts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
-
-export const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
-const GOOGLE_LOGO_URL = 'https://uni.onekey-asset.com/static/logo/google.png';
 
 export interface ILocalDataType {
   bookmarkData: Array<{
@@ -69,6 +70,7 @@ export function useSearchModalData(searchValue: string) {
         searchResult?.filter((item) => !item.isExactUrl) || [];
       setSearchList([
         ...exactUrlResults,
+        ...otherResults,
         {
           dappId: SEARCH_ITEM_ID,
           name: `${intl.formatMessage({
@@ -77,7 +79,6 @@ export function useSearchModalData(searchValue: string) {
           url: '',
           logo: GOOGLE_LOGO_URL,
         } as IDApp,
-        ...otherResults,
       ]);
     })();
   }, [searchValue, searchResult, intl]);

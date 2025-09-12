@@ -1,16 +1,13 @@
-import appGlobals from '../appGlobals';
-
-import { createPrintMethod } from './createPrintMethod';
 import mockStorageInstance from './instance/mockStorageInstance';
-import webStorageInstance from './instance/webStorageInstance';
+import {
+  webStorage,
+  webStorageGlobalStates,
+  webStorageLegacy,
+  webStorageSimpleDB,
+} from './instance/webStorageInstance';
 import { buildAppStorageFactory } from './syncStorage';
 
-import type { AsyncStorageStatic } from '@react-native-async-storage/async-storage';
-
-// const appStorage: AsyncStorageStatic = extensionStorageInstance; // v4
-const appStorage: AsyncStorageStatic = webStorageInstance; // v5
-
-export const mockStorage = mockStorageInstance;
+import type { IAppStorageHub } from './appStorageTypes';
 
 /*
 - Extension internal: ExtensionStorage
@@ -19,4 +16,14 @@ export const mockStorage = mockStorageInstance;
 - Desktop | Web: WebStorage -> IndexedDB
  */
 
-export default buildAppStorageFactory(appStorage);
+const appStorage = buildAppStorageFactory(webStorage);
+export default appStorage;
+export const storageHub: IAppStorageHub = {
+  // const appStorage: AsyncStorageStatic = extensionStorageInstance; // v4
+  appStorage, // v5
+  _mockStorage: mockStorageInstance,
+  // web storage
+  _webStorageLegacy: buildAppStorageFactory(webStorageLegacy),
+  $webStorageSimpleDB: buildAppStorageFactory(webStorageSimpleDB),
+  $webStorageGlobalStates: buildAppStorageFactory(webStorageGlobalStates),
+};

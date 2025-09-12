@@ -1,0 +1,35 @@
+plugins {
+    id("groovy-gradle-plugin")
+}
+
+group = "onekeybuild.buildlogic"
+
+// Configure the build-logic plugins to target JDK 11
+// This matches the JDK used to build the project, and is not related to what is running on device.
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+repositories {
+    google()
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    compileOnly gradleApi()
+    compileOnly "com.android.tools.build:gradle:8.8.2"
+    compileOnly "org.ow2.asm:asm:9.7"
+    compileOnly "org.ow2.asm:asm-commons:9.7"
+    compileOnly "org.jetbrains:annotations:23.0.0"
+}
+
+gradlePlugin {
+    plugins {
+        SecurityPlugin {
+            id = 'so.onekey.plugin.security'
+            implementationClass = 'onekey.privacy.security.SecurityPlugin'
+        }
+    }
+}

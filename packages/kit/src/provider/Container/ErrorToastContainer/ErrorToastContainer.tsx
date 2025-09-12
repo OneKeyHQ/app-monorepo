@@ -15,6 +15,9 @@ const isFilterErrorCode = (code?: number) => code && ERROR_CODE.includes(code);
 export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
+      if (!p.title) {
+        return;
+      }
       const message = p.message;
       const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)

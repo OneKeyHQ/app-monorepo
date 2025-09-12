@@ -51,6 +51,8 @@ const settings: IVaultSettings = {
 
   onChainHistoryDisabled: true,
 
+  preCheckDappTxFeeInfoRequired: true,
+
   customRpcEnabled: true,
 
   accountDeriveInfo,

@@ -1,3 +1,4 @@
+import type { IKaspaTransaction } from './clientRestApi';
 import type { IEncodedTxKaspa } from '../../types';
 import type { KaspaSignTransactionParams } from '@onekeyfe/hd-core';
 
@@ -46,6 +47,8 @@ export type IKaspaSdkApi = {
     path: string;
     chainId: string;
   }) => Promise<KaspaSignTransactionParams>;
+
+  deserializeFromSafeJSON: (json: string) => Promise<IKaspaTransaction>;
 };
 
 export type IGetKaspaApi = () => Promise<IKaspaSdkApi>;

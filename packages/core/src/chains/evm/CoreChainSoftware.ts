@@ -5,6 +5,7 @@ import * as ethUtil from 'ethereumjs-util';
 import { isString } from 'lodash';
 
 import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
@@ -54,14 +55,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return `0x${(
         await decryptAsync({ password, data: privateKeyRaw })
       ).toString('hex')}`;
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -164,6 +165,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return {
       address,
       publicKey,
+      __hwExtraInfo__: undefined,
     };
   }
 
@@ -179,7 +181,11 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const address = `0x${keccak256(uncompressedPublicKey.slice(-64)).slice(
       -40,
     )}`;
-    return Promise.resolve({ address, publicKey });
+    return Promise.resolve({
+      address,
+      publicKey,
+      __hwExtraInfo__: undefined,
+    });
   }
 
   override async getAddressesFromHd(

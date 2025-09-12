@@ -1,7 +1,9 @@
 // require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
+// require('./development/lint/eslint-rule-enforce-return-type');
 
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
+  // '@typescript-eslint/explicit-function-return-type': ['error'],
   // eslint-disable-next-line global-require
   'prettier/prettier': ['error', require('./.prettierrc.js')],
   'no-unused-vars': 'off',
@@ -9,6 +11,7 @@ const jsRules = {
   'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
   // 'force-async-bg-api': 'error', // TODO not working
+  // 'enforce-return-type': 'error',
   'no-restricted-exports': 'off',
   'func-names': 'off',
   'import/no-named-as-default-member': 'off',
@@ -28,7 +31,7 @@ const jsRules = {
   'react-hooks/exhaustive-deps': [
     'error',
     {
-      'additionalHooks': '(usePromiseResult|useAsyncCall)',
+      'additionalHooks': '(usePromiseResult|useAsyncCall|useUpdateEffect)',
     },
   ],
   'global-require': 'off',
@@ -47,6 +50,11 @@ const jsRules = {
     {
       'name': ['*', 'toLocaleLowerCase'],
       'message': 'Prefer use toLowerCase',
+    },
+    {
+      'name': ['InteractionManager', 'runAfterInteractions'],
+      'message':
+        'Use timerUtils.setTimeoutPromised instead of InteractionManager.runAfterInteractions',
     },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
@@ -103,6 +111,7 @@ const tsRules = {
       'argsIgnorePattern': '^_',
       'varsIgnorePattern': '^_',
       'caughtErrorsIgnorePattern': '^_',
+      'ignoreRestSiblings': true,
     },
   ],
   '@typescript-eslint/no-use-before-define': ['error'],
@@ -175,6 +184,11 @@ const tsRules = {
         "ImportDeclaration[source.value='react'][specifiers.0.type='ImportDefaultSpecifier']",
       message: 'Default React import not allowed',
     },
+    {
+      selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
+      message:
+        'Direct use of "throw new Error" is not allowed. Use OneKeyLocalError or OneKeyError instead',
+    },
   ],
 };
 
@@ -211,7 +225,13 @@ module.exports = {
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
+    'packages/components/src/primitives/Icon/Icons.tsx',
     'packages/components/src/primitives/Icon/react/*',
+    'packages/shared/src/modules3rdParty/stripe-v3/*',
+    'packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js',
+    'packages/shared/src/locale/enum/translations.ts',
+    'packages/shared/src/locale/localeJsonMap.ts',
+    'packages/shared/src/locale/json/*',
   ],
   env: {
     browser: true,
@@ -231,39 +251,42 @@ module.exports = {
         },
       ],
     ],
-    'spellcheck/spell-checker': [
-      1,
-      {
-        'comments': true,
-        'strings': false,
-        'identifiers': true,
-        'lang': 'en_US',
-        'skipWords': require('./development/spellCheckerSkipWords.js'),
-        'skipWordIfMatch': [
-          /(\w|\d){50,}/i, // length>50
-          /bip32/i,
-          /pbkdf2/i,
-          /Secp256k1/i,
-          /googleapis/i,
-          /Erc20/i,
-          /Erc721/i,
-          /Erc1155/i,
-          /protobufjs/i,
-          /boc/i,
-          /seqno/i,
-          /jetton/i,
-          /Nano/i,
-          /Bounceable/i,
-          /scdo/i,
-          /faq/i,
-          /atto/i,
-          /alephium/i,
-          /Preauthorized/i,
-        ],
-        'skipIfMatch': ['http://[^s]*'],
-        'minLength': 4,
-      },
-    ],
+    'spellcheck/spell-checker':
+      typeof process.env.CI !== 'undefined'
+        ? 'off'
+        : [
+            1,
+            {
+              'comments': true,
+              'strings': false,
+              'identifiers': true,
+              'lang': 'en_US',
+              'skipWords': require('./development/spellCheckerSkipWords.js'),
+              'skipWordIfMatch': [
+                /(\w|\d){50,}/i, // length>50
+                /bip32/i,
+                /pbkdf2/i,
+                /Secp256k1/i,
+                /googleapis/i,
+                /Erc20/i,
+                /Erc721/i,
+                /Erc1155/i,
+                /protobufjs/i,
+                /boc/i,
+                /seqno/i,
+                /jetton/i,
+                /Nano/i,
+                /Bounceable/i,
+                /scdo/i,
+                /faq/i,
+                /atto/i,
+                /alephium/i,
+                /Preauthorized/i,
+              ],
+              'skipIfMatch': ['http://[^s]*'],
+              'minLength': 4,
+            },
+          ],
     'props-checker/validator': [
       'error',
       {

@@ -10,8 +10,8 @@
         "name": "preset-default",
         "params": {
           "overrides": {
-            "cleanupids": false,
-            "removeuselessdefs": false
+            "cleanupIds": false,
+            "removeUselessDefs": false
           }
         }
       },

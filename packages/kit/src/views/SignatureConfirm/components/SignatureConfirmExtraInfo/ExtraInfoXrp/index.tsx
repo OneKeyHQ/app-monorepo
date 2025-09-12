@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import type { IStackProps } from '@onekeyhq/components';
+import type { IStackProps, IYStackProps } from '@onekeyhq/components';
 import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 
@@ -16,7 +16,7 @@ function TxExtraInfoXrp({ style }: { style?: IStackProps }) {
   if (!decodedTx || !extraInfo || !extraInfo.destinationTag) return null;
 
   return (
-    <SignatureConfirmItem {...style}>
+    <SignatureConfirmItem {...(style as IYStackProps)}>
       <SignatureConfirmItem.Label>Memo/Tag/Note</SignatureConfirmItem.Label>
       <SignatureConfirmItem.Value>
         {extraInfo.destinationTag}

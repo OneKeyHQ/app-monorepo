@@ -4,6 +4,7 @@ import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -63,14 +64,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    const {
-      networkInfo,
-
-      password,
-      keyType,
-      credentials,
-      addressEncoding,
-    } = query;
+    const { password, keyType, credentials } = query;
     console.log(
       'ExportSecretKeys >>>> algo',
       this.baseGetCredentialsType({ credentials }),
@@ -79,14 +73,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const { privateKeyRaw } = await this.baseGetDefaultPrivateKey(query);
 
     if (!privateKeyRaw) {
-      throw new Error('privateKeyRaw is required');
+      throw new OneKeyLocalError('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       return sdkAlgo.mnemonicFromSeed(
         await decryptAsync({ password, data: privateKeyRaw }),
       );
     }
-    throw new Error(`SecretKey type not support: ${keyType}`);
+    throw new OneKeyLocalError(`SecretKey type not support: ${keyType}`);
   }
 
   override async getPrivateKeys(
@@ -160,6 +154,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return Promise.resolve({
       address,
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

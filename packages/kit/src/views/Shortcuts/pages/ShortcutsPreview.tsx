@@ -17,6 +17,10 @@ const sections = [
     titleId: ETranslations.global_general,
     items: [
       {
+        titleId: ETranslations.global_search,
+        shortcutKey: EShortcutEvents.UniversalSearch,
+      },
+      {
         titleId: ETranslations.shortcuts_account_selector,
         shortcutKey: EShortcutEvents.AccountSelector,
       },
@@ -40,16 +44,24 @@ const sections = [
         shortcutKey: EShortcutEvents.TabWallet,
       },
       {
-        titleId: ETranslations.shortcuts_go_to_earn_tab,
-        shortcutKey: EShortcutEvents.TabEarn,
+        titleId: ETranslations.shortcuts_go_to_market_tab,
+        shortcutKey: EShortcutEvents.TabMarket,
       },
       {
         titleId: ETranslations.shortcuts_go_to_swap_tab,
         shortcutKey: EShortcutEvents.TabSwap,
       },
       {
-        titleId: ETranslations.shortcuts_go_to_market_tab,
-        shortcutKey: EShortcutEvents.TabMarket,
+        titleId: ETranslations.shortcuts_go_to_earn_tab,
+        shortcutKey: EShortcutEvents.TabEarn,
+      },
+      {
+        titleId: ETranslations.shortcuts_go_to_referral_tab,
+        shortcutKey: EShortcutEvents.TabReferAFriend,
+      },
+      {
+        titleId: ETranslations.shortcuts_go_to_myonekey_tab,
+        shortcutKey: EShortcutEvents.TabMyOneKey,
       },
       {
         titleId: ETranslations.shortcuts_go_to_browser_tab,
@@ -70,7 +82,7 @@ const sections = [
     items: [
       {
         titleId: ETranslations.explore_new_tab,
-        shortcutKey: EShortcutEvents.NewTab,
+        shortcutKey: EShortcutEvents.NewTab2,
       },
       {
         titleId: ETranslations.global_refresh,
@@ -113,10 +125,6 @@ const sections = [
           ETranslations.global_unpin_from_top,
         ],
         shortcutKey: EShortcutEvents.PinOrUnpinTab,
-      },
-      {
-        titleId: ETranslations.global_copy_url,
-        shortcutKey: EShortcutEvents.CopyAddressOrUrl,
       },
     ],
   },
@@ -165,7 +173,7 @@ function ShortcutsPreview() {
           id: ETranslations.settings_shortcuts,
         })}
       />
-      <Page.Body userSelect="none">
+      <Page.Body userSelect="none" pb="$5">
         {sections.map(({ titleId, items }) => (
           <Section title={intl.formatMessage({ id: titleId })} key={titleId}>
             {items.map(

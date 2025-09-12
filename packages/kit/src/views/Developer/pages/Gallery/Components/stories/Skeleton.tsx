@@ -17,9 +17,11 @@ const Spacer = ({ height = 16 }: { height?: number }) => (
 );
 const SkeletonDemo = () => (
   <MotiView
-    transition={{
-      type: 'timing',
-    }}
+    transition={
+      {
+        type: 'timing',
+      } as any
+    }
     style={{
       flex: 1,
       justifyContent: 'center',
@@ -68,6 +70,7 @@ const SkeletonGroupDemo = () => {
 
 const SelectGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Skeleton"
     boundaryConditions={['不要建议同屏绘制超过20个视图']}
     elements={[

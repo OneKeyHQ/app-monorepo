@@ -137,7 +137,7 @@ function DeviceGuideModal() {
           buttonProps={{
             onPress: handleStartConnect,
             children: intl.formatMessage({
-              id: ETranslations.global_start_connection,
+              id: ETranslations.global_connect,
             }),
           }}
         />

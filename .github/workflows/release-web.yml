@@ -12,11 +12,14 @@ jobs:
   test-web:
     runs-on: ubuntu-latest
     env:
-      HOST_PATH: '${{ github.event.repository.name }}/${{ github.sha }}/'
-      PUBLIC_URL: 'https://asset.onekey-asset.com/${{ github.event.repository.name }}/${{ github.sha }}/'
       TEST_ENDPOINT: app.onekeytest.com
+
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -29,6 +32,13 @@ jobs:
           sentry_project: 'web'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Environment
         uses: actions/setup-node@v3
@@ -40,17 +50,12 @@ jobs:
 
       - name: Setup ENV
         run: |
-
           eval "$(node -e 'const v=require("./apps/web/package.json").version; console.log("pkg_version="+v)')"
           echo '$pkg_version='$pkg_version
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
 
-          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
-
-        env:
-          github_ref: ${{ github.ref }}
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+          # For test environment, use GitHub Pages URL
+          echo "PUBLIC_URL=https://${{ env.TEST_ENDPOINT }}/" >> $GITHUB_ENV
 
       - name: Install Dependency
         env:
@@ -66,19 +71,10 @@ jobs:
         run: |
           yarn app:web:build
 
-      - name: Deploy to CDN
-        uses: OneKeyHQ/actions/s3-upload@main
-        with:
-          aws_key_id: ${{ secrets.AWS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_bucket: ${{ secrets.AWS_BUCKET }}
-          source_dir: './apps/web/web-build/'
-          destination_dir: ${{ env.HOST_PATH }}
-
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: app-monorepo-${{ github.sha }}
+          name: app-monorepo-test-${{ github.sha }}-${{ env.BUILD_NUMBER }}
           path: |
             ./apps/web/web-build/
 
@@ -90,8 +86,98 @@ jobs:
           cname: ${{ env.TEST_ENDPOINT }}
           force_orphan: true
 
+  build-production:
+    runs-on: ubuntu-latest
+
+    if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+        with:
+          lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'web'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Setup Environment
+        uses: actions/setup-node@v3
+        with:
+          registry-url: 'https://npm.pkg.github.com'
+          always-auth: true
+          scope: '@onekeyhq'
+          node-version: '20.x'
+
+      - name: Setup ENV
+        run: |
+          eval "$(node -e 'const v=require("./apps/web/package.json").version; console.log("pkg_version="+v)')"
+          echo '$pkg_version='$pkg_version
+          echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
+
+          # For production environment, use production URL
+          echo "PUBLIC_URL=https://app-assets.onekey.so/${{ github.sha }}-${{ env.BUILD_NUMBER }}/" >> $GITHUB_ENV
+
+      - name: Install Dependency
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          yarn
+
+      - name: Build Target
+        env:
+          PUBLIC_URL: ${{ env.PUBLIC_URL }}
+          NODE_OPTIONS: '--max_old_space_size=4096'
+        run: |
+          yarn app:web:build
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-monorepo-${{ github.sha }}-${{ env.BUILD_NUMBER }}
+          path: |
+            ./apps/web/web-build/
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test-web, build-production]
+    if: ${{ github.event.workflow_run && always() }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          env_file_name: '.env'
+          sentry_project: 'web'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
+
+      - name: Setup ENV
+        run: |
+          artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
+
       - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}

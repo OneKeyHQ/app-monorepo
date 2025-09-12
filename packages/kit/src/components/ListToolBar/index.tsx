@@ -35,7 +35,11 @@ function ListToolToolBar({ searchProps, headerRight, ...rest }: IProps) {
           />
         ) : null}
 
-        {headerRight ? <XStack pl="$5">{headerRight}</XStack> : null}
+        {headerRight ? (
+          <XStack pl="$5" flex={1} justifyContent="flex-end">
+            {headerRight}
+          </XStack>
+        ) : null}
       </XStack>
       {/* {searchProps?.searchResultCount && searchProps?.searchResultCount > 0 ? (
         <SizableText

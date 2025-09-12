@@ -4,6 +4,7 @@ export enum ELockDuration {
   Minute5 = '5',
   Minute30 = '30',
   Hour = '60',
+  Hour2 = '120',
   Hour4 = '240',
   Never = '100000000000000',
 }

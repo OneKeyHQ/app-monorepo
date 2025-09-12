@@ -49,6 +49,7 @@ const SlidingEventDemo = () => {
 
 const SliderGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Slider"
     elements={[
       {

@@ -23,28 +23,35 @@ export function useShowAddressBook({
   const navigation = useAppNavigation();
   const [{ hideDialogInfo }] = useAddressBookPersistAtom();
 
-  const showAddressBook = useCallback(async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    if (useNewModal) {
-      navigation.pushModal(EModalRoutes.AddressBookModal, {
-        screen: EModalAddressBookRoutes.ListItemModal,
-        params: {},
-      });
-    } else {
-      navigation.push(EModalAddressBookRoutes.ListItemModal);
-    }
-    defaultLogger.setting.page.enterAddressBook();
-  }, [navigation, useNewModal]);
+  const showAddressBook = useCallback(
+    async (nav?: ReturnType<typeof useAppNavigation>) => {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      const appNavigation = nav || navigation;
+      if (useNewModal) {
+        appNavigation.pushModal(EModalRoutes.AddressBookModal, {
+          screen: EModalAddressBookRoutes.ListItemModal,
+          params: {},
+        });
+      } else {
+        appNavigation.push(EModalAddressBookRoutes.ListItemModal);
+      }
+      defaultLogger.setting.page.enterAddressBook();
+    },
+    [navigation, useNewModal],
+  );
 
-  const onPress = useCallback(async () => {
-    if (!hideDialogInfo) {
-      await showAddressSafeNotificationDialog({
-        intl,
-      });
-      await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
-    }
-    await showAddressBook();
-  }, [hideDialogInfo, showAddressBook, intl]);
+  const onPress = useCallback(
+    async (nav?: ReturnType<typeof useAppNavigation>) => {
+      if (!hideDialogInfo) {
+        await showAddressSafeNotificationDialog({
+          intl,
+        });
+        await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
+      }
+      await showAddressBook(nav);
+    },
+    [hideDialogInfo, showAddressBook, intl],
+  );
 
   return onPress;
 }

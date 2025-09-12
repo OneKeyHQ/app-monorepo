@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
@@ -48,19 +50,36 @@ function WalletActionReceive() {
     isMultipleDerive: deriveInfoItems.length > 1,
   });
 
-  const handleReceiveOnPress = useCallback(() => {
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
+  const handleReceiveOnPress = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
     defaultLogger.wallet.walletActions.actionReceive({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      isSoftwareWalletOnlyUser,
     });
-    handleOnReceive();
-  }, [wallet?.type, network?.id, handleOnReceive]);
+    void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+  }, [
+    wallet?.type,
+    wallet?.id,
+    network?.id,
+    isSoftwareWalletOnlyUser,
+    handleOnReceive,
+    network?.isAllNetworks,
+  ]);
 
   return (
     <RawActions.Receive
       disabled={isReceiveDisabled}
       onPress={handleReceiveOnPress}
+      trackID="wallet-receive"
     />
   );
 }

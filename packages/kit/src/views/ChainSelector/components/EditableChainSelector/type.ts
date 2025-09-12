@@ -14,6 +14,7 @@ export type IEditableChainSelectorContext = {
   onEditCustomNetwork?: (item: IServerNetwork) => void;
 
   allNetworkItem?: IServerNetwork;
+  setRecentNetworksHeight?: (height: number) => void;
 };
 
 export type IEditableChainSelectorSection = {
@@ -26,3 +27,5 @@ export type IEditableChainSelectorSection = {
 };
 
 export const CELL_HEIGHT = 48;
+
+export const ALL_NETWORK_HEADER_HEIGHT = 48;

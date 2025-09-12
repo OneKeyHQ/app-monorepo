@@ -3,6 +3,8 @@ import { ResourceType } from '@onekeyfe/hd-transport';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { Image } from 'react-native';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import bufferUtils from './bufferUtils';
@@ -107,7 +109,7 @@ export const compressNFT = async (
     `width: ${width}, height: ${height}, originW: ${originW}, originH: ${originH}`,
   );
   const aspectRatioLonger = originW > originH;
-  const aspectRatioEqueal = originW === originH;
+  const aspectRatioEqual = originW === originH;
 
   const actions: Action[] = [];
   if (!isThumbnail) {
@@ -123,7 +125,7 @@ export const compressNFT = async (
     });
   }
 
-  if (isThumbnail && !aspectRatioEqueal) {
+  if (isThumbnail && !aspectRatioEqual) {
     if (aspectRatioLonger) {
       const originX = getOriginX(originW, originH, width, height);
       if (originX !== null) {
@@ -182,7 +184,9 @@ export async function generateUploadNFTParams({
   const base64 = await imageUtils.getBase64FromImageUri({ uri: imageUri });
 
   if (!base64) {
-    throw new Error(`Failed to get base64 from image uri: ${imageUri}`);
+    throw new OneKeyLocalError(
+      `Failed to get base64 from image uri: ${imageUri}`,
+    );
   }
 
   const data = await compressNFT(base64, 480, 800, width, height, false);

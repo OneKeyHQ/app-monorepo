@@ -10,7 +10,6 @@ import {
 
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
-// eslint-disable-next-line import/order
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
 import { DesktopWebView } from './DesktopWebView';
@@ -34,7 +33,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       onDidFailLoad,
       onPageTitleUpdated,
       onPageFaviconUpdated,
-      // onNewWindow,
+      onLoadEnd,
       onDomReady,
     }: IInpageProviderWebViewProps,
     ref: any,
@@ -135,11 +134,11 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           onDidStartLoading={() => innerOnDidStartLoading}
           onDidStartNavigation={onDidStartNavigation}
           onDidFinishLoad={onDidFinishLoad}
+          onLoadEnd={onLoadEnd}
           onDidStopLoading={innerOnStopLoading}
           onDidFailLoad={onDidFailLoad}
           onPageTitleUpdated={onPageTitleUpdated}
           onPageFaviconUpdated={onPageFaviconUpdated}
-          // onNewWindow={onNewWindow}
           onDomReady={onDomReady}
         />
       </Stack>

@@ -1,27 +1,18 @@
-import { debounce } from 'lodash';
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  IconButton,
-  SizableText,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
-import {
-  SEARCH_DEBOUNCE_INTERVAL,
-  SEARCH_KEY_MIN_LENGTH,
-} from '@onekeyhq/shared/src/consts/walletConsts';
+import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import { ETokenListSortType } from '@onekeyhq/shared/types/token';
 
 import {
-  useSearchKeyAtom,
   useTokenListActions,
+  useTokenListSortAtom,
 } from '../../states/jotai/contexts/tokenList';
-import { ListToolToolBar } from '../ListToolBar';
 
 type IProps = {
   filteredTokens: IAccountToken[];
@@ -30,116 +21,112 @@ type IProps = {
   manageTokenEnabled?: boolean;
 };
 
-function TokenListHeader({
-  tableLayout,
-  filteredTokens,
-  onManageToken,
-  manageTokenEnabled,
-}: IProps) {
+function SortButton({
+  label,
+  iconName,
+  onPress,
+}: {
+  label: string;
+  iconName?: IKeyOfIcons;
+  onPress?: IXStackProps['onPress'];
+}) {
+  return (
+    <XStack
+      role="button"
+      alignItems="center"
+      py="$1"
+      px="$1.5"
+      my="$-1"
+      mx="$-1.5"
+      borderRadius={6}
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusable
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineStyle: 'solid',
+        outlineOffset: 0,
+        outlineWidth: 2,
+      }}
+      userSelect="none"
+      onPress={onPress}
+    >
+      <SizableText size="$bodyMdMedium" color="$textSubdued">
+        {label}
+      </SizableText>
+      {iconName ? (
+        <Stack position="absolute" right="$-3.5" top={5}>
+          <Icon name={iconName} color="$iconSubdued" size="$4.5" />
+        </Stack>
+      ) : null}
+    </XStack>
+  );
+}
+
+function TokenListHeader({ tableLayout }: IProps) {
   const intl = useIntl();
-  const media = useMedia();
-  const { updateSearchKey } = useTokenListActions().current;
-  const [searchKey] = useSearchKeyAtom();
+  const [{ sortType, sortDirection }] = useTokenListSortAtom();
+  const { updateTokenListSort } = useTokenListActions().current;
+
+  const renderSortButton = useCallback(
+    (type: ETokenListSortType) => {
+      if (sortType === type) {
+        return sortDirection === 'desc'
+          ? 'ChevronDownSmallOutline'
+          : 'ChevronTopSmallOutline';
+      }
+    },
+    [sortDirection, sortType],
+  );
+
+  if (!tableLayout) {
+    return null;
+  }
 
   return (
-    <Stack testID="Wallet-Token-List-Header">
-      <ListToolToolBar
-        searchProps={{
-          placeholder: intl.formatMessage({
-            id: ETranslations.global_search_asset,
-          }),
-          onChangeText: debounce(
-            (text) => updateSearchKey(text),
-            SEARCH_DEBOUNCE_INTERVAL,
-          ),
-          searchResultCount:
-            searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH
-              ? filteredTokens.length
-              : 0,
-        }}
-        headerRight={
-          manageTokenEnabled ? (
-            <>
-              {media.md ? (
-                <IconButton
-                  title={intl.formatMessage({
-                    id: ETranslations.manage_token_custom_token_title,
-                  })}
-                  variant="tertiary"
-                  icon="SliderHorOutline"
-                  onPress={onManageToken}
-                />
-              ) : (
-                <Button
-                  icon="SliderHorOutline"
-                  size="small"
-                  variant="tertiary"
-                  onPress={onManageToken}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.global_manage,
-                  })}
-                </Button>
-              )}
-            </>
-          ) : null
-        }
-      />
-
-      {tableLayout ? (
-        <XStack px="$5" py="$2" gap="$3">
-          <XStack
-            flexGrow={1}
-            flexBasis={0}
-            gap={89}
-            spaceDirection="horizontal"
-          >
-            <SizableText
-              flexGrow={1}
-              flexBasis={0}
-              color="$textSubdued"
-              size="$headingSm"
-            >
-              {intl.formatMessage({ id: ETranslations.global_asset })}
-            </SizableText>
-            <SizableText
-              flexGrow={1}
-              flexBasis={0}
-              // TODO: quick fix
-              // should replace by Table Component
-              pl={platformEnv.isNativeIOSPad ? 44 : undefined}
-              color="$textSubdued"
-              size="$headingSm"
-            >
-              {intl.formatMessage({ id: ETranslations.global_balance })}
-            </SizableText>
-          </XStack>
-          <Stack w="$8" />
-          <XStack flexGrow={1} flexBasis={0}>
-            <SizableText
-              flexGrow={1}
-              flexBasis={0}
-              // TODO: quick fix
-              // should replace by Table Component
-              pl={platformEnv.isNativeIOSPad ? 48 : undefined}
-              color="$textSubdued"
-              size="$headingSm"
-            >
-              {intl.formatMessage({ id: ETranslations.global_price })}
-            </SizableText>
-            <SizableText
-              flexGrow={1}
-              flexBasis={0}
-              textAlign="right"
-              color="$textSubdued"
-              size="$headingSm"
-            >
-              {intl.formatMessage({ id: ETranslations.global_value })}
-            </SizableText>
-          </XStack>
-        </XStack>
-      ) : null}
-    </Stack>
+    <ListItem testID="Wallet-Token-List-Header">
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-start">
+        <SortButton
+          label={intl.formatMessage({ id: ETranslations.global_asset })}
+          iconName={renderSortButton(ETokenListSortType.Name)}
+          onPress={() => {
+            updateTokenListSort({
+              sortType: ETokenListSortType.Name,
+              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+            });
+          }}
+        />
+      </Stack>
+      <Stack flexGrow={1} flexBasis={0} maxWidth="$36" alignItems="flex-end">
+        <SortButton
+          label={intl.formatMessage({ id: ETranslations.global_balance })}
+          iconName={renderSortButton(ETokenListSortType.Value)}
+          onPress={() => {
+            updateTokenListSort({
+              sortType: ETokenListSortType.Value,
+              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+            });
+          }}
+        />
+      </Stack>
+      <Stack flexGrow={1} flexBasis={0} alignItems="flex-end">
+        <SortButton
+          label={intl.formatMessage({ id: ETranslations.global_price })}
+          iconName={renderSortButton(ETokenListSortType.Price)}
+          onPress={() => {
+            updateTokenListSort({
+              sortType: ETokenListSortType.Price,
+              sortDirection: sortDirection === 'asc' ? 'desc' : 'asc',
+            });
+          }}
+        />
+      </Stack>
+      <Stack flexGrow={1} flexBasis={0} />
+    </ListItem>
   );
 }
 

@@ -8,7 +8,8 @@ export interface IPopoverContent extends PropsWithChildren {
 }
 
 export interface IPopoverTooltip {
-  tooltip: string;
+  tooltip?: string;
   title: string;
   placement?: IPopoverProps['placement'];
+  renderContent?: IPopoverProps['renderContent'];
 }

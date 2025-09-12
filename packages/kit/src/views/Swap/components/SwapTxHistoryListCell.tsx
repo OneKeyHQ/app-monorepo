@@ -13,7 +13,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapExtraStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 
 import { ListItem } from '../../../components/ListItem';
@@ -49,6 +52,15 @@ const SwapTxHistoryListCell = ({
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const statusBadge = useMemo(() => {
+    if (item.extraStatus === ESwapExtraStatus.HOLD) {
+      return (
+        <Badge badgeType="warning" badgeSize="lg">
+          {intl.formatMessage({
+            id: ETranslations.swap_ch_status_hold,
+          })}
+        </Badge>
+      );
+    }
     if (item.status === ESwapTxHistoryStatus.FAILED) {
       return (
         <Badge badgeType="critical" badgeSize="lg">
@@ -77,7 +89,7 @@ const SwapTxHistoryListCell = ({
       );
     }
     return null;
-  }, [intl, item.status]);
+  }, [intl, item.extraStatus, item.status]);
   const subContent = useMemo(() => {
     const { created } = item.date;
     const dateStr = formatDate(new Date(created), {
@@ -101,11 +113,11 @@ const SwapTxHistoryListCell = ({
     () => (
       <XStack alignItems="center" gap="$1" flex={1} flexWrap="wrap">
         <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-          {item.baseInfo.fromToken.symbol.toUpperCase()}
+          {item.baseInfo?.fromToken?.symbol?.toUpperCase() ?? ''}
         </SizableText>
         <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
         <SizableText size="$bodyLgMedium" flexShrink={1} numberOfLines={1}>
-          {item.baseInfo.toToken.symbol.toUpperCase()}
+          {item.baseInfo?.toToken?.symbol?.toUpperCase() ?? ''}
         </SizableText>
       </XStack>
     ),
@@ -148,7 +160,7 @@ const SwapTxHistoryListCell = ({
               {item.baseInfo.toAmount}
             </NumberSizeableText>{' '}
             <SizableText color="$textSuccess">
-              {item.baseInfo.toToken.symbol.toUpperCase()}
+              {item.baseInfo?.toToken?.symbol?.toUpperCase() ?? ''}
             </SizableText>
           </SizableText>
         }
@@ -166,7 +178,7 @@ const SwapTxHistoryListCell = ({
               {fromTokenAmountFinal}
             </NumberSizeableText>{' '}
             <SizableText size="$bodyMd" color="$textSubdued">
-              {item.baseInfo.fromToken.symbol.toUpperCase()}
+              {item.baseInfo?.fromToken?.symbol?.toUpperCase() ?? ''}
             </SizableText>
           </SizableText>
         }

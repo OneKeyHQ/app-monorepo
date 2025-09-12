@@ -6,16 +6,26 @@ import { isEqual, uniqBy } from 'lodash';
 import { TOKEN_LIST_HIGH_VALUE_MAX } from '@onekeyhq/shared/src/consts/walletConsts';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
+  mergeAggregateTokenListMap,
+  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  ETokenListSortType,
+  IAccountToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  activeAccountTokenListAtom,
+  activeAccountTokenListStateAtom,
+  aggregateTokensListMapAtom,
+  aggregateTokensMapAtom,
   allTokenListAtom,
   allTokenListMapAtom,
   contextAtomMethod,
@@ -30,6 +40,7 @@ import {
   smallBalanceTokensFiatValueAtom,
   tokenListAtom,
   tokenListMapAtom,
+  tokenListSortAtom,
   tokenListStateAtom,
 } from './atoms';
 
@@ -70,9 +81,12 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           [key: string]: ITokenFiat;
         };
         mergeDerive?: boolean;
+        accountId?: string;
+        networkId?: string;
       },
     ) => {
-      const { keys, tokens, merge, mergeDerive } = payload;
+      const { keys, tokens, merge, mergeDerive, accountId, networkId } =
+        payload;
       const allTokenList = get(allTokenListAtom());
 
       if (merge) {
@@ -86,11 +100,13 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
 
           const tokenListMap = get(allTokenListMapAtom());
+          const aggregateTokenMap = get(aggregateTokensMapAtom());
 
           newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
+            tokens: uniqBy(newTokens, (item) => item.$key),
             map: {
               ...tokenListMap,
+              ...aggregateTokenMap,
               ...(payload.map || {}),
             },
           });
@@ -98,12 +114,16 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           set(allTokenListAtom(), {
             tokens: newTokens,
             keys: `${allTokenList.keys}_${keys}`,
+            accountId,
+            networkId,
           });
         }
       } else if (!isEqual(allTokenList.keys, keys)) {
         set(allTokenListAtom(), {
           tokens: uniqBy(tokens, (item) => item.$key),
           keys,
+          accountId,
+          networkId,
         });
       }
     },
@@ -156,7 +176,6 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       },
     ) => {
       const { keys, tokens, merge, mergeDerive, split } = payload;
-
       if (merge) {
         if (tokens.length) {
           let newTokens = get(tokenListAtom()).tokens.concat(
@@ -170,14 +189,16 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           });
 
           const tokenListMap = get(tokenListMapAtom());
+          const aggregateTokenMap = get(aggregateTokensMapAtom());
 
           const mergedTokenListMap = {
             ...tokenListMap,
+            ...aggregateTokenMap,
             ...(payload.map || {}),
           };
 
           newTokens = sortTokensByFiatValue({
-            tokens: newTokens,
+            tokens: uniqBy(newTokens, (item) => item.$key),
             map: mergedTokenListMap,
           });
 
@@ -212,7 +233,7 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
             );
 
             set(tokenListAtom(), {
-              tokens: uniqBy(highValueTokens, (item) => item.$key),
+              tokens: highValueTokens,
               keys: `${get(tokenListAtom()).keys}_${keys}`,
             });
 
@@ -238,6 +259,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           keys,
         });
       }
+    },
+  );
+
+  refreshActiveAccountTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: IAccountToken[];
+        keys: string;
+      },
+    ) => {
+      set(activeAccountTokenListAtom(), {
+        tokens: uniqBy(payload.tokens, (item) => item.$key),
+        keys: payload.keys,
+      });
     },
   );
 
@@ -443,6 +480,62 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
+  refreshAggregateTokensMap = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: {
+          [key: string]: ITokenFiat;
+        };
+        merge?: boolean;
+      },
+    ) => {
+      const { tokens, merge } = payload;
+      if (merge) {
+        const tokenMap = get(aggregateTokensMapAtom());
+        set(
+          aggregateTokensMapAtom(),
+          mergeAggregateTokenMap({
+            sourceMap: tokens,
+            targetMap: tokenMap,
+          }),
+        );
+      } else {
+        set(aggregateTokensMapAtom(), payload.tokens);
+      }
+    },
+  );
+
+  refreshAggregateTokensListMap = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: {
+          [key: string]: {
+            tokens: IAccountToken[];
+          };
+        };
+        merge?: boolean;
+      },
+    ) => {
+      const { tokens, merge } = payload;
+      if (merge) {
+        const tokenListMap = get(aggregateTokensListMapAtom());
+        set(
+          aggregateTokensListMapAtom(),
+          mergeAggregateTokenListMap({
+            sourceMap: tokens,
+            targetMap: tokenListMap,
+          }),
+        );
+      } else {
+        set(aggregateTokensListMapAtom(), tokens);
+      }
+    },
+  );
+
   updateSearchKey = contextAtomMethod((get, set, value: string) => {
     set(searchKeyAtom(), value);
   });
@@ -464,6 +557,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
+  updateActiveAccountTokenListState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isRefreshing?: boolean;
+        initialized?: boolean;
+      },
+    ) => {
+      set(activeAccountTokenListStateAtom(), (v) => ({
+        ...v,
+        ...payload,
+      }));
+    },
+  );
+
   updateCreateAccountState = contextAtomMethod(
     (
       get,
@@ -479,10 +588,36 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateTokenListSort = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        sortType: ETokenListSortType;
+        sortDirection?: 'desc' | 'asc';
+      },
+    ) => {
+      const { sortType } = get(tokenListSortAtom());
+
+      if (payload.sortType !== sortType) {
+        set(tokenListSortAtom(), {
+          sortType: payload.sortType,
+          sortDirection: 'desc',
+        });
+        return;
+      }
+
+      set(tokenListSortAtom(), (v) => ({
+        ...v,
+        ...payload,
+      }));
+    },
+  );
 }
 
 const createActions = memoFn(() => {
-  console.log('new ContextJotaiActionsTokenList()', Date.now());
+  // console.log('new ContextJotaiActionsTokenList()', Date.now());
   return new ContextJotaiActionsTokenList();
 });
 
@@ -512,6 +647,19 @@ export function useTokenListActions() {
 
   const updateCreateAccountState = actions.updateCreateAccountState.use();
 
+  const refreshActiveAccountTokenList =
+    actions.refreshActiveAccountTokenList.use();
+
+  const updateActiveAccountTokenListState =
+    actions.updateActiveAccountTokenListState.use();
+
+  const updateTokenListSort = actions.updateTokenListSort.use();
+
+  const refreshAggregateTokensMap = actions.refreshAggregateTokensMap.use();
+
+  const refreshAggregateTokensListMap =
+    actions.refreshAggregateTokensListMap.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -527,5 +675,10 @@ export function useTokenListActions() {
     updateTokenListState,
     updateSearchTokenState,
     updateCreateAccountState,
+    refreshActiveAccountTokenList,
+    updateActiveAccountTokenListState,
+    updateTokenListSort,
+    refreshAggregateTokensMap,
+    refreshAggregateTokensListMap,
   });
 }

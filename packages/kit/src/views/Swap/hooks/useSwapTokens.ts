@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -314,6 +314,14 @@ export function useSwapTokenList(
   };
 }
 
+/**
+ * Manages and updates detailed information for a selected swap token, including balance and status, in response to swap transaction events and focus changes.
+ *
+ * Triggers token detail reloads when relevant swap transaction history updates occur, and manages event listeners based on modal and tab focus state.
+ *
+ * @param token - The swap token to manage details for
+ * @param type - The swap direction type (`FROM` or `TO`)
+ */
 export function useSwapSelectedTokenInfo({
   token,
   type,
@@ -393,9 +401,9 @@ export function useSwapSelectedTokenInfo({
     },
     [type, loadSwapSelectTokenDetailDeb],
   );
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useEffect(() => {
-    if (isFocused && pageType === EPageType.modal) {
+    if (isFocused && isModalPage) {
       appEventBus.off(
         EAppEventBusNames.SwapTxHistoryStatusUpdate,
         reloadSwapSelectTokenDetail,
@@ -405,11 +413,18 @@ export function useSwapSelectedTokenInfo({
         reloadSwapSelectTokenDetail,
       );
     }
-  }, [isFocused, pageType, reloadSwapSelectTokenDetail]);
+  }, [isFocused, isModalPage, reloadSwapSelectTokenDetail]);
 
   useEffect(() => {
-    void loadSwapSelectTokenDetailDeb(type, swapAddressInfoRef.current, false);
+    if (isFocused) {
+      void loadSwapSelectTokenDetailDeb(
+        type,
+        swapAddressInfoRef.current,
+        false,
+      );
+    }
   }, [
+    isFocused,
     type,
     swapAddressInfo,
     token?.networkId,
@@ -423,7 +438,7 @@ export function useSwapSelectedTokenInfo({
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           appEventBus.off(
             EAppEventBusNames.SwapTxHistoryStatusUpdate,

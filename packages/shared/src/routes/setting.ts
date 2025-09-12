@@ -1,5 +1,6 @@
 export enum EModalSettingRoutes {
   SettingListModal = 'SettingListModal',
+  SettingListSubModal = 'SettingListSubModal',
   SettingCurrencyModal = 'SettingCurrencyModal',
   SettingClearAppCache = 'SettingClearAppCache',
   SettingAccountDerivationModal = 'SettingAccountDerivationModal',
@@ -13,6 +14,9 @@ export enum EModalSettingRoutes {
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
+  SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
+  SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
+  SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
@@ -22,6 +26,12 @@ export enum EModalSettingRoutes {
 
 export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingListModal]: { flag?: string } | undefined;
+  [EModalSettingRoutes.SettingListSubModal]:
+    | {
+        name: string;
+        title: string;
+      }
+    | undefined;
   [EModalSettingRoutes.SettingCurrencyModal]: undefined;
   [EModalSettingRoutes.SettingClearAppCache]: undefined;
   [EModalSettingRoutes.SettingAccountDerivationModal]: undefined;
@@ -35,6 +45,9 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
+  [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
+  [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;

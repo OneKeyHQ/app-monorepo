@@ -17,6 +17,7 @@ import type {
 import {
   NotImplemented,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -87,6 +88,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 pub: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -94,7 +96,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -116,7 +118,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address ?? '',
           );
@@ -124,6 +126,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: '',
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -137,7 +140,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCkb;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;

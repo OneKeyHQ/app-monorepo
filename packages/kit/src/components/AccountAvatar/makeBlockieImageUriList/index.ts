@@ -28,10 +28,13 @@ function makeBlockieImageUri(id: string) {
   });
 }
 
-export const useBlockieImageUri: IUseBlockieImageUri = (id: string) => {
+export const useBlockieImageUri: IUseBlockieImageUri = (id?: string) => {
   const [uri, setUri] = useState('');
 
   useEffect(() => {
+    if (!id) {
+      return;
+    }
     makeBlockieImageUri(id)
       .then((imageUri: string) => {
         setUri(imageUri);

@@ -16,7 +16,11 @@ const {
 export { ProviderJotaiContextEarn, contextAtomMethod };
 
 export const { atom: basicEarnAtom, useContextAtom } =
-  contextAtom<IEarnAtomData>({ earnAccount: {}, availableAssets: [] });
+  contextAtom<IEarnAtomData>({
+    earnAccount: {},
+    availableAssetsByType: {},
+    refreshTrigger: 0,
+  });
 
 export const { atom: earnStorageReadyAtom, use: useEarnStorageReadyAtom } =
   contextAtom<boolean>(false);
@@ -33,7 +37,9 @@ export const earnAtom = memoizee(() =>
         void backgroundApiProxy.simpleDb.earn.getEarnData().then((data) => {
           set(basicEarnAtom(), {
             ...data,
-            earnAccount: {},
+            earnAccount: data.earnAccount || {},
+            availableAssetsByType: data.availableAssetsByType || {},
+            refreshTrigger: data.refreshTrigger || 0,
           });
           set(earnStorageReadyAtom(), true);
         });
@@ -50,5 +56,8 @@ earnAtom().onMount = (setAtom) => {
 
 export const { atom: earnPermitCacheAtom, use: useEarnPermitCacheAtom } =
   contextAtom<Record<string, IEarnPermitCache>>({});
+
+export const { atom: earnLoadingStatesAtom, use: useEarnLoadingStatesAtom } =
+  contextAtom<Record<string, boolean>>({});
 
 export const useEarnAtom = () => useContextAtom(earnAtom());

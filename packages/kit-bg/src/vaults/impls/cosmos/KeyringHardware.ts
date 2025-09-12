@@ -15,6 +15,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -50,8 +51,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async prepareAccounts(
     params: IPrepareHardwareAccountsParams,
   ): Promise<IDBAccount[]> {
-    const chainId = await this.getNetworkChainId();
-
     return this.basePrepareHdNormalAccounts(params, {
       buildAddressesInfo: async ({ usedIndexes }) => {
         const { curve } = await this.getNetworkInfo();
@@ -63,11 +62,11 @@ export class KeyringHardware extends KeyringHardwareBase {
           params,
           usedIndexes,
           sdkGetPublicKeysFn: async ({
-            connectId,
-            deviceId,
-            pathPrefix,
+            connectId: _connectId,
+            deviceId: _deviceId,
+            pathPrefix: _pathPrefix,
             template,
-            showOnOnekeyFn,
+            showOnOnekeyFn: _showOnOnekeyFn,
           }) => {
             const buildFullPath = (p: { index: number }) =>
               accountUtils.buildPathFromTemplate({
@@ -80,15 +79,16 @@ export class KeyringHardware extends KeyringHardwareBase {
               usedIndexes,
               hwSdkNetwork: this.hwSdkNetwork,
               buildPath: buildFullPath,
-              buildResultAccount: ({ account, index }) => ({
+              buildResultAccount: ({ account, index: _index }) => ({
                 path: account.path,
                 publicKey: account.payload?.publicKey || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
               return allNetworkAccounts;
             }
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -111,12 +111,13 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
           const item = publicKeys[i];
-          const { path, publicKey } = item;
+          const { path, publicKey, __hwExtraInfo__ } = item;
           const pubkey = hexToBytes(hexUtils.addHexPrefix(publicKey));
           const addressInfo: ICoreApiGetAddressItem = {
             address: '',
             path,
             publicKey,
+            __hwExtraInfo__,
             addresses: {
               [this.networkId]: pubkeyToAddress(
                 curve,
@@ -135,7 +136,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const account = await this.vault.getAccount();
     const { unsignedTx, deviceParams } = params;
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
@@ -212,7 +215,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         pathSuffix,
         showOnOnekeyFn,
       }) => {
-        const sdk = await this.getHardwareSDKInstance();
+        const sdk = await this.getHardwareSDKInstance({
+          connectId,
+        });
 
         const response = await sdk.cosmosGetAddress(connectId, deviceId, {
           ...params.deviceParams.deviceCommonParams,

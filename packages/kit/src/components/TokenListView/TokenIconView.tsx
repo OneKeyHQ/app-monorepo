@@ -1,22 +1,24 @@
+import { memo } from 'react';
+
 import { useAccountData } from '../../hooks/useAccountData';
 import { Token } from '../Token';
 
 type IProps = {
-  tableLayout?: boolean;
   icon?: string;
   networkId: string | undefined;
   isAllNetworks?: boolean;
+  showNetworkIcon?: boolean;
 };
 
 function TokenIconView(props: IProps) {
-  const { tableLayout, icon, networkId, isAllNetworks } = props;
+  const { icon, networkId, isAllNetworks, showNetworkIcon } = props;
 
   const { network } = useAccountData({ networkId });
 
-  if (isAllNetworks) {
+  if (isAllNetworks && showNetworkIcon) {
     return (
       <Token
-        size={tableLayout ? 'md' : 'lg'}
+        size="lg"
         tokenImageUri={icon}
         networkImageUri={network?.logoURI}
         networkId={networkId}
@@ -25,7 +27,7 @@ function TokenIconView(props: IProps) {
     );
   }
 
-  return <Token size={tableLayout ? 'md' : 'lg'} tokenImageUri={icon} />;
+  return <Token size="lg" tokenImageUri={icon} />;
 }
 
-export { TokenIconView };
+export default memo(TokenIconView);

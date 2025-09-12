@@ -12,7 +12,10 @@ import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 // TODO: Move lightning utils to shared module
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { isLightningAddress } from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
+import {
+  findLnurl,
+  isLightningAddress,
+} from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,8 +23,12 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
-import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
+import {
+  ELightningUnit,
+  type ILNURLPaymentInfo,
+} from '@onekeyhq/shared/types/lightning';
 
 import {
   DAppAccountListStandAloneItem,
@@ -59,6 +66,8 @@ function LnurlPayRequestModal() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
   const origin = useMemo(() => {
     if (lnurlDetails?.url) {
@@ -113,7 +122,13 @@ function LnurlPayRequestModal() {
       const formValue = useFormReturn.getValues();
 
       let response: ILNURLPaymentInfo;
-      const amount = new BigNumber(formValue.amount).times(1000).toNumber(); // convert to millisatoshis
+
+      const amountSats =
+        lnUnit === ELightningUnit.BTC
+          ? chainValueUtils.convertBtcToSats(formValue.amount ?? 0)
+          : formValue.amount ?? 0;
+
+      const amount = new BigNumber(amountSats).times(1000).toNumber(); // convert to millisatoshis
       try {
         const params: {
           amount: number;
@@ -154,6 +169,7 @@ function LnurlPayRequestModal() {
           });
         }
         const transferInfo = transfersInfo[0];
+        const lnurl = findLnurl(transferInfo.to ?? '');
         const newTransfersInfo: ITransferInfo[] = [
           {
             ...transferInfo,
@@ -162,6 +178,7 @@ function LnurlPayRequestModal() {
             lightningAddress: isLightningAddress(transferInfo.to)
               ? transferInfo.to
               : undefined,
+            lnurl: lnurl ?? undefined,
           },
         ];
         await signatureConfirm.normalizeTxConfirm({
@@ -199,15 +216,16 @@ function LnurlPayRequestModal() {
       }
     },
     [
-      useFormReturn,
-      isLoading,
       lnurlDetails,
+      isLoading,
+      useFormReturn,
+      lnUnit,
+      dappApprove,
       networkId,
       accountId,
       transfersInfo,
-      dappApprove,
-      intl,
       signatureConfirm,
+      intl,
       routeParams.isSendFlow,
     ],
   );
@@ -240,6 +258,8 @@ function LnurlPayRequestModal() {
               maximumAmount={amountMax}
               commentAllowedLength={commentAllowedLength}
               metadata={lnurlDetails.metadata}
+              lnUnit={lnUnit}
+              setLnUnit={setLnUnit}
             />
           </DAppRequestLayout>
         </Page.Body>

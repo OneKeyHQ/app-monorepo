@@ -1,5 +1,7 @@
+import type { ICurrencyItem } from '@onekeyhq/kit/src/views/Setting/pages/Currency';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IAddressBadge, IAddressInfo } from './address';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
@@ -173,7 +175,11 @@ export type IFetchAccountHistoryParams = {
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
   filterScam?: boolean;
+  filterLowValue?: boolean;
   excludeTestNetwork?: boolean;
+  sourceCurrency?: string;
+  targetCurrency?: string;
+  currencyMap?: Record<string, ICurrencyItem>;
 };
 
 export type IOnChainHistoryTxToken = {
@@ -187,6 +193,8 @@ export type IFetchAccountHistoryResp = {
   data: IOnChainHistoryTx[];
   tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
+  addressMap?: Record<string, IAddressBadge>; // <networkId_address, {label, tip, type}>
+  hasMore?: boolean;
 };
 
 export type IFetchHistoryTxDetailsParams = {
@@ -209,11 +217,13 @@ export type IFetchHistoryTxDetailsResp = {
   data: IOnChainHistoryTx;
   tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
+  addressMap?: Record<string, IAddressInfo>; // <networkId_address, {label, tip, type}>
 };
 
 export type IHistoryTxMetaProps = {
   decodedTx: IDecodedTx;
   txDetails?: IOnChainHistoryTx;
+  addressMap?: Record<string, IAddressInfo>;
 };
 
 export type IHistoryTxMetaComponents = {

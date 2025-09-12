@@ -6,7 +6,6 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
-import type { ITabPageProps } from '@onekeyhq/components';
 import {
   Stack,
   useMedia,
@@ -16,8 +15,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -36,6 +37,7 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -45,16 +47,18 @@ import perfUtils, {
 import {
   getEmptyTokenData,
   getMergedDeriveTokenData,
+  mergeAggregateTokenListMap,
+  mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
+  sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
   IAccountToken,
   IFetchAccountTokensResp,
-  IToken,
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
@@ -71,12 +75,21 @@ import {
   useAllNetworksStateStateAtom,
 } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
+import {
+  useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
+  useTokenListActions,
+} from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListContainer(_props: ITabPageProps) {
+function TokenListContainer({
+  showWalletActions,
+}: {
+  showWalletActions: boolean;
+}) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -125,6 +138,27 @@ function TokenListContainer(_props: ITabPageProps) {
     map: {},
   });
 
+  const aggregateTokenMapRef = useRef<{
+    [key: string]: ITokenFiat;
+  }>({});
+
+  const riskTokenManagementRawData = useRef<IRiskTokenManagementDBStruct>({
+    unblockedTokens: {},
+    blockedTokens: {},
+  });
+
+  const customTokensRawData = useRef<ICustomTokenDBStruct | undefined>(
+    undefined,
+  );
+
+  const localTokensRawData = useRef<ISimpleDBLocalTokens | undefined>(
+    undefined,
+  );
+
+  const aggregateTokenRawData = useRef<ISimpleDBAggregateToken | undefined>(
+    undefined,
+  );
+
   const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
@@ -156,11 +190,11 @@ function TokenListContainer(_props: ITabPageProps) {
 
     if (
       // @ts-ignore
-      (modalRoutes?.params?.screen === EModalRoutes.SendModal &&
+      (modalRoutes?.params?.screen === EModalRoutes.SignatureConfirmModal &&
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         modalRoutes?.params?.params?.screen ===
-          EModalSendRoutes.SendSelectToken) ||
+          EModalSignatureConfirmRoutes.TxSelectToken) ||
       // @ts-ignore
       (modalRoutes?.params?.screen === EModalRoutes.ReceiveModal &&
         // @ts-ignore
@@ -184,10 +218,14 @@ function TokenListContainer(_props: ITabPageProps) {
     refreshSmallBalanceTokenList,
     refreshSmallBalanceTokenListMap,
     refreshSmallBalanceTokensFiatValue,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     updateTokenListState,
     updateSearchKey,
   } = useTokenListActions().current;
 
+  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
+  const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -197,7 +235,6 @@ function TokenListContainer(_props: ITabPageProps) {
   const { run } = usePromiseResult(
     async () => {
       let accountId = account?.id ?? '';
-
       try {
         if (!network) return;
 
@@ -238,6 +275,7 @@ function TokenListContainer(_props: ITabPageProps) {
                 networkId: network.id,
                 flag: 'home-token-list',
                 saveToLocal: true,
+                indexedAccountId: indexedAccount?.id,
               }),
             ),
           );
@@ -280,6 +318,37 @@ function TokenListContainer(_props: ITabPageProps) {
             fiatValue: allTokenList.fiatValue,
             map: allTokenListMap,
           };
+
+          const accountWorth: Record<string, string> = {};
+
+          resp.forEach((item) => {
+            if (item.accountId && item.networkId) {
+              let accountWorthValue = new BigNumber(0);
+              accountWorthValue = accountWorthValue
+                .plus(item.tokens.fiatValue ?? '0')
+                .plus(item.smallBalanceTokens.fiatValue ?? '0');
+
+              accountWorth[
+                accountUtils.buildAccountValueKey({
+                  accountId: item.accountId,
+                  networkId: item.networkId,
+                })
+              ] = accountWorthValue.toFixed();
+            }
+          });
+
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+
+          updateAccountWorth({
+            accountId,
+            initialized: true,
+            worth: accountWorth,
+            createAtNetworkWorth: '0',
+            merge: false,
+          });
         } else {
           r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
             accountId,
@@ -287,32 +356,32 @@ function TokenListContainer(_props: ITabPageProps) {
             networkId: network.id,
             flag: 'home-token-list',
             saveToLocal: true,
+            indexedAccountId: indexedAccount?.id,
+          });
+
+          let accountWorth = new BigNumber(0);
+          accountWorth = accountWorth
+            .plus(r.tokens.fiatValue ?? '0')
+            .plus(r.smallBalanceTokens.fiatValue ?? '0');
+
+          updateAccountOverviewState({
+            isRefreshing: false,
+            initialized: true,
+          });
+
+          updateAccountWorth({
+            accountId,
+            initialized: true,
+            worth: {
+              [accountUtils.buildAccountValueKey({
+                accountId,
+                networkId: network.id,
+              })]: accountWorth.toFixed(),
+            },
+            createAtNetworkWorth: accountWorth.toFixed(),
+            merge: false,
           });
         }
-
-        let accountWorth = new BigNumber(0);
-        accountWorth = accountWorth
-          .plus(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
-          .plus(r.smallBalanceTokens.fiatValue ?? '0');
-
-        updateAccountOverviewState({
-          isRefreshing: false,
-          initialized: true,
-        });
-
-        updateAccountWorth({
-          accountId,
-          initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({
-              accountId,
-              networkId: network.id,
-            })]: accountWorth.toFixed(),
-          },
-          createAtNetworkWorth: accountWorth.toFixed(),
-          merge: false,
-        });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
         // can search all tokens in token list
@@ -345,6 +414,8 @@ function TokenListContainer(_props: ITabPageProps) {
           refreshAllTokenList({
             keys: r.allTokens?.keys,
             tokens: r.allTokens?.data,
+            accountId: account?.id,
+            networkId: network?.id,
           });
           refreshAllTokenListMap({
             tokens: r.allTokens.map,
@@ -411,6 +482,7 @@ function TokenListContainer(_props: ITabPageProps) {
       overrideIsFocused: (isPageFocused) =>
         (isPageFocused && isFocused) || shouldAlwaysFetch,
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_TOKEN,
     },
   );
@@ -422,7 +494,10 @@ function TokenListContainer(_props: ITabPageProps) {
       keys: tokenListRef.current.keys,
       tokens: tokenListRef.current.tokens,
       merge: true,
-      map: tokenListRef.current.map,
+      map: {
+        ...tokenListRef.current.map,
+        ...aggregateTokenMapRef.current,
+      },
       mergeDerive: true,
       split: true,
     });
@@ -442,6 +517,8 @@ function TokenListContainer(_props: ITabPageProps) {
     riskyTokenListRef.current.tokens = [];
     riskyTokenListRef.current.keys = '';
     riskyTokenListRef.current.map = {};
+
+    aggregateTokenMapRef.current = {};
   }, 1000);
 
   const handleAllNetworkRequests = useCallback(
@@ -450,18 +527,17 @@ function TokenListContainer(_props: ITabPageProps) {
       networkId,
       dbAccount,
       allNetworkDataInit,
-      customTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       dbAccount?: IDBAccount;
       allNetworkDataInit?: boolean;
-      customTokensRawData?: ICustomTokenDBStruct;
     }) => {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         dbAccount,
         networkId,
         accountId,
+        indexedAccountId: indexedAccount?.id,
         flag: 'home-token-list',
         isAllNetworks: true,
         isManualRefresh: isAllNetworkManualRefresh.current,
@@ -469,7 +545,12 @@ function TokenListContainer(_props: ITabPageProps) {
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
-        customTokensRawData,
+        customTokensRawData: customTokensRawData.current,
+        blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
+        unblockedTokensRawData:
+          riskTokenManagementRawData.current.unblockedTokens,
+        aggregateTokenConfigMapRawData:
+          aggregateTokenRawData.current?.aggregateTokenConfigMap,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -477,7 +558,6 @@ function TokenListContainer(_props: ITabPageProps) {
         let createAtNetworkWorth = new BigNumber(0);
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
 
         perfTokenListView.markEnd('tokenListRefreshing_allNetworkRequests');
@@ -547,6 +627,23 @@ function TokenListContainer(_props: ITabPageProps) {
           ...riskyTokenListRef.current.map,
         };
 
+        if (r.aggregateTokenListMap) {
+          refreshAggregateTokensListMap({
+            tokens: r.aggregateTokenListMap,
+            merge: true,
+          });
+        }
+
+        if (r.aggregateTokenMap) {
+          aggregateTokenMapRef.current = mergeAggregateTokenMap({
+            sourceMap: r.aggregateTokenMap,
+            targetMap: aggregateTokenMapRef.current,
+          });
+          refreshAggregateTokensMap({
+            tokens: aggregateTokenMapRef.current,
+          });
+        }
+
         refreshTokenListMap({
           tokens: mergedMap,
           merge: true,
@@ -577,6 +674,8 @@ function TokenListContainer(_props: ITabPageProps) {
             map: r.allTokens.map,
             merge: true,
             mergeDerive: mergeDeriveAssetsEnabled,
+            accountId: account?.id,
+            networkId: network?.id,
           });
         }
 
@@ -589,7 +688,10 @@ function TokenListContainer(_props: ITabPageProps) {
     [
       account?.createAtNetwork,
       account?.id,
+      indexedAccount?.id,
       network?.id,
+      refreshAggregateTokensListMap,
+      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenListMap,
@@ -612,6 +714,8 @@ function TokenListContainer(_props: ITabPageProps) {
     refreshAllTokenList({
       tokens: emptyTokens.allTokens.data,
       keys: emptyTokens.allTokens.keys,
+      accountId: account?.id,
+      networkId: network?.id,
     });
     refreshAllTokenListMap({
       tokens: emptyTokens.allTokens.map,
@@ -642,6 +746,8 @@ function TokenListContainer(_props: ITabPageProps) {
       tokens: emptyTokens.riskTokens.map,
     });
   }, [
+    account?.id,
+    network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
     refreshRiskyTokenList,
@@ -654,7 +760,13 @@ function TokenListContainer(_props: ITabPageProps) {
   ]);
 
   const handleAllNetworkRequestsFinished = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.TOKENS,
@@ -666,7 +778,37 @@ function TokenListContainer(_props: ITabPageProps) {
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
+      perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
+
+      let [c, r, l, a] = await Promise.all([
+        backgroundApiProxy.simpleDb.customTokens.getRawData(),
+        backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
+        backgroundApiProxy.simpleDb.localTokens.getRawData(),
+        backgroundApiProxy.simpleDb.aggregateToken.getRawData(),
+      ]);
+
+      perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
+
+      if (!a?.aggregateTokenConfigMap) {
+        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      }
+
+      customTokensRawData.current = c ?? undefined;
+      riskTokenManagementRawData.current = {
+        unblockedTokens: r?.unblockedTokens ?? {},
+        blockedTokens: r?.blockedTokens ?? {},
+      };
+      localTokensRawData.current = l ?? undefined;
+      aggregateTokenRawData.current = a ?? undefined;
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.TOKENS,
@@ -683,13 +825,11 @@ function TokenListContainer(_props: ITabPageProps) {
       networkId,
       xpub,
       accountAddress,
-      simpleDbLocalTokensRawData,
     }: {
       accountId: string;
       networkId: string;
       xpub?: string;
       accountAddress: string;
-      simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
       const perf = perfUtils.createPerf({
         name: EPerformanceTimerLogNames.allNetwork__handleAllNetworkCacheRequests,
@@ -698,7 +838,7 @@ function TokenListContainer(_props: ITabPageProps) {
       perf.markStart('getAccountLocalTokens', {
         networkId,
         accountAddress,
-        rawDataExist: !!simpleDbLocalTokensRawData,
+        rawDataExist: !!localTokensRawData.current,
       });
       const localTokens =
         await backgroundApiProxy.serviceToken.getAccountLocalTokens({
@@ -706,7 +846,7 @@ function TokenListContainer(_props: ITabPageProps) {
           networkId,
           accountAddress,
           xpub,
-          simpleDbLocalTokensRawData,
+          simpleDbLocalTokensRawData: localTokensRawData.current,
         });
       perf.markEnd('getAccountLocalTokens');
 
@@ -734,7 +874,7 @@ function TokenListContainer(_props: ITabPageProps) {
   );
 
   const handleAllNetworkCacheData = useCallback(
-    ({
+    async ({
       data,
       accountId,
       networkId,
@@ -754,6 +894,18 @@ function TokenListContainer(_props: ITabPageProps) {
       networkId: string;
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
+
+      const localAggregateTokenMap =
+        await backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
+          accountId,
+          networkId,
+        });
+
+      const localAggregateTokenListMap =
+        await backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+          accountId,
+          networkId,
+        });
 
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -775,6 +927,14 @@ function TokenListContainer(_props: ITabPageProps) {
             networkId: item.networkId,
           })]: item.tokenListValue,
         };
+      });
+
+      refreshAggregateTokensMap({
+        tokens: localAggregateTokenMap,
+      });
+
+      refreshAggregateTokensListMap({
+        tokens: localAggregateTokenListMap,
       });
 
       refreshTokenListMap({
@@ -805,7 +965,10 @@ function TokenListContainer(_props: ITabPageProps) {
         keys: `${accountId}_${networkId}_local_all`,
         tokens: tokenList,
         merge: true,
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         mergeDerive: true,
         split: true,
       });
@@ -814,16 +977,24 @@ function TokenListContainer(_props: ITabPageProps) {
         keys: `${accountId}_${networkId}_local_all`,
         riskyTokens: riskyTokenList,
         merge: true,
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         mergeDerive: true,
       });
 
       refreshAllTokenList({
         keys: `${accountId}_${networkId}_local_all`,
         tokens: [...tokenList, ...riskyTokenList],
-        map: tokenListMap,
+        map: {
+          ...tokenListMap,
+          ...localAggregateTokenMap,
+        },
         merge: true,
         mergeDerive: true,
+        accountId: account?.id,
+        networkId: network?.id,
       });
 
       if (!isEmpty(tokenList) || !isEmpty(riskyTokenList)) {
@@ -856,6 +1027,9 @@ function TokenListContainer(_props: ITabPageProps) {
     [
       account?.createAtNetwork,
       account?.id,
+      network?.id,
+      refreshAggregateTokensListMap,
+      refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
       refreshRiskyTokenList,
@@ -945,18 +1119,44 @@ function TokenListContainer(_props: ITabPageProps) {
     let createAtNetworkWorth = new BigNumber(0);
     let smallBalanceTokensFiatValue = new BigNumber(0);
 
+    let aggregateTokenListMap: {
+      [key: string]: {
+        tokens: IAccountToken[];
+      };
+    } = {};
+
+    let aggregateTokenMap: {
+      [key: string]: ITokenFiat;
+    } = {};
+
     if (allNetworksResult) {
       for (const r of allNetworksResult) {
         let mergeDeriveAssetsEnabled;
 
         try {
-          mergeDeriveAssetsEnabled = (
-            await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: r.networkId ?? '',
-            })
-          ).mergeDeriveAssetsEnabled;
+          if (r.networkId) {
+            mergeDeriveAssetsEnabled = (
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                networkId: r.networkId ?? '',
+              })
+            ).mergeDeriveAssetsEnabled;
+          }
         } catch (e) {
           mergeDeriveAssetsEnabled = false;
+        }
+
+        if (r.aggregateTokenListMap) {
+          aggregateTokenListMap = mergeAggregateTokenListMap({
+            sourceMap: r.aggregateTokenListMap,
+            targetMap: aggregateTokenListMap,
+          });
+        }
+
+        if (r.aggregateTokenMap) {
+          aggregateTokenMap = mergeAggregateTokenMap({
+            sourceMap: r.aggregateTokenMap,
+            targetMap: aggregateTokenMap,
+          });
         }
 
         tokenList.tokens = mergeDeriveTokenList({
@@ -966,7 +1166,6 @@ function TokenListContainer(_props: ITabPageProps) {
         });
 
         tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
-
         tokenListMap = mergeDeriveTokenListMap({
           sourceMap: r.tokens.map,
           targetMap: tokenListMap,
@@ -1004,9 +1203,9 @@ function TokenListContainer(_props: ITabPageProps) {
           mergeDeriveAssets: mergeDeriveAssetsEnabled,
         });
 
-        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0')
-          .plus(r.riskTokens.fiatValue ?? '0')
-          .plus(r.smallBalanceTokens.fiatValue ?? '0');
+        const accountWorth = new BigNumber(r.tokens.fiatValue ?? '0').plus(
+          r.smallBalanceTokens.fiatValue ?? '0',
+        );
 
         accountsWorth = {
           ...accountsWorth,
@@ -1025,14 +1224,36 @@ function TokenListContainer(_props: ITabPageProps) {
         ) {
           createAtNetworkWorth = createAtNetworkWorth
             .plus(r.tokens.fiatValue ?? '0')
-            .plus(r.riskTokens.fiatValue ?? '0')
             .plus(r.smallBalanceTokens.fiatValue ?? '0');
         }
       }
 
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenMap,
+      });
+
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenListMap,
+      });
+
+      tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
+      smallBalanceTokenList.smallBalanceTokens = uniqBy(
+        smallBalanceTokenList.smallBalanceTokens,
+        (item) => item.$key,
+      );
+      riskyTokenList.riskyTokens = uniqBy(
+        riskyTokenList.riskyTokens,
+        (item) => item.$key,
+      );
+
       const mergeTokenListMap = {
         ...tokenListMap,
         ...smallBalanceTokenListMap,
+        ...aggregateTokenMap,
       };
 
       let mergedTokens = sortTokensByFiatValue({
@@ -1084,6 +1305,14 @@ function TokenListContainer(_props: ITabPageProps) {
         createAtNetworkWorth: createAtNetworkWorth.toFixed(),
       });
 
+      refreshAggregateTokensListMap({
+        tokens: aggregateTokenListMap,
+      });
+
+      refreshAggregateTokensMap({
+        tokens: aggregateTokenMap,
+      });
+
       refreshTokenList(tokenList);
 
       refreshTokenListMap({
@@ -1105,6 +1334,8 @@ function TokenListContainer(_props: ITabPageProps) {
       refreshAllTokenList({
         keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
         tokens: [...tokenList.tokens, ...riskyTokenList.riskyTokens],
+        accountId: account?.id,
+        networkId: network?.id,
       });
       refreshAllTokenListMap({
         tokens: {
@@ -1117,8 +1348,11 @@ function TokenListContainer(_props: ITabPageProps) {
     account?.createAtNetwork,
     account?.id,
     allNetworksResult,
+    network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
+    refreshAggregateTokensListMap,
+    refreshAggregateTokensMap,
     refreshRiskyTokenList,
     refreshRiskyTokenListMap,
     refreshSmallBalanceTokenList,
@@ -1175,6 +1409,7 @@ function TokenListContainer(_props: ITabPageProps) {
       let riskyTokenList: IAccountToken[] = [];
       let tokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
+      let tokenListWorth: Record<string, string> = {};
 
       if (mergeDeriveAddressData) {
         const { networkAccounts } =
@@ -1202,6 +1437,15 @@ function TokenListContainer(_props: ITabPageProps) {
         );
 
         const params = resp.map((r) => {
+          if (r.accountId && r.networkId) {
+            tokenListWorth = {
+              ...tokenListWorth,
+              [accountUtils.buildAccountValueKey({
+                accountId: r.accountId,
+                networkId: r.networkId,
+              })]: r.tokenListValue,
+            };
+          }
           tokenListValue = new BigNumber(tokenListValue)
             .plus(r.tokenListValue ?? '0')
             .toFixed();
@@ -1248,6 +1492,12 @@ function TokenListContainer(_props: ITabPageProps) {
         riskyTokenList = localTokens.riskyTokenList;
         tokenListMap = localTokens.tokenListMap;
         tokenListValue = localTokens.tokenListValue;
+        tokenListWorth = {
+          [accountUtils.buildAccountValueKey({
+            accountId,
+            networkId,
+          })]: localTokens.tokenListValue,
+        };
       }
 
       if (
@@ -1269,14 +1519,11 @@ function TokenListContainer(_props: ITabPageProps) {
         }
       } else {
         updateAccountWorth({
-          accountId,
+          accountId: mergeDeriveAddressData
+            ? indexedAccount?.id ?? ''
+            : account?.id ?? '',
           initialized: true,
-          worth: {
-            [accountUtils.buildAccountValueKey({
-              accountId,
-              networkId,
-            })]: tokenListValue,
-          },
+          worth: tokenListWorth,
           createAtNetworkWorth: tokenListValue,
           merge: false,
         });
@@ -1307,6 +1554,8 @@ function TokenListContainer(_props: ITabPageProps) {
         refreshAllTokenList({
           keys: `${accountId}_${networkId}_local`,
           tokens: [...tokenList, ...smallBalanceTokenList, ...riskyTokenList],
+          accountId: account?.id,
+          networkId: network?.id,
         });
         refreshAllTokenListMap({
           tokens: tokenListMap,
@@ -1368,20 +1617,34 @@ function TokenListContainer(_props: ITabPageProps) {
   ]);
 
   const handleOnPressToken = useCallback(
-    (token: IToken) => {
-      if (!network || !wallet || !deriveInfo) return;
+    (token: IAccountToken) => {
+      if (!network || !wallet || !deriveInfo || !deriveType) return;
+
+      let sortedTokens = [token];
+
+      if (token.isAggregateToken) {
+        const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
+
+        sortedTokens = sortTokensCommon({
+          tokens,
+          tokenListMap: allTokenListMapAtom,
+        });
+      }
+
+      if (sortedTokens.length === 0) {
+        return;
+      }
 
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
-          accountId: token.accountId ?? account?.id ?? '',
-          networkId: token.networkId ?? network.id,
+          accountId: sortedTokens[0]?.accountId ?? account?.id ?? '',
+          networkId: sortedTokens[0]?.networkId ?? network.id,
           walletId: wallet.id,
-          deriveInfo,
-          deriveType,
-          tokenInfo: token,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
+          tokens: sortedTokens,
+          isAggregateToken: token.isAggregateToken,
         },
       });
     },
@@ -1393,6 +1656,8 @@ function TokenListContainer(_props: ITabPageProps) {
       navigation,
       network,
       wallet,
+      aggregateTokenListMapAtom,
+      allTokenListMapAtom,
     ],
   );
 
@@ -1470,6 +1735,7 @@ function TokenListContainer(_props: ITabPageProps) {
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
+      revalidateOnFocus: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
     },
   );
@@ -1544,10 +1810,14 @@ function TokenListContainer(_props: ITabPageProps) {
       withPrice
       inTabList
       hideValue
+      withSwapAction
+      onRefresh={onHomePageRefresh}
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
       onBuyToken={handleFiatCrypto}
-      onReceiveToken={handleOnReceive}
+      onReceiveToken={() =>
+        handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks })
+      }
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}
       onPressToken={handleOnPressToken}
@@ -1559,6 +1829,8 @@ function TokenListContainer(_props: ITabPageProps) {
         isAllNetworkEmptyAccount ? (
           <Stack py="$20">
             <EmptyAccount
+              createAllDeriveTypes
+              createAllEnabledNetworks
               autoCreateAddress={false}
               name={accountName}
               chain={network?.name ?? ''}
@@ -1573,18 +1845,23 @@ function TokenListContainer(_props: ITabPageProps) {
           </Stack>
         ) : null
       }
+      listViewStyleProps={{
+        ListHeaderComponentStyle: {
+          pt: '$3',
+        },
+      }}
     />
   );
 }
 
-const TokenListContainerWithProvider = memo((props: ITabPageProps) => {
+const TokenListContainerWithProvider = memo(() => {
   const {
     activeAccount: { account },
   } = useActiveAccount({ num: 0 });
 
   return (
     <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
-      <TokenListContainer showWalletActions {...props} />
+      <TokenListContainer showWalletActions />
       {/* <TokenListContainerPerfTest showWalletActions {...props} /> */}
     </HomeTokenListProviderMirrorWrapper>
   );

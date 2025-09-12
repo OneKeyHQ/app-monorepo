@@ -4,7 +4,6 @@ import { publicToAddress, toChecksumAddress } from '@ethereumjs/util';
 import HDKey from 'hdkey';
 
 import { Button, Stack, TextArea } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import type { IAnimationValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
@@ -13,6 +12,7 @@ import {
   airGapUrUtils,
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { KEYRING_ACCOUNT, KEYRING_MODE } from './types';
 
@@ -37,7 +37,6 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
   */
   const scanQrCode = useScanQrCode();
 
-  const navigation = useAppNavigation();
   return (
     <>
       <Button
@@ -133,7 +132,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
             }
 
             if (!xfp) {
-              //   throw new Error(
+              //   throw new OneKeyLocalError(
               //     'KeystoneError#invalid_data: invalid crypto-hdkey, cannot get source fingerprint',
               //   );
             }
@@ -203,7 +202,7 @@ UR:CRYPTO-HDKEY/2-2/LPAOAOCSGECYBAKIYLATHDDAJEECAAHDCXLTFSZMLYRTDLGMHFCNZCCTVWCM
                   const address = toChecksumAddress(result);
                   console.log(address);
                 } else {
-                  throw new Error(
+                  throw new OneKeyLocalError(
                     `KeystoneError#pubkey_account.no_expected_account`,
                   );
                 }

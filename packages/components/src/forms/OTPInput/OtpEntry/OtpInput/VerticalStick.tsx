@@ -20,7 +20,7 @@ function BasicVerticalStick({
   const opacityAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(opacityAnim, {
           toValue: 0,
@@ -36,7 +36,13 @@ function BasicVerticalStick({
       {
         iterations: -1,
       },
-    ).start();
+    );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
   }, [focusStickBlinkingDuration, opacityAnim]);
 
   return (

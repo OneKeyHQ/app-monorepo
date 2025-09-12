@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgKeyboardDown = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -6,7 +7,7 @@ const SvgKeyboardDown = (props: SvgProps) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m10 19 2 2 2-2m-4-8h4M4 3h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"
+      d="m10 19 2 2 2-2m-4-8h4M4 3h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2"
     />
     <Path
       fill="currentColor"

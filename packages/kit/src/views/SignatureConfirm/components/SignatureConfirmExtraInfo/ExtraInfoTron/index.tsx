@@ -2,14 +2,25 @@ import { memo, useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance, IStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import type {
+  IDialogInstance,
+  IStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
+import { Icon, XStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
-import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import {
+  useSendSelectedFeeInfoAtom,
+  useTronResourceRentalInfoAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+
+import ClaimResourceEntry from './ClaimResourceEntry';
+import ResourceRental from './ResourceRental';
 
 function ExtraInfoTron({
   accountId,
@@ -24,6 +35,7 @@ function ExtraInfoTron({
 }) {
   const intl = useIntl();
   const [selectedFeeInfo] = useSendSelectedFeeInfoAtom();
+  const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
 
   const feeTron = selectedFeeInfo?.feeInfos?.[0]?.feeInfo?.feeTron;
 
@@ -49,34 +61,34 @@ function ExtraInfoTron({
   }
 
   return (
-    <SignatureConfirmItem {...style}>
-      <XStack
-        alignSelf="flex-start"
-        gap="$1.5"
-        px="$1"
-        mx="$-1"
-        alignItems="center"
-        userSelect="none"
-        borderRadius="$1"
-        hoverStyle={{
-          bg: '$bgSubdued',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        focusable
-        focusVisibleStyle={{
-          outlineColor: '$focusRing',
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineOffset: 0,
-        }}
-        onPress={handleResourceDetailsOnPress}
-      >
-        <SignatureConfirmItem.Label>
-          {intl.formatMessage({ id: ETranslations.global_resources })}
-        </SignatureConfirmItem.Label>
-        <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
+    <SignatureConfirmItem {...(style as IYStackProps)}>
+      <XStack alignItems="center" justifyContent="space-between">
+        <XStack
+          {...listItemPressStyle}
+          alignSelf="flex-start"
+          gap="$1.5"
+          px="$1"
+          mx="$-1"
+          alignItems="center"
+          userSelect="none"
+          borderRadius="$1"
+          focusable
+          focusVisibleStyle={{
+            outlineColor: '$focusRing',
+            outlineWidth: 2,
+            outlineStyle: 'solid',
+            outlineOffset: 0,
+          }}
+          onPress={handleResourceDetailsOnPress}
+        >
+          <SignatureConfirmItem.Label>
+            {intl.formatMessage({ id: ETranslations.global_resources })}
+          </SignatureConfirmItem.Label>
+          <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
+        </XStack>
+        {resourceRentalInfo.isResourceRentalNeeded ? (
+          <ClaimResourceEntry accountId={accountId} networkId={networkId} />
+        ) : null}
       </XStack>
       <SignatureConfirmItem.Value>
         {intl.formatMessage(
@@ -89,11 +101,7 @@ function ExtraInfoTron({
           },
         )}
       </SignatureConfirmItem.Value>
-      <SizableText color="$textSubdued" size="$bodySm">
-        {intl.formatMessage({
-          id: ETranslations.global_energy_bandwidth_transaction_desc,
-        })}
-      </SizableText>
+      <ResourceRental />
     </SignatureConfirmItem>
   );
 }

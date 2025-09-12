@@ -5,11 +5,13 @@ import { sha256 } from '@noble/hashes/sha256';
 import * as secp256k1 from '@noble/secp256k1';
 import { bech32 } from 'bech32';
 
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { aesCbcDecrypt, aesCbcEncrypt } from '../../../secret/crypto-functions';
-
 import type { INostrEvent } from '../types';
+
+const { aesCbcDecrypt, aesCbcEncrypt } = appCrypto.aesCbc;
 
 export function validateEvent(event: INostrEvent): boolean {
   if (!(event instanceof Object)) return false;
@@ -32,7 +34,9 @@ export function validateEvent(event: INostrEvent): boolean {
 
 export function serializeEvent(event: INostrEvent): string {
   if (!validateEvent(event))
-    throw new Error("can't serialize event with wrong or missing properties");
+    throw new OneKeyLocalError(
+      "can't serialize event with wrong or missing properties",
+    );
 
   // https://github.com/nostr-protocol/nips/blob/master/01.md
   return JSON.stringify([
@@ -73,7 +77,7 @@ export async function encrypt(
   const normalizedKey = key.slice(1, 33);
   const iv = crypto.randomBytes(16);
 
-  const encrypted = aesCbcEncrypt({
+  const encrypted = await aesCbcEncrypt({
     data: Buffer.from(plaintext),
     key: Buffer.from(normalizedKey),
     iv,
@@ -92,7 +96,7 @@ export async function decrypt(
   const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
   const [cip, iv] = ciphertext.split('?iv=');
   const normalizedKey = key.slice(1, 33);
-  const decrypted = aesCbcDecrypt({
+  const decrypted = await aesCbcDecrypt({
     data: Buffer.from(cip, 'base64'),
     key: Buffer.from(normalizedKey),
     iv: Buffer.from(iv, 'base64'),

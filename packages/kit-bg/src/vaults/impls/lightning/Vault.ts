@@ -26,6 +26,7 @@ import {
   NotImplemented,
   OneKeyError,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -42,6 +43,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountHistoryParams,
@@ -148,7 +150,9 @@ export default class Vault extends VaultBase {
     }
     const transferInfo = transfersInfo[0];
     if (!transferInfo.to) {
-      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+      throw new OneKeyLocalError(
+        'buildEncodedTx ERROR: transferInfo.to is missing',
+      );
     }
     const client = await this.getClient();
     const invoice = await this._decodedInvoiceCache(transferInfo.to);
@@ -399,7 +403,7 @@ export default class Vault extends VaultBase {
             displayAddress: address,
           };
         }
-        throw new Error('not a lnurl');
+        throw new OneKeyLocalError('not a lnurl');
       }
       return {
         isValid: true,
@@ -491,7 +495,7 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const signTemplate = await client.fetchSignTemplate(address, 'auth');
     if (signTemplate.type !== 'auth') {
-      throw new Error('Invalid auth sign template');
+      throw new OneKeyLocalError('Invalid auth sign template');
     }
     const timestamp = Date.now();
     const keyring = this.keyring as KeyringHd;
@@ -503,6 +507,7 @@ export default class Vault extends VaultBase {
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: this.walletId,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
       connectId = deviceParams?.dbDevice?.connectId;
       deviceId = deviceParams?.dbDevice?.deviceId;
@@ -556,7 +561,7 @@ export default class Vault extends VaultBase {
     return (this.keyring as KeyringHd).lnurlAuth(params);
   }
 
-  async verifyMessage({
+  async verifyLightningMessage({
     message,
     signature,
   }: {
@@ -627,7 +632,7 @@ export default class Vault extends VaultBase {
         paymentRequest,
       });
     } catch (e: any) {
-      throw new Error((e as Error)?.message ?? e);
+      throw new OneKeyLocalError((e as Error)?.message ?? e);
     }
 
     const paymentHash = invoice.tags.find(

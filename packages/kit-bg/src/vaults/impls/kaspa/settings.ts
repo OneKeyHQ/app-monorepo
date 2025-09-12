@@ -1,24 +1,48 @@
 import BigNumber from 'bignumber.js';
 
 import { DUST_AMOUNT } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import {
+  EAddressEncodings,
+  ECoreApiExportedSecretKeyType,
+} from '@onekeyhq/core/src/types';
 import {
   COINTYPE_KASPA,
   IMPL_KASPA,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
-import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveInfoMapBase,
+  IVaultSettings,
+} from '../../types';
 
-const accountDeriveInfo: IAccountDeriveInfoMapBase = {
+export type IAccountDeriveInfoMapKaspa = IAccountDeriveInfoMapBase & {
+  default: IAccountDeriveInfo;
+  kaspaOfficial: IAccountDeriveInfo;
+};
+export type IAccountDeriveTypesKaspa = keyof IAccountDeriveInfoMapKaspa;
+
+const accountDeriveInfo: IAccountDeriveInfoMapKaspa = {
   default: {
     namePrefix: 'KASPA',
-    labelKey: ETranslations.bip44__standard,
+    label: 'Kaspa OneKey',
     template: `m/44'/${COINTYPE_KASPA}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_KASPA,
+    desc: 'Kaspa OneKey address',
+    useAddressEncodingDerive: true,
+  },
+  kaspaOfficial: {
+    namePrefix: 'KASPA Official',
+    label: 'Kaspa Official',
+    template: `m/44'/${COINTYPE_KASPA}'/0'/0/${INDEX_PLACEHOLDER}`,
+    coinType: COINTYPE_KASPA,
+    addressEncoding: EAddressEncodings.KASPA_ORG,
+    idSuffix: EAddressEncodings.KASPA_ORG,
+    desc: 'Kaspa Official address',
+    useAddressEncodingDerive: true,
   },
 };
 

@@ -1,12 +1,34 @@
 /* eslint-disable unicorn/prefer-global-this */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { type PurchaseParams, Purchases } from '@revenuecat/purchases-js';
-import { useSearchParams } from 'react-router-dom';
+import safeStringify from 'fast-safe-stringify';
+
+import { usePrimePaymentMethods } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePaymentMethods';
+import { EWebEmbedPrivateRequestMethod } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 
 async function closeNativeWebViewModal() {
   await globalThis.$onekey.$private.request({
-    method: 'wallet_closeWebViewModal',
+    method: EWebEmbedPrivateRequestMethod.closeWebViewModal,
+  });
+}
+
+async function showNativeToast({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  await globalThis.$onekey.$private.request({
+    method: EWebEmbedPrivateRequestMethod.showToast,
+    params: { title, message },
+  });
+}
+
+async function showNativeDebugMessageDialog(debugMessage: any) {
+  await globalThis.$onekey.$private.request({
+    method: EWebEmbedPrivateRequestMethod.showDebugMessageDialog,
+    params: debugMessage,
   });
 }
 
@@ -55,18 +77,24 @@ function Spinner() {
 }
 
 export default function PageWebEmbedPrimePurchase() {
-  const [searchParams] = useSearchParams();
   const isRunning = useRef(false);
-  const apiKey = searchParams.get('apiKey') || '';
-  const primeUserId = searchParams.get('primeUserId') || '';
-  const primeUserEmail = searchParams.get('primeUserEmail') || '';
-  const subscriptionPeriod = searchParams.get('subscriptionPeriod') || '';
-  const locale = searchParams.get('locale') || 'en';
-  const [debugText, setDebugText] = useState('');
-  const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
+  const [debugText, setDebugText] = useState<string>('');
+
+  const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
+
+  console.log('webEmbedQueryParams', webEmbedQueryParams);
+
+  const {
+    apiKey,
+    primeUserId,
+    primeUserEmail,
+    subscriptionPeriod,
+    locale,
+    mode,
+  } = webEmbedQueryParams || {};
 
   const run = useCallback(async () => {
-    if (!primeUserId || !primeUserEmail || !subscriptionPeriod) {
+    if (!primeUserId || !primeUserEmail || !subscriptionPeriod || !apiKey) {
       await closeNativeWebViewModal();
       return;
     }
@@ -78,46 +106,49 @@ export default function PageWebEmbedPrimePurchase() {
     try {
       isRunning.current = true;
 
-      Purchases.configure(apiKey, primeUserId);
+      console.log('call purchasePackageWeb');
 
-      const offerings = await Purchases.getSharedInstance().getOfferings({
-        currency: 'USD',
+      const purchaseResult = await purchasePackageWeb?.({
+        subscriptionPeriod,
+        email: primeUserEmail,
+        locale,
       });
 
-      const paywallPackage = offerings?.current?.availablePackages.find(
-        (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
+      const debugMessage = safeStringify.stableStringify(
+        purchaseResult,
+        undefined,
+        2,
       );
+      setDebugText(debugMessage);
+      await showNativeDebugMessageDialog(debugMessage);
 
-      if (!paywallPackage) {
-        throw new Error('No paywall package found');
-      }
-
-      const purchaseParams: PurchaseParams = {
-        rcPackage: paywallPackage,
-        customerEmail: primeUserEmail,
-        selectedLocale: locale,
-      };
-
-      const purchaseResult = await Purchases.getSharedInstance().purchase(
-        purchaseParams,
-      );
-
-      setDebugText(JSON.stringify(purchaseResult));
+      await closeNativeWebViewModal();
     } catch (error) {
       const trace = (error instanceof Error ? error.stack : '') || '';
-      setDebugText(
+      const debugMessage =
         error instanceof Error
           ? `${error.message}\n${trace}`
-          : `Unknown error: ${trace}`,
-      );
+          : `Unknown error: ${trace}`;
+      setDebugText(debugMessage);
+      await showNativeDebugMessageDialog(debugMessage);
 
-      if (mode !== 'dev') {
-        await closeNativeWebViewModal();
-      }
+      await showNativeToast({
+        title: 'Error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      await closeNativeWebViewModal();
     }
 
     isRunning.current = false;
-  }, [primeUserId, primeUserEmail, subscriptionPeriod, apiKey, locale, mode]);
+  }, [
+    primeUserId,
+    primeUserEmail,
+    subscriptionPeriod,
+    apiKey,
+    purchasePackageWeb,
+    locale,
+  ]);
 
   useEffect(() => {
     void run();
@@ -129,6 +160,36 @@ export default function PageWebEmbedPrimePurchase() {
 
       {mode === 'dev' ? (
         <div>
+          <button
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              zIndex: 11_111,
+            }}
+            type="button"
+            onClick={() => {
+              void closeNativeWebViewModal();
+            }}
+          >
+            CloseModal
+          </button>
+
+          <button
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              zIndex: 11_111,
+            }}
+            type="button"
+            onClick={() => {
+              void run();
+            }}
+          >
+            Run
+          </button>
+
           {debugText ? (
             <pre
               style={{
@@ -138,13 +199,16 @@ export default function PageWebEmbedPrimePurchase() {
               {debugText}
             </pre>
           ) : null}
-          {JSON.stringify(
+          {safeStringify.stableStringify(
             {
               subscriptionPeriod,
               primeUserId,
               primeUserEmail,
+              apiKey,
+              locale,
+              mode,
             },
-            null,
+            undefined,
             2,
           )}
         </div>

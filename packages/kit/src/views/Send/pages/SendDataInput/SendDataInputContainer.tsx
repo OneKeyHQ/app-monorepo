@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
-import { isNaN, isNil } from 'lodash';
+import { isEmpty, isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
@@ -33,6 +33,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
@@ -40,6 +41,7 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { LightningUnitSwitch } from '@onekeyhq/kit/src/components/UnitSwitch';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -49,6 +51,10 @@ import {
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
+import type {
+  IChainValue,
+  IQRCodeHandlerParseResult,
+} from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
@@ -57,29 +63,34 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
+} from '@onekeyhq/shared/src/routes';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type {
-  EModalSendRoutes,
-  IModalSendParamList,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import {
-  EDeriveAddressActionType,
-  EInputAddressChangeType,
-} from '@onekeyhq/shared/types/address';
+import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
+import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import {
+  getAccountIdOnNetwork,
+  parseOnChainAmount,
+} from '../../../ScanQrCode/hooks/useParseQRCode';
+
+import RecentRecipients from './RecentRecipients';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -132,7 +143,12 @@ function SendDataInputContainer() {
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
 
   const route =
-    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.TxDataInput
+      >
+    >();
 
   const { serviceNFT, serviceToken } = backgroundApiProxy;
 
@@ -148,6 +164,8 @@ function SendDataInputContainer() {
     onFail,
     onCancel,
     isAllNetworks,
+    activeAccountId,
+    activeNetworkId,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -167,9 +185,11 @@ function SendDataInputContainer() {
   }, []);
 
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
+  const [ensureAddressValid, setEnsureAddressValid] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
+  const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
-  const { account, network } = useAccountData({
+  const { account, network, vaultSettings } = useAccountData({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -178,7 +198,9 @@ function SendDataInputContainer() {
     networkId: currentAccount.networkId,
   });
 
-  const isSelectTokenDisabled = allTokens.tokens.length <= 1;
+  const isSelectTokenDisabled =
+    allTokens.tokens.length <= 1 ||
+    networkUtils.isLightningNetworkByNetworkId(networkId);
 
   const tokenMinAmount = useMemo(() => {
     if (!tokenInfo || isNaN(tokenInfo.decimals)) {
@@ -188,24 +210,38 @@ function SendDataInputContainer() {
     return new BigNumber(1).shiftedBy(-tokenInfo.decimals).toFixed();
   }, [tokenInfo]);
 
+  const walletId = useMemo(() => {
+    return accountUtils.getWalletIdFromAccountId({
+      accountId: currentAccount.accountId,
+    });
+  }, [currentAccount.accountId]);
+
+  const [
+    displayMemoForm,
+    displayPaymentIdForm,
+    memoMaxLength,
+    numericOnlyMemo,
+    displayNoteForm,
+    noteMaxLength,
+    displayTxMessageForm,
+  ] = useMemo(() => {
+    return [
+      vaultSettings?.withMemo,
+      vaultSettings?.withPaymentId,
+      vaultSettings?.memoMaxLength,
+      vaultSettings?.numericOnlyMemo,
+      vaultSettings?.withNote,
+      vaultSettings?.noteMaxLength,
+      vaultSettings?.withTxMessage,
+    ];
+  }, [vaultSettings]);
+
   const {
-    result: [
-      tokenDetails,
-      nftDetails,
-      vaultSettings,
-      hasFrozenBalance,
-      displayMemoForm,
-      displayPaymentIdForm,
-      memoMaxLength,
-      numericOnlyMemo,
-      displayNoteForm,
-      noteMaxLength,
-      displayTxMessageForm,
-    ] = [],
+    result: [tokenDetails, nftDetails, hasFrozenBalance] = [],
     isLoading: isLoadingAssets,
   } = usePromiseResult(
     async () => {
-      if (!account || !network) return;
+      if (!account?.id || !network?.id) return;
       if (!token && !nft) {
         throw new OneKeyInternalError('token and nft info are both missing.');
       }
@@ -247,29 +283,13 @@ function SendDataInputContainer() {
         });
       }
 
-      const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-        networkId: network.id,
-      });
-
       const frozenBalanceSettings =
         await backgroundApiProxy.serviceSend.getFrozenBalanceSetting({
           networkId: network.id,
           tokenDetails: tokenResp?.[0],
         });
 
-      return [
-        tokenResp?.[0],
-        nftResp?.[0],
-        vs,
-        frozenBalanceSettings,
-        vs.withMemo,
-        vs.withPaymentId,
-        vs.memoMaxLength,
-        vs.numericOnlyMemo,
-        vs.withNote,
-        vs.noteMaxLength,
-        vs.withTxMessage,
-      ];
+      return [tokenResp?.[0], nftResp?.[0], frozenBalanceSettings];
     },
     [
       account,
@@ -326,12 +346,16 @@ function SendDataInputContainer() {
     }),
     [accountId, address, networkId, sendAmount],
   );
+
+  const isLightningNetwork =
+    networkUtils.isLightningNetworkByNetworkId(networkId);
   const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
   const amount = form.watch('amount');
   const toPending = form.watch('to.pending');
   const toResolved = form.watch('to.resolved');
+  const toAddressRaw = form.watch('to.raw');
   const nftAmount = form.watch('nftAmount');
   const toIsContract = form.watch('to.isContract');
 
@@ -349,16 +373,27 @@ function SendDataInputContainer() {
       };
 
     if (isUseFiat) {
-      const originalAmount = new BigNumber(tokenPrice).isGreaterThan(0)
+      let originalAmount = new BigNumber(tokenPrice).isGreaterThan(0)
         ? amountBN
             .dividedBy(tokenPrice)
             .decimalPlaces(tokenDecimals, BigNumber.ROUND_CEIL)
             .toFixed()
         : '0';
+
+      if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+        originalAmount = chainValueUtils.convertSatsToBtc(originalAmount);
+      }
+
       return {
         amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
         originalAmount,
       };
+    }
+
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      amountBN = new BigNumber(
+        chainValueUtils.convertBtcToSats(amountBN.toFixed()),
+      );
     }
 
     const originalAmount = amountBN.times(tokenPrice).toFixed();
@@ -366,8 +401,14 @@ function SendDataInputContainer() {
       originalAmount,
       amount: getFormattedNumber(originalAmount, { decimal: 4 }) ?? '0',
     };
-  }, [amount, isUseFiat, tokenDetails?.info.decimals, tokenDetails?.price]);
-
+  }, [
+    amount,
+    isLightningNetwork,
+    isUseFiat,
+    lnUnit,
+    tokenDetails?.info.decimals,
+    tokenDetails?.price,
+  ]);
   const {
     result: { displayAmountFormItem } = { displayAmountFormItem: false },
   } = usePromiseResult(async () => {
@@ -394,7 +435,7 @@ function SendDataInputContainer() {
     return {
       displayAmountFormItem: false,
     };
-  }, [toResolved, networkId, form]);
+  }, [networkId, toResolved, form]);
 
   const handleOnChangeAmountMode = useCallback(() => {
     setIsUseFiat((prev) => !prev);
@@ -408,6 +449,8 @@ function SendDataInputContainer() {
       params: {
         networkId,
         accountId,
+        activeAccountId,
+        activeNetworkId,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
@@ -415,67 +458,52 @@ function SendDataInputContainer() {
         },
         closeAfterSelect: false,
         onSelect: async (data: IToken) => {
-          const tokenVaultSettings =
-            await backgroundApiProxy.serviceNetwork.getVaultSettings({
-              networkId: data.networkId ?? '',
-            });
+          defaultLogger.transaction.send.sendSelect({
+            network: data.networkId ?? networkId,
+            tokenAddress: data.address,
+            tokenSymbol: data.symbol,
+            tokenType: 'Token',
+          });
+          if (data.accountId && data.networkId) {
+            if (data.networkId && data.networkId !== networkId) {
+              setEnsureAddressValid(false);
+            }
 
-          if (
-            tokenVaultSettings.mergeDeriveAssetsEnabled &&
-            isAllNetworks &&
-            !accountUtils.isOthersAccount({
-              accountId: currentAccount.accountId,
-            })
-          ) {
-            const walletId = accountUtils.getWalletIdFromAccountId({
-              accountId: data.accountId ?? '',
-            });
-            navigation.push(EAssetSelectorRoutes.DeriveTypesAddressSelector, {
-              networkId: data.networkId ?? '',
-              indexedAccountId: account?.indexedAccountId ?? '',
-              walletId,
-              accountId: data.accountId ?? '',
-              actionType: EDeriveAddressActionType.Select,
-              token: data,
-              tokenMap: map,
-              onUnmounted: () => {},
-              onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                data.accountId = a.id;
-                defaultLogger.transaction.send.sendSelect({
-                  network: data.networkId ?? networkId,
-                  tokenAddress: data.address,
-                  tokenSymbol: data.symbol,
-                  tokenType: 'Token',
-                });
-                if (data.accountId && data.networkId) {
-                  setCurrentAccount({
-                    accountId: data.accountId,
-                    networkId: data.networkId,
-                  });
-                }
-                setTokenInfo(data);
-                navigation.popStack();
-              },
-            });
-          } else {
-            defaultLogger.transaction.send.sendSelect({
-              network: data.networkId ?? networkId,
-              tokenAddress: data.address,
-              tokenSymbol: data.symbol,
-              tokenType: 'Token',
-            });
-            if (data.accountId && data.networkId) {
-              setCurrentAccount({
-                accountId: data.accountId,
+            let selectedAccountId = data.accountId;
+
+            const currentVaultSettings =
+              await backgroundApiProxy.serviceNetwork.getVaultSettings({
                 networkId: data.networkId,
               });
-              // TODO: need remove
-              form.setValue('accountId', data.accountId);
-              form.setValue('networkId', data.networkId);
+            if (currentVaultSettings?.mergeDeriveAssetsEnabled) {
+              const defaultDeriveType =
+                await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                  {
+                    networkId: data.networkId,
+                  },
+                );
+
+              const { accounts } =
+                await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                  {
+                    indexedAccountIds: [account?.indexedAccountId ?? ''],
+                    networkId: data.networkId,
+                    deriveType: defaultDeriveType,
+                  },
+                );
+              selectedAccountId = accounts?.[0]?.id ?? data.accountId;
             }
-            setTokenInfo(data);
-            navigation.popStack();
+
+            setCurrentAccount({
+              accountId: selectedAccountId,
+              networkId: data.networkId,
+            });
+
+            form.setValue('accountId', selectedAccountId);
+            form.setValue('networkId', data.networkId);
           }
+          setTokenInfo(data);
+          navigation.popStack();
         },
         isAllNetworks,
       },
@@ -483,9 +511,10 @@ function SendDataInputContainer() {
   }, [
     account?.indexedAccountId,
     accountId,
+    activeAccountId,
+    activeNetworkId,
     allTokens.keys,
     allTokens.tokens,
-    currentAccount.accountId,
     form,
     isAllNetworks,
     isSelectTokenDisabled,
@@ -493,6 +522,70 @@ function SendDataInputContainer() {
     navigation,
     networkId,
   ]);
+
+  const onScanResult = useCallback(
+    async (result: IQRCodeHandlerParseResult<IChainValue>) => {
+      if (
+        result.type === EQRCodeHandlerType.UNKNOWN ||
+        !result?.data?.network
+      ) {
+        return;
+      }
+      const tokenAddress = result?.data?.tokenAddress;
+      const scanNetworkId =
+        result?.data?.network?.id || currentAccount.networkId;
+      const scanAccountId =
+        (await getAccountIdOnNetwork({
+          account,
+          network: result.data.network,
+        })) || currentAccount?.accountId;
+
+      if (scanAccountId) {
+        let scanToken: IToken | null = null;
+        if (tokenAddress) {
+          scanToken = await backgroundApiProxy.serviceToken.getToken({
+            networkId: scanNetworkId,
+            accountId: scanAccountId,
+            tokenIdOnNetwork: tokenAddress,
+          });
+        }
+        if (!scanToken) {
+          scanToken = await backgroundApiProxy.serviceToken.getNativeToken({
+            networkId: scanNetworkId,
+            accountId: scanAccountId,
+          });
+        }
+        console.log('token result', accountId, networkId, token);
+        const amountFromScan = await parseOnChainAmount(result, scanToken);
+        if (scanToken) {
+          if (amountFromScan) {
+            setIsUseFiat(true);
+            form.setValue('amount', amountFromScan);
+          }
+          const formNetworkId = form.getValues('networkId');
+          if (formNetworkId === scanNetworkId) {
+            if (currentAccount.accountId && scanNetworkId) {
+              setCurrentAccount({
+                accountId: currentAccount.accountId,
+                networkId: scanNetworkId,
+              });
+              setTokenInfo(scanToken);
+            }
+          }
+        }
+      }
+    },
+    [
+      account,
+      accountId,
+      currentAccount.accountId,
+      currentAccount.networkId,
+      form,
+      networkId,
+      token,
+    ],
+  );
+
   onSubmitRef.current = useCallback(
     async () =>
       errorToastUtils.withErrorAutoToast(async () => {
@@ -522,6 +615,10 @@ function SendDataInputContainer() {
                 realAmount = linkedAmount.originalAmount;
               }
             }
+          }
+
+          if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+            realAmount = chainValueUtils.convertBtcToSats(realAmount);
           }
 
           const memoValue = form.getValues('memo');
@@ -582,6 +679,13 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
               tokenInfo: tokenDetails?.info,
+              isCustomHexData: !!(
+                isToContract &&
+                settings.isCustomTxMessageEnabled &&
+                displayTxMessageForm &&
+                tokenInfo?.isNative &&
+                !isEmpty(hexData)
+              ),
             },
             isInternalTransfer: true,
           });
@@ -594,7 +698,7 @@ function SendDataInputContainer() {
           ) {
             throw new OneKeyError({
               message: intl.formatMessage({
-                id: ETranslations.wallet_error_trade_with_watched_acocunt,
+                id: ETranslations.wallet_error_trade_with_watched_account,
               }),
               autoToast: true,
             });
@@ -607,13 +711,16 @@ function SendDataInputContainer() {
     [
       account,
       amount,
+      displayTxMessageForm,
       form,
       intl,
       isHexTxMessage,
+      isLightningNetwork,
       isMaxSend,
       isNFT,
       isUseFiat,
       linkedAmount.originalAmount,
+      lnUnit,
       nft?.collectionAddress,
       nft?.itemId,
       nft?.metadata?.name,
@@ -622,15 +729,17 @@ function SendDataInputContainer() {
       onCancel,
       onFail,
       onSuccess,
+      settings.isCustomTxMessageEnabled,
       signatureConfirm,
       tokenDetails,
       tokenInfo?.address,
+      tokenInfo?.isNative,
       txMessageLinkedString,
     ],
   );
   const handleValidateTokenAmount = useCallback(
     async (value: string) => {
-      const amountBN = new BigNumber(value ?? 0);
+      let amountBN = new BigNumber(value ?? 0);
 
       let isInsufficientBalance = false;
       let isLessThanMinTransferAmount = false;
@@ -655,6 +764,12 @@ function SendDataInputContainer() {
           isLessThanMinTransferAmount = true;
         }
       } else {
+        if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+          amountBN = new BigNumber(
+            chainValueUtils.convertBtcToSats(amountBN.toFixed()),
+          );
+        }
+
         if (amountBN.isGreaterThan(tokenDetails?.balanceParsed ?? 0)) {
           isInsufficientBalance = true;
         }
@@ -714,6 +829,8 @@ function SendDataInputContainer() {
       return true;
     },
     [
+      isLightningNetwork,
+      lnUnit,
       tokenDetails?.info.isNative,
       tokenDetails?.fiatValue,
       tokenDetails?.price,
@@ -759,9 +876,14 @@ function SendDataInputContainer() {
   ]);
 
   const maxBalance = useMemo(() => {
-    const balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    let balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      balance = new BigNumber(
+        chainValueUtils.convertSatsToBtc(balance.toFixed()),
+      );
+    }
     return balance.isNaN() ? '0' : balance.toFixed();
-  }, [tokenDetails?.balanceParsed]);
+  }, [tokenDetails?.balanceParsed, isLightningNetwork, lnUnit]);
 
   const maxBalanceFiat = useMemo(() => {
     const balanceFiat = new BigNumber(tokenDetails?.fiatValue ?? '0');
@@ -770,9 +892,83 @@ function SendDataInputContainer() {
 
   // Lightning Network only accepts integer values on Token Mode
   const isIntegerAmount = useMemo(
-    () => networkUtils.isLightningNetworkByNetworkId(networkId) && !isUseFiat,
-    [networkId, isUseFiat],
+    () => isLightningNetwork && !isUseFiat && lnUnit === ELightningUnit.SATS,
+    [isLightningNetwork, isUseFiat, lnUnit],
   );
+
+  const selectedTokenSymbol = useMemo(() => {
+    if (isNFT) {
+      return nft?.metadata?.name;
+    }
+
+    if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+      return 'BTC';
+    }
+
+    return tokenInfo?.symbol;
+  }, [
+    isLightningNetwork,
+    isNFT,
+    lnUnit,
+    nft?.metadata?.name,
+    tokenInfo?.symbol,
+  ]);
+
+  const renderAmountInputAddOn = useCallback(() => {
+    if (isLightningNetwork && !isUseFiat) {
+      return (
+        <LightningUnitSwitch
+          value={lnUnit}
+          onChange={(v) => {
+            setLnUnit(v as ELightningUnit);
+            if (!isUseFiat) {
+              form.setValue(
+                'amount',
+                v === ELightningUnit.BTC
+                  ? chainValueUtils.convertSatsToBtc(form.getValues('amount'))
+                  : chainValueUtils.convertBtcToSats(form.getValues('amount')),
+              );
+              if (form.formState.isDirty) {
+                setTimeout(() => {
+                  void form.trigger('amount');
+                }, 100);
+              }
+            }
+          }}
+        />
+      );
+    }
+
+    if (vaultSettings?.mergeDeriveAssetsEnabled) {
+      return (
+        <AddressTypeSelector
+          placement="top-end"
+          walletId={walletId}
+          networkId={currentAccount.networkId}
+          indexedAccountId={account?.indexedAccountId ?? ''}
+          tokenMap={map}
+          onSelect={async ({ account: a }) => {
+            if (a) {
+              setCurrentAccount((prev) => ({
+                ...prev,
+                accountId: a?.id,
+              }));
+            }
+          }}
+        />
+      );
+    }
+  }, [
+    isLightningNetwork,
+    isUseFiat,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    lnUnit,
+    form,
+    walletId,
+    currentAccount.networkId,
+    account?.indexedAccountId,
+    map,
+  ]);
 
   const renderTokenDataInputForm = useCallback(
     () => (
@@ -804,18 +1000,24 @@ function SendDataInputContainer() {
                 return;
               }
 
+              let decimals = tokenDetails?.info.decimals ?? 0;
+              if (isLightningNetwork && lnUnit === ELightningUnit.BTC) {
+                decimals = chainValueUtils.getLightningAmountDecimals({
+                  lnUnit,
+                  decimals,
+                });
+              }
+
               const dp = valueBN.decimalPlaces();
-              if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
+              if (!isUseFiat && dp && dp > decimals) {
                 form.setValue(
                   'amount',
-                  valueBN.toFixed(
-                    tokenDetails?.info.decimals ?? 0,
-                    BigNumber.ROUND_FLOOR,
-                  ),
+                  valueBN.toFixed(decimals, BigNumber.ROUND_FLOOR),
                 );
               }
             },
           }}
+          labelAddon={renderAmountInputAddOn()}
         >
           <AmountInput
             reversible
@@ -859,9 +1061,7 @@ function SendDataInputContainer() {
                 : tokenInfo?.logoURI,
               selectedNetworkImageUri: network?.logoURI,
               selectedNetworkName: network?.name,
-              selectedTokenSymbol: isNFT
-                ? nft?.metadata?.name
-                : tokenInfo?.symbol,
+              selectedTokenSymbol,
               isCustomNetwork: network?.isCustomNetwork,
               onPress: isNFT ? undefined : handleOnSelectToken,
               disabled: isSelectTokenDisabled,
@@ -898,22 +1098,24 @@ function SendDataInputContainer() {
       hidePercentToolbar,
       intl,
       isIntegerAmount,
+      isLightningNetwork,
       isLoadingAssets,
       isNFT,
       isSelectTokenDisabled,
       isUseFiat,
       linkedAmount.originalAmount,
+      lnUnit,
       maxBalance,
       maxBalanceFiat,
       network?.isCustomNetwork,
       network?.logoURI,
       network?.name,
       nft?.metadata?.image,
-      nft?.metadata?.name,
+      renderAmountInputAddOn,
+      selectedTokenSymbol,
       showPercentToolbar,
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
-      tokenInfo?.symbol,
       tokenSymbol,
     ],
   );
@@ -1283,6 +1485,24 @@ function SendDataInputContainer() {
     [],
   );
 
+  const handleAddressInputExtraDataChange = useCallback(
+    ({
+      memo: memoFromAddressBook,
+      note: noteFromAddressBook,
+    }: {
+      memo?: string;
+      note?: string;
+    }) => {
+      if (memoFromAddressBook) {
+        form.setValue('memo', memoFromAddressBook);
+      }
+      if (noteFromAddressBook) {
+        form.setValue('note', noteFromAddressBook);
+      }
+    },
+    [form],
+  );
+
   const enableAllowListValidation = useMemo(
     () => !networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
@@ -1301,6 +1521,32 @@ function SendDataInputContainer() {
     },
     [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
   );
+
+  const inputAddressFieldState = form.getFieldState('to');
+
+  const shouldShowRecentRecipients = useMemo(() => {
+    return (
+      !ensureAddressValid &&
+      (!inputAddressFieldState.isDirty ||
+        inputAddressFieldState.invalid ||
+        toPending)
+    );
+  }, [
+    ensureAddressValid,
+    inputAddressFieldState.isDirty,
+    inputAddressFieldState.invalid,
+    toPending,
+  ]);
+
+  useEffect(() => {
+    if (inputAddressFieldState.isDirty && inputAddressFieldState.invalid) {
+      setEnsureAddressValid(false);
+    }
+  }, [
+    inputAddressFieldState.isDirty,
+    inputAddressFieldState.invalid,
+    setEnsureAddressValid,
+  ]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
@@ -1350,7 +1596,11 @@ function SendDataInputContainer() {
                         <SizableText
                           size="$bodyMd"
                           color="$textSubdued"
-                          style={{ wordBreak: 'break-all' }}
+                          style={
+                            platformEnv.isNative
+                              ? undefined
+                              : { wordBreak: 'break-all' }
+                          }
                         >
                           {!isNil(nft?.itemId)
                             ? `${intl.formatMessage({
@@ -1369,6 +1619,7 @@ function SendDataInputContainer() {
             ) : null}
             <AddressInputField
               name="to"
+              onScanResult={onScanResult}
               accountId={currentAccount.accountId}
               networkId={currentAccount.networkId}
               enableAddressBook
@@ -1382,28 +1633,57 @@ function SendDataInputContainer() {
               )}
               accountSelector={addressInputAccountSelectorArgs}
               onInputTypeChange={handleAddressInputChangeType}
+              onExtraDataChange={handleAddressInputExtraDataChange}
+              hideNonBackedUpWallet
             />
-            {renderDataInput()}
+            {shouldShowRecentRecipients ? (
+              <RecentRecipients
+                accountId={currentAccount.accountId}
+                networkId={currentAccount.networkId}
+                searchKey={toAddressRaw}
+                isSearchMode={!form.formState.isValid}
+                onSelect={({
+                  address: selectedAddress,
+                  memo: selectedMemo,
+                  note: selectedNote,
+                }) => {
+                  setEnsureAddressValid(true);
+                  if (selectedMemo) {
+                    form.setValue('memo', selectedMemo);
+                  }
+                  if (selectedNote) {
+                    form.setValue('note', selectedNote);
+                  }
+                  form.setValue('to', {
+                    raw: selectedAddress,
+                  });
+                }}
+              />
+            ) : (
+              renderDataInput()
+            )}
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      <Page.Footer>
-        <Page.FooterActions
-          onConfirm={form.submit}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.send_preview_button,
-          })}
-          confirmButtonProps={{
-            disabled: isSubmitDisabled,
-            loading: isSubmitting,
-          }}
-        />
-        {isShowPercentToolbar ? (
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
+      {shouldShowRecentRecipients ? null : (
+        <Page.Footer>
+          <Page.FooterActions
+            onConfirm={form.submit}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.send_preview_button,
+            })}
+            confirmButtonProps={{
+              disabled: isSubmitDisabled,
+              loading: isSubmitting,
+            }}
           />
-        ) : null}
-      </Page.Footer>
+          {isShowPercentToolbar ? (
+            <PercentageStageOnKeyboard
+              onSelectPercentageStage={onSelectPercentageStage}
+            />
+          ) : null}
+        </Page.Footer>
+      )}
     </Page>
   );
 }

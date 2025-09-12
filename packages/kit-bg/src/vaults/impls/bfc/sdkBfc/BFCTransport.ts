@@ -1,4 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type {
   BenfenTransport,
@@ -37,13 +38,13 @@ export class OneKeyBenfenTransport implements BenfenTransport {
       });
     const response = res?.[0];
     if (!response) {
-      throw new Error('No response received from the proxy');
+      throw new OneKeyLocalError('No response received from the proxy');
     }
 
     return response;
   }
 
   async subscribe(): Promise<() => Promise<boolean>> {
-    throw new Error('Subscription not implemented');
+    throw new OneKeyLocalError('Subscription not implemented');
   }
 }

@@ -32,6 +32,7 @@ export enum EOnboardingPages {
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',
+  ConnectWalletOptions = 'ConnectWalletOptions',
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
 
   // finalize wallet setup
@@ -47,7 +48,8 @@ export enum EOnboardingPages {
 
 export type IOnboardingParamList = {
   [EOnboardingPages.GetStarted]: {
-    showCloseButton?: boolean;
+    isFullModal?: boolean;
+    fromExt?: boolean;
   };
 
   // v4 migration
@@ -72,15 +74,21 @@ export type IOnboardingParamList = {
   [EOnboardingPages.BeforeShowRecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
+    walletId?: string;
   };
   [EOnboardingPages.RecoveryPhrase]: {
     mnemonic?: string;
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
+    walletId?: string;
   };
   [EOnboardingPages.VerifyRecoverPhrase]: {
     mnemonic: string;
     verifyRecoveryPhrases?: string[][][];
     isBackup?: boolean;
+    isWalletBackedUp?: boolean;
+    walletId?: string;
   };
 
   // import wallet
@@ -95,12 +103,16 @@ export type IOnboardingParamList = {
   [EOnboardingPages.ConnectWallet]: IWalletConnectConnectToWalletParams & {
     title: string;
   };
+  [EOnboardingPages.ConnectWalletOptions]: {
+    defaultTab?: 'onekey' | 'others';
+  };
   [EOnboardingPages.ConnectWalletSelectNetworks]: undefined;
 
   // finalize wallet setup
   [EOnboardingPages.FinalizeWalletSetup]: {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
+    isWalletBackedUp?: boolean;
   };
 
   // device management guide page

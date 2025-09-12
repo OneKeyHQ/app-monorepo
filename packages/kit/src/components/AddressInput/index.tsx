@@ -20,6 +20,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
@@ -29,6 +33,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import type {
   EInputAddressChangeType,
+  IAddressBadge,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
@@ -42,6 +47,8 @@ import { useIsEnableTransferAllowList } from './hooks';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
+
+import type { IScanPluginProps } from './plugins/scan';
 
 type IResolvedAddressProps = {
   value: string;
@@ -116,7 +123,6 @@ type IAddressInputProps = Omit<
   placeholder?: string;
   name?: string;
   autoError?: boolean;
-
   // plugins options for control button display
   clipboard?: boolean;
   scan?: { sceneName: EAccountSelectorSceneName };
@@ -140,6 +146,16 @@ type IAddressInputProps = Omit<
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
+  onExtraDataChange?: ({
+    memo,
+    note,
+  }: {
+    memo?: string;
+    note?: string;
+  }) => void;
+
+  hideNonBackedUpWallet?: boolean;
+  onScanResult?: IScanPluginProps['onScanResult'];
 };
 
 export type IAddressQueryResult = {
@@ -150,6 +166,7 @@ export type IAddressQueryResult = {
   addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
+  validAddress?: string;
   resolveOptions?: string[];
   addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
@@ -158,6 +175,11 @@ export type IAddressQueryResult = {
   isEnableTransferAllowList?: boolean;
   isScam?: boolean;
   isCex?: boolean;
+  addressBadges?: IAddressBadge[];
+  addressDeriveInfo?: IAccountDeriveInfo;
+  addressDeriveType?: IAccountDeriveTypes;
+  addressNote?: string;
+  addressMemo?: string;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -169,7 +191,7 @@ type IAddressInputBadgeGroupProps = {
 };
 
 function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
-  const { loading, result, setResolveAddress, onRefresh, networkId } = props;
+  const { loading, result, setResolveAddress, onRefresh } = props;
   if (loading) {
     return <Spinner />;
   }
@@ -205,17 +227,16 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <AddressBadge isScam={result.isScam} />
-        <XStack mx="$0.5" gap="$1">
-          <AddressBadge
-            status={result.addressInteractionStatus}
-            networkId={networkId}
-          />
-          <AddressBadge isCex={result.isCex} title={result.addressLabel} />
-          <AddressBadge
-            isContract={result.isContract}
-            title={result.addressLabel}
-          />
+        <XStack mx="$0.5" gap="$1" flexWrap="wrap" flexShrink={1}>
+          {result.addressBadges?.map((badge) => (
+            <AddressBadge
+              key={badge.label}
+              title={badge.label}
+              badgeType={badge.type}
+              content={badge.tip}
+              icon={badge.icon}
+            />
+          ))}
         </XStack>
       </XStack>
     );
@@ -307,9 +328,14 @@ export function AddressInput(props: IAddressInputProps) {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     onInputTypeChange,
+    onExtraDataChange,
+    disabled: disabledFromProps,
+    onScanResult,
     ...rest
   } = props;
   const intl = useIntl();
+  const disabled =
+    disabledFromProps ?? (rest.editable !== undefined ? !rest.editable : false);
   const [inputText, setInputText] = useState<string>(value?.raw ?? '');
   const { setError, clearErrors, watch } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -393,7 +419,7 @@ export function AddressInput(props: IAddressInputProps) {
 
   // When focus state changes, re-query address validation
   // Store previous focus state for comparison
-  const prevIsFocused = useRef<boolean | undefined>();
+  const prevIsFocused = useRef<boolean | undefined>(undefined);
   const isFocused = useIsFocused();
   useEffect(() => {
     if (
@@ -453,7 +479,10 @@ export function AddressInput(props: IAddressInputProps) {
       clearErrors(name);
       onChange?.({
         raw: queryResult.input,
-        resolved: queryResult.resolveAddress ?? queryResult.input?.trim(),
+        resolved:
+          queryResult.resolveAddress ??
+          queryResult.validAddress ??
+          queryResult.input?.trim(),
         pending: false,
         isContract: queryResult.isContract,
       });
@@ -501,19 +530,23 @@ export function AddressInput(props: IAddressInputProps) {
             <ClipboardPlugin
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
+              disabled={disabled}
               testID={rest.testID ? `${rest.testID}-clip` : undefined}
             />
           ) : null}
           {scan ? (
             <ScanPlugin
+              networkId={networkId}
               onInputTypeChange={onInputTypeChange}
-              sceneName={scan.sceneName}
+              onScanResult={onScanResult}
               onChange={onChangeText}
+              disabled={disabled}
               testID={rest.testID ? `${rest.testID}-scan` : undefined}
             />
           ) : null}
           {contacts || accountSelector ? (
             <SelectorPlugin
+              disabled={disabled}
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
               networkId={networkId}
@@ -524,6 +557,7 @@ export function AddressInput(props: IAddressInputProps) {
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
+              onExtraDataChange={onExtraDataChange}
               testID={rest.testID ? `${rest.testID}-selector` : undefined}
             />
           ) : null}
@@ -535,16 +569,19 @@ export function AddressInput(props: IAddressInputProps) {
       queryResult,
       setResolveAddress,
       onRefresh,
+      networkId,
       clipboard,
       onInputTypeChange,
       onChangeText,
+      disabled,
       rest.testID,
       scan,
+      onScanResult,
       contacts,
       accountSelector,
-      networkId,
       accountId,
       inputText,
+      onExtraDataChange,
     ],
   );
 
@@ -576,14 +613,21 @@ export function AddressInputField(
   props: IAddressInputProps & { name: string },
 ) {
   const intl = useIntl();
-  const { enableAllowListValidation, networkId, accountId, name } = props;
+  const {
+    enableAllowListValidation,
+    networkId,
+    accountId,
+    name,
+    hideNonBackedUpWallet,
+  } = props;
   const contextValue = useMemo(
     () => ({
       name,
       networkId,
       accountId,
+      hideNonBackedUpWallet,
     }),
-    [accountId, name, networkId],
+    [accountId, hideNonBackedUpWallet, name, networkId],
   );
 
   return (
@@ -604,7 +648,7 @@ export function AddressInputField(
             }
             if (!value.resolved) {
               return enableAllowListValidation
-                ? // Use translationId for error message formatting if available, therwise use direct message
+                ? // Use translationId for error message formatting if available, otherwise use direct message
                   value.validateError?.translationId ||
                     value.validateError?.message ||
                     intl.formatMessage({

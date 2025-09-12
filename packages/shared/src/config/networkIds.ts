@@ -1,4 +1,9 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { keyBy } from 'lodash';
+
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { ENetworkStatus, IServerNetwork } from '../../types';
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';
@@ -40,7 +45,7 @@ export type INetworkShortCode =
   | 'akash'
   | 'fetch'
   | 'terra'
-  | 'cryptoorgchain'
+  | 'cronosposchain'
   | 'injective'
   | 'polygon'
   | 'tlightning'
@@ -86,9 +91,17 @@ export const getNetworkIdsMap = memoFn(() => {
     return memo;
   }, {} as Record<INetworkShortCode, string>);
   if (checkErrors.length) {
-    throw new Error(checkErrors.join('\n'));
+    throw new OneKeyLocalError(checkErrors.join('\n'));
   }
   return r;
 });
 
 export const getNetworkIds = memoFn(() => Object.keys(getNetworkIdsMap()));
+
+export const getListedNetworkMap = memoFn(() => {
+  const networks = getPresetNetworks();
+  return keyBy(
+    networks.filter((n) => n.status === ENetworkStatus.LISTED),
+    'id',
+  );
+});

@@ -1,6 +1,9 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-// import { useUpdateEffect } from '@onekeyhq/components';
+import { noop } from 'lodash';
+
+import { useUpdateEffect } from '@onekeyhq/components';
+import type { IPrimeInitAtomData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePrimeInitAtom,
   usePrimePersistAtom,
@@ -9,25 +12,41 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
-import { usePrevious } from '../../../hooks/usePrevious';
 
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
+import { usePrimePaymentMethods } from './usePrimePaymentMethods';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
+
+import type {
+  IRevenueCatCustomerInfoNative,
+  IRevenueCatCustomerInfoWeb,
+} from './usePrimePaymentTypes';
 
 function PrimeGlobalEffectView() {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
-  const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
+  const [, setPrimeInitAtom] = usePrimeInitAtom();
+
+  const { getCustomerInfo } = usePrimePaymentMethods();
 
   // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
   const { authenticated, getAccessToken, privyUser } = usePrivyUniversalV2();
 
   const { isReady, user, logout } = usePrimeAuthV2();
 
+  const userRef = useRef<IPrimeUserInfo>(user);
+  userRef.current = user;
+
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     if (isReady && user?.privyUserId && user?.isLoggedInOnServer) {
+      // wait 600ms to ensure the apiLogin() is finished
+      await timerUtils.wait(600);
+
       const accessToken =
         await backgroundApiProxy.simpleDb.prime.getAuthToken();
 
@@ -39,8 +58,82 @@ function PrimeGlobalEffectView() {
   }, [isReady, user?.privyUserId, user?.isLoggedInOnServer]);
 
   useEffect(() => {
+    void (async () => {
+      if (platformEnv.isDev && isReady && user?.privyUserId) {
+        const customerInfo = await getCustomerInfo();
+
+        const customerInfoWeb = customerInfo as IRevenueCatCustomerInfoWeb;
+        const customerInfoNative =
+          customerInfo as IRevenueCatCustomerInfoNative;
+
+        const localIsActive =
+          customerInfo?.entitlements?.active?.Prime?.isActive;
+        const localWillRenew =
+          customerInfo?.entitlements?.active?.Prime?.willRenew;
+        const localIsSandbox =
+          customerInfo?.entitlements?.active?.Prime?.isSandbox;
+        const localSubscriptionManageUrl = customerInfo?.managementURL;
+
+        let localExpiresAt = 0;
+        if (
+          customerInfoNative?.entitlements?.active?.Prime?.expirationDateMillis
+        ) {
+          localExpiresAt =
+            customerInfoNative.entitlements.active.Prime.expirationDateMillis;
+        } else if (
+          customerInfoWeb?.entitlements?.active?.Prime?.expirationDate?.getTime
+        ) {
+          localExpiresAt =
+            customerInfoWeb.entitlements.active.Prime.expirationDate?.getTime() ??
+            0;
+        }
+
+        console.log('prime payment status ===========================', {
+          local: {
+            $customerInfo: customerInfo,
+            isActive: localIsActive,
+            willRenew: localWillRenew,
+            expiresAt: localExpiresAt,
+            isSandbox: localIsSandbox,
+            subscriptionManageUrl: localSubscriptionManageUrl,
+          },
+          server: {
+            $user: userRef.current,
+            isActive: userRef.current.primeSubscription?.isActive,
+            expiresAt: userRef.current.primeSubscription?.expiresAt,
+            willRenew: userRef.current.primeSubscription?.willRenew,
+            subscriptions: userRef.current.primeSubscription?.subscriptions,
+          },
+        });
+        if (localIsActive !== userRef.current.primeSubscription?.isActive) {
+          console.log(
+            'prime payment status not match ===========================',
+          );
+        }
+      }
+    })();
+  }, [getCustomerInfo, isReady, user?.privyUserId]);
+
+  useEffect(() => {
     void autoRefreshPrimeUserInfo();
   }, [autoRefreshPrimeUserInfo]);
+
+  useEffect(() => {
+    void (async () => {
+      if (isReady && user.isLoggedIn && !user.isLoggedInOnServer) {
+        const accessToken =
+          await backgroundApiProxy.simpleDb.prime.getAuthToken();
+        if (accessToken) {
+          await backgroundApiProxy.servicePrime.apiLogin({
+            accessToken,
+          });
+        } else {
+          // Do not call apiLogout here, otherwise the user will automatically call logout during the login process, resulting in no login
+          // await backgroundApiProxy.servicePrime.apiLogout();
+        }
+      }
+    })();
+  }, [isReady, user.isLoggedIn, user.isLoggedInOnServer]);
 
   useEffect(() => {
     void (async () => {
@@ -60,20 +153,24 @@ function PrimeGlobalEffectView() {
       // Do not save accessToken here, apiLogin() will save it
 
       if (accessToken) {
-        setPrimePersistAtom((v) => ({
-          ...v,
-          isLoggedIn: true,
-          email: privyUser?.email,
-          privyUserId: privyUser?.id,
-        }));
+        setPrimePersistAtom(
+          (v): IPrimeUserInfo => ({
+            ...v,
+            isLoggedIn: true,
+            email: privyUser?.email,
+            privyUserId: privyUser?.id,
+          }),
+        );
       } else {
         await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
 
-      setPrimeInitAtom((v) => ({
-        ...v,
-        isReady: true,
-      }));
+      setPrimeInitAtom(
+        (v): IPrimeInitAtomData => ({
+          ...v,
+          isReady: true,
+        }),
+      );
     })();
   }, [
     setPrimePersistAtom,
@@ -99,19 +196,34 @@ function PrimeGlobalEffectView() {
     };
   }, [logout, authenticated]);
 
-  // const isActive = primePersistAtom.primeSubscription?.isActive;
-  // useUpdateEffect(() => {
-  //   console.log('primePersistAtom.primeSubscription?.isActive', {
-  //     isActive,
-  //   });
-  //   if (isActive) {
-  //     void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilently(
-  //       {
-  //         callerName: 'primeSubscription isActive',
-  //       },
-  //     );
-  //   }
-  // }, [isActive]);
+  const isActive = primePersistAtom.primeSubscription?.isActive;
+  useUpdateEffect(() => {
+    console.log('primePersistAtom.primeSubscription?.isActive', {
+      isActive,
+    });
+    if (isActive) {
+      void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilently(
+        {
+          callerName: 'primeSubscription isActive',
+        },
+      );
+    }
+  }, [isActive]);
+
+  const { isLoggedInOnServer } = primePersistAtom;
+
+  useUpdateEffect(() => {
+    void (async () => {
+      noop(isLoggedInOnServer);
+      noop(isActive);
+      /*
+      (await $$appGlobals.$$allAtoms.notificationsAtom.get()).maxAccountCount
+      */
+      await backgroundApiProxy.serviceNotification.clearServerSettingsCache();
+      await backgroundApiProxy.serviceNotification.registerClientWithOverrideAllAccounts();
+    })();
+  }, [isActive, isLoggedInOnServer]);
+
   return null;
 }
 

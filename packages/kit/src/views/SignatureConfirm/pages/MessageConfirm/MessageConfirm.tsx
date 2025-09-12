@@ -16,6 +16,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
@@ -80,6 +81,7 @@ function MessageConfirm() {
     sourceInfo,
     unsignedMessage,
     walletInternalSign,
+    skipBackupCheck,
     swapInfo,
     onSuccess,
     onFail,
@@ -256,6 +258,10 @@ function MessageConfirm() {
                 messageDisplay={parsedMessage}
                 unsignedMessage={unsignedMessage}
                 isRiskSignMethod={isRiskSignMethod}
+                showContinueOperateLocal={showContinueOperate}
+                urlSecurityInfo={urlSecurityInfo}
+                isConfirmationRequired={isConfirmationRequired}
+                walletInternalSign={walletInternalSign}
               />
             ) : null}
             {showDAppSiteMark ? (
@@ -291,6 +297,9 @@ function MessageConfirm() {
     accountId,
     networkId,
     swapInfo,
+    showContinueOperate,
+    isConfirmationRequired,
+    walletInternalSign,
   ]);
 
   const handleOnClose = useCallback(
@@ -309,12 +318,25 @@ function MessageConfirm() {
     );
   }, []);
 
+  useEffect(() => {
+    if (sourceInfo) {
+      const walletId = accountUtils.getWalletIdFromAccountId({
+        accountId,
+      });
+      if (!skipBackupCheck) {
+        void backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+          walletId,
+        });
+      }
+    }
+  }, [sourceInfo, accountId, skipBackupCheck]);
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header
         title={
           parsedMessage?.title ||
-          intl.formatMessage({ id: ETranslations.sig_sigature_request_label })
+          intl.formatMessage({ id: ETranslations.sig_signature_request_label })
         }
       />
       <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>
@@ -330,6 +352,7 @@ function MessageConfirm() {
         isConfirmationRequired={isConfirmationRequired}
         sourceInfo={sourceInfo}
         walletInternalSign={walletInternalSign}
+        skipBackupCheck={skipBackupCheck}
         onSuccess={onSuccess}
         onFail={onFail}
         onCancel={onCancel}

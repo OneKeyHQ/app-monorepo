@@ -1,8 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager, type LayoutChangeEvent } from 'react-native';
+import { type LayoutChangeEvent } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
+
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import type { IScrollToIndexParams, ISwiperProps } from './type';
 import type { IListViewRef } from '../ListView/list';
@@ -51,6 +53,7 @@ export const useScrollEvent = ({
   autoplayLoop,
   autoplayLoopKeepAnimation,
   dataLength,
+  onChangeIndex,
 }: {
   initialIndex: number;
   autoplay: ISwiperProps<any>['autoplay'];
@@ -58,11 +61,14 @@ export const useScrollEvent = ({
   autoplayLoop: ISwiperProps<any>['autoplayLoop'];
   autoplayLoopKeepAnimation: ISwiperProps<any>['autoplayLoopKeepAnimation'];
   dataLength: number;
+  onChangeIndex: ISwiperProps<any>['onChangeIndex'];
 }) => {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const clearTimer = useCallback(() => {
-    clearTimeout(timeoutRef.current);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
   }, []);
 
   const swiperRef = useRef<IListViewRef<any> | null>(null);
@@ -71,6 +77,13 @@ export const useScrollEvent = ({
     index: initialIndex,
     prevIndex: initialIndex,
   });
+
+  useEffect(() => {
+    if (onChangeIndex) {
+      onChangeIndex(currentIndexes);
+    }
+  }, [currentIndexes, onChangeIndex]);
+
   const scrollToIndex = useCallback(
     (params: IScrollToIndexParams) => {
       const { index: indexToScroll, animated = true } = params;
@@ -99,7 +112,7 @@ export const useScrollEvent = ({
       // When execute "scrollToIndex", we ignore the method "onMomentumScrollEnd"
       // because it not working on Android
       // https://github.com/facebook/react-native/issues/21718
-      void InteractionManager.runAfterInteractions(() => {
+      void timerUtils.setTimeoutPromised(() => {
         swiperRef?.current?.scrollToIndex(newParams);
       });
     },
@@ -108,14 +121,14 @@ export const useScrollEvent = ({
 
   const goToNextIndex = useDebouncedCallback(() => {
     clearTimer();
-    void InteractionManager.runAfterInteractions(() => {
+    void timerUtils.setTimeoutPromised(() => {
       scrollToIndex({ index: currentIndexes.index + 1, animated: true });
     });
   }, 100);
 
   const gotToPrevIndex = useDebouncedCallback(() => {
     clearTimer();
-    void InteractionManager.runAfterInteractions(() => {
+    void timerUtils.setTimeoutPromised(() => {
       scrollToIndex({ index: currentIndexes.index - 1, animated: true });
     });
   }, 100);

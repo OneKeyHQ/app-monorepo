@@ -1,0 +1,114 @@
+diff --git a/node_modules/@marsidev/react-turnstile/dist/index.cjs b/node_modules/@marsidev/react-turnstile/dist/index.cjs
+index 9229990..45d3480 100644
+--- a/node_modules/@marsidev/react-turnstile/dist/index.cjs
++++ b/node_modules/@marsidev/react-turnstile/dist/index.cjs
+@@ -29,29 +29,29 @@ const injectTurnstileScript = ({
+     crossOrigin = ""
+   } = {}
+ }) => {
+-  const scriptId = id || DEFAULT_SCRIPT_ID;
+-  if (checkElementExistence(scriptId)) {
+-    return;
+-  }
+-  const script = document.createElement("script");
+-  script.id = scriptId;
+-  script.src = `${SCRIPT_URL}?onload=${onLoadCallbackName}&render=${render}`;
+-  if (document.querySelector(`script[src="${script.src}"]`)) {
+-    return;
+-  }
+-  script.defer = !!defer;
+-  script.async = !!async;
+-  if (nonce) {
+-    script.nonce = nonce;
+-  }
+-  if (crossOrigin) {
+-    script.crossOrigin = crossOrigin;
+-  }
+-  if (onError) {
+-    script.onerror = onError;
+-  }
+-  const parentEl = appendTo === "body" ? document.body : document.getElementsByTagName("head")[0];
+-  parentEl.appendChild(script);
++  // const scriptId = id || DEFAULT_SCRIPT_ID;
++  // if (checkElementExistence(scriptId)) {
++  //   return;
++  // }
++  // const script = document.createElement("script");
++  // script.id = scriptId;
++  // script.src = `${SCRIPT_URL}?onload=${onLoadCallbackName}&render=${render}`;
++  // if (document.querySelector(`script[src="${script.src}"]`)) {
++  //   return;
++  // }
++  // script.defer = !!defer;
++  // script.async = !!async;
++  // if (nonce) {
++  //   script.nonce = nonce;
++  // }
++  // if (crossOrigin) {
++  //   script.crossOrigin = crossOrigin;
++  // }
++  // if (onError) {
++  //   script.onerror = onError;
++  // }
++  // const parentEl = appendTo === "body" ? document.body : document.getElementsByTagName("head")[0];
++  // parentEl.appendChild(script);
+ };
+ const CONTAINER_STYLE_SET = {
+   normal: {
+diff --git a/node_modules/@marsidev/react-turnstile/dist/index.mjs b/node_modules/@marsidev/react-turnstile/dist/index.mjs
+index 0232f84..0206979 100644
+--- a/node_modules/@marsidev/react-turnstile/dist/index.mjs
++++ b/node_modules/@marsidev/react-turnstile/dist/index.mjs
+@@ -25,29 +25,29 @@ const injectTurnstileScript = ({
+     crossOrigin = ""
+   } = {}
+ }) => {
+-  const scriptId = id || DEFAULT_SCRIPT_ID;
+-  if (checkElementExistence(scriptId)) {
+-    return;
+-  }
+-  const script = document.createElement("script");
+-  script.id = scriptId;
+-  script.src = `${SCRIPT_URL}?onload=${onLoadCallbackName}&render=${render}`;
+-  if (document.querySelector(`script[src="${script.src}"]`)) {
+-    return;
+-  }
+-  script.defer = !!defer;
+-  script.async = !!async;
+-  if (nonce) {
+-    script.nonce = nonce;
+-  }
+-  if (crossOrigin) {
+-    script.crossOrigin = crossOrigin;
+-  }
+-  if (onError) {
+-    script.onerror = onError;
+-  }
+-  const parentEl = appendTo === "body" ? document.body : document.getElementsByTagName("head")[0];
+-  parentEl.appendChild(script);
++  // const scriptId = id || DEFAULT_SCRIPT_ID;
++  // if (checkElementExistence(scriptId)) {
++  //   return;
++  // }
++  // const script = document.createElement("script");
++  // script.id = scriptId;
++  // script.src = `${SCRIPT_URL}?onload=${onLoadCallbackName}&render=${render}`;
++  // if (document.querySelector(`script[src="${script.src}"]`)) {
++  //   return;
++  // }
++  // script.defer = !!defer;
++  // script.async = !!async;
++  // if (nonce) {
++  //   script.nonce = nonce;
++  // }
++  // if (crossOrigin) {
++  //   script.crossOrigin = crossOrigin;
++  // }
++  // if (onError) {
++  //   script.onerror = onError;
++  // }
++  // const parentEl = appendTo === "body" ? document.body : document.getElementsByTagName("head")[0];
++  // parentEl.appendChild(script);
+ };
+ const CONTAINER_STYLE_SET = {
+   normal: {

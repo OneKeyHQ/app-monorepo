@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useThrottledCallback } from 'use-debounce';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -15,10 +16,11 @@ import type { IConnectionAccountInfoWithNum } from '@onekeyhq/shared/types/dappC
 export default function useActiveTabDAppInfo() {
   const intl = useIntl();
   const [activeTabId, setActiveTabId] = useState<number | null>(null);
+  const lastTabIdRef = useRef<number | null>(null);
 
   const { result, run } = usePromiseResult(
-    () =>
-      new Promise<{
+    () => {
+      return new Promise<{
         url: string;
         origin: string;
         showFloatingPanel: boolean;
@@ -96,10 +98,22 @@ export default function useActiveTabDAppInfo() {
             }
           },
         );
-      }),
+      });
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeTabId],
     { checkIsFocused: false },
+  );
+
+  const throttledRun = useThrottledCallback(
+    () => {
+      void run();
+    },
+    200,
+    {
+      leading: false,
+      trailing: true,
+    },
   );
 
   useEffect(() => {
@@ -109,12 +123,18 @@ export default function useActiveTabDAppInfo() {
       tab: chrome.tabs.Tab,
     ) => {
       if (changeInfo.status === 'complete' && tab.active) {
-        setActiveTabId(tabId);
+        if (lastTabIdRef.current !== tabId) {
+          lastTabIdRef.current = tabId;
+          setActiveTabId(tabId);
+        }
       }
     };
 
     const handleTabActivated = (activeInfo: chrome.tabs.TabActiveInfo) => {
-      setActiveTabId(activeInfo.tabId);
+      if (lastTabIdRef.current !== activeInfo.tabId) {
+        lastTabIdRef.current = activeInfo.tabId;
+        setActiveTabId(activeInfo.tabId);
+      }
     };
 
     chrome.tabs.onUpdated.addListener(handleTabChange);
@@ -122,7 +142,10 @@ export default function useActiveTabDAppInfo() {
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
-        setActiveTabId(tabs[0].id ?? null);
+        if (lastTabIdRef.current !== tabs[0].id) {
+          lastTabIdRef.current = tabs[0].id ?? null;
+          setActiveTabId(tabs[0].id ?? null);
+        }
       }
     });
 
@@ -135,16 +158,16 @@ export default function useActiveTabDAppInfo() {
   useEffect(() => {
     const fn = () => {
       setTimeout(() => {
-        void run();
+        void throttledRun();
       }, 300);
     };
-    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, run);
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, throttledRun);
     appEventBus.on(EAppEventBusNames.DAppLastFocusUrlUpdate, fn);
     return () => {
-      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, run);
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, throttledRun);
       appEventBus.off(EAppEventBusNames.DAppLastFocusUrlUpdate, fn);
     };
-  }, [run]);
+  }, [throttledRun]);
 
-  return { result, refreshConnectionInfo: run };
+  return { result, refreshConnectionInfo: throttledRun };
 }

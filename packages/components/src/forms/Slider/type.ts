@@ -1,5 +1,5 @@
 import type { IFormFieldProps } from '../types';
-import type { StackStyle } from '@tamagui/web/types/types';
+import type { StackStyle } from '@tamagui/web';
 
 type INonGestureStackStyleProps = Omit<
   StackStyle,

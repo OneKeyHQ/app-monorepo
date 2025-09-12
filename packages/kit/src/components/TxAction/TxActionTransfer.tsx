@@ -313,6 +313,7 @@ function TxActionTransferListView(props: ITxActionProps) {
     children: accountUtils.shortenAddress({
       address: transferTarget,
     }),
+    originalAddress: transferTarget,
   };
 
   const avatar: ITxActionCommonListViewProps['avatar'] = {
@@ -525,8 +526,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     swapInfo,
   } = props;
 
-  const { networkId } = decodedTx;
-
   const {
     sends,
     receives,
@@ -539,10 +538,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     ...props,
     intl,
   });
-
-  const { vaultSettings } = useAccountData({ networkId });
-
-  const isUTXO = vaultSettings?.isUtxo;
 
   const sendsBlock = buildTransfersBlock(
     groupBy(sends, 'to'),

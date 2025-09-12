@@ -11,6 +11,8 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "jsEngine": "hermes",
+    "newArchEnabled": true,
     "assetBundlePatterns": [
       "**/*"
     ],

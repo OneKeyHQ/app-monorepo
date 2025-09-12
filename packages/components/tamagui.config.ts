@@ -29,13 +29,11 @@ import {
   successDark,
 } from './colors';
 
-import type { Variable } from '@tamagui/web/types/createVariable';
+import type { Variable } from '@tamagui/web';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
-const font = createFont({
-  family: isTamaguiNative
-    ? 'System'
-    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+
+const basicFontVariants = {
   size: {
     bodySm: 12,
     bodySmMedium: 12,
@@ -131,10 +129,32 @@ const font = createFont({
     heading4xl: 0,
     heading5xl: 0,
   },
+} as const;
+
+export const tamaguiWebFontFamily =
+  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"';
+
+const font = createFont({
+  family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,
+  ...basicFontVariants,
+});
+
+const monoRegularFont = createFont({
+  family: 'GeistMono-Regular',
+  ...basicFontVariants,
+});
+
+const monoMediumFont = createFont({
+  family: 'GeistMono-Medium',
+  ...basicFontVariants,
 });
 
 // https://docs.swmansion.com/react-native-reanimated/docs/2.x/api/animations/withSpring/
 const animations = createAnimations({
+  '0ms': {
+    type: 'timing',
+    duration: 0,
+  },
   '50ms': {
     type: 'timing',
     duration: 50,
@@ -169,6 +189,12 @@ const animations = createAnimations({
     type: 'spring',
     damping: 20,
     stiffness: 60,
+  },
+  switch: {
+    type: 'spring',
+    damping: 30,
+    mass: 1,
+    stiffness: 300,
   },
 });
 
@@ -208,8 +234,8 @@ const lightColors = {
   bgInverseActive: whiteA.whiteA5,
   bgInverseHover: whiteA.whiteA4,
   bgPrimary: primary.primary12,
-  bgPrimaryActive: primary.primary10,
-  bgPrimaryHover: primary.primary11,
+  bgPrimaryActive: primary.primary11,
+  bgPrimaryHover: blackA.blackA10,
   bgReverse: '#1b1b1b',
   bgSidebar: gray.gray2,
   bgStrong: neutral.neutral3,
@@ -219,6 +245,8 @@ const lightColors = {
   bgSuccess: success.success3,
   bgSuccessStrong: success.success9,
   bgSuccessSubdued: success.success2,
+  buttonSuccess: success.success9,
+  buttonCritical: critical.critical9,
   border: neutral.neutral6,
   borderActive: primary.primary12,
   borderCaution: caution.caution7,
@@ -286,7 +314,7 @@ const darkColors: typeof lightColors = {
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
-  bgBackdrop: grayA.grayA8,
+  bgBackdrop: grayA.grayA11,
   bgCaution: cautionDark.caution3,
   bgCautionStrong: cautionDark.caution9,
   bgCautionSubdued: cautionDark.caution2,
@@ -315,6 +343,8 @@ const darkColors: typeof lightColors = {
   bgSuccess: successDark.success3,
   bgSuccessStrong: successDark.success9,
   bgSuccessSubdued: successDark.success2,
+  buttonSuccess: successDark.success9,
+  buttonCritical: criticalDark.critical9,
   border: neutralDark.neutral6,
   borderActive: primaryDark.primary12,
   borderCaution: cautionDark.caution7,
@@ -521,6 +551,8 @@ const config = createTamagui({
   fonts: {
     body: font,
     heading: font,
+    monoRegular: monoRegularFont,
+    monoMedium: monoMediumFont,
   },
 
   themes: {

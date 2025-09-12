@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { RefreshControl, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -10,13 +10,10 @@ import {
   Page,
   ScrollView,
   SizableText,
-  Skeleton,
   Stack,
-  Tab,
   XStack,
 } from '@onekeyhq/components';
 import { getTokens } from '@onekeyhq/components/src/hooks';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -129,12 +126,11 @@ function HomePage() {
               onPress={navigateAccountManagerStacks}
               maxWidth="$40"
             >
-              <Image size="$6" borderRadius="$1">
-                <Image.Source src="https://placehold.co/120x120?text=A" />
-                <Image.Fallback>
-                  <Skeleton w="$6" h="$6" />
-                </Image.Fallback>
-              </Image>
+              <Image
+                size="$6"
+                borderRadius="$1"
+                source={{ uri: 'https://placehold.co/120x120?text=A' }}
+              />
               <SizableText
                 flex={1}
                 size="$bodyMdMedium"
@@ -153,7 +149,7 @@ function HomePage() {
           )}
         />
         <Page.Body alignItems="center">
-          <Tab
+          {/* <Tab
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
@@ -167,18 +163,11 @@ function HomePage() {
               <RefreshControl refreshing={false} onRefresh={onRefresh} />
             }
             showsVerticalScrollIndicator={false}
-          />
+          /> */}
         </Page.Body>
       </Page>
     ),
-    [
-      data,
-      renderHeaderView,
-      screenWidth,
-      sideBarWidth,
-      onRefresh,
-      navigateAccountManagerStacks,
-    ],
+    [navigateAccountManagerStacks],
   );
 }
 

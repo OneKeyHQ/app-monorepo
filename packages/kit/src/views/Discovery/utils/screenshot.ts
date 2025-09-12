@@ -1,9 +1,12 @@
-import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs/index.native';
+import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SCREENSHOT_FOLDER } from '../config/Screenshot.constants';
 
 export async function checkAndCreateFolder() {
+  if (!RNFS) {
+    return;
+  }
   try {
     const folderExists = await RNFS.exists(SCREENSHOT_FOLDER);
     if (folderExists) {
@@ -25,6 +28,9 @@ export function getScreenshotPath(filename: string) {
 }
 
 export async function saveScreenshot(imageUri: string, savePath: string) {
+  if (!RNFS) {
+    return;
+  }
   if (await RNFS.exists(savePath)) {
     console.log('file exists');
     await RNFS.unlink(savePath);

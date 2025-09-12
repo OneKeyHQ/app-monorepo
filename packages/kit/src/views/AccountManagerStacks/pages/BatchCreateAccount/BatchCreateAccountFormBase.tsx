@@ -80,7 +80,7 @@ function AdvancedSettingsFormField({
           <Stack>
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.global_advantage_settings,
+                id: ETranslations.global_advanced_settings,
               })}
             </SizableText>
           </Stack>

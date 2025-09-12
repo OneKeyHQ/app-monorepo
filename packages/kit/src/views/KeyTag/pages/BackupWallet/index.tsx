@@ -77,6 +77,7 @@ const BackupWallet = () => {
           reason: EReasonForNeedPassword.Security,
         });
       navigation.push(EModalKeyTagRoutes.BackupDotMap, {
+        wallet: item,
         encodedText,
         title: item.name,
       });

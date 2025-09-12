@@ -4,6 +4,8 @@ import { isEmpty, isPlainObject } from 'lodash';
 
 import stringUtils from '../stringUtils';
 
+const logEnabled = false;
+
 export function useDebugComponentRemountLog({
   name,
   payload,
@@ -18,11 +20,14 @@ export function useDebugComponentRemountLog({
   payloadRef.current = payload;
 
   useEffect(() => {
+    if (!logEnabled) {
+      return;
+    }
     if (process.env.NODE_ENV !== 'production') {
       console.groupCollapsed(
         `@@ComponentRemountLog mounted: ${nameRef.current}`,
       );
-      console.log(stringUtils.safeStringify(payloadRef.current));
+      console.log(stringUtils.stableStringify(payloadRef.current));
       console.log('href: ', globalThis?.location?.href);
       console.groupEnd();
     }
@@ -30,7 +35,7 @@ export function useDebugComponentRemountLog({
       if (process.env.NODE_ENV !== 'production') {
         console.log(
           `@@ComponentRemountLog unmounted: ${nameRef.current}`,
-          stringUtils.safeStringify(payloadRef.current),
+          stringUtils.stableStringify(payloadRef.current),
         );
       }
     };

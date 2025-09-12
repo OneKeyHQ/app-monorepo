@@ -1,5 +1,9 @@
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
+
+import purchaseSdkUtils from './purchaseSdkUtils';
 import { PurchasesSdkBase } from './PurchasesSdkBase';
 
 import type { IPurchasePackageParams } from './PurchasesSdkBase';
@@ -22,7 +26,7 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
     const { apiKey, userId } = params;
     if (!userId) {
-      throw new Error('No userId found');
+      throw new OneKeyLocalError('No userId found');
     }
     Purchases.configure(apiKey, userId);
   }
@@ -74,12 +78,16 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       const packages = await this.getPaywallPackages();
       const paywallPackage = packages.find((p) => p.identifier === packageId);
       if (!paywallPackage) {
-        throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
+        throw new OneKeyLocalError(
+          'purchasePaywallPackage ERROR: Invalid packageId',
+        );
       }
       const purchaseParams: PurchaseParams = {
         rcPackage: paywallPackage,
         customerEmail: email,
-        selectedLocale: locale,
+        selectedLocale: purchaseSdkUtils.convertToRevenuecatLocale({
+          locale: locale as ILocaleJSONSymbol,
+        }),
       };
       // TODO check package user is Matched to privyUserId
       // TODO check if user has already purchased

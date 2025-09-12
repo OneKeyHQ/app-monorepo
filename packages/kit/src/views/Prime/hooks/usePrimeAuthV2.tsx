@@ -32,12 +32,12 @@ export function usePrimeAuthV2() {
 
   return useMemo(() => {
     return {
-      isLoggedIn: user?.isLoggedIn,
+      isLoggedIn: user?.isLoggedIn && user?.isLoggedInOnServer,
       isPrimeSubscriptionActive: user?.primeSubscription?.isActive,
       user,
       logout,
-      apiLogout,
-      sdkLogout,
+      // apiLogout,
+      // sdkLogout,
       getAccessToken,
       isReady,
       authenticated,
@@ -49,8 +49,6 @@ export function usePrimeAuthV2() {
     getAccessToken,
     isReady,
     logout,
-    apiLogout,
-    sdkLogout,
     privyUser,
     useLoginWithEmail,
     user,

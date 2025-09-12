@@ -1,27 +1,41 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil } from 'lodash';
+import { debounce, isNil, uniq } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  getListedNetworkMap,
+  getNetworkIdsMap,
+} from '@onekeyhq/shared/src/config/networkIds';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
+  buildAggregateTokenListData,
+  buildAggregateTokenListMapKeyForTokenList,
+  buildAggregateTokenMapKeyForAggregateConfig,
+  buildHomeDefaultTokenMapKey,
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
+  IAggregateToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
+  IFetchAggregateTokenConfigMapResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
+  IHomeDefaultToken,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -35,6 +49,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
+import type { IRiskTokenManagementDBStruct } from '../dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -46,10 +61,20 @@ class ServiceToken extends ServiceBase {
 
   _searchTokensControllers: AbortController[] = [];
 
+  _fetchAggregateTokenMapControllers: AbortController[] = [];
+
   @backgroundMethod()
   public async abortSearchTokens() {
     this._searchTokensControllers.forEach((controller) => controller.abort());
     this._searchTokensControllers = [];
+  }
+
+  @backgroundMethod()
+  public async abortFetchAggregateTokenMap() {
+    this._fetchAggregateTokenMapControllers.forEach((controller) =>
+      controller.abort(),
+    );
+    this._fetchAggregateTokenMapControllers = [];
   }
 
   @backgroundMethod()
@@ -85,6 +110,7 @@ class ServiceToken extends ServiceBase {
       mergeTokens,
       flag,
       accountId,
+      indexedAccountId,
       dbAccount,
       isAllNetworks,
       isManualRefresh,
@@ -92,16 +118,27 @@ class ServiceToken extends ServiceBase {
       allNetworksNetworkId,
       saveToLocal,
       customTokensRawData,
+      blockedTokensRawData,
+      unblockedTokensRawData,
+      aggregateTokenConfigMapRawData,
       ...rest
     } = params;
     const { networkId } = rest;
-    if (
-      isAllNetworks &&
-      this._currentNetworkId !== getNetworkIdsMap().onekeyall
-    )
+
+    const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
+
+    const currentNetworkId = isUrlAccount
+      ? this._currentUrlNetworkId
+      : this._currentNetworkId;
+
+    const currentAccountId = isUrlAccount
+      ? this._currentUrlAccountId
+      : this._currentAccountId;
+
+    if (isAllNetworks && currentNetworkId !== getNetworkIdsMap().onekeyall)
       return {
         ...getEmptyTokenData(),
-        networkId: this._currentNetworkId,
+        networkId: currentNetworkId,
       };
 
     const accountParams = {
@@ -110,17 +147,10 @@ class ServiceToken extends ServiceBase {
       dbAccount,
       customTokensRawData,
     };
-    const [xpub, accountAddress, customTokens, hiddenTokens, vaultSettings] =
-      await Promise.all([
-        this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
-        this.backgroundApi.serviceAccount.getAccountAddressForApi(
-          accountParams,
-        ),
-        this.backgroundApi.serviceCustomToken.getCustomTokens(accountParams),
-        this.backgroundApi.serviceCustomToken.getHiddenTokens(accountParams),
-        this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
-      ]);
-
+    const [xpub, accountAddress] = await Promise.all([
+      this.backgroundApi.serviceAccount.getAccountXpub(accountParams),
+      this.backgroundApi.serviceAccount.getAccountAddressForApi(accountParams),
+    ]);
     if (!accountAddress && !xpub) {
       console.log(
         `fetchAccountTokens ERROR: accountAddress and xpub are both empty`,
@@ -131,12 +161,73 @@ class ServiceToken extends ServiceBase {
       return getEmptyTokenData();
     }
 
+    const accountXpubOrAddress =
+      await this.backgroundApi.serviceAccount.buildAccountXpubOrAddress({
+        getAccountXpubFn: async () => xpub,
+        getAccountAddressFn: async () => accountAddress,
+      });
+
+    let [
+      customTokens,
+      hiddenTokens,
+      unblockedTokens,
+      blockedTokens,
+      vaultSettings,
+      network,
+      aggregateHiddenTokens,
+      allAggregateTokenInfo,
+    ] = await Promise.all([
+      this.backgroundApi.serviceCustomToken.getCustomTokens({
+        ...accountParams,
+        accountXpubOrAddress,
+      }),
+      this.backgroundApi.serviceCustomToken.getHiddenTokens({
+        ...accountParams,
+        accountXpubOrAddress,
+      }),
+      this.backgroundApi.serviceToken.getUnblockedTokens({
+        networkId,
+        unblockedTokensRawData,
+      }),
+      this.backgroundApi.serviceToken.getBlockedTokens({
+        networkId,
+        blockedTokensRawData,
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
+      this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
+      // get aggregate hidden tokens
+      this.backgroundApi.serviceCustomToken.getHiddenTokens({
+        accountId: indexedAccountId ?? '',
+        accountXpubOrAddress: indexedAccountId,
+        networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+        customTokensRawData,
+      }),
+      this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
+    ]);
+
     rest.contractList = [
       ...(rest.contractList ?? []),
       ...customTokens.map((t) => t.address),
     ];
 
-    rest.hiddenTokens = hiddenTokens.map((t) => t.address);
+    if (aggregateHiddenTokens?.length > 0) {
+      aggregateHiddenTokens.forEach((t) => {
+        if (allAggregateTokenInfo.allAggregateTokenMap[t.$key]) {
+          // @ts-ignore
+          hiddenTokens = [
+            ...hiddenTokens,
+            ...allAggregateTokenInfo.allAggregateTokenMap[t.$key].tokens.filter(
+              (token) => token.networkId === networkId,
+            ),
+          ];
+        }
+      });
+    }
+
+    rest.hiddenTokens = uniq(hiddenTokens.map((t) => t.address));
+
+    rest.unblockedTokens = unblockedTokens;
+    rest.blockedTokens = blockedTokens;
 
     // const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const controller = new AbortController();
@@ -177,6 +268,109 @@ class ServiceToken extends ServiceBase {
       signal: controller.signal,
     });
     let allTokens: ITokenData | undefined;
+
+    let aggregateTokenListMap: Record<
+      string,
+      {
+        commonToken: IAccountToken;
+        tokens: IAccountToken[];
+      }
+    > = {};
+    let aggregateTokenMap: Record<string, ITokenFiat> = {};
+
+    resp.data.data.tokens.data = resp.data.data.tokens.data
+      .map((token) => {
+        if (isAllNetworks && aggregateTokenConfigMapRawData) {
+          const data = buildAggregateTokenListData({
+            networkId,
+            accountId,
+            token,
+            tokenMap: resp.data.data.tokens.map,
+            aggregateTokenListMap,
+            aggregateTokenMap,
+            aggregateTokenConfigMapRawData,
+            networkName: network?.name ?? '',
+          });
+
+          if (data.isAggregateToken) {
+            aggregateTokenListMap = data.aggregateTokenListMap;
+            aggregateTokenMap = data.aggregateTokenMap;
+            return null;
+          }
+        }
+
+        return {
+          ...this.mergeTokenMetadataWithCustomDataSync({
+            token,
+            customTokens,
+            networkId,
+          }),
+          accountId,
+          networkId,
+          networkName: network?.name,
+          mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+        };
+      })
+      .filter(Boolean);
+
+    resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
+      (token) => ({
+        ...this.mergeTokenMetadataWithCustomDataSync({
+          token,
+          customTokens,
+          networkId,
+        }),
+        accountId,
+        networkId,
+        networkName: network?.name,
+        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+      }),
+    );
+
+    resp.data.data.smallBalanceTokens.data =
+      resp.data.data.smallBalanceTokens.data
+        .map((token) => {
+          if (isAllNetworks && aggregateTokenConfigMapRawData) {
+            const data = buildAggregateTokenListData({
+              accountId,
+              networkName: network?.name ?? '',
+              networkId,
+              token,
+              tokenMap: resp.data.data.smallBalanceTokens.map,
+              aggregateTokenListMap,
+              aggregateTokenMap,
+              aggregateTokenConfigMapRawData,
+            });
+
+            if (data.isAggregateToken) {
+              aggregateTokenListMap = data.aggregateTokenListMap;
+              aggregateTokenMap = data.aggregateTokenMap;
+              return null;
+            }
+          }
+          return {
+            ...this.mergeTokenMetadataWithCustomDataSync({
+              token,
+              customTokens,
+              networkId,
+            }),
+            accountId,
+            networkId,
+            networkName: network?.name,
+            mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+          };
+        })
+        .filter(Boolean);
+
+    const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+      (item) => item.commonToken,
+    );
+
+    resp.data.data.tokens.data = [
+      ...resp.data.data.tokens.data,
+      ...aggregateTokenList,
+    ];
+
     if (mergeTokens) {
       const { tokens, riskTokens, smallBalanceTokens } = resp.data.data as any;
       ({ allTokens } = getMergedTokenData({
@@ -189,60 +383,21 @@ class ServiceToken extends ServiceBase {
           ...token,
           accountId,
           networkId,
+          networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
         }));
       }
       resp.data.data.allTokens = allTokens;
     }
 
-    resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
-      ...this.mergeTokenMetadataWithCustomDataSync({
-        token,
-        customTokens,
-        networkId,
-      }),
-      accountId,
-      networkId,
-      mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-    }));
-
-    resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
-      (token) => ({
-        ...this.mergeTokenMetadataWithCustomDataSync({
-          token,
-          customTokens,
-          networkId,
-        }),
-        accountId,
-        networkId,
-        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-      }),
-    );
-
-    resp.data.data.smallBalanceTokens.data =
-      resp.data.data.smallBalanceTokens.data.map((token) => ({
-        ...this.mergeTokenMetadataWithCustomDataSync({
-          token,
-          customTokens,
-          networkId,
-        }),
-        accountId,
-        networkId,
-        mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-      }));
-
-    resp.data.data.accountId = accountId;
-    resp.data.data.networkId = networkId;
-
     if (saveToLocal) {
       let tokenListValue = new BigNumber(0);
       tokenListValue = tokenListValue
         .plus(resp.data.data.tokens.fiatValue ?? '0')
-        .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0')
-        .plus(resp.data.data.riskTokens.fiatValue ?? '0');
+        .plus(resp.data.data.smallBalanceTokens.fiatValue ?? '0');
 
       if (isAllNetworks) {
-        const key = buildAccountLocalAssetsKey({
+        const key = accountUtils.buildAccountLocalAssetsKey({
           networkId,
           accountAddress,
           xpub,
@@ -281,9 +436,15 @@ class ServiceToken extends ServiceBase {
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
       allNetworksNetworkId &&
-      allNetworksAccountId === this._currentAccountId &&
-      allNetworksNetworkId === this._currentNetworkId
+      allNetworksAccountId === currentAccountId &&
+      allNetworksNetworkId === currentNetworkId
     );
+
+    resp.data.data.accountId = accountId;
+    resp.data.data.networkId = networkId;
+
+    resp.data.data.aggregateTokenListMap = aggregateTokenListMap;
+    resp.data.data.aggregateTokenMap = aggregateTokenMap;
 
     return resp.data.data;
   }
@@ -396,20 +557,33 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async fetchTokenInfoOnly(
-    params: Pick<IFetchTokenDetailParams, 'networkId' | 'contractList'>,
-  ) {
-    const { networkId, contractList } = params;
-    const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
-      '/wallet/v1/account/token/search',
-      {
-        networkId,
-        contractList,
-      },
-    );
-    return resp.data.data;
+  public async fetchTokenInfoOnly(params: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    return this.fetchTokenInfoOnlyMemo(params);
   }
+
+  fetchTokenInfoOnlyMemo = memoizee(
+    async (params: { networkId: string; tokenAddress: string }) => {
+      const { networkId, tokenAddress } = params;
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+        '/wallet/v1/account/token/search',
+        {
+          networkId,
+          contractList: [tokenAddress],
+        },
+      );
+      return resp.data.data[0];
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      max: 10,
+    },
+  );
 
   @backgroundMethod()
   public async searchTokens(params: ISearchTokensParams) {
@@ -475,6 +649,11 @@ class ServiceToken extends ServiceBase {
     tokenIdOnNetwork?: string;
   }) {
     let tokenAddress = tokenIdOnNetwork;
+
+    if (networkUtils.isAllNetwork({ networkId })) {
+      return null;
+    }
+
     if (isNil(tokenAddress)) {
       tokenAddress = await this.getNativeTokenAddress({ networkId });
     }
@@ -520,10 +699,12 @@ class ServiceToken extends ServiceBase {
       let tokensDetails: IFetchTokenDetailItem[] = [];
 
       if (accountId === '') {
-        tokensDetails = await this.fetchTokenInfoOnly({
-          networkId,
-          contractList: [tokenIdOnNetwork],
-        });
+        tokensDetails = [
+          await this.fetchTokenInfoOnly({
+            networkId,
+            tokenAddress: tokenIdOnNetwork,
+          }),
+        ];
       } else {
         tokensDetails = await this.fetchTokensDetails({
           accountId,
@@ -694,6 +875,359 @@ class ServiceToken extends ServiceBase {
       tokenList,
       smallBalanceTokenList,
       riskyTokenList,
+      accountId,
+      networkId,
+    };
+  }
+
+  @backgroundMethod()
+  public async getRiskTokenManagementRawData() {
+    return this.backgroundApi.simpleDb.riskTokenManagement.getRawData();
+  }
+
+  @backgroundMethod()
+  public async getCustomTokensRawData() {
+    return this.backgroundApi.simpleDb.customTokens.getRawData();
+  }
+
+  getUnblockedTokensMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      return this.backgroundApi.simpleDb.riskTokenManagement.getUnblockedTokens(
+        {
+          networkId,
+        },
+      );
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  getBlockedTokensMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      return this.backgroundApi.simpleDb.riskTokenManagement.getBlockedTokens({
+        networkId,
+      });
+    },
+    {
+      promise: true,
+      primitive: true,
+      max: 50,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
+
+  @backgroundMethod()
+  public async clearRiskTokensManagementCache() {
+    this.getUnblockedTokensMemo.clear();
+    this.getBlockedTokensMemo.clear();
+  }
+
+  @backgroundMethod()
+  public async getUnblockedTokensMap({
+    networkId,
+    unblockedTokensRawData,
+  }: {
+    networkId: string;
+    unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  }) {
+    if (unblockedTokensRawData) {
+      return {
+        [networkId]: unblockedTokensRawData[networkId] ?? {},
+      };
+    }
+
+    return this.getUnblockedTokensMemo({ networkId });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokensMap({
+    networkId,
+    blockedTokensRawData,
+  }: {
+    networkId: string;
+    blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
+  }) {
+    if (blockedTokensRawData) {
+      return {
+        [networkId]: blockedTokensRawData[networkId] ?? {},
+      };
+    }
+
+    return this.getBlockedTokensMemo({ networkId });
+  }
+
+  @backgroundMethod()
+  public async getBlockedTokens({
+    networkId,
+    blockedTokensRawData,
+  }: {
+    networkId: string;
+    blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
+  }) {
+    const blockedTokensMap = await this.getBlockedTokensMap({
+      networkId,
+      blockedTokensRawData,
+    });
+    const blockedTokensMapByNetworkId = blockedTokensMap[networkId] ?? {};
+    return Object.keys(blockedTokensMapByNetworkId).filter(
+      (tokenAddress) => blockedTokensMapByNetworkId[tokenAddress],
+    );
+  }
+
+  @backgroundMethod()
+  public async getUnblockedTokens({
+    networkId,
+    unblockedTokensRawData,
+  }: {
+    networkId: string;
+    unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
+  }) {
+    const unblockedTokensMap = await this.getUnblockedTokensMap({
+      networkId,
+      unblockedTokensRawData,
+    });
+    const unblockedTokensMapByNetworkId = unblockedTokensMap[networkId] ?? {};
+    return Object.keys(unblockedTokensMapByNetworkId).filter(
+      (tokenAddress) => unblockedTokensMapByNetworkId[tokenAddress],
+    );
+  }
+
+  @backgroundMethod()
+  public async updateRiskTokensState({
+    blockedTokens,
+    unblockedTokens,
+  }: {
+    blockedTokens: IRiskTokenManagementDBStruct['blockedTokens'];
+    unblockedTokens: IRiskTokenManagementDBStruct['unblockedTokens'];
+  }) {
+    return this.backgroundApi.simpleDb.riskTokenManagement.updateRiskTokensState(
+      {
+        blockedTokens,
+        unblockedTokens,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  public async syncAggregateTokenConfigMap() {
+    await this.abortFetchAggregateTokenMap();
+    const { tokens = {}, meta: { homeDefaults = [] } = {} } =
+      await this.fetchAggregateTokenConfigMap();
+    const allAggregateTokenMap: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    > = {};
+
+    const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
+    const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
+    const listedNetworkMap = getListedNetworkMap();
+    homeDefaults.forEach((homeDefault) => {
+      homeDefaultTokenMap[
+        buildHomeDefaultTokenMapKey({
+          networkId: homeDefault.networkId,
+          symbol: homeDefault.symbol,
+        })
+      ] = homeDefault;
+    });
+    Object.entries(tokens).forEach(
+      ([commonSymbol, { data, logoURI, name }]) => {
+        const filteredData = data.filter(
+          (token) => !!listedNetworkMap[token.networkId],
+        );
+
+        if (filteredData.length > 1) {
+          filteredData.forEach((token) => {
+            const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList(
+              {
+                commonSymbol,
+              },
+            );
+
+            if (allAggregateTokenMap[aggregateTokenKey]) {
+              allAggregateTokenMap[aggregateTokenKey].tokens.push({
+                ...token,
+                $key: buildAggregateTokenListMapKeyForTokenList({
+                  commonSymbol,
+                  networkId: token.networkId,
+                }),
+                name,
+                symbol: commonSymbol,
+                isNative: false,
+                logoURI,
+                commonSymbol,
+                address: token.address || token.assetType || '',
+              });
+            } else {
+              allAggregateTokenMap[aggregateTokenKey] = {
+                tokens: [
+                  {
+                    ...token,
+                    $key: buildAggregateTokenListMapKeyForTokenList({
+                      commonSymbol,
+                      networkId: token.networkId,
+                    }),
+                    name,
+                    symbol: commonSymbol,
+                    isNative: false,
+                    logoURI,
+                    commonSymbol,
+                    address: token.address || token.assetType || '',
+                  },
+                ],
+              };
+            }
+
+            aggregateTokenConfigMap[
+              buildAggregateTokenMapKeyForAggregateConfig({
+                networkId: token.networkId,
+                tokenAddress: token.address || token.assetType || '',
+              })
+            ] = {
+              ...token,
+              name,
+              logoURI,
+              commonSymbol,
+            };
+          });
+        }
+      },
+    );
+
+    const allAggregateTokens: IAccountToken[] = Object.keys(
+      allAggregateTokenMap,
+    ).map((key) => {
+      const aggregateToken = allAggregateTokenMap[key].tokens[0];
+      return {
+        $key: key,
+        isAggregateToken: true,
+        commonSymbol: aggregateToken.commonSymbol,
+        name: aggregateToken.name,
+        symbol: aggregateToken.symbol,
+        networkId: '',
+        address: key,
+        isNative: false,
+        decimals: 0,
+        logoURI: aggregateToken.logoURI,
+      };
+    });
+
+    await this.backgroundApi.simpleDb.aggregateToken.updateAllAggregateInfo({
+      allAggregateTokens,
+      aggregateTokenConfigMap,
+      homeDefaultTokenMap,
+      allAggregateTokenMap,
+    });
+
+    return aggregateTokenConfigMap;
+  }
+
+  @backgroundMethod()
+  public async getAggregateTokenConfigMap() {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenConfigMap();
+  }
+
+  @backgroundMethod()
+  public async fetchAggregateTokenConfigMap() {
+    const controller = new AbortController();
+    this._fetchAggregateTokenMapControllers.push(controller);
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Wallet);
+      const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
+        '/wallet/v1/tokens/aggregate-chains',
+      );
+      return resp.data.data;
+    } catch (e) {
+      return {
+        tokens: {},
+        meta: {
+          homeDefaults: [],
+        },
+      };
+    }
+  }
+
+  @backgroundMethod()
+  public async updateLocalAggregateTokenMap({
+    networkId,
+    accountId,
+    aggregateTokenMap,
+  }: {
+    networkId: string;
+    accountId: string;
+    aggregateTokenMap: Record<string, ITokenFiat>;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenMap({
+      networkId,
+      accountId,
+      aggregateTokenMap,
+    });
+  }
+
+  @backgroundMethod()
+  public async getLocalAggregateTokenMap({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenMap({
+      networkId,
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  public async getLocalAggregateTokenListMap({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenListMap({
+      networkId,
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  public async updateLocalAggregateTokenListMap({
+    accountId,
+    networkId,
+    aggregateTokenListMap,
+  }: {
+    accountId: string;
+    networkId: string;
+    aggregateTokenListMap: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    >;
+  }) {
+    return this.backgroundApi.simpleDb.aggregateToken.updateAggregateTokenListMap(
+      {
+        accountId,
+        networkId,
+        aggregateTokenListMap,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  public async getAllAggregateTokenInfo() {
+    const rawData =
+      await this.backgroundApi.simpleDb.aggregateToken.getRawData();
+    return {
+      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
+      allAggregateTokens: rawData?.allAggregateTokens ?? [],
     };
   }
 }

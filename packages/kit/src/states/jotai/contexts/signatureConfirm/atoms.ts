@@ -2,8 +2,13 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
-import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import {
+  EFeeType,
+  ESendFeeStatus,
+  ETronResourceRentalPayType,
+} from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -24,6 +29,9 @@ export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
   IUnsignedTxPro[]
 >([]);
 
+export const { atom: unsignedTxQueueAtom, use: useUnsignedTxQueueAtom } =
+  contextAtom<IUnsignedTxPro[]>([]);
+
 export const { atom: decodedTxsAtom, use: useDecodedTxsAtom } = contextAtom<{
   decodedTxs: IDecodedTx[];
   isBuildingDecodedTxs: boolean;
@@ -36,9 +44,11 @@ export const { atom: sendSelectedFeeAtom, use: useSendSelectedFeeAtom } =
   contextAtom<{
     feeType: EFeeType;
     presetIndex: number;
+    source?: 'dapp' | 'wallet';
   }>({
     feeType: EFeeType.Standard,
     presetIndex: 0,
+    source: 'wallet',
   });
 
 export const { atom: customFeeAtom, use: useCustomFeeAtom } = contextAtom<
@@ -99,13 +109,17 @@ export const { atom: nativeTokenInfoAtom, use: useNativeTokenInfoAtom } =
 export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
   contextAtom<{
     isInsufficientNativeBalance?: boolean;
+    isInsufficientTokenBalance?: boolean;
     isSubmitting?: boolean;
     isSendNativeTokenOnly?: boolean;
     fillUpNativeBalance?: string;
+    fillUpTokenBalance?: string;
     isBaseOnEstimateMaxFee?: boolean;
     maxFeeNative?: string;
   }>({
     isInsufficientNativeBalance: false,
+    isInsufficientTokenBalance: false,
+    fillUpTokenBalance: '0',
     isBaseOnEstimateMaxFee: false,
     maxFeeNative: '0',
     isSubmitting: false,
@@ -147,3 +161,50 @@ export const { atom: extraFeeInfoAtom, use: useExtraFeeInfoAtom } =
   }>({
     feeNative: '0',
   });
+
+export const {
+  atom: tronResourceRentalInfoAtom,
+  use: useTronResourceRentalInfoAtom,
+} = contextAtom<ITronResourceRentalInfo>({
+  payType: ETronResourceRentalPayType.Native,
+  isResourceRentalNeeded: false,
+  isResourceRentalEnabled: false,
+  isSwapTrxEnabled: false,
+  resourcePrice: {
+    price: 0,
+    minutes: 0,
+  },
+  isResourceRedeemed: false,
+  isResourceClaimed: false,
+});
+
+export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
+  contextAtom<{
+    sponsorable: boolean;
+    sponsorName: string;
+  }>({
+    sponsorable: false,
+    sponsorName: '',
+  });
+
+export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
+  contextAtom<{
+    enabled: boolean;
+    address: string;
+    balance: string;
+    logoURI: string;
+    isLoading: boolean;
+    symbol: string;
+  }>({
+    enabled: false,
+    address: '',
+    balance: '0',
+    logoURI: '',
+    isLoading: false,
+    symbol: '',
+  });
+
+export const {
+  atom: tokenTransferAmountAtom,
+  use: useTokenTransferAmountAtom,
+} = contextAtom<string>('0');

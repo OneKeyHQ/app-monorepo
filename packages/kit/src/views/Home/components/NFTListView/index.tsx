@@ -1,19 +1,15 @@
+import type { ComponentProps } from 'react';
 import { useCallback, useMemo } from 'react';
 
-import type { IStackProps } from '@onekeyhq/components';
-import {
-  ListView,
-  Stack,
-  renderNestedScrollView,
-  useMedia,
-} from '@onekeyhq/components';
+import type { IStackProps, ListView } from '@onekeyhq/components';
+import { Stack, Tabs, useMedia, useStyle } from '@onekeyhq/components';
 import { EmptyNFT, EmptySearch } from '@onekeyhq/kit/src/components/Empty';
 import { NFTListLoadingView } from '@onekeyhq/kit/src/components/Loading';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useTabListScroll } from '@onekeyhq/kit/src/hooks/useTabListScroll';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSearchKeyAtom } from '@onekeyhq/kit/src/states/jotai/contexts/nftList';
 import useActiveTabDAppInfo from '@onekeyhq/kit/src/views/DAppConnection/hooks/useActiveTabDAppInfo';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalAssetDetailRoutes,
   EModalRoutes,
@@ -21,7 +17,8 @@ import {
 import { getFilteredNftsBySearchKey } from '@onekeyhq/shared/src/utils/nftUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 
-import { NFTListHeader } from './NFTListHeader';
+import { PullToRefresh } from '../PullToRefresh';
+
 import { NFTListItem } from './NFTListItem';
 
 import type { ListRenderItemInfo } from 'react-native';
@@ -33,6 +30,12 @@ type IProps = {
   initialized?: boolean;
   onRefresh?: () => void;
   isAllNetworks?: boolean;
+  listViewStyleProps?: Pick<
+    ComponentProps<typeof ListView>,
+    | 'ListHeaderComponentStyle'
+    | 'ListFooterComponentStyle'
+    | 'contentContainerStyle'
+  >;
 };
 
 const useMumColumns: () => {
@@ -81,13 +84,12 @@ function NFTListView(props: IProps) {
     data,
     isLoading,
     initialized,
-    inTabList = false,
     isAllNetworks,
+    listViewStyleProps,
+    onRefresh,
   } = props;
 
   const [searchKey] = useSearchKeyAtom();
-
-  const filteredNfts = getFilteredNftsBySearchKey({ nfts: data, searchKey });
 
   const navigation = useAppNavigation();
   const {
@@ -112,26 +114,39 @@ function NFTListView(props: IProps) {
   );
 
   const { flexBasis, numColumns } = useMumColumns();
+  const filteredNfts: (IAccountNFT | null)[] = useMemo(() => {
+    const list: (IAccountNFT | null)[] = getFilteredNftsBySearchKey({
+      nfts: data,
+      searchKey,
+    });
+    const placeholderCount = numColumns - (list.length % numColumns);
+    if (list?.length && placeholderCount) {
+      return [
+        ...list,
+        ...Array(placeholderCount).fill(null),
+      ] as (IAccountNFT | null)[];
+    }
+    return list;
+  }, [data, searchKey, numColumns]);
 
   const handleRenderItem = useCallback(
-    ({ item }: ListRenderItemInfo<IAccountNFT>) => (
-      <NFTListItem
-        nft={item}
-        flexBasis={flexBasis}
-        key={`${item.collectionAddress}-${item.itemId}`}
-        onPress={handleOnPressNFT}
-        isAllNetworks={isAllNetworks}
-      />
-    ),
+    ({ item }: ListRenderItemInfo<IAccountNFT | null>) =>
+      item ? (
+        <NFTListItem
+          nft={item}
+          flexBasis={flexBasis}
+          key={`${item.collectionAddress}-${item.itemId}`}
+          onPress={handleOnPressNFT}
+          isAllNetworks={isAllNetworks}
+        />
+      ) : (
+        <Stack flex={1} />
+      ),
     [flexBasis, handleOnPressNFT, isAllNetworks],
   );
-
-  const { listViewProps, listViewRef, onLayout } =
-    useTabListScroll<IAccountNFT>({
-      inTabList,
-    });
   const contentContainerStyle = useMemo(
     () => ({
+      mt: '$3',
       pb: '$6',
       px: '$2.5',
     }),
@@ -144,25 +159,53 @@ function NFTListView(props: IProps) {
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
 
-  if (!initialized && isLoading) {
-    return <NFTListLoadingView />;
-  }
+  const style = useStyle(
+    { ...contentContainerStyle, ...listViewStyleProps?.contentContainerStyle },
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const { ListHeaderComponentStyle, ListFooterComponentStyle } =
+    listViewStyleProps || {};
+  const resolvedListHeaderComponentStyle = useStyle(
+    ListHeaderComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+  const resolvedListFooterComponentStyle = useStyle(
+    ListFooterComponentStyle || {},
+    {
+      resolveValues: 'auto',
+    },
+  );
+
+  const EmptyComponentElement = useMemo(() => {
+    if (!initialized && isLoading) {
+      return <NFTListLoadingView />;
+    }
+    if (searchKey) {
+      return <EmptySearch flex={1} />;
+    }
+    return <EmptyNFT />;
+  }, [initialized, isLoading, searchKey]);
 
   return (
-    <ListView
-      {...listViewProps}
-      ref={listViewRef}
-      renderScrollComponent={renderNestedScrollView}
-      // Changing numColumns on the fly is not supported.
-      //  Change the key prop in FlatList when changing the number of columns to force a fresh render of the component.
-      key={numColumns}
-      onLayout={onLayout}
-      contentContainerStyle={contentContainerStyle}
+    <Tabs.FlatList
+      // @ts-ignore
+      horizontalPadding={20}
+      refreshControl={
+        onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
+      }
+      key={platformEnv.isNative ? numColumns : undefined}
+      contentContainerStyle={style as any}
+      ListHeaderComponentStyle={resolvedListHeaderComponentStyle as any}
+      ListFooterComponentStyle={resolvedListFooterComponentStyle as any}
       numColumns={numColumns}
-      data={filteredNfts}
+      data={filteredNfts || []}
       renderItem={handleRenderItem}
-      ListHeaderComponent={<NFTListHeader filteredNfts={filteredNfts} />}
-      ListEmptyComponent={searchKey ? <EmptySearch /> : <EmptyNFT />}
+      ListEmptyComponent={EmptyComponentElement}
       ListFooterComponent={
         <>{addPaddingOnListFooter ? <Stack h="$16" /> : null}</>
       }

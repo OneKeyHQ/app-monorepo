@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -21,6 +22,132 @@ import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
+
+export function usePrimePurchaseCallback({
+  onPurchase,
+}: {
+  onPurchase?: () => void;
+} = {}) {
+  const {
+    purchasePackageNative,
+    getPackagesNative,
+    purchasePackageWeb,
+    getPackagesWeb,
+  } = usePrimePayment();
+  const { user } = usePrimeAuthV2();
+  const intl = useIntl();
+
+  const purchaseByWebview = usePurchasePackageWebview();
+
+  const purchaseByNative = useCallback(
+    async ({
+      selectedSubscriptionPeriod,
+    }: {
+      selectedSubscriptionPeriod: ISubscriptionPeriod;
+    }) => {
+      try {
+        const result = await purchasePackageNative?.({
+          subscriptionPeriod: selectedSubscriptionPeriod,
+        });
+        console.log('purchasePackageNative result >>>>>>', result);
+      } finally {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      }
+    },
+    [purchasePackageNative],
+  );
+
+  // TODO move to jotai context method
+  const purchase = useCallback(
+    async ({
+      selectedSubscriptionPeriod,
+    }: {
+      selectedSubscriptionPeriod: ISubscriptionPeriod;
+    }) => {
+      try {
+        onPurchase?.();
+
+        if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+          void purchaseByNative({
+            selectedSubscriptionPeriod,
+          });
+          return;
+        }
+
+        if (platformEnv.isNativeAndroid) {
+          const isGooglePlayServiceAvailable =
+            await googlePlayService.isAvailable();
+          if (isGooglePlayServiceAvailable) {
+            ActionList.show({
+              title: intl.formatMessage({
+                id: ETranslations.prime_subscribe,
+              }),
+              onClose: () => {},
+              sections: [
+                {
+                  items: [
+                    {
+                      label: 'Purchase by GooglePlay',
+                      onPress: () => {
+                        void purchaseByNative({
+                          selectedSubscriptionPeriod,
+                        });
+                      },
+                    },
+                    {
+                      label: 'Purchase by Webview',
+                      onPress: () => {
+                        void purchaseByWebview({
+                          selectedSubscriptionPeriod,
+                        });
+                      },
+                    },
+                  ],
+                },
+              ],
+            });
+          } else {
+            void purchaseByWebview({
+              selectedSubscriptionPeriod,
+            });
+          }
+          return;
+        }
+
+        if (selectedSubscriptionPeriod) {
+          await purchasePackageWeb?.({
+            subscriptionPeriod: selectedSubscriptionPeriod,
+            email: user?.email || '',
+            locale: intl.locale,
+          });
+          // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
+          //   privyUserId: user.privyUserId || '',
+          // });
+          // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
+          //   packageId: selectedPackageId,
+          //   email: user?.email || '',
+          // });
+        }
+      } finally {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      }
+    },
+    [
+      purchaseByNative,
+      intl,
+      onPurchase,
+      purchasePackageWeb,
+      purchaseByWebview,
+      user?.email,
+    ],
+  );
+
+  return {
+    purchase,
+    purchaseByNative,
+    purchaseByWebview,
+  };
+}
 
 export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const { onPurchase } = props;
@@ -36,90 +163,21 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     getPackagesWeb,
   } = usePrimePayment();
 
-  const purchasePackageWebview = usePurchasePackageWebview({
-    selectedSubscriptionPeriod,
-  });
-
-  const handleNativePurchase = useCallback(async () => {
-    void purchasePackageNative?.({
-      subscriptionPeriod: selectedSubscriptionPeriod,
-    });
-  }, [purchasePackageNative, selectedSubscriptionPeriod]);
-
-  // TODO move to jotai context method
-  const purchase = useCallback(async () => {
-    try {
-      onPurchase?.();
-
-      if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
-        void handleNativePurchase();
-        return;
-      }
-
-      if (platformEnv.isNativeAndroid) {
-        ActionList.show({
-          title: intl.formatMessage({
-            id: ETranslations.prime_subscribe,
-          }),
-          onClose: () => {},
-          sections: [
-            {
-              items: [
-                {
-                  label: 'Purchase by AppStore/GooglePlay',
-                  onPress: handleNativePurchase,
-                },
-                {
-                  label: 'Purchase by Webview',
-                  onPress: () => {
-                    void purchasePackageWebview();
-                  },
-                },
-              ],
-            },
-          ],
-        });
-        return;
-      }
-
-      if (selectedSubscriptionPeriod) {
-        await purchasePackageWeb?.({
-          subscriptionPeriod: selectedSubscriptionPeriod,
-          email: user?.email || '',
-          locale: intl.locale,
-        });
-        // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
-        //   privyUserId: user.privyUserId || '',
-        // });
-        // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
-        //   packageId: selectedPackageId,
-        //   email: user?.email || '',
-        // });
-      }
-    } finally {
-      await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-    }
-  }, [
-    handleNativePurchase,
-    intl,
-    onPurchase,
-    purchasePackageWeb,
-    purchasePackageWebview,
-    selectedSubscriptionPeriod,
-    user?.email,
-  ]);
-
   const { result: packages } = usePromiseResult(
     async () =>
       platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.(),
     [getPackagesNative, getPackagesWeb],
   );
 
+  const { purchase } = usePrimePurchaseCallback({
+    onPurchase,
+  });
   return (
     <Stack mt="$8">
       {packages ? (
         <PrimeSubscriptionPlans
           packages={packages}
+          selectedSubscriptionPeriod={selectedSubscriptionPeriod}
           onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
         />
       ) : (
@@ -137,7 +195,11 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         confirmButtonProps={{
           disabled: !packages,
         }}
-        onConfirm={purchase}
+        onConfirm={() => {
+          return purchase({
+            selectedSubscriptionPeriod,
+          });
+        }}
       />
     </Stack>
   );

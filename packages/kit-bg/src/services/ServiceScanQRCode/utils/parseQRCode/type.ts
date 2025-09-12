@@ -1,4 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -40,6 +41,8 @@ export interface IEthereumValue extends IChainValue {
   n?: number;
   // byte code data for transaction
   code?: string;
+  uint256?: string;
+  value?: string;
 }
 export interface ISolanaValue extends Omit<IChainValue, 'address'> {
   recipient?: string;
@@ -113,10 +116,13 @@ export type IQRCodeHandlerParseResult<T extends IBaseValue> =
   IQRCodeHandlerResult<T> & { raw: string };
 
 export type IQRCodeHandlerParseOutsideOptions = {
-  handlers: EQRCodeHandlerNames[];
+  handlers?: EQRCodeHandlerNames[];
   defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
+  popNavigation?: () => void;
   account?: INetworkAccount;
+  network?: IServerNetwork;
+  wallet?: IDBWallet;
   tokens?: ITokenData;
   qrWalletScene?: boolean;
   showProTutorial?: boolean;

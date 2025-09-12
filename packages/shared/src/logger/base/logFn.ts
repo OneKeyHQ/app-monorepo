@@ -65,7 +65,7 @@ export const logFn = ({
 
     switch (metadata.type) {
       case 'local':
-        {
+        if (!platformEnv.isWebEmbed) {
           // const extensionName = `${scopeName} -> ${sceneName}`;
           // const logger = getLoggerExtension(extensionName);
           // msg including extensionName, don't need to create a new logger extension

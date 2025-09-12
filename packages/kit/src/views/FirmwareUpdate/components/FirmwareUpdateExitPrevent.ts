@@ -1,8 +1,11 @@
+import { useCallback } from 'react';
+
 import { useKeepAwake } from 'expo-keep-awake';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   useAppExitPrevent,
   useExtensionUpdatingFromExpandTab,
@@ -26,6 +29,10 @@ export function FirmwareUpdateExitPrevent({
     id: ETranslations.update_quit_update_desc,
   });
 
+  const onConfirmCallback = useCallback(() => {
+    void backgroundApiProxy.serviceHardware.cancel({});
+  }, []);
+
   // Prevents screen locking
   useKeepAwake();
 
@@ -34,6 +41,7 @@ export function FirmwareUpdateExitPrevent({
     shouldPreventRemove,
     title,
     message,
+    onConfirm: onConfirmCallback,
   });
 
   // Prevent App exit

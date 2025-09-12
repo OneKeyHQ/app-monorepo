@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { ActionItem } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -13,8 +14,10 @@ import { useSupportToken } from '../../../FiatCrypto/hooks';
 import type { IActionBaseProps } from './type';
 
 export const ActionBase = ({
+  walletId,
   networkId,
   tokenAddress,
+  tokenSymbol,
   type,
   label,
   icon,
@@ -23,13 +26,16 @@ export const ActionBase = ({
   disabled,
   hiddenIfDisabled,
   source,
+  isTabView,
   ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
+  const { isFocused } = useTabIsRefreshingFocused();
   const { result: isSupported } = useSupportToken(
     networkId,
     tokenAddress,
     type,
+    isTabView ? isFocused : true,
   );
 
   const isDisabled = useMemo(() => {
@@ -44,20 +50,37 @@ export const ActionBase = ({
     return false;
   }, [isSupported, walletType]);
 
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handlePress = useCallback(async () => {
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId,
+      })
+    ) {
+      return;
+    }
+
     setLoading(true);
 
     if (type === 'buy') {
+      defaultLogger.wallet.walletActions.buyStarted({
+        tokenAddress,
+        tokenSymbol,
+        networkID: networkId,
+      });
+
       defaultLogger.wallet.walletActions.actionBuy({
         walletType: walletType ?? '',
         networkId: networkId ?? '',
         source,
+        isSoftwareWalletOnlyUser,
       });
     } else if (type === 'sell') {
       defaultLogger.wallet.walletActions.actionSell({
         walletType: walletType ?? '',
         networkId: networkId ?? '',
         source,
+        isSoftwareWalletOnlyUser,
       });
     }
 
@@ -77,7 +100,17 @@ export const ActionBase = ({
     } finally {
       setLoading(false);
     }
-  }, [type, walletType, networkId, tokenAddress, accountId, source]);
+  }, [
+    walletId,
+    type,
+    tokenAddress,
+    tokenSymbol,
+    networkId,
+    walletType,
+    source,
+    isSoftwareWalletOnlyUser,
+    accountId,
+  ]);
   if (hiddenIfDisabled && isDisabled) {
     return null;
   }

@@ -44,6 +44,6 @@ export function AppIntlProvider({
     }
   }, [locale, onLocaleChange, updateAppLocaleMessage]);
   return localeUpdateTs ? (
-    <RawIntlProvider value={appLocale.intl}>{children}</RawIntlProvider>
+    <RawIntlProvider value={appLocale.intl}>{children as any}</RawIntlProvider>
   ) : null;
 }

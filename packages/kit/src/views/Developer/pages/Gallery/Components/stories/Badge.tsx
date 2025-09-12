@@ -92,20 +92,24 @@ function SwapProviderItem({
         alignItems="center"
       >
         <Stack>
-          <Image size="$10" borderRadius="$2" delayMs={1000}>
-            <Image.Source
-              source={{
-                uri: providerLogoUri,
-              }}
-            />
-            <Image.Fallback
-              bg="$bgStrong"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Icon name="Image2MountainsSolid" color="$iconSubdued" />
-            </Image.Fallback>
-          </Image>
+          <Image
+            size="$10"
+            borderRadius="$2"
+            source={{ uri: providerLogoUri }}
+            fallback={
+              <Image.Fallback
+                bg="$bgStrong"
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Icon
+                  name="Image2MountainsSolid"
+                  color="$iconSubdued"
+                  size="$10"
+                />
+              </Image.Fallback>
+            }
+          />
           {!approved ? (
             <Stack
               p="$0.5"
@@ -139,6 +143,12 @@ function SwapProviderItem({
             ) : null}
           </XStack>
         ) : null}
+      </XStack>
+      <XStack ai="center" gap="$2">
+        <SizableText size="$headingLg">Holding</SizableText>
+        <Badge badgeType="success" badgeSize="sm">
+          <Badge.Text>赚取收益</Badge.Text>
+        </Badge>
       </XStack>
       <Stack py="$2" px="$3.5">
         <XStack gap="$3.5" alignItems="center">
@@ -276,6 +286,7 @@ function SwapProviderItem({
 
 const BadgeGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Badge"
     elements={[
       {

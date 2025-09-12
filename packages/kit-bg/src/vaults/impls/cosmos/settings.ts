@@ -5,6 +5,7 @@ import {
   IMPL_COSMOS,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
@@ -23,6 +24,7 @@ export type IAccountDeriveTypesCosmos = keyof IAccountDeriveInfoMapCosmos;
 const accountDeriveInfo: IAccountDeriveInfoMapCosmos = {
   default: {
     namePrefix: 'COSMOS',
+    labelKey: ETranslations.bip44__standard,
     template: `m/44'/${COINTYPE_COSMOS}'/0'/0/${INDEX_PLACEHOLDER}`,
     coinType: COINTYPE_COSMOS,
   },
@@ -63,6 +65,8 @@ const settings: IVaultSettings = {
   memoMaxLength: 512,
 
   customRpcEnabled: true,
+
+  skipFixFeeInfoDecimal: true,
 
   accountDeriveInfo,
   networkInfo: {
@@ -115,10 +119,20 @@ const settings: IVaultSettings = {
       curve: 'secp256k1',
       nativeTokenAddress: 'utia',
     },
+    'cosmos--bbn-1': {
+      addressPrefix: 'bbn',
+      curve: 'secp256k1',
+      nativeTokenAddress: 'ubbn',
+    },
     'cosmos--bbn-test-5': {
       addressPrefix: 'bbn',
       curve: 'secp256k1',
       nativeTokenAddress: 'ubbn',
+    },
+    'cosmos--noble-1': {
+      addressPrefix: 'noble',
+      curve: 'secp256k1',
+      nativeTokenAddress: 'uusdc',
     },
   },
 

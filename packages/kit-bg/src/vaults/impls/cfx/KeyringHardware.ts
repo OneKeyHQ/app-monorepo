@@ -12,7 +12,7 @@ import type {
   ISignedTxPro,
   IUnsignedMessageCfx,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -86,6 +86,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -93,7 +94,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -115,7 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { displayAddress } = await this.vault.validateAddress(
             address ?? '',
           );
@@ -124,6 +125,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             path,
             publicKey: '',
             addresses: { [this.networkId]: displayAddress || address || '' },
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -137,7 +139,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   ): Promise<ISignedTxPro> {
     const { unsignedTx, deviceParams } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCfx;
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
@@ -203,7 +207,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice, deviceCommonParams } = deviceParams;
     const { connectId, deviceId } = dbDevice;
 
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId,
+    });
     const path = await this.vault.getAccountPath();
 
     if (
@@ -217,7 +223,7 @@ export class KeyringHardware extends KeyringHardwareBase {
       let messageBuffer: Buffer;
       try {
         if (!hexUtils.isHexString(message.message))
-          throw new Error('not hex string');
+          throw new OneKeyLocalError('not hex string');
 
         messageBuffer = Buffer.from(
           hexUtils.stripHexPrefix(message.message),

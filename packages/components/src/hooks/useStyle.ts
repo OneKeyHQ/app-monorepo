@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { getTokens as coreGetTokens, useTheme } from '@tamagui/core';
 
@@ -7,7 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import type { VariableVal } from '@tamagui/core';
-import type { UseThemeResult } from '@tamagui/web/types/hooks/useTheme';
+import type { UseThemeResult } from '@tamagui/web';
 
 export {
   getTokens,
@@ -66,7 +65,13 @@ let prevOverlayId = 0;
 const createNewZIndex = (id: number) => {
   const index = zIndexStack.findIndex((i) => i.id === id);
   if (index === -1) {
-    zIndexStack.push({ id, zIndex: 1 });
+    zIndexStack.push({
+      id,
+      zIndex:
+        zIndexStack.length === 0
+          ? SHEET_AND_DIALOG_Z_INDEX
+          : zIndexStack[zIndexStack.length - 1].zIndex + 1,
+    });
   }
 };
 const removeZIndexFromStack = (id: number) => {
@@ -88,37 +93,33 @@ const getZIndex = (id: number) => {
     return SHEET_AND_DIALOG_Z_INDEX;
   }
   const index = zIndexStack.findIndex((i) => i.id === id);
-  let zIndex = 0;
-  for (let i = 0; i < index; i += 1) {
-    zIndex += zIndexStack[i].zIndex;
+  if (index === -1) {
+    return SHEET_AND_DIALOG_Z_INDEX;
   }
-  return SHEET_AND_DIALOG_Z_INDEX + zIndex;
+  return zIndexStack[index].zIndex;
 };
 
-export const useOverlayZIndex = (open = false): number => {
+export const useOverlayZIndex = (open = false, debugName?: string): number => {
   const overlayIdRef = useRef(0);
-  const setZIndexRef = useRef<Dispatch<SetStateAction<number>> | undefined>();
-  useEffect(() => {
-    if (overlayIdRef.current && setZIndexRef.current) {
-      if (open) {
-        createNewZIndex(overlayIdRef.current);
-        setZIndexRef.current(getZIndex(overlayIdRef.current));
-      } else {
-        removeZIndexFromStack(overlayIdRef.current);
-      }
-    }
-  }, [open]);
-
-  const [zIndex, setZIndex] = useState(() => {
+  const prevOpenRef = useRef<boolean | undefined>(undefined);
+  useMemo(() => {
     prevOverlayId += 1;
     overlayIdRef.current = prevOverlayId;
     createNewZIndex(overlayIdRef.current);
-    return getZIndex(overlayIdRef.current);
-  });
-
-  useMemo(() => {
-    setZIndexRef.current = setZIndex;
   }, []);
+
+  const zIndex = useMemo(() => {
+    if (prevOpenRef.current !== open) {
+      prevOpenRef.current = open;
+      if (open) {
+        createNewZIndex(overlayIdRef.current);
+        return getZIndex(overlayIdRef.current);
+      }
+      removeZIndexFromStack(overlayIdRef.current);
+      return SHEET_AND_DIALOG_Z_INDEX;
+    }
+    return SHEET_AND_DIALOG_Z_INDEX;
+  }, [open]);
 
   useEffect(
     () => () => {
@@ -127,5 +128,14 @@ export const useOverlayZIndex = (open = false): number => {
     [open],
   );
 
+  if (platformEnv.isDev && debugName) {
+    console.log(
+      `debugName: ${debugName}, id: ${
+        overlayIdRef.current
+      }, zIndex: ${zIndex}, open: ${String(
+        open,
+      )}, zIndexStack: ${JSON.stringify(zIndexStack)}`,
+    );
+  }
   return zIndex;
 };

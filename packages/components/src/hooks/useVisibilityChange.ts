@@ -4,7 +4,7 @@ import { AppState } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export const getCurrentVisibilityState = () => {
+export const getCurrentVisibilityState = (): boolean => {
   if (platformEnv.isNative) {
     // currentState will be null at launch while AppState retrieves it over the bridge.
     // https://reactnative.dev/docs/appstate

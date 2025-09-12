@@ -12,7 +12,10 @@ import {
 import BigNumber from 'bignumber.js';
 import { List, Set } from 'immutable';
 
-import { MinimumTransferBalanceRequiredForSendingAssetError } from '@onekeyhq/shared/src/errors';
+import {
+  MinimumTransferBalanceRequiredForSendingAssetError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { addCellDep } from './script';
@@ -62,7 +65,6 @@ export async function transfer(
   {
     config = undefined,
     requireToAddress = true,
-    splitChangeCell = false,
   }: Options & {
     requireToAddress?: boolean;
     splitChangeCell: false;
@@ -77,13 +79,15 @@ export async function transfer(
 
   const XUDT_SCRIPT = config.SCRIPTS.XUDT;
   if (!XUDT_SCRIPT) {
-    throw new Error('Provided config does not have XUDT script setup!');
+    throw new OneKeyLocalError(
+      'Provided config does not have XUDT script setup!',
+    );
   }
 
   const fromScript = parseAddress(fromAddress, { config });
 
   if (requireToAddress && !toAddress) {
-    throw new Error('You must provide a to address!');
+    throw new OneKeyLocalError('You must provide a to address!');
   }
 
   const toScript = parseAddress(toAddress, { config });
@@ -93,14 +97,14 @@ export async function transfer(
     : fromScript;
 
   if (_amount.lte(0)) {
-    throw new Error('amount must be greater than 0');
+    throw new OneKeyLocalError('amount must be greater than 0');
   }
 
   const xudtType = generateXudtScript(xudtToken, config);
 
   const cellProvider = txSkeleton.get('cellProvider');
   if (!cellProvider) {
-    throw new Error('Cell provider is missing!');
+    throw new OneKeyLocalError('Cell provider is missing!');
   }
 
   // support ANYONE_CAN_PAY address
@@ -313,11 +317,11 @@ export async function transfer(
   );
 
   if (changeCapacity.gte(minimalChangeCellWithoutSudtCapacity)) {
-    const minimalChangeCellCapcaity = BI.from(
+    const minimalChangeCellCapacity = BI.from(
       minimalCellCapacityCompatible(changeCell),
     );
 
-    changeCell.cellOutput.capacity = `0x${minimalChangeCellCapcaity.toString(
+    changeCell.cellOutput.capacity = `0x${minimalChangeCellCapacity.toString(
       16,
     )}`;
     if (changeAmount.gt(0)) {
@@ -350,7 +354,7 @@ export async function transfer(
     changeAmount.gt(0) &&
     changeCapacity.lt(minimalCellCapacityCompatible(changeCell))
   ) {
-    throw new Error('Not enough capacity for change in from infos!');
+    throw new OneKeyLocalError('Not enough capacity for change in from infos!');
   }
 
   return txSkeleton;

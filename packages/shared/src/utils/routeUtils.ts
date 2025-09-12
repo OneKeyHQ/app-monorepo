@@ -1,8 +1,9 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EGalleryRoutes,
+  EModalReferFriendsRoutes,
   EModalRoutes,
-  EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
   ERootRoutes,
@@ -69,7 +70,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
   //           `Duplicate screen name found: "${name}" at paths:`,
   //           existingPaths.join(', '),
   //         );
-  //         throw new Error(
+  //         throw new OneKeyLocalError(
   //           `Duplicate screen name "${name}" found at: ${existingPaths.join(
   //             ', ',
   //           )}`,
@@ -93,7 +94,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       if (platformEnv.isDev) {
         if (!screen) {
           try {
-            throw new Error(`screen ${screenName} not found`);
+            throw new OneKeyLocalError(`screen ${screenName} not found`);
           } catch (error) {
             console.error(error);
           }
@@ -146,6 +147,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ProtocolDetailsV2}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     // Page: /main/tab-Swap/TabSwap
     // Don't worry, the URL here is virtual, actually /swap.
     // it will automatically find the real route according to the route stacks.
@@ -169,19 +175,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showUrl: true,
     //   showParams: true,
     // },
-
-    // Permission WebUSB
-    [pagePath`${ERootRoutes.PermissionWebDevice}`]: {
-      showUrl: true,
-      showParams: true,
-    },
-
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
-      {
-        showUrl: true,
-        showParams: false,
-      },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingProtectModal}`]:
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.ReferFriendsModal}${EModalReferFriendsRoutes.ReferAFriend}`]:
       {
         showUrl: true,
         showParams: false,
@@ -197,6 +191,14 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       },
   } as Record<string, IAllowSettingItem>;
+
+  if (platformEnv.isExtension) {
+    // Permission WebUSB
+    rules[pagePath`${ERootRoutes.PermissionWebDevice}`] = {
+      showUrl: true,
+      showParams: true,
+    };
+  }
 
   if (platformEnv.isDev) {
     Object.values(EGalleryRoutes).forEach((pageName) => {

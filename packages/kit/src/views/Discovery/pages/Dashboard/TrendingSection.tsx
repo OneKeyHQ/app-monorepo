@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';

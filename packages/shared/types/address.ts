@@ -1,3 +1,4 @@
+import type { IBadgeProps, IKeyOfIcons } from '@onekeyhq/components';
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
@@ -17,6 +18,11 @@ export enum EInputAddressChangeType {
 export enum EDeriveAddressActionType {
   Copy = 'copy',
   Select = 'select',
+}
+
+export enum EWalletAddressActionType {
+  Copy = 'copy',
+  ViewInExplorer = 'viewInExplorer',
 }
 
 // TODO dbAddress, baseAddress, displayAddress, utxoAddress, normalizedAddress
@@ -117,7 +123,7 @@ export type IServerAccountBadgeResp = {
   isCex?: boolean;
   isContract?: boolean;
   isScam?: boolean;
-  badges?: { label: string }[];
+  badges?: IAddressBadge[];
   label?: string;
 };
 
@@ -145,6 +151,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
   enableAllowListValidation?: boolean;
+  enableAddressDeriveInfo?: boolean;
   skipValidateAddress?: boolean;
 };
 
@@ -170,3 +177,13 @@ export interface IServerFetchNonceResponse {
   nonce: number | undefined;
   accountNumber?: number;
 }
+
+export type IAddressBadge = {
+  label: string;
+  type: IBadgeProps['badgeType'];
+  tip?: string;
+  icon?: IKeyOfIcons;
+  logoURI?: string;
+};
+
+export type IAddressInfo = IAddressBadge;

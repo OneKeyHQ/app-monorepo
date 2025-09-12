@@ -2,8 +2,6 @@ import { useState } from 'react';
 
 import { Switch as TMSwitch, useTheme } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import type { IFormFieldProps } from '../types';
 import type { GetProps } from 'tamagui';
 
@@ -16,6 +14,7 @@ export type ISwitchProps = IFormFieldProps<
   boolean,
   Omit<GetProps<typeof TMSwitch>, 'checked' | 'onCheckedChange' | 'value'> & {
     size?: 'small' | 'large';
+    thumbProps?: Partial<GetProps<typeof TMSwitch.Thumb>>;
   }
 > & {
   isUncontrolled?: boolean;
@@ -28,6 +27,7 @@ export function Switch({
   size = 'large',
   disabled,
   isUncontrolled,
+  thumbProps,
   ...restProps
 }: ISwitchProps) {
   const theme = useTheme();
@@ -76,10 +76,8 @@ export function Switch({
         h={size === 'small' ? '$5' : '$7'}
         borderRadius="$full"
         bg="$bg"
-        // Native platforms use quicker animations due to different user experience expectations.
-        // Please don't set the animation too fast.
-        // ref: https://github.com/tamagui/tamagui/commit/0586079faec69d044a5b1d45f84ae9f2e4e6e463
-        animation={platformEnv.isNative ? 'quick' : 'medium'}
+        animation="switch"
+        {...thumbProps}
       />
     </TMSwitch>
   );

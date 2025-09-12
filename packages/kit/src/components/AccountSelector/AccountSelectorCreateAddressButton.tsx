@@ -20,9 +20,11 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../hooks/useAllNetwork';
 
 import { useAccountSelectorCreateAddress } from './hooks/useAccountSelectorCreateAddress';
 
@@ -36,6 +38,7 @@ export function AccountSelectorCreateAddressButton({
   onCreateDone,
   onPressLog,
   createAllDeriveTypes,
+  createAllEnabledNetworks,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -45,7 +48,7 @@ export function AccountSelectorCreateAddressButton({
     walletId: IDBWalletId | undefined;
     networkId: string | undefined;
     indexedAccountId: string | undefined;
-    deriveType: IAccountDeriveTypes;
+    deriveType: IAccountDeriveTypes | undefined;
   };
   buttonRender?: (props: IButtonProps) => React.ReactNode;
   onCreateDone?: (
@@ -59,6 +62,7 @@ export function AccountSelectorCreateAddressButton({
   ) => void;
   onPressLog?: () => void;
   createAllDeriveTypes?: boolean;
+  createAllEnabledNetworks?: boolean;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -77,6 +81,13 @@ export function AccountSelectorCreateAddressButton({
   accountRef.current = account;
 
   const { createAddress } = useAccountSelectorCreateAddress();
+  const { enabledNetworksWithoutAccount } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: walletId ?? '',
+      networkId,
+      indexedAccountId,
+      filterNetworksWithoutAccount: true,
+    });
   const manualCreatingKey = useMemo(
     () =>
       networkId && walletId && (deriveType || indexedAccountId)
@@ -135,13 +146,21 @@ export function AccountSelectorCreateAddressButton({
     if (isLoadingRef.current) {
       return;
     }
+    if (!accountRef.current?.deriveType) {
+      return;
+    }
+    const deriveType0 = accountRef.current.deriveType;
     isLoadingRef.current = true;
     setAccountManualCreatingAtom((prev) => ({
       ...prev,
       key: manualCreatingKey,
       isLoading: true,
     }));
-    setAccountIsAutoCreating(accountRef.current);
+    const accountToCreate = {
+      ...accountRef.current,
+      deriveType: deriveType0,
+    };
+    setAccountIsAutoCreating(accountToCreate);
     let resp:
       | {
           walletId: string | undefined;
@@ -150,17 +169,41 @@ export function AccountSelectorCreateAddressButton({
         }
       | undefined;
     try {
-      if (process.env.NODE_ENV !== 'production' && account?.walletId) {
+      if (process.env.NODE_ENV !== 'production' && accountToCreate.walletId) {
         const wallet = await serviceAccount.getWallet({
-          walletId: account?.walletId,
+          walletId: accountToCreate.walletId,
         });
         console.log({ wallet });
       }
+
+      const customNetworks: {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[] = [];
+
+      if (
+        createAllEnabledNetworks &&
+        networkUtils.isAllNetwork({ networkId })
+      ) {
+        for (const network of enabledNetworksWithoutAccount) {
+          customNetworks.push({
+            networkId: network.id,
+            deriveType:
+              await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                {
+                  networkId: network.id,
+                },
+              ),
+          });
+        }
+      }
+
       resp = await createAddress({
         num,
         selectAfterCreate,
-        account,
+        account: accountToCreate,
         createAllDeriveTypes,
+        customNetworks,
       });
       defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);
@@ -177,12 +220,14 @@ export function AccountSelectorCreateAddressButton({
     setAccountManualCreatingAtom,
     setAccountIsAutoCreating,
     manualCreatingKey,
-    account,
+    createAllEnabledNetworks,
+    networkId,
     createAddress,
     num,
     selectAfterCreate,
     createAllDeriveTypes,
     serviceAccount,
+    enabledNetworksWithoutAccount,
     onCreateDone,
   ]);
 
@@ -191,7 +236,7 @@ export function AccountSelectorCreateAddressButton({
       isFocused: boolean;
       walletId: string | undefined;
       networkId: string | undefined;
-      deriveType: IAccountDeriveTypes;
+      deriveType: IAccountDeriveTypes | undefined;
       autoCreateAddress: boolean | undefined;
     }) => {
       if (

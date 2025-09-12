@@ -13,6 +13,7 @@ module.exports = function (api) {
             native: {
               unstable_transformProfile: 'hermes-stable',
             },
+            unstable_transformImportMeta: true,
           },
         ],
       ],

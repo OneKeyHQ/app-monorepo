@@ -1,24 +1,19 @@
-import type { ComponentProps } from 'react';
+import { type ComponentProps } from 'react';
 
-import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 export function PrimeUserInfo({
-  doPurchase,
   onLogoutSuccess,
   ...stackProps
 }: {
-  doPurchase?: () => Promise<void>;
   onLogoutSuccess?: () => Promise<void>;
 } & ComponentProps<typeof XStack>) {
-  const intl = useIntl();
   const { user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
 
@@ -48,23 +43,21 @@ export function PrimeUserInfo({
         ellipsizeMode="middle"
         ellipse
       >
-        {user?.email}
+        {user?.displayEmail}
       </SizableText>
-      {isPrime ? (
-        <Badge bg="$brand3" badgeSize="sm">
-          <Badge.Text color="$brand11">Prime</Badge.Text>
-        </Badge>
-      ) : (
-        <Badge badgeType="default" badgeSize="sm">
-          {intl.formatMessage({
-            id: ETranslations.prime_status_free,
-          })}
-        </Badge>
-      )}
-      <PrimeUserInfoMoreButton
-        doPurchase={doPurchase}
-        onLogoutSuccess={onLogoutSuccess}
-      />
+      {
+        isPrime ? (
+          <Badge bg="$brand3" badgeSize="sm">
+            <Badge.Text color="$brand11">Prime</Badge.Text>
+          </Badge>
+        ) : null
+        // <Badge badgeType="default" badgeSize="sm">
+        //   {intl.formatMessage({
+        //     id: ETranslations.prime_status_free,
+        //   })}
+        // </Badge>
+      }
+      <PrimeUserInfoMoreButton onLogoutSuccess={onLogoutSuccess} />
     </XStack>
   );
 }

@@ -52,7 +52,13 @@ export function TrendingSectionItems({
   }, [media.gtXl, media.gt2Md, media.gtSm, media]);
 
   return (
-    <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
+    <YStack
+      flexDirection="row"
+      flexWrap="wrap"
+      rowGap="$2"
+      py="$2"
+      {...restProps}
+    >
       {innerDataSource.slice(0, numberOfItems).map((dApp, index) => (
         <YStack
           key={dApp.dappId || index}

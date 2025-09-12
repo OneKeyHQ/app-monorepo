@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,19 +14,28 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { buildAddressMapInfoKey } from '@onekeyhq/shared/src/utils/historyUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
+import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { useAddressesInfoAtom } from '../../states/jotai/contexts/historyList';
 import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import { NetworkAvatar } from '../NetworkAvatar';
 import { Token } from '../Token';
+import TxHistoryAddressInfo from '../TxHistoryListView/TxHistoryAddressInfo';
 
 import type {
   ITxActionCommonDetailViewProps,
@@ -151,8 +162,60 @@ function TxActionCommonTitle({
 }
 
 function TxActionCommonDescription({
+  networkId,
   description,
-}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'>) {
+}: Pick<ITxActionCommonListViewProps, 'description' | 'tableLayout'> & {
+  networkId: string;
+}) {
+  const [addressesInfo] = useAddressesInfoAtom();
+
+  const { result: addressLocalLabel, run } = usePromiseResult(async () => {
+    if (!description?.originalAddress) {
+      return null;
+    }
+
+    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      networkId,
+      address: description?.originalAddress,
+      enableAddressBook: true,
+      enableWalletName: true,
+      skipValidateAddress: true,
+    });
+
+    return result.addressBookName || result.walletAccountName;
+  }, [description?.originalAddress, networkId]);
+
+  useEffect(() => {
+    const refresh = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+      await run({ alwaysSetState: true });
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, refresh);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, refresh);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, refresh);
+    };
+  }, [run]);
+
+  if (description?.originalAddress) {
+    const addressInfoKey = buildAddressMapInfoKey({
+      networkId,
+      address: description?.originalAddress,
+    });
+    if (addressesInfo[addressInfoKey]) {
+      return (
+        <TxHistoryAddressInfo
+          address={description.originalAddress}
+          badge={addressesInfo[addressInfoKey]}
+        />
+      );
+    }
+  }
+
   return (
     <XStack alignItems="center" flex={1}>
       {description?.prefix ? (
@@ -168,8 +231,13 @@ function TxActionCommonDescription({
           name={description.icon}
         />
       ) : null}
-      <SizableText size="$bodyMd" color="$textSubdued" minWidth={0}>
-        {description?.children}
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        minWidth={0}
+        numberOfLines={addressLocalLabel ? 1 : undefined}
+      >
+        {addressLocalLabel || description?.children}
       </SizableText>
     </XStack>
   );
@@ -212,13 +280,22 @@ function TxActionCommonFee({
   feeFiatValue,
   feeSymbol,
   currencySymbol,
-}: Pick<ITxActionCommonListViewProps, 'fee' | 'feeFiatValue' | 'feeSymbol'> & {
+  tableLayout,
+  hideFeeInfo,
+}: Pick<
+  ITxActionCommonListViewProps,
+  'fee' | 'feeFiatValue' | 'feeSymbol' | 'tableLayout' | 'hideFeeInfo'
+> & {
   currencySymbol: string;
 }) {
   const intl = useIntl();
 
+  if (!tableLayout) {
+    return null;
+  }
+
   return (
-    <Stack flexGrow={1} flexBasis={0}>
+    <Stack flexGrow={1} flexBasis={0} opacity={hideFeeInfo ? 0 : 1}>
       <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.swap_history_detail_network_fee,
@@ -325,6 +402,7 @@ function TxActionCommonListView(
                 </>
               ) : null}
               <TxActionCommonDescription
+                networkId={networkId}
                 description={description}
                 tableLayout={tableLayout}
               />
@@ -355,14 +433,14 @@ function TxActionCommonListView(
           )}
         </Stack>
         {/* fees */}
-        {tableLayout && !hideFeeInfo ? (
-          <TxActionCommonFee
-            fee={fee}
-            feeFiatValue={feeFiatValue}
-            feeSymbol={feeSymbol}
-            currencySymbol={currencySymbol}
-          />
-        ) : null}
+        <TxActionCommonFee
+          tableLayout={tableLayout}
+          hideFeeInfo={hideFeeInfo}
+          fee={fee}
+          feeFiatValue={feeFiatValue}
+          feeSymbol={feeSymbol}
+          currencySymbol={currencySymbol}
+        />
       </XStack>
     </ListItem>
   );

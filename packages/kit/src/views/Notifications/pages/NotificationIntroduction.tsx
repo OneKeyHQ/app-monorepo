@@ -10,7 +10,6 @@ import { ENotificationPermission } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import EnablePushNotificationsTutorial from '../components/EnablePushNotificationsTutorial';
 import NotificationIntroIllustration from '../components/NotificationIntroIllustration';
 
@@ -18,7 +17,6 @@ function NotificationIntroduction() {
   const intl = useIntl();
   const [confirmLoading, setConfirmLoading] = useState(false);
   const isEnablePermissionCalled = useRef(false);
-  const isFocused = useRouteIsFocused();
   const navigation = useAppNavigation();
 
   const canAutoCloseWhenGranted = useMemo(() => {

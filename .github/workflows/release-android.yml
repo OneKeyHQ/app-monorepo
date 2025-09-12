@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows:
       - daily-build
+      - daily-build-dev
     types:
       - completed
   workflow_dispatch:
@@ -18,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -33,12 +38,19 @@ jobs:
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
+          sentry_dsn_web: ${{ secrets.SENTRY_DSN_WEB }}
+          sentry_dsn_desktop: ${{ secrets.SENTRY_DSN_DESKTOP }}
+          sentry_dsn_mas: ${{ secrets.SENTRY_DSN_MAS }}
+          sentry_dsn_snap: ${{ secrets.SENTRY_DSN_SNAP }}
+          sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
+          sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
-          registry-url: 'https://npm.pkg.github.com'
+          registry-url: 'https://registry.npmjs.org'
           always-auth: true
           scope: '@onekeyhq'
 
@@ -48,8 +60,8 @@ jobs:
           rm -rf apps/mobile/android/app/google-services.json
           echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > apps/mobile/android/app/google-services.json
 
-      - name: Setup Expo
-        uses: OneKeyHQ/actions/expo-server@main
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
@@ -78,31 +90,22 @@ jobs:
         run: |
           yarn
 
-      - name: Build WebEmbed
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
-        run: |
-          yarn app:web-embed:build
-
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
         run: |
           cd apps/mobile
-          eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
-          eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large --auto-submit
-          # eas build --profile=production-huawei --platform android --non-interactive --no-wait --resource-class large
+
+          # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
+          if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
+            eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
+          else
+            eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
+            eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large --auto-submit
+            # eas build --profile=production-huawei --platform android --non-interactive --no-wait --resource-class large
+          fi
 
       - name: Build on EAS
         if: ${{ !github.event.workflow_run }}
         run: |
           cd apps/mobile
           eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
-
-      - name: Upload WebEmbed Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: upload-web-embed-artifacts
-          path: |
-            ./apps/web-embed/web-build
-          if-no-files-found: error

@@ -1,6 +1,9 @@
 import type { CompositionEvent } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Input } from '../../forms/Input';
@@ -14,19 +17,26 @@ export type ISearchBarProps = IInputProps & {
 const NATIVE_COMPOSITION_SPACE = String.fromCharCode(8198);
 
 export function SearchBar({
-  value: defaultValue,
+  value: controlledValue,
   onChangeText,
   onSearchTextChange,
   testID,
+  containerProps,
   ...rest
 }: ISearchBarProps) {
-  const [value, setValue] = useState(defaultValue ?? '');
+  const [internalValue, setInternalValue] = useState('');
   const compositionLockRef = useRef(false);
   const searchTextRef = useRef('');
 
+  // Use controlled value if provided, otherwise use internal state
+  const value = controlledValue !== undefined ? controlledValue : internalValue;
+
   const handleChange = useCallback(
     (text: string) => {
-      setValue(text);
+      // Only update internal state if not controlled
+      if (controlledValue === undefined) {
+        setInternalValue(text);
+      }
       onChangeText?.(text);
       // This is a simple solution to support pinyin composition on iOS.
       if (platformEnv.isNative) {
@@ -51,7 +61,7 @@ export function SearchBar({
         onSearchTextChange?.(text);
       }
     },
-    [onChangeText, onSearchTextChange],
+    [controlledValue, onChangeText, onSearchTextChange],
   );
 
   const handleClearValue = useCallback(() => {
@@ -69,26 +79,39 @@ export function SearchBar({
     },
     [handleChange],
   );
+  const intl = useIntl();
   return (
     <Input
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
-      {...(value?.length && {
-        addOns: [
-          {
-            iconName: 'XCircleOutline',
-            onPress: handleClearValue,
-            testID: `${testID || ''}-clear`,
-          },
-        ],
-      })}
       returnKeyType="search"
       returnKeyLabel="Search"
       testID={testID ? `nav-header-search-${testID}` : 'nav-header-search'}
+      placeholder={intl.formatMessage({
+        id: ETranslations.global_search,
+      })}
       {...rest}
+      {...(value?.length &&
+        !rest.addOns?.length && {
+          addOns: [
+            {
+              iconName: 'XCircleOutline',
+              onPress: handleClearValue,
+              testID: `${testID || ''}-clear`,
+            },
+          ],
+        })}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
+      containerProps={{
+        w: '100%',
+        borderRadius: '$full',
+        bg: '$bgStrong',
+        borderColor: '$transparent',
+        overflow: 'hidden',
+        ...containerProps,
+      }}
     />
   );
 }

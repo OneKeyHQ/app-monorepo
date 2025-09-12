@@ -1,6 +1,5 @@
 import type { IKaspaUnspentOutputInfo } from './sdkKaspa';
 import type { PrivateKey, PublicKey } from '@onekeyfe/kaspa-core-lib';
-import type { ScriptBuilder } from '@onekeyfe/kaspa-wasm';
 
 export type IEncodedTxKaspa = {
   utxoIds: string[];

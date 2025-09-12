@@ -4,12 +4,16 @@ import { random, range } from 'lodash';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
-  backgroundMethod,
+  backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
-import { MinimumTransferBalanceRequiredError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  MinimumTransferBalanceRequiredError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import {
   DeviceNotFound,
   NeedOneKeyBridge,
@@ -47,7 +51,7 @@ class ServiceDemo extends ServiceBase {
 
   // ---------------------------------------------- demo
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoJotaiGetSettings() {
     const settings = await settingsPersistAtom.get();
 
@@ -56,7 +60,7 @@ class ServiceDemo extends ServiceBase {
     };
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoJotaiUpdateSettings() {
     const settings = await settingsPersistAtom.set((v) => ({
       ...v,
@@ -68,7 +72,7 @@ class ServiceDemo extends ServiceBase {
     };
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoGetAllRecords() {
     const { records } = await localDb.getAllRecords({
       name: ELocalDBStoreNames.Credential,
@@ -78,7 +82,7 @@ class ServiceDemo extends ServiceBase {
     return records;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoGetDbContextWithoutTx() {
     const ctx = await localDb.getRecordById({
       name: ELocalDBStoreNames.Context,
@@ -89,13 +93,13 @@ class ServiceDemo extends ServiceBase {
     return ctx;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoGetDbContext() {
     const c = await localDb.demoGetDbContext();
     return c;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoGetDbContextCount() {
     const c = await localDb.getRecordsCount({
       name: ELocalDBStoreNames.Context,
@@ -103,7 +107,7 @@ class ServiceDemo extends ServiceBase {
     return c;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoGetDbAccountsCount() {
     const c = await localDb.getRecordsCount({
       name: ELocalDBStoreNames.Account,
@@ -111,7 +115,7 @@ class ServiceDemo extends ServiceBase {
     return c;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoGetDbWalletsCount() {
     const c = await localDb.getRecordsCount({
       name: ELocalDBStoreNames.Wallet,
@@ -119,37 +123,44 @@ class ServiceDemo extends ServiceBase {
     return c;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoDbUpdateUUID() {
     const c = await localDb.demoDbUpdateUUID();
     return c;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoDbUpdateUUIDFixed() {
     const ctx = await localDb.demoDbUpdateUUIDFixed();
     return ctx;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoAddRecord1() {
     const ctx = await localDb.demoAddRecord1();
     return ctx;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoRemoveRecord1() {
     const ctx = await localDb.demoRemoveRecord1();
     return ctx;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoUpdateCredentialRecord() {
     const ctx = await localDb.demoUpdateCredentialRecord();
     return ctx;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
+  @toastIfError()
+  async demoTestTransactionAutoCommit() {
+    const ctx = await localDb.demoTestTransactionAutoCommit();
+    return ctx;
+  }
+
+  @backgroundMethodForDev()
   async demoError(): Promise<string> {
     await timerUtils.wait(600);
     throw new MinimumTransferBalanceRequiredError({
@@ -161,18 +172,18 @@ class ServiceDemo extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoError2() {
-    throw new Error('hello world: no error toast');
+    throw new OneKeyLocalError('hello world: no error toast');
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
   async demoError3() {
-    throw new Error('hello world: error toast: 3');
+    throw new OneKeyLocalError('hello world: error toast: 3');
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
   async demoError4() {
     return this.demoError4a();
@@ -185,25 +196,32 @@ class ServiceDemo extends ServiceBase {
 
   @toastIfError()
   async demoError4b() {
-    throw new Error('hello world: error toast: 4b');
+    throw new OneKeyLocalError('hello world: error toast: 4b');
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoError5(): Promise<string> {
     await timerUtils.wait(600);
     throw new DeviceNotFound();
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
   async demoErrorWithUrl(): Promise<string> {
     await timerUtils.wait(600);
     throw new NeedOneKeyBridge();
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
-  public async demoSend({
+  async demoError6(): Promise<string> {
+    await timerUtils.wait(600);
+    throw new IncorrectPassword();
+  }
+
+  @backgroundMethodForDev()
+  @toastIfError()
+  async demoSend({
     networkId,
     accountId,
   }: {
@@ -296,8 +314,8 @@ class ServiceDemo extends ServiceBase {
     return Promise.resolve('hello world');
   }
 
-  @backgroundMethod()
-  public async demoBuildDecodedTx(): Promise<IDecodedTx> {
+  @backgroundMethodForDev()
+  async demoBuildDecodedTx(): Promise<IDecodedTx> {
     const networkId = 'evm--1';
     const accountId = "hd-1--m/44'/60'/0'/0/0";
     return Promise.resolve({
@@ -341,8 +359,8 @@ class ServiceDemo extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
-  async testEvmSendTxSign({
+  @backgroundMethodForDev()
+  async demoEvmSendTxSign({
     networkId,
     accountId,
     encodedTx,
@@ -362,8 +380,8 @@ class ServiceDemo extends ServiceBase {
     return result;
   }
 
-  @backgroundMethod()
-  async testEvmPersonalSign({
+  @backgroundMethodForDev()
+  async demoEvmPersonalSign({
     networkId,
     accountId,
   }: {
@@ -419,9 +437,9 @@ class ServiceDemo extends ServiceBase {
     };
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
-  async testExternalAccountPersonalSign({
+  async demoExternalAccountPersonalSign({
     networkId,
     accountId,
   }: {
@@ -487,18 +505,22 @@ class ServiceDemo extends ServiceBase {
         account,
       },
     );
-    const result = await provider.request(payload, wcChain);
+    const result = await provider.request({
+      args: payload,
+      wcChain,
+      account,
+    });
     console.log('testExternalAccountPersonalSign RESULT: ', payload, result);
 
     return result as string;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async clearQrWalletAirGapAccountKeys({ walletId }: { walletId: string }) {
     await localDb.clearQrWalletAirGapAccountKeys({ walletId });
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async addMultipleWatchingAccounts() {
     const { serviceAccount } = this.backgroundApi;
     const now = Date.now();
@@ -530,7 +552,7 @@ class ServiceDemo extends ServiceBase {
     return Date.now() - now;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
   async demoHwGetBtcPublicKeysByLoop({
     connectId,
@@ -541,11 +563,13 @@ class ServiceDemo extends ServiceBase {
   }) {
     defaultLogger.app.perf.resetTimestamp();
     if (!connectId || !deviceId) {
-      throw new Error('connectId or deviceId is undefined');
+      throw new OneKeyLocalError('connectId or deviceId is undefined');
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
-    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance();
+    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+    });
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'btc1' });
@@ -640,7 +664,7 @@ class ServiceDemo extends ServiceBase {
     return { response1, response2, response3, response4, response5 };
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   @toastIfError()
   async demoHwGetAllNetworkAddresses({
     connectId,
@@ -651,11 +675,13 @@ class ServiceDemo extends ServiceBase {
   }) {
     defaultLogger.app.perf.resetTimestamp();
     if (!connectId || !deviceId) {
-      throw new Error('connectId or deviceId is undefined');
+      throw new OneKeyLocalError('connectId or deviceId is undefined');
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
-    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance();
+    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+    });
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'demoHwGetAllNetworkAddresses' });
@@ -805,7 +831,7 @@ class ServiceDemo extends ServiceBase {
     return response;
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoAddDappConnectedHistoryRecords(count = 10_000) {
     await Promise.all(
       range(0, count).map(async (i) => {
@@ -819,13 +845,13 @@ class ServiceDemo extends ServiceBase {
     return 'Done';
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoRemoveAllConnectedHistoryRecords() {
     await localDb.removeAllConnectedSite();
     return 'Done';
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoAddBrowserHistoryRecords(count = 10_000) {
     await this.backgroundApi.simpleDb.browserHistory.setRawData((data) => ({
       data: [
@@ -841,7 +867,7 @@ class ServiceDemo extends ServiceBase {
     return 'Done';
   }
 
-  @backgroundMethod()
+  @backgroundMethodForDev()
   async demoRemoveAllBrowserHistoryRecords() {
     await this.backgroundApi.simpleDb.browserHistory.setRawData({ data: [] });
     return 'Done';

@@ -1,5 +1,6 @@
 import { isNumber } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { V4LocalDbAgentBase } from '../V4LocalDbAgentBase';
@@ -198,7 +199,7 @@ export class V4RealmDBAgent
     // @ts-ignore
     const record = obj?.record;
     if (!record) {
-      throw new Error(`record not found: ${name} ${id}`);
+      throw new OneKeyLocalError(`record not found: ${name} ${id}`);
     }
     // eslint-disable-next-line
     return [record as any, obj];
@@ -230,7 +231,9 @@ export class V4RealmDBAgent
       const recordKeys = Object.keys(record || {});
       recordKeys.forEach((key) => {
         if (!propertiesKeys.includes(key)) {
-          throw new Error(`Realm schema properties missing: ${name} ${key}`);
+          throw new OneKeyLocalError(
+            `Realm schema properties missing: ${name} ${key}`,
+          );
         }
       });
     }

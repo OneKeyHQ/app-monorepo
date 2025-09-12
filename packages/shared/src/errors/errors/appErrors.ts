@@ -41,8 +41,67 @@ export class IncorrectPassword extends OneKeyAppError {
       }),
     );
   }
+
+  override className = EOneKeyErrorClassNames.IncorrectPassword;
 }
 
+export class IncorrectMasterPassword extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyError: IncorrectMasterPassword',
+        defaultKey: ETranslations.prime_incorrect_password,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.IncorrectMasterPassword;
+}
+
+export class LocalDBRecordNotFoundError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'LocalDBRecordNotFoundError',
+        // defaultKey: ETranslations.local_db_record_not_found,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
+}
+
+export class TransferInvalidCodeError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'TransferInvalidCodeError',
+        defaultKey: ETranslations.transfer_invalid_code,
+      }),
+    );
+  }
+}
+
+export class RequestLimitExceededError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RequestLimitExceededError',
+        defaultKey: ETranslations.global_request_limit,
+      }),
+    );
+  }
+}
+
+export class SystemDiskFullError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'System Disk is full',
+      }),
+    );
+  }
+}
 export class NotImplemented extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -102,6 +161,19 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyAppError {
   override autoToast?: boolean | undefined = true;
 }
 
+export class OneKeyErrorAirGapDeviceMismatch extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorAirGapDeviceMismatch',
+        defaultKey: ETranslations.hardware_not_same,
+      }),
+    );
+  }
+
+  override autoToast?: boolean | undefined = true;
+}
+
 export class OneKeyErrorAirGapInvalidQrCode extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -132,11 +204,26 @@ export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Prime login invalid, please login again',
+        defaultMessage: 'OneKeyID login invalid, please login again',
+        defaultAutoToast: true,
+        defaultKey: ETranslations.id_login_expired_description,
+      }),
+    );
+  }
+}
+
+export class OneKeyErrorPrimeMasterPasswordInvalid extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime master password invalid',
         defaultAutoToast: true,
       }),
     );
   }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorPrimeMasterPasswordInvalid;
 }
 
 export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyAppError {
@@ -144,6 +231,18 @@ export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyAppError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'Prime exceed device limit',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class OneKeyErrorPrimePaidMembershipRequired extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        // Prime subscription is not active
+        defaultMessage: 'Prime Paid membership required',
         defaultAutoToast: true,
       }),
     );
@@ -555,7 +654,7 @@ export class WatchedAccountTradeError extends OneKeyAppError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WatchedAccountTradeError',
-        defaultKey: ETranslations.wallet_error_trade_with_watched_acocunt,
+        defaultKey: ETranslations.wallet_error_trade_with_watched_account,
       }),
     );
   }
@@ -614,7 +713,7 @@ export class TooManyWatchingAccounts extends NumberLimit {
 export class TooManyExternalAccounts extends NumberLimit {
   constructor(
     limit: number,
-    key: ETranslations = ETranslations.wallet_engine_ttoo_many_external_accounts,
+    key: ETranslations = ETranslations.wallet_engine_too_many_external_accounts,
   ) {
     super({ limit, key, defaultMessage: 'TooManyExternalAccounts' });
   }
@@ -842,7 +941,7 @@ export class MinimumTransferBalanceRequiredError extends OneKeyAppError<IMinimum
       normalizeErrorProps(props, {
         defaultMessage: 'MinimumTransferBalanceRequiredError',
         defaultKey:
-          ETranslations.send_the_minimum_value_for_transffering_to_a_new_account_is_str_str,
+          ETranslations.send_the_minimum_value_for_transferring_to_a_new_account_is_str_str,
       }),
     );
   }

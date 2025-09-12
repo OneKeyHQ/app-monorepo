@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import * as path from 'path';
 import { format as formatUrl } from 'url';
 
+import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
 import {
   attachTitlebarToWindow,
   setupTitlebar,
@@ -11,45 +12,39 @@ import {
   BrowserWindow,
   Menu,
   app,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  inAppPurchase,
   ipcMain,
   nativeTheme,
   powerMonitor,
   session,
   shell,
-  systemPreferences,
 } from 'electron';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
+import { getTemplatePhishingUrls } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiWebview';
+import desktopApi from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApi';
 import {
   ONEKEY_APP_DEEP_LINK_NAME,
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
   IDesktopSubModuleInitParams,
-  IMediaType,
 } from '@onekeyhq/shared/types/desktop';
 
-import appDevOnlyApi from './appDevOnlyApi';
-import appNotification from './appNotification';
-import appPermission from './appPermission';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
-import { parseContentPList } from './libs/utils';
-import initProcess, { restartBridge } from './process';
+import initProcess from './process';
 import { resourcesPath, staticPath } from './resoucePath';
 import { initSentry } from './sentry';
-import {
-  checkAvailabilityAsync,
-  checkBiometricAuthChanged,
-  requestVerificationAsync,
-  startServices,
-} from './service';
+import { startServices } from './service';
 
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
@@ -59,12 +54,16 @@ initSentry();
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
+// WARNING: This name cannot be changed as it affects Electron data storage.
+// Changing it will cause the system to generate new storage, preventing users from accessing their existing data.
 const APP_NAME = 'OneKey Wallet';
+const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
+// const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
 const sdkConnectSrc = isDev
   ? `file://${path.join(staticPath, 'js-sdk/')}`
@@ -102,7 +101,7 @@ function showMainWindow() {
 const initMenu = () => {
   const template = [
     {
-      label: app.name,
+      label: APP_TITLE_NAME,
       submenu: [
         {
           role: isMac ? 'about' : undefined,
@@ -202,8 +201,14 @@ const initMenu = () => {
               { role: 'reload' },
               { role: 'forceReload' },
               { role: 'toggleDevTools' },
+              isDev
+                ? {
+                    role: 'toggleDevTools',
+                    label: `Toggle DevTools: ${store.getDevTools().toString()}`,
+                  }
+                : null,
               { type: 'separator' },
-            ]
+            ].filter(Boolean)
           : []),
         {
           role: 'resetZoom',
@@ -315,6 +320,21 @@ const refreshMenu = () => {
   }, 50);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function quitOrMinimizeApp() {
+  // On OS X it is common for applications and their menu bar
+  // to stay active until the user quits explicitly with Cmd + Q
+  if (isMac) {
+    // **** renderer app will reload after minimize, and keytar not working.
+    const safelyMainWindow = getSafelyMainWindow();
+    safelyMainWindow?.hide();
+    // ****
+    // app.quit();
+  } else {
+    app.quit();
+  }
+}
+
 const emitter = new EventEmitter();
 let isAppReady = false;
 function handleDeepLinkUrl(
@@ -414,7 +434,7 @@ function createMainWindow() {
   }
   const browserWindow = new BrowserWindow({
     show: false,
-    title: APP_NAME,
+    title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
     trafficLightPosition: { x: 20, y: 18 },
@@ -456,6 +476,16 @@ function createMainWindow() {
       return browserWindow;
     }
     return undefined;
+  };
+
+  globalThis.$desktopMainAppFunctions = {
+    getSafelyMainWindow,
+    getSafelyBrowserWindow,
+    getBackgroundColor,
+    quitOrMinimizeApp,
+    showMainWindow,
+    refreshMenu,
+    getAppName: () => APP_NAME,
   };
 
   if (isMac) {
@@ -542,127 +572,14 @@ function createMainWindow() {
     app.exit(0);
     disposeContextMenu?.();
   });
-  ipcMain.on(ipcMessageKeys.APP_FOCUS, () => {
-    showMainWindow();
-  });
-  ipcMain.on(ipcMessageKeys.APP_VERSION, (event) => {
-    event.returnValue = app.getVersion();
-  });
-  ipcMain.on(ipcMessageKeys.APP_QUIT, () => {
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    quitOrMinimizeApp();
-  });
-  ipcMain.on(ipcMessageKeys.APP_RELOAD, () => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    safelyBrowserWindow?.reload();
-  });
-
-  ipcMain.on(
-    ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
-    (
-      event,
-      params: {
-        disableAllShortcuts: boolean;
-      },
-    ) => {
-      store.setDisableKeyboardShortcuts(params);
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS,
-    (event, prefType: IMediaType) => {
-      const result = systemPreferences?.getMediaAccessStatus?.(prefType);
-      event.returnValue = result;
-    },
-  );
 
   const subModuleInitParams: IDesktopSubModuleInitParams = {
     APP_NAME,
     getSafelyMainWindow,
   };
-  appNotification.init(subModuleInitParams);
-  appPermission.init(subModuleInitParams);
-  appDevOnlyApi.init(subModuleInitParams);
-
-  ipcMain.on(ipcMessageKeys.APP_TOGGLE_MAXIMIZE_WINDOW, () => {
-    const safelyBrowserWindow = getSafelyBrowserWindow();
-    if (safelyBrowserWindow?.isMaximized()) {
-      // Restore the original window size
-      safelyBrowserWindow?.unmaximize();
-    } else {
-      // Maximized window
-      safelyBrowserWindow?.maximize();
-    }
-  });
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
-  });
-
-  ipcMain.on(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED, async (event) => {
-    if (!isMac) {
-      event.returnValue = false;
-      return;
-    }
-    try {
-      const result = await checkBiometricAuthChanged();
-      event.returnValue = result;
-    } catch (error) {
-      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
-      event.returnValue = false;
-    }
-  });
-
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
-    if (isWin) {
-      logger.info('[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync');
-      try {
-        const result = await checkAvailabilityAsync();
-        event.returnValue = result;
-      } catch (error) {
-        logger.info(
-          '[TOUCH_ID_CAN_PROMPT] Windows checkAvailabilityAsync',
-          error,
-        );
-        event.returnValue = false;
-      }
-      return;
-    }
-    const result = systemPreferences?.canPromptTouchID?.();
-    event.returnValue = !!result;
-  });
-
-  ipcMain.on(ipcMessageKeys.APP_GET_ENV_PATH, (event) => {
-    const home: string = app.getPath('home');
-    const appData: string = app.getPath('appData');
-    const userData: string = app.getPath('userData');
-    const sessionData: string = app.getPath('sessionData');
-    const exe: string = app.getPath('exe');
-    const temp: string = app.getPath('temp');
-    const module: string = app.getPath('module');
-    const desktop: string = app.getPath('desktop');
-    const appPath: string = app.getAppPath();
-    event.returnValue = {
-      userData,
-      appPath,
-      home,
-      appData,
-      sessionData,
-      exe,
-      temp,
-      module,
-      desktop,
-    };
-  });
-
-  ipcMain.on(ipcMessageKeys.APP_GET_BUNDLE_INFO, (event) => {
-    event.returnValue = parseContentPList();
-  });
-
-  ipcMain.on(ipcMessageKeys.APP_CHANGE_DEV_TOOLS_STATUS, (event, isOpen) => {
-    store.setDevTools(isOpen);
-    refreshMenu();
   });
 
   ipcMain.on(ipcMessageKeys.THEME_UPDATE, (event, themeKey: string) => {
@@ -676,113 +593,15 @@ function createMainWindow() {
     event.returnValue = safelyBrowserWindow?.isFocused();
   });
 
-  ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
-    if (isWin) {
-      logger.info(
-        '[TOUCH_ID_PROMPT] Windows requestVerificationAsync',
-        isAppReady,
-      );
-      try {
-        const { success, error } = await requestVerificationAsync(msg);
-        event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success });
-        if (error) {
-          logger.info(
-            '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
-            error,
-          );
-        }
-      } catch (e: any) {
-        logger.info(
-          '[TOUCH_ID_PROMPT] Windows requestVerificationAsync error',
-          e,
-        );
-        event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-          success: false,
-          error: e.message,
-        });
-      }
-      return;
-    }
-
-    try {
-      await systemPreferences.promptTouchID(msg);
-      event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, { success: true });
-    } catch (e: any) {
-      event.reply(ipcMessageKeys.TOUCH_ID_PROMPT_RES, {
-        success: false,
-        error: e.message,
-      });
-    }
-  });
-
-  ipcMain.on(
-    ipcMessageKeys.SECURE_SET_ITEM_ASYNC,
-    (event, { key, value }: { key: string; value: string }) => {
-      store.setSecureItem(key, value);
-      event.returnValue = '';
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.SECURE_GET_ITEM_ASYNC,
-    (event, { key }: { key: string }) => {
-      const value = store.getSecureItem(key);
-      event.returnValue = value;
-    },
-  );
-
-  ipcMain.on(
-    ipcMessageKeys.SECURE_DEL_ITEM_ASYNC,
-    (event, { key }: { key: string }) => {
-      store.deleteSecureItem(key);
-      event.returnValue = '';
-    },
-  );
-
-  ipcMain.on(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, (event) => {
-    logger.debug('reloadBridgeProcess receive');
-    void restartBridge();
-    event.reply(ipcMessageKeys.APP_RELOAD_BRIDGE_PROCESS, true);
-  });
-
-  ipcMain.on(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, (event) => {
-    logger.debug('restoreMainWindow receive');
-    showMainWindow();
-    event.reply(ipcMessageKeys.APP_RESTORE_MAIN_WINDOW, true);
-  });
-
-  ipcMain.on(ipcMessageKeys.APP_CHANGE_LANGUAGE, (event, lang: string) => {
-    store.setLanguage(lang);
-    refreshMenu();
-  });
-
   ipcMain.on(ipcMessageKeys.APP_SET_IDLE_TIME, (event, setIdleTime: number) => {
     systemIdleHandler(setIdleTime, event);
   });
 
-  ipcMain.on(ipcMessageKeys.APP_OPEN_LOGGER_FILE, () => {
-    void shell.openPath(path.dirname(logger.transports.file.getFile().path));
-  });
-
   ipcMain.on(ipcMessageKeys.APP_TEST_CRASH, () => {
-    throw new Error('Test Electron Native crash');
+    throw new OneKeyLocalError('Test Electron Native crash 996');
   });
 
-  ipcMain.on(ipcMessageKeys.CLEAR_WEBVIEW_CACHE, () => {
-    void session.defaultSession.clearStorageData({
-      storages: ['cookies', 'cachestorage'],
-    });
-  });
-
-  let templatePhishingUrls: string[] = [];
-  ipcMain.on(
-    ipcMessageKeys.SET_ALLOWED_PHISHING_URLS,
-    (event, urls: string[]) => {
-      if (Array.isArray(urls)) {
-        templatePhishingUrls = urls;
-      }
-    },
-  );
+  desktopApi.desktopApiSetup();
 
   // reset appState to undefined  to avoid screen lock.
   browserWindow.on('enter-full-screen', () => {
@@ -843,7 +662,7 @@ function createMainWindow() {
         const { url } = e;
         const { action } = uriUtils.parseDappRedirect(
           url,
-          templatePhishingUrls,
+          getTemplatePhishingUrls(),
         );
         if (action === uriUtils.EDAppOpenActionEnum.DENY) {
           e.preventDefault();
@@ -948,6 +767,8 @@ function createMainWindow() {
     }
   });
 
+  void initNobleBleSupport(browserWindow.webContents);
+
   return browserWindow;
 }
 
@@ -956,21 +777,6 @@ function initChildProcess() {
 }
 
 const singleInstance = app.requestSingleInstanceLock();
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function quitOrMinimizeApp() {
-  // On OS X it is common for applications and their menu bar
-  // to stay active until the user quits explicitly with Cmd + Q
-  if (isMac) {
-    // **** renderer app will reload after minimize, and keytar not working.
-    const safelyMainWindow = getSafelyMainWindow();
-    safelyMainWindow?.hide();
-    // ****
-    // app.quit();
-  } else {
-    app.quit();
-  }
-}
 
 if (!singleInstance && !process.mas) {
   quitOrMinimizeApp();
@@ -993,11 +799,12 @@ if (!singleInstance && !process.mas) {
     }
   });
 
-  app.name = APP_NAME;
-  app.on('ready', async () => {
+  app.on('ready', async (_, launchInfo) => {
+    logger.info('launchInfo >>>> ', launchInfo);
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
     startServices();
+
     if (!mainWindow) {
       mainWindow = createMainWindow();
       initMenu();

@@ -3,10 +3,16 @@ import { get } from 'lodash';
 
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
+import sdk from './sdk';
 import { submitTransactionFromString } from './transaction';
 
-import type { IKaspaGetTransactionResponse, IKaspaUTXOResponse } from './types';
+import type {
+  IKaspaGetTransactionResponse,
+  IKaspaSubmitTransactionRequest,
+  IKaspaUTXOResponse,
+} from './types';
 import type { AxiosError, AxiosInstance } from 'axios';
 
 // https://api.kaspa.org/docs
@@ -99,7 +105,16 @@ export class RestAPIClient {
   }
 
   async sendRawTransaction(rawTx: string): Promise<string> {
-    const transaction = submitTransactionFromString(rawTx);
+    let transaction: IKaspaSubmitTransactionRequest;
+    if (hexUtils.isHexString(rawTx)) {
+      transaction = submitTransactionFromString(rawTx);
+    } else {
+      const api = await sdk.getKaspaApi();
+      transaction = {
+        transaction: await api.deserializeFromSafeJSON(rawTx),
+      };
+    }
+
     return this.axios
       .post<{
         transactionId: string;

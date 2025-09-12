@@ -1,12 +1,14 @@
 import BigNumber from 'bignumber.js';
 
-import { toBigIntHex } from './numberUtils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { ELightningUnit } from '../../types/lightning';
 
 import type { IServerNetwork } from '../../types';
 import type { IToken } from '../../types/token';
 
 function nilError(message: string): number {
-  throw new Error(message);
+  throw new OneKeyLocalError(message);
 }
 
 export interface IChainValueConvertOptions {
@@ -26,6 +28,7 @@ function convertChainValueToGwei({
 }: IChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -network.feeMeta.decimals ??
         nilError('convertFeeValueToGwei ERROR: network.feeDecimals missing'),
     )
@@ -52,6 +55,7 @@ function convertChainValueToAmount({
 }: IChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -network.decimals ??
         nilError('convertFeeValueToNative ERROR: network.decimals missing'),
     )
@@ -93,6 +97,7 @@ function convertTokenChainValueToAmount({
 }: ITokenChainValueConvertOptions) {
   return new BigNumber(value)
     .shiftedBy(
+      // @ts-expect-error
       -token.decimals ??
         nilError(
           'convertTokenChainValueToAmount ERROR: token.decimals missing',
@@ -130,16 +135,43 @@ function fixNativeTokenMaxSendAmount({
   network: IServerNetwork;
 }) {
   const amountBN = new BigNumber(amount);
-  const fixedAmountBN = amountBN
-    .dp(
-      BigNumber.min(
-        (amountBN.decimalPlaces() ?? network.decimals) - 2,
-        network.decimals - 2,
-      ).toNumber(),
-      BigNumber.ROUND_FLOOR,
-    )
-    .shiftedBy(network.decimals);
-  return toBigIntHex(fixedAmountBN);
+  const fixedAmountBN = amountBN.dp(
+    BigNumber.min(
+      (amountBN.decimalPlaces() ?? network.decimals) - 2,
+      network.decimals - 2,
+    ).toNumber(),
+    BigNumber.ROUND_FLOOR,
+  );
+  return fixedAmountBN.toFixed();
+}
+
+const SATS_PER_BTC = 100_000_000; // 1 BTC = 100,000,000 sats
+
+function convertBtcToSats(btc: string | number): string {
+  if (btc === '' || btc === undefined) {
+    return '';
+  }
+  return new BigNumber(btc).times(SATS_PER_BTC).toFixed();
+}
+
+function convertSatsToBtc(sats: string | number): string {
+  if (sats === '' || sats === undefined) {
+    return '';
+  }
+  return new BigNumber(sats).dividedBy(SATS_PER_BTC).toFixed();
+}
+
+function getLightningAmountDecimals({
+  lnUnit,
+  decimals,
+}: {
+  lnUnit: ELightningUnit;
+  decimals: number;
+}): number {
+  if (lnUnit === ELightningUnit.BTC) {
+    return Math.log10(SATS_PER_BTC);
+  }
+  return decimals;
 }
 
 export default {
@@ -152,4 +184,7 @@ export default {
   convertTokenChainValueToAmount,
   convertTokenAmountToChainValue,
   fixNativeTokenMaxSendAmount,
+  convertBtcToSats,
+  convertSatsToBtc,
+  getLightningAmountDecimals,
 };

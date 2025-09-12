@@ -1,5 +1,11 @@
-import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
-import { SizableText, YStack } from '@onekeyhq/components';
+import { StyleSheet } from 'react-native';
+
+import type {
+  ISizableTextProps,
+  IStackProps,
+  IYStackProps,
+} from '@onekeyhq/components';
+import { SizableText, Stack, YStack } from '@onekeyhq/components';
 
 function SignatureConfirmItemLabel(props: ISizableTextProps) {
   return <SizableText size="$bodyMd" color="$textSubdued" {...props} />;
@@ -7,6 +13,19 @@ function SignatureConfirmItemLabel(props: ISizableTextProps) {
 
 function SignatureConfirmItemValue(props: ISizableTextProps) {
   return <SizableText size="$bodyMd" {...props} />;
+}
+
+function SignatureConfirmItemBlock(props: IStackProps) {
+  return (
+    <Stack
+      px="$3"
+      py="$2"
+      borderRadius="$2"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      {...props}
+    />
+  );
 }
 
 type ISignatureConfirmItemType = IYStackProps & {
@@ -28,5 +47,6 @@ function SignatureConfirmItem(props: ISignatureConfirmItemType) {
 
 SignatureConfirmItem.Label = SignatureConfirmItemLabel;
 SignatureConfirmItem.Value = SignatureConfirmItemValue;
+SignatureConfirmItem.Block = SignatureConfirmItemBlock;
 
 export { SignatureConfirmItem };

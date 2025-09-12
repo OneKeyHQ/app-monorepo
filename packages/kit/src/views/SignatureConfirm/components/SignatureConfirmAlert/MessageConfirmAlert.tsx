@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -6,11 +6,14 @@ import { useIntl } from 'react-intl';
 import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isPrimaryTypeOrderSign,
   isPrimaryTypePermitSign,
 } from '@onekeyhq/shared/src/signMessage';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 
@@ -18,11 +21,65 @@ interface IProps {
   unsignedMessage: IUnsignedMessage;
   isRiskSignMethod: boolean;
   messageDisplay: ISignatureConfirmDisplay | undefined;
+
+  // temporary props
+  walletInternalSign?: boolean;
+  urlSecurityInfo?: IHostSecurity;
+  isConfirmationRequired?: boolean;
+  showContinueOperateLocal?: boolean;
 }
 
 function MessageConfirmAlert(props: IProps) {
-  const { messageDisplay, unsignedMessage, isRiskSignMethod } = props;
+  const {
+    messageDisplay,
+    unsignedMessage,
+    isRiskSignMethod,
+
+    // temporary props
+    walletInternalSign,
+    urlSecurityInfo,
+    isConfirmationRequired,
+    showContinueOperateLocal,
+  } = props;
+
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isStrictSignatureAlert = devSettings.settings?.strictSignatureAlert;
+
+  const showTakeRiskAlert = useMemo(() => {
+    if (!isStrictSignatureAlert) {
+      return false;
+    }
+
+    if (walletInternalSign) {
+      return false;
+    }
+
+    if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
+      return false;
+    }
+
+    if (isConfirmationRequired) {
+      return true;
+    }
+
+    if (!isEmpty(messageDisplay?.alerts)) {
+      return true;
+    }
+
+    if (showContinueOperateLocal) {
+      return true;
+    }
+
+    return false;
+  }, [
+    isStrictSignatureAlert,
+    messageDisplay?.alerts,
+    showContinueOperateLocal,
+    urlSecurityInfo?.level,
+    walletInternalSign,
+    isConfirmationRequired,
+  ]);
 
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
@@ -33,11 +90,11 @@ function MessageConfirmAlert(props: IProps) {
 
   const renderLocalParsedMessageAlert = useCallback(() => {
     if (isSignTypedDataV3orV4Method) {
-      let type: IAlertProps['type'] = 'default';
+      let type: IAlertProps['type'] = showTakeRiskAlert ? 'danger' : 'default';
       let messageType = 'signTypedData';
 
       if (isPermitSignMethod || isOrderSignMethod) {
-        type = 'warning';
+        type = showTakeRiskAlert ? 'danger' : 'warning';
         messageType = isPermitSignMethod ? 'permit' : 'order';
       }
 
@@ -74,6 +131,7 @@ function MessageConfirmAlert(props: IProps) {
     isPermitSignMethod,
     isOrderSignMethod,
     intl,
+    showTakeRiskAlert,
   ]);
 
   const renderMessageAlerts = useCallback(() => {
@@ -88,13 +146,17 @@ function MessageConfirmAlert(props: IProps) {
           <Alert
             key={alert}
             description={alert}
-            type="warning"
+            type={showTakeRiskAlert ? 'danger' : 'warning'}
             icon="InfoSquareOutline"
           />
         ))}
       </YStack>
     );
-  }, [messageDisplay?.alerts, renderLocalParsedMessageAlert]);
+  }, [
+    messageDisplay?.alerts,
+    renderLocalParsedMessageAlert,
+    showTakeRiskAlert,
+  ]);
 
   return renderMessageAlerts();
 }

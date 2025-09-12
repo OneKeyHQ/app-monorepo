@@ -9,7 +9,6 @@ import {
   SectionList,
   SizableText,
   Skeleton,
-  Toast,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -18,6 +17,7 @@ import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atom
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
+  ESwapCancelLimitOrderSource,
   ESwapLimitOrderStatus,
   type IFetchLimitOrderRes,
 } from '@onekeyhq/shared/types/swap/types';
@@ -58,7 +58,7 @@ const LimitOrderList = ({
           ...prev,
           [item.orderId]: true,
         }));
-        await cancelLimitOrder(item);
+        await cancelLimitOrder(item, ESwapCancelLimitOrderSource.LIST);
       } catch (error) {
         console.error(error);
       } finally {

@@ -16,11 +16,20 @@ export const useAddressBookItems = (networkId?: string, exact?: boolean) => {
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
   return usePromiseResult(
     async () => {
+      const { password } =
+        await backgroundApiProxy.servicePassword.promptPasswordVerify();
+      if (!password) {
+        return {
+          isSafe: false,
+          items: [],
+        };
+      }
       noopObject(updateTimestamp);
       noopObject(networkId);
       return backgroundApiProxy.serviceAddressBook.getSafeItems({
         networkId,
         exact,
+        password,
       });
     },
     [updateTimestamp, networkId, exact],

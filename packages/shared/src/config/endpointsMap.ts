@@ -1,9 +1,11 @@
-import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EServiceEndpointEnum,
   type IEndpointEnv,
   type IServiceEndpoint,
 } from '@onekeyhq/shared/types/endpoint';
+
+import platformEnv from '../platformEnv';
+import requestHelper from '../request/requestHelper';
 
 import { buildServiceEndpoint } from './appConfig';
 
@@ -43,6 +45,14 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Prime,
       env: 'test',
     }),
+    transfer: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Transfer,
+      env: 'test',
+    }),
+    rebate: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Rebate,
+      env: 'test',
+    }),
   },
   prod: {
     wallet: buildServiceEndpoint({
@@ -78,14 +88,68 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Prime,
       env: 'prod',
     }),
+    transfer: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Transfer,
+      env: 'prod',
+    }),
+    rebate: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Rebate,
+      env: 'prod',
+    }),
   },
 };
 
-export const getEndpointsMapByDevSettings = (
-  devSettings: IDevSettingsPersistAtom,
-) => {
-  if (devSettings.enabled && devSettings.settings?.enableTestEndpoint) {
-    return endpointsMap.test;
-  }
-  return endpointsMap.prod;
+export const getEndpointsMapByDevSettings = (devSettings: {
+  enabled: boolean;
+  settings?: {
+    enableTestEndpoint?: boolean;
+  };
+}) => {
+  const env: IEndpointEnv =
+    devSettings.enabled && devSettings.settings?.enableTestEndpoint
+      ? 'test'
+      : 'prod';
+
+  return endpointsMap[env];
 };
+
+export async function getEndpointsMap() {
+  let settings: {
+    enabled: boolean;
+    settings?: { enableTestEndpoint?: boolean };
+  };
+
+  if (platformEnv.isWebEmbed) {
+    const enableTestEndpoint =
+      globalThis?.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint ?? false;
+    settings = {
+      enabled: enableTestEndpoint,
+      settings: { enableTestEndpoint },
+    };
+  } else {
+    settings = await requestHelper.getDevSettingsPersistAtom();
+  }
+
+  return getEndpointsMapByDevSettings(settings);
+}
+
+export async function getEndpointByServiceName(
+  serviceName: EServiceEndpointEnum,
+) {
+  if (!platformEnv.isWebEmbed && platformEnv.isDev) {
+    // First try to get custom API endpoint from dev settings
+    const devSettings = await requestHelper.getDevSettingsPersistAtom();
+    const customEndpoints = devSettings.settings?.customApiEndpoints || [];
+    const enabledCustomConfig = customEndpoints
+      .filter((config) => config.enabled)
+      .find((config) => config.serviceModule === serviceName);
+
+    if (enabledCustomConfig && devSettings.enabled) {
+      return enabledCustomConfig.api;
+    }
+  }
+
+  // Fallback to default endpoint
+  const map = await getEndpointsMap();
+  return map[serviceName];
+}

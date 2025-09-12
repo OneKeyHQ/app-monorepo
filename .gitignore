@@ -7,6 +7,9 @@ __generated__
 .idea/
 .vscode/
 .chat/
+.claude/PRPs
+.claude/settings.local.json
+.tmp/
 
 dist
 build-electron
@@ -83,3 +86,5 @@ test-report.html
 /apps/ext/src/entry/injected.text-js
 /packages/kit/src/components/WebView/injectedNative.text-js
 /packages/shared/src/web/index.html
+/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
+apps/mobile/android/.kotlin/

@@ -1,0 +1,21 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# OneKey Internationalization (i18n) Guidelines
+
+## Important Rules
+- Do not modify the code in `@onekeyhq/shared/src/locale/enum/translations.ts` as these are automatically generated
+- Do not modify the locale JSON files in `@onekeyhq/shared/src/locale/json/*`
+
+## Using Translations
+- Use the `useFormatMessage` or `formatMessage` functions for displaying translated text
+- Define new translation keys in the appropriate modules
+- Always use translation keys instead of hardcoding text strings
+- Follow the established pattern for translation keys: `namespace__action_or_description`
+
+## Default Locale Handling
+- The system uses automatic locale detection with fallbacks
+- Default locale fallback chain is implemented in `getDefaultLocale.ts`
+- Respect platform-specific locale handling (web, native, desktop, extension)

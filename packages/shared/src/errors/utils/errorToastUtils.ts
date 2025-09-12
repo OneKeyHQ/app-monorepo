@@ -1,3 +1,4 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 import { isPlainObject } from 'lodash';
 
@@ -22,18 +23,26 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
     err?.className &&
     [
       // ignore auto toast errors
+      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+      EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.FirmwareUpdateExit,
       EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
       EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,
       EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
       EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
       EOneKeyErrorClassNames.AxiosAbortCancelError,
+      // use Dialog instead of Toast, check GlobalErrorHandlerContainer
+      EOneKeyErrorClassNames.DeviceNotOpenedPassphrase,
+      EOneKeyErrorClassNames.DeviceNotFound,
     ].includes(err?.className)
   ) {
+    return;
+  }
+  // Ignore DefectiveFirmware errors - use Dialog instead of Toast
+  if (err?.code === HardwareErrorCode.DefectiveFirmware) {
     return;
   }
   let shouldMuteToast = false;

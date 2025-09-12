@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { type IProps } from '.';
 
@@ -18,15 +18,19 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
-import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  WALLET_TYPE_HD,
+  WALLET_TYPE_WATCHING,
+} from '@onekeyhq/shared/src/consts/dbConsts';
+import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -53,20 +57,18 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
-    deriveInfo,
-    deriveType,
     tokenInfo,
     isAllNetworks,
     indexedAccountId,
     isTabView,
+    deriveInfo,
+    deriveType,
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
   const copyAccountAddress = useCopyAccountAddress();
   const {
     updateTokenMetadata,
-    isLoadingTokenDetails,
-    updateIsLoadingTokenDetails,
     tokenDetails: tokenDetailsContext,
     updateTokenDetails,
   } = useTokenDetailsContext();
@@ -79,6 +81,8 @@ function TokenDetailsHeader(props: IProps) {
     walletId,
   });
 
+  const tokenDetailsKey = `${accountId}_${networkId}`;
+
   const { handleOnReceive } = useReceiveToken({
     accountId,
     networkId,
@@ -87,13 +91,8 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
-
-  const { result: tokenDetailsResult } = usePromiseResult(
+  const { result: tokenDetailsResult, isLoading } = usePromiseResult(
     async () => {
-      updateIsLoadingTokenDetails({
-        accountId,
-        isLoading: true,
-      });
       const tokensDetails =
         await backgroundApiProxy.serviceToken.fetchTokensDetails({
           accountId,
@@ -101,44 +100,44 @@ function TokenDetailsHeader(props: IProps) {
           contractList: [tokenInfo.address],
         });
       updateTokenMetadata({
-        price: tokensDetails[0].price,
-        priceChange24h: tokensDetails[0].price24h,
-        coingeckoId: tokensDetails[0].info.coingeckoId,
+        price: tokensDetails[0]?.price ?? 0,
+        priceChange24h: tokensDetails[0]?.price24h ?? 0,
+        coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
       });
       updateTokenDetails({
         accountId,
+        networkId,
         isInit: true,
         data: tokensDetails[0],
-      });
-      updateIsLoadingTokenDetails({
-        accountId,
-        isLoading: false,
       });
       return tokensDetails[0];
     },
     [
       accountId,
-      updateIsLoadingTokenDetails,
       networkId,
       tokenInfo.address,
       updateTokenMetadata,
       updateTokenDetails,
     ],
     {
+      watchLoading: true,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused && (isTabView ? isFocused : true),
+      debounced: POLLING_DEBOUNCE_INTERVAL,
     },
   );
 
   const tokenDetails =
-    tokenDetailsResult ?? tokenDetailsContext[accountId]?.data;
+    tokenDetailsResult ?? tokenDetailsContext[tokenDetailsKey]?.data;
 
   const showLoadingState = useMemo(() => {
-    if (tokenDetailsContext[accountId]?.init) {
+    if (tokenDetailsContext[tokenDetailsKey]?.init) {
       return false;
     }
-    return isLoadingTokenDetails?.[accountId];
-  }, [isLoadingTokenDetails, tokenDetailsContext, accountId]);
+    return isLoading;
+  }, [tokenDetailsContext, tokenDetailsKey, isLoading]);
+
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const createSwapActionHandler = useCallback(
     (actionType: ESwapTabSwitchType) => async () => {
@@ -147,6 +146,7 @@ function TokenDetailsHeader(props: IProps) {
         networkId: network?.id ?? '',
         source: 'tokenDetails',
         tradeType: actionType,
+        isSoftwareWalletOnlyUser,
       });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
@@ -183,6 +183,7 @@ function TokenDetailsHeader(props: IProps) {
       tokenInfo.name,
       tokenInfo.logoURI,
       deriveType,
+      isSoftwareWalletOnlyUser,
     ],
   );
 
@@ -194,6 +195,7 @@ function TokenDetailsHeader(props: IProps) {
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'tokenDetails',
+      isSoftwareWalletOnlyUser,
     });
     navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
       screen: EModalSignatureConfirmRoutes.TxDataInput,
@@ -214,6 +216,7 @@ function TokenDetailsHeader(props: IProps) {
     tokenDetails?.info,
     tokenInfo,
     wallet?.type,
+    isSoftwareWalletOnlyUser,
   ]);
 
   const isReceiveDisabled = useMemo(
@@ -226,27 +229,13 @@ function TokenDetailsHeader(props: IProps) {
     [accountId],
   );
 
-  const renderTokenIcon = useCallback(() => {
-    if (showLoadingState) {
-      return <Skeleton radius="round" h="$12" w="$12" />;
-    }
-    return (
-      <Token
-        tokenImageUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
-        size="xl"
-        networkImageUri={isAllNetworks ? network?.logoURI : ''}
-        showNetworkIcon={isAllNetworks}
-        networkId={networkId}
-      />
-    );
-  }, [
-    isAllNetworks,
-    network?.logoURI,
-    networkId,
-    tokenDetails?.info.logoURI,
-    tokenInfo.logoURI,
-    showLoadingState,
-  ]);
+  const shouldShowAddressBlock = useMemo(() => {
+    if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
+
+    if (wallet?.type === WALLET_TYPE_HD && !wallet?.backuped) return false;
+
+    return true;
+  }, [wallet?.type, networkId, wallet?.backuped]);
 
   return (
     <DebugRenderTracker timesBadgePosition="top-right">
@@ -255,20 +244,19 @@ function TokenDetailsHeader(props: IProps) {
         <Stack px="$5" pb="$5" pt={isTabView ? '$5' : '$0'}>
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
-            {renderTokenIcon()}
-            <Stack ml="$3" flex={1}>
+            <Stack flex={1}>
               {showLoadingState ? (
                 <Skeleton.Group show>
-                  <Skeleton.Heading3Xl />
+                  <Skeleton.Heading4Xl />
                   <Skeleton.BodyLg />
                 </Skeleton.Group>
               ) : (
                 <>
                   <NumberSizeableTextWrapper
                     hideValue
-                    size="$heading3xl"
+                    size="$heading4xl"
                     formatter="balance"
-                    formatterOptions={{ tokenSymbol: tokenInfo.symbol }}
+                    fontWeight="bold"
                   >
                     {tokenDetails?.balanceParsed ?? '0'}
                   </NumberSizeableTextWrapper>
@@ -279,7 +267,7 @@ function TokenDetailsHeader(props: IProps) {
                       currency: settings.currencyInfo.symbol,
                     }}
                     color="$textSubdued"
-                    size="$bodyLgMedium"
+                    size="$bodyLg"
                   >
                     {tokenDetails?.fiatValue ?? '0'}
                   </NumberSizeableTextWrapper>
@@ -289,44 +277,43 @@ function TokenDetailsHeader(props: IProps) {
           </XStack>
           {/* Actions */}
           <RawActions gap="$8" flexWrap="wrap" flexDirection="row">
-            <ReviewControl>
-              <ActionBuy
-                networkId={networkId}
-                accountId={accountId}
-                walletType={wallet?.type}
-                tokenAddress={tokenInfo.address}
-                source="tokenDetails"
-              />
-            </ReviewControl>
-
-            <RawActions.Swap
-              onPress={handleOnSwap}
-              disabled={disableSwapAction}
+            <RawActions.Send
+              onPress={handleSendPress}
+              trackID="wallet-token-details-send"
             />
-            <RawActions.Bridge
-              onPress={handleOnBridge}
-              disabled={disableSwapAction}
-            />
-            <ReviewControl>
-              <ActionSell
-                networkId={networkId}
-                accountId={accountId}
-                walletType={wallet?.type}
-                tokenAddress={tokenInfo.address}
-                source="tokenDetails"
-              />
-            </ReviewControl>
-            <RawActions.Send onPress={handleSendPress} />
             <RawActions.Receive
               disabled={isReceiveDisabled}
-              onPress={() => {
+              onPress={async () => {
+                if (
+                  await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
+                    {
+                      walletId: wallet?.id ?? '',
+                    },
+                  )
+                ) {
+                  return;
+                }
                 defaultLogger.wallet.walletActions.actionReceive({
                   walletType: wallet?.type ?? '',
                   networkId: network?.id ?? '',
                   source: 'tokenDetails',
+                  isSoftwareWalletOnlyUser,
                 });
-                handleOnReceive(tokenInfo);
+                void handleOnReceive({
+                  token: tokenInfo,
+                });
               }}
+              trackID="wallet-token-details-receive"
+            />
+            <RawActions.Swap
+              onPress={handleOnSwap}
+              disabled={disableSwapAction}
+              trackID="wallet-token-details-swap"
+            />
+            <RawActions.Bridge
+              onPress={handleOnBridge}
+              disabled={disableSwapAction}
+              trackID="wallet-token-details-bridge"
             />
             <WalletActionEarn
               accountId={accountId}
@@ -335,19 +322,50 @@ function TokenDetailsHeader(props: IProps) {
               indexedAccountId={indexedAccountId}
               walletType={wallet?.type}
               source="tokenDetails"
+              trackID="wallet-token-details-stake"
             />
+            <ReviewControl>
+              <ActionBuy
+                isTabView={isTabView}
+                walletId={wallet?.id ?? ''}
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
+                source="tokenDetails"
+                trackID="wallet-token-details-buy"
+              />
+            </ReviewControl>
+
+            <ReviewControl>
+              <ActionSell
+                isTabView={isTabView}
+                walletId={wallet?.id ?? ''}
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+                tokenSymbol={tokenInfo.symbol}
+                source="tokenDetails"
+                trackID="wallet-token-details-sell"
+              />
+            </ReviewControl>
+
             <Stack w={50} />
           </RawActions>
         </Stack>
-        {!networkUtils.isLightningNetworkByNetworkId(networkId) ? (
+        {shouldShowAddressBlock ? (
           <>
             <Divider />
             <YStack
+              userSelect="none"
               onPress={() =>
                 copyAccountAddress({
                   accountId,
                   networkId,
                   token: tokenInfo,
+                  deriveInfo,
                 })
               }
               px="$5"
@@ -378,7 +396,7 @@ function TokenDetailsHeader(props: IProps) {
                     </SizableText>
                   )}
                 </YStack>
-                <Icon name="Copy3Outline" color="$iconSubdued" />
+                <Icon name="Copy3Outline" color="$iconSubdued" size="$5" />
               </XStack>
             </YStack>
           </>

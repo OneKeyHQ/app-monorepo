@@ -1,8 +1,0 @@
----
-description: project-level linting and code rules configuration
-globs: *.tsx, *.ts
-alwaysApply: true
----
-- Do not modify the TODO comment.
-- Strictly follow the rules of [eslint.js](mdc:development/lint/eslint.js).
-- Do not modify the code in `@onekeyhq/shared/src/locale`, as the contents of `ETranslations` are automatically generated.

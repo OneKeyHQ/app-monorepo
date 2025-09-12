@@ -4,15 +4,14 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  EPageType,
   Empty,
   Skeleton,
   Spinner,
   Stack,
   XStack,
   YStack,
+  useIsModalPage,
   useMedia,
-  usePageType,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,6 +38,13 @@ type IOnHoverFunction = ({
   price?: number | string;
 }) => void;
 
+/**
+ * Renders a responsive price chart with interactive hover details and loading or empty states.
+ *
+ * Displays the current or hovered price and time, adapts layout for different screen sizes and modal contexts, and shows loading or empty indicators as needed. Children nodes can be rendered alongside the chart for additional controls or information.
+ *
+ * @returns The rendered price chart component with interactive and responsive features.
+ */
 export function PriceChart({
   data,
   isFetching,
@@ -47,12 +53,12 @@ export function PriceChart({
 }: IPriceChartProps) {
   const { formatDate } = useFormatDate();
   const intl = useIntl();
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
 
   const [price, setPrice] = useState<string | number | undefined>();
   const [time, setTime] = useState('');
   const { gtMd: gtMdMedia } = useMedia();
-  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+  const gtMd = isModalPage ? false : gtMdMedia;
   const basePrice = data?.length ? data[0][1] : 0;
   const latestPrice = data?.length ? data[data.length - 1][1] : 0;
   const currentPrice = useMemo(() => {
@@ -140,7 +146,14 @@ export function PriceChart({
   const chartViewWithSpinner = isFetching ? <Spinner /> : chartView;
   return gtMd ? (
     <>
-      <XStack justifyContent="space-between" h="$10">
+      <XStack
+        position="absolute"
+        top={0}
+        left="$5"
+        right="$5"
+        justifyContent="space-between"
+        h="$10"
+      >
         {isFetching ? (
           <YStack gap="$2">
             <Skeleton w="$10" h="$3" />
@@ -151,21 +164,18 @@ export function PriceChart({
         )}
         {children}
       </XStack>
-      <Stack
-        mt={32}
-        $gtMd={{ mt: '$1' }}
-        justifyContent="center"
-        alignItems="center"
-      >
+
+      <Stack justifyContent="center" alignItems="center">
         {chartViewWithSpinner}
       </Stack>
     </>
   ) : (
     <>
-      {priceLabel}
-      <Stack h={mdViewHeight} justifyContent="center" alignItems="center">
+      <YStack mt="$4" h={mdViewHeight} justifyContent="center">
+        {priceLabel}
+
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
-      </Stack>
+      </YStack>
     </>
   );
 }

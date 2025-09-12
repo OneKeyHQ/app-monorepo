@@ -15,7 +15,7 @@ import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StackProps } from '@tamagui/web/types';
+import type { StackProps } from '@tamagui/web';
 import type {
   NativeScrollEvent,
   NativeScrollPoint,
@@ -53,7 +53,7 @@ const scrollViewRefContext = createContext<{
 const ScrollViewRefProvider = memo(scrollViewRefContext.Provider);
 export const useScrollView = () => useContext(scrollViewRefContext);
 
-export const useScrollToLocation = (inputRef: RefObject<TextInput>) => {
+export const useScrollToLocation = (inputRef: RefObject<TextInput | null>) => {
   const actions = useScrollView();
   const scrollToView = useCallback(() => {
     if (platformEnv.isNative) {

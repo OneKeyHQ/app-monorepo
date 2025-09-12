@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNaN, isNil } from 'lodash';
+import { isEqual, isNaN, isNil, omit, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
+  Alert,
   Button,
+  Checkbox,
   Form,
   Input,
   NumberSizeableText,
@@ -62,6 +64,7 @@ type IProps = {
   sendSelectedFee: {
     feeType: EFeeType;
     presetIndex: number;
+    source?: 'dapp' | 'wallet';
   };
   originalCustomFee: IFeeInfoUnit | undefined;
   selectedFee: ISendSelectedFeeInfo | undefined;
@@ -71,10 +74,12 @@ type IProps = {
     feeType,
     presetIndex,
     customFeeInfo,
+    source,
   }: {
     feeType: EFeeType;
     presetIndex: number;
     customFeeInfo: IFeeInfoUnit;
+    source?: 'dapp' | 'wallet';
   }) => void;
   replaceTxMode?: boolean;
   replaceTxOriginalFeeInfo?: IFeeInfoUnit;
@@ -100,7 +105,7 @@ const getPresetIndex = (
 
   if (feeSelectorItem) {
     if (feeSelectorItem.type === EFeeType.Custom) {
-      return feeSelectorItems.length - 1;
+      return Math.max(0, feeSelectorItems.length - 2);
     }
     return sendSelectedFee.presetIndex;
   }
@@ -180,6 +185,10 @@ function TxFeeEditor(props: IProps) {
   } = props;
   const intl = useIntl();
   const dialog = useDialogInstance();
+  const [defaultCustomFeeInfoEnabled, setDefaultCustomFeeInfoEnabled] =
+    useState(false);
+
+  const isDappSuggestedFeeInfo = sendSelectedFee.source === 'dapp';
 
   const isMultiTxs = unsignedTxs.length > 1;
 
@@ -201,15 +210,21 @@ function TxFeeEditor(props: IProps) {
   const { feeSymbol, feeDecimals, nativeSymbol, nativeTokenPrice } =
     customFee?.common ?? {};
 
-  const [vaultSettings, network] =
-    usePromiseResult(
-      () =>
-        Promise.all([
-          backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
-          backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
-        ]),
-      [networkId],
-    ).result ?? [];
+  const { vaultSettings, network, defaultCustomFeeInfo } =
+    usePromiseResult(async () => {
+      const [v, n, d] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
+        backgroundApiProxy.serviceNetwork.getNetwork({ networkId }),
+        backgroundApiProxy.serviceGas.getCustomFeeInfo({ networkId }),
+      ]);
+      setDefaultCustomFeeInfoEnabled(d?.enabled ?? false);
+
+      return {
+        vaultSettings: v,
+        network: n,
+        defaultCustomFeeInfo: d,
+      };
+    }, [networkId]).result ?? {};
 
   const originalMaxBaseFee = new BigNumber(
     customFee?.gasEIP1559?.maxFeePerGas ?? '0',
@@ -221,12 +236,13 @@ function TxFeeEditor(props: IProps) {
 
   const form = useForm({
     defaultValues: {
-      gasLimit: new BigNumber(
-        customFee?.gas?.gasLimit ?? customFee?.gasEIP1559?.gasLimit ?? '0',
-      ).toFixed(),
       // gas legacy
+      gasLimitLegacy: new BigNumber(customFee?.gas?.gasLimit ?? '0').toFixed(),
       gasPrice: new BigNumber(customFee?.gas?.gasPrice ?? '0').toFixed(),
       // gas eip1559
+      gasEIP1559Limit: new BigNumber(
+        customFee?.gasEIP1559?.gasLimit ?? '0',
+      ).toFixed(),
       priorityFee: new BigNumber(
         customFee?.gasEIP1559?.maxPriorityFeePerGas ?? '0',
       ).toFixed(),
@@ -282,8 +298,8 @@ function TxFeeEditor(props: IProps) {
       common: customFee?.common,
       gas: customFee?.gas && {
         gasPrice: watchAllFields.gasPrice,
-        gasLimit: watchAllFields.gasLimit,
-        gasLimitForDisplay: watchAllFields.gasLimit,
+        gasLimit: watchAllFields.gasLimitLegacy,
+        gasLimitForDisplay: watchAllFields.gasLimitLegacy,
       },
       gasEIP1559: customFee?.gasEIP1559 && {
         baseFeePerGas: customFee?.gasEIP1559?.baseFeePerGas ?? '0',
@@ -291,8 +307,8 @@ function TxFeeEditor(props: IProps) {
         maxFeePerGas: new BigNumber(watchAllFields.maxBaseFee ?? '0')
           .plus(watchAllFields.priorityFee ?? '0')
           .toFixed(),
-        gasLimit: watchAllFields.gasLimit,
-        gasLimitForDisplay: watchAllFields.gasLimit,
+        gasLimit: watchAllFields.gasEIP1559Limit,
+        gasLimitForDisplay: watchAllFields.gasEIP1559Limit,
       },
       feeUTXO: customFee?.feeUTXO && {
         feeRate: watchAllFields.feeRate,
@@ -335,25 +351,25 @@ function TxFeeEditor(props: IProps) {
       },
     }),
     [
-      algoMinFee,
       customFee?.common,
-      customFee?.feeAlgo,
-      customFee?.feeCkb,
-      customFee?.feeSol,
-      customFee?.feeUTXO,
       customFee?.gas,
       customFee?.gasEIP1559,
+      customFee?.feeUTXO,
+      customFee?.feeSol,
+      customFee?.feeCkb,
+      customFee?.feeAlgo,
       customFee?.feeDot,
       customFee?.feeBudget,
       customFee?.feeNeoN3,
-      watchAllFields.computeUnitPrice,
+      watchAllFields.gasPrice,
+      watchAllFields.gasLimitLegacy,
+      watchAllFields.priorityFee,
+      watchAllFields.maxBaseFee,
+      watchAllFields.gasEIP1559Limit,
       watchAllFields.feeRate,
+      watchAllFields.computeUnitPrice,
       watchAllFields.feeRateCkb,
       watchAllFields.flatFee,
-      watchAllFields.gasLimit,
-      watchAllFields.gasPrice,
-      watchAllFields.maxBaseFee,
-      watchAllFields.priorityFee,
       watchAllFields.dotExtraTip,
       watchAllFields.gasSuiPrice,
       watchAllFields.gasSuiBudget,
@@ -363,6 +379,7 @@ function TxFeeEditor(props: IProps) {
       watchAllFields.neoN3SystemFee,
       watchAllFields.neoN3NetworkFee,
       watchAllFields.neoN3PriorityFee,
+      algoMinFee,
     ],
   );
 
@@ -376,7 +393,7 @@ function TxFeeEditor(props: IProps) {
       let maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
 
       if (maxFeeInfo?.type === EFeeType.Custom) {
-        maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 2];
+        maxFeeInfo = feeSelectorItems[Math.max(0, feeSelectorItems.length - 2)];
         maxFeeInfo = maxFeeInfo || minFeeInfo;
       }
 
@@ -679,7 +696,7 @@ function TxFeeEditor(props: IProps) {
         feeRate.isGreaterThan(DEFAULT_FEE_RATE_MAX)
       ) {
         return intl.formatMessage(
-          { id: ETranslations.form_ree_rate_error_out_of_range },
+          { id: ETranslations.form_fee_rate_error_out_of_range },
           { min: DEFAULT_FEER_ATE_MIN, max: DEFAULT_FEE_RATE_MAX },
         );
       }
@@ -826,13 +843,60 @@ function TxFeeEditor(props: IProps) {
   );
 
   const handleApplyFeeInfo = useCallback(async () => {
+    if (!isDappSuggestedFeeInfo) {
+      void backgroundApiProxy.serviceGas.updateCustomFeeInfo({
+        networkId,
+        enabled: defaultCustomFeeInfoEnabled,
+        customFeeInfo: defaultCustomFeeInfoEnabled
+          ? omit(customFeeInfo, 'common')
+          : undefined,
+      });
+    }
+
+    let source = sendSelectedFee.source;
+
+    if (isDappSuggestedFeeInfo) {
+      const cleanCustomFeeInfo = pickBy(
+        customFeeInfo,
+        (value) => value !== undefined,
+      ) as unknown as IFeeInfoUnit;
+      const cleanOriginalCustomFee = pickBy(
+        originalCustomFee,
+        (value) => value !== undefined,
+      ) as unknown as IFeeInfoUnit;
+
+      if (cleanCustomFeeInfo.gasEIP1559 && cleanOriginalCustomFee.gas) {
+        delete cleanCustomFeeInfo.gas;
+      }
+
+      if (cleanOriginalCustomFee.gasEIP1559 && cleanOriginalCustomFee.gas) {
+        delete cleanOriginalCustomFee.gas;
+      }
+
+      if (!isEqual(cleanCustomFeeInfo, cleanOriginalCustomFee)) {
+        source = 'wallet';
+      }
+    }
+
     onApplyFeeInfo({
       feeType: currentFeeType,
       presetIndex: currentFeeIndex,
       customFeeInfo,
+      source,
     });
     await dialog?.close();
-  }, [currentFeeIndex, currentFeeType, customFeeInfo, dialog, onApplyFeeInfo]);
+  }, [
+    currentFeeIndex,
+    currentFeeType,
+    customFeeInfo,
+    defaultCustomFeeInfoEnabled,
+    dialog,
+    isDappSuggestedFeeInfo,
+    networkId,
+    onApplyFeeInfo,
+    originalCustomFee,
+    sendSelectedFee.source,
+  ]);
 
   const renderFeeTypeSelector = useCallback(() => {
     if (replaceTxMode) return null;
@@ -935,9 +999,21 @@ function TxFeeEditor(props: IProps) {
         form.setValue(filedName, valueBN.toFixed(0));
       } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
+      } else if (
+        value?.includes('.') &&
+        !vaultSettings?.skipFixFeeInfoDecimal
+      ) {
+        const dp = valueBN.decimalPlaces();
+        if (dp && dp > feeDecimals) {
+          form.setValue(
+            filedName,
+            valueBN.toFixed(feeDecimals, BigNumber.ROUND_FLOOR),
+          );
+          void form.trigger(filedName);
+        }
       }
     },
-    [form],
+    [feeDecimals, form, vaultSettings?.skipFixFeeInfoDecimal],
   );
 
   const handleValidateDotExtraTip = useCallback(
@@ -1126,7 +1202,7 @@ function TxFeeEditor(props: IProps) {
               label={intl.formatMessage({
                 id: ETranslations.content__gas_limit,
               })}
-              name="gasLimit"
+              name="gasEIP1559Limit"
               // description={recommendGasLimit.description}
               rules={{
                 required: true,
@@ -1145,8 +1221,11 @@ function TxFeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue('gasLimit', recommendGasLimit.gasLimit);
-                      void form.trigger('gasLimit');
+                      form.setValue(
+                        'gasEIP1559Limit',
+                        recommendGasLimit.gasLimit,
+                      );
+                      void form.trigger('gasEIP1559Limit');
                     },
                   },
                 ]}
@@ -1252,7 +1331,7 @@ function TxFeeEditor(props: IProps) {
               label={intl.formatMessage({
                 id: ETranslations.content__gas_limit,
               })}
-              name="gasLimit"
+              name="gasLimitLegacy"
               // description={recommendGasLimit.description}
               rules={{
                 required: true,
@@ -1271,8 +1350,11 @@ function TxFeeEditor(props: IProps) {
                   {
                     iconName: 'UndoOutline',
                     onPress: () => {
-                      form.setValue('gasLimit', recommendGasLimit.gasLimit);
-                      void form.trigger('gasLimit');
+                      form.setValue(
+                        'gasLimitLegacy',
+                        recommendGasLimit.gasLimit,
+                      );
+                      void form.trigger('gasLimitLegacy');
                     },
                   },
                 ]}
@@ -1556,7 +1638,7 @@ function TxFeeEditor(props: IProps) {
       let priorityFee = new BigNumber(0);
       let maxFee = new BigNumber(0);
       if (currentFeeType === EFeeType.Custom) {
-        limit = new BigNumber(watchAllFields.gasLimit || 0);
+        limit = new BigNumber(watchAllFields.gasEIP1559Limit || 0);
         priorityFee = new BigNumber(watchAllFields.priorityFee || 0);
         maxFee = new BigNumber(watchAllFields.maxBaseFee || 0).plus(
           watchAllFields.priorityFee || 0,
@@ -1617,7 +1699,7 @@ function TxFeeEditor(props: IProps) {
         ...fee,
         feeBudget: {
           ...fee.feeBudget,
-          gasPrice: watchAllFields.gasSuiPrice,
+          gasPrice: gasPrice.toFixed(),
         },
       };
 
@@ -1672,7 +1754,7 @@ function TxFeeEditor(props: IProps) {
       let limit = new BigNumber(0);
       let gasPrice = new BigNumber(0);
       if (currentFeeType === EFeeType.Custom) {
-        limit = new BigNumber(watchAllFields.gasLimit || 0);
+        limit = new BigNumber(watchAllFields.gasLimitLegacy || 0);
         gasPrice = new BigNumber(watchAllFields.gasPrice || 0);
       } else {
         limit = new BigNumber(fee.gas.gasLimitForDisplay || fee.gas.gasLimit);
@@ -1892,32 +1974,33 @@ function TxFeeEditor(props: IProps) {
       </>
     );
   }, [
-    currentFeeIndex,
     currentFeeType,
     customFee,
-    estimateFeeParams?.estimateFeeParamsSol,
     feeSelectorItems,
-    feeSymbol,
-    feeDecimals,
+    currentFeeIndex,
+    estimateFeeParams?.estimateFeeParamsSol,
     intl,
     nativeSymbol,
     nativeTokenPrice,
-    unsignedTxs,
-    vaultSettings?.withL1BaseFee,
-    watchAllFields.computeUnitPrice,
-    watchAllFields.dotExtraTip,
-    watchAllFields.feeRate,
-    watchAllFields.feeRateCkb,
     watchAllFields.flatFee,
-    watchAllFields.gasLimit,
-    watchAllFields.gasPrice,
-    watchAllFields.maxBaseFee,
+    watchAllFields.dotExtraTip,
+    watchAllFields.gasEIP1559Limit,
     watchAllFields.priorityFee,
-    watchAllFields.gasSuiBudget,
+    watchAllFields.maxBaseFee,
     watchAllFields.gasSuiPrice,
+    watchAllFields.gasSuiBudget,
+    watchAllFields.gasLimitLegacy,
+    watchAllFields.gasPrice,
+    watchAllFields.feeRate,
+    watchAllFields.computeUnitPrice,
+    watchAllFields.feeRateCkb,
+    watchAllFields.neoN3SystemFee,
     watchAllFields.neoN3NetworkFee,
     watchAllFields.neoN3PriorityFee,
-    watchAllFields.neoN3SystemFee,
+    vaultSettings?.withL1BaseFee,
+    feeSymbol,
+    feeDecimals,
+    unsignedTxs,
   ]);
 
   const renderFeeDetails = useCallback(() => {
@@ -2005,7 +2088,34 @@ function TxFeeEditor(props: IProps) {
       <ScrollView mx="$-5" px="$5" pb="$5" maxHeight="$80">
         <Stack gap="$5">
           {renderFeeTypeSelector()}
+          {currentFeeType === EFeeType.Custom && isDappSuggestedFeeInfo ? (
+            <Alert
+              icon="GasOutline"
+              type="info"
+              description={intl.formatMessage({
+                id: ETranslations.network_fee_suggested_by_dapp_description,
+              })}
+            />
+          ) : null}
           {renderFeeEditorForm()}
+          {isDappSuggestedFeeInfo ||
+          currentFeeType !== EFeeType.Custom ||
+          !customFee ? null : (
+            <Checkbox
+              value={defaultCustomFeeInfoEnabled}
+              onChange={() => {
+                setDefaultCustomFeeInfoEnabled(!defaultCustomFeeInfoEnabled);
+              }}
+              description={intl.formatMessage(
+                {
+                  id: ETranslations.edit_fee_custom_set_as_default_description,
+                },
+                {
+                  network: network?.name,
+                },
+              )}
+            />
+          )}
         </Stack>
       </ScrollView>
       <Stack

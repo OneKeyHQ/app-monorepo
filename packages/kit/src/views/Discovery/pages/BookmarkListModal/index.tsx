@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDragEndParamsWithItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -17,6 +18,10 @@ import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/Rename
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
@@ -33,12 +38,12 @@ import type { IBrowserBookmark } from '../../types';
 function BookmarkListModal() {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
+  const { sortBrowserBookmark, removeBrowserBookmark, modifyBrowserBookmark } =
     useBrowserBookmarkAction().current;
   const handleWebSite = useWebSiteHandler();
 
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
-  const { run, result } = usePromiseResult(
+  const { run: refreshLocalData, result } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -52,6 +57,26 @@ function BookmarkListModal() {
       watchLoading: true,
     },
   );
+
+  useEffect(() => {
+    const refreshBookmarkHandler = () => {
+      setTimeout(() => {
+        void refreshLocalData();
+      }, 200);
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.RefreshBookmarkList,
+      refreshBookmarkHandler,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RefreshBookmarkList,
+        refreshBookmarkHandler,
+      );
+    };
+  }, [refreshLocalData]);
 
   const onRename = useCallback(
     (item: IBrowserBookmark) => {
@@ -71,12 +96,19 @@ function BookmarkListModal() {
                 required: {
                   value: true,
                   message: intl.formatMessage({
-                    id: ETranslations.global_name,
+                    id: ETranslations.explore_bookmark_at_least,
                   }),
+                },
+                validate: (value: string) => {
+                  if (!value?.trim()) {
+                    return intl.formatMessage({
+                      id: ETranslations.explore_bookmark_at_least,
+                    });
+                  }
+                  return true;
                 },
               }}
             >
-              {/* <Input autoFocus flex={1} /> */}
               <RenameInputWithNameSelector
                 disabledMaxLengthLabel
                 nameHistoryInfo={{
@@ -98,13 +130,10 @@ function BookmarkListModal() {
               id: ETranslations.explore_bookmark_renamed,
             }),
           });
-          setTimeout(() => {
-            void run();
-          }, 200);
         },
       });
     },
-    [modifyBrowserBookmark, run, intl],
+    [modifyBrowserBookmark, intl],
   );
 
   const removeBookmarkFlagRef = useRef(false);
@@ -117,11 +146,8 @@ function BookmarkListModal() {
       }
       await removeBrowserBookmark(dataSource[index].url);
       removeBookmarkFlagRef.current = true;
-      setTimeout(async () => {
-        await run();
-      }, 200);
     },
-    [removeBrowserBookmark, run, dataSource],
+    [removeBrowserBookmark, dataSource],
   );
   // Auto goBack when no bookmark
   useEffect(() => {
@@ -132,11 +158,17 @@ function BookmarkListModal() {
   }, [result?.length, navigation]);
 
   const onSortBookmarks = useCallback(
-    (data: IBrowserBookmark[]) => {
-      buildBookmarkData({ data });
+    async (params: IDragEndParamsWithItem<IBrowserBookmark>) => {
+      const { data, dragItem, prevItem, nextItem } = params;
+
       setDataSource(data);
+      await sortBrowserBookmark({
+        target: dragItem,
+        prev: prevItem,
+        next: nextItem,
+      });
     },
-    [buildBookmarkData],
+    [sortBrowserBookmark],
   );
 
   const handleItemPress = useCallback(
@@ -145,6 +177,8 @@ function BookmarkListModal() {
         webSite: {
           url: item.url,
           title: item.title,
+          logo: item.logo,
+          sortIndex: undefined,
         },
         enterMethod: EEnterMethod.bookmark,
         shouldPopNavigation: true,
@@ -176,7 +210,7 @@ function BookmarkListModal() {
   );
 
   return (
-    <Page>
+    <Page lazyLoad>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.explore_bookmarks,
@@ -193,7 +227,7 @@ function BookmarkListModal() {
             offset: index * CELL_HEIGHT,
             index,
           })}
-          onDragEnd={(ret) => onSortBookmarks(ret.data)}
+          onDragEnd={onSortBookmarks}
           ListEmptyComponent={
             <Empty
               py="$32"

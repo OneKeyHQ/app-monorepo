@@ -41,6 +41,7 @@ export function captureSpecialError(
 
 export function convertDeviceError(
   payloadOrigin: IOneKeyHardwareErrorPayload,
+  options?: { silentMode?: boolean },
 ): IOneKeyError {
   const payload = {
     ...payloadOrigin,
@@ -77,7 +78,10 @@ export function convertDeviceError(
     case HardwareErrorCode.DeviceCheckDeviceIdError:
       return new HardwareErrors.DeviceNotSame({ payload });
     case HardwareErrorCode.DeviceNotFound:
-      return new HardwareErrors.DeviceNotFound({ payload });
+      return new HardwareErrors.DeviceNotFound({
+        payload,
+        silentMode: options?.silentMode,
+      });
     case HardwareErrorCode.DeviceInitializeFailed:
       return new HardwareErrors.DeviceInitializeFailed({ payload });
     case HardwareErrorCode.DeviceDetectInBootloaderMode:
@@ -120,6 +124,8 @@ export function convertDeviceError(
       return new HardwareErrors.BleLocationServiceError({ payload });
     case HardwareErrorCode.BleDeviceNotBonded:
       return new HardwareErrors.DeviceNotBonded({ payload });
+    case HardwareErrorCode.BleDeviceBondedCanceled:
+      return new HardwareErrors.DeviceNotBonded({ payload });
     case HardwareErrorCode.BleDeviceBondError:
       return new HardwareErrors.DeviceBondError({ payload });
     case HardwareErrorCode.BleWriteCharacteristicError:
@@ -155,10 +161,15 @@ export function convertDeviceError(
       });
     case HardwareErrorCode.DeviceCheckPassphraseStateError:
       return new HardwareErrors.InvalidPassphrase({ payload });
+    case HardwareErrorCode.DeviceCheckUnlockTypeError:
+      return new HardwareErrors.InvalidAttachPin({ payload });
     case HardwareErrorCode.DeviceOpenedPassphrase:
       return new HardwareErrors.DeviceOpenedPassphrase({ payload });
-    case HardwareErrorCode.DeviceNotOpenedPassphrase:
-      return new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+    case HardwareErrorCode.DeviceNotOpenedPassphrase: {
+      const deviceNotOpenedPassphraseError =
+        new HardwareErrors.DeviceNotOpenedPassphrase({ payload });
+      return deviceNotOpenedPassphraseError;
+    }
     case HardwareErrorCode.PinCancelled:
       return new HardwareErrors.PinCancelled({ payload });
     case HardwareErrorCode.UnexpectPassphrase:
@@ -172,7 +183,7 @@ export function convertDeviceError(
       return new HardwareErrors.BridgeNetworkError({ payload });
     case HardwareErrorCode.BridgeTimeoutError:
       if (platformEnv.isDesktop) {
-        globalThis.desktopApi.reloadBridgeProcess();
+        void globalThis.desktopApiProxy?.system?.reloadBridgeProcess?.();
       }
       return new HardwareErrors.BridgeTimeoutError({ payload });
     case HardwareErrorCode.PollingTimeout:
@@ -199,6 +210,12 @@ export function convertDeviceError(
       return new HardwareErrors.HardwareWebDeviceCommunicationError({
         payload,
       });
+    case HardwareErrorCode.EmmcFileWriteFirmwareError:
+      return new HardwareErrors.FirmwareUpdateTransferInterruptedError({
+        payload,
+      });
+    case HardwareErrorCode.DefectiveFirmware:
+      return new HardwareErrors.DefectiveFirmware({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
@@ -208,7 +225,7 @@ export function convertDeviceError(
 
     // TODO not working as HardwareErrorCode is const but not enum
     // const exhaustiveCheck: never = code;
-    // throw new Error(
+    // throw new OneKeyLocalError(
     //   `Unhandled hardware error code case: ${exhaustiveCheck as any}`,
     // );
   }
@@ -216,6 +233,7 @@ export function convertDeviceError(
 
 export async function convertDeviceResponse<T>(
   fn: () => Promise<IDeviceResponseResult<T>>,
+  options?: { silentMode?: boolean },
 ): Promise<T> {
   let response: IDeviceResponseResult<T> | undefined;
   try {
@@ -227,7 +245,7 @@ export async function convertDeviceResponse<T>(
     throw hardwareCommonError;
   }
   if (!response.success) {
-    throw convertDeviceError(response.payload);
+    throw convertDeviceError(response.payload, options);
   }
   return response.payload;
 }

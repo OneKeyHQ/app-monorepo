@@ -1,9 +1,15 @@
-import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentProps,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import {
   Children,
   cloneElement,
   isValidElement,
   useCallback,
+  useEffect,
   useMemo,
 } from 'react';
 
@@ -26,6 +32,8 @@ import {
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
+import { addFormInstance, removeFormInstance } from './formInstances';
+
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
@@ -36,6 +44,7 @@ export type IFormProps = IPropsWithTestId<{
     submit?: () => void;
   };
   header?: ReactNode;
+  childrenGap?: ComponentProps<typeof YStack>['gap'];
 }>;
 
 function HiddenSubmit() {
@@ -52,11 +61,23 @@ function HiddenSubmit() {
   );
 }
 
-export function FormWrapper({ form: formContext, children }: IFormProps) {
+export function FormWrapper({
+  form: formContext,
+  children,
+  childrenGap,
+}: IFormProps) {
+  useEffect(() => {
+    addFormInstance(formContext);
+
+    return () => {
+      removeFormInstance(formContext);
+    };
+  }, [formContext]);
+
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={formContext.submit} position="relative">
-        <YStack gap="$5">{children}</YStack>
+        <YStack gap={childrenGap ?? '$5'}>{children}</YStack>
         {formContext.submit ? <HiddenSubmit /> : null}
       </TMForm>
     </FormProvider>

@@ -4,7 +4,9 @@ import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressIn
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
@@ -13,6 +15,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
+  IAddressBadge,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
@@ -27,6 +30,7 @@ import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
   IProxyRequest,
   IProxyRequestItem,
+  IProxyRequestParam,
   IProxyResponse,
   IRpcProxyResponse,
 } from '@onekeyhq/shared/types/proxy';
@@ -161,6 +165,7 @@ class ServiceAccountProfile extends ServiceBase {
     isCex: boolean;
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
+    badges: IAddressBadge[];
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -172,6 +177,7 @@ class ServiceAccountProfile extends ServiceBase {
         isContract: false,
         isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
+        badges: [],
       };
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -191,6 +197,7 @@ class ServiceAccountProfile extends ServiceBase {
         label: addressLabel,
         isScam,
         isCex,
+        badges,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -207,6 +214,7 @@ class ServiceAccountProfile extends ServiceBase {
         isCex: isCex ?? false,
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
+        badges: badges ?? [],
       };
     } catch {
       return {
@@ -214,6 +222,7 @@ class ServiceAccountProfile extends ServiceBase {
         isContract: false,
         isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
+        badges: [],
       };
     }
   }
@@ -241,7 +250,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted, addressLabel, isScam, isCex } =
+    const { isContract, interacted, addressLabel, isScam, isCex, badges } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
@@ -260,6 +269,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     result.isScam = isScam;
     result.isCex = isCex;
+    result.addressBadges = badges;
   }
 
   private async verifyCannotSendToSelf({
@@ -299,10 +309,15 @@ class ServiceAccountProfile extends ServiceBase {
     enableVerifySendFundToSelf,
     enableAllowListValidation,
     skipValidateAddress,
-  }: IQueryCheckAddressArgs) {
+    enableAddressDeriveInfo,
+  }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
     let address = rawAddress.trim();
+
+    const result: IAddressQueryResult = {
+      input: rawAddress,
+    };
 
     try {
       const { displayAddress, isValid } =
@@ -312,14 +327,12 @@ class ServiceAccountProfile extends ServiceBase {
         });
       if (isValid) {
         address = displayAddress;
+        result.validAddress = address;
       }
     } catch (e) {
       // noop
     }
 
-    const result: IAddressQueryResult = {
-      input: rawAddress,
-    };
     if (!networkId) {
       return result;
     }
@@ -354,26 +367,31 @@ class ServiceAccountProfile extends ServiceBase {
       }
     }
     if (enableAddressBook && resolveAddress) {
-      // handleAddressBookName
-      const addressBookItem =
-        await this.backgroundApi.serviceAddressBook.findItem({
-          networkId: !networkUtils.isEvmNetwork({ networkId })
-            ? networkId
-            : undefined,
-          address: resolveAddress,
-        });
-      result.addressBookId = addressBookItem?.id;
-      result.isAllowListed = addressBookItem?.isAllowListed;
-      if (addressBookItem?.name) {
-        if (addressBookItem?.isAllowListed) {
-          result.addressBookName = `${appLocale.intl.formatMessage({
-            id: ETranslations.address_label_allowlist,
-          })} / ${addressBookItem?.name}`;
-        } else {
-          result.addressBookName = `${appLocale.intl.formatMessage({
-            id: ETranslations.global_contact,
-          })} / ${addressBookItem?.name}`;
+      try {
+        const password =
+          await this.backgroundApi.servicePassword.getCachedPassword();
+        if (password) {
+          // handleAddressBookName
+          const addressBookItem =
+            await this.backgroundApi.serviceAddressBook.findItem({
+              networkId: !networkUtils.isEvmNetwork({ networkId })
+                ? networkId
+                : undefined,
+              address: resolveAddress,
+              password,
+            });
+          result.addressBookId = addressBookItem?.id;
+          result.isAllowListed = addressBookItem?.isAllowListed;
+          result.addressNote = addressBookItem?.note;
+          result.addressMemo = addressBookItem?.memo;
+          if (addressBookItem?.name) {
+            result.addressBookName = `${appLocale.intl.formatMessage({
+              id: ETranslations.global_contact,
+            })} / ${addressBookItem?.name}`;
+          }
         }
+      } catch (e) {
+        console.error(e);
       }
     }
 
@@ -438,6 +456,23 @@ class ServiceAccountProfile extends ServiceBase {
         }
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
+        if (enableAddressDeriveInfo) {
+          const account =
+            await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId,
+                indexedAccountId: item.accountId,
+                excludeEmptyAccount: true,
+              },
+            );
+          const matchedAccount = account.networkAccounts?.find(
+            (a) => a.account?.address === resolveAddress,
+          );
+          if (matchedAccount) {
+            result.addressDeriveInfo = matchedAccount.deriveInfo;
+            result.addressDeriveType = matchedAccount.deriveType;
+          }
+        }
       }
     }
     if (
@@ -469,6 +504,11 @@ class ServiceAccountProfile extends ServiceBase {
         if (isOwnAccount) {
           return result;
         }
+      }
+
+      // Skip allowlist check if it's in address book
+      if (result.addressBookId) {
+        return result;
       }
 
       // Check if address is in allowlist when allowlist feature is enabled
@@ -515,50 +555,69 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async sendProxyRequest<T>({
     networkId,
     body,
     returnRawData,
+    isJsonRpc,
   }: {
     networkId: string;
     body: IProxyRequestItem[];
     returnRawData?: boolean;
+    isJsonRpc?: boolean;
   }): Promise<T[]> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: IProxyRequest = { networkId, body };
-    const resp = await client.post<IProxyResponse<T>>(
+    const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
       '/wallet/v1/proxy/wallet',
       request,
     );
-    const data = resp.data.data.data;
+
+    if (isJsonRpc) {
+      const data = resp.data.data.data as IRpcProxyResponse<T>['data']['data'];
+      return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+    }
+
+    const data = resp.data.data.data as IProxyResponse<T>['data']['data'];
     const failedRequest = data.find((item) => !item.success);
     if (failedRequest) {
       if (returnRawData) {
         // @ts-expect-error
         return data;
       }
-      throw new Error(failedRequest.error ?? 'Failed to send proxy request');
+      throw new OneKeyLocalError(
+        failedRequest.error ?? 'Failed to send proxy request',
+      );
     }
     return data.map((item) => item.data);
   }
 
-  async sendRpcProxyRequest<T>({
+  @backgroundMethod()
+  @toastIfError()
+  async sendProxyRequestWithTrxRes<T>({
     networkId,
     body,
   }: {
     networkId: string;
-    body: IProxyRequestItem[];
-  }): Promise<T[]> {
+    body: IProxyRequestParam;
+  }): Promise<T> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const request: IProxyRequest = { networkId, body };
-    const resp = await client.post<IRpcProxyResponse<T>>(
-      '/wallet/v1/proxy/wallet',
+    const request: {
+      networkId: string;
+    } & IProxyRequestParam = { networkId, ...body };
+    const resp = await client.post<IProxyResponse<T> | IRpcProxyResponse<T>>(
+      '/wallet/v1/proxy/trxres',
       request,
     );
 
-    const data = resp.data.data.data;
+    if (resp.data.code !== 0) {
+      throw new OneKeyLocalError(
+        resp.data.message ?? 'Failed to send proxy request with trx res',
+      );
+    }
 
-    return Promise.all(data.map((item) => parseRPCResponse<T>(item)));
+    return resp.data.data as T;
   }
 
   @backgroundMethod()
@@ -578,7 +637,7 @@ class ServiceAccountProfile extends ServiceBase {
       const currencyInfo = currencyMap[currency];
 
       if (!currencyInfo) {
-        throw new Error('Currency not found');
+        throw new OneKeyLocalError('Currency not found');
       }
       usdValue = Object.entries(value).reduce((acc, [n, v]) => {
         acc[n] = new BigNumber(v)
@@ -675,6 +734,15 @@ class ServiceAccountProfile extends ServiceBase {
       return;
     }
     await this.updateAccountValue(params);
+  }
+
+  @backgroundMethod()
+  async isSoftwareWalletOnlyUser() {
+    const hwQrWallets =
+      await this.backgroundApi.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+      });
+    return Object.keys(hwQrWallets).length === 0;
   }
 
   // Get wallet type

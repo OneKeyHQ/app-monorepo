@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="%LANG_ISO_CODE%"
+<html
+  lang="<%= LANG_ISO_CODE %>"
+  font-size="16px"
    <% if ( platform === 'ext' && filename === 'ui-popup.html' ) { %>
       style="min-height: 600px; min-width: 400px; margin: 0; overflow: auto;"
    <% } %>
@@ -44,6 +46,13 @@
 // >>>>>>> automatic copy code from preload-html-head.js <<<<<<<<<
             <%= htmlHeadPreloadCode %>
           </script>
+      <% } %>
+      <% if ( platform == 'web-embed' ) { %> 
+        <script>
+          if (typeof globalThis === 'undefined') {
+              var globalThis = window;
+          }
+        </script>
       <% } %>
   </head>
 
@@ -109,12 +118,21 @@
 
     <!-- The root element for your Expo app.  -->
     <div id="root">
-      <% if ( platform == 'webEmbed' ) { %> 
-        webEmbed index.html 
+      <% if ( platform == 'web-embed' ) { %> 
+        <!-- webEmbed index.html -->
       <% } %>
     </div>
 
-    <% if ( platform !== 'webEmbed' ) { %>
+    <script>
+      (()=>{
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+          rootElement.setAttribute('data-html-render-time', Date.now().toString());
+        }
+      })();
+    </script>
+
+    <% if ( platform !== 'web-embed' ) { %>
       <img
         width='80'
         class="onekey-index-html-preload-image"

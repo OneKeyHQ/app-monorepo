@@ -24,6 +24,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -112,19 +113,23 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    const contacts = await serviceAddressBook.getSafeRawItems();
-    defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
-      contacts.length,
-    );
+    if (password) {
+      const { items: contacts } = await serviceAddressBook.getSafeRawItems({
+        password,
+      });
+      defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
+        contacts.length,
+      );
 
-    contacts.forEach((contact) => {
-      const contactUUID = getContactUUID(contact);
-      privateBackupData.contacts[contactUUID] = contact;
-      publicBackupData.contacts[contactUUID] = {
-        ...contact,
-        address: shortenAddress({ address: contact.address }),
-      };
-    });
+      contacts.forEach((contact) => {
+        const contactUUID = getContactUUID(contact);
+        privateBackupData.contacts[contactUUID] = contact;
+        publicBackupData.contacts[contactUUID] = {
+          ...contact,
+          address: shortenAddress({ address: contact.address }),
+        };
+      });
+    }
 
     const bookmarks = await serviceDiscovery.getBookmarkData(undefined);
     publicBackupData.discoverBookmarks = bookmarks;
@@ -263,7 +268,7 @@ class ServiceCloudBackup extends ServiceBase {
     };
     const accountCount = accountCountWithBackup(cloudData.publicData);
     if (!isAvailableBackupWithBackup(cloudData.publicData)) {
-      throw new Error(
+      throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
           id: ETranslations.backup_no_content_available_for_backup,
         }),
@@ -274,7 +279,7 @@ class ServiceCloudBackup extends ServiceBase {
       if (!RNFS) return;
       const localTempFilePath = this.getTempFilePath(filename);
       if (!localTempFilePath) {
-        throw new Error('Invalid local temp file path.');
+        throw new OneKeyLocalError('Invalid local temp file path.');
       }
       await RNFS.writeFile(
         localTempFilePath,
@@ -584,7 +589,7 @@ class ServiceCloudBackup extends ServiceBase {
       });
 
       try {
-        await serviceAccount.generateHDWalletsMissingHash({
+        await serviceAccount.generateAllHdAndQrWalletsHashAndXfp({
           password: localPassword,
         });
       } catch (e) {
@@ -615,8 +620,8 @@ class ServiceCloudBackup extends ServiceBase {
           localPassword,
         );
 
-        const walletHash: string | undefined =
-          this.backgroundApi.serviceAccount.walletHashBuilder({
+        const walletHashAndXfp =
+          await this.backgroundApi.serviceAccount.hdWalletHashAndXfpBuilder({
             realMnemonic: mnemonicFromRs,
           });
 
@@ -625,7 +630,9 @@ class ServiceCloudBackup extends ServiceBase {
             rs: rsEncoded,
             password: localPassword,
             avatarInfo: avatar,
-            walletHash,
+            walletHash: walletHashAndXfp.hash,
+            walletXfp: walletHashAndXfp.xfp,
+            isWalletBackedUp: true,
           });
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,

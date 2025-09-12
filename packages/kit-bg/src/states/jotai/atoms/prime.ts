@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeServerUserInfo,
+  IPrimeUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -14,10 +17,46 @@ export const {
   initialValue: {
     isLoggedIn: false,
     isLoggedInOnServer: false,
+    isEnablePrime: undefined,
+    isEnableSandboxPay: undefined,
     email: undefined,
+    displayEmail: undefined,
     privyUserId: undefined,
     primeSubscription: undefined,
     subscriptionManageUrl: undefined,
+  },
+});
+
+export type IPrimeCloudSyncPersistAtomData = {
+  isCloudSyncEnabled: boolean;
+  lastSyncTime?: number;
+};
+export const {
+  target: primeCloudSyncPersistAtom,
+  use: usePrimeCloudSyncPersistAtom,
+} = globalAtom<IPrimeCloudSyncPersistAtomData>({
+  name: EAtomNames.primeCloudSyncPersistAtom,
+  persist: true,
+  initialValue: {
+    isCloudSyncEnabled: false,
+  },
+});
+
+export type IPrimeMasterPasswordPersistAtomData = {
+  // masterPasswordHash: string; // never save in local storage, just in memory only
+  // encryptedMasterPassword: string; // never save encrypted master password in local storage
+  masterPasswordUUID: string; // pwdHash
+  encryptedSecurityPasswordR1: string;
+};
+export const {
+  target: primeMasterPasswordPersistAtom,
+  use: usePrimeMasterPasswordPersistAtom,
+} = globalAtom<IPrimeMasterPasswordPersistAtomData>({
+  name: EAtomNames.primeMasterPasswordPersistAtom,
+  persist: true,
+  initialValue: {
+    masterPasswordUUID: '',
+    encryptedSecurityPasswordR1: '',
   },
 });
 
@@ -33,22 +72,29 @@ export const { target: primeInitAtom, use: usePrimeInitAtom } =
   });
 
 export type IPrimeLoginDialogAtomPasswordData = {
+  promiseId: number;
   isRegister?: boolean;
   email: string;
-  promiseId: number;
+  isVerifyMasterPassword?: boolean;
+  isChangeMasterPassword?: boolean;
+  serverUserInfo?: IPrimeServerUserInfo;
 };
 
 export type IPrimeLoginDialogAtomEmailCodeData = {
+  promiseId: number;
   email: string;
   verifyUUID: string;
+};
+export type IForgetMasterPasswordDialogData = {
   promiseId: number;
 };
 export type IPrimeLoginDialogAtomData = {
-  promptPrimeLoginEmailDialog: number | undefined;
+  promptPrimeLoginEmailDialog: number | undefined; // number is promiseId
   promptPrimeLoginPasswordDialog: IPrimeLoginDialogAtomPasswordData | undefined;
   promptPrimeLoginEmailCodeDialog:
     | IPrimeLoginDialogAtomEmailCodeData
     | undefined;
+  promptForgetMasterPasswordDialog: IForgetMasterPasswordDialogData | undefined;
 };
 export type IPrimeLoginDialogKeys = keyof IPrimeLoginDialogAtomData;
 export const { target: primeLoginDialogAtom, use: usePrimeLoginDialogAtom } =
@@ -58,5 +104,61 @@ export const { target: primeLoginDialogAtom, use: usePrimeLoginDialogAtom } =
       promptPrimeLoginEmailDialog: undefined,
       promptPrimeLoginPasswordDialog: undefined,
       promptPrimeLoginEmailCodeDialog: undefined,
+      promptForgetMasterPasswordDialog: undefined,
+    },
+  });
+
+export enum EPrimeTransferStatus {
+  init = 'init',
+  paired = 'paired',
+  transferring = 'transferring',
+}
+export type IPrimeTransferAtomData = {
+  shouldPreventExit: boolean;
+  websocketConnected: boolean;
+  websocketError: string | undefined;
+  websocketEndpointUpdatedAt: number | undefined;
+  status: EPrimeTransferStatus;
+  pairedRoomId: string | undefined;
+  myCreatedRoomId: string | undefined;
+  myUserId: string | undefined;
+  transferDirection:
+    | {
+        fromUserId: string | undefined;
+        toUserId: string | undefined;
+        randomNumber: string | undefined;
+      }
+    | undefined;
+  importProgress?: {
+    total: number;
+    current: number;
+    isImporting: boolean;
+    stats?: {
+      errorsInfo: {
+        category: string;
+        walletId: string;
+        accountId: string;
+        networkInfo: string;
+        error: string;
+      }[];
+      progressTotal: number;
+      progressCurrent: number;
+    };
+  };
+};
+export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
+  globalAtom<IPrimeTransferAtomData>({
+    name: EAtomNames.primeTransferAtom,
+    initialValue: {
+      shouldPreventExit: false,
+      websocketConnected: false,
+      websocketError: undefined,
+      websocketEndpointUpdatedAt: undefined,
+      status: EPrimeTransferStatus.init,
+      pairedRoomId: undefined,
+      myCreatedRoomId: undefined,
+      myUserId: undefined,
+      transferDirection: undefined,
+      importProgress: undefined,
     },
   });

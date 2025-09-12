@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapProviderSort,
+  mevSwapNetworks,
   swapProviderRecommendApprovedWeights,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
@@ -18,13 +19,17 @@ import type {
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
   ISwapLimitPriceInfo,
+  ISwapNativeTokenReserveGas,
   ISwapNetwork,
+  ISwapPreSwapData,
+  ISwapStep,
+  ISwapTips,
   ISwapToken,
   ISwapTokenCatch,
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  EProtocolOfExchange,
+  ESwapNetworkFeeLevel,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -41,6 +46,14 @@ const {
   contextAtomMethod,
 } = createJotaiContext();
 export { ProviderJotaiContextSwap, contextAtomMethod };
+
+// swap mev config
+export const { atom: swapMevConfigAtom, use: useSwapMevConfigAtom } =
+  contextAtom<{
+    swapMevNetConfig: string[];
+  }>({
+    swapMevNetConfig: mevSwapNetworks,
+  });
 
 // swap bridge limit switch
 export const { atom: swapTypeSwitchAtom, use: useSwapTypeSwitchAtom } =
@@ -335,10 +348,10 @@ export const {
     return 0;
   });
   return sortedList.map((p) => {
-    if (p.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
+    if (p?.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
       p.isBest = true;
     }
-    if (p.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
+    if (p?.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
       p.receivedBest = true;
     }
     if (p.quoteId === gasFeeSorted?.[0]?.quoteId && p.toAmount) {
@@ -615,5 +628,30 @@ export const {
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
 
-export const { atom: swapApprovingAtom, use: useSwapApprovingAtom } =
-  contextAtom<boolean>(false);
+export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<{
+  steps: ISwapStep[];
+  preSwapData: ISwapPreSwapData;
+  quoteResult?: IFetchQuoteResult;
+}>({
+  steps: [],
+  preSwapData: {},
+});
+
+export const {
+  atom: swapStepNetFeeLevelAtom,
+  use: useSwapStepNetFeeLevelAtom,
+} = contextAtom<{
+  networkFeeLevel: ESwapNetworkFeeLevel;
+}>({
+  networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+});
+
+// swap tips
+export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
+  ISwapTips | undefined
+>(undefined);
+
+export const {
+  atom: swapNativeTokenReserveGasAtom,
+  use: useSwapNativeTokenReserveGasAtom,
+} = contextAtom<ISwapNativeTokenReserveGas[]>([]);

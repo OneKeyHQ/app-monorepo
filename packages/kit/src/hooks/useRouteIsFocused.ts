@@ -10,7 +10,7 @@ const getRootRoutersLength = () =>
 
 export const useRouteIsFocused = ({
   disableLockScreenCheck = false,
-  testID,
+  testID: _testID,
 }:
   | {
       disableLockScreenCheck?: boolean;

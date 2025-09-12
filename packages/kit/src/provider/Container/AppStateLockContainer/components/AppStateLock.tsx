@@ -2,11 +2,7 @@ import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  Dimensions,
-  type View as IView,
-  type KeyboardEvent,
-} from 'react-native';
+import { Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,8 +11,10 @@ import Animated, {
 import type { IThemeableStackProps } from '@onekeyhq/components';
 import {
   Button,
+  DesktopDragZoneBox,
   Heading,
   Image,
+  Keyboard,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -32,6 +30,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { AppStateContainer } from './AppStateContainer';
+
+import type { View as IView, KeyboardEvent } from 'react-native';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
@@ -85,6 +85,8 @@ const AppStateLock = ({
         zIndex={APP_STATE_LOCK_Z_INDEX}
         flex={1}
         bg="$bgApp"
+        pointerEvents={platformEnv.isNative ? undefined : 'auto'}
+        onPress={Keyboard.dismiss}
         {...props}
       >
         <Animated.View style={safeKeyboardAnimationStyle}>
@@ -95,6 +97,14 @@ const AppStateLock = ({
             p="$8"
             gap="$8"
           >
+            <DesktopDragZoneBox
+              position="absolute"
+              top={0}
+              left={0}
+              right={0}
+              renderAs="Stack"
+              height="$12"
+            />
             <Stack gap="$4" alignItems="center">
               <Image w={72} h={72} source={Logo} />
               <Heading size="$headingLg" textAlign="center">

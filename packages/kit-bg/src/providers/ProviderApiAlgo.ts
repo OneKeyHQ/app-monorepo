@@ -52,7 +52,7 @@ class ProviderApiAlgo extends ProviderApiBase {
 
   @providerApiMethod()
   public async getChainId(request: IJsBridgeMessagePayload) {
-    console.log('algo getChainId');
+    // console.log('algo getChainId');
 
     const accountsInfo =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(

@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import { Button, Icon, Page, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';

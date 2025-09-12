@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 const ButtonGallery = () => (
   <Layout
     componentName="Button"
+    getFilePath={() => __CURRENT_FILE_PATH__}
     elements={[
       {
         title: 'Variants',

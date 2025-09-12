@@ -18,6 +18,7 @@ import {
   IMPL_EVM,
   IMPL_LTC,
 } from '@onekeyhq/shared/src/engine/engineConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -28,17 +29,23 @@ import systemLocaleUtils from '@onekeyhq/shared/src/locale/systemLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EHardwareTransportType } from '@onekeyhq/shared/types';
-import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type {
+  EHardwareTransportType,
+  IServerNetwork,
+} from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { type IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
-import { currencyPersistAtom } from '../states/jotai/atoms';
+import {
+  currencyPersistAtom,
+  desktopBluetoothAtom,
+} from '../states/jotai/atoms';
 import {
   settingsLastActivityAtom,
   settingsPersistAtom,
@@ -47,6 +54,7 @@ import {
 import ServiceBase from './ServiceBase';
 
 import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
+import type { IDesktopBluetoothAtom } from '../states/jotai/atoms';
 
 export type IAccountDerivationConfigItem = {
   num: number;
@@ -85,6 +93,9 @@ class ServiceSetting extends ServiceBase {
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, locale }));
     await this.refreshLocaleMessages();
+
+    // clear i18nText cache
+    await this.backgroundApi.serviceReferralCode.resetPostConfig();
   }
 
   @backgroundMethod()
@@ -217,6 +228,7 @@ class ServiceSetting extends ServiceBase {
       return;
     }
     await settingsPersistAtom.set((prev) => ({ ...prev, currencyInfo }));
+    await this.backgroundApi.serviceStaking.resetEarnCache();
   }
 
   @backgroundMethod()
@@ -229,6 +241,7 @@ class ServiceSetting extends ServiceBase {
     if (values.transactionHistory) {
       // clear transaction history
       await this.backgroundApi.simpleDb.localHistory.clearRawData();
+      await this.backgroundApi.simpleDb.addressInfo.clearRawData();
     }
     if (values.swapHistory) {
       // clear swap history
@@ -264,6 +277,7 @@ class ServiceSetting extends ServiceBase {
     }
     if (values.serverNetworks) {
       await this.backgroundApi.simpleDb.serverNetwork.clearRawData();
+      await this.backgroundApi.simpleDb.recentNetworks.clearRawData();
     }
     defaultLogger.setting.page.clearData({ action: 'Cache' });
   }
@@ -294,7 +308,7 @@ class ServiceSetting extends ServiceBase {
     );
 
     if (networksVaultSettings.length !== networks.length) {
-      throw new Error('failed to get account derivation config');
+      throw new OneKeyLocalError('failed to get account derivation config');
     }
 
     networks = networks.filter((o, i) => {
@@ -325,7 +339,6 @@ class ServiceSetting extends ServiceBase {
     topped.sort((a, b) => toppedImpl[a.impl] ?? 0 - toppedImpl[b.impl] ?? 0);
 
     networks = [...topped, ...bottomed];
-    const networkIds = networks.map((n) => n.id);
 
     const config: IAccountDerivationConfigItem[] = networks.map(
       (network, i) => ({
@@ -521,11 +534,7 @@ class ServiceSetting extends ServiceBase {
     if (hardwareTransportType) {
       return hardwareTransportType;
     }
-    // fix default value
-    if (platformEnv.isNative) {
-      return EHardwareTransportType.BLE;
-    }
-    return EHardwareTransportType.Bridge;
+    return deviceUtils.getDefaultHardwareTransportType();
   }
 
   @backgroundMethod()
@@ -542,6 +551,33 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       hiddenWalletImmediately: value,
     }));
+  }
+
+  @backgroundMethod()
+  public async setFilterScamHistoryEnabled(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isFilterScamHistoryEnabled: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setEnableDesktopBluetooth(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableDesktopBluetooth: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableDesktopBluetooth() {
+    const { enableDesktopBluetooth } = await settingsPersistAtom.get();
+    return enableDesktopBluetooth ?? false;
+  }
+
+  @backgroundMethod()
+  public async setDesktopBluetoothAtom(value: IDesktopBluetoothAtom) {
+    await desktopBluetoothAtom.set(value);
   }
 }
 

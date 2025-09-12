@@ -1,6 +1,12 @@
+import { useEffect, useState } from 'react';
+
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page } from '@onekeyhq/components';
+import { Page, XStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EAccountManagerStacksRoutes,
@@ -8,21 +14,29 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import { WalletDetails } from './WalletDetails';
-import {
-  AccountSelectorWalletListSideBar,
-  AccountSelectorWalletListSideBarPerfTest,
-} from './WalletList';
+import { AccountSelectorWalletListSideBar } from './WalletList';
 
-export function AccountSelectorStack({ num }: { num: number }) {
+export function AccountSelectorStack({
+  num,
+  hideNonBackedUpWallet,
+}: {
+  num: number;
+  hideNonBackedUpWallet?: boolean;
+}) {
   return (
-    <Page safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerShown={false} />
-      <Page.Body flexDirection="row">
-        {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
-        <AccountSelectorWalletListSideBar num={num} />
+      <Page.Body>
+        <XStack flex={1}>
+          {/* <AccountSelectorWalletListSideBarPerfTest num={num} /> */}
+          <AccountSelectorWalletListSideBar
+            num={num}
+            hideNonBackedUpWallet={hideNonBackedUpWallet}
+          />
 
-        {/* <WalletDetailsPerfTest num={num} /> */}
-        <WalletDetails num={num} />
+          {/* <WalletDetailsPerfTest num={num} /> */}
+          <WalletDetails num={num} />
+        </XStack>
       </Page.Body>
     </Page>
   );
@@ -34,12 +48,23 @@ export default function AccountSelectorStackPage({
   IAccountManagerStacksParamList,
   EAccountManagerStacksRoutes.AccountSelectorStack
 >) {
-  const { num, sceneName, sceneUrl } = route.params;
+  const {
+    num,
+    sceneName,
+    sceneUrl,
+    hideNonBackedUpWallet,
+    linkNetworkId,
+    linkNetworkDeriveType,
+    linkNetwork,
+  } = route.params;
 
   defaultLogger.accountSelector.perf.renderAccountSelectorModal({
     num,
     sceneName,
     sceneUrl,
+    linkNetworkId,
+    linkNetworkDeriveType,
+    linkNetwork,
   });
 
   return (
@@ -50,7 +75,10 @@ export default function AccountSelectorStackPage({
         sceneUrl,
       }}
     >
-      <AccountSelectorStack num={num} />
+      <AccountSelectorStack
+        num={num}
+        hideNonBackedUpWallet={hideNonBackedUpWallet}
+      />
     </AccountSelectorProviderMirror>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { ONEKEY_HEALTH_CHECK_URL } from '@onekeyhq/shared/src/config/appConfig';
+
 import { buildDeferredPromise } from './useDeferredPromise';
 import {
   getCurrentVisibilityState,
@@ -146,7 +148,7 @@ class NetInfo {
 }
 
 export const globalNetInfo = new NetInfo({
-  reachabilityUrl: '/wallet/v1/health',
+  reachabilityUrl: ONEKEY_HEALTH_CHECK_URL,
 });
 
 export const configureNetInfo = (configuration: IReachabilityConfiguration) => {

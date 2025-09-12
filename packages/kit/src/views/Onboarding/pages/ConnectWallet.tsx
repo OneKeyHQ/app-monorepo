@@ -1,48 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IDialogInstance } from '@onekeyhq/components';
 import {
-  Button,
-  Dialog,
   Heading,
-  Icon,
   Image,
   Page,
   SizableText,
   Spinner,
   Stack,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
-import { useOnboardingConnectWalletLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EOnboardingPages,
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useSelectedAccount,
-} from '../../../states/jotai/contexts/accountSelector';
+import { useWalletConnection } from '../../../hooks/useWebDapp/useWalletConnection';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -167,59 +147,6 @@ function WalletItemView({
   );
 }
 
-function ConnectToWalletDialogContent({
-  onRetryPress,
-}: {
-  onRetryPress: () => void;
-}) {
-  const [loading] = useOnboardingConnectWalletLoadingAtom();
-  const intl = useIntl();
-
-  return (
-    <Stack>
-      <Stack
-        justifyContent="center"
-        alignItems="center"
-        p="$5"
-        bg="$bgStrong"
-        borderRadius="$3"
-        borderCurve="continuous"
-      >
-        {loading ? (
-          <Spinner size="large" />
-        ) : (
-          <Icon size="$9" name="BrokenLink2Outline" />
-        )}
-
-        <SizableText textAlign="center" pt="$4">
-          {loading
-            ? intl.formatMessage({
-                id: ETranslations.global_connect_to_wallet_confirm_to_proceed,
-              })
-            : intl.formatMessage({
-                id: ETranslations.global_connect_to_wallet_no_confirmation,
-              })}
-        </SizableText>
-      </Stack>
-      {loading ? null : (
-        <Button
-          mt="$5"
-          variant="primary"
-          size="large"
-          $gtMd={
-            {
-              size: 'medium',
-            } as any
-          }
-          onPress={onRetryPress}
-        >
-          {intl.formatMessage({ id: ETranslations.global_retry })}
-        </Button>
-      )}
-    </Stack>
-  );
-}
-
 function WalletItem({
   logo,
   name,
@@ -229,139 +156,16 @@ function WalletItem({
   logo: any;
   connectionInfo: IExternalConnectionInfo;
 }) {
-  const [jotaiLoading, setJotaiLoading] =
-    useOnboardingConnectWalletLoadingAtom();
-  const [localLoading, setLocalLoading] = useState(false);
-  const intl = useIntl();
-
-  const loading = jotaiLoading || localLoading;
-  const setLoading = useCallback(
-    (v: boolean) => {
-      setJotaiLoading(v);
-      setLocalLoading(v);
-    },
-    [setJotaiLoading],
-  );
-
-  const navigation = useAppNavigation();
-  const actions = useAccountSelectorActions();
-  const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const dialogRef = useRef<IDialogInstance | null>(null);
-  const setLoadingRef = useRef(setLoading);
-  setLoadingRef.current = setLoading;
-  const loadingRef = useRef(loading);
-  loadingRef.current = loading;
-
-  const hideLoadingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
-  );
-  const hideLoading = useCallback(() => {
-    clearTimeout(hideLoadingTimer.current);
-    // delay hide loading to avoid connectToWallet mistake checking if Dialog is closed
-    hideLoadingTimer.current = setTimeout(() => {
-      setLoading(false);
-    }, 600);
-  }, [setLoading]);
-
-  const showLoading = useCallback(() => {
-    clearTimeout(hideLoadingTimer.current);
-    setLoading(true);
-  }, [setLoading]);
-
-  useEffect(() => {
-    if (!loading) {
-      return;
-    }
-    const fn = (state: { open: boolean }) => {
-      if (state.open === false && loadingRef.current) {
-        hideLoading();
-      }
-    };
-    appEventBus.on(EAppEventBusNames.WalletConnectModalState, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.WalletConnectModalState, fn);
-    };
-  }, [hideLoading, loading]);
-
-  const connectToWallet = useCallback(async () => {
-    try {
-      showLoading();
-      const connectResult =
-        await backgroundApiProxy.serviceDappSide.connectExternalWallet({
-          connectionInfo,
-        });
-      if (!loadingRef.current) {
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.feedback_connection_request_denied,
-          }),
-        });
-        return;
-      }
-      const r = await backgroundApiProxy.serviceAccount.addExternalAccount({
-        connectResult,
-      });
-      const account = r?.accounts?.[0];
-      const usedNetworkId = accountUtils.getAccountCompatibleNetwork({
-        account,
-        networkId: account.createAtNetwork || selectedAccount.networkId,
-      });
-      await actions.current.updateSelectedAccountForSingletonAccount({
-        num: 0,
-        networkId: usedNetworkId,
-        walletId: WALLET_TYPE_EXTERNAL,
-        othersWalletAccountId: account.id,
-      });
-      navigation.popStack();
-      await dialogRef.current?.close();
-
-      // Currently, there are only walletconnect and evm.
-      defaultLogger.account.wallet.connect3rdPartyWallet({
-        '3rdpartyConnectNetwork': 'evm',
-        '3rdpartyConnectType': 'walletconnect',
-      });
-    } finally {
-      hideLoading();
-    }
-  }, [
-    actions,
-    connectionInfo,
-    hideLoading,
-    intl,
-    navigation,
-    selectedAccount.networkId,
-    showLoading,
-  ]);
-
-  const connectToWalletWithDialog = useCallback(async () => {
-    console.log('WalletItem onPress');
-    if (loading || loadingRef.current) {
-      return;
-    }
-    await dialogRef.current?.close();
-    dialogRef.current = Dialog.show({
-      // title: `Connect to ${name || 'Wallet'}`,
-      title: intl.formatMessage(
-        { id: ETranslations.global_connect_to_wallet },
-        {
-          wallet: name || 'Wallet',
-        },
-      ),
-      showFooter: false,
-      dismissOnOverlayPress: false,
-      onClose() {
-        setLoadingRef.current?.(false);
-      },
-      renderContent: (
-        <ConnectToWalletDialogContent onRetryPress={connectToWallet} />
-      ),
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { connectToWalletWithDialogShow, universalLoading, localLoading } =
+    useWalletConnection({
+      name,
+      connectionInfo,
     });
-    await connectToWallet();
-  }, [connectToWallet, intl, loading, name]);
 
   return (
     <WalletItemView
-      onPress={connectToWalletWithDialog}
+      onPress={connectToWalletWithDialogShow}
       logo={logo}
       name={name || 'unknown'}
       loading={localLoading}

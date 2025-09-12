@@ -37,6 +37,9 @@ export class AccountSelectorPerfScene extends BaseScene {
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
+    linkNetwork?: boolean;
+    linkNetworkId?: string;
+    linkNetworkDeriveType?: IAccountDeriveTypes;
   }) {
     return [params];
   }
@@ -59,7 +62,7 @@ export class AccountSelectorPerfScene extends BaseScene {
     selectedAccount,
     editMode,
   }: {
-    editMode: boolean;
+    editMode?: boolean;
     selectedAccount: IAccountSelectorSelectedAccount;
   }) {
     return [selectedAccount, editMode];

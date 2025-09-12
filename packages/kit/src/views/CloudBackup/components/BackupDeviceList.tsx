@@ -172,7 +172,7 @@ export default function BackupDeviceList<T>({
         )
       }
       ListEmptyComponent={ListEmptyComponent}
-      {...restProps}
+      {...(restProps as any)}
     />
   );
 }

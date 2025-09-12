@@ -11,6 +11,7 @@ import {
   WALLET_TYPE_IMPORTED,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -149,13 +150,9 @@ class ServiceAccountSelector extends ServiceBase {
     activeAccount: IAccountSelectorActiveAccountInfo;
     nonce?: number;
   }> {
-    const {
-      othersWalletAccountId,
-      indexedAccountId,
-      deriveType,
-      networkId,
-      walletId,
-    } = selectedAccount;
+    const { othersWalletAccountId, indexedAccountId, networkId, walletId } =
+      selectedAccount;
+    const deriveType = selectedAccount.deriveType;
 
     defaultLogger.accountSelector.perf.buildActiveAccountInfoFromSelectedAccount(
       {
@@ -229,18 +226,20 @@ class ServiceAccountSelector extends ServiceBase {
         console.error(e);
       }
 
-      if ((indexedAccountId && wallet) || othersWalletAccountId) {
-        try {
-          const r = await serviceAccount.getNetworkAccount({
-            indexedAccountId,
-            accountId: othersWalletAccountId,
-            deriveType,
-            networkId,
-          });
-          account = r;
-        } catch (e) {
-          // account may not compatible with network
-          console.error(e);
+      if (deriveType) {
+        if ((indexedAccountId && wallet) || othersWalletAccountId) {
+          try {
+            const r = await serviceAccount.getNetworkAccount({
+              indexedAccountId,
+              accountId: othersWalletAccountId,
+              deriveType,
+              networkId,
+            });
+            account = r;
+          } catch (e) {
+            // account may not compatible with network
+            console.error(e);
+          }
         }
       }
 
@@ -407,7 +406,7 @@ class ServiceAccountSelector extends ServiceBase {
       focusedWallet: activeAccount?.wallet?.id,
     };
 
-    // throw new Error('Method not implemented.');
+    // throw new OneKeyLocalError('Method not implemented.');
     return { activeAccount, selectedAccount: selectedAccountFixed, nonce };
   }
 
@@ -494,10 +493,10 @@ class ServiceAccountSelector extends ServiceBase {
           eventEmitDisabled,
         });
       } else {
-        console.log('syncDeriveType currentGlobalDeriveType !== deriveType', {
-          currentGlobalDeriveType,
-          deriveType,
-        });
+        // console.log('syncDeriveType currentGlobalDeriveType !== deriveType', {
+        //   currentGlobalDeriveType,
+        //   deriveType,
+        // });
       }
     }
   }
@@ -545,11 +544,13 @@ class ServiceAccountSelector extends ServiceBase {
     othersNetworkId,
     linkedNetworkId,
     deriveType,
+    keepAllOtherAccounts,
   }: {
     focusedWallet: IAccountSelectorFocusedWallet;
     othersNetworkId?: string;
     linkedNetworkId?: string;
     deriveType: IAccountDeriveTypes;
+    keepAllOtherAccounts?: boolean;
   }): Promise<Array<IAccountSelectorAccountsListSectionData>> {
     // await timerUtils.wait(1000);
     const { serviceAccount } = this.backgroundApi;
@@ -670,7 +671,7 @@ class ServiceAccountSelector extends ServiceBase {
         walletId: walletId as any,
         activeNetworkId: othersNetworkId,
       });
-      if (linkedNetworkId) {
+      if (linkedNetworkId && !keepAllOtherAccounts) {
         accounts = accounts
           .filter((account) => {
             try {
@@ -770,12 +771,16 @@ class ServiceAccountSelector extends ServiceBase {
     focusedWallet,
     othersNetworkId,
     linkedNetworkId,
+    selectedNetworkId,
     deriveType,
+    keepAllOtherAccounts,
   }: {
     focusedWallet: IAccountSelectorFocusedWallet;
     othersNetworkId?: string;
     linkedNetworkId?: string;
+    selectedNetworkId?: string;
     deriveType: IAccountDeriveTypes;
+    keepAllOtherAccounts?: boolean;
   }) {
     defaultLogger.accountSelector.perf.buildAccountSelectorAccountsListData({
       focusedWallet,
@@ -789,6 +794,7 @@ class ServiceAccountSelector extends ServiceBase {
       othersNetworkId,
       linkedNetworkId,
       deriveType,
+      keepAllOtherAccounts,
     });
 
     let focusedWalletInfo:
@@ -811,6 +817,16 @@ class ServiceAccountSelector extends ServiceBase {
       value: Record<string, string> | string | undefined;
       currency: string | undefined;
     }[] = [];
+
+    let mergeDeriveAssetsEnabled = false;
+    if (selectedNetworkId) {
+      mergeDeriveAssetsEnabled =
+        (
+          await this.backgroundApi.serviceNetwork.getVaultSettings({
+            networkId: selectedNetworkId,
+          })
+        )?.mergeDeriveAssetsEnabled ?? false;
+    }
 
     try {
       const accountsForValuesQuery: {
@@ -851,6 +867,7 @@ class ServiceAccountSelector extends ServiceBase {
       focusedWalletInfo,
       accountsCount,
       accountsValue,
+      mergeDeriveAssetsEnabled,
     };
   }
 }

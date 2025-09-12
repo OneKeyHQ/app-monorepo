@@ -12,6 +12,7 @@ export enum EModalAssetListRoutes {
   TokenList = 'TokenList',
   TokenManagerModal = 'TokenManagerModal',
   AddCustomTokenModal = 'AddCustomTokenModal',
+  RiskTokenManager = 'RiskTokenManager',
 }
 
 export type IModalAssetListParamList = {
@@ -31,6 +32,7 @@ export type IModalAssetListParamList = {
     deriveInfo?: IAccountDeriveInfo;
     deriveType?: IAccountDeriveTypes;
     isAllNetworks?: boolean;
+    hideValue?: boolean;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
     walletId: string;
@@ -42,4 +44,18 @@ export type IModalAssetListParamList = {
     isAllNetworks?: boolean;
   };
   [EModalAssetListRoutes.AddCustomTokenModal]: IAddCustomTokenRouteParams;
+  [EModalAssetListRoutes.RiskTokenManager]: {
+    accountId: string;
+    networkId: string;
+    walletId: string;
+    tokenList: {
+      tokens: IAccountToken[];
+      keys: string;
+      map: Record<string, ITokenFiat>;
+    };
+    isAllNetworks?: boolean;
+    hideValue?: boolean;
+    deriveType?: IAccountDeriveTypes;
+    deriveInfo?: IAccountDeriveInfo;
+  };
 };

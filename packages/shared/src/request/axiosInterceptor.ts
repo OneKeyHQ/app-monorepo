@@ -18,6 +18,7 @@ import { appLocale } from '../locale/appLocale';
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 import platformEnv from '../platformEnv';
+import systemTimeUtils from '../utils/systemTimeUtils';
 
 import {
   HEADER_REQUEST_ID_KEY,
@@ -68,6 +69,13 @@ axios.interceptors.request.use(async (config) => {
 axios.interceptors.response.use(
   async (response) => {
     const { config } = response;
+    const url =
+      response?.request?.responseURL || config?.baseURL || config?.url || '';
+    void systemTimeUtils.handleServerResponseDate({
+      source: 'axios',
+      headerDate: response?.headers?.date || '',
+      url,
+    });
 
     try {
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({ config });
@@ -96,10 +104,18 @@ axios.interceptors.response.use(
         console.error(requestIdKey, config.headers[requestIdKey]);
       }
 
+      let autoToast = !!data?.message;
+      if (data.disableAutoToast) {
+        autoToast = false;
+      }
+
       throw new OneKeyServerApiError({
-        autoToast: true,
+        autoToast,
         disableFallbackMessage: true,
-        message: data?.message || 'OneKeyServer Unknown Error',
+        message:
+          data?.translatedMessage ||
+          data?.message ||
+          'OneKeyServer Unknown Error',
         code: data.code,
         data,
         requestId: `RequestId: ${config.headers[requestIdKey] as string}`,
@@ -122,6 +138,7 @@ axios.interceptors.response.use(
   },
   async (error) => {
     const { response } = error;
+
     if (response?.status && response?.config) {
       const config = response.config;
       const isOneKeyDomain = await checkRequestIsOneKeyDomain({

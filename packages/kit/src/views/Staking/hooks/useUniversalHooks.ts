@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -72,7 +73,7 @@ export function useUniversalStake({
       symbol,
       term,
       feeRate,
-      morphoVault,
+      protocolVault,
       approveType,
       permitSignature,
       provider,
@@ -84,7 +85,7 @@ export function useUniversalStake({
       symbol: string;
       term?: number;
       feeRate?: number;
-      morphoVault?: string;
+      protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
       provider: string;
@@ -101,7 +102,7 @@ export function useUniversalStake({
           term,
           provider,
           feeRate,
-          morphoVault,
+          protocolVault,
           approveType,
           permitSignature,
         });
@@ -143,7 +144,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToTxConfirm, accountId, networkId],
+    [accountId, networkId, navigationToTxConfirm],
   );
 }
 
@@ -164,7 +165,7 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
-      morphoVault,
+      protocolVault,
       withdrawAll,
       stakingInfo,
       onSuccess,
@@ -174,7 +175,7 @@ export function useUniversalWithdraw({
       symbol: string;
       provider: string;
       identity?: string;
-      morphoVault?: string;
+      protocolVault?: string;
       withdrawAll: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -188,7 +189,7 @@ export function useUniversalWithdraw({
           provider,
         });
       if (!stakingConfig) {
-        throw new Error('Staking config not found');
+        throw new OneKeyLocalError('Staking config not found');
       }
 
       if (stakingConfig?.unstakeWithSignMessage) {
@@ -237,7 +238,7 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
-            morphoVault,
+            protocolVault,
             withdrawAll,
           });
       }
@@ -315,7 +316,7 @@ export function useUniversalClaim({
       amount,
       provider,
       claimTokenAddress,
-      morphoVault,
+      protocolVault,
       vault,
       symbol,
       stakingInfo,
@@ -327,7 +328,7 @@ export function useUniversalClaim({
       symbol: string;
       provider: string;
       claimTokenAddress?: string;
-      morphoVault?: string;
+      protocolVault?: string;
       stakingInfo?: IStakingInfo;
       vault: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -393,7 +394,7 @@ export function useUniversalClaim({
             symbol,
             action: 'claim',
             amount,
-            morphoVault,
+            protocolVault,
             identity,
             accountAddress: account.address,
           });

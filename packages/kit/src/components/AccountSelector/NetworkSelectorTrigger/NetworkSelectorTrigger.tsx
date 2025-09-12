@@ -1,7 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IXStackProps } from '@onekeyhq/components';
 import {
   Icon,
   NATIVE_HIT_SLOP,
@@ -21,6 +22,7 @@ import {
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
+import useConfigurableChainSelector from '../../../views/ChainSelector/hooks/useChainSelector';
 import { ChainSelectorInput } from '../../ChainSelectorInput';
 import { NetworkAvatar } from '../../NetworkAvatar';
 import { useNetworkSelectorTrigger } from '../hooks/useNetworkSelectorTrigger';
@@ -83,9 +85,19 @@ export const NetworkSelectorTriggerLegacy = memo(
   NetworkSelectorTriggerLegacyCmp,
 );
 
-function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
+function NetworkSelectorTriggerHomeCmp({
+  num,
+  recordNetworkHistoryEnabled,
+  hideOnNoAccount = false,
+  size = 'large',
+}: {
+  num: number;
+  recordNetworkHistoryEnabled?: boolean;
+  hideOnNoAccount?: boolean;
+  size?: 'small' | 'large';
+}) {
   const {
-    activeAccount: { network },
+    activeAccount: { network, accountName },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
@@ -97,6 +109,22 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
     EShortcutEvents.NetworkSelector,
     showChainSelector,
   );
+
+  const networkTriggerText = useMemo(() => {
+    if (network?.isAllNetworks) {
+      return `${intl.formatMessage({
+        id: ETranslations.global_all_networks,
+      })}`;
+    }
+
+    return network?.name;
+  }, [intl, network?.isAllNetworks, network?.name]);
+
+  const isLarge = size === 'large';
+
+  if (hideOnNoAccount && !accountName) {
+    return null;
+  }
 
   return (
     <XStack
@@ -121,26 +149,32 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
       }}
       hitSlop={NATIVE_HIT_SLOP}
       userSelect="none"
-      onPress={showChainSelector}
+      onPress={() => showChainSelector({ recordNetworkHistoryEnabled })}
     >
-      <NetworkAvatar networkId={network?.id} size="$5" />
-      <SizableText
-        testID="account-network-trigger-button-text"
-        pl="$2"
-        size="$bodyMd"
-        flexShrink={1}
-        numberOfLines={1}
-      >
-        {network?.isAllNetworks
-          ? intl.formatMessage({ id: ETranslations.global_all_networks })
-          : network?.name}
-      </SizableText>
-      <Icon
-        name="ChevronDownSmallOutline"
-        color="$iconSubdued"
-        size="$5"
-        flexShrink={0}
-      />
+      <NetworkAvatar networkId={network?.id} size={isLarge ? '$5' : '$6'} />
+      {isLarge ? (
+        <>
+          <SizableText
+            testID="account-network-trigger-button-text"
+            pl="$2"
+            size="$bodyMd"
+            maxWidth="$28"
+            $gtXl={{
+              maxWidth: '$32',
+            }}
+            flexShrink={1}
+            numberOfLines={1}
+          >
+            {networkTriggerText}
+          </SizableText>
+          <Icon
+            name="ChevronDownSmallOutline"
+            color="$iconSubdued"
+            size="$5"
+            flexShrink={0}
+          />
+        </>
+      ) : null}
     </XStack>
   );
 }
@@ -177,5 +211,95 @@ export function ControlledNetworkSelectorTrigger({
       disabled={forceDisabled || disabled}
       networkIds={networkIds}
     />
+  );
+}
+
+export function ControlledNetworkSelectorIconTrigger({
+  disabled,
+  networkIds,
+  value,
+  excludeAllNetworkItem,
+  title,
+  onChange,
+  ...rest
+}: IChainSelectorInputProps & {
+  forceDisabled?: boolean;
+  disabled?: boolean; // TODO not working in form
+  networkIds?: string[];
+}) {
+  const openChainSelector = useConfigurableChainSelector();
+
+  const { result: selectorNetworks } = usePromiseResult(
+    async () => {
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getAllNetworks({
+          excludeAllNetworkItem,
+        });
+      if (networkIds && networkIds.length > 0) {
+        return networks.filter((o) => networkIds.includes(o.id));
+      }
+      return networks;
+    },
+    [excludeAllNetworkItem, networkIds],
+    { initResult: [] },
+  );
+
+  const current = useMemo(() => {
+    const item = selectorNetworks.find((o) => o.id === value);
+    return item;
+  }, [selectorNetworks, value]);
+
+  const onPress = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+    openChainSelector({
+      title,
+      networkIds: selectorNetworks.map((o) => o.id),
+      defaultNetworkId: current?.id,
+      onSelect: (network) => onChange?.(network.id),
+    });
+  }, [
+    disabled,
+    openChainSelector,
+    title,
+    selectorNetworks,
+    current?.id,
+    onChange,
+  ]);
+  return (
+    <XStack
+      testID="account-network-trigger-button"
+      role="button"
+      flexShrink={1}
+      alignItems="center"
+      p="$1"
+      m="$-1"
+      borderRadius="$2"
+      hoverStyle={
+        {
+          bg: '$bgHover',
+        } as any
+      }
+      pressStyle={
+        {
+          bg: '$bgActive',
+        } as any
+      }
+      focusable
+      focusVisibleStyle={
+        {
+          outlineWidth: 2,
+          outlineColor: '$focusRing',
+          outlineStyle: 'solid',
+        } as any
+      }
+      hitSlop={NATIVE_HIT_SLOP}
+      userSelect="none"
+      onPress={onPress}
+      {...(rest as IXStackProps)}
+    >
+      <NetworkAvatar networkId={current?.id} size="$6" />
+    </XStack>
   );
 }

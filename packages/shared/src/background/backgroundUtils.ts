@@ -12,6 +12,7 @@ import {
   isUndefined,
 } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import {
@@ -47,11 +48,11 @@ import type { Method } from 'axios';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
-    // `throw new Error()` won't print error object in iOS/Android,
+    // `throw new OneKeyLocalError()` won't print error object in iOS/Android,
     //    so we print it manually by `console.error()`
     console.error(msg, ...args);
   }
-  throw new Error(msg);
+  throw new OneKeyLocalError(msg);
 }
 
 export function isSerializable(obj: any) {
@@ -137,7 +138,7 @@ export function warningIfNotRunInBackground({
           '@@@@@@',
         );
 
-        throw new Error(msg);
+        throw new OneKeyLocalError(msg);
       }
     }
   }
@@ -278,7 +279,7 @@ export async function waitForDataLoaded({
   }
   clearTimeout(timer);
   if (timeoutReject) {
-    throw new Error(`waitForDataLoaded: ${logName ?? ''} timeout`);
+    throw new OneKeyLocalError(`waitForDataLoaded: ${logName ?? ''} timeout`);
   }
 }
 
@@ -379,7 +380,7 @@ export async function fetchData<T>(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   method: Method = 'GET',
 ): Promise<T> {
-  throw new Error('fetchData not support yet');
+  throw new OneKeyLocalError('fetchData not support yet');
   // const endpoint = getFiatEndpoint();
   // const isPostBody = ['post', 'put'].includes(method.toLowerCase());
   // const apiUrl = `${endpoint}${path}${
@@ -413,10 +414,10 @@ export function getBackgroundServiceApi({
     if (serviceName.includes('@')) {
       const [nameSpace, name] = serviceName.split('@');
       if (!nameSpace) {
-        throw new Error(`service nameSpace not found: ${nameSpace}`);
+        throw new OneKeyLocalError(`service nameSpace not found: ${nameSpace}`);
       }
       if (!backgroundApi[nameSpace]) {
-        throw new Error(`service nameSpace not found: ${nameSpace}`);
+        throw new OneKeyLocalError(`service nameSpace not found: ${nameSpace}`);
       }
       serviceApi = backgroundApi[nameSpace][name];
     } else {
@@ -424,7 +425,7 @@ export function getBackgroundServiceApi({
     }
 
     if (!serviceApi) {
-      throw new Error(`serviceApi not found: ${serviceName}`);
+      throw new OneKeyLocalError(`serviceApi not found: ${serviceName}`);
     }
   }
   return serviceApi;

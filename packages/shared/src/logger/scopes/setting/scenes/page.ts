@@ -4,6 +4,16 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
+  public resetApp({
+    reason,
+  }: {
+    reason: 'ManualResetFromSettings' | 'WrongPasscodeMaxAttempts';
+  }) {
+    return { reason };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
   public lockNow() {
     return {};
   }
@@ -92,6 +102,11 @@ export class PageScene extends BaseScene {
     return { isSuccess };
   }
 
+  @LogToLocal({ level: 'info' })
+  public clearDataStep(stepName: string) {
+    return { stepName };
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public clearData({
@@ -100,6 +115,11 @@ export class PageScene extends BaseScene {
     action: 'Cache' | 'Pending txn' | 'ResetApp';
   }) {
     return { action };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public restartApp() {
+    return {};
   }
 
   @LogToServer()
@@ -136,5 +156,11 @@ export class PageScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public turnOffCustomRPC({ network }: { network: string }) {
     return { network };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingsEnableBluetooth({ enabled }: { enabled: boolean }) {
+    return { enabled };
   }
 }

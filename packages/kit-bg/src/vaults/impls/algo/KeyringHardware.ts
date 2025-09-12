@@ -11,7 +11,7 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -77,6 +77,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -84,7 +85,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               return allNetworkAccounts;
             }
 
-            throw new Error('use sdk allNetworkGetAddress instead');
+            throw new OneKeyLocalError('use sdk allNetworkGetAddress instead');
 
             // const sdk = await this.getHardwareSDKInstance();
 
@@ -107,7 +108,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < addresses.length; i += 1) {
           const item = addresses[i];
-          const { path, address } = item;
+          const { path, address, __hwExtraInfo__ } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address ?? '',
           );
@@ -115,6 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address: normalizedAddress || address || '',
             path,
             publicKey: '',
+            __hwExtraInfo__,
           };
           ret.push(addressInfo);
         }
@@ -130,7 +132,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     encodedTx: IEncodedTxAlgo;
     deviceParams?: IDeviceSharedCallParams;
   }) {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: deviceParams?.dbDevice?.connectId || '',
+    });
     const path = await this.vault.getAccountPath();
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;

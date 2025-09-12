@@ -15,26 +15,24 @@ import {
   YStack,
   useForm,
   useFormWatch,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
   ControlledNetworkSelectorTrigger,
 } from '@onekeyhq/kit/src/components/AccountSelector';
-import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   AddressInput,
   createValidateAddressRule,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { AddressInputContext } from '@onekeyhq/kit/src/components/AddressInput/AddressInputContext';
+import { renderAddressInputHyperlinkText } from '@onekeyhq/kit/src/components/AddressInput/AddressInputHyperlinkText';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useAccountSelectorActions,
-  useActiveAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalReferFriendsRoutes,
@@ -46,7 +44,7 @@ import type { RouteProp } from '@react-navigation/native';
 
 type IFormValues = {
   networkId: string;
-  addressValue: IAddressInputValue;
+  to: IAddressInputValue;
 };
 
 function BasicEditAddress() {
@@ -59,20 +57,35 @@ function BasicEditAddress() {
     >();
   const onAddressAdded = route.params?.onAddressAdded;
   const intl = useIntl();
-  const media = useMedia();
   const navigation = useAppNavigation();
+  const enabledNetworks = useMemo(
+    () => route.params?.enabledNetworks || [],
+    [route.params?.enabledNetworks],
+  );
+
+  const accountId = route.params?.accountId ?? '';
+
+  const { sendEmailOTP } = useLoginOneKeyId();
 
   const { result: networksResp } = usePromiseResult(
     async () => {
       const resp =
         await backgroundApiProxy.serviceNetwork.getPublicKeyExportOrWatchingAccountEnabledNetworks();
-      const networkIds = resp.map((o) => o.network.id);
+      const networkIds = resp
+        .filter((o) => enabledNetworks.includes(o.network.id))
+        .map((o) => o.network.id);
       const publicKeyExportEnabledNetworkIds = resp
-        .filter((o) => o.publicKeyExportEnabled)
+        .filter(
+          (o) =>
+            o.publicKeyExportEnabled && enabledNetworks.includes(o.network.id),
+        )
         .map((t) => t.network.id);
 
       const watchingAccountEnabledNetworkIds = resp
-        .filter((o) => o.watchingAccountEnabled)
+        .filter(
+          (o) =>
+            o.watchingAccountEnabled && enabledNetworks.includes(o.network.id),
+        )
         .map((t) => t.network.id);
       return {
         networkIds,
@@ -80,7 +93,7 @@ function BasicEditAddress() {
         watchingAccountEnabled: new Set(watchingAccountEnabledNetworkIds),
       };
     },
-    [],
+    [enabledNetworks],
     {
       initResult: {
         networkIds: [],
@@ -90,23 +103,15 @@ function BasicEditAddress() {
     },
   );
 
-  const actions = useAccountSelectorActions();
-  const {
-    activeAccount: { network },
-  } = useAccountSelectorTrigger({ num: 0 });
-
   const onSubmitRef = useRef<
     ((formContext: UseFormReturn<IFormValues>) => Promise<void>) | null
   >(null);
   const formOptions = useMemo(
     () => ({
       values: {
-        networkId:
-          network?.id && network.id !== getNetworkIdsMap().onekeyall
-            ? network?.id
-            : getNetworkIdsMap().btc,
+        networkId: enabledNetworks[0],
         deriveType: undefined,
-        addressValue: { raw: '', resolved: undefined },
+        to: { raw: route?.params?.address || '', resolved: undefined },
       },
       mode: 'onChange' as IFormMode,
       reValidateMode: 'onBlur' as IReValidateMode,
@@ -114,60 +119,13 @@ function BasicEditAddress() {
         await onSubmitRef.current?.(formContext);
       },
     }),
-    [network?.id],
+    [enabledNetworks, route?.params?.address],
   );
   const form = useForm<IFormValues>(formOptions);
 
-  const { setValue, control } = form;
-  //   const [validateResult, setValidateResult] = useState<
-  //     IGeneralInputValidation | undefined
-  //   >();
-  //   const isValidating = useRef<boolean>(false);
-  const networkIdText = useFormWatch({ control, name: 'networkId' });
-  const addressValue = useFormWatch({ control, name: 'addressValue' });
-
-  //   const validateFn = useCallback(async () => {
-  //     if (inputTextDebounced && networkIdText) {
-  //       const input =
-  //         await backgroundApiProxy.servicePassword.encodeSensitiveText({
-  //           text: inputTextDebounced,
-  //         });
-  //       try {
-  //         if (!networksResp.publicKeyExportEnabled.has(networkIdText)) {
-  //           throw new Error(`Network not supported: ${networkIdText}`);
-  //         }
-  //         const result =
-  //           await backgroundApiProxy.serviceAccount.validateGeneralInputOfImporting(
-  //             {
-  //               input,
-  //               networkId: networkIdText,
-  //               validateXpub: true,
-  //             },
-  //           );
-  //         setValidateResult(result);
-  //         console.log('validateGeneralInputOfImporting result', result);
-  //       } catch (error) {
-  //         setValidateResult({
-  //           isValid: false,
-  //         });
-  //       }
-  //     } else {
-  //       setValidateResult(undefined);
-  //     }
-  //   }, [networkIdText, networksResp.publicKeyExportEnabled]);
-
-  //   useEffect(() => {
-  //     void (async () => {
-  //       try {
-  //         isValidating.current = true;
-  //         await validateFn();
-  //       } finally {
-  //         isValidating.current = false;
-  //       }
-  //     })();
-  //   }, [validateFn]);
-
-  const accountInfo = useActiveAccount({ num: 0 });
+  const { control } = form;
+  const networkIdValue = useFormWatch({ control, name: 'networkId' });
+  const addressValue = useFormWatch({ control, name: 'to' });
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
     const errors = Object.values(form.formState.errors);
@@ -189,28 +147,54 @@ function BasicEditAddress() {
 
   const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
     () =>
-      accountInfo?.activeAccount?.network?.id &&
-      addressBookEnabledNetworkIds.includes(
-        accountInfo.activeAccount.network.id,
-      )
+      addressBookEnabledNetworkIds.includes(networkIdValue)
         ? { num: 0, clearNotMatch: true }
         : undefined,
-    [accountInfo?.activeAccount?.network?.id, addressBookEnabledNetworkIds],
+    [addressBookEnabledNetworkIds, networkIdValue],
   );
 
   onSubmitRef.current = useCallback(
     async (formContext: UseFormReturn<IFormValues>) => {
       const values = formContext.getValues();
+      const address = values.to.resolved ?? '';
+      const networkId = values.networkId ?? '';
+      await sendEmailOTP({
+        scene: EPrimeEmailOTPScene.UpdateRebateWithdrawAddress,
+        onConfirm: async ({ code, uuid }) => {
+          return backgroundApiProxy.serviceReferralCode.bindAddress({
+            networkId,
+            address,
+            emailOTP: code,
+            uuid,
+          });
+        },
+        description: ({ userInfo }) =>
+          intl.formatMessage(
+            {
+              id: ETranslations.referral_address_update_desc,
+            },
+            { mail: userInfo.displayEmail ?? '' },
+          ),
+      });
 
       navigation.pop();
       setTimeout(() => {
         onAddressAdded?.({
-          address: values.addressValue.resolved ?? '',
-          networkId: values.networkId ?? '',
+          address,
+          networkId,
         });
       });
     },
-    [navigation, onAddressAdded],
+    [navigation, onAddressAdded, sendEmailOTP, intl],
+  );
+
+  const contextValue = useMemo(
+    () => ({
+      name: 'to',
+      networkId: networkIdValue,
+      accountId,
+    }),
+    [accountId, networkIdValue],
   );
 
   return (
@@ -219,48 +203,52 @@ function BasicEditAddress() {
         title={intl.formatMessage({
           id: ETranslations.address_book_edit_address_title,
         })}
+        headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5">
-        <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_network })}
-            name="networkId"
-          >
-            <ControlledNetworkSelectorTrigger
-              networkIds={networksResp.networkIds}
-            />
-          </Form.Field>
+        <AddressInputContext.Provider value={contextValue}>
+          <Form form={form}>
+            <Form.Field
+              label={intl.formatMessage({ id: ETranslations.global_network })}
+              name="networkId"
+            >
+              <ControlledNetworkSelectorTrigger
+                networkIds={networksResp.networkIds}
+              />
+            </Form.Field>
 
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_address })}
-            name="addressValue"
-            rules={{
-              validate: createValidateAddressRule({
-                defaultErrorMessage: intl.formatMessage({
-                  id: ETranslations.form_address_error_invalid,
+            <Form.Field
+              label={intl.formatMessage({ id: ETranslations.global_address })}
+              name="to"
+              renderErrorMessage={renderAddressInputHyperlinkText}
+              rules={{
+                validate: createValidateAddressRule({
+                  defaultErrorMessage: intl.formatMessage({
+                    id: ETranslations.form_address_error_invalid,
+                  }),
                 }),
-              }),
-            }}
-          >
-            <AddressInput
-              enableAddressBook
-              enableWalletName
-              enableVerifySendFundToSelf
-              enableAddressInteractionStatus
-              enableAddressContract
-              enableAllowListValidation
-              accountSelector={addressInputAccountSelectorArgs}
-              accountId={accountInfo?.activeAccount?.account?.id}
-              contacts
-              enableNameResolve
-              placeholder={intl.formatMessage({
-                id: ETranslations.form_address_placeholder,
-              })}
-              networkId={networkIdText ?? ''}
-              testID="import-address-input"
-            />
-          </Form.Field>
-        </Form>
+              }}
+            >
+              <AddressInput
+                enableAddressBook
+                enableWalletName
+                enableVerifySendFundToSelf
+                enableAddressInteractionStatus
+                enableAddressContract
+                enableAllowListValidation
+                accountSelector={addressInputAccountSelectorArgs}
+                // accountId={accountId}
+                networkId={networkIdValue}
+                contacts={addressBookEnabledNetworkIds.includes(networkIdValue)}
+                enableNameResolve
+                placeholder={intl.formatMessage({
+                  id: ETranslations.form_address_placeholder,
+                })}
+                testID="refer-friends-edit-address-input"
+              />
+            </Form.Field>
+          </Form>
+        </AddressInputContext.Provider>
         <YStack gap="$5" mt="$1.5">
           <SizableText color="$textSubdued" size="$bodyMd">
             {intl.formatMessage({
@@ -286,12 +274,31 @@ function BasicEditAddress() {
 }
 
 function EditAddress() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
+      >
+    >();
+  const enabledNetworks = useMemo(
+    () => route.params?.enabledNetworks || [],
+    [route.params?.enabledNetworks],
+  );
+
   return (
     <AccountSelectorProviderMirror
       config={{
-        sceneName: EAccountSelectorSceneName.home,
+        sceneName: EAccountSelectorSceneName.addressInput,
+        sceneUrl: '',
       }}
       enabledNum={[0]}
+      availableNetworksMap={{
+        0: {
+          networkIds: enabledNetworks,
+          defaultNetworkId: enabledNetworks[0],
+        },
+      }}
     >
       <BasicEditAddress />
     </AccountSelectorProviderMirror>

@@ -1,4 +1,5 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
+import semver from 'semver';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -6,12 +7,12 @@ import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
+import { EHardwareTransportType } from '../../types';
 import {
   EFirmwareUpdateTipMessages,
   EFirmwareVerifyType,
   EOneKeyDeviceMode,
 } from '../../types/device';
-import bleManagerInstance from '../hardware/bleManager';
 import { CoreSDKLoader } from '../hardware/instance';
 import platformEnv from '../platformEnv';
 
@@ -203,14 +204,37 @@ function isConfirmOnDeviceAction(state: IHardwareUiState | undefined) {
 
 function getUpdatingConnectId({
   connectId,
+  currentTransportType,
 }: {
   connectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
 }) {
+  if (platformEnv.isSupportDesktopBle) {
+    if (currentTransportType === EHardwareTransportType.DesktopWebBle) {
+      return connectId;
+    }
+    return undefined;
+  }
   return platformEnv.isNative ? connectId : undefined;
 }
 
-async function checkDeviceBonded(connectId: string) {
-  return bleManagerInstance.checkDeviceBonded(connectId);
+function getFixedUpdatingConnectId({
+  updatingConnectId,
+  currentTransportType,
+  device,
+}: {
+  updatingConnectId: string | undefined;
+  currentTransportType: EHardwareTransportType;
+  device: IDBDevice | undefined;
+}) {
+  if (
+    platformEnv.isSupportDesktopBle &&
+    currentTransportType === EHardwareTransportType.DesktopWebBle &&
+    device?.connectId
+  ) {
+    return device?.connectId || updatingConnectId;
+  }
+  return updatingConnectId;
 }
 
 async function buildDeviceLabel({
@@ -413,6 +437,88 @@ export function compareDeviceVersions({
   );
 }
 
+async function shouldUseV2FirmwareUpdateFlow({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+}) {
+  if (!features) {
+    return false;
+  }
+
+  const { getDeviceBootloaderVersion, getDeviceType } = await CoreSDKLoader();
+  const deviceType = getDeviceType(features);
+  if (deviceType !== EDeviceType.Pro) {
+    return false;
+  }
+  const bootloaderVersion = getDeviceBootloaderVersion(features)?.join('.');
+  return !!(
+    semver.valid(bootloaderVersion) &&
+    // TODO: use constant
+    semver.gte(bootloaderVersion, '2.8.0')
+  );
+}
+
+function getRawDeviceId({
+  device,
+  features,
+}: {
+  device: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+}) {
+  // SearchDevice.deviceId is undefined when BLE connecting
+  // const rawDeviceId = device.deviceId || features.device_id || '';
+  const rawDeviceId = device.deviceId || features.device_id || '';
+  return rawDeviceId;
+}
+
+/**
+ * Get the appropriate connectId based on transport type
+ * @param device - The device object
+ * @param transportType - The transport type (USB, BLE, etc.)
+ * @returns The appropriate connectId for the transport type
+ */
+function getDeviceConnectId(
+  device: IDBDevice,
+  transportType: EHardwareTransportType,
+): string {
+  switch (transportType) {
+    case EHardwareTransportType.WEBUSB:
+    case EHardwareTransportType.Bridge:
+      return device.usbConnectId || device.connectId;
+
+    case EHardwareTransportType.BLE:
+    case EHardwareTransportType.DesktopWebBle:
+      return device.bleConnectId || device.connectId;
+
+    default:
+      return device.connectId;
+  }
+}
+
+function getDefaultHardwareTransportType(): EHardwareTransportType {
+  if (platformEnv.isNative) {
+    return EHardwareTransportType.BLE;
+  }
+  if (platformEnv.isSupportWebUSB) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
+
+async function isBtcOnlyFirmware({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+}) {
+  if (!features) {
+    return false;
+  }
+  const { getFirmwareType } = await CoreSDKLoader();
+  const firmwareType = getFirmwareType(features);
+  return firmwareType === EFirmwareType.BitcoinOnly;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -426,8 +532,8 @@ export default {
   existsFirmwareFromSearchDevice,
   getDeviceScanner,
   getUpdatingConnectId,
+  getFixedUpdatingConnectId,
   isConfirmOnDeviceAction,
-  checkDeviceBonded,
   buildDeviceLabel,
   buildDeviceName,
   buildDeviceBleName,
@@ -436,4 +542,9 @@ export default {
   parseLocalDeviceVersions,
   parseServerVersionInfos,
   compareDeviceVersions,
+  shouldUseV2FirmwareUpdateFlow,
+  getRawDeviceId,
+  getDeviceConnectId,
+  getDefaultHardwareTransportType,
+  isBtcOnlyFirmware,
 };

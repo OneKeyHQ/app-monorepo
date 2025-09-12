@@ -1,5 +1,7 @@
+/* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
-require('setimmediate');
+require('./setimmediateShim');
+
 require('./intlShim');
 require('react-native-url-polyfill/auto');
 const platformEnv = require('@onekeyhq/shared/src/platformEnv');
@@ -22,12 +24,14 @@ if (typeof process === 'undefined') {
 }
 
 // TextEncoder and TextDecoder polyfill for starcoin
-if (typeof TextDecoder === 'undefined') {
+// Expo implements TextDecoder but only supports utf8 encoding
+if (platformEnv.isNative || typeof TextDecoder === 'undefined') {
   shimsInjectedLog('TextDecoder');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   global.TextDecoder = require('text-encoding').TextDecoder;
 }
-if (typeof TextEncoder === 'undefined') {
+// Expo implements TextEncoder but only supports utf8 encoding
+if (platformEnv.isNative || typeof TextEncoder === 'undefined') {
   shimsInjectedLog('TextEncoder');
   global.TextEncoder = require('text-encoding').TextEncoder;
 }
@@ -47,6 +51,10 @@ if (!(Buffer.alloc(1).subarray(0, 1) instanceof Buffer)) {
     Object.setPrototypeOf(result, Buffer.prototype);
     return result;
   };
+}
+
+if (!platformEnv.isNative) {
+  require('./globalShim');
 }
 
 // Crypto polyfill

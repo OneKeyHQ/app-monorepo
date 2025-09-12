@@ -4,7 +4,10 @@ import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_BTC, IMPL_TBTC } from '@onekeyhq/shared/src/engine/engineConsts';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -42,6 +45,7 @@ export class KeyringHd extends KeyringHdBase {
     const networkInfo = await this.getCoreApiNetworkInfo();
     const isTestnet = !!networkInfo.isTestnet;
     const credentials = await this.baseGetCredentialsInfo({ password });
+    const addressEncoding = params?.deriveInfo?.addressEncoding;
     const nativeSegwitAccounts = await this.basePrepareHdNormalAccounts(
       params,
       {
@@ -49,7 +53,7 @@ export class KeyringHd extends KeyringHdBase {
           const { deriveInfo } = params;
           const { template } = deriveInfo;
           if (!this.coreApi) {
-            throw new Error('coreApi is undefined');
+            throw new OneKeyLocalError('coreApi is undefined');
           }
           const { addresses: addressesInfo } =
             await this.coreApi.getAddressesFromHd({
@@ -58,6 +62,7 @@ export class KeyringHd extends KeyringHdBase {
               hdCredential: checkIsDefined(credentials.hd),
               password,
               indexes: usedIndexes,
+              addressEncoding,
             });
 
           if (addressesInfo.length !== usedIndexes.length) {
@@ -85,7 +90,7 @@ export class KeyringHd extends KeyringHdBase {
           'register',
         );
         if (signTemplate.type !== 'register') {
-          throw new Error('Wrong signature type');
+          throw new OneKeyLocalError('Wrong signature type');
         }
 
         const signature = await this.signApiMessage({
@@ -137,7 +142,7 @@ export class KeyringHd extends KeyringHdBase {
       'transfer',
     );
     if (signTemplate.type !== 'transfer') {
-      throw new Error('Wrong transfer signature type');
+      throw new OneKeyLocalError('Wrong transfer signature type');
     }
     const network = await this.getNetwork();
     const signature = await this.signApiMessage({
@@ -289,7 +294,7 @@ export class KeyringHd extends KeyringHdBase {
   async lnurlAuth(params: ILnurlAuthParams) {
     const { lnurlDetail } = params;
     if (lnurlDetail.tag !== 'login') {
-      throw new Error('lnurl-auth: invalid tag');
+      throw new OneKeyLocalError('lnurl-auth: invalid tag');
     }
     const password = checkIsDefined(params.password);
     const credentials = await this.baseGetCredentialsInfo({ password });

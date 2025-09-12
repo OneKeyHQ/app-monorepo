@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   Icon,
-  Image,
   SizableText,
   Stack,
   XStack,
@@ -28,7 +27,7 @@ export default function PromptWebDeviceAccessPage() {
     try {
       await promptWebUsbDeviceAccess();
       if (platformEnv.isExtensionUiExpandTab) {
-        backgroundApiProxy.serviceApp.restartApp();
+        await backgroundApiProxy.serviceApp.restartApp();
         window.close();
       }
     } catch (error) {

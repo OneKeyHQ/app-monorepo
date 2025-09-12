@@ -5,8 +5,6 @@ import { Empty, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOneKeyDeviceType } from '@onekeyhq/shared/types/device';
 
-import HomeSelector from '../HomeSelector';
-
 type IWalletType = IOneKeyDeviceType | 'watching';
 
 export function HomeSupportedWallet({
@@ -39,7 +37,6 @@ export function HomeSupportedWallet({
   const items = (wallets || []).map((d) => labels[d]).filter((d) => d);
   return (
     <YStack height="100%">
-      <HomeSelector createAddressDisabled padding="$5" />
       <Stack flex={1} justifyContent="center">
         <Empty
           icon="GlobusOutline"

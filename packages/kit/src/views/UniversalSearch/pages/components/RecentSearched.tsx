@@ -1,22 +1,21 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   IconButton,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useUniversalSearchActions,
   useUniversalSearchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   EUniversalSearchType,
   type IIUniversalRecentSearchItem,
@@ -34,56 +33,57 @@ function SearchTextItem({
   const handlePress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
+
+  const text = useMemo(() => {
+    const itemText = item.text;
+    switch (searchType) {
+      case EUniversalSearchType.MarketToken:
+        return itemText.toUpperCase();
+      case EUniversalSearchType.Address:
+        return accountUtils.shortenAddress({
+          address: itemText,
+          leadingLength: 6,
+          trailingLength: 6,
+        });
+      default:
+        return itemText;
+    }
+  }, [item.text, searchType]);
   return (
-    <Stack
-      ai="center"
-      jc="center"
-      borderRadius="$2"
-      gap="$3"
-      bg="$bgStrong"
-      mt="$3"
+    <Button
+      size="small"
+      variant="secondary"
+      mt="$2"
+      mr="$2"
       cursor="pointer"
       onPress={handlePress}
     >
-      <SizableText px="$2.5" py="$1" size="$bodyMdMedium">
-        {searchType === EUniversalSearchType.MarketToken
-          ? item.text.toUpperCase()
-          : item.text}
-      </SizableText>
-    </Stack>
+      {text}
+    </Button>
   );
 }
 
 export function RecentSearched({
-  searchType,
+  filterTypes,
+  onSearchTextFill,
 }: {
-  searchType?: EUniversalSearchType;
+  filterTypes?: EUniversalSearchType[];
+  onSearchTextFill?: (text: string) => void;
 }) {
   const intl = useIntl();
   const [{ recentSearch }] = useUniversalSearchAtom();
 
   const actions = useUniversalSearchActions();
 
-  const navigation = useAppNavigation();
   const handlePress = useCallback(
-    async (item: IIUniversalRecentSearchItem) => {
-      switch (item.type) {
-        case EUniversalSearchType.MarketToken:
-          navigation.pop();
-          setTimeout(() => {
-            navigation.push(ETabMarketRoutes.MarketDetail, {
-              token: item.id,
-            });
-            defaultLogger.market.token.searchToken({
-              tokenSymbol: item.id,
-              from: 'recentSearch',
-            });
-          }, 80);
-          break;
-        default:
-      }
+    (item: IIUniversalRecentSearchItem) => {
+      const textToFill =
+        item.extra?.autoFillText && typeof item.extra?.autoFillText === 'string'
+          ? item.extra?.autoFillText
+          : item.text;
+      onSearchTextFill?.(textToFill);
     },
-    [navigation],
+    [onSearchTextFill],
   );
 
   const handleDeleteAll = useCallback(() => {
@@ -91,7 +91,7 @@ export function RecentSearched({
   }, [actions]);
 
   return recentSearch.length &&
-    searchType === EUniversalSearchType.MarketToken ? (
+    filterTypes?.includes(EUniversalSearchType.MarketToken) ? (
     <YStack px="$5" pb="$5">
       <XStack jc="space-between" pt="$5">
         <SizableText size="$headingSm" color="$textSubdued">
@@ -105,16 +105,24 @@ export function RecentSearched({
           onPress={handleDeleteAll}
         />
       </XStack>
-      <XStack flexWrap="wrap" gap="$3">
+      <Stack
+        overflow="hidden"
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          maxHeight: 78,
+        }}
+      >
         {recentSearch.map((i) => (
           <SearchTextItem
             onPress={handlePress}
             item={i}
-            searchType={searchType}
+            searchType={i.type}
             key={i.text}
           />
         ))}
-      </XStack>
+      </Stack>
     </YStack>
   ) : (
     <XStack pt="$5" />

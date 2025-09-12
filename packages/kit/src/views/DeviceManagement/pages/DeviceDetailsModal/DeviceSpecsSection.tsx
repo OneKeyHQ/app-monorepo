@@ -38,7 +38,13 @@ function SpecItem({ title, value }: ISpecItemProps) {
       <SizableText size="$headingSm" color="$text" textAlign="left">
         {title}
       </SizableText>
-      <SizableText size="$bodyMdMedium" color="$textSubdued" textAlign="right">
+      <SizableText
+        flexShrink={1}
+        numberOfLines={1}
+        size="$bodyMdMedium"
+        color="$textSubdued"
+        textAlign="right"
+      >
         {value}
       </SizableText>
     </XStack>
@@ -121,6 +127,12 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
             id: ETranslations.global_serial_number,
           })}
           value={deviceInfo.serialNumber}
+        />
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_firmware,
+          })}
+          value={deviceInfo.firmwareVersion}
         />
         <SpecItem
           title={intl.formatMessage({

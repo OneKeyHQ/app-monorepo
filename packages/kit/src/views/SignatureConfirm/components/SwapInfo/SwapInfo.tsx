@@ -136,14 +136,16 @@ function SwapInfo(props: IProps) {
               id: ETranslations.swap_history_detail_provider,
             })}
           </SignatureConfirmItem.Label>
-          <XStack alignItems="center" gap="$2">
+          <XStack alignItems="center" gap="$2" flex={1}>
             <Image
               borderRadius="$1"
               w="$5"
               h="$5"
               source={{ uri: provider.providerLogo }}
             />
-            <SizableText {...textStyle}>{provider.providerName}</SizableText>
+            <SizableText flex={1} flexWrap="wrap" {...textStyle}>
+              {provider.providerName}
+            </SizableText>
           </XStack>
         </SignatureConfirmItem>
 

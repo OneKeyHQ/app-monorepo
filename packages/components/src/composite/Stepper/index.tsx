@@ -3,6 +3,8 @@ import { Children, createContext, useContext, useMemo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { Badge } from '../../content';
 import {
   Icon,
@@ -13,6 +15,8 @@ import {
   YStack,
 } from '../../primitives';
 
+import type { IYStackProps } from '../../primitives';
+
 export enum EStepItemStatus {
   Done = 'done',
   Failed = 'failed',
@@ -20,7 +24,11 @@ export enum EStepItemStatus {
   Inactive = 'inactive',
 }
 
-export function StepItemStatus({ status }: { status: EStepItemStatus }) {
+interface IStepItemStatusProps {
+  status: EStepItemStatus;
+}
+
+function StepItemStatus({ status }: IStepItemStatusProps) {
   switch (status) {
     case EStepItemStatus.Inactive:
       return <Icon name="CirclePlaceholderOnOutline" color="$iconDisabled" />;
@@ -70,11 +78,16 @@ interface IStepperItemRenderProps {
 }
 
 export interface IStepItemProps {
-  title: string;
+  title?: string;
   description?: string;
+  renderProgressBar?: ReactElement | null;
+  renderStatusIndicator?: (props: IStepItemStatusProps) => ReactElement | null;
+  renderTitle?: (props: IStepperItemRenderProps) => ReactElement | null;
   renderDescription?: (props: IStepperItemRenderProps) => ReactElement | null;
   renderAction?: (props: IStepperItemRenderProps) => ReactElement | null;
   badgeText?: string;
+  containerStyle?: IYStackProps;
+  textContainerStyle?: IYStackProps;
 }
 
 export interface IStepperContextProps {
@@ -90,7 +103,9 @@ const StepperContext = createContext<IStepperContextProps | undefined>(
 export function useStepperContext() {
   const context = useContext(StepperContext);
   if (!context) {
-    throw new Error('useStepperContext must be used within a StepProvider');
+    throw new OneKeyLocalError(
+      'useStepperContext must be used within a StepProvider',
+    );
   }
   return context;
 }
@@ -99,8 +114,13 @@ export function StepItem({
   title,
   description,
   badgeText,
+  renderStatusIndicator,
+  renderProgressBar,
+  renderTitle,
   renderDescription,
   renderAction,
+  containerStyle,
+  textContainerStyle,
 }: IStepItemProps) {
   const { stepIndex, hasError, stepsCount } = useStepperContext();
   const { index } = useStepperItemContext() || {};
@@ -127,21 +147,44 @@ export function StepItem({
     }),
     [index, status, stepIndex],
   );
+  const progressBarElement = useMemo(() => {
+    return (
+      renderProgressBar || (
+        <Stack
+          flex={1}
+          position="absolute"
+          left={11}
+          top="$8"
+          bottom="$2"
+          w="$0.5"
+          bg="$iconDisabled"
+          borderRadius="$full"
+        />
+      )
+    );
+  }, [renderProgressBar]);
   return (
-    <XStack gap="$3" pb="$10">
-      <YStack w="$6" h="$6" ai="center" jc="center">
-        <StepItemStatus status={status} />
-      </YStack>
+    <XStack gap="$3" pb="$10" {...containerStyle}>
+      {renderStatusIndicator ? (
+        renderStatusIndicator({ status })
+      ) : (
+        <YStack w="$6" h="$6" ai="center" jc="center">
+          <StepItemStatus status={status} />
+        </YStack>
+      )}
       <YStack gap="$4" flex={1}>
-        <YStack gap="$2">
+        <YStack gap="$2" {...textContainerStyle}>
           <XStack gap="$2" ai="center">
-            <SizableText
-              size={
-                status === EStepItemStatus.Pending ? '$headingMd' : '$bodyLg'
-              }
-            >
-              {title}
-            </SizableText>
+            {title ? (
+              <SizableText
+                size={
+                  status === EStepItemStatus.Pending ? '$headingMd' : '$bodyLg'
+                }
+              >
+                {title}
+              </SizableText>
+            ) : null}
+            {renderTitle ? renderTitle(renderProps) : null}
             {badgeText ? (
               <Badge badgeSize="lg" badgeType="success">
                 <Badge.Text>{badgeText}</Badge.Text>
@@ -157,18 +200,7 @@ export function StepItem({
         </YStack>
         {renderAction ? renderAction(renderProps) : null}
       </YStack>
-      {index !== stepsCount - 1 ? (
-        <Stack
-          flex={1}
-          position="absolute"
-          left={11}
-          top="$8"
-          bottom="$2"
-          w="$0.5"
-          bg="$iconDisabled"
-          borderRadius="$full"
-        />
-      ) : null}
+      {index !== stepsCount - 1 ? progressBarElement : null}
     </XStack>
   );
 }

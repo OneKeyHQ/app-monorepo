@@ -6,7 +6,7 @@ const platforms = {
   desktop: 'desktop',
   ext: 'ext',
   web: 'web',
-  webEmbed: 'webEmbed',
+  webEmbed: 'web-embed',
 };
 module.exports = {
   isManifestV3,

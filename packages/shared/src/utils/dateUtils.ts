@@ -11,6 +11,8 @@ import {
   parseISO,
 } from 'date-fns';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { ETranslations, type ILocaleSymbol } from '../locale';
 import { appLocale } from '../locale/appLocale';
 import { DateLocaleMap } from '../locale/dateLocaleMap';
@@ -27,7 +29,7 @@ export const parseToDateFnsLocale = (localeSymbol: ILocaleSymbol) => {
 
   if (dateLocale) return dateLocale;
 
-  throw new Error(`Unhandled localeSymbol: ${localeSymbol}`);
+  throw new OneKeyLocalError(`Unhandled localeSymbol: ${localeSymbol}`);
 };
 
 export type IFormatDateOptions = {
@@ -77,12 +79,14 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
-  const locale = appLocale.getLocale();
+  let formatTemplate = options?.formatTemplate || '';
 
-  let formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
-
-  if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
-    formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
+  if (!formatTemplate) {
+    const locale = appLocale.getLocale();
+    formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
+    if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
+      formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
+    }
   }
 
   const currentYear = new Date().getFullYear();
@@ -135,10 +139,12 @@ export function formatMonth(
 export function formatDistanceStrict(
   date: Date | number,
   baseDate: Date | number,
+  addSuffix?: boolean,
 ) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDistanceStrict(date, baseDate, {
     locale: parseToDateFnsLocale(locale),
+    addSuffix,
   });
 
   return distance ?? '';
@@ -198,7 +204,7 @@ export function formatRelativeDate(date: Date) {
     today: `${appLocale.intl.formatMessage({
       id: ETranslations.global_date_today,
     })}`,
-    other: 'LLL dd yyyy',
+    other: 'yyyy/LL/dd',
   };
 
   let formattedDate;
@@ -247,6 +253,28 @@ export function formatMillisecondsToBlocks(
 ): number {
   const seconds = millisecondsToSeconds(milliseconds);
   return Math.ceil(seconds / blockIntervalSeconds);
+}
+
+export function formatRelativeTimeAbbr(date: Date | number) {
+  let timestamp = date;
+
+  // Auto-detect timestamp format: if it's a number with length <= 10, it's in seconds
+  if (typeof date === 'number' && date.toString().length <= 10) {
+    timestamp = date * 1000;
+  }
+
+  const distance = formatDistanceToNowStrict(timestamp, {
+    addSuffix: false,
+    roundingMethod: 'floor',
+  });
+
+  return distance
+    .replace(/\d+\s*seconds?/g, (match) => `${match.match(/\d+/)?.[0] || ''}s`)
+    .replace(/\d+\s*minutes?/g, (match) => `${match.match(/\d+/)?.[0] || ''}m`)
+    .replace(/\d+\s*hours?/g, (match) => `${match.match(/\d+/)?.[0] || ''}h`)
+    .replace(/\d+\s*days?/g, (match) => `${match.match(/\d+/)?.[0] || ''}d`)
+    .replace(/\d+\s*months?/g, (match) => `${match.match(/\d+/)?.[0] || ''}mo`)
+    .replace(/\d+\s*years?/g, (match) => `${match.match(/\d+/)?.[0] || ''}y`);
 }
 
 export default {

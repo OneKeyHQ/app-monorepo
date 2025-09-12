@@ -20,6 +20,10 @@ export function WalletListView({
 }: IWalletListViewProps) {
   return (
     <ListView
+      useFlashList
+      contentContainerStyle={{
+        paddingBottom: 20,
+      }}
       data={walletList}
       renderItem={({ item }) => (
         <ListItem

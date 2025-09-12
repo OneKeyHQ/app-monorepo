@@ -1,13 +1,13 @@
 import type { ISecureStorage } from './types';
 
 const setSecureItem = async (key: string, data: string) =>
-  globalThis?.desktopApi.secureSetItemAsync(key, data);
+  globalThis?.desktopApiProxy?.storage?.secureSetItemAsync(key, data);
 
 const getSecureItem = async (key: string) =>
-  globalThis?.desktopApi.secureGetItemAsync(key);
+  globalThis?.desktopApiProxy?.storage?.secureGetItemAsync(key) ?? null;
 
 const removeSecureItem = async (key: string) =>
-  globalThis?.desktopApi.secureDelItemAsync(key);
+  globalThis?.desktopApiProxy?.storage?.secureDelItemAsync(key);
 
 const supportSecureStorage = () => true;
 

@@ -1,5 +1,7 @@
 import { isNil } from 'lodash';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import type { IV4LocalDBAgent } from './IV4LocalDBAgent';
 import type { EV4LocalDBStoreNames } from './v4localDBStoreNames';
 import type {
@@ -31,7 +33,7 @@ export abstract class V4LocalDbAgentBase implements IV4LocalDBAgent {
     ignoreNotFound,
   }: IV4LocalDBTxRemoveRecordsParams<T>) {
     if (isNil(ids) && isNil(recordPairs)) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'dbUpdateRecord ERROR: ids and recordPairs both not found',
       );
     }

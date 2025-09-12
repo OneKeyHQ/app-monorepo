@@ -205,6 +205,8 @@ export function SearchResultContent({
           webSite: {
             url: searchValue,
             title: searchValue,
+            logo: undefined,
+            sortIndex: undefined,
           },
           useCurrentWindow,
           tabId,
@@ -237,6 +239,8 @@ export function SearchResultContent({
         webSite: {
           url: item.url,
           title: item.title,
+          logo: item.logo,
+          sortIndex: undefined,
         },
         useCurrentWindow,
         tabId,
@@ -254,6 +258,8 @@ export function SearchResultContent({
         webSite: {
           url: item.url,
           title: item.title,
+          logo: item.logo,
+          sortIndex: undefined,
         },
         useCurrentWindow,
         tabId,
@@ -264,6 +270,21 @@ export function SearchResultContent({
   );
 
   const openSelectedItem = useCallback(() => {
+    // Priority: Check if first item is exact URL match when no item is manually selected
+    try {
+      if (
+        displaySearchList &&
+        searchList.length > 0 &&
+        searchList[0].isExactUrl &&
+        selectedIndex === -1
+      ) {
+        handleSearchItemClick(searchList[0]);
+        return { type: 'exactUrl' };
+      }
+    } catch (error) {
+      console.error('SearchResultContent.openSelectedItem failed:', error);
+    }
+
     if (
       selectedSection === 'search' &&
       displaySearchList &&
@@ -343,14 +364,18 @@ export function SearchResultContent({
       list.map((item, index) => (
         <ListItem
           key={index}
-          ref={(el) => {
-            searchItemsRef.current[index] = el;
-          }}
+          // @ts-expect-error
+          ref={
+            ((el: any) => {
+              searchItemsRef.current[index] = el;
+            }) as any
+          }
           avatarProps={{
             src: item.logo || item.originLogo,
             loading: LoadingSkeleton,
+            bg: '$bgStrong',
             fallbackProps: {
-              bg: '$bgStrong',
+              bg: '$transparent',
               justifyContent: 'center',
               alignItems: 'center',
               children: <Icon name="GlobusOutline" />,
@@ -367,8 +392,11 @@ export function SearchResultContent({
             >
               {item?.keyword
                 ? item.name.replace(
-                    new RegExp(item.keyword, 'ig'),
-                    `<a>${item.keyword}</a>`,
+                    new RegExp(
+                      item.keyword.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&'),
+                      'ig',
+                    ),
+                    (match) => `<a>${match}</a>`,
                   )
                 : item.name}
             </RichSizeableText>
@@ -455,7 +483,8 @@ export function SearchResultContent({
           {localData?.historyData.map((item, index) => (
             <ListItem
               key={index}
-              ref={(el) => {
+              // @ts-expect-error
+              ref={(el: any) => {
                 historyItemsRef.current[index] = el;
               }}
               avatarProps={{

@@ -4,7 +4,6 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
 
 import type {
   IActionListSection,
@@ -14,18 +13,26 @@ import type {
 } from '@onekeyhq/components';
 import {
   ActionList,
+  Badge,
+  Button,
+  Icon,
+  IconButton,
   Page,
+  Popover,
+  SizableText,
   Spinner,
   Stack,
-  Tab,
-  getFontToken,
+  Tabs,
+  XStack,
+  YStack,
   useClipboard,
   useMedia,
-  useThemeValue,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
@@ -34,7 +41,6 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
@@ -64,8 +70,6 @@ export type IProps = {
   accountId: string;
   networkId: string;
   walletId: string;
-  deriveInfo: IAccountDeriveInfo;
-  deriveType: IAccountDeriveTypes;
   tokenInfo: IToken;
   isBlocked?: boolean;
   riskyTokens?: string[];
@@ -73,7 +77,10 @@ export type IProps = {
   isTabView?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
+  inTabList?: boolean;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
+  deriveInfo?: IAccountDeriveInfo;
+  deriveType?: IAccountDeriveTypes;
 } & IStackProps;
 function TokenDetailsView() {
   const intl = useIntl();
@@ -87,29 +94,153 @@ function TokenDetailsView() {
     >();
 
   const { copyText } = useClipboard();
+
   const { updateTokenMetadata } = useTokenDetailsContext();
 
   const {
     accountId,
     networkId,
     walletId,
-    deriveInfo,
-    deriveType,
-    tokenInfo,
+    tokens,
     isAllNetworks,
     indexedAccountId,
+    isAggregateToken,
   } = route.params;
 
-  const { network, vaultSettings } = useAccountData({
-    accountId,
-    networkId,
-    walletId,
-  });
+  const { gtMd } = useMedia();
+
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
+
+  const { vaultSettings, network } = useAccountData({ networkId });
+
+  const renderAggregateTokens = useCallback(
+    ({ closePopover }: { closePopover: () => void }) => {
+      return (
+        <YStack
+          gap="$3"
+          px="$5"
+          pt="$2"
+          pb="$5"
+          $gtMd={{
+            px: '$3',
+            py: '$2.5',
+          }}
+        >
+          <SizableText
+            $md={{
+              display: 'none',
+            }}
+            size="$headingSm"
+          >
+            {intl.formatMessage({
+              id: ETranslations.global_contract_address,
+            })}
+          </SizableText>
+          {tokens.map((token) => (
+            <XStack
+              key={token.$key}
+              alignItems="center"
+              gap="$2"
+              justifyContent="space-between"
+            >
+              <XStack
+                gap="$2"
+                alignItems="center"
+                flex={1}
+                justifyContent="space-between"
+              >
+                <XStack gap="$2" alignItems="center">
+                  <NetworkAvatar
+                    networkId={token.networkId}
+                    size={gtMd ? '$4' : '$5'}
+                  />
+                  <SizableText size="$bodyMd" numberOfLines={1}>
+                    {token.networkName}
+                  </SizableText>
+                </XStack>
+              </XStack>
+              {!token.address ? null : (
+                <XStack gap="$3" alignItems="center">
+                  <Button
+                    size="small"
+                    variant="tertiary"
+                    onPress={() => copyText(token.address)}
+                  >
+                    <XStack alignItems="center" gap="$2">
+                      <SizableText
+                        fontFamily="$monoRegular"
+                        size="$bodyMd"
+                        color="$textSubdued"
+                      >
+                        {accountUtils.shortenAddress({
+                          address: token.address,
+                          leadingLength: 6,
+                          trailingLength: 4,
+                        })}
+                      </SizableText>
+                      <Icon
+                        name="Copy3Outline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </XStack>
+                  </Button>
+                  {/* <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_copy,
+                    })}
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    iconColor="$iconSubdued"
+                    size="small"
+                    onPress={() => copyText(token.address)}
+                  /> */}
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_view_in_blockchain_explorer,
+                    })}
+                    iconSize="$4"
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconColor="$iconSubdued"
+                    size="small"
+                    onPress={() => {
+                      closePopover();
+                      void openTokenDetailsUrl({
+                        networkId: token.networkId ?? '',
+                        tokenAddress: token.address,
+                      });
+                    }}
+                  />
+                </XStack>
+              )}
+            </XStack>
+          ))}
+        </YStack>
+      );
+    },
+    [intl, tokens, gtMd, copyText],
+  );
 
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
 
-    if (!tokenInfo.isNative) {
+    if (isAggregateToken && tokens.length > 1) {
+      return (
+        <Popover
+          title={intl.formatMessage({
+            id: ETranslations.global_contract_address,
+          })}
+          renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
+          renderContent={renderAggregateTokens}
+          floatingPanelProps={{
+            width: 320,
+          }}
+        />
+      );
+    }
+
+    if (!tokens[0]?.isNative) {
       sections.push({
         items: [
           {
@@ -117,12 +248,12 @@ function TokenDetailsView() {
               id: ETranslations.global_copy_token_contract,
             }),
             icon: 'Copy3Outline',
-            onPress: () => copyText(tokenInfo.address),
+            onPress: () => copyText(tokens[0]?.address ?? ''),
           },
         ],
       });
 
-      if (network?.id && tokenInfo.address) {
+      if (tokens[0]?.address) {
         sections[0].items.push({
           label: intl.formatMessage({
             id: ETranslations.global_view_in_blockchain_explorer,
@@ -130,8 +261,8 @@ function TokenDetailsView() {
           icon: 'OpenOutline',
           onPress: () =>
             openTokenDetailsUrl({
-              networkId: network.id,
-              tokenAddress: tokenInfo.address,
+              networkId: tokens[0].networkId ?? '',
+              tokenAddress: tokens[0]?.address,
             }),
         });
       }
@@ -144,99 +275,124 @@ function TokenDetailsView() {
         sections={sections}
       />
     );
-  }, [copyText, intl, network, tokenInfo.address, tokenInfo.isNative]);
+  }, [isAggregateToken, tokens, intl, renderAggregateTokens, copyText]);
 
   const { result, isLoading } = usePromiseResult(
     async () => {
+      if (
+        !tokens[0].networkId ||
+        !indexedAccountId ||
+        !vaultSettings?.mergeDeriveAssetsEnabled
+      )
+        return;
       const r =
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
-            networkId,
+            networkId: tokens[0].networkId ?? '',
             indexedAccountId,
           },
         );
       await waitAsync(600);
       return r;
     },
-    [networkId, indexedAccountId],
+    [indexedAccountId, tokens, vaultSettings?.mergeDeriveAssetsEnabled],
     {
       watchLoading: true,
     },
   );
 
   usePromiseResult(async () => {
+    const activeToken = tokens[activeTabIndex] ?? tokens[0];
+    if (!activeToken) return;
+
     const resp = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
-      networkId,
-      contractList: [tokenInfo.address],
+      networkId: activeToken.networkId ?? '',
+      tokenAddress: activeToken.address,
     });
     updateTokenMetadata({
-      price: resp[0].price,
-      priceChange24h: resp[0].price24h,
-      coingeckoId: resp[0].info.coingeckoId,
+      price: resp?.price ?? 0,
+      priceChange24h: resp?.price24h ?? 0,
+      coingeckoId: resp?.info?.coingeckoId ?? '',
     });
-  }, [networkId, tokenInfo.address, updateTokenMetadata]);
-
-  const fontColor = useThemeValue('text');
-
-  const headerTitleStyle = useMemo(
-    () => ({
-      ...(getFontToken('$headingLg') as {
-        fontSize: number;
-        lineHeight: number;
-        letterSpacing: number;
-      }),
-      color: fontColor,
-    }),
-    [fontColor],
-  );
-
-  const { gtMd } = useMedia();
-  const { width } = useWindowDimensions();
-
-  const contentItemWidth = useMemo(() => {
-    if (platformEnv.isNative) {
-      return undefined;
-    }
-    return gtMd ? 640 : width;
-  }, [gtMd, width]);
+  }, [activeTabIndex, tokens, updateTokenMetadata]);
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
   const tabs = useMemo(() => {
-    if (networkId && walletId) {
-      return result?.networkAccounts.map((item) => ({
-        title: item.deriveInfo.labelKey
-          ? intl.formatMessage({ id: item.deriveInfo.labelKey })
-          : item.deriveInfo.label ?? '',
-        page: () => (
+    if (tokens.length > 1) {
+      return tokens.map((token) => (
+        <Tabs.Tab key={token.$key} name={token.networkName ?? ''}>
           <TokenDetailsViews
-            accountId={item.account?.id ?? ''}
-            networkId={networkId}
+            inTabList
+            isTabView
+            accountId={token.accountId ?? ''}
+            networkId={token.networkId ?? ''}
             walletId={walletId}
-            deriveInfo={item.deriveInfo}
-            deriveType={item.deriveType}
-            tokenInfo={tokenInfo}
+            tokenInfo={token}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={indexedAccountId}
-            isTabView
           />
-        ),
-      }));
+        </Tabs.Tab>
+      ));
+    }
+
+    if (networkId && walletId) {
+      if (vaultSettings?.mergeDeriveAssetsEnabled) {
+        return result?.networkAccounts.map((item, index) => (
+          <Tabs.Tab
+            key={String(index)}
+            name={
+              item.deriveInfo.labelKey
+                ? intl.formatMessage({ id: item.deriveInfo.labelKey })
+                : item.deriveInfo.label ?? String(index)
+            }
+          >
+            <TokenDetailsViews
+              inTabList
+              isTabView
+              accountId={item.account?.id ?? ''}
+              networkId={tokens[0].networkId ?? ''}
+              walletId={walletId}
+              deriveInfo={item.deriveInfo}
+              deriveType={item.deriveType}
+              tokenInfo={tokens[0]}
+              isAllNetworks={isAllNetworks}
+              listViewContentContainerStyle={listViewContentContainerStyle}
+              indexedAccountId={indexedAccountId}
+            />
+          </Tabs.Tab>
+        ));
+      }
+
+      return [
+        <Tabs.Tab key={String(tokens[0].$key)} name="">
+          <TokenDetailsViews
+            accountId={tokens[0].accountId ?? ''}
+            networkId={tokens[0].networkId ?? ''}
+            walletId={walletId}
+            tokenInfo={tokens[0]}
+            isAllNetworks={isAllNetworks}
+            listViewContentContainerStyle={listViewContentContainerStyle}
+            indexedAccountId={indexedAccountId}
+          />
+        </Tabs.Tab>,
+      ];
     }
 
     return [];
   }, [
+    tokens,
     networkId,
     walletId,
-    result?.networkAccounts,
-    intl,
-    tokenInfo,
+    vaultSettings?.mergeDeriveAssetsEnabled,
     isAllNetworks,
     listViewContentContainerStyle,
     indexedAccountId,
+    result?.networkAccounts,
+    intl,
   ]);
 
-  const renderTokenDetailsView = useCallback(() => {
+  const tokenDetailsViewElement = useMemo(() => {
     if (isLoading)
       return (
         <Stack
@@ -249,18 +405,19 @@ function TokenDetailsView() {
         </Stack>
       );
     if (
-      vaultSettings?.mergeDeriveAssetsEnabled &&
-      !accountUtils.isOthersWallet({ walletId })
+      !accountUtils.isOthersWallet({ walletId }) &&
+      (vaultSettings?.mergeDeriveAssetsEnabled || tokens.length > 1)
     ) {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
-          <Tab
-            disableRefresh
-            data={tabs}
-            contentItemWidth={contentItemWidth as any}
-            initialScrollIndex={0}
-            showsVerticalScrollIndicator={false}
-          />
+          <Tabs.Container
+            onIndexChange={(index) => {
+              setActiveTabIndex(index);
+            }}
+            renderTabBar={(props) => <Tabs.TabBar {...props} scrollable />}
+          >
+            {tabs}
+          </Tabs.Container>
         );
       }
       return null;
@@ -268,12 +425,10 @@ function TokenDetailsView() {
 
     return (
       <TokenDetailsViews
-        accountId={accountId}
-        networkId={networkId}
+        accountId={tokens[0].accountId ?? accountId}
+        networkId={tokens[0].networkId ?? networkId}
         walletId={walletId}
-        deriveInfo={deriveInfo}
-        deriveType={deriveType}
-        tokenInfo={tokenInfo}
+        tokenInfo={tokens[0]}
         isAllNetworks={isAllNetworks}
         indexedAccountId={indexedAccountId}
         listViewContentContainerStyle={listViewContentContainerStyle}
@@ -281,28 +436,44 @@ function TokenDetailsView() {
     );
   }, [
     isLoading,
-    vaultSettings?.mergeDeriveAssetsEnabled,
     walletId,
     accountId,
+    tokens,
     networkId,
-    deriveInfo,
-    deriveType,
-    tokenInfo,
     isAllNetworks,
     indexedAccountId,
     listViewContentContainerStyle,
     tabs,
-    contentItemWidth,
+    vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
 
+  const headerTitle = useCallback(() => {
+    return (
+      <XStack alignItems="center" gap="$2">
+        <Token
+          size="sm"
+          tokenImageUri={tokens[0].logoURI}
+          networkImageUri={
+            tokens.length <= 1 && !gtMd ? network?.logoURI : undefined
+          }
+          networkId={networkId}
+        />
+        <SizableText size="$headingLg" numberOfLines={1}>
+          {tokens[0].commonSymbol ?? tokens[0].symbol ?? tokens[0].name ?? ''}
+        </SizableText>
+        {tokens.length <= 1 && gtMd ? (
+          <Badge badgeSize="sm">
+            <Badge.Text>{tokens[0].networkName ?? ''}</Badge.Text>
+          </Badge>
+        ) : null}
+      </XStack>
+    );
+  }, [tokens, gtMd, network?.logoURI, networkId]);
+
   return (
-    <Page safeAreaEnabled={false}>
-      <Page.Header
-        headerTitle={tokenInfo.name}
-        headerTitleStyle={headerTitleStyle}
-        headerRight={headerRight}
-      />
-      <Page.Body>{renderTokenDetailsView()}</Page.Body>
+    <Page lazyLoad safeAreaEnabled={false}>
+      <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
+      <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter networkId={networkId} />
     </Page>
   );
@@ -346,16 +517,18 @@ export default function TokenDetailsModal() {
   const updateTokenDetails = useCallback(
     ({
       accountId,
+      networkId,
       isInit,
       data,
     }: {
       accountId: string;
+      networkId: string;
       isInit: boolean;
       data: IFetchTokenDetailItem;
     }) => {
       setTokenDetails((prev) => ({
         ...prev,
-        [accountId]: { init: isInit, data },
+        [`${accountId}_${networkId}`]: { init: isInit, data },
       }));
     },
     [],

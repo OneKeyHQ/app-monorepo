@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgAirplay = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -13,7 +14,7 @@ const SvgAirplay = (props: SvgProps) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       strokeWidth={2}
-      d="m8 20 4-5 4 5H8Z"
+      d="m8 20 4-5 4 5z"
     />
   </Svg>
 );

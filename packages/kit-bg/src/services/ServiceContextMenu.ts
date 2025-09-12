@@ -2,6 +2,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -232,7 +233,7 @@ class ServiceContextMenu extends ServiceBase {
   @backgroundMethod()
   async addExcludedDApp(origin: string) {
     if (!origin) {
-      throw new Error('origin is required');
+      throw new OneKeyLocalError('origin is required');
     }
     return this.backgroundApi.simpleDb.defaultWalletSettings.addExcludeDapp(
       origin,
@@ -242,7 +243,7 @@ class ServiceContextMenu extends ServiceBase {
   @backgroundMethod()
   async removeExcludedDApp(origin: string) {
     if (!origin) {
-      throw new Error('origin is required');
+      throw new OneKeyLocalError('origin is required');
     }
     return this.backgroundApi.simpleDb.defaultWalletSettings.removeExcludeDapp(
       origin,
@@ -276,7 +277,7 @@ class ServiceContextMenu extends ServiceBase {
     );
     return {
       isDefaultWallet: result.isDefaultWallet,
-      excludedDappListWithLogo,
+      excludedDappListWithLogo: excludedDappListWithLogo.toReversed(),
     };
   }
 }

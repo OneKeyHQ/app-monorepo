@@ -11,6 +11,17 @@ import { globalAtom } from '../utils';
 
 export type IEndpointType = 'prod' | 'test';
 
+// don't use deviceUtils.getDefaultHardwareTransportType(), it will cause resource export order conflict
+function getDefaultHardwareTransportType(): EHardwareTransportType {
+  if (platformEnv.isNative) {
+    return EHardwareTransportType.BLE;
+  }
+  if (platformEnv.isSupportWebUSB) {
+    return EHardwareTransportType.WEBUSB;
+  }
+  return EHardwareTransportType.Bridge;
+}
+
 export type ISettingsPersistAtom = {
   theme: 'light' | 'dark' | 'system';
   lastLocale: ILocaleSymbol;
@@ -44,9 +55,12 @@ export type ISettingsPersistAtom = {
   isCustomTxMessageEnabled: boolean;
   isFloatingIconAlwaysDisplay: boolean;
   isFilterScamHistoryEnabled: boolean;
+  isFilterLowValueHistoryEnabled: boolean;
   hardwareTransportType?: EHardwareTransportType;
 
   hiddenWalletImmediately: boolean;
+  showAddHiddenInWalletSidebar?: boolean;
+  enableDesktopBluetooth?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -75,11 +89,12 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomNonceEnabled: false,
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
-  isFilterScamHistoryEnabled: false,
-  hardwareTransportType: platformEnv.isNative
-    ? EHardwareTransportType.BLE
-    : EHardwareTransportType.Bridge,
+  isFilterScamHistoryEnabled: true,
+  isFilterLowValueHistoryEnabled: true,
+  hardwareTransportType: getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
+  showAddHiddenInWalletSidebar: true,
+  enableDesktopBluetooth: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -132,6 +147,21 @@ export const {
   name: EAtomNames.settingsValuePersistAtom,
   initialValue: {
     hideValue: false,
+  },
+});
+
+export type ISettingsTronRentalPersistAtom = {
+  preventDisableTronRental: boolean;
+};
+
+export const {
+  target: settingsTronRentalPersistAtom,
+  use: useSettingsTronRentalPersistAtom,
+} = globalAtom<ISettingsTronRentalPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsTronRentalPersistAtom,
+  initialValue: {
+    preventDisableTronRental: false,
   },
 });
 

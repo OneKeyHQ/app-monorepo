@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -11,33 +11,51 @@ import {
   Alert,
   Divider,
   Icon,
+  IconButton,
   Image,
-  NumberSizeableText,
   Page,
   Popover,
   SizableText,
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   PercentageStageOnKeyboard,
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
+import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
+import type {
+  ICheckAmountAlert,
+  IEarnEstimateFeeResp,
+  IEarnText,
+  IEarnTextTooltip,
+  IStakeTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
-import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
+import { CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import { EarnText } from '../ProtocolDetails/EarnText';
+import {
+  StakingAmountInput,
+  useOnBlurAmountValue,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 
+import type { FontSizeTokens } from 'tamagui';
+
 type IUniversalWithdrawProps = {
+  accountAddress: string;
   balance: string;
   price: string;
 
@@ -47,8 +65,6 @@ type IUniversalWithdrawProps = {
   providerLogo?: string;
   providerName?: string;
 
-  providerLabel?: string;
-
   decimals?: number;
 
   initialAmount?: string;
@@ -56,18 +72,10 @@ type IUniversalWithdrawProps = {
   tokenSymbol?: string;
 
   minAmount?: string;
-  showDetailWithdrawalRequested: boolean;
-  unstakingPeriod?: number;
-
-  showPayWith?: boolean;
-  payWithToken?: string;
-  payWithTokenRate?: string;
-
-  hideReceived?: boolean;
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
-  morphoVault?: string;
+  protocolVault?: string;
 
   onConfirm?: ({
     amount,
@@ -83,7 +91,8 @@ const isNaN = (num: string) =>
 
 const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
 
-export const UniversalWithdraw = ({
+export function UniversalWithdraw({
+  accountAddress,
   balance,
   price: inputPrice,
   accountId,
@@ -94,21 +103,19 @@ export const UniversalWithdraw = ({
   providerName,
   initialAmount,
   minAmount = '0',
-  showDetailWithdrawalRequested,
-  unstakingPeriod,
-  providerLabel,
   decimals,
-  morphoVault,
-  // pay with
-  showPayWith,
-  payWithToken,
-  payWithTokenRate = '1',
-
-  hideReceived,
+  protocolVault,
   estimateFeeResp,
 
   onConfirm,
-}: PropsWithChildren<IUniversalWithdrawProps>) => {
+}: PropsWithChildren<IUniversalWithdrawProps>) {
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
+  const isMorphoProvider = useMemo(
+    () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
+    [providerName],
+  );
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
@@ -120,10 +127,6 @@ export const UniversalWithdraw = ({
   ] = useSettingsPersistAtom();
 
   const intl = useIntl();
-
-  const isMorphoProvider = earnUtils.isMorphoProvider({
-    providerName: providerName ?? '',
-  });
 
   const network = usePromiseResult(
     () =>
@@ -146,31 +149,88 @@ export const UniversalWithdraw = ({
   }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
+  const [checkAmountAlerts, setCheckAmountAlerts] = useState<
+    ICheckAmountAlert[]
+  >([]);
+  const [checkAmountLoading, setCheckAmountLoading] = useState(false);
   const checkAmount = useDebouncedCallback(async (amount: string) => {
     if (isNaN(amount)) {
       return;
     }
-    const message = await backgroundApiProxy.serviceStaking.checkAmount({
-      accountId,
-      networkId,
-      symbol: tokenSymbol,
-      provider: providerName,
-      action: 'unstake',
-      amount,
-      morphoVault,
-      withdrawAll: withdrawAllRef.current,
-    });
-    setCheckoutAmountMessage(message);
+    setCheckAmountLoading(true);
+    try {
+      const response = await backgroundApiProxy.serviceStaking.checkAmount({
+        accountId,
+        networkId,
+        symbol: tokenSymbol,
+        provider: providerName,
+        action: ECheckAmountActionType.UNSTAKING,
+        amount,
+        protocolVault,
+        withdrawAll: withdrawAllRef.current,
+      });
+
+      if (Number(response.code) === 0) {
+        setCheckoutAmountMessage('');
+        setCheckAmountAlerts(response.data?.alerts || []);
+      } else {
+        setCheckoutAmountMessage(response.message);
+        setCheckAmountAlerts([]);
+      }
+    } finally {
+      setCheckAmountLoading(false);
+    }
   }, 300);
+
+  const [transactionConfirmation, setTransactionConfirmation] = useState<
+    IStakeTransactionConfirmation | undefined
+  >();
+  const fetchTransactionConfirmation = useCallback(
+    async (amount: string) => {
+      const resp =
+        await backgroundApiProxy.serviceStaking.getTransactionConfirmation({
+          networkId: networkId || '',
+          provider: providerName || '',
+          symbol: tokenSymbol || '',
+          vault: isMorphoProvider ? protocolVault || '' : '',
+          accountAddress,
+          action: ECheckAmountActionType.UNSTAKING,
+          amount,
+        });
+      return resp;
+    },
+    [
+      accountAddress,
+      isMorphoProvider,
+      protocolVault,
+      networkId,
+      providerName,
+      tokenSymbol,
+    ],
+  );
+
+  const debouncedFetchTransactionConfirmation = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchTransactionConfirmation(amount || '0');
+      setTransactionConfirmation(resp);
+    },
+    350,
+  );
+
+  useEffect(() => {
+    void debouncedFetchTransactionConfirmation(amountValue);
+  }, [amountValue, debouncedFetchTransactionConfirmation]);
 
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
-      if (!validateAmountInput(value, decimals)) {
+      if (!validateAmountInputForStaking(value, decimals)) {
         return;
       }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
+          setCheckoutAmountMessage('');
+          setCheckAmountAlerts([]);
           setAmountValue('');
         }
         return;
@@ -214,6 +274,7 @@ export const UniversalWithdraw = ({
     }
     return false;
   }, [minAmount, amountValue, balance]);
+  const onBlurAmountValue = useOnBlurAmountValue(amountValue, setAmountValue);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance, true);
@@ -235,25 +296,48 @@ export const UniversalWithdraw = ({
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
 
-  const isDisable = useMemo(
+  const isDisable = useMemo<boolean>(
     () =>
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
+      isCheckAmountMessageError ||
+      checkAmountAlerts.length > 0 ||
+      checkAmountLoading,
+    [
+      amountValue,
       isCheckAmountMessageError,
-    [amountValue, isCheckAmountMessageError],
+      checkAmountAlerts.length,
+      checkAmountLoading,
+    ],
   );
 
   const editable = initialAmount === undefined;
 
-  const fiatValue = useMemo(
-    () =>
-      amountValue ? BigNumber(amountValue).multipliedBy(price).toFixed() : 0,
-    [amountValue, price],
-  );
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
       return items;
+    }
+    if (transactionConfirmation?.receive) {
+      items.push(
+        <CalculationListItem>
+          <CalculationListItem.Label
+            size={transactionConfirmation.receive.title.size || '$bodyMd'}
+            color={transactionConfirmation.receive.title.color}
+            tooltip={
+              transactionConfirmation.receive.tooltip.type === 'text'
+                ? transactionConfirmation.receive.tooltip.data.title.text
+                : undefined
+            }
+          >
+            {transactionConfirmation.receive.title.text}
+          </CalculationListItem.Label>
+          <EarnText
+            text={transactionConfirmation.receive.description}
+            size="$bodyMdMedium"
+          />
+        </CalculationListItem>,
+      );
     }
     if (estimateFeeResp) {
       items.push(
@@ -264,7 +348,7 @@ export const UniversalWithdraw = ({
       );
     }
     return items;
-  }, [amountValue, estimateFeeResp]);
+  }, [amountValue, estimateFeeResp, transactionConfirmation?.receive]);
   const isAccordionTriggerDisabled = !amountValue;
 
   return (
@@ -276,6 +360,7 @@ export const UniversalWithdraw = ({
           hasError={isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
+          onBlur={onBlurAmountValue}
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
@@ -319,6 +404,41 @@ export const UniversalWithdraw = ({
           title={checkAmountMessage}
         />
       ) : null}
+      {checkAmountAlerts.length > 0 ? (
+        <>
+          {checkAmountAlerts.map((alert, index) => (
+            <Alert
+              key={index}
+              type="warning"
+              renderTitle={() => {
+                return <EarnText text={alert.text} size="$bodyMdMedium" />;
+              }}
+              action={
+                alert.button
+                  ? {
+                      primary: alert.button.text.text,
+                      onPrimaryPress: () => {
+                        if (alert.button?.data?.link) {
+                          handleOpenWebSite({
+                            switchToMultiTabBrowser: gtMd,
+                            navigation,
+                            useCurrentWindow: false,
+                            webSite: {
+                              url: alert.button.data.link,
+                              title: alert.button.data.link,
+                              logo: undefined,
+                              sortIndex: undefined,
+                            },
+                          });
+                        }
+                      },
+                    }
+                  : undefined
+              }
+            />
+          ))}
+        </>
+      ) : null}
       <YStack
         p="$3.5"
         pt="$5"
@@ -327,64 +447,84 @@ export const UniversalWithdraw = ({
         borderColor="$borderSubdued"
       >
         <YStack gap="$2">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.earn_receive,
-            })}
-          </SizableText>
-          <SizableText>
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol: tokenSymbol ?? '' }}
-            >
-              {amountValue || 0}
-            </NumberSizeableText>
-            {fiatValue ? (
-              <SizableText color="$textSubdued">
-                <SizableText color="$textSubdued">{' ('}</SizableText>
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="value"
-                  color="$textSubdued"
-                  formatterOptions={{ currency: symbol }}
-                >
-                  {fiatValue}
-                </NumberSizeableText>
-                <SizableText color="$textSubdued">)</SizableText>
-              </SizableText>
-            ) : null}
-          </SizableText>
-        </YStack>
-        {unstakingPeriod ? (
-          <XStack pt="$3.5" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.earn_unstaking_period,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage(
-                {
-                  id: showDetailWithdrawalRequested
-                    ? ETranslations.earn_claim_available_in_number_days
-                    : ETranslations.earn_up_to_number_days,
-                },
-                { number: unstakingPeriod },
-              )}
-            </SizableText>
-            <Popover.Tooltip
-              iconSize="$5"
-              title={intl.formatMessage({
-                id: ETranslations.earn_unstaking_period,
-              })}
-              tooltip={intl.formatMessage({
-                id: ETranslations.earn_unstaking_period_tooltip,
-              })}
-              placement="top"
+          <XStack ai="center" gap="$1">
+            <EarnText
+              text={transactionConfirmation?.title}
+              color="$textSubdued"
+              size="$bodyMd"
             />
+            {transactionConfirmation?.tooltip ? (
+              <Popover
+                placement="top"
+                title={transactionConfirmation?.title?.text}
+                renderTrigger={
+                  <IconButton
+                    iconColor="$iconSubdued"
+                    size="small"
+                    icon="InfoCircleOutline"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <Stack p="$5">
+                    <EarnText
+                      text={
+                        transactionConfirmation?.tooltip?.type === 'text'
+                          ? transactionConfirmation.tooltip.data
+                          : undefined
+                      }
+                      size="$bodyMd"
+                    />
+                  </Stack>
+                }
+              />
+            ) : null}
           </XStack>
-        ) : null}
+          {transactionConfirmation?.rewards.map((reward) => {
+            const hasTooltip = reward.tooltip?.type === 'text';
+            let descriptionTextSize = (
+              hasTooltip ? '$bodyMd' : '$bodyLgMedium'
+            ) as FontSizeTokens;
+            if (reward.description.size) {
+              descriptionTextSize = reward.description.size;
+            }
+            return (
+              <XStack
+                key={reward.title.text}
+                gap="$1"
+                ai="flex-start"
+                mt="$1.5"
+                flexWrap="wrap"
+              >
+                <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                  <EarnText
+                    text={reward.title}
+                    color={reward.title.color}
+                    size={reward.title.size}
+                  />
+                  <XStack gap="$1" flex={1} flexWrap="wrap" ai="center">
+                    <EarnText
+                      text={reward.description}
+                      size={descriptionTextSize}
+                      color={reward.description.color ?? '$textSubdued'}
+                      flexShrink={1}
+                    />
+                    {hasTooltip ? (
+                      <Popover.Tooltip
+                        iconSize="$5"
+                        title={reward.title.text}
+                        tooltip={
+                          (reward.tooltip as IEarnTextTooltip)?.data.text
+                        }
+                        placement="top"
+                      />
+                    ) : null}
+                  </XStack>
+                </XStack>
+              </XStack>
+            );
+          })}
+        </YStack>
         <Divider my="$5" />
         <Accordion
           overflow="hidden"
@@ -473,7 +613,7 @@ export const UniversalWithdraw = ({
         })}
         confirmButtonProps={{
           onPress,
-          loading,
+          loading: loading || checkAmountLoading,
           disabled: isDisable,
         }}
       />
@@ -495,4 +635,4 @@ export const UniversalWithdraw = ({
       </Page.Footer>
     </StakingFormWrapper>
   );
-};
+}

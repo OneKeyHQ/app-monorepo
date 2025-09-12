@@ -17,6 +17,10 @@ const ProtocolDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetails'),
 );
 
+const ProtocolDetailsV2 = LazyLoad(
+  () => import('@onekeyhq/kit/src/views/Staking/pages/ProtocolDetailsV2'),
+);
+
 const Withdraw = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/Withdraw'),
 );
@@ -31,10 +35,6 @@ const Claim = LazyLoad(
 
 const AssetProtocolList = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/AssetProtocolList'),
-);
-
-const ApproveBaseStake = LazyLoad(
-  () => import('@onekeyhq/kit/src/views/Staking/pages/ApproveBaseStake'),
 );
 
 const ClaimOptions = LazyLoad(
@@ -61,7 +61,19 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
     name: EModalStakingRoutes.ProtocolDetails,
     component: ProtocolDetails,
     exact: true,
-    rewrite: '/earn/staking/:symbol/:provider',
+    rewrite: '/defi/staking/:symbol/:provider',
+  },
+  {
+    name: EModalStakingRoutes.ProtocolDetailsV2,
+    component: ProtocolDetailsV2,
+    exact: true,
+    rewrite: '/defi/staking/v2/:symbol/:provider',
+  },
+  {
+    name: EModalStakingRoutes.ProtocolDetailsV2Share,
+    component: ProtocolDetailsV2,
+    exact: true,
+    rewrite: '/defi/:network/:symbol/:provider',
   },
   {
     name: EModalStakingRoutes.Stake,
@@ -74,10 +86,6 @@ export const StakingModalRouter: IModalFlowNavigatorConfig<
   {
     name: EModalStakingRoutes.AssetProtocolList,
     component: AssetProtocolList,
-  },
-  {
-    name: EModalStakingRoutes.ApproveBaseStake,
-    component: ApproveBaseStake,
   },
   {
     name: EModalStakingRoutes.Claim,

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
@@ -22,26 +24,44 @@ import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
 import {
   useSwapActions,
+  useSwapFromTokenAmountAtom,
+  useSwapMevConfigAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapTipsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
+/**
+ * Initializes and manages state and side effects for the token swap feature, including networks, tokens, providers, and related UI state.
+ *
+ * This hook synchronizes swap networks, selected tokens, provider managers, MEV configuration, and swap tips by integrating with background APIs, local storage, and global state atoms. It handles data fetching, caching, and updates in response to parameter changes and app lifecycle events.
+ *
+ * @param params - Optional parameters for initializing swap state, such as imported tokens or network IDs
+ * @returns An object containing `fetchLoading`, indicating whether the swap network list is currently loading
+ */
 export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
+  const [, setSwapMevConfig] = useSwapMevConfigAtom();
   const { syncNetworksSort, needChangeToken } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
   const [skipSyncDefaultSelectedToken, setSkipSyncDefaultSelectedToken] =
     useState<boolean>(false);
-  const swapAddressInfoRef = useRef<ReturnType<typeof useSwapAddressInfo>>();
+  const swapAddressInfoRef =
+    useRef<ReturnType<typeof useSwapAddressInfo>>(undefined);
+  const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
+  const [, setSwapTips] = useSwapTipsAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   if (swapAddressInfoRef.current !== swapAddressInfo) {
     swapAddressInfoRef.current = swapAddressInfo;
@@ -50,14 +70,21 @@ export function useSwapInit(params?: ISwapInitParams) {
   if (swapNetworksRef.current !== swapNetworks) {
     swapNetworksRef.current = swapNetworks;
   }
-  const fromTokenRef = useRef<ISwapToken>();
+  const fromTokenRef = useRef<ISwapToken>(undefined);
   if (fromTokenRef.current !== fromToken) {
     fromTokenRef.current = fromToken;
   }
-  const toTokenRef = useRef<ISwapToken>();
+  const toTokenRef = useRef<ISwapToken>(undefined);
   if (toTokenRef.current !== toToken) {
     toTokenRef.current = toToken;
   }
+  const fromTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
+    fromTokenAmount,
+  );
+  if (fromTokenAmountRef.current?.value !== fromTokenAmount?.value) {
+    fromTokenAmountRef.current = fromTokenAmount;
+  }
+
   const fetchSwapNetworks = useCallback(async () => {
     if (swapNetworks.length) {
       setNetworkListFetching(false);
@@ -117,6 +144,232 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     }
   }, [setSwapNetworks, swapNetworks.length]);
+
+  const fetchSyncSwapProviderManager = useCallback(
+    async (noFetch?: boolean) => {
+      const swapProviderManagerSimpleDb =
+        await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
+      const bridgeProviderManagerSimpleDb =
+        await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
+      setInAppNotification((pre) => ({
+        ...pre,
+        swapProviderManager: swapProviderManagerSimpleDb,
+        bridgeProviderManager: bridgeProviderManagerSimpleDb,
+      }));
+      if (noFetch) {
+        return;
+      }
+      const swapProviderManagerFromServer =
+        await backgroundApiProxy.serviceSwap.getSwapProviderManager();
+
+      if (swapProviderManagerFromServer.length) {
+        const supportSingleSwap = swapProviderManagerFromServer.filter(
+          (provider) => provider.isSupportSingleSwap,
+        );
+        const supportCrossChainSwap = swapProviderManagerFromServer.filter(
+          (provider) => provider.isSupportCrossChain,
+        );
+        // swapProviderManager
+        if (!swapProviderManagerSimpleDb.length) {
+          const syncSingleSwapProviderData = supportSingleSwap.map(
+            (provider) => {
+              const providerInfo = provider.providerInfo;
+              const enable = true;
+              const providerInitData: ISwapProviderManager = {
+                providerInfo,
+                enable,
+                serviceDisable: provider.providerServiceDisable,
+                supportNetworks: provider.supportSingleSwapNetworks,
+                disableNetworks: [],
+                serviceDisableNetworks: provider.serviceDisableNetworks,
+              };
+              return providerInitData;
+            },
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
+            syncSingleSwapProviderData,
+          );
+        } else {
+          const findNewProvider = supportSingleSwap.filter(
+            (provider) =>
+              !swapProviderManagerSimpleDb.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              ),
+          );
+          if (findNewProvider.length) {
+            const syncNewSingleSwapProviderData = findNewProvider.map(
+              (provider) => {
+                const providerInfo = provider.providerInfo;
+                const enable = true;
+                const providerInitData: ISwapProviderManager = {
+                  providerInfo,
+                  enable,
+                  serviceDisable: provider.providerServiceDisable,
+                  supportNetworks: provider.supportSingleSwapNetworks,
+                  disableNetworks: [],
+                  serviceDisableNetworks: provider.serviceDisableNetworks,
+                };
+                return providerInitData;
+              },
+            );
+            await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
+              [
+                ...swapProviderManagerSimpleDb,
+                ...syncNewSingleSwapProviderData,
+              ],
+            );
+          }
+          const findNoProvider = swapProviderManagerSimpleDb.filter(
+            (provider) =>
+              !swapProviderManagerFromServer.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              ),
+          );
+          if (findNoProvider.length) {
+            const simpleDbSwapProviderManager =
+              await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
+            const syncNoProviderData = simpleDbSwapProviderManager.filter(
+              (provider) =>
+                !findNoProvider.find(
+                  (p) =>
+                    p.providerInfo.provider === provider.providerInfo.provider,
+                ),
+            );
+            await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
+              syncNoProviderData,
+            );
+          }
+          // update serviceDisable
+          const simpleDbCurrentSwapProviderManager =
+            await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
+          const syncServiceDisable = simpleDbCurrentSwapProviderManager.map(
+            (provider) => {
+              const findProvider = swapProviderManagerFromServer.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              );
+              let serviceDisable;
+              let serviceDisableNetworks;
+              if (findProvider) {
+                serviceDisable = findProvider.providerServiceDisable;
+                serviceDisableNetworks = findProvider.serviceDisableNetworks;
+              }
+              let supportNetworks = provider.supportNetworks;
+              let disableNetworks = provider.disableNetworks;
+              if (
+                findProvider?.supportSingleSwapNetworks &&
+                findProvider.isSupportSingleSwap
+              ) {
+                supportNetworks = findProvider?.supportSingleSwapNetworks;
+                disableNetworks = provider.disableNetworks?.filter((net) =>
+                  findProvider?.supportSingleSwapNetworks?.includes(net),
+                );
+              }
+              return {
+                ...provider,
+                serviceDisable,
+                serviceDisableNetworks,
+                supportNetworks,
+                disableNetworks,
+              };
+            },
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
+            syncServiceDisable,
+          );
+        }
+        // bridgeProviderManager
+        if (!bridgeProviderManagerSimpleDb) {
+          const syncBridgeProviderManagerData = supportCrossChainSwap.map(
+            (provider) => {
+              const providerInfo = provider.providerInfo;
+              const enable = true;
+              return {
+                providerInfo,
+                enable,
+                serviceDisable: provider.providerServiceDisable,
+              };
+            },
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
+            syncBridgeProviderManagerData,
+          );
+        } else {
+          const findNewBridgeProvider = supportCrossChainSwap.filter(
+            (provider) =>
+              !bridgeProviderManagerSimpleDb.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              ),
+          );
+          if (findNewBridgeProvider.length) {
+            const syncNewBridgeProviderData = findNewBridgeProvider.map(
+              (provider) => {
+                const providerInfo = provider.providerInfo;
+                const enable = true;
+                return {
+                  providerInfo,
+                  enable,
+                  serviceDisable: provider.providerServiceDisable,
+                };
+              },
+            );
+            await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
+              [...bridgeProviderManagerSimpleDb, ...syncNewBridgeProviderData],
+            );
+          }
+          const findNoBridgeProvider = bridgeProviderManagerSimpleDb.filter(
+            (provider) =>
+              !swapProviderManagerFromServer.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              ),
+          );
+          if (findNoBridgeProvider.length) {
+            const simpleDbBridgeProviderManager =
+              await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
+            const syncNoBridgeProviderData =
+              simpleDbBridgeProviderManager.filter(
+                (provider) =>
+                  !findNoBridgeProvider.find(
+                    (p) =>
+                      p.providerInfo.provider ===
+                      provider.providerInfo.provider,
+                  ),
+              );
+            await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
+              syncNoBridgeProviderData,
+            );
+          }
+          // update serviceDisable
+          const simpleDbCurrentBridgeProviderManager =
+            await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
+          const syncServiceDisable = simpleDbCurrentBridgeProviderManager.map(
+            (provider) => {
+              const findProvider = swapProviderManagerFromServer.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              );
+              if (findProvider) {
+                return {
+                  ...provider,
+                  serviceDisable: findProvider.providerServiceDisable,
+                };
+              }
+              return provider;
+            },
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
+            syncServiceDisable,
+          );
+        }
+        void fetchSyncSwapProviderManager(true);
+      }
+    },
+    [setInAppNotification],
+  );
 
   const checkSupportTokenSwapType = useCallback(
     (token: ISwapToken, enableSwitchAction?: boolean) => {
@@ -289,6 +542,29 @@ export function useSwapInit(params?: ISwapInitParams) {
 
   useEffect(() => {
     void (async () => {
+      const swapConfigs =
+        await backgroundApiProxy.serviceSwap.fetchSwapConfigs();
+      if (swapConfigs?.swapMevNetConfig) {
+        setSwapMevConfig({
+          swapMevNetConfig: swapConfigs.swapMevNetConfig,
+        });
+      }
+    })();
+  }, [setSwapMevConfig]);
+
+  useEffect(() => {
+    void (async () => {
+      const tips = await backgroundApiProxy.serviceSwap.fetchSwapTips();
+      const simpleDbTips =
+        await backgroundApiProxy.simpleDb.swapConfigs.getSwapUserCloseTips();
+      if (tips && !simpleDbTips.includes(tips.tipsId)) {
+        setSwapTips(tips);
+      }
+    })();
+  }, [setSwapTips]);
+
+  useEffect(() => {
+    void (async () => {
       await backgroundApiProxy.serviceSwap.swapRecentTokenSync();
     })();
   }, []);
@@ -298,6 +574,12 @@ export function useSwapInit(params?: ISwapInitParams) {
       await fetchSwapNetworks();
     })();
   }, [fetchSwapNetworks, swapNetworks.length]);
+
+  useEffect(() => {
+    void (async () => {
+      await fetchSyncSwapProviderManager();
+    })();
+  }, [fetchSyncSwapProviderManager]);
 
   useEffect(() => {
     void (async () => {
@@ -329,11 +611,11 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importNetworkId,
   ]);
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           if (isHiddenModel) {
             setSkipSyncDefaultSelectedToken(true);
@@ -344,6 +626,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     },
   );
+
+  useEffect(() => {
+    if (fromToken?.networkId && fromToken?.isNative) {
+      void (async () => {
+        const nativeTokenConfig =
+          await backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+            networkId: fromToken.networkId,
+          });
+        setSwapNativeTokenReserveGas((pre) => {
+          const find = pre.find(
+            (item) => item.networkId === fromToken.networkId,
+          );
+          if (find) {
+            return [
+              ...pre.filter((item) => item.networkId !== fromToken.networkId),
+              {
+                networkId: fromToken.networkId,
+                reserveGas: nativeTokenConfig.reserveGas,
+              },
+            ];
+          }
+          return [...pre, nativeTokenConfig];
+        });
+      })();
+    }
+  }, [fromToken?.networkId, fromToken?.isNative, setSwapNativeTokenReserveGas]);
 
   return {
     fetchLoading: networkListFetching,

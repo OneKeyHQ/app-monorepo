@@ -23,15 +23,24 @@ import {
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import {
+  buildAggregateTokenListMapKeyForTokenList,
+  buildAggregateTokenMapKeyForAggregateConfig,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IAddCustomTokenRouteParams } from '@onekeyhq/shared/types/token';
+import {
+  ECustomTokenStatus,
+  type IAccountToken,
+  type IAddCustomTokenRouteParams,
+} from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '../../../components/NetworkAvatar/NetworkAvatar';
@@ -44,6 +53,10 @@ import {
 } from '../hooks/useAddToken';
 
 import type { RouteProp } from '@react-navigation/core';
+
+function normalizeAddress(address: string) {
+  return address.toLowerCase();
+}
 
 function CreateAddressButton(props: IButtonProps) {
   const intl = useIntl();
@@ -136,7 +149,7 @@ function AddCustomTokenModal() {
       selectedNetworkIdValue,
     });
 
-  const { availableNetworks, searchedTokenRef } = useAddToken({
+  const { availableNetworks, searchedTokenRef, isSearching } = useAddToken({
     token,
     walletId,
     networkId,
@@ -170,11 +183,25 @@ function AddCustomTokenModal() {
     if (isLoading) {
       return true;
     }
+    if (isSearching) {
+      return true;
+    }
     return false;
-  }, [symbolValue, decimalsValue, isEmptyContract, isLoading, hasExistAccount]);
+  }, [
+    symbolValue,
+    decimalsValue,
+    isEmptyContract,
+    isLoading,
+    hasExistAccount,
+    isSearching,
+  ]);
 
   const onConfirm = useCallback(
     async (close?: () => void) => {
+      if (!searchedTokenRef.current) {
+        Toast.error({ title: 'Searching token, please try again later' });
+        return;
+      }
       setIsLoading(true);
       // Step1 -> Create Address
       const { hasExistAccountFlag, accountIdForNetwork } =
@@ -190,12 +217,12 @@ function AddCustomTokenModal() {
         setIsLoading(false);
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.manger_token_custom_token_address_required,
+            id: ETranslations.manage_token_custom_token_address_required,
           }),
         });
         dappApprove.reject({
           error: new OneKeyError({
-            key: ETranslations.manger_token_custom_token_address_required,
+            key: ETranslations.manage_token_custom_token_address_required,
           }),
         });
         return;
@@ -215,26 +242,94 @@ function AddCustomTokenModal() {
         return;
       }
       try {
-        const tokenInfo = {
-          address: contractAddress,
-          ...searchedTokenRef.current,
-          symbol,
-          decimals: new BigNumber(decimals).toNumber(),
-          accountId: accountIdForNetwork,
-          networkId: selectedNetworkIdValue,
-          allNetworkAccountId: isAllNetwork ? accountId : undefined,
-          name: searchedTokenRef.current?.name || symbol || '',
-          isNative: searchedTokenRef.current?.isNative ?? false,
-          $key: `${selectedNetworkIdValue}_${contractAddress}`,
-        };
-        await backgroundApiProxy.serviceCustomToken.activateToken({
-          accountId: accountIdForNetwork,
-          networkId: selectedNetworkIdValue,
-          token: tokenInfo,
-        });
-        await backgroundApiProxy.serviceCustomToken.addCustomToken({
-          token: tokenInfo,
-        });
+        if (searchedTokenRef.current?.networkId !== selectedNetworkIdValue) {
+          throw new OneKeyLocalError('Token networkId not matched');
+        }
+        if (
+          normalizeAddress(searchedTokenRef.current?.address) !==
+          normalizeAddress(contractAddress)
+        ) {
+          throw new OneKeyLocalError('Token address not matched');
+        }
+        const decimalsBN = new BigNumber(searchedTokenRef.current?.decimals);
+        if (decimalsBN.isNaN()) {
+          throw new OneKeyLocalError('Token decimal is invalid');
+        }
+
+        const aggregateTokenConfigMap =
+          await backgroundApiProxy.serviceToken.getAggregateTokenConfigMap();
+
+        const aggregateTokenConfigKey =
+          buildAggregateTokenMapKeyForAggregateConfig({
+            networkId: selectedNetworkIdValue,
+            tokenAddress: searchedTokenRef.current?.address,
+          });
+
+        const aggregateTokenConfig =
+          aggregateTokenConfigMap?.[aggregateTokenConfigKey];
+
+        if (aggregateTokenConfig) {
+          const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList({
+            commonSymbol: aggregateTokenConfig?.commonSymbol ?? '',
+          });
+
+          const tokenInfo: IAccountToken = {
+            ...searchedTokenRef.current,
+            address: aggregateTokenKey,
+            symbol: aggregateTokenConfig?.commonSymbol ?? '',
+            commonSymbol: aggregateTokenConfig?.commonSymbol ?? '',
+            decimals: decimalsBN.toNumber(),
+            networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+            name:
+              aggregateTokenConfig?.name ||
+              searchedTokenRef.current?.name ||
+              symbol ||
+              '',
+            isNative: searchedTokenRef.current?.isNative ?? false,
+            logoURI: aggregateTokenConfig?.logoURI ?? '',
+            $key: aggregateTokenKey,
+            isAggregateToken: true,
+          };
+          await backgroundApiProxy.serviceCustomToken.addCustomToken({
+            token: {
+              ...tokenInfo,
+              accountXpubOrAddress: indexedAccountId ?? '',
+              tokenStatus: ECustomTokenStatus.Custom,
+            },
+          });
+        } else {
+          const tokenInfo: IAccountToken = {
+            ...searchedTokenRef.current,
+            address: searchedTokenRef.current?.address,
+            symbol,
+            decimals: decimalsBN.toNumber(),
+            accountId: accountIdForNetwork,
+            networkId: selectedNetworkIdValue,
+            name: searchedTokenRef.current?.name || symbol || '',
+            isNative: searchedTokenRef.current?.isNative ?? false,
+            $key: `${selectedNetworkIdValue}_${contractAddress}`,
+          };
+          await backgroundApiProxy.serviceCustomToken.activateToken({
+            accountId: accountIdForNetwork,
+            networkId: selectedNetworkIdValue,
+            token: tokenInfo,
+          });
+          const accountXpubOrAddress =
+            await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
+              accountId: accountIdForNetwork,
+              networkId: selectedNetworkIdValue,
+            });
+          await backgroundApiProxy.serviceCustomToken.addCustomToken({
+            token: {
+              ...tokenInfo,
+              accountXpubOrAddress: accountXpubOrAddress || '',
+              tokenStatus: ECustomTokenStatus.Custom,
+            },
+          });
+        }
+      } catch (error) {
+        Toast.error({ title: (error as Error)?.message });
+        throw error;
       } finally {
         setIsLoading(false);
       }
@@ -250,16 +345,15 @@ function AddCustomTokenModal() {
       }, 300);
     },
     [
-      form,
+      searchedTokenRef,
       checkAccountIsExist,
-      selectedNetworkIdValue,
+      form,
       token?.isNative,
       intl,
-      onSuccess,
-      isAllNetwork,
-      accountId,
-      searchedTokenRef,
       dappApprove,
+      selectedNetworkIdValue,
+      indexedAccountId,
+      onSuccess,
     ],
   );
 
@@ -332,7 +426,7 @@ function AddCustomTokenModal() {
                 validate: () => {
                   if (isEmptyContract) {
                     return intl.formatMessage({
-                      id: ETranslations.Token_manage_custom_token_address_faild,
+                      id: ETranslations.token_manage_custom_token_address_failed,
                     });
                   }
                 },
@@ -389,9 +483,16 @@ function AddCustomTokenModal() {
         </Form>
       </Page.Body>
       <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.manage_token_custom_token_add_btn,
-        })}
+        onConfirmText={
+          isSearching
+            ? intl.formatMessage({
+                // id: ETranslations.global_pending,
+                id: ETranslations.manage_token_custom_token_add_btn,
+              })
+            : intl.formatMessage({
+                id: ETranslations.manage_token_custom_token_add_btn,
+              })
+        }
         onConfirm={onConfirm}
         confirmButtonProps={{
           loading: isLoading,

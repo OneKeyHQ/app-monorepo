@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Rect, Path } from 'react-native-svg';
+import Svg, { Rect, Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgDice3 = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Rect
@@ -13,7 +14,7 @@ const SvgDice3 = (props: SvgProps) => (
     />
     <Path
       fill="currentColor"
-      d="M13.5 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Z"
+      d="M13.5 12a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"
     />
   </Svg>
 );

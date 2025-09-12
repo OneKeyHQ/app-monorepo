@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access */
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -14,7 +15,7 @@ import type { IOffscreenApiMessagePayload } from '../apis/IBackgroundApi';
 export class OffscreenApiProxyBase extends RemoteApiProxyBase {
   override checkEnvAvailable(): void {
     if (!platformEnv.isExtensionBackground) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'offscreenApiProxy should only be used in extension Background.',
       );
     }
@@ -89,7 +90,7 @@ export class OffscreenApiProxyBase extends RemoteApiProxyBase {
   //   } = {},
   // ): any {
   //   if (this._moduleCreatedNames[name]) {
-  //     throw new Error(`_createProxyService name duplicated. name=${name}`);
+  //     throw new OneKeyLocalError(`_createProxyService name duplicated. name=${name}`);
   //   }
   //   this._moduleCreatedNames[name] = true;
   //   const proxy: any = new Proxy(

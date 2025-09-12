@@ -204,6 +204,14 @@ export const showRenameDialog = (
                 id: ETranslations.form_rename_error_empty,
               }),
             },
+            validate: (value: string) => {
+              if (!value?.trim()) {
+                return appLocale.intl.formatMessage({
+                  id: ETranslations.form_rename_error_empty,
+                });
+              }
+              return true;
+            },
           }}
         >
           <RenameInputWithNameSelector

@@ -149,7 +149,8 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
       items.forEach((item) => {
         const { entityType, entityId, contentType, oldValue, value } = item;
 
-        if (!entityId || !value || value === oldValue) {
+        const trimmedValue = value?.trim();
+        if (!entityId || !value || !trimmedValue || value === oldValue) {
           return;
         }
         if (

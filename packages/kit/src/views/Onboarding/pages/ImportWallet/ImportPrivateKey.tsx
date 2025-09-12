@@ -6,7 +6,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { toastSuccessWhenImportAddressOrPrivateKey } from '@onekeyhq/kit/src/utils/toastExistingWalletSwitch';
 import type { IValidateGeneralInputParams } from '@onekeyhq/kit-bg/src/vaults/types';
 import { WALLET_TYPE_IMPORTED } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -19,7 +21,6 @@ import {
   ImportSingleChainBase,
   fixInputImportSingleChain,
 } from './ImportSingleChainBase';
-import importWalletUiUtils from './importWalletUiUtils';
 
 function ImportPrivateKey() {
   const intl = useIntl();
@@ -34,6 +35,7 @@ function ImportPrivateKey() {
 
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
+  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
   const { result: networkIds } = usePromiseResult(
     async () => {
@@ -83,7 +85,7 @@ function ImportPrivateKey() {
 
         const accountId = r?.accounts?.[0]?.id;
 
-        importWalletUiUtils.toastSuccessWhenImportAddressOrPrivateKey({
+        toastSuccessWhenImportAddressOrPrivateKey({
           isOverrideAccounts: r?.isOverrideAccounts,
           accountId,
         });
@@ -95,8 +97,13 @@ function ImportPrivateKey() {
           othersWalletAccountId: accountId,
         });
         navigation.popStack();
-        defaultLogger.account.wallet.importWallet({
-          importMethod: 'privatekey',
+        defaultLogger.account.wallet.walletAdded({
+          status: 'success',
+          addMethod: 'ImportWallet',
+          details: {
+            importType: 'privateKey',
+          },
+          isSoftwareWalletOnlyUser,
         });
       }}
       networkIds={networkIds}

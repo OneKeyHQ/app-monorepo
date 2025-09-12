@@ -1,7 +1,10 @@
 import { BigNumber } from 'bignumber.js';
 
 import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
-import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
+import {
+  LowerTransactionAmountError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 
 import { CONFIRMATION_COUNT } from './constant';
 import { UnspentOutput } from './types';
@@ -107,7 +110,7 @@ export function selectUTXOs(
   // Uint64 overflow
   if (totalVal.isGreaterThan(MAX_UINT64_VALUE)) {
     // utxo amount is too large
-    throw new Error('utxo amount is too large');
+    throw new OneKeyLocalError('utxo amount is too large');
   }
 
   return {

@@ -11,6 +11,7 @@ import type {
   ISizableTextProps,
 } from '@onekeyhq/components';
 import {
+  Button,
   ButtonGroup,
   Checkbox,
   Divider,
@@ -21,6 +22,7 @@ import {
   Popover,
   Select,
   SizableText,
+  Skeleton,
   Spinner,
   Stack,
   Table,
@@ -48,6 +50,7 @@ import type {
   IAccountDeriveTypes,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -242,6 +245,7 @@ function BatchCreateAccountPreviewPage({
     result: accounts = [],
     isLoading,
     setResult,
+    run,
   } = usePromiseResult(
     async () => {
       try {
@@ -604,6 +608,9 @@ function BatchCreateAccountPreviewPage({
             />
           );
         },
+        renderSkeleton: () => (
+          <Skeleton width={22} height={22} borderRadius="$full" />
+        ),
       },
       {
         title: intl.formatMessage({
@@ -630,6 +637,12 @@ function BatchCreateAccountPreviewPage({
               {account.path}
               {buildRelPathSuffix(account)}
             </SizableText>
+          </YStack>
+        ),
+        renderSkeleton: () => (
+          <YStack width="100%">
+            <Skeleton.BodyMd width="30%" />
+            <Skeleton.BodyMd width="50%" />
           </YStack>
         ),
       },
@@ -659,6 +672,11 @@ function BatchCreateAccountPreviewPage({
           >
             {balanceMap[buildBalanceMapKey({ account })] ?? '-'}
           </NumberSizeableText>
+        ),
+        renderSkeleton: () => (
+          <YStack width="100%">
+            <Skeleton.BodyMd width="100%" />
+          </YStack>
         ),
       },
     ],
@@ -692,6 +710,13 @@ function BatchCreateAccountPreviewPage({
     [totalCount, balanceMap],
   );
 
+  const shouldShowError = useMemo(() => {
+    if (previewError && !isLoading) {
+      return true;
+    }
+    return false;
+  }, [previewError, isLoading]);
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -702,36 +727,61 @@ function BatchCreateAccountPreviewPage({
         headerRight={headerRight}
       />
       <Page.Body>
-        <Table
-          onRow={onRow}
-          rowProps={{
-            gap: platformEnv.isNative ? '$8' : '$4',
-            px: '$3',
-            mx: '$2',
-            minHeight: '$12',
-          }}
-          estimatedItemSize="$12"
-          headerRowProps={{ py: '$2', minHeight: 36 }}
-          dataSource={isLoading ? [] : accounts}
-          columns={columns as any}
-          TableEmptyComponent={
-            <Stack
-              testID="batch-create-account-preview-loading-icon"
-              py="$20"
-              flexDirection="column"
-              justifyContent="center"
-              alignItems="center"
-            >
-              {previewError ? (
-                <SizableText color="$textCaution">{previewError}</SizableText>
-              ) : (
-                <Spinner size="large" />
-              )}
+        {shouldShowError ? (
+          <Stack
+            testID="batch-create-account-preview-loading-icon"
+            height={500}
+            flexDirection="column"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <Stack maxWidth="$64">
+              <SizableText size="$headingXl" mb="$2" textAlign="center">
+                {intl.formatMessage({
+                  id: ETranslations.global_an_error_occurred,
+                })}
+              </SizableText>
+              <SizableText
+                textAlign="center"
+                size="$bodyLg"
+                mb="$6"
+                color="$textSubdued"
+              >
+                {previewError}
+              </SizableText>
+              <XStack justifyContent="center">
+                <Button
+                  width="auto"
+                  variant="primary"
+                  onPress={() => {
+                    void run();
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_retry })}
+                </Button>
+              </XStack>
             </Stack>
-          }
-          extraData={extraData}
-          keyExtractor={(item) => item.id}
-        />
+          </Stack>
+        ) : (
+          <Table
+            onRow={onRow}
+            rowProps={{
+              gap: platformEnv.isNative ? '$8' : '$4',
+              px: '$3',
+              mx: '$2',
+              minHeight: '$12',
+            }}
+            estimatedItemSize="$12"
+            headerRowProps={{ py: '$2', minHeight: 36 }}
+            showSkeleton={isLoading}
+            // showSkeleton
+            skeletonCount={3}
+            dataSource={accounts}
+            columns={columns as any}
+            extraData={extraData}
+            keyExtractor={(item) => item.id}
+          />
+        )}
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions
@@ -785,7 +835,7 @@ function BatchCreateAccountPreviewPage({
               };
             }
             if (!normalParams && !advancedParams) {
-              throw new Error(
+              throw new OneKeyLocalError(
                 'startBatchCreateAccountsFlow params is undefined',
               );
             }

@@ -1,9 +1,13 @@
+import type { IModalMarketParamList } from '@onekeyhq/kit/src/views/Market/router';
+
 import type { IAccountManagerStacksParamList } from './accountManagerStacks';
 import type { IModalAddressBookParamList } from './addressBook';
+import type { IModalApprovalManagementParamList } from './approvalManagement';
 import type { IAppUpdatePagesParamList } from './appUpdate';
 import type { IModalAssetDetailsParamList } from './assetDetails';
 import type { IModalAssetListParamList } from './assetList';
 import type { IAssetSelectorParamList } from './assetSelector';
+import type { IModalBulkCopyAddressesParamList } from './bulkCopyAddresses';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
@@ -13,15 +17,19 @@ import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
+import type { IManualBackupParamList } from './manualBackup';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
+import type { IModalPerpParamList } from './perp';
 import type { IPrimeParamList } from './prime';
 import type { IModalReceiveParamList } from './receive';
 import type { IModalReferFriendsParamList } from './referFriends';
+import type { IModalRewardCenterParamList } from './rewardCenter';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalShortcutsParamList } from './shortcuts';
+import type { IModalSignAndVerifyParamList } from './signAndVerify';
 import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
@@ -37,6 +45,8 @@ export enum EModalRoutes {
   SettingModal = 'SettingModal',
   TestModal = 'TestModal',
   SwapModal = 'SwapModal',
+  PerpModal = 'PerpModal',
+  MarketModal = 'MarketModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
   PrimeModal = 'PrimeModal',
@@ -47,6 +57,7 @@ export enum EModalRoutes {
   ReceiveModal = 'ReceiveModal',
   ScanQrCodeModal = 'ScanQrCodeModal',
   LiteCardModal = 'LiteCardModal',
+  ManualBackupModal = 'ManualBackupModal',
   CloudBackupModal = 'CloudBackupModal',
   WebViewModal = 'WebViewModal',
   AddressBookModal = 'AddressBookModal',
@@ -62,6 +73,9 @@ export enum EModalRoutes {
   SignatureConfirmModal = 'SignatureConfirmModal',
   DeviceManagementModal = 'DeviceManagementModal',
   ReferFriendsModal = 'ReferFriendsModal',
+  BulkCopyAddressesModal = 'BulkCopyAddressesModal',
+  ApprovalManagementModal = 'ApprovalManagementModal',
+  SignAndVerifyModal = 'SignAndVerifyModal',
 }
 
 export type IModalParamList = {
@@ -78,9 +92,12 @@ export type IModalParamList = {
   [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.KeyTagModal]: IModalKeyTagParamList;
   [EModalRoutes.LiteCardModal]: ILiteCardParamList;
+  [EModalRoutes.ManualBackupModal]: IManualBackupParamList;
   [EModalRoutes.MainModal]: IModalAssetListParamList &
     IModalAssetDetailsParamList &
+    IModalRewardCenterParamList &
     ITabHomeUrlAccountParamList;
+  [EModalRoutes.MarketModal]: IModalMarketParamList;
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
   [EModalRoutes.PrimeModal]: IPrimeParamList;
@@ -97,4 +114,8 @@ export type IModalParamList = {
   [EModalRoutes.UniversalSearchModal]: IUniversalSearchParamList;
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.WebViewModal]: IModalWebViewParamList;
+  [EModalRoutes.BulkCopyAddressesModal]: IModalBulkCopyAddressesParamList;
+  [EModalRoutes.ApprovalManagementModal]: IModalApprovalManagementParamList;
+  [EModalRoutes.SignAndVerifyModal]: IModalSignAndVerifyParamList;
+  [EModalRoutes.PerpModal]: IModalPerpParamList;
 };

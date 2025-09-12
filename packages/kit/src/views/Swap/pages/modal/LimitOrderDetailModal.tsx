@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import type {
   EModalSwapRoutes,
   IModalSwapParamList,
@@ -36,12 +37,10 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import {
-  defaultSupportUrl,
-  limitOrderEstimationFeePercent,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { limitOrderEstimationFeePercent } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapCancelLimitOrderSource,
   ESwapLimitOrderStatus,
   ESwapQuoteKind,
 } from '@onekeyhq/shared/types/swap/types';
@@ -189,7 +188,7 @@ const LimitOrderDetailModal = () => {
     async (item: IFetchLimitOrderRes) => {
       try {
         setCancelLoading(true);
-        await cancelLimitOrder(item);
+        await cancelLimitOrder(item, ESwapCancelLimitOrderSource.DETAIL);
       } catch (error) {
         console.error(error);
       } finally {
@@ -722,7 +721,7 @@ const LimitOrderDetailModal = () => {
           variant: 'secondary',
         }}
         onConfirm={() => {
-          openUrlExternal(defaultSupportUrl);
+          void showIntercom();
         }}
       />
     </Page>

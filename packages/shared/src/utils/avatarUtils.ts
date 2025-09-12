@@ -64,7 +64,7 @@ export function getDeviceAvatarImage(
   serialNo?: string,
 ): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
   if (deviceType === EDeviceType.Pro) {
-    if (serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
+    if (serialNo && serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
       return `${EDeviceType.Pro}White`;
     }
     return `${EDeviceType.Pro}Black`;

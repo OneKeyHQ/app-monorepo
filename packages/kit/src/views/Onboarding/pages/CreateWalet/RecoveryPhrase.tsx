@@ -10,7 +10,6 @@ import {
   ActionList,
   Dialog,
   Page,
-  SecureView,
   SizableText,
   Stack,
   Toast,
@@ -25,6 +24,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
@@ -97,9 +97,6 @@ export function RecoveryPhrase() {
   );
 
   const verifyRecoveryPhrases = useMemo(() => {
-    if (route.params?.isBackup) {
-      return [];
-    }
     const shufflePhrasesIndex = shuffle(
       Array(phrases.length)
         .fill(0)
@@ -129,10 +126,10 @@ export function RecoveryPhrase() {
         ]),
       ])
       .sort((a, b) => (a[0] as number) - (b[0] as number));
-  }, [phrases, route.params?.isBackup]);
+  }, [phrases]);
 
   const handleConfirmPress = useCallback(async () => {
-    if (route.params?.isBackup) {
+    if (route.params?.isBackup && route.params?.isWalletBackedUp) {
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.backup_recovery_phrase_backed_up,
@@ -146,13 +143,17 @@ export function RecoveryPhrase() {
         text: mnemonic,
       }),
       isBackup: route.params?.isBackup,
+      isWalletBackedUp: route.params?.isWalletBackedUp,
       verifyRecoveryPhrases,
+      walletId: route.params?.walletId,
     });
   }, [
     intl,
     mnemonic,
     navigation,
     route.params?.isBackup,
+    route.params?.isWalletBackedUp,
+    route.params?.walletId,
     servicePassword,
     verifyRecoveryPhrases,
   ]);
@@ -213,6 +214,8 @@ export function RecoveryPhrase() {
     [copyText, intl, mnemonic],
   );
 
+  useRecoveryPhraseProtected();
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -228,26 +231,24 @@ export function RecoveryPhrase() {
           })}
         </SizableText>
 
-        <SecureView>
-          <XStack flexWrap="wrap" mx="$-1">
-            {phrases.map((phrase, index) => (
-              <Stack
-                key={index}
-                $md={{
-                  flexBasis: '50%',
-                }}
-                flexBasis="33.33%"
-                p="$1"
-              >
-                <FocusDisplayInput
-                  text={phrase}
-                  index={index}
-                  testID={`phrase-index${index}`}
-                />
-              </Stack>
-            ))}
-          </XStack>
-        </SecureView>
+        <XStack flexWrap="wrap" mx="$-1">
+          {phrases.map((phrase, index) => (
+            <Stack
+              key={index}
+              $md={{
+                flexBasis: '50%',
+              }}
+              flexBasis="33.33%"
+              p="$1"
+            >
+              <FocusDisplayInput
+                text={phrase}
+                index={index}
+                testID={`phrase-index${index}`}
+              />
+            </Stack>
+          ))}
+        </XStack>
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({

@@ -1,6 +1,7 @@
 import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
+import { AccountScene } from './scenes/account';
 import { CreateAccountPerfScene } from './scenes/accountCreatePerf';
 import { AllNetworkAccountPerf } from './scenes/allNetworkAccountPerf';
 import { BatchCreateAccountPerfScene } from './scenes/batchCreatePerf';
@@ -28,4 +29,6 @@ export class AccountScope extends BaseScope {
     'allNetworkAccountPerf',
     AllNetworkAccountPerf,
   );
+
+  account = this.createScene('account', AccountScene);
 }

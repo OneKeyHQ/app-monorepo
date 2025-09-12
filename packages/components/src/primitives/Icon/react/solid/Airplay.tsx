@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgAirplay = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -9,7 +10,7 @@ const SvgAirplay = (props: SvgProps) => (
     />
     <Path
       fill="currentColor"
-      d="M12.78 14.375a1 1 0 0 0-1.56 0l-4 5A1 1 0 0 0 8 21h8a1 1 0 0 0 .78-1.625l-4-5Z"
+      d="M12.78 14.375a1 1 0 0 0-1.56 0l-4 5A1 1 0 0 0 8 21h8a1 1 0 0 0 .78-1.625z"
     />
   </Svg>
 );

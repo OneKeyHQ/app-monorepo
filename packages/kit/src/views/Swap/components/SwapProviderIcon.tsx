@@ -17,16 +17,25 @@ export function SwapProviderIcon({
   const intl = useIntl();
   return (
     <>
-      <Image size="$10" borderRadius="$2" delayMs={1000} {...props}>
-        <Image.Source src={providerLogo} />
-        <Image.Fallback
-          alignItems="center"
-          justifyContent="center"
-          bg="$bgStrong"
-        >
-          <Icon name="Image2MountainsSolid" color="$iconDisabled" />
-        </Image.Fallback>
-      </Image>
+      <Image
+        src={providerLogo}
+        size="$10"
+        borderRadius="$2"
+        {...props}
+        fallback={
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$bgStrong"
+          >
+            <Icon
+              name="Image2MountainsSolid"
+              color="$iconDisabled"
+              size="$10"
+            />
+          </Image.Fallback>
+        }
+      />
       {lock ? (
         <Tooltip
           renderTrigger={

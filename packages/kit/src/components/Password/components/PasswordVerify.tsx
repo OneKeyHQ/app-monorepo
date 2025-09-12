@@ -189,6 +189,7 @@ const PasswordVerify = ({
             icon: 'ErrorOutline',
             tone: 'warning',
             ...inAppStateLockStyle,
+            isOverTopAllViews: true,
             portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
             title: intl.formatMessage(
               {
@@ -270,6 +271,12 @@ const PasswordVerify = ({
 
   useHandleAppStateActive(isEnable ? onActive : undefined);
 
+  const onPassCodeComplete = useCallback(() => {
+    setTimeout(() => {
+      void form.handleSubmit(onInputPasswordAuth)();
+    });
+  }, [form, onInputPasswordAuth]);
+
   return (
     <Form form={form}>
       {passwordMode === EPasswordMode.PASSWORD ? (
@@ -344,7 +351,7 @@ const PasswordVerify = ({
                 status.value !== EPasswordVerifyStatus.VERIFYING &&
                   !disableInput,
               )}
-              onComplete={form.handleSubmit(onInputPasswordAuth)}
+              onComplete={onPassCodeComplete}
               clearCode={passCodeClear}
               disabledComplete={confirmBtnDisabled}
               testId="pass-code-input"

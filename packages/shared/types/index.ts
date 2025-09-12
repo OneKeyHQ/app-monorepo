@@ -47,7 +47,7 @@ export interface INetworkExplorerConfig {
 }
 
 export type IServerNetwork = {
-  id: string;
+  id: string; // networkId like evm--1
   impl: string;
   chainId: string;
   name: string;
@@ -77,10 +77,11 @@ export enum EAccountSelectorSceneName {
   home = 'home',
   homeUrlAccount = 'homeUrlAccount',
   swap = 'swap',
+  perp = 'perp',
   discover = 'discover',
   addressInput = 'addressInput', // test Gallery AddressInput test
   market = 'market',
-  earn = 'earn',
+  rewardCenter = 'rewardCenter',
 }
 
 export enum EAccountSelectorAutoSelectTriggerBy {
@@ -96,6 +97,7 @@ export enum EHomeTab {
   NFT = 'nft',
   HISTORY = 'history',
   TOOLS = 'tools',
+  APPROVALS = 'approvals',
 }
 
 export enum EAssetType {
@@ -112,4 +114,5 @@ export enum EHardwareTransportType {
   BLE = 'ble',
   WEBUSB = 'webusb',
   Bridge = 'bridge',
+  DesktopWebBle = 'desktop-web-ble',
 }

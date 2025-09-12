@@ -1,5 +1,6 @@
 /* eslint-disable no-var,vars-on-top */
 
+import type { ICheckCurrentDBIsMigratedToBucketResult } from '@onekeyhq/kit-bg/src/migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import type {
   ETranslations,
   ETranslationsMock,
@@ -7,6 +8,7 @@ import type {
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
+import type { BrowserWindow } from 'electron';
 
 type IWindowOneKeyHub = {
   $private: ProviderPrivate & {
@@ -26,11 +28,26 @@ type IOneKeyPerfTrace = {
 };
 
 declare global {
+  var $desktopMainAppFunctions: {
+    getSafelyMainWindow: () => BrowserWindow | undefined;
+    getSafelyBrowserWindow: () => BrowserWindow | undefined;
+    getBackgroundColor: (themeKey: string) => string;
+    quitOrMinimizeApp: () => void;
+    showMainWindow: () => void;
+    refreshMenu: () => void;
+    getAppName: () => string;
+  };
+
   var $$appGlobals: IAppGlobals;
+  var $onekeySystemDiskIsFull: boolean | undefined;
+  var $indexedDBIsMigratedToBucket:
+    | ICheckCurrentDBIsMigratedToBucketResult
+    | undefined;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
   var $onekey: IWindowOneKeyHub;
+  var $onekeyAppWebembedApiWebviewInitFailed: boolean | undefined;
 
   var $$onekeyDisabledSetTimeout: boolean | undefined;
   var $$onekeyDisabledSetInterval: boolean | undefined;
@@ -73,10 +90,35 @@ declare global {
 
   var WEB_EMBED_ONEKEY_APP_SETTINGS: IWebEmbedOnekeyAppSettings | undefined;
 
+  // Added for webpack/bundler injected variables
+  var __CURRENT_FILE_PATH__: string | undefined;
+
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Error extends Error {
     $$autoPrintErrorIgnore?: boolean;
     $$autoToastErrorTriggered?: boolean;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention, @typescript-eslint/no-unused-vars
+  interface Promise<T> {
+    toString(
+      PromiseToStringNotAllowed1: boolean,
+      PromiseToStringNotAllowed2: string,
+      PromiseToStringNotAllowed3: number,
+      PromiseToStringNotAllowed4: null,
+      PromiseToStringNotAllowed5: undefined,
+    ): string;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  interface Buffer {
+    toString(
+      BufferToStringIsNotSafeInNative: boolean,
+      UseBufferUtilsInstead: boolean,
+      // encoding?: BufferEncoding,
+      // start?: number,
+      // end?: number,
+    ): string;
   }
 }
 
@@ -89,4 +131,30 @@ declare global {
       ids: ETranslations | ETranslationsMock;
     }
   }
+}
+
+declare global {
+  interface IStorageBucketOptions {
+    durability?: 'strict' | 'relaxed';
+    persisted?: boolean;
+  }
+
+  interface IStorageBucket {
+    indexedDB: IDBFactory;
+  }
+
+  interface IStorageBucketManager {
+    open(
+      name: string,
+      options?: IStorageBucketOptions,
+    ): Promise<IStorageBucket>;
+    keys(): Promise<string[]>;
+    delete(name: string): Promise<void>;
+  }
+
+  interface INavigator extends Navigator {
+    storageBuckets?: IStorageBucketManager;
+  }
+
+  var navigator: INavigator!;
 }

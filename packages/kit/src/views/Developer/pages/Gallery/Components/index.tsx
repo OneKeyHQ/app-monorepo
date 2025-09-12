@@ -6,7 +6,12 @@ import natsort from 'natsort';
 import { Input, ListView, Page, View } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useGalleryPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
+
+if (platformEnv.isDev && platformEnv.isNative) {
+  __CURRENT_FILE_PATH__ = '';
+}
 
 const Index = () => {
   const [gallery, setGallery] = useGalleryPersistAtom();

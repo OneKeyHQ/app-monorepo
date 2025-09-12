@@ -1,5 +1,3 @@
-import type { FC } from 'react';
-
 import { Pressable } from 'react-native';
 
 import { Stack } from '../../primitives';
@@ -25,34 +23,40 @@ const toggleMaxWindow = () => {
     num += 1;
   }
   if (num === 1) {
-    globalThis.desktopApi.toggleMaximizeWindow();
+    void globalThis.desktopApiProxy.system.toggleMaximizeWindow();
   }
 };
 
-export const DesktopDragZoneBox: FC<IDesktopDragZoneBoxProps> = ({
+export function DesktopDragZoneBox({
   children,
   style,
   disabled,
+  renderAs = 'Pressable',
   ...rest
-}) => (
-  <Pressable
-    {...rest}
-    onPress={toggleMaxWindow}
-    disabled={disabled}
-    style={[
-      !disabled && {
-        // @ts-expect-error
-        WebkitAppRegion: 'drag',
-        WebkitUserSelect: 'none',
-        cursor: 'default',
-      },
-      // @ts-expect-error
-      style,
-    ]}
-  >
-    {children}
-  </Pressable>
-);
+}: IDesktopDragZoneBoxProps) {
+  const Component = renderAs === 'Pressable' ? Pressable : Stack;
+
+  return (
+    <Component
+      {...rest}
+      onPress={toggleMaxWindow}
+      disabled={disabled}
+      style={[
+        !disabled && {
+          // @ts-expect-error
+          WebkitAppRegion: 'drag',
+        },
+        {
+          WebkitUserSelect: 'none',
+          cursor: 'default',
+        },
+        style,
+      ]}
+    >
+      {children}
+    </Component>
+  );
+}
 
 export function DesktopDragZoneAbsoluteBar({
   w = '100%',

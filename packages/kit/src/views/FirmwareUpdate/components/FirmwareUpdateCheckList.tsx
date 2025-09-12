@@ -8,11 +8,15 @@ import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
   useFirmwareUpdateWorkflowRunningAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { parseFirmwareVersions } from '@onekeyhq/shared/src/logger/scopes/update/scenes/firmware';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -26,6 +30,7 @@ export function FirmwareUpdateCheckList({
   const navigation = useAppNavigation();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
   const [, setWorkflowIsRunning] = useFirmwareUpdateWorkflowRunningAtom();
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const [checkValueList, setCheckValueList] = useState([
     {
       label: intl.formatMessage({
@@ -40,16 +45,16 @@ export function FirmwareUpdateCheckList({
           ? ETranslations.update_device_connected_via_bluetooth
           : ETranslations.update_device_connected_via_usb,
       }),
-      emoji: '📲',
+      emoji: platformEnv.isNative ? '📲' : '🔌',
       value: false,
     },
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_device_fully_charged,
-      }),
-      emoji: '🔋',
-      value: false,
-    },
+    // {
+    //   label: intl.formatMessage({
+    //     id: ETranslations.update_device_fully_charged,
+    //   }),
+    //   emoji: '🔋',
+    //   value: false,
+    // },
     ...(platformEnv.isNative
       ? []
       : [
@@ -83,7 +88,7 @@ export function FirmwareUpdateCheckList({
 
   return (
     <Stack>
-      <Stack gap="$3" mr="$3">
+      <Stack>
         {checkValueList.map((checkValue) => (
           <Checkbox
             key={checkValue.label}
@@ -104,6 +109,10 @@ export function FirmwareUpdateCheckList({
         onConfirm={
           result
             ? async (dialog) => {
+                const useV2FirmwareUpdateFlow =
+                  await deviceUtils.shouldUseV2FirmwareUpdateFlow({
+                    features: result?.features,
+                  });
                 try {
                   await dialog.close();
                   setStepInfo({
@@ -113,34 +122,67 @@ export function FirmwareUpdateCheckList({
                     },
                   });
 
-                  navigation.navigate(EModalFirmwareUpdateRoutes.Install, {
-                    result,
+                  defaultLogger.update.firmware.firmwareUpdateStarted({
+                    deviceType: result?.deviceType,
+                    transportType: hardwareTransportType,
+                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
+                    firmwareVersions: parseFirmwareVersions(result),
                   });
 
-                  // navigation.dispatch(
-                  //   StackActions.replace(EModalFirmwareUpdateRoutes.Install, {
-                  //     result,
-                  //   }),
-                  // );
+                  if (useV2FirmwareUpdateFlow) {
+                    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
+                    navigation.push(EModalFirmwareUpdateRoutes.InstallV2, {
+                      result,
+                    });
+                    setWorkflowIsRunning(true);
+                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
+                      {
+                        backuped: true,
+                        usbConnected: true,
+                        releaseResult: result,
+                      },
+                    );
+                  } else {
+                    navigation.push(EModalFirmwareUpdateRoutes.Install, {
+                      result,
+                    });
+                    setWorkflowIsRunning(true);
+                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
+                      {
+                        backuped: true,
+                        usbConnected: true,
+                        releaseResult: result,
+                      },
+                    );
+                  }
+                  defaultLogger.update.firmware.firmwareUpdateResult({
+                    deviceType: result?.deviceType,
+                    transportType: hardwareTransportType,
+                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
+                    firmwareVersions: parseFirmwareVersions(result),
+                    status: 'success',
+                  });
 
-                  setWorkflowIsRunning(true);
-                  await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
-                    {
-                      backuped: true,
-                      usbConnected: true,
-                      releaseResult: result,
-                    },
-                  );
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateDone,
                     payload: undefined,
                   });
                 } catch (error) {
+                  const err = toPlainErrorObject(error as any);
                   setStepInfo({
                     step: EFirmwareUpdateSteps.error,
                     payload: {
-                      error: toPlainErrorObject(error as any),
+                      error: err,
                     },
+                  });
+                  defaultLogger.update.firmware.firmwareUpdateResult({
+                    deviceType: result?.deviceType,
+                    transportType: hardwareTransportType,
+                    updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
+                    firmwareVersions: parseFirmwareVersions(result),
+                    status: 'failed',
+                    errorCode: err?.code,
+                    errorMessage: err?.message,
                   });
                 } finally {
                   setWorkflowIsRunning(false);
@@ -151,6 +193,7 @@ export function FirmwareUpdateCheckList({
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
         })}
+        showCancelButton={false}
       />
     </Stack>
   );

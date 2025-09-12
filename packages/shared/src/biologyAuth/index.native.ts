@@ -10,7 +10,11 @@ import { appLocale } from '../locale/appLocale';
 import { memoizee } from '../utils/cacheUtils';
 
 import type { IBiologyAuth } from './types';
-import type { AuthenticationType } from 'expo-local-authentication';
+import type {
+  AuthenticationType,
+  LocalAuthenticationError,
+  LocalAuthenticationResult,
+} from 'expo-local-authentication';
 
 const isSupportBiologyAuthFn = async () => {
   const supported = await hasHardwareAsync();
@@ -29,12 +33,18 @@ const getBiologyAuthType = memoizee(getBiologyAuthTypeFn, { promise: true });
 
 export const biologyAuthenticate = async () => {
   if (!(await isSupportBiologyAuth())) {
-    return { success: false, error: 'no supported' };
+    return {
+      success: false,
+      error: 'no supported' as LocalAuthenticationError,
+    } as LocalAuthenticationResult;
   }
 
   return authenticateAsync({
     promptMessage: appLocale.intl.formatMessage({
       id: ETranslations.touch_id_unlock_desc,
+    }),
+    cancelLabel: appLocale.intl.formatMessage({
+      id: ETranslations.global_cancel,
     }),
   });
 };

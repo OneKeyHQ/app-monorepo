@@ -1,9 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
-import { manipulateAsync } from 'expo-image-manipulator';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 
 import type { IStackProps } from '@onekeyhq/components';
 import { IconButton, Stack, Toast, useClipboard } from '@onekeyhq/components';
@@ -22,14 +20,12 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
-import { THUMB_CROP_SIZE } from '../../config/TabList.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import {
   useDisplayHomePageFlag,
   useWebTabDataById,
 } from '../../hooks/useWebTabs';
-import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
-import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
+import { webviewRefs } from '../../utils/explorerUtils';
 import { showTabBar } from '../../utils/tabBarUtils';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
@@ -44,55 +40,13 @@ export interface IMobileBrowserBottomBarProps extends IStackProps {
   onGoBackHomePage?: () => void;
 }
 
-export const useTakeScreenshot = (id?: string | null) => {
-  const actionsRef = useBrowserTabActions();
-  const takeScreenshot = useCallback(
-    () =>
-      new Promise<boolean>((resolve, reject) => {
-        if (!id) {
-          reject(new Error('capture view id is null'));
-          return;
-        }
-        captureRef(captureViewRefs[id ?? ''], {
-          format: 'jpg',
-          quality: 0.2,
-        })
-          .then(async (imageUri) => {
-            const manipulateValue = await manipulateAsync(imageUri, [
-              {
-                crop: {
-                  originX: 0,
-                  originY: 0,
-                  width: THUMB_CROP_SIZE,
-                  height: THUMB_CROP_SIZE,
-                },
-              },
-            ]);
-            const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
-            actionsRef.current.setWebTabData({
-              id,
-              thumbnail: path,
-            });
-            void saveScreenshot(manipulateValue.uri, path);
-            resolve(true);
-          })
-          .catch((e) => {
-            console.log('capture error e: ', e);
-            reject(e);
-          });
-      }),
-    [actionsRef, id],
-  );
-
-  return takeScreenshot;
-};
-
 function MobileBrowserBottomBar({
   id,
   onGoBackHomePage,
   ...rest
 }: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
+
   const { tab } = useWebTabDataById(id);
 
   useEffect(() => {
@@ -121,15 +75,23 @@ function MobileBrowserBottomBar({
   const { displayHomePage } = useDisplayHomePageFlag();
   const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
     useBrowserTabActions().current;
-  const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+
+  const {
+    addOrUpdateBrowserBookmark: addBrowserBookmark,
+    removeBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
       if (tab) {
         if (isBookmark) {
-          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+          void addBrowserBookmark({
+            url: tab?.url,
+            title: tab?.title ?? '',
+            logo: undefined,
+            sortIndex: undefined,
+          });
         } else {
           void removeBrowserBookmark(tab?.url);
         }
@@ -171,15 +133,16 @@ function MobileBrowserBottomBar({
   }, [closeWebTab, setCurrentWebTab, id]);
 
   const onShare = useCallback(() => {
-    handleShareUrl(tab?.url ?? '');
-  }, [tab?.url, handleShareUrl]);
+    handleShareUrl(tab?.displayUrl ?? tab?.url ?? '');
+  }, [tab?.displayUrl, tab?.url, handleShareUrl]);
 
   const { copyText } = useClipboard();
   const onCopyUrl = useCallback(() => {
-    if (tab?.url) {
-      copyText(tab.url);
+    const urlToCopy = tab?.displayUrl ?? tab?.url;
+    if (urlToCopy) {
+      copyText(urlToCopy);
     }
-  }, [tab?.url, copyText]);
+  }, [tab?.displayUrl, tab?.url, copyText]);
 
   useEffect(() => {
     const fn = () => {
@@ -274,8 +237,9 @@ function MobileBrowserBottomBar({
           isPinned={tab?.isPinned ?? false}
           onPinnedPress={handlePinTab}
           onBrowserOpen={() => {
-            if (tab?.url) {
-              openUrlExternal(tab.url);
+            const urlToOpen = tab?.displayUrl ?? tab?.url;
+            if (urlToOpen) {
+              openUrlExternal(urlToOpen);
             }
           }}
           onGoBackHomePage={onGoBackHomePage}

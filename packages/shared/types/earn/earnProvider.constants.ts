@@ -1,13 +1,17 @@
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import {
   EthereumCbBTC,
   EthereumDAI,
-  EthereumMatic,
+  EthereumPol,
   EthereumUSDC,
+  EthereumUSDF,
   EthereumUSDT,
   EthereumWBTC,
   EthereumWETH,
 } from '../../src/consts/addresses';
+import { EEarnProviderEnum } from '../earn';
 import { ESwapTabSwitchType } from '../swap/types';
 
 import type { ISupportedSymbol } from '../earn';
@@ -44,6 +48,16 @@ const earnTradeDefaultSetSOL = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
 };
 
+const earnTradeDefaultSetSui = {
+  'networkId': 'sui--mainnet',
+  'contractAddress': SUI_TYPE_ARG,
+  'name': 'SUI',
+  'symbol': 'SUI',
+  'decimals': 9,
+  'isNative': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+};
+
 export const isSupportStaking = (symbol: string) =>
   [
     'BTC',
@@ -52,22 +66,23 @@ export const isSupportStaking = (symbol: string) =>
     'SOL',
     'APT',
     'ATOM',
-    'MATIC',
+    'POL',
     'USDC',
     'USDT',
     'DAI',
     'WETH',
     'CBBTC',
     'WBTC',
+    'USDF',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,
-  getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
+  getNetworkIdsMap().sui,
 ];
 
 export function normalizeToEarnSymbol(
@@ -80,16 +95,32 @@ export function normalizeToEarnSymbol(
     'sol': 'SOL',
     'apt': 'APT',
     'atom': 'ATOM',
-    'matic': 'MATIC',
+    'pol': 'POL',
     'usdc': 'USDC',
     'usdt': 'USDT',
     'dai': 'DAI',
     'weth': 'WETH',
     'cbbtc': 'cbBTC',
     'wbtc': 'WBTC',
+    'usdf': 'USDf',
+    'usde': 'USDe',
   };
-
   return symbolMap[symbol.toLowerCase()];
+}
+
+export function normalizeToEarnProvider(
+  provider: string,
+): EEarnProviderEnum | undefined {
+  const providerMap: Record<string, EEarnProviderEnum> = {
+    'lido': EEarnProviderEnum.Lido,
+    'everstake': EEarnProviderEnum.Everstake,
+    'babylon': EEarnProviderEnum.Babylon,
+    'morpho': EEarnProviderEnum.Morpho,
+    'falcon': EEarnProviderEnum.Falcon,
+    'ethena': EEarnProviderEnum.Ethena,
+    'momentum': EEarnProviderEnum.Momentum,
+  };
+  return providerMap[provider.toLowerCase()];
 }
 
 export function getImportFromToken({
@@ -117,13 +148,14 @@ export function getImportFromToken({
     case networkIdsMap.sepolia: {
       if (
         [
-          EthereumMatic.toLowerCase(),
+          EthereumPol.toLowerCase(),
           EthereumUSDC.toLowerCase(),
           EthereumUSDT.toLowerCase(),
           EthereumDAI.toLowerCase(),
           EthereumWETH.toLowerCase(),
           EthereumWBTC.toLowerCase(),
           EthereumCbBTC.toLowerCase(),
+          EthereumUSDF.toLowerCase(),
         ].includes(tokenAddress.toLowerCase())
       ) {
         importFromToken = earnTradeDefaultSetETH;
@@ -142,11 +174,41 @@ export function getImportFromToken({
       importFromToken = earnTradeDefaultSetETH;
       swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
+    case networkIdsMap.sui:
+      importFromToken = earnTradeDefaultSetSui;
+      swapTabSwitchType = ESwapTabSwitchType.SWAP;
+      break;
     default:
       break;
   }
   return {
     importFromToken,
     swapTabSwitchType,
+  };
+}
+
+// Symbol to supported networks mapping for earn protocols
+export function getSymbolSupportedNetworks(): Record<
+  ISupportedSymbol,
+  string[]
+> {
+  const networkIdsMap = getNetworkIdsMap();
+
+  return {
+    'BTC': [networkIdsMap.btc],
+    'SBTC': [networkIdsMap.sbtc],
+    'ETH': [networkIdsMap.eth],
+    'SOL': [networkIdsMap.sol],
+    'APT': [networkIdsMap.apt],
+    'ATOM': [networkIdsMap.cosmoshub],
+    'POL': [networkIdsMap.eth],
+    'USDC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDT': [networkIdsMap.eth],
+    'DAI': [networkIdsMap.eth],
+    'WETH': [networkIdsMap.eth],
+    'cbBTC': [networkIdsMap.eth],
+    'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDf': [networkIdsMap.eth],
+    'USDe': [networkIdsMap.eth],
   };
 }

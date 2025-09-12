@@ -26,13 +26,8 @@ function FloatingIconModal() {
         <YStack p="$5">
           <Image
             borderRadius="$3"
-            $md={{
-              h: '$40',
-            }}
-            $gtMd={{
-              w: 600,
-              h: 272,
-            }}
+            h="$40"
+            maxWidth="$100"
             source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
           />
           <XStack ai="center" jc="space-between" pt="$4">

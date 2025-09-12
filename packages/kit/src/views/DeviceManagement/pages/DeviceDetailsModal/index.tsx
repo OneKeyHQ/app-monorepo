@@ -12,18 +12,20 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { FirmwareUpdateReminderAlert } from '@onekeyhq/kit/src/views/FirmwareUpdate/components/HomeFirmwareUpdateReminder';
 import { useFirmwareUpdateActions } from '@onekeyhq/kit/src/views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
-import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountSelectorStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAccountSelectorStatusAtom,
+  useFirmwareUpdatesDetectStatusPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  EModalDeviceManagementRoutes,
-  IModalDeviceManagementParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalDeviceManagementParamList } from '@onekeyhq/shared/src/routes';
 import {
   EAccountManagerStacksRoutes,
+  EModalDeviceManagementRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -81,12 +83,15 @@ function DeviceDetailsModalCmp() {
       void refreshData();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    appEventBus.on(EAppEventBusNames.HardwareFeaturesUpdate, fn);
     appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+      appEventBus.off(EAppEventBusNames.HardwareFeaturesUpdate, fn);
       appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
     };
   }, [refreshData]);
+  const [, setAccountSelectorStatus] = useAccountSelectorStatusAtom();
 
   const isQrWallet = result
     ? accountUtils.isQrWallet({ walletId: result.wallet.id })
@@ -103,7 +108,8 @@ function DeviceDetailsModalCmp() {
     });
   }, [result?.device, navigation]);
 
-  const { showFirmwareVerifyDialog } = useFirmwareVerifyDialog();
+  const { showFirmwareVerifyDialog, isLoading: isFirmwareVerifyDialogLoading } =
+    useFirmwareVerifyDialog();
   const onPressAuthRequest = useCallback(async () => {
     if (!result?.device) {
       return;
@@ -125,6 +131,12 @@ function DeviceDetailsModalCmp() {
     });
   }, [result?.device?.connectId, actions]);
 
+  const onPressTroubleshooting = useCallback(() => {
+    navigation.push(EModalDeviceManagementRoutes.HardwareTroubleshootingModal, {
+      walletWithDevice: result,
+    });
+  }, [navigation, result]);
+
   // Advance Section
   const inputPinOnSoftwareSupport = [
     EDeviceType.Classic,
@@ -141,11 +153,17 @@ function DeviceDetailsModalCmp() {
           passphraseEnabled: value,
         });
         setPassphraseEnabled(value);
+        setAccountSelectorStatus(
+          (prev): IAccountSelectorStatusAtom => ({
+            ...prev,
+            passphraseProtectionChangedAt: Date.now(),
+          }),
+        );
       } catch (error) {
         console.error(error);
       }
     },
-    [result?.wallet.id],
+    [result?.wallet.id, setAccountSelectorStatus],
   );
 
   const onPinOnAppEnabledChange = useCallback(
@@ -262,7 +280,9 @@ function DeviceDetailsModalCmp() {
                 data={result}
                 onPressHomescreen={onPressHomescreen}
                 onPressAuthRequest={onPressAuthRequest}
+                authRequestLoading={isFirmwareVerifyDialogLoading}
                 onPressCheckForUpdates={onPressCheckForUpdates}
+                onPressTroubleshooting={onPressTroubleshooting}
               />
               {renderContent()}
             </>

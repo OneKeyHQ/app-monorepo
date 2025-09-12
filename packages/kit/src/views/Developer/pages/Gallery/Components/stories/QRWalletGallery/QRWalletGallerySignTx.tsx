@@ -1,9 +1,8 @@
-import Common, { Chain, Hardfork } from '@ethereumjs/common';
-import {
-  FeeMarketEIP1559Transaction,
-  Transaction,
-  TransactionFactory,
-} from '@ethereumjs/tx';
+// import Common, { Chain, Hardfork } from '@ethereumjs/common';
+// import {
+//   FeeMarketEIP1559Transaction,
+//   TransactionFactory,
+// } from '@ethereumjs/tx';
 import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 import { networks as BitcoinJsNetworks, Psbt } from 'bitcoinjs-lib';
 import { isEqual } from 'lodash';
@@ -17,20 +16,16 @@ import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import { packUnsignedTxForSignEvm } from '@onekeyhq/core/src/chains/evm/sdkEvm';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import {
   AirGapEthSignRequestEvm,
-  AirGapRegistryTypesEvm,
   EAirGapDataTypeEvm,
-  EAirGapURType,
   airGapUrUtils,
   getAirGapSdk,
 } from '@onekeyhq/qr-wallet-sdk';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
+// import type { FeeMarketEIP1559TxData } from '@ethereumjs/tx';
 
 const txShared = {
   to: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
@@ -48,12 +43,12 @@ const encodedTx: IEncodedTxEvm = {
   from: '0x02bA7fd1b0aCdd0E4F8c6DA7C4bA8Fd7F963bA50',
   ...txShared,
 };
-const txParams: FeeMarketEIP1559TxData = {
-  ...txShared,
-};
+// const txParams: FeeMarketEIP1559TxData = {
+//   ...txShared,
+// };
 
 export function QRWalletGallerySignTx() {
-  const { start: startScan } = useScanQrCode();
+  // const { start: startScan } = useScanQrCode();
 
   return (
     <>
@@ -64,22 +59,22 @@ export function QRWalletGallerySignTx() {
               encodedTx,
             });
 
-          const common = new Common({
-            chain: Chain.Mainnet,
-            hardfork: Hardfork.London,
-          });
-          const legacyTx = Transaction.fromTxData(txParams, { common });
-          const eip1559Tx = FeeMarketEIP1559Transaction.fromTxData(txParams, {
-            common,
-          });
-          const unsignedMessage = Buffer.from(
-            eip1559Tx.getMessageToSign(false),
-          ).toString('hex');
+          // const common = new Common({
+          //   chain: Chain.Mainnet,
+          //   hardfork: Hardfork.London,
+          // });
+          // // const legacyTx = Transaction.fromTxData(txParams, { common });
+          // const eip1559Tx = FeeMarketEIP1559Transaction.fromTxData(txParams, {
+          //   common,
+          // });
+          // const unsignedMessage = Buffer.from(
+          //   eip1559Tx.getMessageToSign(false),
+          // ).toString('hex');
 
-          const eip1559Tx2 = FeeMarketEIP1559Transaction.fromTxData(txParams);
-          const unsignedMessage2 = Buffer.from(
-            eip1559Tx2.getMessageToSign(false),
-          ).toString('hex');
+          // const eip1559Tx2 = FeeMarketEIP1559Transaction.fromTxData(txParams);
+          // const unsignedMessage2 = Buffer.from(
+          //   eip1559Tx2.getMessageToSign(false),
+          // ).toString('hex');
 
           // EthSignRequest.constructETHRequest({
           const ethSignRequest = {
@@ -88,21 +83,22 @@ export function QRWalletGallerySignTx() {
             // dataType: KeystoneEthereumSDK.DataType.transaction, // legacy tx
             dataType: EAirGapDataTypeEvm.typedTransaction, // EIP-1559 tx
             path: "m/44'/60'/0'/0/0",
+            // eslint-disable-next-line spellcheck/spell-checker
             // xfp: 'caeff70f',
             xfp: 'aaaff70f', // master fingerprint, should save to wallet
             chainId: 1,
             origin: 'MetaMask',
           };
           const sdk = getAirGapSdk();
-          const ethSignRequestType = AirGapRegistryTypesEvm.ETH_SIGN_REQUEST;
-          const ethSignResponseType = EAirGapURType.EthSignature;
-          const ethSignResponseType2 = AirGapRegistryTypesEvm.ETH_SIGNATURE;
+          // const ethSignRequestType = AirGapRegistryTypesEvm.ETH_SIGN_REQUEST;
+          // const ethSignResponseType = EAirGapURType.EthSignature;
+          // const ethSignResponseType2 = AirGapRegistryTypesEvm.ETH_SIGNATURE;
           const urData = sdk.eth.generateSignRequest(ethSignRequest);
           const qrUri = UREncoder.encodeSinglePart(urData).toUpperCase();
 
           //
-          const animatedEncoder = new UREncoder(urData, 200, 0);
-          const part = animatedEncoder.nextPart(); // animatedQrPart
+          // const animatedEncoder = new UREncoder(urData, 200, 0);
+          // const part = animatedEncoder.nextPart(); // animatedQrPart
 
           console.log({
             ur: {
@@ -110,14 +106,14 @@ export function QRWalletGallerySignTx() {
               cbor: urData.cbor.toString('hex'),
               uri: qrUri,
             },
-            unsignedMessage,
-            unsignedMessage2,
+            // unsignedMessage,
+            // unsignedMessage2,
             serializedTx,
             serializedTxWithout0x,
             digest,
           });
-          const qrUri2 = `UR:ETH-SIGN-REQUEST/OLADTPDAGDVSASKKYLZTPYFWWNRFCFDYLFLBCACYDRAOHDDTAOVDETDSLRPRTIHYAELRPRTIHYAELFGMAYMWAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDLALARTAXAAAACSETAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAEWKAOCYSGWSYLBSAMGHAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDOTCPLFMK`;
-          const qrUri3 = `UR:ETH-SIGN-REQUEST/ONADTPDAGDJSCLGYFYYLIMFDLEQDVLCAYKCAEHKPPSAOHDCTFEKSHSJNJOJZIHCXHNJOIHJPJKJLJTHSJZHEJKINIOJTHNCXJNIHJKJKHSIOIHAXAXAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAOWKAOCYSGWSYLBSAMGHGHUEDPFWTOECTKIMDEAHWMUYHPKKGRIDGAAHNYKGHFONOXBE`;
+          // const qrUri2 = `UR:ETH-SIGN-REQUEST/OLADTPDAGDVSASKKYLZTPYFWWNRFCFDYLFLBCACYDRAOHDDTAOVDETDSLRPRTIHYAELRPRTIHYAELFGMAYMWAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDLALARTAXAAAACSETAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAEWKAOCYSGWSYLBSAMGHAORDLBTTPFPSUTBAGWLKJNOSSSRDMYTSYTIARDGDOTCPLFMK`;
+          // const qrUri3 = `UR:ETH-SIGN-REQUEST/ONADTPDAGDJSCLGYFYYLIMFDLEQDVLCAYKCAEHKPPSAOHDCTFEKSHSJNJOJZIHCXHNJOIHJPJKJLJTHSJZHEJKINIOJTHNCXJNIHJKJKHSIOIHAXAXAHTAADDYOEADLECSDWYKCSFNYKAEYKAEWKAOWKAOCYSGWSYLBSAMGHGHUEDPFWTOECTKIMDEAHWMUYHPKKGRIDGAAHNYKGHFONOXBE`;
           const decodedUr = URDecoder.decode(qrUri);
           const decodedSignRequest = AirGapEthSignRequestEvm.fromCBOR(
             decodedUr.cbor,
@@ -272,18 +268,18 @@ export function QRWalletGallerySignTx() {
           const s = signature.slice(64, 64 + 64);
           const v = signature.slice(64 + 64);
 
-          const typedTx = TransactionFactory.fromTxData({
-            ...txShared,
-            type: txShared.type,
-            r: hexUtils.addHexPrefix(r),
-            s: hexUtils.addHexPrefix(s),
-            v: hexUtils.addHexPrefix(v),
-          });
-          const txid = hexUtils.addHexPrefix(typedTx.hash().toString('hex'));
-          const rawTx = hexUtils.addHexPrefix(
-            typedTx.serialize().toString('hex'),
-          );
-          console.log({ sig, ur, txid, rawTx });
+          // const typedTx = TransactionFactory.fromTxData({
+          //   ...txShared,
+          //   type: txShared.type,
+          //   r: hexUtils.addHexPrefix(r),
+          //   s: hexUtils.addHexPrefix(s),
+          //   v: hexUtils.addHexPrefix(v),
+          // });
+          // const txid = hexUtils.addHexPrefix(typedTx.hash().toString('hex'));
+          // const rawTx = hexUtils.addHexPrefix(
+          //   typedTx.serialize().toString('hex'),
+          // );
+          // console.log({ sig, ur, txid, rawTx });
         }}
       >
         eth-signature (EVM scan sign result)

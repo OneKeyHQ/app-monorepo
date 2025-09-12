@@ -16,6 +16,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 
 import settings from '../vaults/impls/dot/settings';
+import { getVaultSettings } from '../vaults/settings';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -251,6 +252,23 @@ class ProviderApiPolkadot extends ProviderApiBase {
       request,
       params.address,
     );
+
+    const vaultSettings = await getVaultSettings({
+      networkId: accountInfo?.networkId ?? '',
+    });
+    const { genesisHash } =
+      vaultSettings.networkInfo[accountInfo?.networkId ?? ''];
+
+    if (
+      genesisHash &&
+      genesisHash.toLowerCase() !== params.genesisHash?.toLowerCase()
+    ) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: 'network not supported',
+      });
+    }
+
     const encodeTx: IEncodedTxDot = {
       ...params,
       metadataRpc: '' as `0x${string}`,

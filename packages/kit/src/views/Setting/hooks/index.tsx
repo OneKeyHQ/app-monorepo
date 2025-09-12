@@ -4,7 +4,9 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -40,11 +42,48 @@ export const inAppStateLockStyle: {
     zIndex: RESET_OVERLAY_Z_INDEX,
   },
 };
-export function useResetApp(params?: { inAppStateLock: boolean }) {
-  const { inAppStateLock = false } = params || {};
+export function useResetApp(
+  params: {
+    inAppStateLock?: boolean;
+    silentReset?: boolean;
+  } = {},
+) {
+  const { inAppStateLock = false, silentReset = false } = params || {};
   const intl = useIntl();
+  const { logout: logoutOnekeyID } = usePrimeAuthV2();
+
+  const doReset = useCallback(async () => {
+    // reset app
+    try {
+      // disable setInterval on ext popup
+      if (platformEnv.isExtensionUiPopup) {
+        resetUtils.startResetting();
+      }
+      try {
+        void logoutOnekeyID();
+        await timerUtils.wait(1000);
+      } catch (error) {
+        console.error('failed to logoutPrivy', error);
+      }
+      await backgroundApiProxy.serviceApp.resetApp();
+    } catch (e) {
+      console.error('failed to reset app with error', e);
+    } finally {
+      // able setInterval on ext popup
+      if (platformEnv.isExtensionUiPopup) {
+        resetUtils.endResetting();
+      }
+    }
+  }, [logoutOnekeyID]);
+
   return useCallback(async () => {
     await timerUtils.wait(50);
+
+    if (silentReset) {
+      await doReset();
+      return;
+    }
+
     if (inAppStateLock) {
       const isLock = await backgroundApiProxy.serviceApp.isAppLocked();
       if (!isLock) {
@@ -56,6 +95,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
       title: intl.formatMessage({ id: ETranslations.global_reset }),
       icon: 'ErrorOutline',
       tone: 'destructive',
+      isOverTopAllViews: true,
       portalContainer: inAppStateLock
         ? Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY
         : undefined,
@@ -88,21 +128,11 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
         testID: 'erase-data-confirm',
       },
       onConfirm: async () => {
-        try {
-          // disable setInterval on ext popup
-          if (platformEnv.isExtensionUiPopup) {
-            resetUtils.startResetting();
-          }
-          await backgroundApiProxy.serviceApp.resetApp();
-        } catch (e) {
-          console.error('failed to reset app with error', e);
-        } finally {
-          // able setInterval on ext popup
-          if (platformEnv.isExtensionUiPopup) {
-            resetUtils.endResetting();
-          }
-        }
+        defaultLogger.setting.page.resetApp({
+          reason: 'ManualResetFromSettings',
+        });
+        await doReset();
       },
     });
-  }, [inAppStateLock, intl]);
+  }, [doReset, inAppStateLock, intl, silentReset]);
 }

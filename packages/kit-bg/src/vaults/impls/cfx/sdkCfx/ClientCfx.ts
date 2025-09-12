@@ -18,11 +18,12 @@ class ClientCfx {
 
   async getStatus() {
     const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         epochNumber: number;
         chainId: number;
         networkId: number;
       }>({
+        isJsonRpc: true,
         networkId: this.networkId,
         body: [
           {
@@ -46,9 +47,10 @@ class ClientCfx {
   }) {
     try {
       const [result] =
-        await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<{
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
           storageCollateralized: number;
         }>({
+          isJsonRpc: true,
           networkId: this.networkId,
           body: [
             {
@@ -72,20 +74,19 @@ class ClientCfx {
 
   async getCode(address: string) {
     const [result] =
-      await this.backgroundApi.serviceAccountProfile.sendRpcProxyRequest<string>(
-        {
-          networkId: this.networkId,
-          body: [
-            {
-              route: 'rpc',
-              params: {
-                method: 'cfx_getCode',
-                params: [address],
-              },
+      await this.backgroundApi.serviceAccountProfile.sendProxyRequest<string>({
+        isJsonRpc: true,
+        networkId: this.networkId,
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'cfx_getCode',
+              params: [address],
             },
-          ],
-        },
-      );
+          },
+        ],
+      });
 
     return result;
   }

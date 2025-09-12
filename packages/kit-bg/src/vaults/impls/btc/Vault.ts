@@ -15,6 +15,7 @@ import {
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
+import { verifyBitcoinMessage } from '@onekeyhq/core/src/chains/btc/sdkBtc/signMessage';
 import {
   EOutputsTypeForCoinSelect,
   type IBtcInput,
@@ -46,6 +47,7 @@ import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConst
 import {
   InsufficientBalance,
   OneKeyInternalError,
+  OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -66,6 +68,7 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IStakeTxBtcBabylon } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
@@ -682,6 +685,18 @@ export default class VaultBtc extends VaultBase {
     return result;
   }
 
+  override verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const valid = verifyBitcoinMessage({
+      message: params.message,
+      signature: params.signature,
+      format: params.format ?? '',
+      address: params.address,
+    });
+    return Promise.resolve({ valid });
+  }
+
   private parseAddressEncodings(
     addresses: string[],
   ): Promise<Array<EAddressEncodings | undefined>> {
@@ -695,7 +710,7 @@ export default class VaultBtc extends VaultBase {
     if (encoding) {
       return getCoinSelectTxType(encoding);
     }
-    throw new Error('getCoinSelectTxType ERROR: Invalid encoding');
+    throw new OneKeyLocalError('getCoinSelectTxType ERROR: Invalid encoding');
   }
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -715,7 +730,9 @@ export default class VaultBtc extends VaultBase {
     if (transfersInfo.length === 1) {
       const transferInfo = transfersInfo[0];
       if (!transferInfo.to) {
-        throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+        throw new OneKeyLocalError(
+          'buildEncodedTx ERROR: transferInfo.to is missing',
+        );
       }
     }
     return this._buildEncodedTxFromBatchTransfer(params);
@@ -778,13 +795,13 @@ export default class VaultBtc extends VaultBase {
         }
 
         if (!valueText || new BigNumber(valueText).lte(0)) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
           );
         }
 
         if (!address) {
-          throw new Error(
+          throw new OneKeyLocalError(
             'buildEncodedTxFromBatchTransfer ERROR: Invalid output address',
           );
         }
@@ -798,7 +815,7 @@ export default class VaultBtc extends VaultBase {
 
         if (type === 'change') {
           if (!path) {
-            throw new Error(
+            throw new OneKeyLocalError(
               'buildEncodedTxFromBatchTransfer ERROR: Invalid change path',
             );
           }
@@ -812,7 +829,7 @@ export default class VaultBtc extends VaultBase {
           };
         }
 
-        throw new Error(
+        throw new OneKeyLocalError(
           'buildEncodedTxFromBatchTransfer ERROR: Invalid output type',
         );
       }),
@@ -832,7 +849,7 @@ export default class VaultBtc extends VaultBase {
   }) {
     const network = await this.getNetwork();
     if (!transfersInfo.length) {
-      throw new Error(
+      throw new OneKeyLocalError(
         'buildTransferParamsWithCoinSelector ERROR: transferInfos is required',
       );
     }
@@ -924,7 +941,7 @@ export default class VaultBtc extends VaultBase {
 
     // transfer output + maybe opReturn output
     if (!isBatchTransfer && outputsForCoinSelect.length > 2) {
-      throw new Error('single transfer should only have one output');
+      throw new OneKeyLocalError('single transfer should only have one output');
     }
     const btcForkNetwork = await this.getBtcForkNetwork();
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
@@ -1016,7 +1033,7 @@ export default class VaultBtc extends VaultBase {
         if (!feeUTXO || isEmpty(feeUTXO)) {
           throw new OneKeyInternalError(
             appLocale.intl.formatMessage({
-              id: ETranslations.feedback_failed_to_fet_fee_rate,
+              id: ETranslations.feedback_failed_to_fetch_fee_rate,
             }),
           );
         }
@@ -1066,7 +1083,7 @@ export default class VaultBtc extends VaultBase {
         console.error(e);
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage({
-            id: ETranslations.feedback_failed_to_fet_fee_rate,
+            id: ETranslations.feedback_failed_to_fetch_fee_rate,
           }),
         );
       }

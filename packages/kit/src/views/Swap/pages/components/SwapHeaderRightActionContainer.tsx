@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -24,6 +24,7 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import { SlippageInput } from '@onekeyhq/kit/src/components/SlippageSettingDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapTypeSwitchAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
@@ -55,7 +56,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
-import { SlippageInput } from './SwapSlippageContentContainer';
+import ProviderManageContainer from './ProviderManageContainer';
 
 const SwapSettingsCommonItem = ({
   value,
@@ -85,6 +86,24 @@ const SwapSettingsCommonItem = ({
       </SizableText>
     </YStack>
     <Switch value={value} onChange={onChange} />
+  </XStack>
+);
+
+const SwapProviderSettingItem = ({
+  title,
+  onPress,
+}: {
+  title: string;
+  onPress: () => void;
+}) => (
+  <XStack
+    justifyContent="space-between"
+    alignItems="center"
+    onPress={onPress}
+    cursor="pointer"
+  >
+    <SizableText size="$bodyLgMedium">{title}</SizableText>
+    <Icon name="ChevronRightSmallOutline" size="$6" color="$iconSubdued" />
   </XStack>
 );
 
@@ -271,6 +290,7 @@ const SwapSettingsDialogContent = () => {
     ),
     [intl, setNoPersistSettings, slippageItem.key],
   );
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   return (
     <YStack gap="$5">
       {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
@@ -330,6 +350,54 @@ const SwapSettingsDialogContent = () => {
           }
         }}
       />
+      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        <>
+          <SwapProviderSettingItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_settings_manage_swap,
+            })}
+            onPress={() => {
+              dialogRef.current = Dialog.show({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_settings_manage_swap,
+                }),
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                    isBridge={false}
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
+            }}
+          />
+          <SwapProviderSettingItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_settings_manage_bridge,
+            })}
+            onPress={() => {
+              dialogRef.current = Dialog.show({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_settings_manage_bridge,
+                }),
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                    isBridge
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
+            }}
+          />
+        </>
+      ) : null}
     </YStack>
   );
 };

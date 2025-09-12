@@ -71,10 +71,14 @@ export function Progress({
     <TMProgress
       backgroundColor={progressColor}
       h={h}
-      value={progressValue}
+      value={
+        // @platform android
+        // passing floating point values can cause crashes as the underlying implementation expects long type
+        platformEnv.isNativeAndroid ? Math.round(progressValue) : progressValue
+      }
       onLayout={onLayout}
       max={DEFAULT_MAX}
-      {...props}
+      {...(props as any)}
     >
       {showIndicator ? (
         <TMProgress.Indicator

@@ -34,6 +34,7 @@ const Demo = () => {
 
 const RefreshControllerGallery = () => (
   <Layout
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="RefreshControl"
     scrollEnabled={false}
     elements={[

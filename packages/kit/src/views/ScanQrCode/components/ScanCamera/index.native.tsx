@@ -1,16 +1,15 @@
 import { useCallback, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
-import { Camera } from 'react-native-camera-kit/src';
+import { Camera, CameraType } from 'react-native-camera-kit';
 
-import { Button, usePreventRemove } from '@onekeyhq/components';
+import { usePreventRemove } from '@onekeyhq/components';
 
 import type { IScanCameraProps } from './types';
 
 export type { IScanCameraProps };
 
 export function ScanCamera({
-  style,
   children,
   handleScanResult,
   ...rest
@@ -45,6 +44,8 @@ export function ScanCamera({
         <Camera
           style={{ flex: 1 }}
           resizeMode="cover"
+          showFrame={false}
+          cameraType={CameraType.Back}
           scanBarcode
           onReadCode={({ nativeEvent: { codeStringValue } }) => {
             if (typeof codeStringValue !== 'string') {

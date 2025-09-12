@@ -1,4 +1,5 @@
-import Svg, { SvgProps, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import type { SvgProps } from 'react-native-svg';
 const SvgNotebook1 = (props: SvgProps) => (
   <Svg fill="none" viewBox="0 0 24 24" accessibilityRole="image" {...props}>
     <Path
@@ -8,7 +9,7 @@ const SvgNotebook1 = (props: SvgProps) => (
     <Path
       fill="currentColor"
       fillRule="evenodd"
-      d="M8 21.5h9.5a3 3 0 0 0 3-3v-13a3 3 0 0 0-3-3H8v19ZM13 7a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2H13Zm0 4a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2H13Z"
+      d="M8 21.5h9.5a3 3 0 0 0 3-3v-13a3 3 0 0 0-3-3H8zM13 7a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2zm0 4a1 1 0 1 0 0 2h2.5a1 1 0 1 0 0-2z"
       clipRule="evenodd"
     />
   </Svg>

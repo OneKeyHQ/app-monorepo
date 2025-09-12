@@ -1,5 +1,5 @@
 import type { ForwardedRef } from 'react';
-import { forwardRef, useCallback, useImperativeHandle } from 'react';
+import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 
 import { YStack } from 'tamagui';
 
@@ -14,6 +14,7 @@ import {
 } from './hooks';
 
 import type { ISwiperProps, ISwiperRef } from './type';
+import type { IYStackProps } from '../../primitives';
 import type { ListRenderItemInfo } from 'react-native';
 
 function BaseSwiperFlatList<T>(
@@ -27,11 +28,13 @@ function BaseSwiperFlatList<T>(
     autoplayLoop = false,
     autoplayLoopKeepAnimation = false,
     disableGesture = false,
+    initialNumToRender = 1,
+    onChangeIndex,
     ...restProps
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
 ) {
-  const sharedStyle = useSharedStyle(restProps as any);
+  const sharedStyle = useSharedStyle(restProps as any) as IYStackProps;
   const { containerWidth, onContainerLayout } = useSharedContainerWidth();
   const [scrollEnabled, setScrollEnabled] = useScrollEnabled(disableGesture);
   const handleRenderItem = useCallback(
@@ -74,6 +77,7 @@ function BaseSwiperFlatList<T>(
     autoplayLoop,
     autoplayLoopKeepAnimation,
     dataLength,
+    onChangeIndex,
   });
 
   useImperativeHandle(ref, () => ({
@@ -96,6 +100,10 @@ function BaseSwiperFlatList<T>(
     },
   }));
 
+  const extraData = useMemo(() => {
+    return [renderItem, data];
+  }, [data, renderItem]);
+
   return (
     <YStack
       position="relative"
@@ -116,10 +124,10 @@ function BaseSwiperFlatList<T>(
             scrollEnabled={scrollEnabled}
             renderItem={handleRenderItem}
             data={data}
-            extraData={data}
-            initialNumToRender={1}
+            extraData={extraData}
+            initialNumToRender={initialNumToRender}
             initialScrollIndex={index}
-            estimatedItemSize={sharedStyle.height as number}
+            estimatedItemSize={containerWidth}
             width={containerWidth}
             onScrollToIndexFailed={onScrollToIndexFailed}
             onScrollAnimationEnd={onScrollAnimationEnd}
@@ -139,8 +147,8 @@ function BaseSwiperFlatList<T>(
   );
 }
 
-export const Swiper = forwardRef(
-  BaseSwiperFlatList,
-) as typeof BaseSwiperFlatList;
+export const Swiper = forwardRef(BaseSwiperFlatList) as <T>(
+  props: ISwiperProps<T> & { ref?: React.Ref<ISwiperRef> },
+) => React.ReactElement | null;
 
 export * from './type';

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { Linking, StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
+  EPageType,
   EVideoResizeMode,
   Heading,
   Icon,
@@ -14,13 +15,20 @@ import {
   Stack,
   Video,
   XStack,
+  usePageType,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+/**
+ * Displays a full-screen promotional page for the OneKey hardware wallet with a video background, localized text, and a button to purchase the device.
+ *
+ * The component adapts its layout for different platforms and screen sizes, and handles navigation and safe area insets. Pressing the purchase button attempts to open the OneKey purchase URL in the device's browser.
+ */
 export function OneKeyHardwareWallet() {
-  const { bottom } = useSafeAreaInsets();
+  const { bottom, top } = useSafeAreaInsets();
   const intl = useIntl();
 
   const handleBuyButtonPress = useCallback(async () => {
@@ -42,6 +50,8 @@ export function OneKeyHardwareWallet() {
   const popPage = useCallback(() => {
     navigation.pop();
   }, [navigation]);
+
+  const pageType = usePageType();
 
   return (
     <Page safeAreaEnabled={false}>
@@ -70,7 +80,13 @@ export function OneKeyHardwareWallet() {
             position="absolute"
             h={64}
             w={width}
-            top={0}
+            top={
+              platformEnv.isNativeIOS &&
+              top > 0 &&
+              pageType === EPageType.fullScreen
+                ? 36
+                : 0
+            }
             px={16}
             ai="center"
             $platform-ios={{

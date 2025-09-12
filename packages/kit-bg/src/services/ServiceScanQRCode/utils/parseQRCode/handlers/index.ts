@@ -3,8 +3,11 @@ import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import animation from './animation';
 import bitcoin from './bitcoin';
 import ethereum from './ethereum';
+import lightningNetwork from './lightningNetwork';
 import marketDetail from './marketDetail';
 import migrate from './migrate';
+import primeTransfer from './primeTransfer';
+import rewardCenter from './rewardCenter';
 import sendProtection from './sendProtection';
 import solana from './solana';
 import sui from './sui';
@@ -21,5 +24,8 @@ export const PARSE_HANDLERS = {
   [EQRCodeHandlerNames.urlAccount]: urlAccount,
   [EQRCodeHandlerNames.marketDetail]: marketDetail,
   [EQRCodeHandlerNames.sendProtection]: sendProtection,
+  [EQRCodeHandlerNames.primeTransfer]: primeTransfer,
+  [EQRCodeHandlerNames.rewardCenter]: rewardCenter,
   [EQRCodeHandlerNames.sui]: sui,
+  [EQRCodeHandlerNames.lightningNetwork]: lightningNetwork,
 };

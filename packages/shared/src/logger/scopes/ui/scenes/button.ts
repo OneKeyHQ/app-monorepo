@@ -6,10 +6,6 @@ export interface IButtonClickParams {
    * Button tracking ID or testID for identification
    */
   trackId?: string;
-  /**
-   * Additional custom properties
-   */
-  [key: string]: any;
 }
 
 export class ButtonScene extends BaseScene {

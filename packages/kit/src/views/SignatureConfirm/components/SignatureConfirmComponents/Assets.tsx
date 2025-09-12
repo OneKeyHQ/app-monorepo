@@ -20,6 +20,7 @@ import {
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
@@ -77,6 +78,7 @@ function SignatureAssetDetailItem({
   showNetwork,
   amount,
   symbol,
+  name,
   editable,
   tokenProps,
   isLoading,
@@ -92,6 +94,7 @@ function SignatureAssetDetailItem({
   label: string;
   amount: string;
   symbol: string;
+  name?: string;
   editable?: boolean;
   showNetwork?: boolean;
   isLoading?: boolean;
@@ -141,8 +144,11 @@ function SignatureAssetDetailItem({
                 : amount}
             </SizableText>
           ) : null}
-          {symbol ? (
+          {type !== 'nft' && symbol ? (
             <SizableText size="$bodyLg">{`  ${symbol}`}</SizableText>
+          ) : null}
+          {type === 'nft' && name ? (
+            <SizableText size="$bodyLg">{`  ${name}`}</SizableText>
           ) : null}
         </SizableText>
         {editable ? (
@@ -152,14 +158,16 @@ function SignatureAssetDetailItem({
     );
   }, [
     isLoading,
+    editable,
     transferDirection,
-    amount,
     type,
     NFTType,
-    symbol,
-    editable,
     isSendNativeTokenOnly,
-    nativeTokenTransferAmountToUpdate,
+    nativeTokenTransferAmountToUpdate?.isMaxSend,
+    nativeTokenTransferAmountToUpdate?.amountToUpdate,
+    amount,
+    symbol,
+    name,
   ]);
 
   return (
@@ -289,7 +297,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       type="token"
       handleEdit={() => {
         if (isNil(token.info.decimals)) {
-          throw new Error('token decimals is required.');
+          throw new OneKeyLocalError('token decimals is required.');
         }
         if (isBuildingDecodedTxs) return;
         showApproveEditor({
@@ -339,6 +347,7 @@ function AssetsInternalAssets(props: IInternalAssetsProps) {
     <SignatureAssetDetailItem
       label={component.label}
       amount={component.amountParsed}
+      name={component.name}
       symbol={component.symbol}
       tokenProps={{
         tokenImageUri: component.icon,

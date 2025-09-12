@@ -3,21 +3,23 @@ import { Buffer } from 'buffer';
 import {
   bytesToHex as bytesToHex0,
   hexToBytes,
-  utf8ToBytes,
+  utf8ToBytes as utf8ToBytes0,
 } from '@noble/hashes/utils';
 import { isString } from 'lodash';
+
+import { OneKeyLocalError } from '../errors/errors/localError';
 
 import hexUtils from './hexUtils';
 
 function toBuffer(
-  data: Buffer | Uint8Array | string,
+  data: Buffer | ArrayBuffer | Uint8Array | string,
   // encoding of string data
   encoding: BufferEncoding = 'hex',
 ): Buffer {
   if (isString(data)) {
     if (encoding === 'hex') {
       // if (!hexUtils.isHexString(data)) {
-      //   throw new Error('toBuffer ERROR: Invalid hex string');
+      //   throw new OneKeyLocalError('toBuffer ERROR: Invalid hex string');
       // }
       // eslint-disable-next-line no-param-reassign
       data = hexUtils.stripHexPrefix(data);
@@ -25,11 +27,14 @@ function toBuffer(
     // buffer from hex string in default
     const buff = Buffer.from(data, encoding);
     if (buff.length === 0 && data.length > 0) {
-      throw new Error(`data not matched to encoding: ${encoding}`);
+      throw new OneKeyLocalError(`data not matched to encoding: ${encoding}`);
     }
     return buff;
   }
   if (data instanceof Uint8Array) {
+    return Buffer.from(data);
+  }
+  if (data instanceof ArrayBuffer) {
     return Buffer.from(data);
   }
   return data;
@@ -52,8 +57,21 @@ function bytesToHex(bytes: Buffer | Uint8Array | string): string {
   return bytesToHex0(buff);
 }
 
-function bytesToUtf8(bytes: Buffer | Uint8Array): string {
-  return toBuffer(bytes).toString('utf8');
+function bytesToUtf8(
+  bytes: Buffer | Uint8Array,
+  options: {
+    checkIsValidUtf8?: boolean; // if true, throw error if the buffer is not valid utf-8
+  } = {},
+): string {
+  const buffer = toBuffer(bytes);
+  if (options?.checkIsValidUtf8) {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+  }
+  return buffer.toString('utf8');
+}
+
+function utf8ToBytes(text: string): Buffer {
+  return toBuffer(utf8ToBytes0(text));
 }
 
 function bytesToText(
@@ -73,8 +91,5 @@ const bufferUtils = {
   utf8ToBytes,
   bytesToUtf8,
 };
-
-// @ts-ignore
-globalThis.$$bufferUtils = bufferUtils;
 
 export default bufferUtils;

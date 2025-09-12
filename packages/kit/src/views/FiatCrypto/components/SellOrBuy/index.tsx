@@ -11,6 +11,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { TokenList } from '@onekeyhq/kit/src/views/FiatCrypto/components/TokenList';
 import { useGetTokensList } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalFiatCryptoRoutes,
   IModalFiatCryptoParamList,
@@ -92,6 +93,13 @@ const SellOrBuy = ({ title, type, networkId, accountId }: ISellOrBuyProps) => {
       token: IFiatCryptoToken;
       realAccountId?: string;
     }) => {
+      if (type === 'buy') {
+        defaultLogger.wallet.walletActions.buyStarted({
+          tokenAddress: token.address,
+          tokenSymbol: token.symbol,
+          networkID: token.networkId,
+        });
+      }
       const { url } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId: token.networkId,

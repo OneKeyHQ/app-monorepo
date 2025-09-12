@@ -13,8 +13,9 @@ export const ClipboardPlugin: FC<IAddressPluginProps> = ({
   onChange,
   onInputTypeChange,
   testID,
+  disabled,
 }) => {
-  const { getClipboard } = useClipboard();
+  const { getClipboard, supportPaste } = useClipboard();
   const intl = useIntl();
   const onPress = useCallback(async () => {
     const text = await getClipboard();
@@ -29,13 +30,13 @@ export const ClipboardPlugin: FC<IAddressPluginProps> = ({
       });
     }
   }, [getClipboard, intl, onChange, onInputTypeChange]);
-  return platformEnv.isExtensionUiPopup ||
-    platformEnv.isExtensionUiSidePanel ? null : (
+  return !supportPaste ? null : (
     <IconButton
       title={intl.formatMessage({ id: ETranslations.send_to_paste_tooltip })}
       variant="tertiary"
       icon="ClipboardOutline"
-      onPress={onPress}
+      disabled={disabled}
+      onPress={disabled ? undefined : onPress}
       testID={testID}
     />
   );

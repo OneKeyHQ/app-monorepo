@@ -5,6 +5,8 @@ import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 import { get } from 'lodash';
 import Long from 'long';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { defaultAminoDecodeRegistry } from '../amino/aminoDecode';
 import { defaultAminoMsgOpts } from '../amino/types';
 import { ECosmosMessageType } from '../message';
@@ -18,22 +20,22 @@ import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
 export function getDirectSignDoc(tx: TransactionWrapper): ProtoSignDoc {
   if (tx.mode === 'amino') {
-    throw new Error('Sign doc is encoded as Amino Json');
+    throw new OneKeyLocalError('Sign doc is encoded as Amino Json');
   }
 
   if ('msgs' in tx.signDoc) {
-    throw new Error('Sign doc is encoded as Amino Json');
+    throw new OneKeyLocalError('Sign doc is encoded as Amino Json');
   }
   return new ProtoSignDoc(tx.signDoc);
 }
 
 export function getAminoSignDoc(tx: TransactionWrapper): ICosmosStdSignDoc {
   if (tx.mode === 'direct') {
-    throw new Error('Sign doc is encoded as Protobuf');
+    throw new OneKeyLocalError('Sign doc is encoded as Protobuf');
   }
 
   if (!('msgs' in tx.signDoc)) {
-    throw new Error('Unexpected error');
+    throw new OneKeyLocalError('Unexpected error');
   }
 
   return tx.signDoc;
@@ -73,7 +75,7 @@ export function getFeeAmount(signDoc: TransactionWrapper): readonly Coin[] {
   const fees: Coin[] = [];
   for (const coinObj of getDirectSignDoc(signDoc).authInfo.fee?.amount ?? []) {
     if (coinObj.denom == null || coinObj.amount == null) {
-      throw new Error('Invalid fee');
+      throw new OneKeyLocalError('Invalid fee');
     }
     fees.push({
       denom: coinObj.denom,
@@ -162,7 +164,7 @@ export function setSendAmount(tx: TransactionWrapper, amount: string) {
   let protoMsgValue;
   if (protoMsg) {
     if (protoMsg.typeUrl !== ECosmosMessageType.SEND) {
-      throw new Error('Invalid message type');
+      throw new OneKeyLocalError('Invalid message type');
     }
 
     const sendMsg = MsgSend.decode(hexToBytes(protoMsg.value));
@@ -186,7 +188,7 @@ export function setSendAmount(tx: TransactionWrapper, amount: string) {
     const aminoSignDoc = getAminoSignDoc(newTx);
     const msg = aminoSignDoc.msgs[0];
     if (msg.type !== defaultAminoMsgOpts.send.native.type) {
-      throw new Error('Unexpected error');
+      throw new OneKeyLocalError('Unexpected error');
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -204,7 +206,7 @@ export function setSendAmount(tx: TransactionWrapper, amount: string) {
   const directSignDoc = getDirectSignDoc(newTx);
   const msg = directSignDoc.txMsgs[0];
   if (msg.typeUrl !== ECosmosMessageType.SEND) {
-    throw new Error('Invalid message type');
+    throw new OneKeyLocalError('Invalid message type');
   }
   directSignDoc.txBody = {
     ...directSignDoc.txBody,
@@ -336,7 +338,7 @@ export function getADR36SignDoc(
 
 export function encodeSecp256k1Pubkey(pubkey: Uint8Array): ICosmosStdPublickey {
   if (pubkey.length !== 33 || (pubkey[0] !== 0x02 && pubkey[0] !== 0x03)) {
-    throw new Error(
+    throw new OneKeyLocalError(
       'Public key must be compressed secp256k1, i.e. 33 bytes starting with 0x02 or 0x03',
     );
   }

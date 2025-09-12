@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Animated, StyleSheet } from 'react-native';
+import { useThrottledCallback } from 'use-debounce';
 
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
@@ -10,16 +11,24 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { MobileTabItem } from './MobileTabItem';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
+import type {
+  BottomTabBarProps,
+  BottomTabNavigationOptions,
+} from '@react-navigation/bottom-tabs';
+import type { RouteProp } from '@react-navigation/native';
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
   style?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
+  trackId?: string;
 };
 
 export default function MobileBottomTabBar({
@@ -53,6 +62,40 @@ export default function MobileBottomTabBar({
     });
   }, [heightAnim, opacityAnim]);
 
+  const onTabPress = useCallback(
+    (
+      route: RouteProp<Record<string, object | undefined>, string>,
+      isActive: boolean,
+      options: BottomTabNavigationOptions,
+    ) => {
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: route.key,
+        canPreventDefault: true,
+      });
+      if (route.name === 'Swap') {
+        defaultLogger.swap.enterSwap.enterSwap({
+          enterFrom: ESwapSource.TAB,
+        });
+      }
+      if (!isActive && !event.defaultPrevented) {
+        navigation.dispatch({
+          ...CommonActions.navigate({ name: route.name, merge: true }),
+          target: state.key,
+        });
+      }
+      const trackId = (options as { trackId?: string })?.trackId;
+      if (trackId) {
+        defaultLogger.app.page.tabBarClick(trackId);
+      }
+    },
+    [navigation, state.key],
+  );
+  const onDebouncedTabPress = useThrottledCallback(onTabPress, 250);
+  const handleRoutePress = platformEnv.isNativeAndroid
+    ? onDebouncedTabPress
+    : onTabPress;
+
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -64,18 +107,7 @@ export default function MobileBottomTabBar({
         }
 
         const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isActive && !event.defaultPrevented) {
-            navigation.dispatch({
-              ...CommonActions.navigate({ name: route.name, merge: true }),
-              target: state.key,
-            });
-          }
+          handleRoutePress(route, isActive, options);
         };
 
         const renderItemContent = (renderActive: boolean) => (
@@ -104,14 +136,7 @@ export default function MobileBottomTabBar({
           </Stack>
         );
       }),
-    [
-      descriptors,
-      extraConfig?.name,
-      navigation,
-      routes,
-      state.index,
-      state.key,
-    ],
+    [descriptors, extraConfig?.name, handleRoutePress, routes, state.index],
   );
   return (
     <Stack

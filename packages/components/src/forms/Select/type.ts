@@ -54,4 +54,5 @@ export type ISelectProps<
   placement?: IPopoverProps['placement'];
   testID?: string;
   offset?: IPopoverProps['offset'];
+  usingPercentSnapPoints?: boolean;
 }>;

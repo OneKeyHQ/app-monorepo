@@ -15,9 +15,10 @@ import CloseButton from './CloseButton';
 import { PaginationButton } from './PaginationButton';
 
 import type {
-  IImageSourceProps,
+  IImageProps,
   ISizableTextProps,
   IStackStyle,
+  IXStackProps,
 } from '../../primitives';
 
 export interface IBannerData {
@@ -26,8 +27,8 @@ export interface IBannerData {
   imgUrl?: string;
   theme?: 'dark' | 'light' | string;
   bannerId?: string;
-  imgSource?: IImageSourceProps['source'];
-  imgResizeMode?: IImageSourceProps['resizeMode'];
+  imgSource?: IImageProps['source'];
+  imgResizeMode?: IImageProps['resizeMode'];
   $gtMd?: IBannerData;
   $gtLg?: IBannerData;
 }
@@ -108,10 +109,10 @@ export function Banner<T extends IBannerData>({
   showCloseButton = false,
   onBannerClose,
   ...props
-}: {
+}: IStackStyle & {
   data: T[];
   itemContainerStyle?: IStackStyle;
-  indicatorContainerStyle?: IStackStyle;
+  indicatorContainerStyle?: IXStackProps;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
@@ -120,11 +121,11 @@ export function Banner<T extends IBannerData>({
   showCloseButton?: boolean;
   showPaginationButton?: boolean;
   onBannerClose?: (bannerId: string) => void;
-} & IStackStyle) {
+}) {
   const [isHovering, setIsHovering] = useState(false);
   const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
     setIsHovering(value);
-  }, 200);
+  }, 100);
   const hoverOpacity = useHoverOpacity(isHovering);
 
   const renderItem = useCallback(
@@ -162,7 +163,6 @@ export function Banner<T extends IBannerData>({
             {data.map((_, index) => (
               <Stack
                 shadowColor="$blackA1"
-                shadowOffset={{ width: 2, height: 2 }}
                 shadowOpacity={0.1}
                 shadowRadius={3}
                 key={index}
@@ -185,12 +185,16 @@ export function Banner<T extends IBannerData>({
               isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
+              theme="light"
+              onMouseEnter={() => setIsHoveringThrottled(true)}
             />
 
             <PaginationButton
               isVisible={currentIndex !== data.length - 1 ? isHovering : false}
               direction="next"
               onPress={goToNextIndex}
+              theme="light"
+              onMouseEnter={() => setIsHoveringThrottled(true)}
             />
           </>
         ) : null}
@@ -213,6 +217,7 @@ export function Banner<T extends IBannerData>({
       showCloseButton,
       showPaginationButton,
       hoverOpacity,
+      setIsHoveringThrottled,
     ],
   );
 
@@ -224,12 +229,9 @@ export function Banner<T extends IBannerData>({
 
   return (
     <Stack
-      onMouseEnter={() => {
-        setIsHoveringThrottled(true);
-      }}
-      onMouseLeave={() => {
-        setIsHoveringThrottled(false);
-      }}
+      onPointerMove={() => setIsHoveringThrottled(true)}
+      onMouseEnter={() => setIsHoveringThrottled(true)}
+      onMouseLeave={() => setIsHoveringThrottled(false)}
       w="100%"
     >
       <Swiper
