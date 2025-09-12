@@ -12,23 +12,26 @@ export const useTransactionsLayoutNormal = () => {
       width: '$10',
     },
     amount: {
-      width: 300,
+      width: '35%',
+      minWidth: 300,
       textAlign: 'center' as const,
     },
     price: {
-      width: isSmallScreen ? '$80' : '$40',
+      width: isSmallScreen ? '$80' : '20%',
       display: isSmallScreen ? ('none' as const) : ('flex' as const),
     },
     value: {
-      width: isSmallScreen ? '$80' : '$40',
+      width: isSmallScreen ? '$80' : '20%',
       display: isSmallScreen ? ('none' as const) : ('flex' as const),
     },
     priceValue: {
-      width: '$32',
+      minWidth: '$32',
+      width: '20%',
       display: isSmallScreen ? ('flex' as const) : ('none' as const),
     },
     address: {
-      width: '$44',
+      width: '10%',
+      minWidth: '$44',
     },
   };
 
