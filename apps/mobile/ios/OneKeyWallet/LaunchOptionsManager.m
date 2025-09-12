@@ -1,10 +1,3 @@
-//
-//  LaunchOptionsManager.m
-//  OneKeyWallet
-//
-//  Created by OneKey on 2024.
-//
-
 #import "LaunchOptionsManager.h"
 #import <React/RCTLog.h>
 #import <CocoaLumberjack/CocoaLumberjack.h>
