@@ -91,7 +91,7 @@ export function PercentageStageOnKeyboard({
           />
         ))}
         <Button
-          icon="CheckLargeOutline"
+          icon="KeyboardDoneOutline"
           flex={1}
           h="$10"
           size="small"
