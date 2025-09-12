@@ -269,6 +269,15 @@ const useTextColor = () => {
   }, [theme.text.val, theme.textSubdued.val, themeName]);
 };
 
+const useSpreadColor = () => {
+  const theme = useTheme();
+  return useMemo(() => {
+    return {
+      backgroundColor: theme.bgSubdued.val,
+    };
+  }, [theme.bgSubdued]);
+};
+
 export function OrderBook({
   symbol: _symbol,
   bids,
@@ -312,6 +321,7 @@ export function OrderBook({
 
   const blockColors = useBlockColors();
   const textColor = useTextColor();
+  const spreadColor = useSpreadColor();
 
   if (horizontal) {
     return (
@@ -516,7 +526,13 @@ export function OrderBook({
               />
             </View>
           ))}
-          <View key="mid" style={styles.spreadRow} />
+          <View
+            key="mid"
+            style={[
+              styles.spreadRow,
+              { backgroundColor: spreadColor.backgroundColor },
+            ]}
+          />
           {aggregatedData.bids.map((itemData, index) => (
             <View key={index} style={styles.blockRow}>
               <ColorBlock
@@ -537,7 +553,13 @@ export function OrderBook({
               />
             </View>
           ))}
-          <View key="mid" style={styles.spreadRow}>
+          <View
+            key="mid"
+            style={[
+              styles.spreadRow,
+              { backgroundColor: spreadColor.backgroundColor },
+            ]}
+          >
             <Text style={[styles.bodySm, { color: textColor.text }]}>
               Spread
             </Text>
@@ -558,6 +580,7 @@ export function OrderBook({
                       alignItems: 'center',
                       justifyContent: 'center',
                       paddingHorizontal: 8,
+                      gap: 4,
                     }}
                     onPress={onPress}
                   >
@@ -566,7 +589,7 @@ export function OrderBook({
                     </Text>
                     <Icon
                       name="ChevronDownSmallOutline"
-                      size={10}
+                      size="$3"
                       color="$iconSubdued"
                     />
                   </TouchableOpacity>
