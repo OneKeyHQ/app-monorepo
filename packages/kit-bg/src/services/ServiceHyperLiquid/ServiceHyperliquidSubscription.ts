@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import ServiceBase from '../ServiceBase';
@@ -43,6 +44,7 @@ interface ISubscriptionUpdateParams {
   currentUser?: IHex | null;
   currentSymbol?: string;
   isConnected?: boolean;
+  l2BookOptions?: IL2BookOptions;
 }
 
 @backgroundClass()
@@ -57,6 +59,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     currentUser: null,
     currentSymbol: '',
     isConnected: false,
+    l2BookOptions: undefined,
   };
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
@@ -132,6 +135,50 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._cleanupAllSubscriptions();
   }
 
+  @backgroundMethod()
+  async updateL2BookSubscription(
+    params: ISubscriptionUpdateParams,
+  ): Promise<void> {
+    console.log(
+      '[HyperLiquid WebSocket] updateL2BookSubscription called with params:',
+      params,
+    );
+    console.log('[HyperLiquid WebSocket] Current state before update:', {
+      currentSymbol: this._currentState.currentSymbol,
+      currentUser: this._currentState.currentUser,
+      l2BookOptions: this._currentState.l2BookOptions,
+      isConnected: this._currentState.isConnected,
+    });
+    console.log(
+      '[HyperLiquid WebSocket] Current active subscriptions:',
+      Array.from(this._activeSubscriptions.keys()),
+    );
+
+    // Validate parameters before proceeding
+    if (
+      params.l2BookOptions?.mantissa !== undefined &&
+      params.l2BookOptions?.mantissa !== null
+    ) {
+      if (![2, 5].includes(params.l2BookOptions?.mantissa)) {
+        console.warn(
+          '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
+          params.l2BookOptions?.mantissa,
+          'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
+        );
+      }
+    }
+
+    // Update the subscription with new L2Book parameters
+    // Important: Only update l2BookOptions, keep other state unchanged
+    await this.updateSubscriptions({
+      l2BookOptions: params.l2BookOptions,
+      // Preserve current state to avoid losing currentSymbol and currentUser
+      currentSymbol: params.currentSymbol,
+      currentUser: params.currentUser,
+      isConnected: this._currentState.isConnected,
+    });
+  }
+
   private _applyStateUpdates(
     state: ISubscriptionState,
     params: ISubscriptionUpdateParams,
@@ -145,12 +192,41 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     if (params.isConnected !== undefined) {
       state.isConnected = params.isConnected;
     }
+    if (params.l2BookOptions !== undefined) {
+      state.l2BookOptions = params.l2BookOptions;
+    }
   }
 
   private _calculateStateDiff(newState: ISubscriptionState): ISubscriptionDiff {
     const currentSpecs = this._getCurrentSubscriptionSpecs();
     const newSpecs = calculateRequiredSubscriptions(newState);
-    return calculateSubscriptionDiff(currentSpecs, newSpecs);
+    const diff = calculateSubscriptionDiff(currentSpecs, newSpecs);
+
+    // Debug logging to understand subscription differences
+    console.log('[HyperLiquid WebSocket] Subscription diff calculation:');
+    console.log('[HyperLiquid WebSocket] New state:', {
+      currentSymbol: newState.currentSymbol,
+      currentUser: newState.currentUser,
+      l2BookOptions: newState.l2BookOptions,
+    });
+    console.log(
+      '[HyperLiquid WebSocket] Current subscriptions:',
+      currentSpecs.map((s) => ({ key: s.key, params: s.params })),
+    );
+    console.log(
+      '[HyperLiquid WebSocket] Required subscriptions:',
+      newSpecs.map((s) => ({ key: s.key, params: s.params })),
+    );
+    console.log(
+      '[HyperLiquid WebSocket] To unsubscribe:',
+      diff.toUnsubscribe.map((s) => s.key),
+    );
+    console.log(
+      '[HyperLiquid WebSocket] To subscribe:',
+      diff.toSubscribe.map((s) => ({ key: s.key, params: s.params })),
+    );
+
+    return diff;
   }
 
   private _isDiffEmpty(diff: ISubscriptionDiff): boolean {
@@ -169,9 +245,16 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     toUnsubscribe: ISubscriptionSpec[],
   ): Promise<void> {
     if (toUnsubscribe.length === 0) return;
+    console.log(
+      `[HyperLiquid WebSocket] Unsubscribing from ${toUnsubscribe.length} subscriptions:`,
+      toUnsubscribe.map((s) => s.key),
+    );
     const unsubscribePromises = toUnsubscribe.map(async (spec) => {
       try {
         await this._destroySubscription(spec.key);
+        console.log(
+          `[HyperLiquid WebSocket] Successfully unsubscribed from ${spec.key}`,
+        );
       } catch (error) {
         console.error(
           `[ServiceHyperliquidSubscription.executeUnsubscriptions] Failed to unsubscribe ${spec.key}:`,
@@ -187,14 +270,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     toSubscribe: ISubscriptionSpec[],
   ): Promise<void> {
     if (toSubscribe.length) {
-      toSubscribe.forEach((spec) => {
-        this._createSubscription(spec).catch((error) => {
+      console.log(
+        `[HyperLiquid WebSocket] Subscribing to ${toSubscribe.length} subscriptions:`,
+        toSubscribe.map((s) => ({ key: s.key, params: s.params })),
+      );
+
+      // Process subscriptions sequentially to avoid overwhelming the connection
+      for (const spec of toSubscribe) {
+        try {
+          await this._createSubscription(spec);
+          console.log(
+            `[HyperLiquid WebSocket] Successfully subscribed to ${spec.key}`,
+          );
+        } catch (error) {
           console.error(
             `[ServiceHyperliquidSubscription.executeSubscriptions] Failed to subscribe ${spec.key}:`,
             error,
           );
-        });
-      });
+        }
+      }
     }
   }
 
@@ -206,7 +300,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
       this._client = new SubscriptionClient({ transport });
     }
-
     return this._client;
   }
 
@@ -220,6 +313,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           error,
         );
       }
+
       this._client = null;
     }
   }
@@ -287,7 +381,27 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     try {
       const sdkSub = subscription.sdkSubscription;
       if (sdkSub?.unsubscribe && typeof sdkSub.unsubscribe === 'function') {
-        await sdkSub.unsubscribe();
+        console.log(`[HyperLiquid WebSocket] Calling unsubscribe() for ${key}`);
+        try {
+          const unsubscribedResult = await sdkSub.unsubscribe();
+          console.log(
+            `[HyperLiquid WebSocket] unsubscribe() completed for ${key}, result:`,
+            unsubscribedResult,
+          );
+
+          // Add a small delay to ensure the unsubscribe message is sent
+          await timerUtils.wait(50);
+        } catch (error) {
+          console.error(
+            `[HyperLiquid WebSocket] unsubscribe() failed for ${key}:`,
+            error,
+          );
+          throw error;
+        }
+      } else {
+        console.warn(
+          `[HyperLiquid WebSocket] No valid unsubscribe method found for ${key}`,
+        );
       }
     } catch (error) {
       console.error(
@@ -377,10 +491,34 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       case ESubscriptionType.ALL_MIDS:
         return {};
       case ESubscriptionType.ACTIVE_ASSET_CTX:
-      case ESubscriptionType.L2_BOOK:
       case ESubscriptionType.TRADES:
       case ESubscriptionType.BBO:
         return { coin: parts[2] };
+      case ESubscriptionType.L2_BOOK: {
+        const params: any = { coin: parts[2] };
+        // Parse additional L2Book parameters from key
+        for (let i = 3; i < parts.length; i += 1) {
+          const part = parts[i];
+          if (part.startsWith('nSigFigs-')) {
+            const valueStr = part.substring(9);
+            if (valueStr === 'null') {
+              params.nSigFigs = null;
+            } else {
+              const value = parseInt(valueStr, 10);
+              params.nSigFigs = Number.isNaN(value) ? null : value;
+            }
+          } else if (part.startsWith('mantissa-')) {
+            const valueStr = part.substring(9);
+            if (valueStr === 'null') {
+              params.mantissa = null;
+            } else {
+              const value = parseInt(valueStr, 10);
+              params.mantissa = Number.isNaN(value) ? null : value;
+            }
+          }
+        }
+        return params;
+      }
       case ESubscriptionType.WEB_DATA2:
       case ESubscriptionType.USER_EVENTS:
       case ESubscriptionType.USER_NOTIFICATIONS:

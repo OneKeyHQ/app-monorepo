@@ -10,7 +10,7 @@ import BigNumber from 'bignumber.js';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 
 type INSig = 2 | 3 | 4 | 5 | null;
-type IMantissa = 1 | 2 | 5;
+type IMantissa = 2 | 5;
 
 export interface ITickParam {
   targetTick: number; // decimals * multiplier

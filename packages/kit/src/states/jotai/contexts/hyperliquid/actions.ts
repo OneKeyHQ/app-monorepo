@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   activeAssetCtxAtom,
@@ -121,14 +122,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   updateL2BookSubscription = contextAtomMethod(
-    async (
-      get,
-      set,
-      options?: {
-        nSigFigs?: number | null;
-        mantissa?: number;
-      },
-    ) => {
+    async (get, set, options?: IL2BookOptions) => {
       const currentToken = get(currentTokenAtom());
       const currentUser = get(currentUserAtom());
       const isActive = get(subscriptionActiveAtom());
@@ -138,18 +132,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
 
       try {
-        // TODO: Backend service needs to be updated to support l2BookParams
-        // For now, we'll use the existing API and log the parameters for debugging
-        if (options) {
-          console.log('L2Book subscription parameters:', {
-            currentSymbol: currentToken,
-            nSigFigs: options.nSigFigs,
-            mantissa: options.mantissa,
-          });
-        }
+        console.log(
+          '[HyperliquidActions.updateL2BookSubscription] Updating L2Book subscription with options:',
+          options,
+        );
 
-        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions(
+        // Use the new dedicated method for L2Book subscription updates
+        await backgroundApiProxy.serviceHyperliquidSubscription.updateL2BookSubscription(
           {
+            l2BookOptions: options || {},
             currentSymbol: currentToken,
             currentUser,
           },

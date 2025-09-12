@@ -11,6 +11,7 @@ import {
   useWebData2Atom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { formatAssetCtx } from '../utils/formatData';
 
@@ -185,10 +186,7 @@ export interface IL2BookData extends HL.IBook {
   asks: HL.IBookLevel[];
 }
 
-export function useL2Book(options?: {
-  nSigFigs?: number | null;
-  mantissa?: number;
-}): {
+export function useL2Book(options?: IL2BookOptions): {
   l2Book: IL2BookData | null;
   hasOrderBook: boolean;
   getBestBid: () => string | null;
@@ -239,17 +237,6 @@ export function useL2Book(options?: {
 
     prevOptionsRef.current = currentOptions;
   }, [options?.nSigFigs, options?.mantissa, currentToken, actions, options]);
-
-  // Cleanup effect for component unmount
-  useEffect(() => {
-    return () => {
-      // Reset to default subscription when component unmounts
-      if (currentToken) {
-        console.log('L2Book hook cleanup, reverting to default subscription');
-        void actions.current.updateSubscriptions();
-      }
-    };
-  }, [currentToken, actions]);
 
   const l2Book = useMemo((): IL2BookData | null => {
     if (!l2BookData || !currentToken) return null;
