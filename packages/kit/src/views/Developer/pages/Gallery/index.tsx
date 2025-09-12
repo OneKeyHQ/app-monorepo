@@ -323,6 +323,12 @@ const SwitchGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Switch'
     ),
 );
+const TableGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/TableGallery/index'
+    ),
+);
 const NewTabsGallery = LazyLoadPage(
   () =>
     import(
@@ -724,6 +730,7 @@ export const galleryScreenList: {
     component: NumberSizeableTextGallery,
   },
   { name: EGalleryRoutes.ComponentSwitch, component: SwitchGallery },
+  { name: EGalleryRoutes.ComponentTable, component: TableGallery },
   { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },
   { name: EGalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: EGalleryRoutes.ComponentSlider, component: SliderGallery },
