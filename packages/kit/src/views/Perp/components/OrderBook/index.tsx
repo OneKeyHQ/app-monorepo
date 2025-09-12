@@ -5,6 +5,7 @@ import BigNumber from 'bignumber.js';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
+import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
@@ -338,6 +339,18 @@ export function OrderBook({
   const textColor = useTextColor();
   const spreadColor = useSpreadColor();
 
+  // Calculate spread percentage from best bid/ask
+  const spreadPercentage = useMemo(() => {
+    const bestBid = aggregatedData.bids[0]?.price;
+    const bestAsk = aggregatedData.asks[0]?.price;
+
+    if (!bestBid || !bestAsk) {
+      return '0.000%';
+    }
+
+    return calculateSpreadPercentage(bestBid, bestAsk);
+  }, [aggregatedData.bids, aggregatedData.asks]);
+
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
@@ -612,7 +625,7 @@ export function OrderBook({
               />
             ) : null}
             <Text style={[styles.bodySm, { color: textColor.text }]}>
-              0.002%
+              {spreadPercentage}
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (
@@ -692,6 +705,18 @@ export function OrderPairBook({
   );
   const textColor = useTextColor();
   const blockColors = useBlockColors();
+
+  // Calculate spread percentage from best bid/ask
+  const spreadPercentage = useMemo(() => {
+    const bestBid = aggregatedData.bids[0]?.price;
+    const bestAsk = aggregatedData.asks[0]?.price;
+
+    if (!bestBid || !bestAsk) {
+      return '0.000%';
+    }
+
+    return calculateSpreadPercentage(bestBid, bestAsk);
+  }, [aggregatedData.bids, aggregatedData.asks]);
   return (
     <View style={{ padding: 8 }}>
       <View style={styles.pairBookHeader}>
@@ -742,7 +767,7 @@ export function OrderPairBook({
               {midPrice}
             </Text>
             <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-              0.002%
+              {spreadPercentage}
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (
