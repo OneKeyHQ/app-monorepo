@@ -362,7 +362,7 @@ function BaseNotificationList() {
     [ENotificationPushTopicTypes.all]: [],
     [ENotificationPushTopicTypes.accountActivity]: [],
     [ENotificationPushTopicTypes.coinPriceAlert]: [],
-    [ENotificationPushTopicTypes.announcement]: [],
+    [ENotificationPushTopicTypes.system]: [],
   });
   const { isLoading, run: reFetchList } = usePromiseResult(
     async () => {
@@ -457,7 +457,7 @@ function BaseNotificationList() {
         }}
         sections={sectionsData}
         renderSectionHeader={
-          ({ section: { title } }) => null // <SectionList.SectionHeader title={title} />
+          (_) => null // <SectionList.SectionHeader title={title} />
         }
         renderItem={({
           item,
