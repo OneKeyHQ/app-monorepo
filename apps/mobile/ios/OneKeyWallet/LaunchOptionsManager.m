@@ -45,6 +45,16 @@ static LaunchOptionsManager *sharedInstance = nil;
     }
 }
 
+- (void)saveDeviceToken:(NSString *)deviceToken {
+    if (deviceToken) {
+        self.deviceToken = deviceToken;
+    }
+}
+
+- (NSString *)getDeviceToken {
+    return [LaunchOptionsManager sharedInstance].deviceToken;
+}
+
 // MARK: - RCTBridgeModule
 
 RCT_EXPORT_MODULE();
@@ -97,6 +107,12 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
     } else {
         resolve(@{});
     }
+}
+
+RCT_EXPORT_METHOD(getDeviceToken:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *deviceToken = [self getDeviceToken];
+    resolve(deviceToken);
 }
 
 RCT_EXPORT_METHOD(clearLaunchOptions:(RCTPromiseResolveBlock)resolve

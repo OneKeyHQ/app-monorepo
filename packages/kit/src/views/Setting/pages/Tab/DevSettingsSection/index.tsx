@@ -59,6 +59,7 @@ import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
+import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
@@ -210,6 +211,7 @@ export const DevSettingsSection = () => {
         />
       ) : null}
       <RegistrationID />
+      <DeviceToken />
       <SectionFieldItem
         icon="ServerOutline"
         name="enableTestEndpoint"

@@ -55,6 +55,7 @@ public class AppDelegate: ExpoAppDelegate {
   
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    LaunchOptionsManager.sharedInstance().saveDeviceToken(deviceToken)
     JPUSHService.registerDeviceToken(deviceToken)
   }
   
