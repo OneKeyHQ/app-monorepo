@@ -63,6 +63,7 @@ import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
+import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
@@ -208,6 +209,7 @@ export const DevSettingsSection = () => {
           subtitle="BuildHash"
         />
       ) : null}
+      <RegistrationID />
       <SectionFieldItem
         icon="ServerOutline"
         name="enableTestEndpoint"
