@@ -30,6 +30,13 @@ function isNetworkError(errorObject: Error) {
   );
 }
 
+function buildFeedUrl(useTestFeedUrl: boolean) {
+  return `${buildServiceEndpoint({
+    serviceName: EServiceEndpointEnum.Utility,
+    env: useTestFeedUrl ? 'test' : 'prod',
+  })}/utility/v1/app-update/electron-feed-url`;
+}
+
 export interface ILatestVersion {
   version: string;
   releaseDate: string;
@@ -214,10 +221,7 @@ class DesktopApiUpdate {
 
     const updateSettings = store.getUpdateSettings();
 
-    const feedUrl = `${buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.Utility,
-      env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
-    })}/utility/v1/app-update/electron-feed-url`;
+    const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl);
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
