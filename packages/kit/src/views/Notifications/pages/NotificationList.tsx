@@ -403,7 +403,7 @@ function BaseNotificationList() {
         );
         setUnreadMap(hasUnreadMap);
       }
-      if (cacheListRef.current[topicType]?.length === 0 && r?.length > 0) {
+      if (cacheListRef.current[topicType]?.length && r?.length > 0) {
         setResult(r);
       }
       cacheListRef.current[topicType] = r;
