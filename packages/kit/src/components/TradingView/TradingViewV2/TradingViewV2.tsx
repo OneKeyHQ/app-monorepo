@@ -4,6 +4,7 @@ import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useTradingViewUrl } from '../hooks';
 
@@ -41,6 +42,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
+  const theme = useThemeVariant();
 
   const {
     mode,
@@ -93,6 +95,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   return (
     <Stack position="relative" flex={1}>
       <WebView
+        key={theme}
         customReceiveHandler={async (data) => {
           await customReceiveHandler(data as ICustomReceiveHandlerData);
         }}
