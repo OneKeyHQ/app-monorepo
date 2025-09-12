@@ -22,7 +22,7 @@ function HoldersHeaderNormalBase() {
       py="$3"
       alignItems="center"
       borderBottomWidth="$px"
-      borderBottomColor="$transparent"
+      borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
     >
       <SizableText {...commonTextProps} {...styles.rank}>
