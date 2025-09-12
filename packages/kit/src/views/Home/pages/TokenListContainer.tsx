@@ -275,6 +275,7 @@ function TokenListContainer({
                 networkId: network.id,
                 flag: 'home-token-list',
                 saveToLocal: true,
+                indexedAccountId: indexedAccount?.id,
               }),
             ),
           );
@@ -355,6 +356,7 @@ function TokenListContainer({
             networkId: network.id,
             flag: 'home-token-list',
             saveToLocal: true,
+            indexedAccountId: indexedAccount?.id,
           });
 
           let accountWorth = new BigNumber(0);
@@ -535,6 +537,7 @@ function TokenListContainer({
         dbAccount,
         networkId,
         accountId,
+        indexedAccountId: indexedAccount?.id,
         flag: 'home-token-list',
         isAllNetworks: true,
         isManualRefresh: isAllNetworkManualRefresh.current,
@@ -685,6 +688,7 @@ function TokenListContainer({
     [
       account?.createAtNetwork,
       account?.id,
+      indexedAccount?.id,
       network?.id,
       refreshAggregateTokensListMap,
       refreshAggregateTokensMap,
@@ -783,7 +787,7 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('allNetworkRequestsStarted_getRawData');
 
-      const [c, r, l, a] = await Promise.all([
+      let [c, r, l, a] = await Promise.all([
         backgroundApiProxy.simpleDb.customTokens.getRawData(),
         backgroundApiProxy.simpleDb.riskTokenManagement.getRawData(),
         backgroundApiProxy.simpleDb.localTokens.getRawData(),
@@ -791,6 +795,11 @@ function TokenListContainer({
       ]);
 
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
+
+      if (!a?.aggregateTokenConfigMap) {
+        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+      }
 
       customTokensRawData.current = c ?? undefined;
       riskTokenManagementRawData.current = {
@@ -892,6 +901,12 @@ function TokenListContainer({
           networkId,
         });
 
+      const localAggregateTokenListMap =
+        await backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+          accountId,
+          networkId,
+        });
+
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
       let tokenListMap: {
@@ -916,6 +931,10 @@ function TokenListContainer({
 
       refreshAggregateTokensMap({
         tokens: localAggregateTokenMap,
+      });
+
+      refreshAggregateTokensListMap({
+        tokens: localAggregateTokenListMap,
       });
 
       refreshTokenListMap({
@@ -1009,6 +1028,7 @@ function TokenListContainer({
       account?.createAtNetwork,
       account?.id,
       network?.id,
+      refreshAggregateTokensListMap,
       refreshAggregateTokensMap,
       refreshAllTokenList,
       refreshAllTokenListMap,
@@ -1212,6 +1232,12 @@ function TokenListContainer({
         networkId: network?.id ?? '',
         accountId: account?.id ?? '',
         aggregateTokenMap,
+      });
+
+      void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+        aggregateTokenListMap,
       });
 
       tokenList.tokens = uniqBy(tokenList.tokens, (item) => item.$key);
@@ -1603,6 +1629,10 @@ function TokenListContainer({
           tokens,
           tokenListMap: allTokenListMapAtom,
         });
+      }
+
+      if (sortedTokens.length === 0) {
+        return;
       }
 
       navigation.pushModal(EModalRoutes.MainModal, {

@@ -29,7 +29,7 @@ import {
 } from '@onekeyhq/shared/types/approval';
 
 import { Token } from '../../../components/Token';
-import { openExplorerAddressUrl } from '../../../utils/explorerUtils';
+import { openTransactionDetailsUrl } from '../../../utils/explorerUtils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -201,8 +201,8 @@ function BulkRevokeItem(props: IProps) {
         borderLeftWidth={0}
         borderRightWidth={0}
         borderColor="$neutral3"
-        minHeight="108"
         px="$5"
+        py="$3"
       >
         {({ open }: { open: boolean }) => (
           <XStack alignItems="center" gap="$3" flex={1}>
@@ -320,9 +320,9 @@ function BulkRevokeItem(props: IProps) {
                     iconColor="$iconSubdued"
                     size="small"
                     onPress={() =>
-                      openExplorerAddressUrl({
+                      openTransactionDetailsUrl({
                         networkId: unsignedTx.networkId,
-                        address: status.txId,
+                        txid: status.txId,
                         openInExternal: true,
                       })
                     }

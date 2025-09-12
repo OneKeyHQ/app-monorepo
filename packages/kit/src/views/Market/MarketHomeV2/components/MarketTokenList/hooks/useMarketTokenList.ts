@@ -21,18 +21,16 @@ interface IUseMarketTokenListParams {
 
 export function useMarketTokenList({
   networkId,
-  initialSortBy,
-  initialSortType,
+  initialSortBy = 'v24hUSD',
+  initialSortType = 'desc',
   pageSize = 20,
 }: IUseMarketTokenListParams) {
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
-  const [sortBy, setSortBy] = useState<string | undefined>(
-    initialSortBy || 'v24hUSD',
-  );
+  const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
-    initialSortType || 'desc',
+    initialSortType,
   );
 
   // Pagination states
@@ -55,42 +53,24 @@ export function useMarketTokenList({
     run: fetchMarketTokenList,
   } = usePromiseResult(
     async () => {
-      // Default to fetch first 2 pages, or all loaded pages if user has manually loaded more
-      const pagesToFetch = currentPage === 1 ? 2 : currentPage;
-      const pageNumbers = Array.from({ length: pagesToFetch }, (_, i) => i + 1);
-
-      const promises = pageNumbers.map((page) =>
-        backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
+      const response =
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenList({
           networkId,
           sortBy,
           sortType,
-          page,
+          page: 1,
           limit: pageSize,
           minLiquidity,
-        }),
-      );
-
-      const responses = await Promise.all(promises);
-
-      // Update currentPage to reflect the pages we actually fetched (avoid triggering another fetch)
-      if (currentPage === 1 && pagesToFetch === 2) {
-        // Use setTimeout to avoid triggering usePromiseResult again immediately
-        setTimeout(() => setCurrentPage(2), 0);
-      }
-
-      // Combine all pages into a single response
-      const combinedList = responses.flatMap((response) => response.list);
-      const totalCount = responses[0]?.total || 0;
+        });
 
       return {
-        list: combinedList,
-        total: totalCount,
+        list: response.list,
+        total: response.total,
       };
     },
-    [networkId, sortBy, sortType, pageSize, minLiquidity, currentPage],
+    [networkId, sortBy, sortType, pageSize, minLiquidity],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 60 }),
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
@@ -101,11 +81,10 @@ export function useMarketTokenList({
       return;
     }
 
-    const transformed = apiResult.list.map((item, idx) =>
+    const transformed = apiResult.list.map((item) =>
       transformApiItemToToken(item, {
         chainId: networkId,
         networkLogoUri,
-        index: idx,
       }),
     );
 
@@ -174,11 +153,10 @@ export function useMarketTokenList({
         setConsecutiveEmptyResponses(0);
 
         // Transform new data
-        const newTransformed = response.list.map((item, idx) =>
+        const newTransformed = response.list.map((item) =>
           transformApiItemToToken(item, {
             chainId: networkId,
             networkLogoUri,
-            index: transformedData.length + idx,
           }),
         );
 
@@ -216,7 +194,6 @@ export function useMarketTokenList({
     sortType,
     minLiquidity,
     networkLogoUri,
-    transformedData.length,
   ]);
 
   const canLoadMore =
@@ -227,6 +204,8 @@ export function useMarketTokenList({
     isLoading,
     isLoadingMore,
     isNetworkSwitching,
+    initialSortBy,
+    initialSortType,
     totalPages,
     totalCount,
     currentPage,

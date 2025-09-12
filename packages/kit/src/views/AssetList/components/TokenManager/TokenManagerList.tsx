@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,7 +21,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
-import type { ICustomTokenItem } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IAggregateToken,
+  ICustomTokenItem,
+} from '@onekeyhq/shared/types/token';
 
 function ListHeaderComponent({
   onAddCustomToken,
@@ -170,9 +176,30 @@ function TokenManagerList({
   searchValue: string;
   searchResult: ICustomTokenItem[] | null;
   showListHeader?: boolean;
+  aggregateTokenConfigMap?: Record<string, IAggregateToken>;
 }) {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
+
+  const renderItemBadge = useCallback(
+    (item: IAccountToken) => {
+      if (item.isAggregateToken) {
+        return (
+          <Badge>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge>
+        );
+      }
+
+      if (isAllNetwork) {
+        return <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>;
+      }
+
+      return null;
+    },
+    [intl, isAllNetwork, networkMaps],
+  );
+
   if (isLoadingRemoteData || !dataSource) {
     return <SkeletonList />;
   }
@@ -216,9 +243,7 @@ function TokenManagerList({
               >
                 {item.symbol}
               </SizableText>
-              {isAllNetwork ? (
-                <Badge>{networkMaps?.[item.networkId ?? '']?.name ?? ''}</Badge>
-              ) : null}
+              {renderItemBadge(item)}
             </XStack>
             <SizableText
               size="$bodyMd"

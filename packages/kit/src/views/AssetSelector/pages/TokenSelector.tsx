@@ -311,6 +311,7 @@ function TokenSelector() {
       const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
         accountId,
         networkId,
+        indexedAccountId,
         flag: 'token-selector',
       });
 
@@ -334,6 +335,7 @@ function TokenSelector() {
     accountId,
     activeAccountId,
     activeNetworkId,
+    indexedAccountId,
     networkId,
     refreshActiveAccountTokenList,
     refreshTokenListMap,

@@ -64,7 +64,7 @@ function PerpPositionsList({
       {
         key: 'pnl',
         title: 'PnL (ROE %)',
-        minWidth: 120,
+        minWidth: 140,
         align: 'left',
         flex: 1,
       },
@@ -82,7 +82,7 @@ function PerpPositionsList({
         align: 'left',
         flex: 1,
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 100, align: 'left', flex: 1 },
+      { key: 'TPSL', title: 'TP/SL', minWidth: 140, align: 'center', flex: 1 },
       {
         key: 'actions',
         title: 'Close',
@@ -138,7 +138,10 @@ function PerpPositionsList({
     const szi = position?.szi;
     const midValue = allMids?.mids?.[coin];
     const tpslOrders = openOrders.filter(
-      (order) => order.coin === coin && order.isPositionTpsl,
+      (order) =>
+        order.coin === coin &&
+        (order.orderType.startsWith('Take') ||
+          order.orderType.startsWith('Stop')),
     );
     return (
       <PositionRow
