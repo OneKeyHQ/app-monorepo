@@ -26,7 +26,7 @@ import {
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-export function MobileLayout() {
+export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const intl = useIntl();
   const tabNames = useMemo(
