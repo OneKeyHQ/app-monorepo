@@ -30,6 +30,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useIsMounted } from '../../../hooks/useIsMounted';
 import {
   useApprovalListActions,
   useContractMapAtom,
@@ -69,6 +70,8 @@ function ApprovalDetails() {
   const { copyText } = useClipboard();
 
   const navigation = useAppNavigation();
+
+  const isMountedRef = useIsMounted();
 
   const [isBulkRevokeMode, setIsBulkRevokeMode] = useState(false);
 
@@ -115,6 +118,8 @@ function ApprovalDetails() {
       tokenInfo: IToken;
       isSelected: boolean;
     }) => {
+      if (!isMountedRef.current) return;
+
       setSelectedTokens((prev) => ({
         ...prev,
         [approvalUtils.buildSelectedTokenKey({
@@ -130,11 +135,14 @@ function ApprovalDetails() {
       approval.contractAddress,
       approval.networkId,
       setSelectedTokens,
+      isMountedRef,
     ],
   );
 
   const handleSelectAll = useCallback(
     (_isSelectAll: ICheckedState) => {
+      if (!isMountedRef.current) return;
+
       const isSelectAll = _isSelectAll === true;
       const selectedAllTokens = approval.approvals.reduce((acc, item) => {
         acc[
@@ -155,6 +163,7 @@ function ApprovalDetails() {
       approval.contractAddress,
       approval.networkId,
       setSelectedTokens,
+      isMountedRef,
     ],
   );
 
@@ -188,6 +197,8 @@ function ApprovalDetails() {
 
   const handleTokenOnRevoke = useCallback(
     async ({ tokenInfo }: { tokenInfo: IToken }) => {
+      if (!isMountedRef.current) return;
+
       setIsBuildingRevokeTxs(true);
       setSelectedTokens({
         [approvalUtils.buildSelectedTokenKey({
@@ -198,28 +209,40 @@ function ApprovalDetails() {
         })]: true,
       });
 
-      const revokeInfo: IApproveInfo = {
-        owner: approval.owner,
-        spender: approval.contractAddress,
-        amount: '0',
-        tokenInfo,
-      };
+      try {
+        const revokeInfo: IApproveInfo = {
+          owner: approval.owner,
+          spender: approval.contractAddress,
+          amount: '0',
+          tokenInfo,
+        };
 
-      const unsignedTx =
-        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
-          networkId: approval.networkId,
+        const unsignedTx =
+          await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+            networkId: approval.networkId,
+            accountId: approval.accountId,
+            approveInfo: revokeInfo,
+          });
+
+        if (!isMountedRef.current) return;
+
+        navigation.push(EModalApprovalManagementRoutes.TxConfirm, {
           accountId: approval.accountId,
-          approveInfo: revokeInfo,
+          networkId: approval.networkId,
+          unsignedTxs: [unsignedTx],
         });
 
-      navigation.push(EModalApprovalManagementRoutes.TxConfirm, {
-        accountId: approval.accountId,
-        networkId: approval.networkId,
-        unsignedTxs: [unsignedTx],
-      });
+        await timerUtils.wait(1000);
 
-      await timerUtils.wait(1000);
-      setIsBuildingRevokeTxs(false);
+        if (isMountedRef.current) {
+          setIsBuildingRevokeTxs(false);
+        }
+      } catch (error) {
+        if (isMountedRef.current) {
+          setIsBuildingRevokeTxs(false);
+        }
+        throw error;
+      }
     },
 
     [
@@ -230,10 +253,11 @@ function ApprovalDetails() {
       navigation,
       setIsBuildingRevokeTxs,
       setSelectedTokens,
+      isMountedRef,
     ],
   );
 
-  const renderApprovalOverview = () => {
+  const renderApprovalOverview = useCallback(() => {
     if (isSelectMode) {
       return null;
     }
@@ -255,6 +279,7 @@ function ApprovalDetails() {
               size="xl"
               showNetworkIcon
               networkId={approval.networkId}
+              tokenImageUri={contract.logoURI}
               fallbackIcon={contract.icon}
             />
             <YStack flex={1}>
@@ -344,7 +369,19 @@ function ApprovalDetails() {
         <Divider />
       </Stack>
     );
-  };
+  }, [
+    approval.approvals.length,
+    approval.contractAddress,
+    approval.isRiskContract,
+    approval.networkId,
+    approval.riskReason,
+    contract.icon,
+    contract.label,
+    contract.logoURI,
+    copyText,
+    intl,
+    isSelectMode,
+  ]);
 
   const filteredApprovals = useMemo(() => {
     if (!searchText) {
@@ -372,9 +409,7 @@ function ApprovalDetails() {
     });
   }, [approval.approvals, approval.networkId, searchText, tokenMap]);
 
-  const renderApprovedTokens = () => {
-    console.log(filteredApprovals);
-
+  const renderApprovedTokens = useCallback(() => {
     return (
       <ListView
         ListHeaderComponent={
@@ -419,9 +454,18 @@ function ApprovalDetails() {
         )}
       />
     );
-  };
+  }, [
+    filteredApprovals,
+    handleTokenOnSelect,
+    handleTokenOnRevoke,
+    isBulkRevokeMode,
+    isSelectMode,
+    intl,
+    approval.accountId,
+    approval.networkId,
+  ]);
 
-  const renderBulkRevokeActions = () => {
+  const renderBulkRevokeActions = useCallback(() => {
     if (isBulkRevokeMode || isSelectMode) {
       return (
         <ApprovalActions
@@ -438,26 +482,45 @@ function ApprovalDetails() {
     }
 
     return null;
-  };
+  }, [
+    handleOnCancel,
+    handleOnConfirm,
+    handleSelectAll,
+    isBuildingRevokeTxs,
+    isBulkRevokeMode,
+    isSelectAllTokens,
+    isSelectMode,
+    selectedCount,
+  ]);
 
   const handleSearchTextChange = useDebouncedCallback((text: string) => {
-    setSearchText(text);
+    if (isMountedRef.current) {
+      setSearchText(text);
+    }
   }, 500);
 
   useEffect(() => {
-    if (selectedTokensProp) {
+    if (selectedTokensProp && isMountedRef.current) {
       setSelectedTokens(selectedTokensProp);
     }
-  }, [selectedTokensProp, setSelectedTokens]);
+  }, [selectedTokensProp, setSelectedTokens, isMountedRef]);
 
   useEffect(() => {
-    if (tokenMapProp) {
-      updateTokenMap({ data: tokenMapProp });
+    if (isMountedRef.current) {
+      if (tokenMapProp) {
+        updateTokenMap({ data: tokenMapProp });
+      }
+      if (contractMapProp) {
+        updateContractMap({ data: contractMapProp });
+      }
     }
-    if (contractMapProp) {
-      updateContractMap({ data: contractMapProp });
-    }
-  }, [tokenMapProp, contractMapProp, updateTokenMap, updateContractMap]);
+  }, [
+    tokenMapProp,
+    contractMapProp,
+    updateTokenMap,
+    updateContractMap,
+    isMountedRef,
+  ]);
 
   return (
     <Page scrollEnabled>

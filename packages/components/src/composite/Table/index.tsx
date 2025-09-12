@@ -32,6 +32,11 @@ import type {
 
 const DEFAULT_ROW_HEIGHT = 60;
 
+export enum ETableSortType {
+  ASC = 'asc',
+  DESC = 'desc',
+}
+
 function Column<T>({
   children,
   width,
@@ -312,6 +317,7 @@ export interface ITableProps<T> {
     | {
         onPress?: () => void;
         onSortTypeChange?: (sortOrder: 'asc' | 'desc' | undefined) => void;
+        disableSort?: ETableSortType[];
       }
     | undefined;
   onRow?: (
@@ -351,7 +357,7 @@ function HeaderColumn<T>({
   } = column;
   const events = onHeaderRow?.(column, index);
   const enableSortType = !!events?.onSortTypeChange;
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | undefined>();
+  const [sortOrder, setSortOrder] = useState<ETableSortType | undefined>();
 
   useEffect(() => {
     if (selectedColumnName !== dataIndex) {
@@ -363,12 +369,30 @@ function HeaderColumn<T>({
     if (!enableSortType) {
       return;
     }
-    let order: 'asc' | 'desc' | undefined = 'desc';
-    if (sortOrder === 'desc') {
-      order = 'asc';
-    } else if (sortOrder === 'asc') {
-      order = undefined;
-    }
+    const disabledSorts = events?.disableSort || [];
+
+    const getNextSortOrder = (
+      current: ETableSortType | undefined,
+      disabled: ETableSortType[],
+    ): ETableSortType | undefined => {
+      const isDisabled = (sort: ETableSortType | undefined) =>
+        sort !== undefined && disabled.includes(sort);
+
+      if (current === ETableSortType.DESC) {
+        return isDisabled(ETableSortType.ASC) ? undefined : ETableSortType.ASC;
+      }
+
+      if (current === ETableSortType.ASC) {
+        return undefined;
+      }
+
+      // current is undefined, find first available sort
+      if (!isDisabled(ETableSortType.DESC)) return ETableSortType.DESC;
+      if (!isDisabled(ETableSortType.ASC)) return ETableSortType.ASC;
+      return undefined;
+    };
+
+    const order = getNextSortOrder(sortOrder, disabledSorts);
 
     // When resetting to undefined, clear the selected column to allow default sorting
     if (order === undefined) {
