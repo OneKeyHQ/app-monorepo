@@ -355,18 +355,26 @@ function BaseNotificationList() {
     [ENotificationPushTopicTypes.accountActivity]: 0,
     [ENotificationPushTopicTypes.system]: 0,
   });
-  const {
-    result = [],
-    isLoading,
-    run: reFetchList,
-  } = usePromiseResult(
+  const [result, setResult] = useState<INotificationPushMessageListItem[]>([]);
+  const cacheListRef = useRef<
+    Record<ENotificationPushTopicTypes, INotificationPushMessageListItem[]>
+  >({
+    [ENotificationPushTopicTypes.all]: [],
+    [ENotificationPushTopicTypes.accountActivity]: [],
+    [ENotificationPushTopicTypes.coinPriceAlert]: [],
+    [ENotificationPushTopicTypes.announcement]: [],
+  });
+  const { isLoading, run: reFetchList } = usePromiseResult(
     async () => {
       noop(lastReceivedTime);
-      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
+      if (!topicType) return;
+      const cacheList = cacheListRef.current[topicType];
       setShouldShowMaxAccountLimitWarning(
         topicType !== ENotificationPushTopicTypes.system,
       );
+      setResult(cacheList);
+      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const r = await backgroundApiProxy.serviceNotification.fetchMessageList(
         !topicType || topicType === ENotificationPushTopicTypes.all
           ? undefined
@@ -395,6 +403,10 @@ function BaseNotificationList() {
         );
         setUnreadMap(hasUnreadMap);
       }
+      if (cacheListRef.current[topicType]?.length === 0 && r?.length > 0) {
+        setResult(r);
+      }
+      cacheListRef.current[topicType] = r;
       return r;
     },
     [focusedTab.value, lastReceivedTime, tabs],
@@ -426,8 +438,9 @@ function BaseNotificationList() {
   );
 
   useEffect(() => {
-    const fn = () => {
-      void reFetchList();
+    const fn = async () => {
+      const r = await reFetchList();
+      setResult(r ?? []);
     };
     appEventBus.on(EAppEventBusNames.UpdateNotificationBadge, fn);
     return () => {
