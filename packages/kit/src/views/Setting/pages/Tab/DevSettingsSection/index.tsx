@@ -16,9 +16,12 @@ import {
 } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -56,10 +59,6 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
-
-import { AccountSelectorProviderMirror } from '../../../../../components/AccountSelector';
-import { useSignatureConfirm } from '../../../../../hooks/useSignatureConfirm';
-import { useActiveAccount } from '../../../../../states/jotai/contexts/accountSelector';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
@@ -278,6 +277,26 @@ const BaseDevSettingsSection = () => {
           copyable
           title={platformEnv.githubSHA}
           subtitle="BuildHash"
+        />
+      ) : null}
+      {platformEnv.isDesktop ? (
+        <SectionPressItem
+          icon="CodeOutline"
+          copyable
+          title="Desktop env"
+          subtitle="Desktop Channel"
+          onPress={() => {
+            Dialog.debugMessage({
+              debugMessage: {
+                deskChannel: globalThis?.desktopApi?.deskChannel,
+                arch: globalThis?.desktopApi?.arch,
+                platform: globalThis?.desktopApi?.platform,
+                channel: globalThis?.desktopApi?.channel,
+                isMas: globalThis?.desktopApi?.isMas,
+                systemVersion: globalThis?.desktopApi?.systemVersion,
+              },
+            });
+          }}
         />
       ) : null}
       <RegistrationID />
