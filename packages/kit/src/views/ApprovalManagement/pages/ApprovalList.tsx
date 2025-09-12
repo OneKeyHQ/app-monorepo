@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -67,12 +68,34 @@ function ApprovalList() {
       networkId,
     });
 
+  const filteredSelectedTokensByNetwork = useMemo(() => {
+    if (searchNetworkId === getNetworkIdsMap().onekeyall) {
+      return selectedTokens;
+    }
+    return pickBy(selectedTokens, (_, key) => {
+      return (
+        approvalUtils.parseSelectedTokenKey({
+          selectedTokenKey: key,
+        }).networkId === searchNetworkId
+      );
+    });
+  }, [selectedTokens, searchNetworkId]);
+
+  const filteredApprovalsByNetwork = useMemo(() => {
+    if (searchNetworkId === getNetworkIdsMap().onekeyall) {
+      return approvals;
+    }
+    return approvals.filter((approval) => {
+      return approval.networkId === searchNetworkId;
+    });
+  }, [approvals, searchNetworkId]);
+
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
     return approvalUtils.checkIsSelectAllTokens({
-      approvals,
-      selectedTokens,
+      approvals: filteredApprovalsByNetwork,
+      selectedTokens: filteredSelectedTokensByNetwork,
     });
-  }, [selectedTokens, approvals]);
+  }, [filteredSelectedTokensByNetwork, filteredApprovalsByNetwork]);
 
   const renderNetworkFilter = useCallback(() => {
     if (!networkUtils.isAllNetwork({ networkId })) {
@@ -142,29 +165,39 @@ function ApprovalList() {
             merge: true,
           });
         },
-        selectedTokens,
+        selectedTokens: filteredSelectedTokensByNetwork,
       });
     },
-    [navigation, isBulkRevokeMode, updateSelectedTokens, selectedTokens],
+    [
+      navigation,
+      isBulkRevokeMode,
+      updateSelectedTokens,
+      filteredSelectedTokensByNetwork,
+    ],
   );
   const handleSelectAll = useCallback(() => {
     const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
-      approvals,
+      approvals: filteredApprovalsByNetwork,
       toggle: !(isSelectAllTokens === true),
     });
 
     updateSelectedTokens({
       selectedTokens: selectedTokensTemp,
     });
-  }, [updateSelectedTokens, approvals, isSelectAllTokens]);
+  }, [updateSelectedTokens, filteredApprovalsByNetwork, isSelectAllTokens]);
 
   const handleOnConfirm = useCallback(() => {
     void navigationToBulkRevokeProcess({
-      selectedTokens,
+      selectedTokens: filteredSelectedTokensByNetwork,
       tokenMap,
       contractMap,
     });
-  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
+  }, [
+    navigationToBulkRevokeProcess,
+    filteredSelectedTokensByNetwork,
+    tokenMap,
+    contractMap,
+  ]);
   const handleOnCancel = useCallback(() => {
     updateIsBulkRevokeMode(false);
   }, [updateIsBulkRevokeMode]);
