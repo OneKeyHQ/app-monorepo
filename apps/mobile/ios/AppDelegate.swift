@@ -29,6 +29,8 @@ public class AppDelegate: ExpoAppDelegate {
       in: window,
       launchOptions: launchOptions)
 #endif
+    // Save launch options to LaunchOptionsManager
+    LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

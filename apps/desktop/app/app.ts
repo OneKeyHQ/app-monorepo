@@ -799,7 +799,8 @@ if (!singleInstance && !process.mas) {
     }
   });
 
-  app.on('ready', async () => {
+  app.on('ready', async (_, launchInfo) => {
+    logger.info('launchInfo >>>> ', launchInfo);
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
     startServices();
