@@ -1,3 +1,4 @@
+import fs from 'fs';
 import path from 'path';
 
 import { app, dialog } from 'electron';
@@ -30,6 +31,24 @@ function isNetworkError(errorObject: Error) {
   );
 }
 
+async function clearUpdateCache() {
+  try {
+    // @ts-ignore
+    const baseCachePath = autoUpdater?.app?.baseCachePath;
+    if (baseCachePath) {
+      const cachePath = path.join(baseCachePath, '@onekeyhqdesktop-updater');
+      logger.info('auto-updater', `cachePath: ${cachePath}`);
+      const isExist = fs.existsSync(cachePath);
+      if (isExist) {
+        fs.rmSync(cachePath, { recursive: true, force: true });
+      }
+      logger.info('auto-updater', `removed: ${cachePath}`);
+    }
+  } catch (error) {
+    logger.info('auto-updater', 'Error clearing cache: ', error);
+  }
+}
+
 function buildFeedUrl(useTestFeedUrl: boolean) {
   return `${buildServiceEndpoint({
     serviceName: EServiceEndpointEnum.Utility,
@@ -41,6 +60,7 @@ export interface ILatestVersion {
   version: string;
   releaseDate: string;
   isManualCheck: boolean;
+  updateCancellationToken: CancellationToken | undefined;
 }
 
 if (isMas) {
@@ -56,10 +76,15 @@ class DesktopApiUpdate {
 
   latestVersion: ILatestVersion;
 
+  isDownloading: boolean;
+
+  updateCancellationToken: CancellationToken | undefined;
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
     this.isManualCheck = false;
     this.latestVersion = {} as ILatestVersion;
+    this.isDownloading = false;
     if (!isMas) {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
@@ -210,7 +235,7 @@ class DesktopApiUpdate {
 
   initBundleAutoUpdateEvents(): void {}
 
-  async checkForUpdates(isManual: boolean): Promise<void> {
+  async checkForUpdates(isManual = false): Promise<void> {
     if (isManual) {
       this.isManualCheck = true;
     }
@@ -249,6 +274,45 @@ class DesktopApiUpdate {
         });
       }
     });
+  }
+
+  async downloadUpdate(): Promise<void> {
+    logger.info('auto-updater', 'Download requested', this.isDownloading);
+    if (this.isDownloading) {
+      return;
+    }
+    this.isDownloading = true;
+    const mainWindow = this.getMainWindow();
+    if (!mainWindow) {
+      return;
+    }
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
+      percent: 0,
+      bytesPerSecond: 0,
+      total: 0,
+      transferred: 0,
+    });
+    if (this.updateCancellationToken) {
+      this.updateCancellationToken.cancel();
+    }
+    store.clearUpdateBuildNumber();
+    await clearUpdateCache();
+    this.updateCancellationToken = new CancellationToken();
+    autoUpdater
+      .downloadUpdate(this.updateCancellationToken)
+      .then(() => logger.info('auto-updater', 'Update downloaded'))
+      .catch((e: Error) => {
+        logger.info('auto-updater', 'Update cancelled', e);
+        // CancellationError
+        // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
+        if (e.message === 'cancelled') {
+          return;
+        }
+        throw e;
+      })
+      .finally(() => {
+        this.isDownloading = false;
+      });
   }
 
   async useTestUpdateFeedUrl(enabled = false): Promise<void> {

@@ -290,17 +290,14 @@ const init = ({ mainWindow, store }: IDependencies) => {
     autoUpdater
       .downloadUpdate(updateCancellationToken)
       .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch((e: { code: string; message: string }) => {
+      .catch((e: Error) => {
         logger.info('auto-updater', 'Update cancelled', e);
         // CancellationError
         // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
         if (e.message === 'cancelled') {
           return;
         }
-        mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-          err: {},
-          isNetworkError: false,
-        });
+        throw e;
       })
       .finally(() => {
         isDownloading = false;
