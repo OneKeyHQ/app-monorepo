@@ -182,7 +182,7 @@ function ApprovalList() {
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
         onCancelText={intl.formatMessage({
-          id: ETranslations.global_cancel,
+          id: ETranslations.wallet_approval_cancel,
         })}
         selectedCount={selectedCount}
         isBuildingRevokeTxs={isBuildingRevokeTxs}

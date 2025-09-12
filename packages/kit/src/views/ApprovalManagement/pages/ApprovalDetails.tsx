@@ -473,6 +473,9 @@ function ApprovalDetails() {
           setIsSelectAll={handleSelectAll}
           onConfirm={handleOnConfirm}
           onCancel={handleOnCancel}
+          onCancelText={intl.formatMessage({
+            id: ETranslations.wallet_approval_cancel,
+          })}
           isSelectMode={isSelectMode}
           isBulkRevokeMode={isBulkRevokeMode}
           selectedCount={selectedCount}
@@ -491,6 +494,7 @@ function ApprovalDetails() {
     isSelectAllTokens,
     isSelectMode,
     selectedCount,
+    intl,
   ]);
 
   const handleSearchTextChange = useDebouncedCallback((text: string) => {

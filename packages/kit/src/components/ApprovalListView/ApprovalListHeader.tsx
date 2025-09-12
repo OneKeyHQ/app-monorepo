@@ -86,14 +86,14 @@ function ApprovalListHeader({
         <Stack flexGrow={1} flexBasis={0}>
           <HeaderItem
             label={intl.formatMessage({
-              id: ETranslations.global_approval_time,
+              id: ETranslations.wallet_approval_approved_token,
             })}
           />
         </Stack>
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-end" maxWidth="$36">
           <HeaderItem
             label={intl.formatMessage({
-              id: ETranslations.wallet_approval_approved_token,
+              id: ETranslations.global_approval_time,
             })}
           />
         </Stack>
