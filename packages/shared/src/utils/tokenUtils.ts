@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { forEach, isNil, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import networkUtils from './networkUtils';
@@ -154,7 +155,7 @@ export function getFilteredTokenBySearchKey({
 }
 
 export function sortTokensByFiatValue({
-  tokens,
+  tokens = [],
   map = {},
   sortDirection = 'desc',
 }: {
@@ -164,7 +165,7 @@ export function sortTokensByFiatValue({
   };
   sortDirection?: 'desc' | 'asc';
 }) {
-  return [...tokens].sort((a, b) => {
+  return tokens?.sort((a, b) => {
     const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
     const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
 
@@ -785,7 +786,7 @@ export function buildAggregateTokenListData(params: {
         commonToken: {
           ...token,
           accountId,
-          networkId: '',
+          networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
           address: aggregateTokenListMapKey,
           $key: aggregateTokenListMapKey,
           isAggregateToken: true,
