@@ -4,6 +4,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   activeAssetCtxAtom,
@@ -121,6 +122,39 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       );
     }
   });
+
+  updateL2BookSubscription = contextAtomMethod(
+    async (get, set, options?: IL2BookOptions) => {
+      const currentToken = get(currentTokenAtom());
+      const currentUser = get(currentUserAtom());
+      const isActive = get(subscriptionActiveAtom());
+
+      if (!isActive) {
+        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+      }
+
+      try {
+        console.log(
+          '[HyperliquidActions.updateL2BookSubscription] Updating L2Book subscription with options:',
+          options,
+        );
+
+        // Use the new dedicated method for L2Book subscription updates
+        await backgroundApiProxy.serviceHyperliquidSubscription.updateL2BookSubscription(
+          {
+            l2BookOptions: options || {},
+            currentSymbol: currentToken,
+            currentUser,
+          },
+        );
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.updateL2BookSubscription] Failed to update L2 book subscription:',
+          error,
+        );
+      }
+    },
+  );
 
   startSubscriptions = contextAtomMethod(async (get, set) => {
     set(subscriptionActiveAtom(), true);
@@ -460,6 +494,7 @@ export function useHyperliquidActions() {
   const setCurrentUser = actions.setCurrentUser.use();
   const setCurrentAccount = actions.setCurrentAccount.use();
   const updateSubscriptions = actions.updateSubscriptions.use();
+  const updateL2BookSubscription = actions.updateL2BookSubscription.use();
   const startSubscriptions = actions.startSubscriptions.use();
   const stopSubscriptions = actions.stopSubscriptions.use();
   const reconnectSubscriptions = actions.reconnectSubscriptions.use();
@@ -491,6 +526,7 @@ export function useHyperliquidActions() {
     setCurrentUser,
     setCurrentAccount,
     updateSubscriptions,
+    updateL2BookSubscription,
     startSubscriptions,
     stopSubscriptions,
     reconnectSubscriptions,

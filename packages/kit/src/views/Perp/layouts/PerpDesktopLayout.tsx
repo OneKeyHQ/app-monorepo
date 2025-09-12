@@ -25,7 +25,7 @@ function PerpDesktopLayout() {
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
             >
-              <YStack flex={1}>
+              <YStack flex={1} minHeight={300}>
                 <PerpCandles />
               </YStack>
 
@@ -33,16 +33,17 @@ function PerpDesktopLayout() {
                 <YStack
                   borderLeftWidth="$px"
                   borderLeftColor="$borderSubdued"
-                  w={320}
+                  w={300}
                 >
                   <PerpOrderBook />
                 </YStack>
               ) : null}
             </XStack>
             {/* Positions Section */}
-            <PerpOrderInfoPanel />
+            <YStack flex={1} overflow="hidden">
+              <PerpOrderInfoPanel />
+            </YStack>
           </YStack>
-
           <YStack w={360}>
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">

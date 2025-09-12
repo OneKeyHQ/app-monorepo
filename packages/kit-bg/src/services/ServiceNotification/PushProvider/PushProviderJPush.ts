@@ -31,13 +31,13 @@ export class PushProviderJPush extends PushProviderBase {
       channel: process.env.JPUSH_CHANNEL || 'prod',
       production: true,
     };
-    if (process.env.NODE_ENV !== 'production') {
-      JPush.setLoggerEnable(true);
-      defaultLogger.notification.jpush.consoleLog(
-        'JPush setLoggerEnable',
-        true,
-      );
-    }
+    // if (process.env.NODE_ENV !== 'production') {
+    //   JPush.setLoggerEnable(true);
+    //   defaultLogger.notification.jpush.consoleLog(
+    //     'JPush setLoggerEnable',
+    //     true,
+    //   );
+    // }
     JPush.init(options);
     defaultLogger.notification.jpush.consoleLog(
       'JPush 极光推送初始化完成',

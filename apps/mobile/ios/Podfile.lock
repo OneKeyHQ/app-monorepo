@@ -298,7 +298,6 @@ PODS:
     - React-RCTText (= 0.79.5)
     - React-RCTVibration (= 0.79.5)
   - React-callinvoker (0.79.5)
-  - React-Codegen (0.1.0)
   - React-Core (0.79.5):
     - glog
     - hermes-engine
@@ -1637,7 +1636,7 @@ PODS:
     - Yoga
   - react-native-cloud-fs (2.6.3):
     - React
-  - react-native-compat (2.11.2):
+  - react-native-compat (2.21.7):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1786,12 +1785,29 @@ PODS:
     - Yoga
   - react-native-performance-stats (0.2.3):
     - CocoaLumberjack
-    - RCT-Folly
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.11.18.00)
     - RCTRequired
     - RCTTypeSafety
-    - React-Codegen
     - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-hermes
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -2570,10 +2586,10 @@ PODS:
     - ReactCommon/turbomodule/core
     - TOCropViewController (~> 2.7.4)
     - Yoga
-  - RNNotifee (9.0.0):
+  - RNNotifee (9.1.8):
     - React-Core
-    - RNNotifee/NotifeeCore (= 9.0.0)
-  - RNNotifee/NotifeeCore (9.0.0):
+    - RNNotifee/NotifeeCore (= 9.1.8)
+  - RNNotifee/NotifeeCore (9.1.8):
     - React-Core
   - RNPermissions (5.4.2):
     - DoubleConversion
@@ -3039,7 +3055,6 @@ SPEC REPOS:
     - lottie-ios
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
-    - React-Codegen
     - RevenueCat
     - SDWebImage
     - SDWebImageAVIFCoder
@@ -3349,7 +3364,7 @@ SPEC CHECKSUMS:
   CheckBiometricAuthChanged: 9744da7f2c19b2f99fb1e94308a874a5c0df5d7d
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
-  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
+  DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
@@ -3384,7 +3399,7 @@ SPEC CHECKSUMS:
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
-  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
+  glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCore: 4707d226b452782383a401bea8ee2518565017e6
@@ -3402,7 +3417,6 @@ SPEC CHECKSUMS:
   RCTTypeSafety: cc4740278c2a52cbf740592b0a0a40df1587c9ab
   React: 6393ae1807614f017a84805bf2417e3497f518a6
   React-callinvoker: c34f666f551f05a325b87e7e3e6df0e082fa3d99
-  React-Codegen: 4b8b4817cea7a54b83851d4c1f91f79aa73de30a
   React-Core: 1ba9acdf7accbd46ccaae99999443ae2722c82b7
   React-CoreModules: 3c3cf4a91257f138e3feb47169a2d7fe341b5495
   React-cxxreact: 444d518a5d3a933e029b5e5ca6d8127c2e43255c
@@ -3432,13 +3446,13 @@ SPEC CHECKSUMS:
   react-native-ble-plx: 42b541d86904b350743b507a00222145d833cac9
   react-native-capture-protection: 8df17cfa486df1c267f9de32f4877f75be216670
   react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
-  react-native-compat: 81ec34c5738beae429211f8cb38294efb49b2edc
+  react-native-compat: 792f9cfc926dd4edb1e1e73ebf0f08308083a825
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 9c9a77993f7449e8b7d8c5989289f65e08c7ab74
   react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd
   react-native-mmkv: 69af18f435f8978ed3e7b8c1b23bba35350ddcd8
   react-native-pager-view: e52266cedb6b1312af2f17b1620e045238495a30
-  react-native-performance-stats: a45aa22f574c01d00bc5cadd0a3b8d34b308ae2e
+  react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 12778ca3d8719cfc13035a8b56853e45b6cc9862
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1
@@ -3487,7 +3501,7 @@ SPEC CHECKSUMS:
   RNFileLogger: bf2de384fca1484f291f361ad8d820e11f1cc4ad
   RNGestureHandler: 6b48571964d1b4302f531bb07f8360399a02200a
   RNImageCropPicker: de6a16085ad4e4c67850b0c662d1d333d367cc59
-  RNNotifee: 3978eab0eb24f9c2ee6ee0440ee7c50748803559
+  RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNPermissions: 56c5d74ecf592d650d5c6cb252ed6956aaf22db0
   RNPurchases: 4c820359d90fab9c83ffd3ef5471d59db72e2ed1
   RNReanimated: 24c64a050426b2e5b27d3435f1dcd89651207ff3

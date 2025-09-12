@@ -8,12 +8,12 @@ export type IAggregationBtn = (
 ) => React.ReactNode;
 
 export interface IOBLevel {
-  /** The price of this level */
-  price: number;
-  /** The size of this level */
-  size: number;
-  /** The cumulative size of all levels up to and including this one */
-  cumSize: number;
+  /** The price of this level as string to maintain precision */
+  price: string;
+  /** The size of this level as string to maintain precision */
+  size: string;
+  /** The cumulative size of all levels up to and including this one as string to maintain precision */
+  cumSize: string;
 }
 
 export type ITick<T> = [coord: number, value: T];
