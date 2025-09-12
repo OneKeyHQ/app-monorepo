@@ -1,422 +1,770 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { colorTokens } from '@tamagui/themes';
+import BigNumber from 'bignumber.js';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import type { IXStackProps } from '@onekeyhq/components';
-import {
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
+import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
-import type { StyleProp, ViewStyle } from 'react-native';
+import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
 
-export const rowHeight = 28;
+export const rowHeight = 24;
 
-export const defaultMidPriceNode = (midPrice: number) => (
-  <NumberSizeableText formatter="balance">{midPrice}</NumberSizeableText>
+export const defaultMidPriceNode = (midPrice: string) => (
+  <Text>{midPrice}</Text>
 );
 
-interface IOBAggregation {
-  /** The natural tick size of this instrument */
-  baseTickSize: number;
-  /** The currently selected tick size */
-  tickSize: number;
-  /** The possible tick sizes the user can select. You can omit
-   * this and `onTickSizeChange` if you don't want aggregation
-   * controls to be rendered */
-  tickSizes?: number[];
-  /** Called when a user selects another aggregation */
-  onTickSizeChange?: (nextTickSize: number) => void;
+// Helper function to calculate percentage with BigNumber precision
+function calculatePercentage(cumSize: string, totalDepth: BigNumber): number {
+  if (totalDepth.isZero()) return 0;
+  const cumSizeBN = new BigNumber(cumSize);
+  return cumSizeBN.dividedBy(totalDepth).multipliedBy(100).toNumber();
 }
 
 interface IOrderBookProps {
   /** The sorted best to worst (high to low) bid levels */
-  bids: IOBLevel[];
+  bids: IBookLevel[];
   /** The sorted best to worst (low to high) ask levels */
-  asks: IOBLevel[];
+  asks: IBookLevel[];
   /** The maximum price levels to render per side */
   maxLevelsPerSide?: number;
   /** Styles for the container (outer) view */
   style?: StyleProp<ViewStyle>;
   /** A function which receives the mid price and can return a
    * custom mid price node */
-  midPriceNode?: (midPrice: number) => React.ReactNode;
+  midPriceNode?: (midPrice: string) => React.ReactNode;
   /** A custom loading node. Defaults to "Loading...". */
   loadingNode?: React.ReactNode;
   /** Whether to render the order book horizontally */
   horizontal?: boolean;
+  /** The coin symbol */
+  symbol?: string;
+  /** The selected tick option */
+  selectedTickOption?: ITickParam;
+  /** Callback when tick option changes */
+  onTickOptionChange?: (option: ITickParam) => void;
+  /** Available tick options */
+  tickOptions?: ITickParam[];
+  /** Whether to show tick selector */
+  showTickSelector?: boolean;
+  /** Price decimal places */
+  priceDecimals?: number;
+  /** Size decimal places */
+  sizeDecimals?: number;
 }
 
 const styles = StyleSheet.create({
   container: {
+    position: 'relative',
+    padding: 8,
     width: '100%',
     height: '100%',
-  },
-  columns: {
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
   },
   levelList: {
     flexGrow: 1,
   },
   row: {
     height: rowHeight,
+    alignItems: 'center',
+    marginTop: 1,
+    position: 'relative',
+  },
+  blockRow: {
+    height: rowHeight,
+    marginTop: 1,
+    position: 'relative',
+  },
+  headerText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  verticalHeaderText: {
+    fontSize: 12,
+    lineHeight: 24,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    width: '100%',
+  },
+  monospaceText: {
+    fontFamily: 'monospace',
+  },
+  colorBlock: {
+    position: 'relative',
+    height: rowHeight,
+  },
+  verticalHeaderContainer: {
     flex: 1,
-    display: 'flex',
+    alignItems: 'center',
+    width: '100%',
+  },
+  verticalHeaderPrice: {
+    width: '20%',
+    alignItems: 'flex-start',
+  },
+  verticalHeaderSize: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
+  verticalHeaderTotal: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
+  horizontalHeaderContainer: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  verticalRowContainer: {
+    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
   },
-  cell: {
+  verticalRowCellPrice: {
+    width: '20%',
+    alignItems: 'flex-start',
+  },
+  verticalRowCellSize: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
+  verticalRowCellTotal: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
+  bodySm: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  bodySmMedium: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  spreadRow: {
+    gap: 24,
+    height: rowHeight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexDirection: 'row',
+  },
+  pairBookHeader: {
+    paddingBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+  },
+  pairBookRow: {
+    marginTop: 1,
     position: 'relative',
-    paddingHorizontal: 8,
+    height: 24,
+  },
+  pairBookSpreadRow: {
+    flexDirection: 'row',
+    gap: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  levelListContainer: {
+    gap: 4,
+    flexDirection: 'row',
+    position: 'relative',
+  },
+  relativeContainer: {
+    position: 'relative',
     flex: 1,
   },
-  bar: {
+  absoluteContainer: {
+    flex: 1,
     position: 'absolute',
     top: 0,
+    left: 0,
+    right: 0,
     bottom: 0,
   },
 });
 
-type IColorBlockProps = Omit<IXStackProps, 'width'> & {
-  width: string;
-  color?: IXStackProps['bg'];
+type IColorBlockProps = {
+  color: string;
+  width: DimensionValue;
+  left?: number;
+  right?: number;
 };
 
-function ColorBlock({ color, width, ...props }: IColorBlockProps) {
+function ColorBlock({ color, width, left, right }: IColorBlockProps) {
   return (
-    <XStack
-      disableClassName
-      position="absolute"
-      right={0}
-      h="$6"
-      width={width}
-      bg={color}
-      {...props}
+    <View
+      style={[
+        styles.colorBlock,
+        {
+          right,
+          left,
+          width,
+          backgroundColor: color,
+        },
+      ]}
     />
   );
 }
 
-function GreenBlock({ width, ...props }: IColorBlockProps) {
-  return <ColorBlock color="$green3" width={width} {...props} />;
-}
-
-function RedBlock({ width, ...props }: IColorBlockProps) {
-  return <ColorBlock color="$red3" width={width} {...props} />;
-}
-
-function OrderBookVerticalRow({ item }: { item: IOBLevel }) {
+function OrderBookVerticalRow({
+  item,
+  priceColor,
+  sizeColor,
+}: {
+  item: IOBLevel;
+  priceColor: string;
+  sizeColor: string;
+}) {
   return (
-    <XStack flex={1} px="$3" jc="space-between" disableClassName>
-      <XStack width="33.33%">
-        <NumberSizeableText
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          disableClassName
+    <View style={styles.verticalRowContainer}>
+      <View style={styles.verticalRowCellPrice}>
+        <Text
+          style={[styles.monospaceText, { color: priceColor }]}
+          numberOfLines={1}
         >
           {item.price}
-        </NumberSizeableText>
-      </XStack>
-      <XStack width="33.33%">
-        <NumberSizeableText
-          flex={1}
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          textAlign="center"
-          disableClassName
+        </Text>
+      </View>
+      <View style={styles.verticalRowCellSize}>
+        <Text
+          numberOfLines={1}
+          style={[styles.monospaceText, { color: sizeColor }]}
         >
           {item.size}
-        </NumberSizeableText>
-      </XStack>
-      <XStack width="33.33%">
-        <NumberSizeableText
-          flex={1}
-          textAlign="right"
-          fontFamily="$monoRegular"
-          color="$textSubdued"
-          formatter="marketCap"
-          disableClassName
+        </Text>
+      </View>
+      <View style={styles.verticalRowCellTotal}>
+        <Text
+          numberOfLines={1}
+          style={[styles.monospaceText, { color: sizeColor }]}
         >
           {item.cumSize}
-        </NumberSizeableText>
-      </XStack>
-    </XStack>
+        </Text>
+      </View>
+    </View>
   );
 }
 
+const useBlockColors = () => {
+  const themeName = useThemeName();
+  return useMemo(() => {
+    return {
+      red: colorTokens[themeName].red.red3,
+      green: colorTokens[themeName].green.green3,
+    };
+  }, [themeName]);
+};
+
+const useTextColor = () => {
+  const theme = useTheme();
+  const themeName = useThemeName();
+  return useMemo(() => {
+    return {
+      textSubdued: theme.textSubdued.val,
+      text: theme.text.val,
+      red: colorTokens[themeName].red.red11,
+      green: colorTokens[themeName].green.green11,
+    };
+  }, [theme.text.val, theme.textSubdued.val, themeName]);
+};
+
+const useSpreadColor = () => {
+  const theme = useTheme();
+  return useMemo(() => {
+    return {
+      backgroundColor: theme.bgSubdued.val,
+    };
+  }, [theme.bgSubdued]);
+};
+
 export function OrderBook({
+  symbol: _symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
   style,
-  midPriceNode = defaultMidPriceNode,
+  midPriceNode: _midPriceNode = defaultMidPriceNode,
   loadingNode = <DefaultLoadingNode />,
   horizontal = true,
+  selectedTickOption,
+  onTickOptionChange,
+  tickOptions = [],
+  showTickSelector = true,
+  priceDecimals = 2,
+  sizeDecimals = 4,
 }: IOrderBookProps) {
-  const aggr = useAggregatedBook(bids, asks, 0.01, 0.1, maxLevelsPerSide);
-  const isEmpty = !aggr.bids.length && !aggr.asks.length;
+  // Handle tick option change
+  const handleTickOptionChange = useCallback(
+    (value?: string) => {
+      if (value === undefined) return;
+      const option = tickOptions.find((opt) => opt.value === value);
+      if (option && onTickOptionChange) {
+        onTickOptionChange(option);
+      }
+    },
+    [tickOptions, onTickOptionChange],
+  );
 
-  const midPrice = getMidPrice(bids[0]?.price ?? 0, asks[0]?.price ?? 0);
+  const aggregatedData = useAggregatedBook(
+    bids,
+    asks,
+    maxLevelsPerSide,
+    selectedTickOption,
+    priceDecimals,
+    sizeDecimals,
+  );
+  const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
 
-  const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
+  const bidDepth = new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  const askDepth = new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
+
+  const blockColors = useBlockColors();
+  const textColor = useTextColor();
+  const spreadColor = useSpreadColor();
 
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
-        <XStack gap="$1" h="$4" ai="center">
-          <XStack flex={1} jc="space-between">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+        <View
+          style={{
+            gap: 4,
+            height: 16,
+            alignItems: 'center',
+            flexDirection: 'row',
+          }}
+        >
+          <View style={styles.horizontalHeaderContainer}>
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               SIZE
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            </Text>
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               BUY
-            </SizableText>
-          </XStack>
-          <XStack flex={1} jc="space-between">
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            </Text>
+          </View>
+          <View style={styles.horizontalHeaderContainer}>
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               SELL
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
+            </Text>
+            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               SIZE
-            </SizableText>
-          </XStack>
-        </XStack>
+            </Text>
+          </View>
+        </View>
         {isEmpty ? (
           loadingNode
         ) : (
-          <XStack gap="$1">
-            <YStack style={styles.levelList}>
-              {aggr.bids.map((item, index) => (
-                <XStack
+          <View style={styles.levelListContainer}>
+            <View style={styles.levelList}>
+              {aggregatedData.bids.map((item, index) => (
+                <View
                   key={index}
-                  h="$6"
-                  ai="center"
-                  mt={1}
-                  px="$3"
-                  position="relative"
+                  style={{
+                    height: 24,
+                    alignItems: 'flex-end',
+                    marginTop: 1,
+                    position: 'relative',
+                  }}
                 >
-                  <GreenBlock
+                  <ColorBlock
+                    color={blockColors.green}
                     right={0}
-                    width={`${(item.cumSize / bidDepth) * 100}%`}
+                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                   />
-                  <XStack flex={1} jc="space-between">
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$textSubdued"
-                      formatter="marketCap"
-                    >
-                      {item.size}
-                    </NumberSizeableText>
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$green11"
-                      formatter="value"
-                    >
-                      {item.price}
-                    </NumberSizeableText>
-                  </XStack>
-                </XStack>
+                </View>
               ))}
-            </YStack>
-            <YStack style={styles.levelList}>
-              {aggr.asks.map((item, index) => (
-                <XStack
+            </View>
+            <View style={styles.levelList}>
+              {aggregatedData.asks.map((item, index) => (
+                <View
                   key={index}
-                  h="$6"
-                  ai="center"
-                  mt={1}
-                  position="relative"
+                  style={{
+                    height: 24,
+                    marginTop: 1,
+                    position: 'relative',
+                  }}
                 >
-                  <RedBlock
-                    left={0}
-                    width={`${(item.cumSize / askDepth) * 100}%`}
+                  <ColorBlock
+                    color={blockColors.red}
+                    right={0}
+                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
                   />
-                  <XStack flex={1} jc="space-between">
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$red11"
-                      formatter="marketCap"
-                    >
-                      {item.size}
-                    </NumberSizeableText>
-                    <NumberSizeableText
-                      fontFamily="$monoRegular"
-                      color="$textSubdued"
-                      formatter="value"
-                    >
-                      {item.price}
-                    </NumberSizeableText>
-                  </XStack>
-                </XStack>
+                </View>
               ))}
-            </YStack>
-          </XStack>
+            </View>
+            <View style={styles.absoluteContainer}>
+              <View style={styles.levelListContainer}>
+                <View style={styles.levelList}>
+                  {aggregatedData.bids.map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        height: 24,
+                        alignItems: 'center',
+                        marginTop: 1,
+                        position: 'relative',
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                          width: '100%',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.textSubdued },
+                          ]}
+                        >
+                          {item.size}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.green },
+                          ]}
+                        >
+                          {item.price}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.levelList}>
+                  {aggregatedData.asks.toReversed().map((item, index) => (
+                    <View
+                      key={index}
+                      style={{
+                        height: 24,
+                        alignItems: 'center',
+                        marginTop: 1,
+                        position: 'relative',
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          alignItems: 'center',
+                          width: '100%',
+                          flexDirection: 'row',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.red },
+                          ]}
+                        >
+                          {item.price}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.monospaceText,
+                            { color: textColor.text },
+                          ]}
+                        >
+                          {item.size}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </View>
         )}
       </View>
     );
   }
   return (
-    <YStack>
-      <XStack px="$3" disableClassName>
-        <XStack flex={1} ai="center" disableClassName>
-          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
+    <View style={{ padding: 8 }}>
+      <View style={{ flexDirection: 'row' }}>
+        <View style={styles.verticalHeaderPrice}>
+          <Text
+            style={[
+              styles.verticalHeaderText,
+              { textAlign: 'left', color: textColor.textSubdued },
+            ]}
+          >
             Price
-          </SizableText>
-        </XStack>
-        <XStack flex={1} ai="center" jc="center" disableClassName>
-          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
+          </Text>
+        </View>
+        <View style={styles.verticalHeaderSize}>
+          <Text
+            style={[
+              styles.verticalHeaderText,
+              { textAlign: 'right', color: textColor.textSubdued },
+            ]}
+          >
             SIZE
-          </SizableText>
-        </XStack>
-        <XStack flex={1} ai="center" jc="flex-end">
-          <SizableText size="$headingXs" color="$textSubdued" disableClassName>
+          </Text>
+        </View>
+        <View style={styles.verticalHeaderTotal}>
+          <Text
+            style={[
+              styles.verticalHeaderText,
+              { textAlign: 'right', color: textColor.textSubdued },
+            ]}
+          >
             TOTAL
-          </SizableText>
-        </XStack>
-      </XStack>
-      <YStack>
-        {aggr.asks.map((itemData, index) => (
-          <XStack
-            key={index}
-            h="$6"
-            ai="center"
-            mt={1}
-            position="relative"
-            disableClassName
+          </Text>
+        </View>
+      </View>
+      <View style={styles.relativeContainer}>
+        <View style={styles.relativeContainer}>
+          {aggregatedData.asks.toReversed().map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <ColorBlock
+                color={blockColors.red}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
+              />
+            </View>
+          ))}
+          <View
+            key="mid"
+            style={[
+              styles.spreadRow,
+              { backgroundColor: spreadColor.backgroundColor },
+            ]}
+          />
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <ColorBlock
+                color={blockColors.green}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+              />
+            </View>
+          ))}
+        </View>
+        <View style={styles.absoluteContainer}>
+          {aggregatedData.asks.toReversed().map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <OrderBookVerticalRow
+                item={itemData}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+          <View
+            key="mid"
+            style={[
+              styles.spreadRow,
+              { backgroundColor: spreadColor.backgroundColor },
+            ]}
           >
-            {/* <RedBlock
-              left={0}
-              width={`${(itemData.cumSize / askDepth) * 100}%`}
-            /> */}
-            <OrderBookVerticalRow item={itemData} />
-          </XStack>
-        ))}
+            <Text style={[styles.bodySm, { color: textColor.text }]}>
+              Spread
+            </Text>
+            {showTickSelector ? (
+              <Select
+                title="Tick Size"
+                items={tickOptions}
+                value={selectedTickOption?.value}
+                onChange={handleTickOptionChange}
+                renderTrigger={({ onPress }) => (
+                  <TouchableOpacity
+                    style={{
+                      width: 56,
+                      height: 24,
+                      backgroundColor: 'rgba(255,255,255,0.1)',
+                      borderRadius: 4,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingHorizontal: 8,
+                      gap: 4,
+                    }}
+                    onPress={onPress}
+                  >
+                    <Text style={[styles.bodySm, { color: textColor.text }]}>
+                      {selectedTickOption?.label}
+                    </Text>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$3"
+                      color="$iconSubdued"
+                    />
+                  </TouchableOpacity>
+                )}
+              />
+            ) : null}
+            <Text style={[styles.bodySm, { color: textColor.text }]}>
+              0.002%
+            </Text>
+          </View>
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.blockRow}>
+              <OrderBookVerticalRow
+                item={itemData}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
 
-        <XStack
-          key="mid"
-          gap="$6"
-          h="$6"
-          ai="center"
-          jc="center"
-          mt={1}
-          disableClassName
-        >
-          <SizableText size="$bodySm" disableClassName>
-            Spread
-          </SizableText>
-          <SizableText size="$bodySm" disableClassName>
-            {midPrice}
-          </SizableText>
-          <SizableText size="$bodySm" disableClassName>
-            0.002%
-          </SizableText>
-        </XStack>
-
-        {aggr.bids.map((itemData, index) => (
-          <XStack
-            key={index}
-            h="$6"
-            ai="center"
-            mt={1}
-            position="relative"
-            disableClassName
-          >
-            {/* <GreenBlock
-              left={0}
-              width={`${(itemData.cumSize / bidDepth) * 100}%`}
-            /> */}
-            <OrderBookVerticalRow item={itemData} />
-          </XStack>
-        ))}
-      </YStack>
-    </YStack>
+function OrderBookPairRow({
+  item,
+  priceColor,
+  sizeColor,
+}: {
+  item: IOBLevel;
+  priceColor: string;
+  sizeColor: string;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        marginTop: 1,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}
+    >
+      <Text
+        style={[
+          styles.monospaceText,
+          styles.bodySmMedium,
+          { color: priceColor },
+        ]}
+      >
+        {item.price}
+      </Text>
+      <Text
+        style={[
+          styles.monospaceText,
+          styles.bodySmMedium,
+          { color: sizeColor },
+        ]}
+      >
+        {item.size}
+      </Text>
+    </View>
   );
 }
 
 export function OrderPairBook({
+  symbol: _symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
+  selectedTickOption,
 }: {
+  symbol?: string;
   maxLevelsPerSide?: number;
-  bids: IOBLevel[];
-  asks: IOBLevel[];
+  bids: IBookLevel[];
+  asks: IBookLevel[];
+  selectedTickOption?: ITickParam;
 }) {
-  const aggr = useAggregatedBook(bids, asks, 0.01, 0.1, maxLevelsPerSide);
-  const bidDepth = aggr.bids.at(-1)?.cumSize ?? 0;
-  const askDepth = aggr.asks.at(-1)?.cumSize ?? 0;
-  const midPrice = getMidPrice(bids[0]?.price ?? 0, asks[0]?.price ?? 0);
-  const data = useMemo(() => {
-    return [
-      ...aggr.asks.map((ask) => ({ data: ask, type: 'ask' })),
-      { type: 'mid', data: { price: midPrice, size: 0, cumSize: 0 } },
-      ...aggr.bids.map((bid) => ({ data: bid, type: 'bid' })),
-    ];
-  }, [aggr.asks, aggr.bids, midPrice]);
+  const aggregatedData = useAggregatedBook(
+    bids,
+    asks,
+    maxLevelsPerSide,
+    selectedTickOption,
+    2, // default priceDecimals
+    4, // default sizeDecimals
+  );
+  const bidDepth = useMemo(() => {
+    return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  }, [aggregatedData.bids]);
+  const askDepth = useMemo(() => {
+    return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
+  }, [aggregatedData.asks]);
+  const midPrice = getMidPrice(
+    parseFloat(bids[0]?.px ?? '0'),
+    parseFloat(asks[0]?.px ?? '0'),
+  );
+  const textColor = useTextColor();
+  const blockColors = useBlockColors();
   return (
-    <YStack>
-      <XStack pb="$1" px="$2" ai="center" jc="space-between">
-        <SizableText color="$textSubdued">PRICE</SizableText>
-        <SizableText color="$textSubdued">SIZE</SizableText>
-      </XStack>
-      <YStack>
-        {data.map((item, index) => {
-          const { type, data: itemData } = item;
-          if (type === 'mid') {
-            return (
-              <XStack key="mid" gap="$6" h="$6" ai="center" jc="center" mt={1}>
-                <SizableText size="$bodySm">Spread</SizableText>
-                <SizableText size="$bodySm">{itemData.price}</SizableText>
-                <SizableText size="$bodySm">0.002%</SizableText>
-              </XStack>
-            );
-          }
-          return (
-            <XStack key={index} mt={1} position="relative" h="$6">
-              <XStack
-                position="absolute"
+    <View style={{ padding: 8 }}>
+      <View style={styles.pairBookHeader}>
+        <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+          PRICE
+        </Text>
+        <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+          SIZE
+        </Text>
+      </View>
+      <View style={styles.relativeContainer}>
+        <View style={styles.relativeContainer}>
+          {aggregatedData.asks.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <ColorBlock
+                color={blockColors.red}
                 left={0}
-                h="$6"
-                width={`${(itemData.cumSize / bidDepth) * 100}%`}
-                bg="$green3"
+                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
               />
-              {type === 'bid' ? (
-                <GreenBlock
-                  left={0}
-                  width={`${(itemData.cumSize / bidDepth) * 100}%`}
-                />
-              ) : (
-                <RedBlock
-                  left={0}
-                  width={`${(itemData.cumSize / askDepth) * 100}%`}
-                />
-              )}
-              <XStack flex={1} px="$2" jc="space-between" ai="center">
-                <NumberSizeableText formatter="value">
-                  {itemData.price}
-                </NumberSizeableText>
-                <NumberSizeableText formatter="marketCap">
-                  {itemData.size}
-                </NumberSizeableText>
-              </XStack>
-            </XStack>
-          );
-        })}
-      </YStack>
-    </YStack>
+            </View>
+          ))}
+          <View style={styles.pairBookSpreadRow} />
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <ColorBlock
+                color={blockColors.green}
+                left={0}
+                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+              />
+            </View>
+          ))}
+        </View>
+        <View style={styles.absoluteContainer}>
+          {aggregatedData.asks.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <OrderBookPairRow
+                item={itemData}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+          <View style={styles.pairBookSpreadRow}>
+            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              Spread
+            </Text>
+            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              {midPrice}
+            </Text>
+            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              0.002%
+            </Text>
+          </View>
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={styles.pairBookRow}>
+              <OrderBookPairRow
+                item={itemData}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
   );
 }
