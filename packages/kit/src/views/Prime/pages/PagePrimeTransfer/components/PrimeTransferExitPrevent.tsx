@@ -24,8 +24,22 @@ export function PrimeTransferExitPrevent({
     id: ETranslations.confirm_exit_dialog_desc,
   });
 
-  const onConfirmCallback = useCallback(() => {
-    void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
+  const onConfirmCallback = useCallback(async () => {
+    try {
+      await backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
+    } catch (error) {
+      console.error('onConfirmCallback clearSensitiveData error', error);
+    }
+    try {
+      await backgroundApiProxy.servicePrimeTransfer.handleLeaveRoom();
+    } catch (error) {
+      console.error('onConfirmCallback handleLeaveRoom error', error);
+    }
+    try {
+      await backgroundApiProxy.servicePrimeTransfer.refreshQrcodeHook();
+    } catch (error) {
+      console.error('onConfirmCallback refreshQrcodeHook error', error);
+    }
   }, []);
 
   // Prevents screen locking during transfer

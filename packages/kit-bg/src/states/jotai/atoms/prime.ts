@@ -134,6 +134,7 @@ export type IPrimeTransferAtomData = {
   pairedRoomId: string | undefined;
   myCreatedRoomId: string | undefined;
   myUserId: string | undefined;
+  refreshQrcodeHook?: number | undefined;
   transferDirection:
     | {
         fromUserId: string | undefined;
@@ -172,5 +173,6 @@ export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
       myUserId: undefined,
       transferDirection: undefined,
       importProgress: undefined,
+      refreshQrcodeHook: undefined,
     },
   });

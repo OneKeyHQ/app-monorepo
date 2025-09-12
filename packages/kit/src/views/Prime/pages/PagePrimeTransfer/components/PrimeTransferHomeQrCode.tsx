@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -21,6 +22,8 @@ import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { useRouteIsFocused } from '../../../../../hooks/useRouteIsFocused';
 
 export function PrimeTransferHomeQrCode() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
@@ -78,6 +81,10 @@ export function PrimeTransferHomeQrCode() {
     copyText(pairingCodeQRCode);
   }, [copyText, pairingCodeQRCode, shouldShowSkeleton]);
 
+  const isFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+
   const buildPairingCode = useCallback(async () => {
     if (!primeTransferAtom.websocketConnected) {
       setPairingCode(undefined);
@@ -100,8 +107,11 @@ export function PrimeTransferHomeQrCode() {
   }, [primeTransferAtom.websocketConnected]);
 
   useEffect(() => {
-    void buildPairingCode();
-  }, [buildPairingCode]);
+    noop(primeTransferAtom.refreshQrcodeHook);
+    if (isFocusedRef.current) {
+      void buildPairingCode();
+    }
+  }, [primeTransferAtom.refreshQrcodeHook, buildPairingCode]);
 
   useEffect(() => {
     void backgroundApiProxy.servicePrimeTransfer.updateSelfPairingCode({
