@@ -279,26 +279,23 @@ const BaseDevSettingsSection = () => {
           subtitle="BuildHash"
         />
       ) : null}
-      {platformEnv.isDesktop ? (
-        <SectionPressItem
-          icon="CodeOutline"
-          copyable
-          title="Desktop env"
-          subtitle="Desktop Channel"
-          onPress={() => {
-            Dialog.debugMessage({
-              debugMessage: {
-                deskChannel: globalThis?.desktopApi?.deskChannel,
-                arch: globalThis?.desktopApi?.arch,
-                platform: globalThis?.desktopApi?.platform,
-                channel: globalThis?.desktopApi?.channel,
-                isMas: globalThis?.desktopApi?.isMas,
-                systemVersion: globalThis?.desktopApi?.systemVersion,
-              },
-            });
-          }}
-        />
-      ) : null}
+      <SectionPressItem
+        icon="CodeOutline"
+        title="Envs"
+        onPress={() => {
+          Dialog.debugMessage({
+            debugMessage: {
+              deskChannel: globalThis?.desktopApi?.deskChannel,
+              arch: globalThis?.desktopApi?.arch,
+              platform: globalThis?.desktopApi?.platform,
+              channel: globalThis?.desktopApi?.channel,
+              isMas: globalThis?.desktopApi?.isMas,
+              systemVersion: globalThis?.desktopApi?.systemVersion,
+              ...platformEnv,
+            },
+          });
+        }}
+      />
       <RegistrationID />
       <DeviceToken />
       <SectionFieldItem
