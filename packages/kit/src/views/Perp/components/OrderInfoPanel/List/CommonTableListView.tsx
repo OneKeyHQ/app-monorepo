@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import {
   IconButton,
+  Input,
   ListView,
   ScrollView,
   SizableText,
@@ -19,6 +20,7 @@ const PaginationFooter = ({
   onPreviousPage,
   isMobile,
   onNextPage,
+  onPageChange,
   headerBgColor,
   headerTextColor,
 }: {
@@ -26,10 +28,34 @@ const PaginationFooter = ({
   totalPages: number;
   onPreviousPage: () => void;
   onNextPage: () => void;
+  onPageChange: (page: number) => void;
   headerBgColor: string;
   headerTextColor: string;
   isMobile?: boolean;
 }) => {
+  const [inputValue, setInputValue] = useState(currentPage.toString());
+
+  useEffect(() => {
+    setInputValue(currentPage.toString());
+  }, [currentPage]);
+
+  const handleInputChange = (value: string) => {
+    setInputValue(value);
+  };
+
+  const handleInputSubmit = () => {
+    const page = parseInt(inputValue, 10);
+    if (page >= 1 && page <= totalPages) {
+      onPageChange(page);
+    } else {
+      setInputValue(currentPage.toString());
+    }
+  };
+
+  const handleInputBlur = () => {
+    setInputValue(currentPage.toString());
+  };
+
   if (totalPages <= 1) return null;
 
   return (
@@ -49,19 +75,20 @@ const PaginationFooter = ({
         icon="ChevronLeftOutline"
       />
 
-      <XStack
-        alignItems="center"
-        justifyContent="center"
-        w="$9"
+      <Input
+        value={inputValue}
+        onChangeText={handleInputChange}
+        onSubmitEditing={handleInputSubmit}
+        onBlur={handleInputBlur}
+        keyboardType="numeric"
+        w="$12"
         h="$7.5"
-        borderWidth="$px"
-        borderRadius="$2"
+        textAlign="center"
+        size="small"
         borderColor="$borderStrong"
-      >
-        <SizableText size="$bodyLg" color="$textPlaceholder">
-          {currentPage}
-        </SizableText>
-      </XStack>
+        borderRadius="$2"
+        maxLength={3}
+      />
       <SizableText size="$bodyLg" color={headerTextColor}>
         /
       </SizableText>
@@ -148,6 +175,10 @@ export function CommonTableListView({
     }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   if (isMobile) {
     return (
       <YStack flex={1}>
@@ -183,6 +214,7 @@ export function CommonTableListView({
             totalPages={totalPages}
             onPreviousPage={handlePreviousPage}
             onNextPage={handleNextPage}
+            onPageChange={handlePageChange}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
           />
@@ -192,13 +224,19 @@ export function CommonTableListView({
   }
 
   return (
-    <Tabs.ScrollView
-      scrollEnabled={false}
-      style={{
-        flex: 1,
-      }}
-    >
-      <YStack flex={1}>
+    <YStack flex={1}>
+      <Tabs.ScrollView
+        style={{
+          flex: 1,
+        }}
+        horizontal
+        showsHorizontalScrollIndicator
+        nestedScrollEnabled
+        contentContainerStyle={{
+          minWidth: minTableWidth,
+          flexGrow: 1,
+        }}
+      >
         <ScrollView
           style={{
             flex: 1,
@@ -211,7 +249,12 @@ export function CommonTableListView({
             flexGrow: 1,
           }}
         >
-          <YStack flex={1} minWidth={minTableWidth} width="100%">
+          <YStack
+            flex={1}
+            minWidth={minTableWidth}
+            width="100%"
+            cursor="default"
+          >
             <XStack
               py="$2"
               px="$3"
@@ -283,6 +326,7 @@ export function CommonTableListView({
                 totalPages={totalPages}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
+                onPageChange={handlePageChange}
                 isMobile={isMobile}
                 headerBgColor={headerBgColor}
                 headerTextColor={headerTextColor}
@@ -290,7 +334,7 @@ export function CommonTableListView({
             ) : null}
           </YStack>
         </ScrollView>
-      </YStack>
-    </Tabs.ScrollView>
+      </Tabs.ScrollView>
+    </YStack>
   );
 }

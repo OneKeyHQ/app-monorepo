@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
@@ -11,25 +11,38 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useHyperliquidAccount } from '../../hooks';
+import { usePerpUseChainAccount } from '../../hooks/usePerpUseChainAccount';
 
 import { showDepositWithdrawModal } from './DepositWithdrawModal';
 
 function PerpAccountPanel() {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { userWebData2, accountSummary } = useHyperliquidAccount();
+  const { userWebData2, accountSummary, currentUser } = useHyperliquidAccount();
+  const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
+  const {
+    userAddress,
+    userAccountId,
+    activeAccountId,
+    activeAccountIndexedId,
+  } = usePerpUseChainAccount();
 
-  const availableBalance = accountSummary.withdrawable;
-  let currentPositionValue = new BigNumber(0);
-  if (userWebData2) {
-    currentPositionValue =
-      userWebData2.clearinghouseState.assetPositions.reduce(
-        (acc, curr) =>
-          acc.plus(new BigNumber(curr.position.positionValue || 0)),
-        new BigNumber(0),
-      );
-  }
+  const accountDataInfo = useMemo(() => {
+    const availableBalance = accountSummary.withdrawable;
+    let currentPositionValue = new BigNumber(0);
+    if (userWebData2) {
+      currentPositionValue =
+        userWebData2.clearinghouseState.assetPositions.reduce(
+          (acc, curr) =>
+            acc.plus(new BigNumber(curr.position.positionValue || 0)),
+          new BigNumber(0),
+        );
+    }
+    return { availableBalance, currentPositionValue };
+  }, [accountSummary.withdrawable, userWebData2]);
 
   const handleDepositOrWithdraw = useCallback(() => {
     if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
@@ -45,6 +58,25 @@ function PerpAccountPanel() {
 
     showDepositWithdrawModal(accountData);
   }, [activeAccount]);
+
+  if (perpsAccountLoading) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+        <Spinner size="large" />
+      </YStack>
+    );
+  }
+
+  if (!userAddress) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+        <SizableText size="$bodySm" color="$textSubdued" mt="$3">
+          Please create an EVM address first: ____{activeAccountIndexedId}
+          ____{activeAccountId}
+        </SizableText>
+      </YStack>
+    );
+  }
 
   if (!userWebData2) {
     return (
@@ -67,6 +99,15 @@ function PerpAccountPanel() {
       </XStack>
 
       <YStack flex={1} px="$4">
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            Account Address
+          </SizableText>
+          <SizableText size="$bodyMd">
+            {accountUtils.shortenAddress({ address: userAddress })}
+          </SizableText>
+        </XStack>
+
         {/* Available Balance */}
         <XStack justifyContent="space-between">
           <SizableText size="$bodyMd" color="$textSubdued">
@@ -77,7 +118,7 @@ function PerpAccountPanel() {
             formatter="price"
             formatterOptions={{ currency: '$' }}
           >
-            {availableBalance}
+            {accountDataInfo.availableBalance}
           </NumberSizeableText>
         </XStack>
         <XStack justifyContent="space-between">
@@ -89,7 +130,7 @@ function PerpAccountPanel() {
             formatter="price"
             formatterOptions={{ currency: '$' }}
           >
-            {currentPositionValue.toNumber()}
+            {accountDataInfo.currentPositionValue.toFixed()}
           </NumberSizeableText>
         </XStack>
       </YStack>

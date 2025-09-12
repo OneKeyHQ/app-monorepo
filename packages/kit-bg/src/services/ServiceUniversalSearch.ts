@@ -284,6 +284,7 @@ class ServiceUniversalSearch extends ServiceBase {
           allNetworksNetworkId: networkId,
           saveToLocal: true,
           customTokensRawData,
+          indexedAccountId,
         });
       });
 
@@ -340,6 +341,7 @@ class ServiceUniversalSearch extends ServiceBase {
             networkId,
             flag: 'universal-search',
             saveToLocal: true,
+            indexedAccountId,
           }),
         ),
       );
@@ -358,6 +360,7 @@ class ServiceUniversalSearch extends ServiceBase {
         networkId,
         flag: 'universal-search',
         saveToLocal: true,
+        indexedAccountId,
       });
 
       tokens = r.allTokens?.data ?? [];
