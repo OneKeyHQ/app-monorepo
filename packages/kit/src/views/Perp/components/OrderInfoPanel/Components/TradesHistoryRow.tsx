@@ -217,8 +217,15 @@ const TradesHistoryRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
-          <SizableText size="$bodySm">{dateInfo.date}</SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {dateInfo.date}
+          </SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color="$textSubdued"
+          >
             {dateInfo.time}
           </SizableText>
         </YStack>

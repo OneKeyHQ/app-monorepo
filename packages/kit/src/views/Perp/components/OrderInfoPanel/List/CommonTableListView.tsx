@@ -87,7 +87,7 @@ const PaginationFooter = ({
         size="small"
         borderColor="$borderStrong"
         borderRadius="$2"
-        maxLength={3}
+        maxLength={totalPages.toString().length}
       />
       <SizableText size="$bodyLg" color={headerTextColor}>
         /
@@ -147,7 +147,6 @@ export function CommonTableListView({
   pageSize = 20,
 }: ICommonTableListViewProps) {
   const [currentPage, setCurrentPage] = useState(1);
-
   const paginatedData = useMemo<any[]>(() => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     if (!enablePagination || data.length <= pageSize) return data;
@@ -206,6 +205,9 @@ export function CommonTableListView({
               </SizableText>
             </YStack>
           }
+          contentContainerStyle={{
+            paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+          }}
         />
         {enablePagination && totalPages > 1 ? (
           <PaginationFooter
@@ -319,6 +321,9 @@ export function CommonTableListView({
                   </SizableText>
                 </YStack>
               }
+              contentContainerStyle={{
+                paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+              }}
             />
             {enablePagination && totalPages > 1 ? (
               <PaginationFooter
