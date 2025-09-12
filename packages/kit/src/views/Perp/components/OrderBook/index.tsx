@@ -96,7 +96,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   monospaceText: {
-    fontFamily: 'monospace',
+    fontFamily: 'SFMono-Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '500',
   },
   colorBlock: {
     position: 'relative',
@@ -659,22 +662,10 @@ function OrderBookPairRow({
         alignItems: 'center',
       }}
     >
-      <Text
-        style={[
-          styles.monospaceText,
-          styles.bodySmMedium,
-          { color: priceColor },
-        ]}
-      >
+      <Text style={[styles.monospaceText, { color: priceColor }]}>
         {item.price}
       </Text>
-      <Text
-        style={[
-          styles.monospaceText,
-          styles.bodySmMedium,
-          { color: sizeColor },
-        ]}
-      >
+      <Text style={[styles.monospaceText, { color: sizeColor }]}>
         {item.size}
       </Text>
     </View>
