@@ -15,7 +15,11 @@ import { TokenDetailHeader } from '../TokenDetailHeader/TokenDetailHeader';
 
 import { TabPageHeaderContainer } from './TabPageHeaderContainer';
 
-export function MarketDetailHeader() {
+export function MarketDetailHeader({
+  isNative = false,
+}: {
+  isNative?: boolean;
+}) {
   const media = useMedia();
   const { handleBackPress } = useMarketDetailBackNavigation();
 
@@ -44,6 +48,7 @@ export function MarketDetailHeader() {
               containerProps={{ p: '$0' }}
               showStats={false}
               showMediaAndSecurity={false}
+              isNative={isNative}
             />
           </MarketWatchListProviderMirrorV2>
         </TabPageHeaderContainer>

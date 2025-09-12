@@ -46,6 +46,7 @@ export enum EAtomNames {
   primePersistAtom = 'primePersistAtom',
   primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',
   primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
+  primeServerMasterPasswordStatusAtom = 'primeServerMasterPasswordStatusAtom',
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   primeTransferAtom = 'primeTransferAtom',

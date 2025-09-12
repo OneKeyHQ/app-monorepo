@@ -141,6 +141,7 @@ export function UniversalSearchV2MarketTokenItem({
     network,
     liquidity,
     volume_24h: volume24h,
+    isNative,
   } = item.payload;
 
   const handlePress = useCallback(() => {
@@ -154,6 +155,7 @@ export function UniversalSearchV2MarketTokenItem({
             tokenAddress: address,
             networkId: network,
             symbol,
+            isNative,
           },
         },
       });
@@ -178,10 +180,11 @@ export function UniversalSearchV2MarketTokenItem({
   }, [
     address,
     network,
-    item.type,
-    searchStatus,
     symbol,
+    isNative,
+    searchStatus,
     universalSearchActions,
+    item.type,
   ]);
 
   if (!isMounted) {
@@ -217,6 +220,7 @@ export function UniversalSearchV2MarketTokenItem({
           ml="$3"
           from={EWatchlistFrom.search}
           size="medium"
+          isNative={isNative}
         />
       </XStack>
     </ListItem>
