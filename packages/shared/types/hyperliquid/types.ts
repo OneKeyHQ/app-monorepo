@@ -1,4 +1,4 @@
-import type { IHex } from './sdk';
+import type { IHex, IWithdraw3Request } from './sdk';
 
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
@@ -105,6 +105,10 @@ export interface IMultiOrderParams {
     limitPx: string;
     orderType: { limit: { tif: 'Gtc' | 'Ioc' } };
   }>;
+}
+
+export interface IWithdrawParams extends IWithdraw3Request {
+  userAccountId: string;
 }
 
 export interface ILeverageUpdateRequest {

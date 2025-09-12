@@ -23,6 +23,7 @@ import type {
   IMultiOrderParams,
   IPlaceOrderParams,
   IPositionTpslOrderParams,
+  IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import ServiceBase from '../ServiceBase';
@@ -123,11 +124,36 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
+  private async _placeOrder(params: {
+    orders: any[];
+    grouping: 'normalTpsl' | 'na' | 'positionTpsl';
+    includeBuilder?: boolean;
+  }): Promise<IOrderResponse> {
+    this._ensureSetup();
+
+    const orderParams = {
+      orders: params.orders,
+      grouping: params.grouping,
+    } as {
+      orders: any[];
+      grouping: 'normalTpsl' | 'na' | 'positionTpsl';
+      builder?: { f: number; b: IHex };
+    };
+
+    if (params.includeBuilder !== false) {
+      orderParams.builder = this.getBuilderInfo();
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    return this._exchangeClient!.order(orderParams);
+  }
+
   @backgroundMethod()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     this._ensureSetup();
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       await this._exchangeClient!.updateLeverage(params);
     } catch (error) {
       throw new OneKeyLocalError(`Failed to update leverage: ${String(error)}`);
@@ -139,6 +165,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._ensureSetup();
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       await this._exchangeClient!.approveBuilderFee(params);
     } catch (error) {
       throw new OneKeyLocalError(
@@ -167,16 +194,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async placeOrderRaw(params: IOrderRequest): Promise<IOrderResponse> {
-    this._ensureSetup();
-    try {
-      return await this._exchangeClient!.order({
-        orders: params.action.orders,
-        grouping: params.action.grouping,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
-    }
+  getBuilderInfo(): {
+    f: number;
+    b: IHex;
+  } {
+    return {
+      f: this.backgroundApi.serviceHyperliquid.maxBuilderFee,
+      b: this.backgroundApi.serviceHyperliquid.builderAddress,
+    };
   }
 
   @backgroundMethod()
@@ -204,8 +229,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async placeOrder(params: IPlaceOrderParams): Promise<IOrderResponse> {
-    this._ensureSetup();
-
     try {
       const price = params.limitPx || '0';
 
@@ -234,7 +257,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
               },
       };
 
-      return await this._exchangeClient!.order({
+      return await this._placeOrder({
         orders: [orderParams],
         grouping: 'na',
       });
@@ -334,7 +357,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         orders.push(slOrder);
       }
 
-      return await this._exchangeClient!.order({
+      return await this._placeOrder({
         orders,
         grouping: orders.length > 1 ? 'normalTpsl' : 'na',
       });
@@ -349,7 +372,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async marketOrderClose(
     params: IMarketOrderCloseParams,
   ): Promise<IOrderResponse> {
-    this._ensureSetup();
     const midPx = params.midPx;
     const price = this._calculateSlippagePrice({
       markPrice: midPx,
@@ -367,7 +389,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
 
     try {
-      return await this._exchangeClient!.order({
+      return await this._placeOrder({
         orders: [orderParams],
         grouping: 'na',
       });
@@ -388,6 +410,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         o: cancel.oid,
       }));
 
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       return await this._exchangeClient!.cancel({
         cancels: cancelParams,
       });
@@ -398,8 +421,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async multiOrder(params: IMultiOrderParams): Promise<IOrderResponse> {
-    this._ensureSetup();
-
     try {
       const orderParams = params.orders.map((order) => {
         const orderParam: IOrderParams = {
@@ -414,7 +435,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         return orderParam;
       });
 
-      return await this._exchangeClient!.order({
+      return await this._placeOrder({
         orders: orderParams,
         grouping: 'na',
       });
@@ -429,8 +450,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setPositionTpsl(
     params: IPositionTpslOrderParams,
   ): Promise<IOrderResponse> {
-    this._ensureSetup();
-
     try {
       const {
         assetId,
@@ -498,7 +517,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         );
       }
 
-      return await this._exchangeClient!.order({
+      return await this._placeOrder({
         orders,
         grouping: 'positionTpsl',
       });
@@ -506,6 +525,25 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(
         `Failed to set position TP/SL: ${String(error)}`,
       );
+    }
+  }
+
+  @backgroundMethod()
+  async withdraw(params: IWithdrawParams): Promise<void> {
+    this._ensureSetup();
+    const wallet =
+      await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
+        userAccountId: params.userAccountId,
+      });
+    const exchangeClient = new ExchangeClient({
+      transport: new HttpTransport(),
+      wallet,
+    });
+    try {
+      console.log('withdraw', params);
+      await exchangeClient.withdraw3(params);
+    } catch (error) {
+      throw new OneKeyLocalError(`Failed to withdraw: ${String(error)}`);
     }
   }
 }

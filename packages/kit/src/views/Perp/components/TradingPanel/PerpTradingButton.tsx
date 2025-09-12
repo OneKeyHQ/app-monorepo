@@ -43,12 +43,17 @@ export function PerpTradingButton({
   const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
 
   const buttonDisabled = useMemo(() => {
-    return !canTrade || isSubmitting || isNoEnoughMargin;
-  }, [canTrade, isSubmitting, isNoEnoughMargin]);
+    return (
+      !(Number(formData.size) > 0) ||
+      !canTrade ||
+      isSubmitting ||
+      isNoEnoughMargin
+    );
+  }, [canTrade, isSubmitting, isNoEnoughMargin, formData.size]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) return 'Placing...';
-    if (isNoEnoughMargin) return 'No Enough Margin';
+    if (isNoEnoughMargin) return 'Not Enough Margin';
     return 'Place order';
   }, [isSubmitting, isNoEnoughMargin]);
 
@@ -136,7 +141,7 @@ export function PerpTradingButton({
         }
       }}
       disabled={buttonDisabled}
-      size="large"
+      size="medium"
       borderRadius="$3"
     >
       <SizableText

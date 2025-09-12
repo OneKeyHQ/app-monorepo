@@ -58,16 +58,6 @@ function PerpTradingPanel() {
     leverage,
   ]);
 
-  const buttonDisabled = useMemo(() => {
-    return !canTrade || isSubmitting || isNoEnoughMargin;
-  }, [canTrade, isSubmitting, isNoEnoughMargin]);
-
-  const buttonText = useMemo(() => {
-    if (isSubmitting) return 'Placing...';
-    if (isNoEnoughMargin) return 'No Enough Margin';
-    return 'Place order';
-  }, [isSubmitting, isNoEnoughMargin]);
-
   const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
     if (!tokenInfo) {

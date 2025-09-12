@@ -284,12 +284,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   resetTradingForm = contextAtomMethod((get, set) => {
+    const current = get(tradingFormAtom());
     set(tradingFormAtom(), {
-      side: 'long',
-      type: 'market',
-      price: '',
+      ...current,
       size: '',
-      leverage: 1,
       hasTpsl: false,
       tpTriggerPx: '',
       tpGainPercent: '',
@@ -609,6 +607,44 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
     },
   );
+
+  withdraw = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        userAccountId: string;
+        amount: string;
+        destination: `0x${string}`;
+      },
+    ) => {
+      try {
+        await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
+          userAccountId: params.userAccountId,
+          amount: params.amount,
+          destination: params.destination,
+        });
+
+        Toast.success({
+          title: 'Withdraw Initiated',
+          message: `${params.amount} USD withdrawal has been submitted`,
+        });
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.withdraw] Failed to withdraw:',
+          error,
+        );
+
+        Toast.error({
+          title: 'Withdraw Failed',
+          message:
+            error instanceof Error ? error.message : 'Failed to withdraw',
+        });
+
+        throw error;
+      }
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
@@ -649,6 +685,7 @@ export function useHyperliquidActions() {
   const limitOrderClose = actions.limitOrderClose.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
+  const withdraw = actions.withdraw.use();
 
   return useRef({
     updateAllMids,
@@ -681,5 +718,6 @@ export function useHyperliquidActions() {
     limitOrderClose,
     cancelOrder,
     setPositionTpsl,
+    withdraw,
   });
 }
