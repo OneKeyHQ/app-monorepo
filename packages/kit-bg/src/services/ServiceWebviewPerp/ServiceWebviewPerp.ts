@@ -142,6 +142,34 @@ export interface IHyperliquidExchangeResponse {
   };
 }
 
+export enum EPerpDefaultTabType {
+  Native = 'native',
+  Web = 'web',
+}
+export interface IPerpBannerConfig {
+  title: string;
+  description: string;
+  iconUrl?: string;
+  iconName?: string;
+}
+export interface IPerpConfigResponse {
+  referrerAddress: string;
+  referrerRate: number;
+  customSettings?: IHyperliquidCustomSettings;
+  customLocalStorage?: Record<string, any>;
+  customLocalStorageV2?: Record<
+    string,
+    {
+      value: any;
+      skipIfExists?: boolean;
+    }
+  >;
+  enableSwitchWebview?: boolean;
+  defaultPerpTabType?: EPerpDefaultTabType;
+  disablePerpTab?: boolean;
+  disablePerpActionButton?: boolean;
+  perpBannerConfig?: IPerpBannerConfig;
+}
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -608,21 +636,9 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async updateBuilderFeeConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const resp = await client.get<
-      IApiClientResponse<{
-        referrerAddress: string;
-        referrerRate: number;
-        customSettings: IHyperliquidCustomSettings;
-        customLocalStorage: Record<string, any>;
-        customLocalStorageV2: Record<
-          string,
-          {
-            value: any;
-            skipIfExists?: boolean;
-          }
-        >;
-      }>
-    >('/utility/v1/perp-config');
+    const resp = await client.get<IApiClientResponse<IPerpConfigResponse>>(
+      '/utility/v1/perp-config',
+    );
     const resData = resp.data;
     // TODO remove
     // if (resData.data) {

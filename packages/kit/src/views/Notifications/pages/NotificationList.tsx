@@ -345,21 +345,36 @@ function BaseNotificationList() {
     return tabs.map((tab) => tab.name);
   }, [tabs]);
   const focusedTab = useSharedValue<string>(tabs[0].name);
+  const [
+    shouldShowMaxAccountLimitWarning,
+    setShouldShowMaxAccountLimitWarning,
+  ] = useState(false);
   const [unreadMap, setUnreadMap] = useState<{
     [key: string]: number;
   }>({
     [ENotificationPushTopicTypes.accountActivity]: 0,
     [ENotificationPushTopicTypes.system]: 0,
   });
-  const {
-    result = [],
-    isLoading,
-    run: reFetchList,
-  } = usePromiseResult(
+  const [result, setResult] = useState<INotificationPushMessageListItem[]>([]);
+  const cacheListRef = useRef<
+    Record<ENotificationPushTopicTypes, INotificationPushMessageListItem[]>
+  >({
+    [ENotificationPushTopicTypes.all]: [],
+    [ENotificationPushTopicTypes.accountActivity]: [],
+    [ENotificationPushTopicTypes.coinPriceAlert]: [],
+    [ENotificationPushTopicTypes.system]: [],
+  });
+  const { isLoading, run: reFetchList } = usePromiseResult(
     async () => {
       noop(lastReceivedTime);
-      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
+      if (!topicType) return;
+      const cacheList = cacheListRef.current[topicType];
+      setShouldShowMaxAccountLimitWarning(
+        topicType !== ENotificationPushTopicTypes.system,
+      );
+      setResult(cacheList);
+      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const r = await backgroundApiProxy.serviceNotification.fetchMessageList(
         !topicType || topicType === ENotificationPushTopicTypes.all
           ? undefined
@@ -388,6 +403,10 @@ function BaseNotificationList() {
         );
         setUnreadMap(hasUnreadMap);
       }
+      if (cacheListRef.current[topicType]?.length && r?.length > 0) {
+        setResult(r);
+      }
+      cacheListRef.current[topicType] = r;
       return r;
     },
     [focusedTab.value, lastReceivedTime, tabs],
@@ -419,8 +438,9 @@ function BaseNotificationList() {
   );
 
   useEffect(() => {
-    const fn = () => {
-      void reFetchList();
+    const fn = async () => {
+      const r = await reFetchList();
+      setResult(r ?? []);
     };
     appEventBus.on(EAppEventBusNames.UpdateNotificationBadge, fn);
     return () => {
@@ -437,7 +457,7 @@ function BaseNotificationList() {
         }}
         sections={sectionsData}
         renderSectionHeader={
-          ({ section: { title } }) => null // <SectionList.SectionHeader title={title} />
+          (_) => null // <SectionList.SectionHeader title={title} />
         }
         renderItem={({
           item,
@@ -549,10 +569,18 @@ function BaseNotificationList() {
   const handleRenderItem = useCallback(
     (props: ITabBarItemProps) => {
       const tabId = tabs.find((i) => i.name === props.name)?.id;
+      let unreadCount = 0;
+      if (tabId === ENotificationPushTopicTypes.all) {
+        unreadCount = tabs.reduce((acc, tab) => {
+          return acc + (unreadMap[tab.id as keyof typeof unreadMap] || 0);
+        }, 0);
+      } else {
+        unreadCount = unreadMap[tabId as keyof typeof unreadMap];
+      }
       return (
         <XStack position="relative">
           <TabBarItem {...props} />
-          {unreadMap[tabId as keyof typeof unreadMap] > 0 ? (
+          {unreadCount > 0 ? (
             <Stack
               position="absolute"
               right={-6}
@@ -586,7 +614,7 @@ function BaseNotificationList() {
           }}
         />
         <YStack pt="$2" flex={1}>
-          <MaxAccountLimitWarning />
+          {shouldShowMaxAccountLimitWarning ? <MaxAccountLimitWarning /> : null}
           {contentView}
         </YStack>
       </Page.Body>

@@ -5,14 +5,14 @@ import {
   OrderBook,
   OrderPairBook,
 } from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
-import type { IOBLevel } from '@onekeyhq/kit/src/views/Perp/components/OrderBook/types';
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { Layout } from './utils/Layout';
 
 // Sample order book data
 const generateSampleData = (basePrice: number, spread = 0.5) => {
-  const bids: IOBLevel[] = [];
-  const asks: IOBLevel[] = [];
+  const bids: IBookLevel[] = [];
+  const asks: IBookLevel[] = [];
 
   // Generate 20 levels on each side
   for (let i = 0; i < 20; i += 1) {
@@ -21,15 +21,15 @@ const generateSampleData = (basePrice: number, spread = 0.5) => {
     const size = Math.random() * 100 + 10; // Random size between 10-110
 
     bids.push({
-      price: bidPrice,
-      size,
-      cumSize: 0, // Will be calculated by the component
+      px: bidPrice.toString(),
+      sz: size.toString(),
+      n: Math.floor(Math.random() * 5) + 1, // Random number of orders
     });
 
     asks.push({
-      price: askPrice,
-      size,
-      cumSize: 0, // Will be calculated by the component
+      px: askPrice.toString(),
+      sz: size.toString(),
+      n: Math.floor(Math.random() * 5) + 1, // Random number of orders
     });
   }
 

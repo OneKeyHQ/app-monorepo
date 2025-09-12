@@ -12,6 +12,7 @@ import {
 import {
   Button,
   Dialog,
+  Icon,
   SizableText,
   XStack,
   YStack,
@@ -91,7 +92,7 @@ export function PercentageStageOnKeyboard({
           />
         ))}
         <Button
-          icon="KeyboardDoneOutline"
+          icon="KeyboardDownOutline"
           flex={1}
           h="$10"
           size="small"

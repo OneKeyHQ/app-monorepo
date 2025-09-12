@@ -52,6 +52,7 @@ export type IExtraAgent = HL.ExtraAgent;
 
 // Request types
 export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
+export type IUserFillsParameters = HL.UserFillsParameters;
 export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
 
 // Subscription parameter types

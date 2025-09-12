@@ -1,59 +1,75 @@
-export function round(value: number, decimals = 0) {
-  return Number(`${Math.round(Number(`${value}e${decimals}`))}e-${decimals}`);
+import BigNumber from 'bignumber.js';
+
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
+
+// BigNumber-based precision functions with string I/O for precision preservation
+function floorBN(value: BigNumber, decimals = 0): BigNumber {
+  const multiplier = new BigNumber(10).pow(decimals);
+  return value
+    .multipliedBy(multiplier)
+    .integerValue(BigNumber.ROUND_DOWN)
+    .dividedBy(multiplier);
 }
 
-export function floor(value: number, decimals = 0) {
-  return Number(`${Math.floor(Number(`${value}e${decimals}`))}e-${decimals}`);
+function ceilBN(value: BigNumber, decimals = 0): BigNumber {
+  const multiplier = new BigNumber(10).pow(decimals);
+  return value
+    .multipliedBy(multiplier)
+    .integerValue(BigNumber.ROUND_UP)
+    .dividedBy(multiplier);
 }
 
-export function ceil(value: number, decimals = 0) {
-  return Number(`${Math.ceil(Number(`${value}e${decimals}`))}e-${decimals}`);
-}
-
-export function roundToTick(n: number, tickSize: number) {
-  return round(n * (1 / tickSize)) / (1 / tickSize);
-}
-
-export function floorToTick(n: number, tickSize: number) {
-  return floor(n * (1 / tickSize)) / (1 / tickSize);
-}
-
-export function ceilToTick(n: number, tickSize: number) {
-  return ceil(n * (1 / tickSize)) / (1 / tickSize);
-}
-
-export function getMidPrice(bestBid: number, bestAsk: number) {
-  if (!bestBid) {
-    return bestAsk;
+// Input validation helper
+function validateInput(value: string | number, name: string): void {
+  if (value === null || value === undefined) {
+    throw new OneKeyError(`${name} cannot be null or undefined`);
   }
-  if (!bestAsk) {
-    return bestBid;
+  const bn = new BigNumber(value);
+  if (bn.isNaN()) {
+    throw new OneKeyError(`${name} must be a valid number, got: ${value}`);
   }
-
-  return (bestBid + bestAsk) / 2;
 }
 
-type IStringNumericLiteral =
-  | `${number}`
-  | 'Infinity'
-  | '-Infinity'
-  | '+Infinity';
+// Removed floorToTick and ceilToTick - use fast versions directly for better performance
 
-export const abbrevNumFmt = (value: number | bigint | IStringNumericLiteral) =>
-  Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(value);
+// Fast-path rounding helpers for hot loops (skip validation and reuse precomputed values)
+// Inputs are BigNumber to avoid repeated constructions; outputs are fixed-decimal strings
+export function floorToTickFast(
+  nBN: BigNumber,
+  invTickSizeBN: BigNumber,
+  priceDecimals: number,
+): string {
+  return floorBN(nBN.multipliedBy(invTickSizeBN), 0)
+    .dividedBy(invTickSizeBN)
+    .toFixed(priceDecimals);
+}
 
-export const priceFmt = (value: number | bigint | IStringNumericLiteral) =>
-  new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+export function ceilToTickFast(
+  nBN: BigNumber,
+  invTickSizeBN: BigNumber,
+  priceDecimals: number,
+): string {
+  return ceilBN(nBN.multipliedBy(invTickSizeBN), 0)
+    .dividedBy(invTickSizeBN)
+    .toFixed(priceDecimals);
+}
 
-export const sizeFmt = (value: number | bigint | IStringNumericLiteral) =>
-  new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
-  }).format(value);
+export function getMidPrice(
+  bestBid: string | number,
+  bestAsk: string | number,
+): string {
+  validateInput(bestBid, 'Best bid');
+  validateInput(bestAsk, 'Best ask');
+
+  const bestBidBN = new BigNumber(bestBid);
+  const bestAskBN = new BigNumber(bestAsk);
+
+  if (bestBidBN.isZero()) {
+    return bestAskBN.toFixed();
+  }
+  if (bestAskBN.isZero()) {
+    return bestBidBN.toFixed();
+  }
+
+  return bestBidBN.plus(bestAskBN).dividedBy(2).toFixed();
+}

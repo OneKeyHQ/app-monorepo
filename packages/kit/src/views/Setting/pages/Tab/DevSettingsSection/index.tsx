@@ -65,10 +65,12 @@ import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
+import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
+import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
@@ -278,6 +280,8 @@ const BaseDevSettingsSection = () => {
           subtitle="BuildHash"
         />
       ) : null}
+      <RegistrationID />
+      <DeviceToken />
       <SectionFieldItem
         icon="ServerOutline"
         name="enableTestEndpoint"

@@ -14,13 +14,15 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
-import { ColdStartByNotification, Container } from './Container';
+import { Container } from './Container';
+import { ColdStartByNotification } from './Container/ColdStartByNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { HardwareServiceProvider } from './HardwareServiceProvider';

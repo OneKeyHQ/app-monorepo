@@ -1048,6 +1048,7 @@ class ServicePrimeTransfer extends ServiceBase {
     );
   }
 
+  @backgroundMethod()
   async handleLeaveRoom() {
     connectedPairingCode = null;
     connectedEncryptedKey = null;
@@ -1056,6 +1057,16 @@ class ServicePrimeTransfer extends ServiceBase {
         ...v,
         status: EPrimeTransferStatus.init,
         pairedRoomId: undefined,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async refreshQrcodeHook() {
+    await primeTransferAtom.set(
+      (v): IPrimeTransferAtomData => ({
+        ...v,
+        refreshQrcodeHook: Date.now(),
       }),
     );
   }

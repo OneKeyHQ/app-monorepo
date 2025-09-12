@@ -121,3 +121,8 @@ export interface IAgentApprovalRequest {
   agent: IHex;
   authorize: boolean;
 }
+
+export interface IL2BookOptions {
+  nSigFigs?: 2 | 3 | 4 | 5 | null;
+  mantissa?: 2 | 5 | null;
+}

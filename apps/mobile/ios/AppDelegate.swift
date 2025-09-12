@@ -29,6 +29,8 @@ public class AppDelegate: ExpoAppDelegate {
       in: window,
       launchOptions: launchOptions)
 #endif
+    // Save launch options to LaunchOptionsManager
+    LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -54,6 +56,8 @@ public class AppDelegate: ExpoAppDelegate {
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     JPUSHService.registerDeviceToken(deviceToken)
+    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0)}.joined()
+    LaunchOptionsManager.sharedInstance().saveDeviceToken(tokenString)
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
