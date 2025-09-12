@@ -167,6 +167,7 @@ function TxConfirm() {
     accountId,
     networkId,
     updateSendFeeStatus,
+    updateSendTxStatus,
   ]);
 
   usePromiseResult(async () => {
