@@ -6,6 +6,8 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
 @interface LaunchOptionsManager ()
 @property (nonatomic, strong) NSDictionary *launchOptions;
+@property (nonatomic, strong) NSString *deviceToken;
+
 @end
 
 @implementation LaunchOptionsManager
