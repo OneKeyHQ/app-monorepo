@@ -1,4 +1,3 @@
-
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';

@@ -1,6 +1,7 @@
 import { SizableText, Table, YStack } from '@onekeyhq/components';
 
 import { cryptoData } from './data';
+
 import type { ICryptoData } from './types';
 
 // Custom Rendering Demo

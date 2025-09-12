@@ -1,6 +1,7 @@
 import { Table } from '@onekeyhq/components';
 
 import { userData } from './data';
+
 import type { IUserData } from './types';
 
 // Basic Table Demo
