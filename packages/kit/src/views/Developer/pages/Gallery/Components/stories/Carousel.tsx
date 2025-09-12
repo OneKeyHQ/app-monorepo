@@ -1,7 +1,5 @@
 import { useRef, useState } from 'react';
 
-import { useAtom } from 'jotai';
-import { atomWithStorage } from 'jotai/utils';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -16,9 +14,6 @@ import {
 import type { ICarouselInstance } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
-
-// Persistent atom for storing default index value
-const defaultIndexAtom = atomWithStorage('carousel-gallery-default-index', 0);
 
 const data = [
   {
@@ -68,7 +63,7 @@ const CarouselGallery = () => {
   const [disableAnimation, setDisableAnimation] = useState(false);
   const carouselRef = useRef<ICarouselInstance | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [defaultIndex, setDefaultIndex] = useAtom(defaultIndexAtom);
+  const [defaultIndex, setDefaultIndex] = useState(0);
 
   return (
     <Layout
