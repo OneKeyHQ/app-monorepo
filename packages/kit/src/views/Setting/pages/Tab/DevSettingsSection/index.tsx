@@ -57,6 +57,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
+import { AccountSelectorProviderMirror } from '../../../../../components/AccountSelector';
 import { useSignatureConfirm } from '../../../../../hooks/useSignatureConfirm';
 import { useActiveAccount } from '../../../../../states/jotai/contexts/accountSelector';
 
@@ -74,7 +75,6 @@ import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
-import { AccountSelectorProviderMirror } from '../../../../../components/AccountSelector';
 
 let correctDevOnlyPwd = '';
 

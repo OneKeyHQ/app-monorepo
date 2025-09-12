@@ -34,7 +34,8 @@ const TableGallery = () => (
       },
       {
         title: '交互功能',
-        description: '支持行点击、长按和表头排序。演示四种排序模式：正常排序、只能升序、只能降序、完全无排序',
+        description:
+          '支持行点击、长按和表头排序。演示四种排序模式：正常排序、只能升序、只能降序、完全无排序',
         element: <InteractiveTableDemo />,
       },
     ]}
