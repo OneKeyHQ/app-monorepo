@@ -14,6 +14,7 @@ import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
@@ -49,7 +50,11 @@ export function KitProvider(props: any = {}) {
     UIApplicationLaunchOptionsRemoteNotificationKey: launchNotification,
   } = props;
 
-  ColdStartByNotification.launchNotification = launchNotification;
+  (
+    ColdStartByNotification as {
+      launchNotification: IJPushRemotePushMessageInfo | null;
+    }
+  ).launchNotification = launchNotification;
 
   useDebugComponentRemountLog({ name: 'KitProvider' });
 
