@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -59,6 +59,7 @@ import {
   useTokenDetailsContext,
 } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
+import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
@@ -108,6 +109,10 @@ function TokenDetailsView() {
   } = route.params;
 
   const { gtMd } = useMedia();
+
+  const tabsRef = useRef<{
+    switchTab: (tabName: string) => void;
+  } | null>(null);
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
 
@@ -411,10 +416,24 @@ function TokenDetailsView() {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
           <Tabs.Container
+            ref={tabsRef as any}
             onIndexChange={(index) => {
               setActiveTabIndex(index);
             }}
-            renderTabBar={(props) => <Tabs.TabBar {...props} scrollable />}
+            renderTabBar={(props) => (
+              <Tabs.TabBar
+                {...props}
+                scrollable
+                renderToolbar={() => (
+                  <TokenDetailsTabToolbar
+                    tokens={tokens}
+                    onSelected={(token) => {
+                      tabsRef.current?.switchTab(token.networkName ?? '');
+                    }}
+                  />
+                )}
+              />
+            )}
           >
             {tabs}
           </Tabs.Container>
