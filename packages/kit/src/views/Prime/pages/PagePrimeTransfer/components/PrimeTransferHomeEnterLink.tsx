@@ -20,6 +20,7 @@ import {
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -29,8 +30,6 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
-
-import { useRouteIsFocused } from '../../../../../hooks/useRouteIsFocused';
 
 import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
 import { usePrimeTransferSaveCustomServer } from './hooks/usePrimeTransferSaveCustomServer';
