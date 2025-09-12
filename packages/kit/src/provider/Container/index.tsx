@@ -1,15 +1,11 @@
-import { useEffect } from 'react';
 
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import LazyLoad from '@onekeyhq/shared/src/lazyLoad';
-import type { IJPushRemotePushMessageInfo } from '@onekeyhq/shared/types/notification';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { WalletBackupPreCheckContainer } from '../../components/WalletBackup';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useVersionCompatible } from '../../hooks/useVersionCompatible';
 import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/JotaiContextStoreMirrorTracker';
 import { PrimeGlobalEffect } from '../../views/Prime/hooks/PrimeGlobalEffect';
 import { Bootstrap } from '../Bootstrap';
@@ -17,6 +13,7 @@ import { Bootstrap } from '../Bootstrap';
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
+import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
 import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { DiskFullWarningDialogContainer } from './DiskFullWarningDialogContainer';
@@ -28,7 +25,6 @@ import { GlobalWalletConnectModalContainer } from './GlobalWalletConnectModalCon
 import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import InAppNotification from './InAppNotification';
 import { NavigationContainer } from './NavigationContainer';
-import { NotificationHandlerContainer } from './NotificationHandlerContainer';
 import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
@@ -45,58 +41,6 @@ function GlobalRootAppNavigationUpdate() {
   appGlobals.$rootAppNavigation = navigation;
   return null;
 }
-
-export function ColdStartByNotification() {
-  const { isVersionCompatible, showFallbackUpdateDialog } =
-    useVersionCompatible();
-  useEffect(() => {
-    const options: IJPushRemotePushMessageInfo | null =
-      ColdStartByNotification.launchNotification as IJPushRemotePushMessageInfo | null;
-    if (options) {
-      console.log(
-        'coldStart ColdStartByNotification launchNotification',
-        options,
-      );
-      options.msgId =
-        options?.params?.msgId ||
-        options?.msgId ||
-        options?._j_msgid?.toString() ||
-        '';
-      console.log(
-        'coldStart ColdStartByNotification launchNotification FIXED',
-        options,
-      );
-      const title = options.aps?.alert?.title || '';
-      const content = options.aps?.alert?.body || '';
-      const icon = options?.image;
-      const badge = options.aps?.badge?.toString() || '';
-
-      void backgroundApiProxy.serviceNotification.handleColdStartByNotification(
-        {
-          notificationId: options.msgId,
-          params: {
-            notificationId: options.msgId,
-            title,
-            description: content,
-            icon,
-            remotePushMessageInfo: {
-              pushSource: 'jpush',
-              title,
-              content,
-              badge,
-              extras: {
-                ...options,
-              },
-            },
-          },
-        },
-      );
-    }
-  }, [isVersionCompatible, showFallbackUpdateDialog]);
-
-  return <NotificationHandlerContainer />;
-}
-ColdStartByNotification.launchNotification = null;
 
 export function Container() {
   return (

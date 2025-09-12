@@ -6,6 +6,8 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
 @interface LaunchOptionsManager ()
 @property (nonatomic, strong) NSDictionary *launchOptions;
+@property (nonatomic, strong) NSString *deviceToken;
+
 @end
 
 @implementation LaunchOptionsManager
@@ -43,6 +45,16 @@ static LaunchOptionsManager *sharedInstance = nil;
         // Show alert with current launch options on main thread
         return [LaunchOptionsManager sharedInstance].launchOptions;
     }
+}
+
+- (void)saveDeviceToken:(NSString *)deviceToken {
+    if (deviceToken) {
+        self.deviceToken = deviceToken;
+    }
+}
+
+- (NSString *)getDeviceToken {
+    return [LaunchOptionsManager sharedInstance].deviceToken;
 }
 
 // MARK: - RCTBridgeModule
@@ -97,6 +109,12 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
     } else {
         resolve(@{});
     }
+}
+
+RCT_EXPORT_METHOD(getDeviceToken:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *deviceToken = [self getDeviceToken];
+    resolve(deviceToken);
 }
 
 RCT_EXPORT_METHOD(clearLaunchOptions:(RCTPromiseResolveBlock)resolve

@@ -15,7 +15,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const orders = usePerpOrders();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
-      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
+      { key: 'asset', title: 'Asset', width: 120, align: 'left' },
       { key: 'time', title: 'Time', minWidth: 100, align: 'left', flex: 1 },
       { key: 'type', title: 'Type', minWidth: 100, align: 'left', flex: 1 },
       { key: 'size', title: 'Size', minWidth: 100, align: 'left', flex: 1 },

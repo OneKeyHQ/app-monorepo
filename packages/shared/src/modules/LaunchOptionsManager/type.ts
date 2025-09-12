@@ -8,6 +8,7 @@ export interface ILaunchOptionsNotificationInfo {
 export interface ILaunchOptionsManagerInterface {
   getLaunchOptions(): Promise<ILaunchOptions | null>;
   clearLaunchOptions(): Promise<boolean>;
+  getDeviceToken(): Promise<string | null>;
 }
 
 export enum ELaunchOptionsLaunchType {
