@@ -106,6 +106,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
+  verticalHeaderPrice: {
+    width: '20%',
+    alignItems: 'flex-start',
+  },
+  verticalHeaderSize: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
+  verticalHeaderTotal: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
   horizontalHeaderContainer: {
     flexDirection: 'row',
     flex: 1,
@@ -117,8 +129,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  verticalRowCell: {
-    width: '33.33%',
+  verticalRowCellPrice: {
+    width: '20%',
+    alignItems: 'flex-start',
+  },
+  verticalRowCellSize: {
+    width: '40%',
+    alignItems: 'flex-end',
+  },
+  verticalRowCellTotal: {
+    width: '40%',
+    alignItems: 'flex-end',
   },
   bodySm: {
     fontSize: 12,
@@ -209,35 +230,26 @@ function OrderBookVerticalRow({
 }) {
   return (
     <View style={styles.verticalRowContainer}>
-      <View style={styles.verticalRowCell}>
+      <View style={styles.verticalRowCellPrice}>
         <Text
-          style={[
-            styles.monospaceText,
-            { textAlign: 'left', color: priceColor },
-          ]}
+          style={[styles.monospaceText, { color: priceColor }]}
           numberOfLines={1}
         >
           {item.price}
         </Text>
       </View>
-      <View style={styles.verticalRowCell}>
+      <View style={styles.verticalRowCellSize}>
         <Text
           numberOfLines={1}
-          style={[
-            styles.monospaceText,
-            { textAlign: 'center', color: sizeColor },
-          ]}
+          style={[styles.monospaceText, { color: sizeColor }]}
         >
           {item.size}
         </Text>
       </View>
-      <View style={styles.verticalRowCell}>
+      <View style={styles.verticalRowCellTotal}>
         <Text
           numberOfLines={1}
-          style={[
-            styles.monospaceText,
-            { textAlign: 'right', color: sizeColor },
-          ]}
+          style={[styles.monospaceText, { color: sizeColor }]}
         >
           {item.cumSize}
         </Text>
@@ -484,7 +496,7 @@ export function OrderBook({
   return (
     <View style={{ padding: 8 }}>
       <View style={{ flexDirection: 'row' }}>
-        <View style={styles.verticalHeaderContainer}>
+        <View style={styles.verticalHeaderPrice}>
           <Text
             style={[
               styles.verticalHeaderText,
@@ -494,17 +506,17 @@ export function OrderBook({
             Price
           </Text>
         </View>
-        <View style={[styles.verticalHeaderContainer]}>
+        <View style={styles.verticalHeaderSize}>
           <Text
             style={[
               styles.verticalHeaderText,
-              { textAlign: 'center', color: textColor.textSubdued },
+              { textAlign: 'right', color: textColor.textSubdued },
             ]}
           >
             SIZE
           </Text>
         </View>
-        <View style={[styles.verticalHeaderContainer]}>
+        <View style={styles.verticalHeaderTotal}>
           <Text
             style={[
               styles.verticalHeaderText,
