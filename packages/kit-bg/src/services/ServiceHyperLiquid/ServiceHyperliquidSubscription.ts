@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
+import { Semaphore } from 'async-mutex';
 
 import {
   backgroundClass,
@@ -55,6 +56,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _client: SubscriptionClient | null = null;
 
+  // Ensure updateSubscriptions runs exclusively to avoid race conditions
+  private _updateSemaphore = new Semaphore(1);
+
   private _currentState: ISubscriptionState = {
     currentUser: null,
     currentSymbol: '',
@@ -66,18 +70,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async updateSubscriptions(params: ISubscriptionUpdateParams): Promise<void> {
-    const newState: ISubscriptionState = { ...this._currentState };
-    this._applyStateUpdates(newState, params);
+    const [, release] = await this._updateSemaphore.acquire();
+    try {
+      const newState: ISubscriptionState = { ...this._currentState };
+      this._applyStateUpdates(newState, params);
 
-    const diff = this._calculateStateDiff(newState);
+      const diff = this._calculateStateDiff(newState);
 
-    if (this._isDiffEmpty(diff)) {
-      return;
+      if (this._isDiffEmpty(diff)) {
+        return;
+      }
+      this._emitConnectionStatus();
+      await this._executeSubscriptionChanges(diff, newState);
+
+      this._currentState = newState;
+    } finally {
+      release();
     }
-    this._emitConnectionStatus();
-    await this._executeSubscriptionChanges(diff, newState);
-
-    this._currentState = newState;
   }
 
   @backgroundMethod()
