@@ -519,7 +519,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         if (params.showToast !== false) {
           Toast.success({
             title: 'Orders Canceled',
-            message: `Successfully canceled ${params.orders.length} order(s)`,
+            message: `Successfully canceled ${params.orders.length} order${
+              params.orders.length > 1 ? 's' : ''
+            }`,
           });
         }
 

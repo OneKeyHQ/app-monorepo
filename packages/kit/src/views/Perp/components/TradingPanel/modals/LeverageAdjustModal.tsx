@@ -18,6 +18,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
+import { usePerpUseChainAccount } from '../../../hooks/usePerpUseChainAccount';
 
 interface ILeverageContentProps {
   initialValue: number;
@@ -76,14 +77,15 @@ const LeverageContent = memo(
           />
         </XStack>
 
-        <Slider
-          value={value || 1}
-          onChange={handleSliderChange}
-          min={1}
-          max={maxLeverage}
-          step={1}
-        />
-
+        <YStack p="$1" my="$3">
+          <Slider
+            value={value || 1}
+            onChange={handleSliderChange}
+            min={1}
+            max={maxLeverage}
+            step={1}
+          />
+        </YStack>
         <SizableText size="$bodySm" color="$textSubdued">
           The maximum leverage is {maxLeverage}x. Max position size decreases
           the higher your leverage.
@@ -95,8 +97,7 @@ const LeverageContent = memo(
 LeverageContent.displayName = 'LeverageContent';
 
 export const LeverageAdjustModal = memo(() => {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const userAccountId = activeAccount?.dbAccount?.id;
+  const { userAccountId } = usePerpUseChainAccount();
 
   const [currentToken] = useCurrentTokenAtom();
   const { getTokenInfo } = useTokenList();
