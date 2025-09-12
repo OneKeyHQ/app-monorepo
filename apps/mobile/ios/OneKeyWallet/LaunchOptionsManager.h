@@ -1,10 +1,3 @@
-//
-//  LaunchOptionsManager.h
-//  OneKeyWallet
-//
-//  Created by OneKey on 2024.
-//
-
 #import <React/RCTBridgeModule.h>
 #import <Foundation/Foundation.h>
 
