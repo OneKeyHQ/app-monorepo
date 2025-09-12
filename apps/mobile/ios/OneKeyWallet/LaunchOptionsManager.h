@@ -6,5 +6,7 @@
 + (instancetype)sharedInstance;
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions;
 - (NSDictionary *)getLaunchOptions;
+- (void)saveDeviceToken:(NSString *)deviceToken;
+- (NSString *)getDeviceToken;
 
 @end
