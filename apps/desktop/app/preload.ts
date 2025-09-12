@@ -31,6 +31,7 @@ type IDesktopAPILegacy = {
   arch: string;
   platform: string;
   systemVersion: string;
+  deskChannel: string;
   isMas: boolean;
   isDev: boolean;
   channel?: string;
@@ -208,6 +209,7 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   },
   arch: process.arch,
   platform: process.platform,
+  deskChannel: process.env.DESK_CHANNEL || '',
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   isDev,
