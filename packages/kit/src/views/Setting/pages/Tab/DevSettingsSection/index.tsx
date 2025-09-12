@@ -314,11 +314,11 @@ const BaseDevSettingsSection = () => {
             console.error(error);
           }
         }}
-        onValueChange={(enabled: boolean) => {
+        onValueChange={async (enabled: boolean) => {
           if (platformEnv.isDesktop) {
-            globalThis.desktopApi?.setAutoUpdateSettings?.({
-              useTestFeedUrl: enabled,
-            });
+            await globalThis.desktopApiProxy?.update?.useTestUpdateFeedUrl?.(
+              enabled,
+            );
           }
           setTimeout(() => {
             void backgroundApiProxy.serviceApp.restartApp();

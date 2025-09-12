@@ -5,6 +5,7 @@ import type DesktopApiNotification from '../DesktopApiNotification';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
 import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
+import type DesktopApiUpdate from '../DesktopApiUpdate';
 import type DesktopApiWebview from '../DesktopApiWebview';
 
 export interface IDesktopApi {
@@ -16,4 +17,5 @@ export interface IDesktopApi {
   dev: DesktopApiDev;
   inAppPurchase: DesktopApiInAppPurchase;
   bluetooth: DesktopApiBluetooth;
+  update: DesktopApiUpdate;
 }

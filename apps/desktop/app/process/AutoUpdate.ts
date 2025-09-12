@@ -31,6 +31,10 @@ import { b2t, toHumanReadable } from '../libs/utils';
 import type { IDependencies } from '.';
 import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
 
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.logger = logger;
+
 interface ILatestVersion {
   version: string;
   releaseDate: string;
@@ -59,21 +63,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
   let isManualCheck = false;
   let latestVersion: ILatestVersion = {} as ILatestVersion;
   let updateCancellationToken: CancellationToken | undefined;
-  const updateSettings = store.getUpdateSettings();
-
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.logger = logger;
-
-  logger.info(
-    'auto-updater',
-    `updateSettings: ${JSON.stringify(updateSettings)}`,
-  );
-
-  const setUseTestFeedUrl = (useTestFeedUrl: boolean) => {
-    updateSettings.useTestFeedUrl = useTestFeedUrl;
-    store.setUpdateSettings(updateSettings);
-  };
 
   const sendUpdateError = (error: { message: string }) => {
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
@@ -223,121 +212,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
     return true;
   };
-
-  autoUpdater.on('checking-for-update', () => {
-    logger.info('auto-updater', 'Checking for update');
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_CHECKING);
-  });
-
-  autoUpdater.on('update-download-fileInfo', (fileInfo) => {
-    logger.info('update-download-fileInfo', fileInfo.info.url);
-    mainWindow.webContents.send(
-      ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
-      fileInfo.info.url,
-    );
-  });
-
-  autoUpdater.on('update-available', ({ version, releaseDate }) => {
-    logger.warn('auto-updater', [
-      'Update is available:',
-      `- Update version: ${version}`,
-      `- Release date: ${releaseDate}`,
-      `- Manual check: ${b2t(isManualCheck)}`,
-    ]);
-
-    latestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_AVAILABLE, latestVersion);
-
-    // Reset manual check flag
-    isManualCheck = false;
-  });
-
-  autoUpdater.on('update-not-available', (data) => {
-    const { version, releaseDate } = data;
-    logger.info('auto-updater', [
-      'No new update is available:',
-      `- Last version: ${version}`,
-      `- Last release date: ${releaseDate}`,
-      `- Manual check: ${b2t(isManualCheck)}`,
-    ]);
-
-    latestVersion = { version, releaseDate, isManualCheck };
-    mainWindow.webContents.send(
-      ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-      latestVersion,
-    );
-
-    // Reset manual check flag
-    isManualCheck = false;
-  });
-
-  autoUpdater.on('error', (err) => {
-    logger.error('auto-updater', `An error happened: ${err.toString()}`);
-    const isNetwork = isNetworkError(err);
-    const message = isNetwork
-      ? 'Network exception, please check your internet connection.'
-      : err.message;
-
-    if (mainWindow.isDestroyed()) {
-      void dialog
-        .showMessageBox({
-          type: 'error',
-          buttons: ['Restart Now'],
-          defaultId: 0,
-          message,
-        })
-        .then((selection) => {
-          if (selection.response === 0) {
-            app.relaunch();
-            app.exit();
-          }
-        });
-    } else {
-      mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-        err: { message },
-        version: latestVersion.version,
-        isNetworkError: isNetworkError(err),
-      });
-    }
-  });
-
-  autoUpdater.on('download-progress', (progressObj) => {
-    logger.debug(
-      'auto-updater',
-      `Downloading ${progressObj.percent}% (${toHumanReadable(
-        progressObj.transferred,
-      )}/${toHumanReadable(progressObj.total)})`,
-    );
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
-      ...progressObj,
-    });
-  });
-
-  autoUpdater.on(
-    'update-downloaded',
-    ({ version, releaseDate, downloadedFile, files }) => {
-      logger.info('auto-updater', [
-        'Update downloaded:',
-        `- Last version: ${version}`,
-        `- Last release date: ${releaseDate}`,
-        `- Downloaded file: ${downloadedFile}`,
-      ]);
-
-      const downloadUrl = files.find((file) =>
-        file.url.endsWith(path.basename(downloadedFile)),
-      )?.url;
-
-      logger.info('auto-updater', [
-        'Update downloaded:',
-        `- Downloaded url: ${downloadUrl || ''}`,
-      ]);
-      mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADED, {
-        version,
-        downloadedFile,
-        downloadUrl,
-      });
-    },
-  );
 
   const clearUpdateCache = async () => {
     try {
@@ -540,14 +414,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
     isDownloading = false;
     await clearUpdateCache();
   });
-
-  ipcMain.on(
-    ipcMessageKeys.UPDATE_SETTINGS,
-    (_, settings: IDesktopStoreUpdateSettings) => {
-      logger.info('auto-update', 'Set setting: ', JSON.stringify(settings));
-      setUseTestFeedUrl((settings ?? {}).useTestFeedUrl ?? false);
-    },
-  );
 
   ipcMain.on(ipcMessageKeys.UPDATE_CLEAR_SETTINGS, () => {
     logger.info('auto-update', 'clear update settings');

@@ -11,6 +11,7 @@ import DesktopApiNotification from '../DesktopApiNotification';
 import DesktopApiSecurity from '../DesktopApiSecurity';
 import DesktopApiStorage from '../DesktopApiStorage';
 import DesktopApiSystem from '../DesktopApiSystem';
+import DesktopApiUpdate from '../DesktopApiUpdate';
 import DesktopApiWebview from '../DesktopApiWebview';
 
 import type {
@@ -49,6 +50,10 @@ class DesktopApi implements IDesktopApi {
   });
 
   bluetooth: DesktopApiBluetooth = new DesktopApiBluetooth({
+    desktopApi: this,
+  });
+
+  update: DesktopApiUpdate = new DesktopApiUpdate({
     desktopApi: this,
   });
 }
