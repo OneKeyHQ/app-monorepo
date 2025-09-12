@@ -275,6 +275,8 @@ export function PrimeLoginContainer() {
 
   useEffect(() => {
     const fn = () => {
+      void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+
       Dialog.show({
         dismissOnOverlayPress: false,
         disableDrag: true,
