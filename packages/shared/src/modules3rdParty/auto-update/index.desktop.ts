@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultLogger } from '../../logger/logger';
 
+import { electronUpdateListeners } from './electronUpdateListeners';
+
 import type {
   IClearPackage,
   IDownloadASC,
@@ -20,8 +22,7 @@ import type {
 
 const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
   new Promise((resolve, reject) => {
-    const errorSubscription =
-      globalThis.desktopApiProxy.update.listeners.onUpdateError?.(reject);
+    const errorSubscription = electronUpdateListeners.onUpdateError?.(reject);
     void callback()
       .then((result) => {
         errorSubscription?.();
@@ -36,7 +37,7 @@ export const downloadPackage: IDownloadPackage = async () => {
     return Promise.all([
       globalThis.desktopApiProxy.update.downloadUpdate(),
       new Promise<IUpdateDownloadedEvent>((resolve) => {
-        globalThis.desktopApiProxy.update.listeners.onDownloaded?.(resolve);
+        electronUpdateListeners.onDownloaded?.(resolve);
       }),
     ]);
   });
@@ -92,11 +93,9 @@ export const useDownloadProgress: IUseDownloadProgress = (
 
   useEffect(() => {
     const onProgressUpdateSubscription =
-      globalThis.desktopApiProxy.update.listeners.onProgressUpdate?.(
-        updatePercent,
-      );
+      electronUpdateListeners.onProgressUpdate?.(updatePercent);
     const onDownloadedSubscription =
-      globalThis.desktopApiProxy.update.listeners.onDownloaded?.(onSuccess);
+      electronUpdateListeners.onDownloaded?.(onSuccess);
     return () => {
       onProgressUpdateSubscription?.();
       onDownloadedSubscription?.();

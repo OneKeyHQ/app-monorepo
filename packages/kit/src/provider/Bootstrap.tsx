@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -483,14 +484,13 @@ export const useCheckUpdateOnDesktop =
   !platformEnv.isDesktopWinMsStore
     ? () => {
         useEffect(() => {
-          const subscription =
-            globalThis.desktopApiProxy.update.listeners.onDownloadedFileEvent?.(
-              (downloadUrl) => {
-                void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
-                  downloadUrl,
-                );
-              },
-            );
+          const subscription = electronUpdateListeners.onDownloadedFileEvent?.(
+            (downloadUrl) => {
+              void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
+                downloadUrl,
+              );
+            },
+          );
           setTimeout(async () => {
             const previousBuildNumber =
               await globalThis.desktopApiProxy.update.getPreviousUpdateBuildNumber();
