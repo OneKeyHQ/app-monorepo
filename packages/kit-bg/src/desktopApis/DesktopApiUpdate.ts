@@ -20,7 +20,6 @@ import type {
 } from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
-import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
@@ -94,18 +93,23 @@ class DesktopApiUpdate {
 
   isDownloading: boolean;
 
+  downloadedEvent: IUpdateDownloadedEvent;
+
   updateCancellationToken: CancellationToken | undefined;
 
   listeners: {
     onProgressUpdate?: (
       callback: (params: IUpdateProgressUpdate) => void,
-    ) => IDesktopEventUnSubscribe;
+    ) => IDesktopEventUnSubscribe | undefined;
     onDownloaded?: (
       callback: (params: IUpdateDownloadedEvent) => void,
-    ) => IDesktopEventUnSubscribe;
+    ) => IDesktopEventUnSubscribe | undefined;
     onDownloadError?: (
       callback: (params: { message: string }) => void,
-    ) => IDesktopEventUnSubscribe;
+    ) => IDesktopEventUnSubscribe | undefined;
+    onDownloadedFileEvent?: (
+      callback: (fileUrl: string) => void,
+    ) => IDesktopEventUnSubscribe | undefined;
   };
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
@@ -113,6 +117,7 @@ class DesktopApiUpdate {
     this.isManualCheck = false;
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
+    this.downloadedEvent = {} as IUpdateDownloadedEvent;
     this.listeners = {};
     if (!isMas) {
       this.initAppAutoUpdateEvents();
@@ -139,6 +144,15 @@ class DesktopApiUpdate {
     ) => {
       return globalThis.desktopApi?.on?.(
         ipcMessageKeys.UPDATE_DOWNLOADED,
+        callback,
+      );
+    };
+
+    this.listeners.onDownloadedFileEvent = (
+      callback: (fileUrl: string) => void,
+    ) => {
+      return globalThis.desktopApi?.on?.(
+        ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
         callback,
       );
     };
@@ -356,15 +370,15 @@ class DesktopApiUpdate {
     });
   }
 
-  async downloadUpdate(): Promise<void> {
+  async downloadUpdate(): Promise<IUpdateDownloadedEvent> {
     logger.info('auto-updater', 'Download requested', this.isDownloading);
     if (this.isDownloading) {
-      return;
+      return this.downloadedEvent;
     }
     this.isDownloading = true;
     const mainWindow = this.getMainWindow();
     if (!mainWindow) {
-      return;
+      return this.downloadedEvent;
     }
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
@@ -378,21 +392,28 @@ class DesktopApiUpdate {
     store.clearUpdateBuildNumber();
     await clearUpdateCache();
     this.updateCancellationToken = new CancellationToken();
-    autoUpdater
-      .downloadUpdate(this.updateCancellationToken)
-      .then(() => logger.info('auto-updater', 'Update downloaded'))
-      .catch((e: Error) => {
-        logger.info('auto-updater', 'Update cancelled', e);
-        // CancellationError
-        // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
-        if (e.message === 'cancelled') {
-          return;
-        }
-        throw e;
-      })
-      .finally(() => {
-        this.isDownloading = false;
-      });
+
+    try {
+      const results = await Promise.all([
+        await autoUpdater.downloadUpdate(this.updateCancellationToken),
+        new Promise<IUpdateDownloadedEvent>((resolve) => {
+          this.listeners.onDownloaded?.(resolve);
+        }),
+      ]);
+      logger.info('auto-updater', 'Update downloaded', results[0]);
+      logger.info('auto-updater', 'Update downloaded', results[1]);
+      return results[1];
+    } catch (e) {
+      logger.info('auto-updater', 'Update cancelled', e);
+      // CancellationError
+      // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
+      if ((e as Error).message === 'cancelled') {
+        return this.downloadedEvent;
+      }
+      throw e;
+    } finally {
+      this.isDownloading = false;
+    }
   }
 
   async downloadAndVerifyASC(params: IInstallUpdateParams): Promise<boolean> {
@@ -624,6 +645,10 @@ class DesktopApiUpdate {
     store.setUpdateSettings({
       useTestFeedUrl: enabled,
     });
+  }
+
+  async getPreviousUpdateBuildNumber(): Promise<string> {
+    return store.getUpdateBuildNumber() || '';
   }
 }
 
