@@ -105,6 +105,14 @@ class DesktopApiUpdate {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
     }
+    if (isDev) {
+      Object.defineProperty(app, 'isPackaged', {
+        get() {
+          return true;
+        },
+      });
+      autoUpdater.forceDevUpdateConfig = true;
+    }
   }
 
   getMainWindow(): BrowserWindow | undefined {
@@ -295,13 +303,6 @@ class DesktopApiUpdate {
     const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl);
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
-    if (isDev) {
-      Object.defineProperty(app, 'isPackaged', {
-        get() {
-          return true;
-        },
-      });
-    }
     try {
       const result = await autoUpdater.checkForUpdates();
       if (result) {
