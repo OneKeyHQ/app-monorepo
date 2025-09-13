@@ -92,9 +92,11 @@ export const useDownloadProgress: IUseDownloadProgress = (
 
   useEffect(() => {
     const onProgressUpdateSubscription =
-      desktopApiProxy.update.listeners.onProgressUpdate?.(updatePercent);
+      globalThis.desktopApiProxy.update.listeners.onProgressUpdate?.(
+        updatePercent,
+      );
     const onDownloadedSubscription =
-      desktopApiProxy.update.listeners.onDownloaded?.(onSuccess);
+      globalThis.desktopApiProxy.update.listeners.onDownloaded?.(onSuccess);
     return () => {
       onProgressUpdateSubscription?.();
       onDownloadedSubscription?.();
