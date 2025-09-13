@@ -96,21 +96,22 @@ function ApproveListItem(props: IProps) {
       return null;
     }
     return (
-      <YStack flexGrow={1} flexBasis={0}>
-        <ApprovalTimeView approvalTime={approval.latestApprovalTime} />
-      </YStack>
+      <Stack flexGrow={1} flexBasis={0}>
+        <ApprovalTokenView approval={approval} />
+      </Stack>
     );
   }, [tableLayout, approval]);
 
   const renderFourthColumn = useCallback(() => {
+    if (tableLayout) {
+      return (
+        <YStack flexGrow={1} flexBasis={0} alignItems="flex-end" maxWidth="$36">
+          <ApprovalTimeView approvalTime={approval.latestApprovalTime} />
+        </YStack>
+      );
+    }
     return (
-      <Stack
-        flexGrow={1}
-        flexBasis={0}
-        alignItems="flex-end"
-        maxWidth="$36"
-        pr={tableLayout ? 0 : 6}
-      >
+      <Stack alignItems="flex-end" maxWidth="$36" pr={6}>
         <ApprovalTokenView approval={approval} />
       </Stack>
     );

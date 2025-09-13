@@ -10,6 +10,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useDecodedTxsInitAtom,
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -72,11 +73,13 @@ function TxConfirm() {
     updatePreCheckTxStatus,
     updateSendFeeStatus,
     updateExtraFeeInfo,
+    updateDecodedTxsInit,
+    updateSendTxStatus,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
-  const decodedTxsInit = useRef(false);
+  const [decodedTxsInit] = useDecodedTxsInitAtom();
   const txConfirmParamsInit = useRef(false);
 
   const accountId =
@@ -124,7 +127,7 @@ function TxConfirm() {
           isBuildingDecodedTxs: false,
         });
 
-        decodedTxsInit.current = true;
+        updateDecodedTxsInit(true);
 
         return r;
       },
@@ -135,11 +138,37 @@ function TxConfirm() {
         networkId,
         transferPayload,
         updateExtraFeeInfo,
+        updateDecodedTxsInit,
       ],
       {
         watchLoading: true,
       },
     );
+
+  useEffect(() => {
+    if (accountId && networkId && reactiveUnsignedTxs?.[0]?.uuid) {
+      updateSendTxStatus({
+        isInsufficientNativeBalance: false,
+        isInsufficientTokenBalance: false,
+        fillUpNativeBalance: '0',
+        isBaseOnEstimateMaxFee: false,
+        maxFeeNative: '0',
+      });
+      updateSendFeeStatus({
+        status: ESendFeeStatus.Idle,
+        errMessage: '',
+      });
+      txConfirmParamsInit.current = false;
+    }
+  }, [
+    txConfirmParamsInit,
+    reactiveUnsignedTxs,
+    updateDecodedTxsInit,
+    accountId,
+    networkId,
+    updateSendFeeStatus,
+    updateSendTxStatus,
+  ]);
 
   usePromiseResult(async () => {
     if (txConfirmParamsInit.current) return;
@@ -196,7 +225,7 @@ function TxConfirm() {
   ]);
 
   const txConfirmTitle = useMemo(() => {
-    if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit.current) {
+    if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit) {
       return '';
     }
 
@@ -212,7 +241,7 @@ function TxConfirm() {
     return intl.formatMessage({
       id: ETranslations.transaction__transaction_confirm,
     });
-  }, [decodedTxs, intl]);
+  }, [decodedTxs, intl, decodedTxsInit]);
 
   const swapInfo = useMemo(() => {
     const swapTx = find(unsignedTxs, 'swapInfo');
@@ -264,7 +293,7 @@ function TxConfirm() {
   }, [sourceInfo, accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
-    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {
+    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit) {
       return <SignatureConfirmLoading />;
     }
 
@@ -303,6 +332,7 @@ function TxConfirm() {
     unsignedTxs,
     swapInfo,
     stakingInfo,
+    decodedTxsInit,
   ]);
 
   const renderTxQueueController = useCallback(() => {
@@ -326,7 +356,11 @@ function TxConfirm() {
         {renderTxQueueController()}
         {renderTxConfirmContent()}
       </Page.Body>
-      <TxConfirmActions {...route.params} />
+      <TxConfirmActions
+        {...route.params}
+        accountId={accountId}
+        networkId={networkId}
+      />
     </Page>
   );
 }

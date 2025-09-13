@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   useAppExitPrevent,
@@ -24,8 +25,23 @@ export function PrimeTransferExitPrevent({
     id: ETranslations.confirm_exit_dialog_desc,
   });
 
-  const onConfirmCallback = useCallback(() => {
-    void backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
+  const onConfirmCallback = useCallback(async () => {
+    try {
+      await backgroundApiProxy.servicePrimeTransfer.clearSensitiveData();
+    } catch (error) {
+      console.error('onConfirmCallback clearSensitiveData error', error);
+    }
+    try {
+      await backgroundApiProxy.servicePrimeTransfer.handleLeaveRoom();
+    } catch (error) {
+      console.error('onConfirmCallback handleLeaveRoom error', error);
+    }
+    try {
+      await timerUtils.wait(600);
+      await backgroundApiProxy.servicePrimeTransfer.refreshQrcodeHook();
+    } catch (error) {
+      console.error('onConfirmCallback refreshQrcodeHook error', error);
+    }
   }, []);
 
   // Prevents screen locking during transfer

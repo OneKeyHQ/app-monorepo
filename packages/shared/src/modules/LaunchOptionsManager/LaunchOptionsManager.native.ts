@@ -19,4 +19,10 @@ export default {
     }
     return Promise.resolve(true);
   },
+  getDeviceToken: () => {
+    if (LaunchOptionsManager && LaunchOptionsManager.getDeviceToken) {
+      return LaunchOptionsManager.getDeviceToken();
+    }
+    return Promise.resolve(null);
+  },
 } as ILaunchOptionsManagerInterface;

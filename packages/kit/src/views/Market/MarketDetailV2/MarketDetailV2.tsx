@@ -25,7 +25,7 @@ import { MobileLayout } from './layouts/MobileLayout';
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, networkId } = route.params;
+  const { tokenAddress, networkId, isNative } = route.params;
   const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
 
@@ -48,9 +48,15 @@ function MarketDetail({
 
   return (
     <Page>
-      <MarketDetailHeader />
+      <MarketDetailHeader isNative={isNative} />
 
-      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+      <Page.Body>
+        {media.gtLg ? (
+          <DesktopLayout isNative={isNative} />
+        ) : (
+          <MobileLayout isNative={isNative} />
+        )}
+      </Page.Body>
     </Page>
   );
 }

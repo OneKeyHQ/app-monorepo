@@ -6,7 +6,10 @@ import { StyleSheet } from 'react-native';
 import { IconButton, SizableText, XStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type { IHasId, LinkedDeck } from '@onekeyhq/kit/src/hooks/useLinkedList';
-import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import {
+  useSendTxStatusAtom,
+  useSignatureConfirmActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IProps<T> = {
@@ -16,6 +19,8 @@ function TaskQueueController<T>(props: IProps<T>) {
   const { taskQueue } = props;
   const intl = useIntl();
   const { updateUnsignedTxs } = useSignatureConfirmActions().current;
+
+  const [sendTxStatus] = useSendTxStatusAtom();
 
   const handleChangeActiveTask = useCallback(
     (direction: 'prev' | 'next') => {
@@ -60,7 +65,9 @@ function TaskQueueController<T>(props: IProps<T>) {
         variant="tertiary"
         onPress={() => handleChangeActiveTask('prev')}
         disabled={
-          !taskQueue.head || taskQueue.current?.uuid === taskQueue.head.uuid
+          !taskQueue.head ||
+          taskQueue.current?.uuid === taskQueue.head.uuid ||
+          sendTxStatus.isSubmitting
         }
       />
       <SizableText size="$bodyMdMedium">
@@ -80,7 +87,9 @@ function TaskQueueController<T>(props: IProps<T>) {
         variant="tertiary"
         onPress={() => handleChangeActiveTask('next')}
         disabled={
-          !taskQueue.tail || taskQueue.current?.uuid === taskQueue.tail.uuid
+          !taskQueue.tail ||
+          taskQueue.current?.uuid === taskQueue.tail.uuid ||
+          sendTxStatus.isSubmitting
         }
       />
     </XStack>

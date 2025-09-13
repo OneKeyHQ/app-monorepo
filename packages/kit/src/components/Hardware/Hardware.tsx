@@ -589,68 +589,12 @@ export function EnterPinOnDevice({
   );
 }
 
-export function EnterHiddenWalletPinOnDevice({
-  deviceType,
-}: {
-  deviceType: IDeviceType | undefined;
-}) {
-  const requireResource = useCallback(() => {
-    switch (deviceType) {
-      // Prevents the device type from being obtained
-      case null:
-      case undefined:
-        return Promise.resolve(null);
-      // Specify unsupported devices
-      case EDeviceType.Unknown:
-        return Promise.resolve(null);
-      case EDeviceType.Classic:
-      case EDeviceType.Classic1s:
-      case EDeviceType.ClassicPure:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-classic.json'
-        );
-      case EDeviceType.Mini:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-mini.json'
-        );
-      case EDeviceType.Touch:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-touch.json'
-        );
-      case EDeviceType.Pro:
-        return import(
-          '@onekeyhq/kit/assets/animations/enter-hidden-wallet-pin-pro-dark.json'
-        );
-      default:
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType = deviceType;
-    }
-  }, [deviceType]);
-
-  const [animationData, setAnimationData] = useState<any>(null);
-
-  useEffect(() => {
-    requireResource()
-      ?.then((module) => {
-        setAnimationData(module?.default);
-      })
-      ?.catch(() => {
-        // ignore
-      });
-  }, [requireResource]);
-
-  return (
-    // height must be specified on Sheet View.
-    <Stack borderRadius="$3" bg="$bgSubdued" height={230}>
-      <CompatibleLottieView source={animationData} />
-    </Stack>
-  );
-}
-
 export function EnterPin({
+  title,
   onConfirm,
   switchOnDevice,
 }: {
+  title: string;
   onConfirm: (value: string) => void;
   switchOnDevice: () => void;
 }) {
@@ -762,11 +706,7 @@ export function EnterPin({
   return (
     <Stack>
       <Dialog.Header>
-        <Dialog.Title>
-          {intl.formatMessage({
-            id: ETranslations.enter_pin_title,
-          })}
-        </Dialog.Title>
+        <Dialog.Title>{title}</Dialog.Title>
         <Dialog.Description>
           {intl.formatMessage({
             id: ETranslations.enter_pin_desc,

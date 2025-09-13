@@ -23,6 +23,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useShouldRejectDappAction from '@onekeyhq/kit/src/hooks/useShouldRejectDappAction';
 import {
   useDecodedTxsAtom,
+  useDecodedTxsInitAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePreCheckTxStatusAtom,
@@ -32,6 +33,7 @@ import {
   useSignatureConfirmActions,
   useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
+  useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -108,6 +110,8 @@ function TxConfirmActions(props: IProps) {
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
+  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
+  const [decodedTxsInit] = useDecodedTxsInitAtom();
 
   const toAddress = transferPayload?.originalRecipient;
   const unsignedTx = unsignedTxs[0];
@@ -518,6 +522,8 @@ function TxConfirmActions(props: IProps) {
   }, [decodedTxs]);
 
   const isSubmitDisabled = useMemo(() => {
+    if (!txFeeInfoInit || !decodedTxsInit) return true;
+
     if (showTakeRiskAlert && !continueOperate) return true;
 
     if (sendTxStatus.isSubmitting) return true;
@@ -534,6 +540,8 @@ function TxConfirmActions(props: IProps) {
     if (txAdvancedSettings.dataChanged) return true;
     return false;
   }, [
+    txFeeInfoInit,
+    decodedTxsInit,
     showTakeRiskAlert,
     continueOperate,
     sendTxStatus.isSubmitting,
