@@ -42,6 +42,7 @@ const PerpTokenSelectorRow = memo(
         px="$5"
         py="$3"
         cursor="pointer"
+        flex={1}
       >
         <XStack flex={1} alignItems="center">
           {/* Token Info */}
@@ -53,6 +54,8 @@ const PerpTokenSelectorRow = memo(
           >
             <Token
               size="xs"
+              borderRadius="$full"
+              bg="$bgInverse"
               tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
@@ -74,7 +77,7 @@ const PerpTokenSelectorRow = memo(
             </NumberSizeableText>
           </XStack>
 
-          <XStack width={120} justifyContent="flex-start">
+          <XStack width={140} justifyContent="flex-start">
             <SizableText
               size="$bodySm"
               color={token.change24hPercent > 0 ? '$green11' : '$red11'}
@@ -108,7 +111,11 @@ const PerpTokenSelectorRow = memo(
             <SizableText size="$bodySm" color="$text">
               $
               {formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(token.openInterest),
+                NUMBER_FORMATTER.marketCap(
+                  (
+                    Number(token.openInterest) * Number(token.markPrice)
+                  ).toString(),
+                ),
               )}
             </SizableText>
           </XStack>

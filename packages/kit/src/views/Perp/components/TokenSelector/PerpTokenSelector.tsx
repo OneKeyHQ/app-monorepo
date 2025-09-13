@@ -48,17 +48,56 @@ function BasePerpTokenSelectorContent({
 
   return (
     <YStack>
-      <XStack px="$5" pt="$5">
-        <SearchBar
-          containerProps={{
-            borderRadius: '$2',
-          }}
-          autoFocus
-          placeholder="Search"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </XStack>
+      <YStack gap="$2">
+        <XStack px="$5" pt="$5">
+          <SearchBar
+            containerProps={{
+              borderRadius: '$2',
+            }}
+            autoFocus
+            placeholder="Search"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </XStack>
+        <XStack
+          px="$5"
+          py="$3"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
+          <XStack width={140} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Asset
+            </SizableText>
+          </XStack>
+          <XStack width={80} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Last Price
+            </SizableText>
+          </XStack>
+          <XStack width={140} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              24h Change
+            </SizableText>
+          </XStack>
+          <XStack width={100} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              8h Funding
+            </SizableText>
+          </XStack>
+          <XStack width={100} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              24h Volume
+            </SizableText>
+          </XStack>
+          <XStack flex={1} justifyContent="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Open Interest
+            </SizableText>
+          </XStack>
+        </XStack>
+      </YStack>
 
       {/* Token List */}
       <YStack flex={1} maxHeight={300}>
@@ -71,45 +110,6 @@ function BasePerpTokenSelectorContent({
               onPress={() => handleSelectToken(token.name)}
             />
           )}
-          ListHeaderComponent={
-            <XStack
-              px="$5"
-              py="$3"
-              borderBottomWidth="$px"
-              borderBottomColor="$borderSubdued"
-            >
-              <XStack width={140} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Asset
-                </SizableText>
-              </XStack>
-              <XStack width={80} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Last Price
-                </SizableText>
-              </XStack>
-              <XStack width={120} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  24h Change
-                </SizableText>
-              </XStack>
-              <XStack width={100} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  8h Funding
-                </SizableText>
-              </XStack>
-              <XStack width={100} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  24h Volume
-                </SizableText>
-              </XStack>
-              <XStack flex={1} justifyContent="flex-end">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Open Interest
-                </SizableText>
-              </XStack>
-            </XStack>
-          }
           ListEmptyComponent={
             <XStack p="$5" justifyContent="center">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -169,6 +169,8 @@ function BasePerpTokenSelector() {
           >
             <Token
               size="md"
+              borderRadius="$full"
+              bg="$bgInverse"
               tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />

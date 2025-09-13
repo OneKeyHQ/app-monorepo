@@ -67,6 +67,7 @@ function PerpTickerBar() {
     openInterest,
     volume24h,
     change24hPercent,
+    coin,
   } = priceData;
 
   const formattedMarkPrice = markPrice;
@@ -157,7 +158,12 @@ function PerpTickerBar() {
             <Skeleton width={100} height={20} />
           ) : (
             <SizableText size="$headingXs">
-              ${formatDisplayNumber(NUMBER_FORMATTER.marketCap(openInterest))}
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(
+                  (Number(openInterest) * Number(markPrice)).toString(),
+                ),
+              )}
             </SizableText>
           )}
         </YStack>
