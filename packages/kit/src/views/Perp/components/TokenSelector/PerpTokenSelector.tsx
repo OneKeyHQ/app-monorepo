@@ -13,6 +13,7 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
 import { usePerpTokenSelector } from '../../hooks';
@@ -76,7 +77,7 @@ function BasePerpTokenSelectorContent({
               Last Price
             </SizableText>
           </XStack>
-          <XStack width={140} justifyContent="flex-start">
+          <XStack width={120} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               24h Change
             </SizableText>
@@ -138,6 +139,7 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
+  const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = useCurrentTokenAtom();
   const [isLoading, setIsLoading] = useState(false);
@@ -146,7 +148,7 @@ function BasePerpTokenSelector() {
       <Popover
         title="Select Token"
         floatingPanelProps={{
-          width: 700,
+          width: 680,
         }}
         open={isOpen}
         onOpenChange={setIsOpen}
@@ -170,7 +172,7 @@ function BasePerpTokenSelector() {
             <Token
               size="md"
               borderRadius="$full"
-              bg="$bgInverse"
+              bg={themeVariant === 'light' ? null : '$bgInverse'}
               tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
@@ -189,7 +191,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, currentToken, isLoading],
+    [isOpen, currentToken, isLoading, themeVariant],
   );
 }
 
