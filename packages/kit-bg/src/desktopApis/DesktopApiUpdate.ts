@@ -1,21 +1,26 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { app, dialog } from 'electron';
+import { BrowserWindow, app, dialog } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 import { CancellationToken, autoUpdater } from 'electron-updater';
+import { readCleartextMessage, readKey } from 'openpgp';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
+import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
+import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
-import type { BrowserWindow } from 'electron';
 
 const isMas = !!process.mas;
 
@@ -386,6 +391,230 @@ class DesktopApiUpdate {
       .finally(() => {
         this.isDownloading = false;
       });
+  }
+
+  async downloadAndVerifyASC(params: IInstallUpdateParams): Promise<boolean> {
+    const { downloadedFile, downloadUrl } = params;
+    store.clearASCFile();
+    logger.info(
+      'auto-updater',
+      'Download ASC requested',
+      downloadedFile,
+      downloadUrl,
+    );
+
+    if (!downloadedFile || !fs.existsSync(downloadedFile)) {
+      logger.info('auto-updater', 'no such file');
+      //   this.sendUpdateError({
+      //     message: 'NOT_FOUND_FILE',
+      //   });
+      return false;
+    }
+
+    if (downloadUrl) {
+      try {
+        const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
+        const ascFileResponse = await fetch(ascFileUrl);
+
+        if (!ascFileResponse.ok) {
+          logger.error(
+            'auto-updater',
+            `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
+          );
+          //   this.sendUpdateError({
+          //     message: String(ascFileResponse.status),
+          //   });
+          return false;
+        }
+
+        const ascFileMessage = await ascFileResponse.text();
+        if (ascFileMessage.length === 0) {
+          //   this.sendUpdateError({
+          //     message: '',
+          //   });
+          return false;
+        }
+        store.setASCFile(ascFileMessage);
+      } catch (error) {
+        // this.sendUpdateError({
+        //   message: error instanceof Error ? error.message : '',
+        // });
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
+    logger.info('auto-updater', 'Download ASC requested', params);
+    const valid = await this.downloadAndVerifyASC(params);
+    return valid;
+  }
+
+  async getSha256AndVerifyASC(params: IInstallUpdateParams): Promise<boolean> {
+    logger.info('auto-updater', 'Get SHA256 and Verify ASC requested', params);
+    const valid = await this.downloadAndVerifyASC(params);
+    return valid;
+  }
+
+  async getSha256(): Promise<string> {
+    try {
+      const ascFileMessage = store.getASCFile();
+      if (!ascFileMessage) {
+        return '';
+      }
+      logger.info('auto-updater', `signatureFileContent: ${ascFileMessage}`);
+
+      const signedMessage = await readCleartextMessage({
+        cleartextMessage: ascFileMessage,
+      });
+      const publicKey = await readKey({ armoredKey: PUBLIC_KEY });
+      const result = await signedMessage.verify([publicKey]);
+      // Get result (validity of the signature)
+      const valid = await result[0].verified;
+      logger.info('auto-updater', `file valid: ${String(valid)}`);
+      if (valid) {
+        const texts = signedMessage.getText().split(' ');
+        const sha256 = texts[0];
+        logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
+        return sha256;
+      }
+    } catch (error) {
+      logger.error(
+        'auto-updater',
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        `getSha256 Error: ${(error as any).toString()}`,
+      );
+      const { message } = error as { message: string };
+
+      const lowerCaseMessage = message.toLowerCase();
+      const isInValid =
+        lowerCaseMessage.includes('signed digest did not match') ||
+        lowerCaseMessage.includes('misformed armored text') ||
+        lowerCaseMessage.includes('ascii armor integrity check failed');
+      //   sendUpdateError({
+      //     message: isInValid
+      //       ? ETranslations.update_signature_verification_failed_alert_text
+      //       : ETranslations.update_installation_package_possibly_compromised,
+      //   });
+      return '';
+    }
+    return '';
+  }
+
+  async verifySha256(downloadedFile: string, sha256: string): Promise<boolean> {
+    logger.info('auto-updater', `sha256: ${sha256}`);
+    const hash = crypto.createHash('sha256');
+    const fileContent = fs.readFileSync(downloadedFile);
+    hash.update(fileContent);
+    const fileSha256 = hash.digest('hex');
+    logger.info('auto-updater', `file sha256: ${fileSha256}`);
+    return fileSha256 === sha256;
+  }
+
+  async verifyASC(): Promise<boolean> {
+    logger.info('auto-updater', 'Verify ASC requested');
+    const sha256 = await this.getSha256();
+    return !!sha256;
+  }
+
+  async verifyFile(verifyParams: IInstallUpdateParams): Promise<boolean> {
+    const { downloadedFile, downloadUrl } = verifyParams;
+    if (!downloadedFile || !downloadUrl) {
+      logger.info('auto-updater', 'no such file');
+      return false;
+    }
+    logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
+
+    const sha256 = await this.getSha256();
+    if (!sha256) {
+      //   sendValidError();
+      return false;
+    }
+
+    try {
+      const verified = await this.verifySha256(downloadedFile, sha256);
+      if (!verified) {
+        // sendValidError();
+        return false;
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'verifyFile error', error);
+      //   sendUpdateError({
+      //     message: ETranslations.update_installation_package_possibly_compromised,
+      //   });
+      return false;
+    }
+
+    return true;
+  }
+
+  async verifyPackage(verifyParams: IInstallUpdateParams): Promise<boolean> {
+    const verified = await this.verifyFile(verifyParams);
+    return verified;
+  }
+
+  async installPackage(verifyParams: IInstallUpdateParams): Promise<void> {
+    const verified = await this.verifyFile(verifyParams);
+    if (!verified) {
+      return;
+    }
+    const buildNumber = verifyParams.buildNumber;
+    logger.info('auto-updater', 'Installation request', buildNumber);
+    void dialog
+      .showMessageBox({
+        type: 'question',
+        buttons: [
+          i18nText(ETranslations.update_install_and_restart),
+          i18nText(ETranslations.global_later),
+        ],
+        defaultId: 0,
+        message: i18nText(ETranslations.update_new_update_downloaded),
+      })
+      .then((selection) => {
+        if (selection.response === 0) {
+          setUpdateBuildNumber(buildNumber);
+          logger.info('auto-update', 'button[0] was clicked');
+          app.removeAllListeners('window-all-closed');
+          this.getMainWindow()?.removeAllListeners('close');
+          for (const window of BrowserWindow.getAllWindows()) {
+            window.close();
+            window.destroy();
+          }
+          autoUpdater.quitAndInstall(false);
+        }
+        logger.info('auto-update', 'button[1] was clicked');
+      });
+  }
+
+  async manualInstallPackage(
+    verifyParams: IInstallUpdateParams,
+  ): Promise<void> {
+    logger.info(
+      'auto-updater',
+      'Opening downloaded file',
+      verifyParams.buildNumber,
+      verifyParams,
+    );
+    const verified = await this.verifyFile(verifyParams);
+    if (!verified) {
+      return;
+    }
+    logger.info(
+      'auto-updater',
+      'Manual installation request',
+      verifyParams.buildNumber,
+    );
+    if (verifyParams.downloadedFile) {
+      try {
+        const { shell } = require('electron');
+        await shell.openPath(path.dirname(verifyParams.downloadedFile));
+      } catch (error) {
+        logger.error('auto-updater', 'Failed to open downloaded file', error);
+      }
+    } else {
+      logger.warn('auto-updater', 'No downloaded file to open');
+    }
   }
 
   async useTestUpdateFeedUrl(enabled = false): Promise<void> {
