@@ -54,15 +54,7 @@ export enum ESlippageSetting {
   Manual = 'Manual',
 }
 
-export enum EAddFrom {
-  Homepage = 'Homepage',
-  Detail = 'Detail',
-  Onboard = 'Onboard',
-  Search = 'Search',
-  Others = 'Others',
-}
-
-export enum ERemoveFrom {
+export enum EWatchlistFrom {
   Homepage = 'Homepage',
   Detail = 'Detail',
   Search = 'Search',
@@ -121,14 +113,14 @@ export interface IDexAddToWatchlistParams {
   network: string;
   tokenSymbol: string;
   tokenContract: string;
-  addFrom: EAddFrom;
+  addFrom: EWatchlistFrom;
 }
 
 export interface IDexRemoveFromWatchlistParams {
   network: string;
   tokenSymbol: string;
   tokenContract: string;
-  removeFrom: ERemoveFrom;
+  removeFrom: EWatchlistFrom;
 }
 
 export interface IDexSortParams {

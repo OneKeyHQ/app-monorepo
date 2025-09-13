@@ -10,7 +10,7 @@ import type {
 import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useMarketWatchListV2Atom } from '../../../states/jotai/contexts/marketV2';
@@ -21,11 +21,13 @@ export const useStarV2Checked = ({
   chainId,
   contractAddress,
   from,
+  tokenSymbol,
   isNative = false,
 }: {
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
+  tokenSymbol?: string;
   isNative?: boolean;
 }) => {
   const actions = useWatchListV2Action();
@@ -50,18 +52,24 @@ export const useStarV2Checked = ({
   const handlePress = useCallback(async () => {
     if (checked) {
       actions.removeFromWatchListV2(chainId, contractAddress);
-      defaultLogger.market.token.removeFromWatchlist({
-        tokenSymbol: `${chainId}:${contractAddress}`,
-        removeWatchlistFrom: from,
+      // Dex analytics
+      defaultLogger.dex.watchlist.dexRemoveFromWatchlist({
+        network: chainId,
+        tokenSymbol: tokenSymbol || '',
+        tokenContract: contractAddress,
+        removeFrom: from,
       });
     } else {
       actions.addIntoWatchListV2([{ chainId, contractAddress, isNative }]);
-      defaultLogger.market.token.addToWatchList({
-        tokenSymbol: `${chainId}:${contractAddress}`,
-        addWatchlistFrom: from,
+      // Dex analytics
+      defaultLogger.dex.watchlist.dexAddToWatchlist({
+        network: chainId,
+        tokenSymbol: tokenSymbol || '',
+        tokenContract: contractAddress,
+        addFrom: from,
       });
     }
-  }, [checked, actions, chainId, contractAddress, from, isNative]);
+  }, [checked, actions, chainId, contractAddress, from, tokenSymbol, isNative]);
 
   return useMemo(
     () => ({
@@ -77,6 +85,7 @@ function BasicMarketStarV2({
   contractAddress,
   size,
   from,
+  tokenSymbol,
   isNative = false,
   ...props
 }: {
@@ -84,6 +93,7 @@ function BasicMarketStarV2({
   chainId: string;
   contractAddress: string;
   from: EWatchlistFrom;
+  tokenSymbol?: string;
   isNative?: boolean;
 } & IStackProps) {
   const intl = useIntl();
@@ -91,6 +101,7 @@ function BasicMarketStarV2({
     chainId,
     contractAddress,
     from,
+    tokenSymbol,
     isNative,
   });
 
