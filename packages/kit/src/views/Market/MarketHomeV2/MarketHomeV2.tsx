@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EDexListName } from '@onekeyhq/shared/src/logger/scopes/dex';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -27,6 +29,11 @@ function MarketHome() {
   // Track market entry analytics
   useMarketEnterAnalytics();
 
+  // Track if this is the first tab change (automatic) to skip analytics
+  const isFirstTabChange = useRef(true);
+  // Track previous tab to prevent duplicate analytics events
+  const prevTabId = useRef<IMarketHomeTabValue | null>(null);
+
   // Update selectedNetworkId when config loads and it's still the default
   useEffect(() => {
     if (defaultNetworkId && selectedNetworkId === 'sol--101') {
@@ -46,8 +53,30 @@ function MarketHome() {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
-  const handleTabChange = (_tabId: IMarketHomeTabValue) => {
-    // Tab change is now handled by the atomic state in layouts
+  const handleTabChange = (tabId: IMarketHomeTabValue) => {
+    // Skip analytics for the first automatic tab change
+    if (isFirstTabChange.current) {
+      isFirstTabChange.current = false;
+      prevTabId.current = tabId;
+      return;
+    }
+
+    // Skip analytics if tab hasn't actually changed (prevent duplicate events)
+    if (prevTabId.current === tabId) {
+      return;
+    }
+
+    // Update previous tab id
+    prevTabId.current = tabId;
+
+    // Track dex list selection only when user clicks tab (not default selection)
+    // Convert tab value to dex list name
+    const dexListName =
+      tabId === 'trending' ? EDexListName.Trending : EDexListName.Watchlist;
+
+    defaultLogger.dex.list.dexList({
+      dexListName,
+    });
   };
 
   const mobileProps = useMemo(
