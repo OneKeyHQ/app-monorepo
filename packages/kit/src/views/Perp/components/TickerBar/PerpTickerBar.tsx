@@ -5,6 +5,7 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -67,6 +68,7 @@ function PerpTickerBar() {
     openInterest,
     volume24h,
     change24hPercent,
+    coin,
   } = priceData;
 
   const formattedMarkPrice = markPrice;
@@ -123,11 +125,20 @@ function PerpTickerBar() {
         }}
       >
         <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Oracle Price
-          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued">
+                Oracle Price
+              </SizableText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">Oracle Price</SizableText>
+            }
+            placement="top"
+          />
+
           {showSkeleton ? (
-            <Skeleton width={100} height={20} />
+            <Skeleton width={80} height={16} />
           ) : (
             <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
           )}
@@ -138,7 +149,7 @@ function PerpTickerBar() {
             24h Volume
           </SizableText>
           {showSkeleton ? (
-            <Skeleton width={100} height={20} />
+            <Skeleton width={80} height={16} />
           ) : (
             <SizableText size="$headingXs">
               $
@@ -150,27 +161,45 @@ function PerpTickerBar() {
         </YStack>
 
         <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Open Interest
-          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued">
+                Open Interest
+              </SizableText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">Open Interest</SizableText>
+            }
+            placement="top"
+          />
           {showSkeleton ? (
-            <Skeleton width={100} height={20} />
+            <Skeleton width={80} height={16} />
           ) : (
             <SizableText size="$headingXs">
-              ${formatDisplayNumber(NUMBER_FORMATTER.marketCap(openInterest))}
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(
+                  (Number(openInterest) * Number(markPrice)).toString(),
+                ),
+              )}
             </SizableText>
           )}
         </YStack>
 
         <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Funding / Countdown
-          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued">
+                Funding / Countdown
+              </SizableText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">Funding / Countdown</SizableText>
+            }
+            placement="top"
+          />
           {showSkeleton ? (
-            <XStack alignItems="center" gap="$2">
-              <Skeleton width={80} height={20} />
-              <Skeleton width={40} height={20} />
-            </XStack>
+            <Skeleton width={120} height={16} />
           ) : (
             <XStack alignItems="center" gap="$2">
               <SizableText

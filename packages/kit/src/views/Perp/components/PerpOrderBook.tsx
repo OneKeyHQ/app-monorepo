@@ -69,7 +69,7 @@ export function PerpOrderBook() {
         horizontal={false}
         bids={l2Book.bids}
         asks={l2Book.asks}
-        maxLevelsPerSide={16}
+        maxLevelsPerSide={12}
         selectedTickOption={selectedTickOption}
         onTickOptionChange={handleTickOptionChange}
         tickOptions={tickOptionsData.tickOptions}
