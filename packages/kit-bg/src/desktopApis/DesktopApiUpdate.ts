@@ -233,19 +233,15 @@ class DesktopApiUpdate {
     autoUpdater.on(
       'update-downloaded',
       ({ version, releaseDate, downloadedFile, files }) => {
-        logger.info('auto-updater', [
-          'Update downloaded:',
-          `- Last version: ${version}`,
-          `- Last release date: ${releaseDate}`,
-          `- Downloaded file: ${downloadedFile}`,
-        ]);
-
         const downloadUrl = files.find((file) =>
           file.url.endsWith(path.basename(downloadedFile)),
         )?.url;
 
         logger.info('auto-updater', [
           'Update downloaded:',
+          `- Last version: ${version}`,
+          `- Last release date: ${releaseDate}`,
+          `- Downloaded file: ${downloadedFile}`,
           `- Downloaded url: ${downloadUrl || ''}`,
         ]);
         this.getMainWindow()?.webContents.send(
