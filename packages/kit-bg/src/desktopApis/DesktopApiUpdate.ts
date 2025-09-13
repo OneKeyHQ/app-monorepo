@@ -14,7 +14,10 @@ import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
-import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
+import type {
+  IDesktopEventUnSubscribe,
+  IInstallUpdateParams,
+} from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
@@ -82,7 +85,6 @@ if (isMas) {
   autoUpdater.logger = logger;
 }
 
-type IUnsubscribe = () => void;
 class DesktopApiUpdate {
   desktopApi: IDesktopApi;
 
@@ -97,13 +99,13 @@ class DesktopApiUpdate {
   listeners: {
     onProgressUpdate?: (
       callback: (params: IUpdateProgressUpdate) => void,
-    ) => IUnsubscribe;
+    ) => IDesktopEventUnSubscribe;
     onDownloaded?: (
       callback: (params: IUpdateDownloadedEvent) => void,
-    ) => IUnsubscribe;
+    ) => IDesktopEventUnSubscribe;
     onDownloadError?: (
       callback: (params: { message: string }) => void,
-    ) => IUnsubscribe;
+    ) => IDesktopEventUnSubscribe;
   };
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
