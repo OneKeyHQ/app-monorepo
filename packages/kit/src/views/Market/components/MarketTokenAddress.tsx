@@ -14,6 +14,8 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -29,6 +31,7 @@ export function MarketTokenAddress({
   tokenNameColor,
   tokenNameSize = '$bodyMdMedium',
   addressSize = '$bodyMd',
+  copyFrom = ECopyFrom.Others,
 }: {
   networkId?: string;
   tokenName?: string;
@@ -37,6 +40,7 @@ export function MarketTokenAddress({
   tokenNameColor?: ISizableTextProps['color'];
   tokenNameSize?: ISizableTextProps['size'];
   addressSize?: ISizableTextProps['size'];
+  copyFrom?: ECopyFrom;
 }) {
   const intl = useIntl();
   const { copyText } = useClipboard();
@@ -103,7 +107,13 @@ export function MarketTokenAddress({
         icon="Copy3Outline"
         size="small"
         iconSize="$4"
-        onPress={() => copyText(address)}
+        onPress={() => {
+          copyText(address);
+          // Dex analytics
+          defaultLogger.dex.actions.dexCopyCA({
+            copyFrom,
+          });
+        }}
       />
       <IconButton
         title={intl.formatMessage({
