@@ -104,7 +104,7 @@ class DesktopApiUpdate {
     onDownloaded?: (
       callback: (params: IUpdateDownloadedEvent) => void,
     ) => IDesktopEventUnSubscribe | undefined;
-    onDownloadError?: (
+    onUpdateError?: (
       callback: (params: { message: string }) => void,
     ) => IDesktopEventUnSubscribe | undefined;
     onDownloadedFileEvent?: (
@@ -157,7 +157,7 @@ class DesktopApiUpdate {
       );
     };
 
-    this.listeners.onDownloadError = (
+    this.listeners.onUpdateError = (
       callback: (params: { message: string }) => void,
     ) => {
       return globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_ERROR, callback);
@@ -165,7 +165,6 @@ class DesktopApiUpdate {
 
     autoUpdater.on('checking-for-update', () => {
       logger.info('auto-updater', 'Checking for update');
-      this.getMainWindow()?.webContents.send(ipcMessageKeys.UPDATE_CHECKING);
     });
 
     autoUpdater.on('update-download-fileInfo', (fileInfo) => {
@@ -189,10 +188,10 @@ class DesktopApiUpdate {
         releaseDate,
         isManualCheck: this.isManualCheck,
       };
-      this.getMainWindow()?.webContents.send(
-        ipcMessageKeys.UPDATE_AVAILABLE,
-        this.latestVersion,
-      );
+      //   this.getMainWindow()?.webContents.send(
+      //     ipcMessageKeys.UPDATE_AVAILABLE,
+      //     this.latestVersion,
+      //   );
 
       // Reset manual check flag
       this.isManualCheck = false;
@@ -212,10 +211,10 @@ class DesktopApiUpdate {
         releaseDate,
         isManualCheck: this.isManualCheck,
       };
-      this.getMainWindow()?.webContents.send(
-        ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-        this.latestVersion,
-      );
+      //   this.getMainWindow()?.webContents.send(
+      //     ipcMessageKeys.UPDATE_NOT_AVAILABLE,
+      //     this.latestVersion,
+      //   );
 
       // Reset manual check flag
       this.isManualCheck = false;
