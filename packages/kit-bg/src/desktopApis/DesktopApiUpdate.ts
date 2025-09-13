@@ -14,10 +14,7 @@ import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
-import type {
-  IDesktopEventUnSubscribe,
-  IInstallUpdateParams,
-} from '@onekeyhq/desktop/app/preload';
+import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -98,28 +95,12 @@ class DesktopApiUpdate {
 
   updateCancellationToken: CancellationToken | undefined;
 
-  listeners: {
-    onProgressUpdate?: (
-      callback: (params: IUpdateProgressUpdate) => void,
-    ) => IDesktopEventUnSubscribe | undefined;
-    onDownloaded?: (
-      callback: (params: IUpdateDownloadedEvent) => void,
-    ) => IDesktopEventUnSubscribe | undefined;
-    onUpdateError?: (
-      callback: (params: { message: string }) => void,
-    ) => IDesktopEventUnSubscribe | undefined;
-    onDownloadedFileEvent?: (
-      callback: (fileUrl: string) => void,
-    ) => IDesktopEventUnSubscribe | undefined;
-  };
-
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
     this.isManualCheck = false;
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    this.listeners = {};
     if (!isMas) {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
@@ -131,39 +112,6 @@ class DesktopApiUpdate {
   }
 
   initAppAutoUpdateEvents(): void {
-    this.listeners.onProgressUpdate = (
-      callback: (params: IUpdateProgressUpdate) => void,
-    ) => {
-      return globalThis.desktopApi?.on?.(
-        ipcMessageKeys.UPDATE_DOWNLOADING,
-        callback,
-      );
-    };
-
-    this.listeners.onDownloaded = (
-      callback: (params: IUpdateDownloadedEvent) => void,
-    ) => {
-      return globalThis.desktopApi?.on?.(
-        ipcMessageKeys.UPDATE_DOWNLOADED,
-        callback,
-      );
-    };
-
-    this.listeners.onDownloadedFileEvent = (
-      callback: (fileUrl: string) => void,
-    ) => {
-      return globalThis.desktopApi?.on?.(
-        ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
-        callback,
-      );
-    };
-
-    this.listeners.onUpdateError = (
-      callback: (params: { message: string }) => void,
-    ) => {
-      return globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_ERROR, callback);
-    };
-
     autoUpdater.on('checking-for-update', () => {
       logger.info('auto-updater', 'Checking for update');
     });
