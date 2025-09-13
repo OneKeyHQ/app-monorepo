@@ -123,20 +123,10 @@ ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (event, data) => {
 });
 
 const validChannels = [
-  // Update events
-  ipcMessageKeys.UPDATE_CHECKING,
-  ipcMessageKeys.UPDATE_AVAILABLE,
   ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
-  ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-  ipcMessageKeys.UPDATE_VERIFIED,
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
-  ipcMessageKeys.UPDATE_DOWNLOAD_ASC,
-  ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE,
-  ipcMessageKeys.UPDATE_VERIFY_ASC_DONE,
-  ipcMessageKeys.UPDATE_VERIFY_ASC,
-  ipcMessageKeys.UPDATE_MANUAL_INSTALLATION,
   ipcMessageKeys.CHECK_FOR_UPDATES,
   ipcMessageKeys.APP_OPEN_SETTINGS,
   ipcMessageKeys.APP_LOCK_NOW,
