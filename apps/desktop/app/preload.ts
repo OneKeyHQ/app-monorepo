@@ -53,16 +53,6 @@ type IDesktopAPILegacy = {
     event: string,
     listener: (...args: any[]) => void,
   ) => void;
-
-  // Updater
-  checkForUpdates: (isManual?: boolean) => void;
-  downloadUpdate: () => void;
-  downloadASC: (event: IVerifyUpdateParams) => void;
-  verifyASC: (event: IVerifyUpdateParams) => void;
-  verifyUpdate: (event: IVerifyUpdateParams) => void;
-  installUpdate: (event: IInstallUpdateParams) => void;
-  manualInstallPackage: (event: IInstallUpdateParams) => void;
-  getPreviousUpdateBuildNumber: () => string;
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
@@ -243,26 +233,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-
-  // Updater
-  checkForUpdates: (isManual?: boolean) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
-  downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
-  downloadASC: (params: IVerifyUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC, params),
-  verifyUpdate: (params: IVerifyUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
-  verifyASC: (params: IVerifyUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY_ASC, params),
-  installUpdate: (params: IInstallUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
-  manualInstallPackage: (params: IInstallUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_MANUAL_INSTALLATION, params),
-  getPreviousUpdateBuildNumber: () =>
-    ipcRenderer.sendSync(
-      ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
-    ),
-
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
