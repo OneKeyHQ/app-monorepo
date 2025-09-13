@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
-import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
@@ -132,7 +131,7 @@ function DownloadVerify({
   const stepIndex = STEP_INDEX_MAP[data.status];
   const hasError = checkIsError(data.status);
 
-  const percent = useDownloadProgress(noop, noop);
+  const percent = useDownloadProgress();
 
   const renderDownloadError = useCallback(
     () => (
