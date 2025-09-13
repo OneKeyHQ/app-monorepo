@@ -12,14 +12,35 @@ import type {
   IDownloadPackage,
   IInstallPackage,
   IManualInstallPackage,
+  IUpdateDownloadedEvent,
   IUseDownloadProgress,
   IVerifyASC,
   IVerifyPackage,
 } from './type';
 
+const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const errorSubscription =
+      globalThis.desktopApiProxy.update.listeners.onUpdateError?.(reject);
+    void callback()
+      .then((result) => {
+        errorSubscription?.();
+        resolve(result);
+      })
+      .catch(reject);
+  });
+
 export const downloadPackage: IDownloadPackage = async () => {
-  await globalThis.desktopApiProxy.update.checkForUpdates();
-  return globalThis.desktopApiProxy.update.downloadUpdate();
+  const results = await withUpdateError(async () => {
+    await globalThis.desktopApiProxy.update.checkForUpdates();
+    return Promise.all([
+      globalThis.desktopApiProxy.update.downloadUpdate(),
+      new Promise<IUpdateDownloadedEvent>((resolve) => {
+        globalThis.desktopApiProxy.update.listeners.onDownloaded?.(resolve);
+      }),
+    ]);
+  });
+  return results[1];
 };
 
 export const downloadASC: IDownloadASC = async (params) => {
@@ -74,12 +95,9 @@ export const useDownloadProgress: IUseDownloadProgress = (
       desktopApiProxy.update.listeners.onProgressUpdate?.(updatePercent);
     const onDownloadedSubscription =
       desktopApiProxy.update.listeners.onDownloaded?.(onSuccess);
-    const onDownloadErrorSubscription =
-      desktopApiProxy.update.listeners.onDownloadError?.(onFailed);
     return () => {
       onProgressUpdateSubscription?.();
       onDownloadedSubscription?.();
-      onDownloadErrorSubscription?.();
     };
   }, [onFailed, onSuccess, updatePercent]);
   return percent;
