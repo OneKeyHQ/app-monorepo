@@ -80,6 +80,14 @@ class DesktopApiUpdate {
 
   updateCancellationToken: CancellationToken | undefined;
 
+  events: {
+    onUpdateAvailable: (event: IUpdateAvailableEvent) => void;
+    onUpdateNotAvailable: (event: IUpdateNotAvailableEvent) => void;
+    onUpdateError: (event: IUpdateErrorEvent) => void;
+    onUpdateDownloading: (event: IUpdateDownloadingEvent) => void;
+    onUpdateDownloaded: (event: IUpdateDownloadedEvent) => void;
+  };
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
     this.isManualCheck = false;
@@ -234,6 +242,33 @@ class DesktopApiUpdate {
   }
 
   initBundleAutoUpdateEvents(): void {}
+
+  async clearUpdateCache(): Promise<void> {
+    if (this.updateCancellationToken) {
+      this.updateCancellationToken.cancel();
+    }
+    this.isDownloading = false;
+    try {
+      // @ts-ignore
+      const baseCachePath = autoUpdater?.app?.baseCachePath;
+      if (baseCachePath) {
+        const cachePath = path.join(baseCachePath, '@onekeyhqdesktop-updater');
+        logger.info('auto-updater', `cachePath: ${cachePath}`);
+        const isExist = fs.existsSync(cachePath);
+        if (isExist) {
+          fs.rmSync(cachePath, { recursive: true, force: true });
+        }
+        logger.info('auto-updater', `removed: ${cachePath}`);
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'Error clearing cache: ', error);
+    }
+  }
+
+  async clearUpdateSettings(): Promise<void> {
+    logger.info('auto-update', 'clear update settings');
+    store.clearUpdateSettings();
+  }
 
   async checkForUpdates(isManual = false): Promise<void> {
     if (isManual) {

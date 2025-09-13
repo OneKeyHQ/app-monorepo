@@ -58,7 +58,6 @@ type IDesktopAPILegacy = {
   installUpdate: (event: IInstallUpdateParams) => void;
   manualInstallPackage: (event: IInstallUpdateParams) => void;
   getPreviousUpdateBuildNumber: () => string;
-  clearUpdate: () => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
@@ -255,9 +254,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
     ipcRenderer.sendSync(
       ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
     ),
-  clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
-  clearAutoUpdateSettings: () =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR_SETTINGS),
 
   touchUpdateResource: (params: {
     resourceUrl: string;

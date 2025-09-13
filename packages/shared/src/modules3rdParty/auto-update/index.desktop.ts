@@ -125,7 +125,7 @@ globalThis.desktopApi?.on?.(
 
 export const downloadPackage: IDownloadPackage = async () => {
   await globalThis.desktopApiProxy.update.checkForUpdates();
-  await this.desktopApiProxy.update.downloadUpdate();
+  return globalThis.desktopApiProxy.update.downloadUpdate();
 
   // new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
   //   updateAvailableTasks.push(() => {
@@ -202,7 +202,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
 };
 
 export const clearPackage: IClearPackage = async () => {
-  globalThis.desktopApi.clearUpdate();
+  await globalThis.desktopApiProxy.update.clearUpdateCache();
 };
 
 export const manualInstallPackage: IManualInstallPackage = async (params) =>

@@ -407,11 +407,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
     await clearUpdateCache();
   });
 
-  ipcMain.on(ipcMessageKeys.UPDATE_CLEAR_SETTINGS, () => {
-    logger.info('auto-update', 'clear update settings');
-    clearUpdateSettings();
-  });
-
   ipcMain.on(
     ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
     (event) => {
