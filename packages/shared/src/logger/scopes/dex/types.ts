@@ -13,9 +13,10 @@ export enum EDexListName {
 }
 
 export enum ESortWay {
-  Liquidity = 'Liquidity',
-  Volume = 'Volume',
-  MC = 'MC',
+  Liquidity = 'liquidity',
+  Volume = 'v24hUSD',
+  MC = 'mc',
+  Default = 'default',
 }
 
 export enum ECopyFrom {
@@ -125,6 +126,7 @@ export interface IDexRemoveFromWatchlistParams {
 
 export interface IDexSortParams {
   sortWay: ESortWay;
+  sortDirection?: 'asc' | 'desc';
 }
 
 export interface IDexCopyCAParams {
