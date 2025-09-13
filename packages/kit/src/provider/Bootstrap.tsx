@@ -483,21 +483,17 @@ export const useCheckUpdateOnDesktop =
   !platformEnv.isDesktopWinMsStore
     ? () => {
         useEffect(() => {
-          globalThis.desktopApi.on(
-            ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
-            (downloadUrl) => {
-              defaultLogger.update.app.log(
-                'UPDATE_DOWNLOAD_FILE_INFO',
-                downloadUrl,
-              );
-              void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
-                downloadUrl,
-              );
-            },
-          );
-          setTimeout(() => {
+          const subscription =
+            globalThis.desktopApiProxy.update.listeners.onDownloadedFileEvent?.(
+              (downloadUrl) => {
+                void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
+                  downloadUrl,
+                );
+              },
+            );
+          setTimeout(async () => {
             const previousBuildNumber =
-              globalThis.desktopApi.getPreviousUpdateBuildNumber();
+              await globalThis.desktopApiProxy.update.getPreviousUpdateBuildNumber();
             if (
               previousBuildNumber &&
               getBuilderNumber(previousBuildNumber) >=
@@ -506,6 +502,9 @@ export const useCheckUpdateOnDesktop =
               void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
             }
           }, 0);
+          return () => {
+            subscription?.();
+          };
         }, []);
       }
     : noop;
