@@ -318,15 +318,15 @@ class DesktopApiUpdate {
     }
   }
 
-  async downloadUpdate(): Promise<string[]> {
+  async downloadUpdate(): Promise<void> {
     logger.info('auto-updater', 'Download requested', this.isDownloading);
     if (this.isDownloading) {
-      return [];
+      return;
     }
     this.isDownloading = true;
     const mainWindow = this.getMainWindow();
     if (!mainWindow) {
-      return [];
+      return;
     }
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOADING, {
       percent: 0,
@@ -342,19 +342,14 @@ class DesktopApiUpdate {
     this.updateCancellationToken = new CancellationToken();
 
     try {
-      const result = await autoUpdater.downloadUpdate(
-        this.updateCancellationToken,
-      );
-      logger.info('auto-updater', 'Update downloaded', result);
-      return result;
+      await autoUpdater.downloadUpdate(this.updateCancellationToken);
     } catch (e) {
       logger.info('auto-updater', 'Update cancelled', e);
       // CancellationError
       // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
-      if ((e as Error).message === 'cancelled') {
-        return [];
+      if ((e as Error).message !== 'cancelled') {
+        throw e;
       }
-      throw e;
     } finally {
       this.isDownloading = false;
     }
