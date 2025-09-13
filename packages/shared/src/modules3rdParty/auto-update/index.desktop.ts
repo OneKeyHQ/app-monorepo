@@ -20,17 +20,6 @@ import type {
 export const downloadPackage: IDownloadPackage = async () => {
   await globalThis.desktopApiProxy.update.checkForUpdates();
   return globalThis.desktopApiProxy.update.downloadUpdate();
-
-  // new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
-  //   updateAvailableTasks.push(() => {
-  //     globalThis.desktopApi.downloadUpdate();
-  //   });
-  //   updateDownloadedTasks.push((event: IUpdateDownloadedEvent) => {
-  //     resolve(event);
-  //   });
-  //   updateErrorTasks.push(reject);
-  //   globalThis.desktopApi.checkForUpdates();
-  // });
 };
 
 export const downloadASC: IDownloadASC = async (params) => {
