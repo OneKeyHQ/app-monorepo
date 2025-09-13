@@ -26,11 +26,13 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
 }
 
+export type IDesktopEventUnSubscribe = () => void;
+
 type IDesktopAPILegacy = {
   on: (
     channel: string,
     func: (...args: any[]) => any,
-  ) => () => void | undefined;
+  ) => IDesktopEventUnSubscribe | undefined;
   arch: string;
   platform: string;
   systemVersion: string;
