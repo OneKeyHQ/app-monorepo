@@ -85,10 +85,7 @@ export const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
   });
 };
 
-export const useDownloadProgress: IUseDownloadProgress = (
-  onSuccess,
-  onFailed,
-) => {
+export const useDownloadProgress: IUseDownloadProgress = () => {
   const [percent, setPercent] = useState(0);
 
   const updatePercent = useThrottledCallback(
@@ -113,7 +110,7 @@ export const useDownloadProgress: IUseDownloadProgress = (
     return () => {
       onProgressUpdateSubscription?.();
     };
-  }, [onFailed, onSuccess, updatePercent]);
+  }, [updatePercent]);
   return percent;
 };
 

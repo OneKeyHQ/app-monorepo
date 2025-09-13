@@ -10,17 +10,7 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 export function DownloadProgress() {
   const intl = useIntl();
-  const onSuccess = useCallback(() => {}, []);
-  const onFailed = useCallback(
-    (e: { message: string }) => {
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.global_update_failed }),
-      });
-      void backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(e);
-    },
-    [intl],
-  );
-  const percent = useDownloadProgress(onSuccess, onFailed);
+  const percent = useDownloadProgress();
   return intl.formatMessage(
     { id: ETranslations.update_downloading_package },
     { progress: percent },

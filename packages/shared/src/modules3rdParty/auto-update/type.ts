@@ -21,10 +21,7 @@ export type IVerifyASC = (params: IUpdateDownloadedEvent) => Promise<void>;
 
 export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
 
-export type IUseDownloadProgress = (
-  onSuccess: () => void,
-  onFailed: (params: { message: string }) => void,
-) => number;
+export type IUseDownloadProgress = () => number;
 
 export type IClearPackage = () => Promise<void>;
 

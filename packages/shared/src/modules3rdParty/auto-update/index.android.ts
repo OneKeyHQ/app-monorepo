@@ -133,10 +133,7 @@ export const installPackage: IInstallPackage = async ({
 };
 
 const eventEmitter = new NativeEventEmitter(NativeModules.AutoUpdateModule);
-export const useDownloadProgress: IUseDownloadProgress = (
-  onSuccess,
-  onFailed,
-) => {
+export const useDownloadProgress: IUseDownloadProgress = () => {
   const [percent, setPercent] = useState(0);
 
   const updatePercent = useThrottledCallback(
@@ -146,19 +143,6 @@ export const useDownloadProgress: IUseDownloadProgress = (
       setPercent(progress);
     },
     10,
-  );
-
-  const handleSuccess = useCallback(() => {
-    defaultLogger.update.app.log('downloaded');
-    onSuccess();
-  }, [onSuccess]);
-
-  const handleFailed = useCallback(
-    (params: { message: string }) => {
-      defaultLogger.update.app.log('error', params.message);
-      onFailed(params);
-    },
-    [onFailed],
   );
 
   useEffect(() => {
@@ -173,21 +157,11 @@ export const useDownloadProgress: IUseDownloadProgress = (
       'update/downloading',
       updatePercent,
     );
-    const onDownloadedEventListener = eventEmitter.addListener(
-      'update/downloaded',
-      handleSuccess,
-    );
-    const onErrorEventListener = eventEmitter.addListener(
-      'update/error',
-      handleFailed,
-    );
     return () => {
       onStartEventListener.remove();
       onDownloadingEventListener.remove();
-      onDownloadedEventListener.remove();
-      onErrorEventListener.remove();
     };
-  }, [handleFailed, handleSuccess, onFailed, onSuccess, updatePercent]);
+  }, [updatePercent]);
   return percent;
 };
 
