@@ -27,7 +27,10 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
 }
 
 type IDesktopAPILegacy = {
-  on: (channel: string, func: (...args: any[]) => any) => void;
+  on: (
+    channel: string,
+    func: (...args: any[]) => any,
+  ) => () => void | undefined;
   arch: string;
   platform: string;
   systemVersion: string;
@@ -64,7 +67,6 @@ type IDesktopAPILegacy = {
     buttonLabel: string;
   }) => void;
   openPrivacyPanel: () => void;
-  clearAutoUpdateSettings: () => void;
   // startServer: (port: number) => Promise<{ success: boolean; error?: string }>;
   startServer: (
     port: number,
@@ -202,7 +204,11 @@ const updateGlobalTitleBarBackgroundColor = () => {
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (_, ...args) => func(...args));
+      const callback = (...args: any[]) => func(...args);
+      ipcRenderer.on(channel, callback);
+      return () => {
+        ipcRenderer.removeListener(channel, callback);
+      };
     }
   },
   arch: process.arch,

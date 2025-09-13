@@ -10,6 +10,7 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import type { IDesktopStoreUpdateSettings } from '@onekeyhq/shared/types/desktop';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -59,8 +60,15 @@ function buildFeedUrl(useTestFeedUrl: boolean) {
 export interface ILatestVersion {
   version: string;
   releaseDate: string;
-  isManualCheck: boolean;
-  updateCancellationToken: CancellationToken | undefined;
+  isManualCheck?: boolean;
+}
+
+export interface IUpdateProgressUpdate {
+  percent: number;
+  delta: number;
+  bytesPerSecond: number;
+  total: number;
+  transferred: number;
 }
 
 if (isMas) {
@@ -69,6 +77,7 @@ if (isMas) {
   autoUpdater.logger = logger;
 }
 
+type IUnsubscribe = () => void;
 class DesktopApiUpdate {
   desktopApi: IDesktopApi;
 
@@ -80,12 +89,16 @@ class DesktopApiUpdate {
 
   updateCancellationToken: CancellationToken | undefined;
 
-  events: {
-    onUpdateAvailable: (event: IUpdateAvailableEvent) => void;
-    onUpdateNotAvailable: (event: IUpdateNotAvailableEvent) => void;
-    onUpdateError: (event: IUpdateErrorEvent) => void;
-    onUpdateDownloading: (event: IUpdateDownloadingEvent) => void;
-    onUpdateDownloaded: (event: IUpdateDownloadedEvent) => void;
+  listeners: {
+    onProgressUpdate?: (
+      callback: (params: IUpdateProgressUpdate) => void,
+    ) => IUnsubscribe;
+    onDownloaded?: (
+      callback: (params: IUpdateDownloadedEvent) => void,
+    ) => IUnsubscribe;
+    onDownloadError?: (
+      callback: (params: { message: string }) => void,
+    ) => IUnsubscribe;
   };
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
@@ -93,6 +106,7 @@ class DesktopApiUpdate {
     this.isManualCheck = false;
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
+    this.listeners = {};
     if (!isMas) {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
@@ -104,6 +118,30 @@ class DesktopApiUpdate {
   }
 
   initAppAutoUpdateEvents(): void {
+    this.listeners.onProgressUpdate = (
+      callback: (params: IUpdateProgressUpdate) => void,
+    ) => {
+      return globalThis.desktopApi?.on?.(
+        ipcMessageKeys.UPDATE_DOWNLOADING,
+        callback,
+      );
+    };
+
+    this.listeners.onDownloaded = (
+      callback: (params: IUpdateDownloadedEvent) => void,
+    ) => {
+      return globalThis.desktopApi?.on?.(
+        ipcMessageKeys.UPDATE_DOWNLOADED,
+        callback,
+      );
+    };
+
+    this.listeners.onDownloadError = (
+      callback: (params: { message: string }) => void,
+    ) => {
+      return globalThis.desktopApi?.on?.(ipcMessageKeys.UPDATE_ERROR, callback);
+    };
+
     autoUpdater.on('checking-for-update', () => {
       logger.info('auto-updater', 'Checking for update');
       this.getMainWindow()?.webContents.send(ipcMessageKeys.UPDATE_CHECKING);
