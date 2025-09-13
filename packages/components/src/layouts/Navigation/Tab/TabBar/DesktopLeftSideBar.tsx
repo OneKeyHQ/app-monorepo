@@ -126,16 +126,15 @@ export function DesktopLeftSideBar({
               enterFrom: ESwapSource.TAB,
             });
           }
-          if (route.name === ETabRoutes.Market) {
-            defaultLogger.dex.enter.dexEnter({
-              enterWay: EEnterWay.HomeTab,
-            });
-          }
           if (!focus && !event.defaultPrevented) {
             navigation.dispatch({
               ...CommonActions.navigate({
                 name: route.name,
                 merge: true,
+                params:
+                  route.name === ETabRoutes.Market
+                    ? { from: EEnterWay.HomeTab }
+                    : undefined,
               }),
               target: state.key,
             });

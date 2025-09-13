@@ -8,7 +8,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
-import { useMarketBasicConfig } from '../hooks';
+import { useMarketBasicConfig, useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { DesktopLayout } from './layouts/DesktopLayout';
@@ -22,8 +22,10 @@ function MarketHome() {
 
   // Load market basic config using the new hook
   const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
-
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
+
+  // Track market entry analytics
+  useMarketEnterAnalytics();
 
   // Update selectedNetworkId when config loads and it's still the default
   useEffect(() => {
