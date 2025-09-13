@@ -23,6 +23,7 @@ import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdPart
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
+import type { UpdateCheckResult } from 'electron-updater';
 
 const isMas = !!process.mas;
 
@@ -328,7 +329,7 @@ class DesktopApiUpdate {
     store.clearUpdateSettings();
   }
 
-  async checkForUpdates(isManual = false): Promise<void> {
+  async checkForUpdates(isManual = false): Promise<UpdateCheckResult | null> {
     if (isManual) {
       this.isManualCheck = true;
     }
@@ -349,24 +350,20 @@ class DesktopApiUpdate {
         },
       });
     }
-    autoUpdater.checkForUpdates().catch((error) => {
-      if (isNetworkError(error)) {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      if (result) {
+        return result;
+      }
+      return null;
+    } catch (error) {
+      if (isNetworkError(error as Error)) {
         logger.info('auto-updater', `Check for update network error`);
       } else {
-        logger.info(
-          'auto-updater',
-          `Unknown Error: ${
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-            error == null ? 'unknown' : (error?.stack || error)?.toString()
-          }`,
-        );
-        this.getMainWindow()?.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-          err: error,
-          version: null,
-          isNetworkError: false,
-        });
+        logger.info('auto-updater', `Unknown Error: ${String(error)}`);
       }
-    });
+      throw error;
+    }
   }
 
   async downloadUpdate(): Promise<string[]> {
