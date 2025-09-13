@@ -76,15 +76,15 @@ export const useDownloadProgress: IUseDownloadProgress = (
   const [percent, setPercent] = useState(0);
 
   const updatePercent = useThrottledCallback(
-    ({
-      percent: progress,
-    }: {
+    (params: {
       total: number;
       delta: number;
       transferred: number;
       percent: number;
       bytesPerSecond: number;
     }) => {
+      console.log('update/downloading', params);
+      const { percent: progress } = params;
       defaultLogger.update.app.log('downloading', progress);
       setPercent(Number(Number(progress).toFixed()));
     },
