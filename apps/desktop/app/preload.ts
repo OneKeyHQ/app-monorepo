@@ -186,7 +186,7 @@ const updateGlobalTitleBarBackgroundColor = () => {
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
-      const callback = (...args: any[]) => func(...args);
+      const callback = (_, ...args: any[]) => func(...args);
       ipcRenderer.on(channel, callback);
       return () => {
         ipcRenderer.removeListener(channel, callback);
