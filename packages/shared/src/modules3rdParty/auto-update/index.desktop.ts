@@ -194,9 +194,12 @@ export const useDownloadProgress: IUseDownloadProgress = (
   );
 
   useEffect(() => {
-    const onProgressUpdateSubscription = desktopApiProxy.update.listeners.onProgressUpdate?.(updatePercent);
-    const onDownloadedSubscription = desktopApiProxy.update.listeners.onDownloaded?.(onSuccess);
-    const onDownloadErrorSubscription = desktopApiProxy.update.listeners.onDownloadError?.(onFailed);
+    const onProgressUpdateSubscription =
+      desktopApiProxy.update.listeners.onProgressUpdate?.(updatePercent);
+    const onDownloadedSubscription =
+      desktopApiProxy.update.listeners.onDownloaded?.(onSuccess);
+    const onDownloadErrorSubscription =
+      desktopApiProxy.update.listeners.onDownloadError?.(onFailed);
     return () => {
       onProgressUpdateSubscription?.();
       onDownloadedSubscription?.();
