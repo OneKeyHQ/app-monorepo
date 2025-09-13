@@ -285,7 +285,9 @@ class DesktopApiUpdate {
     store.clearUpdateSettings();
   }
 
-  async checkForUpdates(isManual = false): Promise<UpdateCheckResult | null> {
+  async checkForUpdates(
+    isManual = false,
+  ): Promise<UpdateCheckResult['updateInfo'] | null> {
     if (isManual) {
       this.isManualCheck = true;
     }
@@ -301,8 +303,9 @@ class DesktopApiUpdate {
     logger.info('current feed url: ', feedUrl);
     try {
       const result = await autoUpdater.checkForUpdates();
+      console.log('checkForUpdates result: =>>>> ', result);
       if (result) {
-        return result;
+        return result.updateInfo;
       }
       return null;
     } catch (error) {
