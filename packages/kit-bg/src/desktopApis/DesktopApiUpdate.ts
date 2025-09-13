@@ -213,7 +213,11 @@ class DesktopApiUpdate {
       this.getMainWindow()?.webContents.send(
         ipcMessageKeys.UPDATE_DOWNLOADING,
         {
-          ...progressObj,
+          percent: progressObj.percent,
+          delta: progressObj.delta,
+          bytesPerSecond: progressObj.bytesPerSecond,
+          total: progressObj.total,
+          transferred: progressObj.transferred,
         },
       );
     });
