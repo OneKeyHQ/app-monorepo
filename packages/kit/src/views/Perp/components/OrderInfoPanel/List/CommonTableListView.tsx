@@ -87,7 +87,6 @@ const PaginationFooter = ({
           w="$8"
           h="$7"
           textAlign="center"
-          size="small"
           borderColor="$borderStrong"
           borderRadius="$2"
           maxLength={totalPages.toString().length}
@@ -298,7 +297,7 @@ export function CommonTableListView({
             </XStack>
             <ListView
               style={{
-                height: 400,
+                maxHeight: 400,
               }}
               data={paginatedData}
               renderItem={({ item, index }) => {
