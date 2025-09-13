@@ -22,26 +22,42 @@ import type {
 
 const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
   new Promise((resolve, reject) => {
-    const errorSubscription = electronUpdateListeners.onUpdateError?.(reject);
+    const errorSubscription = electronUpdateListeners.onUpdateError?.(
+      (error) => {
+        if (platformEnv.isDev) {
+          return;
+        }
+        errorSubscription?.();
+        reject(error);
+      },
+    );
     void callback()
       .then((result) => {
         errorSubscription?.();
         resolve(result);
       })
-      .catch(reject);
+      .catch((error) => {
+        errorSubscription?.();
+        reject(error);
+      });
   });
 
 export const downloadPackage: IDownloadPackage = async () => {
-  const results = await withUpdateError(async () => {
+  const result = await withUpdateError(async () => {
     await globalThis.desktopApiProxy.update.checkForUpdates();
-    return Promise.all([
-      globalThis.desktopApiProxy.update.downloadUpdate(),
-      new Promise<IUpdateDownloadedEvent>((resolve) => {
-        electronUpdateListeners.onDownloaded?.(resolve);
-      }),
-    ]);
+    return new Promise<IUpdateDownloadedEvent>((resolve) => {
+      const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
+        (params) => {
+          console.log('params', params);
+          onDownloadedSubscription?.();
+          resolve(params);
+        },
+      );
+      void globalThis.desktopApiProxy.update.downloadUpdate();
+    });
   });
-  return results[1];
+  console.log('results', result);
+  return result;
 };
 
 export const downloadASC: IDownloadASC = async (params) => {
@@ -94,11 +110,8 @@ export const useDownloadProgress: IUseDownloadProgress = (
   useEffect(() => {
     const onProgressUpdateSubscription =
       electronUpdateListeners.onProgressUpdate?.(updatePercent);
-    const onDownloadedSubscription =
-      electronUpdateListeners.onDownloaded?.(onSuccess);
     return () => {
       onProgressUpdateSubscription?.();
-      onDownloadedSubscription?.();
     };
   }, [onFailed, onSuccess, updatePercent]);
   return percent;
