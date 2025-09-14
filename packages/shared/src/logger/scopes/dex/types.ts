@@ -1,4 +1,5 @@
 // Common enums and interfaces for DEX analytics
+import type { IDBWalletType } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export enum EEnterWay {
   HomeTab = 'HomeTab',
@@ -34,12 +35,6 @@ export enum EVisitTarget {
 export enum ESwapType {
   Buy = 'Buy',
   Sell = 'Sell',
-}
-
-export enum EWalletType {
-  HD = 'HD',
-  Hardware = 'Hardware',
-  Watch = 'Watch',
 }
 
 export enum EAmountEnterType {
@@ -144,7 +139,7 @@ export interface IDexVisitSiteParams {
 }
 
 export interface IDexSwapParams {
-  walletType: EWalletType;
+  walletType: IDBWalletType;
   amountEnterType: EAmountEnterType;
   slippageSetting: ESlippageSetting;
   sourceTokenSymbol: string;

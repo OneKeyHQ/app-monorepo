@@ -13,8 +13,11 @@ import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/typ
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
+import type { IAmountEnterSource } from '../../types/analytics';
+
 export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
+  onPresetSelect?: (source: IAmountEnterSource) => void;
   tradeType: ITradeType;
   buyAmounts: { label: string; value: number }[];
   balance?: BigNumber;
@@ -33,6 +36,7 @@ const sellPercentages = [
 
 export function QuickAmountSelector({
   onSelect,
+  onPresetSelect,
   buyAmounts,
   tradeType,
   balance,
@@ -46,7 +50,13 @@ export function QuickAmountSelector({
   const amountsLength = amounts.length;
 
   const handleAmountSelect = useCallback(
-    (amount: { label: string; value: string | number }) => {
+    (amount: { label: string; value: string | number }, index: number) => {
+      // Track preset selection in analytics
+      if (onPresetSelect) {
+        const presetType = `preset${index + 1}` as IAmountEnterSource;
+        onPresetSelect(presetType);
+      }
+
       if (tradeType === ESwapDirection.SELL && balance) {
         if (balance.isZero()) {
           onSelect('0');
@@ -76,6 +86,7 @@ export function QuickAmountSelector({
       }
     },
     [
+      onPresetSelect,
       tradeType,
       balance,
       swapNativeTokenReserveGas,
@@ -104,7 +115,7 @@ export function QuickAmountSelector({
             borderBottomRightRadius={index !== amountsLength - 1 ? 0 : '$2'}
             borderTopLeftRadius={index !== 0 ? 0 : '$2'}
             borderBottomLeftRadius={index !== 0 ? 0 : '$2'}
-            onPress={() => handleAmountSelect(amount)}
+            onPress={() => handleAmountSelect(amount, index)}
           >
             <SizableText size="$bodyMdMedium" color="$textSubdued">
               {amount.label}

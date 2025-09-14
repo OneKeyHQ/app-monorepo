@@ -36,6 +36,7 @@ import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenSelectorPopover } from './TokenSelectorPopover';
 
 import type { IToken } from '../../types';
+import type { IAmountEnterSource } from '../../types/analytics';
 import type BigNumber from 'bignumber.js';
 
 export interface ITokenInputSectionRef {
@@ -51,6 +52,7 @@ export interface ITokenInputSectionProps {
   tradeType: ITradeType;
   balance?: BigNumber;
   swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
+  onAmountEnterTypeChange?: (source: IAmountEnterSource) => void;
 }
 
 function TokenInputSectionComponent(
@@ -62,6 +64,7 @@ function TokenInputSectionComponent(
     tradeType,
     balance,
     swapNativeTokenReserveGas,
+    onAmountEnterTypeChange,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
@@ -70,6 +73,7 @@ function TokenInputSectionComponent(
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [internalValue, setInternalValue] = useState('');
   const inputRef = useRef<IInputRef>(null);
+  const isPresetSelectionRef = useRef(false);
 
   useImperativeHandle(
     ref,
@@ -87,9 +91,24 @@ function TokenInputSectionComponent(
       if (validateAmountInput(newValue, selectedToken?.decimals)) {
         setInternalValue(newValue);
         onChange(newValue);
+        // Track manual input in analytics (only if not from preset selection)
+        if (!isPresetSelectionRef.current) {
+          onAmountEnterTypeChange?.('manual');
+        }
+        // Reset the preset selection flag
+        isPresetSelectionRef.current = false;
       }
     },
-    [onChange, selectedToken?.decimals],
+    [onChange, selectedToken?.decimals, onAmountEnterTypeChange],
+  );
+
+  // Handler for preset amount selection with analytics tracking
+  const handlePresetAmountSelect = useCallback(
+    (value: string) => {
+      isPresetSelectionRef.current = true;
+      handleInternalChange(value);
+    },
+    [handleInternalChange],
   );
 
   const handleTokenSelect = useCallback(
@@ -233,7 +252,8 @@ function TokenInputSectionComponent(
         selectedTokenDecimals={selectedToken?.decimals}
         selectedTokenNetworkId={selectedToken?.networkId}
         selectedTokenIsNative={selectedToken?.isNative}
-        onSelect={handleInternalChange}
+        onSelect={handlePresetAmountSelect}
+        onPresetSelect={onAmountEnterTypeChange}
         tradeType={tradeType}
         balance={balance}
         swapNativeTokenReserveGas={swapNativeTokenReserveGas}

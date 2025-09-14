@@ -7,6 +7,7 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
 import { ApproveButton } from './components/ApproveButton';
@@ -19,6 +20,7 @@ import {
 } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
+import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
 
 export type ISwapPanelContentProps = {
@@ -81,6 +83,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
+
+  // Initialize analytics hook
+  const {
+    updateEnvironment,
+    logSwapAction,
+    setAmountEnterType,
+    setSlippageSetting,
+  } = useSwapAnalytics();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
   }
@@ -123,6 +133,24 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     }
   }, [tradeType, balanceToken?.decimals, setPaymentAmount]);
 
+  // Update analytics environment when relevant props change
+  useEffect(() => {
+    updateEnvironment({
+      tradeType,
+      networkId,
+      paymentToken,
+      balanceToken,
+    });
+  }, [updateEnvironment, tradeType, networkId, paymentToken, balanceToken]);
+
+  // Initialize slippage setting to auto mode (matches SlippageSetting component default)
+  useEffect(() => {
+    if (slippageAutoValue !== undefined) {
+      // SlippageSetting component defaults to AUTO mode, so set analytics to auto
+      setSlippageSetting(false); // false means ESlippageSetting.Auto
+    }
+  }, [slippageAutoValue, setSlippageSetting]);
+
   return (
     <YStack gap="$4">
       {/* Trade type selector */}
@@ -141,6 +169,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
+          onAmountEnterTypeChange={setAmountEnterType}
         />
 
         {/* Rate display */}
@@ -183,6 +212,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isWrapped={isWrapped}
           paymentToken={paymentToken}
           networkId={networkId}
+          onSwapAction={logSwapAction}
         />
       )}
 
@@ -191,7 +221,11 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
-          onSlippageChange={(item) => setSlippage(item.value)}
+          onSlippageChange={(item) => {
+            setSlippage(item.value);
+            // 根据 UI 组件的 key 字段正确判断滑点类型
+            setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
+          }}
         />
       )}
     </YStack>

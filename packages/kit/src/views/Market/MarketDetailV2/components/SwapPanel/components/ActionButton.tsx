@@ -32,6 +32,7 @@ export interface IActionButtonProps extends IButtonProps {
   paymentToken?: IToken;
   networkId?: string;
   isWrapped?: boolean;
+  onSwapAction?: () => void;
 }
 
 export function ActionButton({
@@ -44,6 +45,7 @@ export function ActionButton({
   isWrapped,
   paymentToken,
   networkId,
+  onSwapAction,
   ...otherProps
 }: IActionButtonProps) {
   const intl = useIntl();
@@ -228,6 +230,15 @@ export function ActionButton({
         setCreateAddressLoading(false);
         return;
       }
+
+      // Log swap action before executing - with error protection
+      try {
+        onSwapAction?.();
+      } catch (analyticsError) {
+        // Don't let analytics errors block the swap action
+        console.warn('Analytics logging failed:', analyticsError);
+      }
+
       onPress?.(event);
     },
     [
@@ -240,6 +251,7 @@ export function ActionButton({
       activeAccount?.wallet?.id,
       activeAccount?.indexedAccount?.id,
       activeAccount?.deriveType,
+      onSwapAction,
     ],
   );
 
