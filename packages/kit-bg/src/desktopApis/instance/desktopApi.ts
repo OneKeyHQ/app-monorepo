@@ -11,7 +11,7 @@ import DesktopApiNotification from '../DesktopApiNotification';
 import DesktopApiSecurity from '../DesktopApiSecurity';
 import DesktopApiStorage from '../DesktopApiStorage';
 import DesktopApiSystem from '../DesktopApiSystem';
-import DesktopApiUpdate from '../DesktopApiUpdate';
+import DesktopApiUpdate from '../DesktopApiAppUpdate';
 import DesktopApiWebview from '../DesktopApiWebview';
 
 import type {

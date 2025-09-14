@@ -57,7 +57,6 @@ async function clearUpdateCache() {
 }
 
 function buildFeedUrl(useTestFeedUrl: boolean) {
-  return 'http://127.0.0.1:8080';
   return `${buildServiceEndpoint({
     serviceName: EServiceEndpointEnum.Utility,
     env: useTestFeedUrl ? 'test' : 'prod',
@@ -84,7 +83,7 @@ if (isMas) {
   autoUpdater.logger = logger;
 }
 
-class DesktopApiUpdate {
+class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
 
   isManualCheck: boolean;
@@ -580,4 +579,4 @@ class DesktopApiUpdate {
   }
 }
 
-export default DesktopApiUpdate;
+export default DesktopApiAppUpdate;

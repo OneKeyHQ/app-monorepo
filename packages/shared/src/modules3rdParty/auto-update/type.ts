@@ -54,3 +54,39 @@ export type IElectronUpdateListeners = {
     callback: (fileUrl: string) => void,
   ) => IDesktopEventUnSubscribe | undefined;
 };
+
+export type IDownloadBundle = (params: {
+  downloadUrl?: string;
+  latestVersion?: string;
+}) => Promise<IUpdateDownloadedEvent>;
+
+export type IBundleDownloadedEvent = {
+  downloadedFile?: string;
+  latestVersion?: string;
+  downloadUrl?: string;
+};
+
+export type IBundleUpdateDownloadedEvent = {
+  downloadedFile?: string;
+  latestVersion?: string;
+  downloadUrl?: string;
+};
+
+export type IVerifyBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
+export type IVerifyBundleASC = (
+  params: IUpdateDownloadedEvent,
+) => Promise<void>;
+export type IDownloadBundleASC = (
+  params: IUpdateDownloadedEvent,
+) => Promise<void>;
+export type IInstallBundle = (params: IAppUpdateInfo) => Promise<void>;
+export type IClearBundle = () => Promise<void>;
+
+export interface IBundleUpdate {
+  downloadBundle: IDownloadBundle;
+  verifyBundle: IVerifyBundle;
+  verifyBundleASC: IVerifyBundleASC;
+  downloadBundleASC: IDownloadBundleASC;
+  installBundle: IInstallBundle;
+  clearBundle: IClearBundle;
+}
