@@ -1,6 +1,7 @@
-import type { IAppUpdateInfo } from '../../appUpdate';
 import type { IDesktopEventUnSubscribe } from '@onekeyhq/desktop/app/preload';
 import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiUpdate';
+
+import type { IAppUpdateInfo } from '../../appUpdate';
 
 export type IUpdateDownloadedEvent = {
   downloadedFile?: string;
@@ -30,8 +31,16 @@ export type IManualInstallPackage = (
 ) => Promise<void>;
 
 export type IElectronUpdateListeners = {
-  onProgressUpdate?: (callback: (params: IUpdateProgressUpdate) => void) => IDesktopEventUnSubscribe | undefined;
-  onDownloaded?: (callback: (params: IUpdateDownloadedEvent) => void) => IDesktopEventUnSubscribe | undefined;
-  onUpdateError?: (callback: (params: { message: string }) => void) => IDesktopEventUnSubscribe | undefined;
-  onDownloadedFileEvent?: (callback: (fileUrl: string) => void) => IDesktopEventUnSubscribe | undefined;
-};\
+  onProgressUpdate?: (
+    callback: (params: IUpdateProgressUpdate) => void,
+  ) => IDesktopEventUnSubscribe | undefined;
+  onDownloaded?: (
+    callback: (params: IUpdateDownloadedEvent) => void,
+  ) => IDesktopEventUnSubscribe | undefined;
+  onUpdateError?: (
+    callback: (params: { message: string }) => void,
+  ) => IDesktopEventUnSubscribe | undefined;
+  onDownloadedFileEvent?: (
+    callback: (fileUrl: string) => void,
+  ) => IDesktopEventUnSubscribe | undefined;
+};
