@@ -30,6 +30,16 @@ export type IManualInstallPackage = (
   params: IUpdateDownloadedEvent & { buildNumber: string },
 ) => Promise<void>;
 
+export interface IAppUpdate {
+  downloadPackage: IDownloadPackage;
+  verifyPackage: IVerifyPackage;
+  verifyASC: IVerifyASC;
+  downloadASC: IDownloadASC;
+  installPackage: IInstallPackage;
+  manualInstallPackage: IManualInstallPackage;
+  clearPackage: IClearPackage;
+}
+
 export type IElectronUpdateListeners = {
   onProgressUpdate?: (
     callback: (params: IUpdateProgressUpdate) => void,

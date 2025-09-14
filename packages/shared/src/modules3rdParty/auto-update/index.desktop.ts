@@ -9,6 +9,7 @@ import { defaultLogger } from '../../logger/logger';
 import { electronUpdateListeners } from './electronUpdateListeners';
 
 import type {
+  IAppUpdate,
   IClearPackage,
   IDownloadASC,
   IDownloadPackage,
@@ -42,7 +43,7 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
       });
   });
 
-export const downloadPackage: IDownloadPackage = async () => {
+const downloadPackage: IDownloadPackage = async () => {
   const result = await withUpdateError(async () => {
     await globalThis.desktopApiProxy.update.checkForUpdates();
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
@@ -60,25 +61,25 @@ export const downloadPackage: IDownloadPackage = async () => {
   return result;
 };
 
-export const downloadASC: IDownloadASC = async (params) => {
+const downloadASC: IDownloadASC = async (params) => {
   await globalThis.desktopApiProxy.update.downloadASC({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
 };
 
-export const verifyASC: IVerifyASC = async () => {
+const verifyASC: IVerifyASC = async () => {
   await globalThis.desktopApiProxy.update.verifyASC();
 };
 
-export const verifyPackage: IVerifyPackage = async (params) => {
+const verifyPackage: IVerifyPackage = async (params) => {
   await globalThis.desktopApiProxy.update.verifyPackage({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
 };
 
-export const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
+const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
   await globalThis.desktopApiProxy.update.installPackage({
     ...downloadedEvent,
     buildNumber: String(platformEnv.buildNumber || 1),
@@ -114,14 +115,24 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
   return percent;
 };
 
-export const clearPackage: IClearPackage = async () => {
+const clearPackage: IClearPackage = async () => {
   await globalThis.desktopApiProxy.update.clearUpdateCache();
 };
 
-export const manualInstallPackage: IManualInstallPackage = async (params) =>
+const manualInstallPackage: IManualInstallPackage = async (params) =>
   new Promise((resolve) => {
     void globalThis.desktopApiProxy.update.manualInstallPackage(params);
     setTimeout(() => {
       resolve();
     }, 3500);
   });
+
+export const AppUpdate: IAppUpdate = {
+  downloadPackage,
+  verifyPackage,
+  verifyASC,
+  downloadASC,
+  installPackage,
+  manualInstallPackage,
+  clearPackage,
+};

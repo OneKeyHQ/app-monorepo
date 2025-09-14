@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
@@ -9,6 +9,7 @@ import { defaultLogger } from '../../logger/logger';
 import RNFS from '../react-native-fs';
 
 import type {
+  IAppUpdate,
   IClearPackage,
   IDownloadASC,
   IDownloadPackage,
@@ -44,7 +45,7 @@ const { AutoUpdateModule } = NativeModules as {
   };
 };
 
-export const clearPackage: IClearPackage = async () => {
+const clearPackage: IClearPackage = async () => {
   if (!AutoUpdateModule) {
     return;
   }
@@ -58,7 +59,7 @@ export const clearPackage: IClearPackage = async () => {
   }
 };
 
-export const downloadPackage: IDownloadPackage = async ({
+const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
 }) => {
@@ -82,10 +83,7 @@ export const downloadPackage: IDownloadPackage = async ({
   };
 };
 
-export const downloadASC: IDownloadASC = async ({
-  downloadUrl,
-  latestVersion,
-}) => {
+const downloadASC: IDownloadASC = async ({ downloadUrl, latestVersion }) => {
   if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
     return;
   }
@@ -95,7 +93,7 @@ export const downloadASC: IDownloadASC = async ({
   });
 };
 
-export const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
+const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
   if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
     return;
   }
@@ -105,7 +103,7 @@ export const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
   });
 };
 
-export const verifyPackage: IVerifyPackage = async (params) => {
+const verifyPackage: IVerifyPackage = async (params) => {
   if (!AutoUpdateModule) {
     return;
   }
@@ -115,7 +113,7 @@ export const verifyPackage: IVerifyPackage = async (params) => {
   });
 };
 
-export const installPackage: IInstallPackage = async ({
+const installPackage: IInstallPackage = async ({
   latestVersion,
   downloadUrl,
 }) => {
@@ -165,5 +163,14 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
   return percent;
 };
 
-export const manualInstallPackage: IManualInstallPackage = () =>
-  Promise.resolve();
+const manualInstallPackage: IManualInstallPackage = () => Promise.resolve();
+
+export const AppUpdate: IAppUpdate = {
+  downloadPackage,
+  verifyPackage,
+  verifyASC,
+  downloadASC,
+  installPackage,
+  manualInstallPackage,
+  clearPackage,
+};

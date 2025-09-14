@@ -9,8 +9,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  AppUpdate,
   type IUpdateDownloadedEvent,
-  clearPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -306,7 +306,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
-    await clearPackage();
+    await AppUpdate.clearPackage();
     await this.reset();
   }
 

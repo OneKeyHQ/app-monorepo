@@ -21,13 +21,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  downloadASC as NativeDownloadASC,
-  downloadPackage as NativeDownloadPackage,
-  manualInstallPackage as NativeManualInstallPackage,
-  verifyASC as NativeVerifyASC,
-  verifyPackage as NativeVerifyPackage,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { AppUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -65,7 +59,7 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
-        NativeVerifyPackage(params),
+        AppUpdate.verifyPackage(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
@@ -84,7 +78,7 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
-        NativeVerifyASC(params),
+        AppUpdate.verifyASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await verifyPackage();
@@ -103,7 +97,7 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
-        NativeDownloadASC(params),
+        AppUpdate.downloadASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await verifyASC();
@@ -116,7 +110,7 @@ export const useDownloadPackage = () => {
     try {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      const result = await NativeDownloadPackage(params);
+      const result = await AppUpdate.downloadPackage(params);
       await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
         ...params,
         ...result,
@@ -176,7 +170,7 @@ export const useDownloadPackage = () => {
   const manualInstallPackage = useCallback(async () => {
     const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
     try {
-      await NativeManualInstallPackage({
+      await AppUpdate.manualInstallPackage({
         ...params,
         buildNumber: String(platformEnv.buildNumber || 1),
       });

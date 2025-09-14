@@ -17,7 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  installPackage,
+  AppUpdate,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -117,7 +117,7 @@ function DownloadVerify({
       const timer = setTimeout(() => {
         setIsInstalling(false);
       }, 3500);
-      await installPackage(data);
+      await AppUpdate.installPackage(data);
       return () => clearTimeout(timer);
     } catch (e: unknown) {
       setIsInstalling(false);
