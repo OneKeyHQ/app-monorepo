@@ -10,6 +10,8 @@ import type {
   IDesktopApiKeys,
   IDesktopApiMessagePayload,
 } from '../base/types';
+import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
+import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';
 import type DesktopApiDev from '../DesktopApiDev';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
@@ -17,7 +19,6 @@ import type DesktopApiNotification from '../DesktopApiNotification';
 import type DesktopApiSecurity from '../DesktopApiSecurity';
 import type DesktopApiStorage from '../DesktopApiStorage';
 import type DesktopApiSystem from '../DesktopApiSystem';
-import type DesktopApiUpdate from '../DesktopApiAppUpdate';
 import type DesktopApiWebview from '../DesktopApiWebview';
 
 export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
@@ -75,8 +76,11 @@ export class DesktopApiProxy extends RemoteApiProxyBase implements IDesktopApi {
   bluetooth: DesktopApiBluetooth =
     this._createProxyModule<IDesktopApiKeys>('bluetooth');
 
-  appUpdate: DesktopApiUpdate = this._createProxyModule<IDesktopApiKeys>('appUpdate');
-  bundleUpdate: DesktopApiUpdate = this._createProxyModule<IDesktopApiKeys>('bundleUpdate');
+  appUpdate: DesktopApiAppUpdate =
+    this._createProxyModule<IDesktopApiKeys>('appUpdate');
+
+  bundleUpdate: DesktopApiBundleUpdate =
+    this._createProxyModule<IDesktopApiKeys>('bundleUpdate');
 }
 
 const desktopApiProxy = new DesktopApiProxy();
