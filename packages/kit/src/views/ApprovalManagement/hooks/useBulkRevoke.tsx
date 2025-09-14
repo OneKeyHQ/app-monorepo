@@ -229,13 +229,15 @@ function useBulkRevoke() {
                         id: ETranslations.wallet_approval_bulk_revoke_method_bulk_revoke,
                       })}
                     </SizableText>
-                    <Badge badgeSize="sm">
-                      <Badge.Text>
-                        {intl.formatMessage({
-                          id: ETranslations.prime_status_prime,
-                        })}
-                      </Badge.Text>
-                    </Badge>
+                    {!isPrimeUser ? (
+                      <Badge badgeSize="sm">
+                        <Badge.Text>
+                          {intl.formatMessage({
+                            id: ETranslations.prime_status_prime,
+                          })}
+                        </Badge.Text>
+                      </Badge>
+                    ) : null}
                   </XStack>
                 }
                 secondary={intl.formatMessage({
