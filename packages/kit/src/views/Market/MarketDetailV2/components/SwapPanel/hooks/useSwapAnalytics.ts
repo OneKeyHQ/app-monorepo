@@ -37,16 +37,6 @@ export function useSwapAnalytics() {
     return activeAccount?.wallet?.type;
   }, [activeAccount?.wallet?.type]);
 
-  // Set wallet type
-  const setWalletType = useCallback(() => {
-    const walletType = getWalletType();
-    if (walletType) {
-      updateAnalytics({
-        walletType,
-      });
-    }
-  }, [getWalletType, updateAnalytics]);
-
   // Set amount enter type
   const setAmountEnterType = useCallback(
     (source: IAmountEnterSource) => {
@@ -219,7 +209,6 @@ export function useSwapAnalytics() {
     isReady: !!completeAnalytics,
 
     // Setter methods
-    setWalletType,
     setAmountEnterType,
     setSlippageSetting,
     setTokenInfo,
