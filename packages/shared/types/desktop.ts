@@ -49,6 +49,7 @@ export enum EDesktopStoreKeys {
   ASCFile = 'ascFile',
   UpdateBuildNumber = 'updateBuildNumber',
   UpdateBundleData = 'updateBundleData',
+  FallbackUpdateBundleData = 'fallbackUpdateBundleData',
   AppInstanceMetaBackup = INSTANCE_META_BACKUP_KEY,
 }
 
@@ -76,4 +77,5 @@ export type IDesktopStoreMap = {
   [EDesktopStoreKeys.UpdateBuildNumber]: string;
   [EDesktopStoreKeys.AppInstanceMetaBackup]: IInstanceMetaBackup;
   [EDesktopStoreKeys.UpdateBundleData]: IDesktopStoreUpdateBundleData;
+  [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreUpdateBundleData;
 };
