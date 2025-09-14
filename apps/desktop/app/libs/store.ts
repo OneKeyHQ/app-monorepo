@@ -143,8 +143,30 @@ export const setUpdateBundleData = (
 };
 
 export const getUpdateBundleData = () =>
-  store.get(EDesktopStoreKeys.UpdateBundleData, {});
+  store.get(
+    EDesktopStoreKeys.UpdateBundleData,
+    {} as IDesktopStoreUpdateBundleData,
+  );
 
 export const clearUpdateBundleData = () => {
   store.delete(EDesktopStoreKeys.UpdateBundleData);
+};
+
+export const setFallbackUpdateBundleData = (
+  fallbackUpdateBundleData: IDesktopStoreUpdateBundleData,
+) => {
+  store.set(
+    EDesktopStoreKeys.FallbackUpdateBundleData,
+    fallbackUpdateBundleData,
+  );
+};
+
+export const getFallbackUpdateBundleData = () =>
+  store.get(
+    EDesktopStoreKeys.FallbackUpdateBundleData,
+    {} as IDesktopStoreUpdateBundleData,
+  );
+
+export const clearFallbackUpdateBundleData = () => {
+  store.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
 };
