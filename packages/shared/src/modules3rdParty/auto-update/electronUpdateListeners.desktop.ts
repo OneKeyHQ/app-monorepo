@@ -1,5 +1,5 @@
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiUpdate';
+import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppUpdate';
 
 import type { IElectronUpdateListeners, IUpdateDownloadedEvent } from './type';
 
