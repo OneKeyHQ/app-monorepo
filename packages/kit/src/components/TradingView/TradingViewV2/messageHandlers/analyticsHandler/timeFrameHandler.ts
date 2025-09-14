@@ -1,3 +1,5 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import type { IMessageHandlerParams } from '../types';
 
 export async function handleAnalyticsTimeFrame({
@@ -16,8 +18,10 @@ export async function handleAnalyticsTimeFrame({
     const timeFrame = safeData.TVTimeframeSelect as string;
 
     try {
-      // Handle analytics time frame logic here
-      console.log('TradingView analytics time frame received:', timeFrame);
+      // Log to DEX analytics system
+      defaultLogger.dex.tradingView.dexTVTimeFrame({
+        tvTimeframeSelect: timeFrame,
+      });
     } catch (error) {
       console.error('Failed to handle analytics time frame:', error);
     }

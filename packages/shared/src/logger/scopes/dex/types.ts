@@ -158,7 +158,7 @@ export interface IDexButtonTabParams {
 }
 
 export interface IDexTVIntervalParams {
-  tvIntervalSelect: ETVIntervalSelect;
+  tvIntervalSelect: string;
 }
 
 export interface IDexTVLineParams {
@@ -171,4 +171,8 @@ export interface IDexTVIndicatorParams {
 
 export interface IDexTVPriceMCParams {
   tvPriceMCSelect: ETVPriceMCSelect;
+}
+
+export interface IDexTVTimeframeParams {
+  tvTimeframeSelect: string;
 }

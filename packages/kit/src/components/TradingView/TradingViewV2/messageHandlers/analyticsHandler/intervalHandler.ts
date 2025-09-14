@@ -1,3 +1,5 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
 import type { IMessageHandlerParams } from '../types';
 
 export async function handleAnalyticsInterval({
@@ -16,8 +18,10 @@ export async function handleAnalyticsInterval({
     const interval = safeData.TVIntervalSelect as string;
 
     try {
-      // Handle analytics interval logic here
-      console.log('TradingView analytics interval received:', interval);
+      // Log to DEX analytics system
+      defaultLogger.dex.tradingView.dexTVInterval({
+        tvIntervalSelect: interval,
+      });
     } catch (error) {
       console.error('Failed to handle analytics interval:', error);
     }
