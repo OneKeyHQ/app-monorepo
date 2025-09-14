@@ -133,67 +133,63 @@ export function useSwapAnalytics() {
     [updateAnalytics],
   );
 
-  // Update environment variables
-  const updateEnvironment = useCallback(
-    ({
-      tradeType,
-      networkId,
-      paymentToken,
-      balanceToken,
-    }: {
+  // Submit log with error handling
+  const logSwapAction = useCallback(
+    (params?: {
       tradeType?: ITradeType;
       networkId?: string;
       paymentToken?: IToken;
       balanceToken?: IToken;
     }) => {
-      if (!networkId || (!paymentToken && !balanceToken) || !tradeType) {
-        return;
+      try {
+        // Update environment if params provided
+        if (params) {
+          const { tradeType, networkId, paymentToken, balanceToken } = params;
+          if (networkId && (paymentToken || balanceToken) && tradeType) {
+            const marketToken = {
+              symbol: balanceToken?.symbol || '',
+            };
+
+            const sourceTokenSymbol =
+              tradeType === ESwapDirection.BUY
+                ? paymentToken?.symbol ?? ''
+                : marketToken.symbol;
+            const receivedTokenSymbol =
+              tradeType === ESwapDirection.BUY
+                ? marketToken.symbol
+                : paymentToken?.symbol ?? '';
+
+            const walletType = getWalletType();
+            if (walletType) {
+              updateAnalytics({
+                walletType,
+                sourceTokenSymbol,
+                receivedTokenSymbol,
+                network: networkId,
+                swapType:
+                  tradeType === ESwapDirection.BUY
+                    ? ESwapType.Buy
+                    : ESwapType.Sell,
+                router: ERouter.OKX,
+              });
+            }
+          }
+        }
+
+        // Get the latest analytics data after potential update
+        const currentAnalytics = completeAnalytics;
+        if (currentAnalytics && currentAnalytics.walletType) {
+          // Use ISwapAnalyticsData directly as IDexSwapParams
+          const dexSwapParams: IDexSwapParams = currentAnalytics;
+          defaultLogger.dex.swap.dexSwap(dexSwapParams);
+        }
+      } catch (error) {
+        // Silently handle analytics errors to not affect main functionality
+        console.warn('Analytics logging failed:', error);
       }
-
-      const marketToken = {
-        symbol: balanceToken?.symbol || '',
-      };
-
-      const sourceTokenSymbol =
-        tradeType === ESwapDirection.BUY
-          ? paymentToken?.symbol ?? ''
-          : marketToken.symbol;
-      const receivedTokenSymbol =
-        tradeType === ESwapDirection.BUY
-          ? marketToken.symbol
-          : paymentToken?.symbol ?? '';
-
-      const walletType = getWalletType();
-      if (!walletType) {
-        return;
-      }
-
-      updateAnalytics({
-        walletType,
-        sourceTokenSymbol,
-        receivedTokenSymbol,
-        network: networkId,
-        swapType:
-          tradeType === ESwapDirection.BUY ? ESwapType.Buy : ESwapType.Sell,
-        router: ERouter.OKX,
-      });
     },
-    [getWalletType, updateAnalytics],
+    [completeAnalytics, getWalletType, updateAnalytics],
   );
-
-  // Submit log with error handling
-  const logSwapAction = useCallback(() => {
-    try {
-      if (completeAnalytics && completeAnalytics.walletType) {
-        // Use ISwapAnalyticsData directly as IDexSwapParams
-        const dexSwapParams: IDexSwapParams = completeAnalytics;
-        defaultLogger.dex.swap.dexSwap(dexSwapParams);
-      }
-    } catch (error) {
-      // Silently handle analytics errors to not affect main functionality
-      console.warn('Analytics logging failed:', error);
-    }
-  }, [completeAnalytics]);
 
   // Cleanup analytics state on unmount
   useEffect(() => {
@@ -215,7 +211,6 @@ export function useSwapAnalytics() {
     setNetwork,
     setSwapType,
     setRouter,
-    updateEnvironment,
 
     // Batch operations
     resetAnalytics,

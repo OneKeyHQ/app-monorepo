@@ -128,16 +128,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     }
   }, [tradeType, balanceToken?.decimals, setPaymentAmount]);
 
-  // Update analytics environment when relevant props change
-  useEffect(() => {
-    swapAnalytics.updateEnvironment({
-      tradeType,
-      networkId,
-      paymentToken,
-      balanceToken,
-    });
-  }, [swapAnalytics, tradeType, networkId, paymentToken, balanceToken]);
-
   // Initialize slippage setting to auto mode (matches SlippageSetting component default)
   useEffect(() => {
     if (slippageAutoValue !== undefined) {
@@ -207,7 +197,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isWrapped={isWrapped}
           paymentToken={paymentToken}
           networkId={networkId}
-          onSwapAction={swapAnalytics.logSwapAction}
+          onSwapAction={() =>
+            swapAnalytics.logSwapAction({
+              tradeType,
+              networkId,
+              paymentToken,
+              balanceToken,
+            })
+          }
         />
       )}
 
