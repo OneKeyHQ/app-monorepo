@@ -316,7 +316,7 @@ const BaseDevSettingsSection = () => {
         }}
         onValueChange={async (enabled: boolean) => {
           if (platformEnv.isDesktop) {
-            await globalThis.desktopApiProxy?.update?.useTestUpdateFeedUrl?.(
+            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
               enabled,
             );
           }
