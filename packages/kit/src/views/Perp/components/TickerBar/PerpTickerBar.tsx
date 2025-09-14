@@ -17,6 +17,8 @@ import {
 
 import { usePerpSession } from '../../hooks';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useIntl } from 'react-intl';
 
 // Countdown timer hook for funding rate countdown (every hour)
 function useFundingCountdown() {
@@ -73,7 +75,7 @@ function PerpTickerBar() {
 
   const formattedMarkPrice = markPrice;
   const formattedOraclePrice = oraclePrice;
-
+  const intl = useIntl();
   const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
 
   return (
@@ -93,7 +95,21 @@ function PerpTickerBar() {
           {showSkeleton ? (
             <Skeleton width={80} height={28} />
           ) : (
-            <SizableText size="$headingXl">{formattedMarkPrice}</SizableText>
+            <Tooltip
+              placement="top"
+              renderTrigger={
+                <SizableText size="$headingXl">
+                  {formattedMarkPrice}
+                </SizableText>
+              }
+              renderContent={
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_token_selector_last_price,
+                  })}
+                </SizableText>
+              }
+            />
           )}
 
           {showSkeleton ? (
@@ -128,11 +144,17 @@ function PerpTickerBar() {
           <Tooltip
             renderTrigger={
               <SizableText size="$bodySm" color="$textSubdued">
-                Oracle Price
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_oracle_price,
+                })}
               </SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">Oracle Price</SizableText>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_oracle_price_tooltip,
+                })}
+              </SizableText>
             }
             placement="top"
           />
@@ -146,7 +168,9 @@ function PerpTickerBar() {
 
         <YStack>
           <SizableText size="$bodySm" color="$textSubdued">
-            24h Volume
+            {intl.formatMessage({
+              id: ETranslations.perp_token_bar_24h_Volume,
+            })}
           </SizableText>
           {showSkeleton ? (
             <Skeleton width={80} height={16} />
@@ -164,11 +188,17 @@ function PerpTickerBar() {
           <Tooltip
             renderTrigger={
               <SizableText size="$bodySm" color="$textSubdued">
-                Open Interest
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_open_Interest,
+                })}
               </SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">Open Interest</SizableText>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_open_interest_tooltip,
+                })}
+              </SizableText>
             }
             placement="top"
           />
@@ -190,11 +220,17 @@ function PerpTickerBar() {
           <Tooltip
             renderTrigger={
               <SizableText size="$bodySm" color="$textSubdued">
-                Funding / Countdown
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_Funding,
+                })}
               </SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">Funding / Countdown</SizableText>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_tooltip,
+                })}
+              </SizableText>
             }
             placement="top"
           />
