@@ -16,6 +16,7 @@ import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -367,10 +368,7 @@ class DesktopApiUpdate {
 
     if (!downloadedFile || !fs.existsSync(downloadedFile)) {
       logger.info('auto-updater', 'no such file');
-      //   this.sendUpdateError({
-      //     message: 'NOT_FOUND_FILE',
-      //   });
-      return false;
+      throw new OneKeyLocalError('NOT_FOUND_FILE');
     }
 
     if (downloadUrl) {
@@ -383,25 +381,17 @@ class DesktopApiUpdate {
             'auto-updater',
             `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
           );
-          //   this.sendUpdateError({
-          //     message: String(ascFileResponse.status),
-          //   });
-          return false;
+          throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
         }
 
         const ascFileMessage = await ascFileResponse.text();
         if (ascFileMessage.length === 0) {
-          //   this.sendUpdateError({
-          //     message: '',
-          //   });
-          return false;
+          throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
         }
         store.setASCFile(ascFileMessage);
       } catch (error) {
-        // this.sendUpdateError({
-        //   message: error instanceof Error ? error.message : '',
-        // });
-        return false;
+        logger.error('auto-updater', 'Failed to fetch ASC file', error);
+        throw error;
       }
     }
     return true;
@@ -441,6 +431,9 @@ class DesktopApiUpdate {
         logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
         return sha256;
       }
+      throw new OneKeyLocalError(
+        ETranslations.update_signature_verification_failed_alert_text,
+      );
     } catch (error) {
       logger.error(
         'auto-updater',
@@ -454,14 +447,12 @@ class DesktopApiUpdate {
         lowerCaseMessage.includes('signed digest did not match') ||
         lowerCaseMessage.includes('misformed armored text') ||
         lowerCaseMessage.includes('ascii armor integrity check failed');
-      //   sendUpdateError({
-      //     message: isInValid
-      //       ? ETranslations.update_signature_verification_failed_alert_text
-      //       : ETranslations.update_installation_package_possibly_compromised,
-      //   });
-      return '';
+      throw new OneKeyLocalError(
+        isInValid
+          ? ETranslations.update_signature_verification_failed_alert_text
+          : ETranslations.update_installation_package_possibly_compromised,
+      );
     }
-    return '';
   }
 
   async verifySha256(downloadedFile: string, sha256: string): Promise<boolean> {
@@ -502,10 +493,9 @@ class DesktopApiUpdate {
       }
     } catch (error) {
       logger.info('auto-updater', 'verifyFile error', error);
-      //   sendUpdateError({
-      //     message: ETranslations.update_installation_package_possibly_compromised,
-      //   });
-      return false;
+      throw new OneKeyLocalError(
+        ETranslations.update_installation_package_possibly_compromised,
+      );
     }
 
     return true;
