@@ -15,6 +15,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
+import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -28,6 +29,9 @@ function MarketDetail({
   const { tokenAddress, networkId, isNative } = route.params;
   const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
+
+  // Track market entry analytics
+  useMarketEnterAnalytics();
 
   // Clear all token detail content when unmount
   useEffect(() => {

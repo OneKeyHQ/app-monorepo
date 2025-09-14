@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -73,7 +74,23 @@ export function TokenOverview() {
         />
       ),
     });
-  }, [intl, securityData, riskCount, cautionCount]);
+    // Dex analytics
+    if (networkId && tokenAddress && tokenDetail) {
+      defaultLogger.dex.actions.dexCheckRisk({
+        network: networkId,
+        tokenSymbol: tokenDetail.symbol || '',
+        tokenContract: tokenAddress,
+      });
+    }
+  }, [
+    intl,
+    securityData,
+    riskCount,
+    cautionCount,
+    networkId,
+    tokenAddress,
+    tokenDetail,
+  ]);
 
   // Optimized stat builders
   const auditStat = useMemo<IStatItem>(() => {

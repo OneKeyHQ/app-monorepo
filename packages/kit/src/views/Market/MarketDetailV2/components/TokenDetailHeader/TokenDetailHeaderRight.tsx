@@ -10,7 +10,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
@@ -66,7 +66,8 @@ export function TokenDetailHeaderRight({
       chainId={networkId}
       contractAddress={address}
       size="medium"
-      from={EWatchlistFrom.details}
+      from={EWatchlistFrom.Detail}
+      tokenSymbol={symbol}
       isNative={isNative}
     />
   ) : null;

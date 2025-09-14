@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import { Dialog, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -12,7 +13,7 @@ import { getTotalSecurityDisplayInfo } from './utils/utils';
 
 function TokenSecurityAlert() {
   const intl = useIntl();
-  const { tokenAddress, networkId } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
 
   const { securityData, securityStatus, riskCount, cautionCount } =
     useTokenSecurity({
@@ -32,6 +33,14 @@ function TokenSecurityAlert() {
         />
       ),
     });
+    // Dex analytics
+    if (networkId && tokenAddress && tokenDetail) {
+      defaultLogger.dex.actions.dexCheckRisk({
+        network: networkId,
+        tokenSymbol: tokenDetail.symbol || '',
+        tokenContract: tokenAddress,
+      });
+    }
   };
 
   // Always execute the status check, but don't render UI if no security data

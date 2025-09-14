@@ -13,6 +13,8 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
@@ -25,6 +27,13 @@ const SORTABLE_COLUMNS = {
   marketCap: 'mc',
   turnover: 'v24hUSD',
 } as const;
+
+// Map sort keys to ESortWay enum values for logging
+const SORT_KEY_TO_ENUM: Record<string, ESortWay> = {
+  liquidity: ESortWay.Liquidity,
+  mc: ESortWay.MC,
+  v24hUSD: ESortWay.Volume,
+};
 
 export type IMarketTokenListResult = {
   data: IMarketToken[];
@@ -104,6 +113,18 @@ function MarketTokenListBase({
   const handleSortChange = useCallback(
     (sortBy: string, sortType: 'asc' | 'desc' | undefined) => {
       console.log('handleSortChange', sortBy, sortType);
+
+      // Log sort action
+      const sortWay =
+        sortType === undefined
+          ? ESortWay.Default
+          : SORT_KEY_TO_ENUM[sortBy] || ESortWay.Default;
+
+      defaultLogger.dex.list.dexSort({
+        sortWay,
+        sortDirection: sortType,
+      });
+
       if (sortType === undefined) {
         setSortBy(initialSortBy);
         setSortType(initialSortType);
