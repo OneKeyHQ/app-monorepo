@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { handleAnalyticsEvent } from './analyticsHandler';
 import { handleKLineDataRequest } from './klineDataHandler';
 import { handleLayoutUpdate } from './layoutUpdateHandler';
 
@@ -52,6 +53,14 @@ export function useTradingViewMessageHandler({
         data.method === 'tradingview_layoutUpdate'
       ) {
         await handleLayoutUpdate({ data, context });
+      }
+
+      // Handle TradingView analytics messages (interval, time frame, etc.)
+      if (
+        data.scope === '$private' &&
+        data.method?.startsWith('tradingview_analytics_')
+      ) {
+        await handleAnalyticsEvent(data.method, { data, context });
       }
     },
     [tokenAddress, networkId, webRef, onPanesCountChange],
