@@ -11,7 +11,7 @@ export async function handleAnalyticsEvent(
   switch (method) {
     case 'tradingview_analytics_interval':
       return handleAnalyticsInterval(params);
-    case 'tradingview_analytics_tv_timeframe':
+    case 'tradingview_analytics_timeframe':
       return handleAnalyticsTimeFrame(params);
     default:
       console.warn(`Unknown analytics method: ${method}`);

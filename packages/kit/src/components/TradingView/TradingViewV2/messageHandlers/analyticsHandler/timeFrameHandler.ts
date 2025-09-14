@@ -9,11 +9,11 @@ export async function handleAnalyticsTimeFrame({
   if (
     messageData &&
     typeof messageData === 'object' &&
-    'timeframe' in messageData
+    'TVTimeframeSelect' in messageData
   ) {
     // Extract time frame property safely
     const safeData = messageData as unknown as Record<string, unknown>;
-    const timeFrame = safeData.timeframe as string;
+    const timeFrame = safeData.TVTimeframeSelect as string;
 
     try {
       // Handle analytics time frame logic here

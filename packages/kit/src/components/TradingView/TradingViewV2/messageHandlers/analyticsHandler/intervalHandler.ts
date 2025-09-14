@@ -9,11 +9,11 @@ export async function handleAnalyticsInterval({
   if (
     messageData &&
     typeof messageData === 'object' &&
-    'interval' in messageData
+    'TVIntervalSelect' in messageData
   ) {
     // Extract interval property safely
     const safeData = messageData as unknown as Record<string, unknown>;
-    const interval = safeData.interval as number;
+    const interval = safeData.TVIntervalSelect as string;
 
     try {
       // Handle analytics interval logic here
