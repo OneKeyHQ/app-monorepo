@@ -11,8 +11,8 @@ import type {
   IDesktopApiMessagePayload,
 } from '../base/types';
 import type DesktopApiAppUpdate from '../DesktopApiAppUpdate';
-import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiBluetooth from '../DesktopApiBluetooth';
+import type DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import type DesktopApiDev from '../DesktopApiDev';
 import type DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import type DesktopApiNotification from '../DesktopApiNotification';
