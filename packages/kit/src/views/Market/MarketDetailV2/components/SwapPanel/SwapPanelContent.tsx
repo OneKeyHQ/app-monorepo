@@ -85,12 +85,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
   const paymentAmountRef = useRef(paymentAmount);
 
   // Initialize analytics hook
-  const {
-    updateEnvironment,
-    logSwapAction,
-    setAmountEnterType,
-    setSlippageSetting,
-  } = useSwapAnalytics();
+  const swapAnalytics = useSwapAnalytics();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
   }
@@ -135,21 +130,21 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   // Update analytics environment when relevant props change
   useEffect(() => {
-    updateEnvironment({
+    swapAnalytics.updateEnvironment({
       tradeType,
       networkId,
       paymentToken,
       balanceToken,
     });
-  }, [updateEnvironment, tradeType, networkId, paymentToken, balanceToken]);
+  }, [swapAnalytics, tradeType, networkId, paymentToken, balanceToken]);
 
   // Initialize slippage setting to auto mode (matches SlippageSetting component default)
   useEffect(() => {
     if (slippageAutoValue !== undefined) {
       // SlippageSetting component defaults to AUTO mode, so set analytics to auto
-      setSlippageSetting(false); // false means ESlippageSetting.Auto
+      swapAnalytics.setSlippageSetting(false); // false means ESlippageSetting.Auto
     }
-  }, [slippageAutoValue, setSlippageSetting]);
+  }, [slippageAutoValue, swapAnalytics]);
 
   return (
     <YStack gap="$4">
@@ -169,7 +164,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
-          onAmountEnterTypeChange={setAmountEnterType}
+          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
         />
 
         {/* Rate display */}
@@ -212,7 +207,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isWrapped={isWrapped}
           paymentToken={paymentToken}
           networkId={networkId}
-          onSwapAction={logSwapAction}
+          onSwapAction={swapAnalytics.logSwapAction}
         />
       )}
 
@@ -223,8 +218,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
           onSlippageChange={(item) => {
             setSlippage(item.value);
-            // 根据 UI 组件的 key 字段正确判断滑点类型
-            setSlippageSetting(item.key === ESwapSlippageSegmentKey.CUSTOM);
+            swapAnalytics.setSlippageSetting(
+              item.key === ESwapSlippageSegmentKey.CUSTOM,
+            );
           }}
         />
       )}
