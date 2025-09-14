@@ -260,6 +260,7 @@ class DesktopApiAppUpdate {
   }
 
   installBundle(params: IBundleDownloadedEvent) {
+    store.setFallbackUpdateBundleData(store.getUpdateBundleData());
     store.setUpdateBundleData({
       appVersion: params.appVersion,
       bundleVersion: params.bundleVersion,
