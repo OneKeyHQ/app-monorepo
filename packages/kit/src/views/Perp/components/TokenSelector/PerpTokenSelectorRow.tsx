@@ -7,6 +7,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -29,6 +30,7 @@ interface IPerpTokenSelectorRowProps {
 
 const PerpTokenSelectorRow = memo(
   ({ token, onPress }: IPerpTokenSelectorRowProps) => {
+    const themeVariant = useThemeVariant();
     if (token.isDelisted) {
       return null;
     }
@@ -42,6 +44,7 @@ const PerpTokenSelectorRow = memo(
         px="$5"
         py="$3"
         cursor="pointer"
+        flex={1}
       >
         <XStack flex={1} alignItems="center">
           {/* Token Info */}
@@ -53,6 +56,8 @@ const PerpTokenSelectorRow = memo(
           >
             <Token
               size="xs"
+              borderRadius="$full"
+              bg={themeVariant === 'light' ? undefined : '$bgInverse'}
               tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
@@ -108,7 +113,11 @@ const PerpTokenSelectorRow = memo(
             <SizableText size="$bodySm" color="$text">
               $
               {formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(token.openInterest),
+                NUMBER_FORMATTER.marketCap(
+                  (
+                    Number(token.openInterest) * Number(token.markPrice)
+                  ).toString(),
+                ),
               )}
             </SizableText>
           </XStack>
