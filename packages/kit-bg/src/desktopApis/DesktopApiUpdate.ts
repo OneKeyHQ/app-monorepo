@@ -57,6 +57,7 @@ async function clearUpdateCache() {
 }
 
 function buildFeedUrl(useTestFeedUrl: boolean) {
+  return 'http://127.0.0.1:8080';
   return `${buildServiceEndpoint({
     serviceName: EServiceEndpointEnum.Utility,
     env: useTestFeedUrl ? 'test' : 'prod',
@@ -205,9 +206,7 @@ class DesktopApiUpdate {
           });
       } else {
         mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-          err: { message },
-          version: this.latestVersion.version,
-          isNetworkError: isNetworkError(err),
+          message,
         });
       }
     });
