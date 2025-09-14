@@ -1,7 +1,8 @@
 export {
   handleAnalyticsInterval,
   handleAnalyticsTimeFrame,
-  handleAnalyticsEvent
+  handleAnalyticsEvent,
+  handleAnalyticsStudyCreated,
 } from './analyticsHandler';
 export { handleKLineDataRequest } from './klineDataHandler';
 export { handleLayoutUpdate } from './layoutUpdateHandler';
