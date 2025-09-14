@@ -61,6 +61,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_getHyperliquidPriceScale',
   'tradingview_analytics_interval',
   'tradingview_analytics_timeframe',
+  'tradingview_analytics_priceMC',
   'btc_requestAccount',
   'btc_signTransaction',
 ];
