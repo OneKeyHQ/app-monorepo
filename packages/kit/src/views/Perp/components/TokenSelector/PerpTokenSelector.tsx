@@ -1,5 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Icon,
@@ -15,6 +17,7 @@ import {
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -25,6 +28,7 @@ function BasePerpTokenSelectorContent({
 }: {
   onLoadingChange: (isLoading: boolean) => void;
 }) {
+  const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const {
     searchQuery,
@@ -69,32 +73,44 @@ function BasePerpTokenSelectorContent({
         >
           <XStack width={140} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
-              Asset
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_asset,
+              })}
             </SizableText>
           </XStack>
           <XStack width={80} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
-              Last Price
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_last_price,
+              })}
             </SizableText>
           </XStack>
           <XStack width={120} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
-              24h Change
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_24h_change,
+              })}
             </SizableText>
           </XStack>
           <XStack width={100} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
-              8h Funding
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_Funding,
+              })}
             </SizableText>
           </XStack>
           <XStack width={100} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
-              24h Volume
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_24h_Volume,
+              })}
             </SizableText>
           </XStack>
           <XStack flex={1} justifyContent="flex-end">
             <SizableText size="$bodySm" color="$textSubdued">
-              Open Interest
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_open_Interest,
+              })}
             </SizableText>
           </XStack>
         </XStack>

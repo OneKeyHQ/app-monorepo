@@ -279,37 +279,43 @@ class ServiceMarketV2 extends ServiceBase {
     return this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2();
   }
 
-  /**
-   * Fetch token security information for multiple tokens using batch API
-   * @param tokenAddressList - Array of token addresses with their chain IDs
-   * @returns Promise<IMarketTokenSecurityBatchResponse> - Token security analysis data for all requested tokens
-   *
-   * @example
-   * ```typescript
-   * const securityBatch = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity([
-   *   { contractAddress: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce', chainId: 'evm--1' },
-   *   { contractAddress: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', chainId: 'sol--101' }
-   * ]);
-   * const shibSecurity = securityBatch['0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce'];
-   * console.log('Is honeypot:', shibSecurity.is_honeypot?.value);
-   * console.log('Buy tax:', shibSecurity.buy_tax?.value);
-   * ```
-   */
-  @backgroundMethod()
-  async fetchMarketTokenSecurity(
-    tokenAddressList: Array<{ contractAddress: string; chainId: string }>,
-  ) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.post<{
-      code: number;
-      message: string;
-      data: IMarketTokenSecurityBatchResponse;
-    }>('/utility/v2/market/token/security/batch', {
-      tokenAddressList,
-    });
-    const { data } = response.data;
+  private _fetchMarketTokenSecurityCached = memoizee(
+    async (
+      contractAddress: string,
+      chainId: string,
+    ): Promise<IMarketTokenSecurityBatchResponse> => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.post<{
+        code: number;
+        message: string;
+        data: IMarketTokenSecurityBatchResponse;
+      }>('/utility/v2/market/token/security/batch', {
+        tokenAddressList: [
+          {
+            contractAddress,
+            chainId,
+          },
+        ],
+      });
+      const { data } = response.data;
 
-    return data;
+      return data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchMarketTokenSecurity(item: {
+    contractAddress: string;
+    chainId: string;
+  }) {
+    return this._fetchMarketTokenSecurityCached(
+      item.contractAddress,
+      item.chainId,
+    );
   }
 }
 

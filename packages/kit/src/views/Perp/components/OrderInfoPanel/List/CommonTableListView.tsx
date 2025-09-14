@@ -297,7 +297,7 @@ export function CommonTableListView({
             </XStack>
             <ListView
               style={{
-                maxHeight: 400,
+                height: 400,
               }}
               data={paginatedData}
               renderItem={({ item, index }) => {

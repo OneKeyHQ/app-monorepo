@@ -1,9 +1,12 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   useAllMidsAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks';
 import {
@@ -26,6 +29,7 @@ function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
 }: IPerpPositionsListProps) {
+  const intl = useIntl();
   const positions = usePerpPositions();
   const openOrders = usePerpOrders();
   const [allMids] = useAllMidsAtom();
@@ -33,66 +37,97 @@ function PerpPositionsList({
   const { getTokenInfo } = useTokenList();
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
-      { key: 'asset', title: 'Asset', width: 120, align: 'left' },
+      {
+        key: 'asset',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        width: 120,
+        align: 'left',
+      },
       {
         key: 'size',
-        title: 'Position Size',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_position_size,
+        }),
         minWidth: 120,
         align: 'left',
         flex: 1,
       },
       {
         key: 'entryPrice',
-        title: 'Entry Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_entry_price,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'markPrice',
-        title: 'Mark Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_mark_price,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'liqPrice',
-        title: 'Liq. Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_liq_price,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'pnl',
-        title: 'PnL (ROE %)',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_pnl,
+        }),
         minWidth: 160,
         align: 'left',
         flex: 1,
       },
       {
         key: 'margin',
-        title: 'Margin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_margin,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'funding',
-        title: 'Funding',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_funding,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 140, align: 'center', flex: 1 },
+      {
+        key: 'TPSL',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_tp_sl,
+        }),
+        minWidth: 140,
+        align: 'center',
+        flex: 1,
+      },
       {
         key: 'actions',
-        title: 'Close',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_close,
+        }),
         minWidth: 100,
         align: 'right',
         flex: 1,
       },
     ];
-  }, []);
+  }, [intl]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(

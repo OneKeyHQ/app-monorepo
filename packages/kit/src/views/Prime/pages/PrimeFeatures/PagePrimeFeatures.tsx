@@ -32,7 +32,6 @@ import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -298,6 +297,91 @@ export default function PagePrimeFeatures() {
           },
         ],
       },
+
+      {
+        id: EPrimeFeatures.Notifications,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_multi_account_notification,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.global_on_chain_notifications_description,
+          },
+          {
+            number: 100,
+          },
+        ),
+        details: [
+          {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
+            icon: 'WalletCryptoOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+            }),
+          },
+        ],
+      },
+      {
+        id: EPrimeFeatures.HistoryExport,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_export_transaction_history,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.wallet_export_on_chain_transactions_description,
+          },
+          {
+            networkCount: 12,
+          },
+        ),
+        details: [
+          {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
+            icon: 'WalletCryptoOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+            }),
+          },
+        ],
+      },
     ];
 
     const selectedFeatureItem = allFeatures.find(
@@ -308,9 +392,10 @@ export default function PagePrimeFeatures() {
       ? allFeatures
       : [selectedFeatureItem].filter(Boolean);
     const index = data.findIndex((item) => item.id === selectedFeature);
+    const safeIndex = index >= 0 ? index : 0;
     return {
       data,
-      index: index ?? 0,
+      index: safeIndex,
     };
   }, [
     bannerHeight,
@@ -448,9 +533,7 @@ export default function PagePrimeFeatures() {
           featureName: selectedFeature,
         });
       }
-      navigation.pushModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-      });
+      navigation.push(EPrimePages.PrimeDashboard);
       return;
     }
     if (isPackagesLoading) {
@@ -492,7 +575,7 @@ export default function PagePrimeFeatures() {
 
   const page = (
     <>
-      <Page.BackButton />
+      {showAllFeatures ? <Page.BackButton /> : <Page.CloseButton />}
       <Page>
         <Theme name="dark">
           <Page.Header

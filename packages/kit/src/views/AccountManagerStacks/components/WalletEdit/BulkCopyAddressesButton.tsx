@@ -11,6 +11,7 @@ import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkC
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export function BulkCopyAddressesButton({
   wallet,
@@ -33,9 +34,13 @@ export function BulkCopyAddressesButton({
       label={intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses,
       })}
-      onPress={async () => {
+      onPress={async (close) => {
+        close?.();
+        // Close the Action first and wait 150ms before ejecting the Modal to avoid the problem of closing after ejecting
+        await timerUtils.wait(150);
         if (!isPrimeUser) {
-          navigation?.pushFullModal(EModalRoutes.PrimeModal, {
+          // FullModal can cause hierarchy issues
+          navigation?.pushModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeFeatures,
             params: {
               showAllFeatures: false,

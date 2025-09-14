@@ -1,9 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
 
-import type {
-  IModalNavigationProp,
-  IPageNavigationProp,
-} from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
   IconButton,
   SizableText,
@@ -12,6 +11,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -25,9 +25,15 @@ interface IPerpOrderInfoPanelProps {
 }
 
 function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
+  const intl = useIntl();
   const tabsRef = useRef<{
     switchTab: (tabName: string) => void;
   } | null>(null);
+  const tabNameToTranslationKey = {
+    'Positions': ETranslations.perp_position_title,
+    'Open Orders': ETranslations.perp_open_orders_title,
+    'Trades History': ETranslations.perp_trades_history_title,
+  };
   const handleViewTpslOrders = () => {
     tabsRef.current?.switchTab('Open Orders');
   };
@@ -71,7 +77,13 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
                 borderBottomColor="$borderActive"
                 onPress={() => onPress(name)}
               >
-                <SizableText size="$headingXs">{name}</SizableText>
+                <SizableText size="$headingXs">
+                  {intl.formatMessage({
+                    id: tabNameToTranslationKey[
+                      name as keyof typeof tabNameToTranslationKey
+                    ],
+                  })}
+                </SizableText>
               </XStack>
             )}
             containerStyle={{
