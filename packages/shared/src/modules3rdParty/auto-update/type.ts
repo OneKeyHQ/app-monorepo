@@ -1,5 +1,5 @@
 import type { IDesktopEventUnSubscribe } from '@onekeyhq/desktop/app/preload';
-import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiUpdate';
+import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/DesktopApiAppUpdate';
 
 import type { IAppUpdateInfo } from '../../appUpdate';
 
