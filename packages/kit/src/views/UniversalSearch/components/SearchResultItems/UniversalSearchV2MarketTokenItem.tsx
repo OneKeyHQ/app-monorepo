@@ -18,7 +18,10 @@ import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/context
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
+import {
+  EEnterWay,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -156,6 +159,7 @@ export function UniversalSearchV2MarketTokenItem({
             networkId: network,
             symbol,
             isNative,
+            from: EEnterWay.Search,
           },
         },
       });
@@ -218,7 +222,8 @@ export function UniversalSearchV2MarketTokenItem({
           chainId={network}
           contractAddress={address}
           ml="$3"
-          from={EWatchlistFrom.search}
+          from={EWatchlistFrom.Search}
+          tokenSymbol={symbol}
           size="medium"
           isNative={isNative}
         />

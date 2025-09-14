@@ -15,6 +15,8 @@ import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
 import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { useIntl } from 'react-intl';
 
 export const rowHeight = 24;
 
@@ -350,7 +352,7 @@ export function OrderBook({
 
     return calculateSpreadPercentage(bestBid, bestAsk);
   }, [aggregatedData.bids, aggregatedData.asks]);
-
+  const intl = useIntl();
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
@@ -364,18 +366,18 @@ export function OrderBook({
         >
           <View style={styles.horizontalHeaderContainer}>
             <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              SIZE
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </Text>
             <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              BUY
+              {intl.formatMessage({ id: ETranslations.global_buy })}
             </Text>
           </View>
           <View style={styles.horizontalHeaderContainer}>
             <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              SELL
+              {intl.formatMessage({ id: ETranslations.global_sell })}
             </Text>
             <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              SIZE
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </Text>
           </View>
         </View>
@@ -519,7 +521,7 @@ export function OrderBook({
               { textAlign: 'left', color: textColor.textSubdued },
             ]}
           >
-            Price
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
           </Text>
         </View>
         <View style={styles.verticalHeaderSize}>
@@ -529,7 +531,7 @@ export function OrderBook({
               { textAlign: 'right', color: textColor.textSubdued },
             ]}
           >
-            SIZE
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
           </Text>
         </View>
         <View style={styles.verticalHeaderTotal}>
@@ -539,7 +541,7 @@ export function OrderBook({
               { textAlign: 'right', color: textColor.textSubdued },
             ]}
           >
-            TOTAL
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_total })}
           </Text>
         </View>
       </View>
@@ -589,11 +591,16 @@ export function OrderBook({
             ]}
           >
             <Text style={[styles.bodySm, { color: textColor.text }]}>
-              Spread
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
             </Text>
             {showTickSelector ? (
               <Select
-                title="Tick Size"
+                floatingPanelProps={{
+                  width: 110,
+                }}
+                title={intl.formatMessage({
+                  id: ETranslations.perp_orderbook_spread,
+                })}
                 items={tickOptions}
                 value={selectedTickOption?.value}
                 onChange={handleTickOptionChange}
@@ -602,12 +609,10 @@ export function OrderBook({
                     style={{
                       width: 56,
                       height: 24,
-                      backgroundColor: 'rgba(255,255,255,0.1)',
                       borderRadius: 4,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      paddingHorizontal: 8,
                       gap: 4,
                     }}
                     onPress={onPress}
@@ -617,7 +622,7 @@ export function OrderBook({
                     </Text>
                     <Icon
                       name="ChevronDownSmallOutline"
-                      size="$3"
+                      size="$4"
                       color="$iconSubdued"
                     />
                   </TouchableOpacity>
@@ -685,6 +690,7 @@ export function OrderPairBook({
   asks: IBookLevel[];
   selectedTickOption?: ITickParam;
 }) {
+  const intl = useIntl();
   const aggregatedData = useAggregatedBook(
     bids,
     asks,
@@ -721,10 +727,10 @@ export function OrderPairBook({
     <View style={{ padding: 8 }}>
       <View style={styles.pairBookHeader}>
         <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-          PRICE
+          {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
         </Text>
         <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-          SIZE
+          {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
         </Text>
       </View>
       <View style={styles.relativeContainer}>
@@ -761,7 +767,7 @@ export function OrderPairBook({
           ))}
           <View style={styles.pairBookSpreadRow}>
             <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-              Spread
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
             </Text>
             <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
               {midPrice}

@@ -2,6 +2,11 @@ import { useCallback } from 'react';
 
 import { useClipboard } from '@onekeyhq/components';
 import { openTokenDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  ECopyFrom,
+  EVisitTarget,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -23,6 +28,10 @@ export function useTokenDetailHeaderLeftActions({
   const handleCopyAddress = useCallback(() => {
     if (address) {
       copyText(address);
+      // Dex analytics
+      defaultLogger.dex.actions.dexCopyCA({
+        copyFrom: ECopyFrom.Detail,
+      });
     }
   }, [address, copyText]);
 
@@ -39,12 +48,20 @@ export function useTokenDetailHeaderLeftActions({
   const handleOpenWebsite = useCallback(() => {
     if (website) {
       openUrlExternal(website);
+      // Dex analytics
+      defaultLogger.dex.actions.dexVisitSite({
+        visitTarget: EVisitTarget.OfficialWebsite,
+      });
     }
   }, [website]);
 
   const handleOpenTwitter = useCallback(() => {
     if (twitter) {
       openUrlExternal(twitter);
+      // Dex analytics
+      defaultLogger.dex.actions.dexVisitSite({
+        visitTarget: EVisitTarget.X,
+      });
     }
   }, [twitter]);
 
@@ -60,6 +77,10 @@ export function useTokenDetailHeaderLeftActions({
       );
       const searchUrl = `https://x.com/search?q=${q}&src=typed_query&f=live`;
       openUrlExternal(searchUrl);
+      // Dex analytics
+      defaultLogger.dex.actions.dexVisitSite({
+        visitTarget: EVisitTarget.SearchOnX,
+      });
     }
   }, [symbol, address]);
 

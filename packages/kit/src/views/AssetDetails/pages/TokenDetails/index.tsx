@@ -405,8 +405,9 @@ function TokenDetailsView() {
         </Stack>
       );
     if (
-      !accountUtils.isOthersWallet({ walletId }) &&
-      (vaultSettings?.mergeDeriveAssetsEnabled || tokens.length > 1)
+      (!accountUtils.isOthersWallet({ walletId }) &&
+        vaultSettings?.mergeDeriveAssetsEnabled) ||
+      tokens.length > 1
     ) {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (

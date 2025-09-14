@@ -21,12 +21,10 @@ export const useTokenSecurity = ({
       }
 
       const batchData =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity([
-          {
-            contractAddress: tokenAddress,
-            chainId: networkId,
-          },
-        ]);
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity({
+          contractAddress: tokenAddress,
+          chainId: networkId,
+        });
 
       const tokenSecurityData =
         batchData[tokenAddress] || batchData[tokenAddress.toLowerCase()];

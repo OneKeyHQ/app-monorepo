@@ -195,27 +195,12 @@ const TradesHistoryRow = memo(
           backgroundColor: '$bgSubdued',
         })}
       >
-        {/* Asset symbol */}
-        <XStack
-          {...getColumnStyle(columnConfigs[0])}
-          justifyContent={calcCellAlign(columnConfigs[0].align)}
-          alignItems="center"
-          pl="$2"
-        >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySmMedium"
-          >
-            {assetSymbol}
-          </SizableText>
-        </XStack>
-
         {/* Time */}
         <YStack
-          {...getColumnStyle(columnConfigs[1])}
+          {...getColumnStyle(columnConfigs[0])}
           justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[1].align)}
+          alignItems={calcCellAlign(columnConfigs[0].align)}
+          pl="$2"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {dateInfo.date}
@@ -229,6 +214,20 @@ const TradesHistoryRow = memo(
             {dateInfo.time}
           </SizableText>
         </YStack>
+        {/* Asset symbol */}
+        <XStack
+          {...getColumnStyle(columnConfigs[1])}
+          justifyContent={calcCellAlign(columnConfigs[1].align)}
+          alignItems="center"
+        >
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySmMedium"
+          >
+            {assetSymbol}
+          </SizableText>
+        </XStack>
 
         {/* Direction */}
         <XStack

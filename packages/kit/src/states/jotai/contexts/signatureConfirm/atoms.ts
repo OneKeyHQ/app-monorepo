@@ -208,3 +208,14 @@ export const {
   atom: tokenTransferAmountAtom,
   use: useTokenTransferAmountAtom,
 } = contextAtom<string>('0');
+
+export const { atom: decodedTxsInitAtom, use: useDecodedTxsInitAtom } =
+  contextAtom<boolean>(false);
+
+export const { atom: txFeeInfoInitAtom, use: useTxFeeInfoInitAtom } =
+  contextAtom<boolean>(false);
+
+export const {
+  atom: txConfirmParamsInitAtom,
+  use: useTxConfirmParamsInitAtom,
+} = contextAtom<boolean>(false);

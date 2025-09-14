@@ -1,4 +1,5 @@
 // Common enums and interfaces for DEX analytics
+import type { IDBWalletType } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export enum EEnterWay {
   HomeTab = 'HomeTab',
@@ -13,9 +14,10 @@ export enum EDexListName {
 }
 
 export enum ESortWay {
-  Liquidity = 'Liquidity',
-  Volume = 'Volume',
-  MC = 'MC',
+  Liquidity = 'liquidity',
+  Volume = 'v24hUSD',
+  MC = 'mc',
+  Default = 'default',
 }
 
 export enum ECopyFrom {
@@ -35,12 +37,6 @@ export enum ESwapType {
   Sell = 'Sell',
 }
 
-export enum EWalletType {
-  HD = 'HD',
-  Hardware = 'Hardware',
-  Watch = 'Watch',
-}
-
 export enum EAmountEnterType {
   Preset1 = '1',
   Preset2 = '2',
@@ -54,15 +50,7 @@ export enum ESlippageSetting {
   Manual = 'Manual',
 }
 
-export enum EAddFrom {
-  Homepage = 'Homepage',
-  Detail = 'Detail',
-  Onboard = 'Onboard',
-  Search = 'Search',
-  Others = 'Others',
-}
-
-export enum ERemoveFrom {
+export enum EWatchlistFrom {
   Homepage = 'Homepage',
   Detail = 'Detail',
   Search = 'Search',
@@ -121,18 +109,19 @@ export interface IDexAddToWatchlistParams {
   network: string;
   tokenSymbol: string;
   tokenContract: string;
-  addFrom: EAddFrom;
+  addFrom: EWatchlistFrom;
 }
 
 export interface IDexRemoveFromWatchlistParams {
   network: string;
   tokenSymbol: string;
   tokenContract: string;
-  removeFrom: ERemoveFrom;
+  removeFrom: EWatchlistFrom;
 }
 
 export interface IDexSortParams {
   sortWay: ESortWay;
+  sortDirection?: 'asc' | 'desc';
 }
 
 export interface IDexCopyCAParams {
@@ -150,7 +139,7 @@ export interface IDexVisitSiteParams {
 }
 
 export interface IDexSwapParams {
-  walletType: EWalletType;
+  walletType: IDBWalletType;
   amountEnterType: EAmountEnterType;
   slippageSetting: ESlippageSetting;
   sourceTokenSymbol: string;

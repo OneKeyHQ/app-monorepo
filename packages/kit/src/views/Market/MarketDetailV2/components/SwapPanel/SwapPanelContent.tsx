@@ -7,6 +7,7 @@ import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput
 import type { useSwapPanel } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/useSwapPanel';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
+import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 import { ActionButton } from './components/ActionButton';
 import { ApproveButton } from './components/ApproveButton';
@@ -19,6 +20,7 @@ import {
 } from './components/TokenInputSection';
 import { TradeTypeSelector } from './components/TradeTypeSelector';
 import { UnsupportedSwapWarning } from './components/UnsupportedSwapWarning';
+import { useSwapAnalytics } from './hooks/useSwapAnalytics';
 import { ESwapDirection } from './hooks/useTradeType';
 
 export type ISwapPanelContentProps = {
@@ -81,6 +83,9 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
 
   const tokenInputRef = useRef<ITokenInputSectionRef>(null);
   const paymentAmountRef = useRef(paymentAmount);
+
+  // Initialize analytics hook
+  const swapAnalytics = useSwapAnalytics();
   if (paymentAmount !== paymentAmountRef.current) {
     paymentAmountRef.current = paymentAmount;
   }
@@ -141,6 +146,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           selectableTokens={defaultTokens}
           onTokenChange={(token) => setPaymentToken(token)}
           balance={balance}
+          onAmountEnterTypeChange={swapAnalytics.setAmountEnterType}
         />
 
         {/* Rate display */}
@@ -183,6 +189,14 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
           isWrapped={isWrapped}
           paymentToken={paymentToken}
           networkId={networkId}
+          onSwapAction={() =>
+            swapAnalytics.logSwapAction({
+              tradeType,
+              networkId,
+              paymentToken,
+              balanceToken,
+            })
+          }
         />
       )}
 
@@ -191,7 +205,12 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
         <SlippageSetting
           autoDefaultValue={slippageAutoValue}
           isMEV={swapMevNetConfig?.includes(swapPanel.networkId ?? '')}
-          onSlippageChange={(item) => setSlippage(item.value)}
+          onSlippageChange={(item) => {
+            setSlippage(item.value);
+            swapAnalytics.setSlippageSetting(
+              item.key === ESwapSlippageSegmentKey.CUSTOM,
+            );
+          }}
         />
       )}
     </YStack>

@@ -380,13 +380,16 @@ class ServiceHardware extends ServiceBase {
           newPayload.requestPinType = 'AttachPin';
         }
       } else {
-        const { device } = originEvent.payload || {};
+        const { device, type } = originEvent.payload || {};
         const { features } = device || {};
 
         const inputPinOnSoftware = supportInputPinOnSoftwareSdk(features);
         const supportInputPinOnSoftware =
           dbDevice?.settings?.inputPinOnSoftware !== false &&
           inputPinOnSoftware.support;
+
+        const isAttachPin = type === 'PinMatrixRequestType_AttachToPin';
+        newPayload.requestPinType = isAttachPin ? 'AttachPin' : undefined;
 
         if (!supportInputPinOnSoftware) {
           await this.backgroundApi.serviceHardwareUI.showEnterPinOnDevice();
