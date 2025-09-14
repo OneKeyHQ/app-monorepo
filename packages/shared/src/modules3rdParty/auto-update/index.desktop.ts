@@ -10,8 +10,11 @@ import { electronUpdateListeners } from './electronUpdateListeners';
 
 import type {
   IAppUpdate,
+  IBundleUpdate,
+  IBundleUpdateDownloadedEvent,
   IClearPackage,
   IDownloadASC,
+  IDownloadBundle,
   IDownloadPackage,
   IInstallPackage,
   IManualInstallPackage,
@@ -45,7 +48,7 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
 
 const downloadPackage: IDownloadPackage = async () => {
   const result = await withUpdateError(async () => {
-    await globalThis.desktopApiProxy.update.checkForUpdates();
+    await globalThis.desktopApiProxy.appUpdate.checkForUpdates();
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {
@@ -54,7 +57,7 @@ const downloadPackage: IDownloadPackage = async () => {
           resolve(params);
         },
       );
-      void globalThis.desktopApiProxy.update.downloadUpdate();
+      void globalThis.desktopApiProxy.appUpdate.downloadUpdate();
     });
   });
   console.log('results', result);
@@ -62,25 +65,25 @@ const downloadPackage: IDownloadPackage = async () => {
 };
 
 const downloadASC: IDownloadASC = async (params) => {
-  await globalThis.desktopApiProxy.update.downloadASC({
+  await globalThis.desktopApiProxy.appUpdate.downloadASC({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
 };
 
 const verifyASC: IVerifyASC = async () => {
-  await globalThis.desktopApiProxy.update.verifyASC();
+  await globalThis.desktopApiProxy.appUpdate.verifyASC();
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
-  await globalThis.desktopApiProxy.update.verifyPackage({
+  await globalThis.desktopApiProxy.appUpdate.verifyPackage({
     ...params,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
 };
 
 const installPackage: IInstallPackage = async ({ downloadedEvent }) => {
-  await globalThis.desktopApiProxy.update.installPackage({
+  await globalThis.desktopApiProxy.appUpdate.installPackage({
     ...downloadedEvent,
     buildNumber: String(platformEnv.buildNumber || 1),
   });
@@ -116,12 +119,12 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
 };
 
 const clearPackage: IClearPackage = async () => {
-  await globalThis.desktopApiProxy.update.clearUpdateCache();
+  await globalThis.desktopApiProxy.appUpdate.clearUpdateCache();
 };
 
 const manualInstallPackage: IManualInstallPackage = async (params) =>
   new Promise((resolve) => {
-    void globalThis.desktopApiProxy.update.manualInstallPackage(params);
+    void globalThis.desktopApiProxy.appUpdate.manualInstallPackage(params);
     setTimeout(() => {
       resolve();
     }, 3500);
@@ -135,4 +138,15 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+};
+
+export const BundleUpdate: IBundleUpdate = {
+  downloadBundle: async () => {
+    return {} as IBundleUpdateDownloadedEvent;
+  },
+  verifyBundle: () => Promise.resolve(),
+  verifyBundleASC: () => Promise.resolve(),
+  downloadBundleASC: () => Promise.resolve(),
+  installBundle: () => Promise.resolve(),
+  clearBundle: () => Promise.resolve(),
 };

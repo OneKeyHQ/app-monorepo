@@ -493,7 +493,7 @@ export const useCheckUpdateOnDesktop =
           );
           setTimeout(async () => {
             const previousBuildNumber =
-              await globalThis.desktopApiProxy.update.getPreviousUpdateBuildNumber();
+              await globalThis.desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber();
             if (
               previousBuildNumber &&
               getBuilderNumber(previousBuildNumber) >=
