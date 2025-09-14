@@ -62,9 +62,9 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'tradingview_analytics_interval',
   'tradingview_analytics_timeframe',
   'tradingview_analytics_priceMC',
+  'tradingview_analytics_line',
   'tradingview_analytics_studyCreated',
   'tradingview_analytics_studyRemoved',
-  'tradingview_studyRemoved',
   'btc_requestAccount',
   'btc_signTransaction',
 ];

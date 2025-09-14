@@ -58,8 +58,7 @@ export function useTradingViewMessageHandler({
       // Handle TradingView analytics messages (interval, time frame, etc.)
       if (
         data.scope === '$private' &&
-        (data.method?.startsWith('tradingview_analytics_') ||
-          data.method === 'tradingview_studyRemoved')
+        data.method?.startsWith('tradingview_analytics_')
       ) {
         console.log('🔍 TradingView analytics message received:', data);
 

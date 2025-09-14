@@ -1,5 +1,3 @@
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
 import type { IMessageHandlerParams } from '../types';
 
 export async function handleAnalyticsStudyRemoved({
@@ -18,11 +16,12 @@ export async function handleAnalyticsStudyRemoved({
     const studyName = safeData.studyName as string;
 
     try {
+      // TODO: Implement study removed analytics
       // Log to DEX analytics system using existing indicator method
       // Note: We could track removal differently, but for now use the same indicator tracking
-      defaultLogger.dex.tradingView.dexTVIndicator({
-        tvIndicatorSelect: `${studyName}_removed`,
-      });
+      // defaultLogger.dex.tradingView.dexTVIndicator({
+      //   tvIndicatorSelect: `${studyName}_removed`,
+      // });
 
       console.log('📊 TradingView study removed analytics logged:', {
         studyName,

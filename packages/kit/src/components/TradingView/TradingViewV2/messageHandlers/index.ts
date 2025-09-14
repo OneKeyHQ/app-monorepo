@@ -1,5 +1,6 @@
 export {
   handleAnalyticsInterval,
+  handleAnalyticsLine,
   handleAnalyticsTimeFrame,
   handleAnalyticsEvent,
   handleAnalyticsStudyCreated,
