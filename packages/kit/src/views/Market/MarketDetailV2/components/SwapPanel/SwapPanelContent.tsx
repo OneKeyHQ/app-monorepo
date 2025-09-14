@@ -128,14 +128,6 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     }
   }, [tradeType, balanceToken?.decimals, setPaymentAmount]);
 
-  // Initialize slippage setting to auto mode (matches SlippageSetting component default)
-  useEffect(() => {
-    if (slippageAutoValue !== undefined) {
-      // SlippageSetting component defaults to AUTO mode, so set analytics to auto
-      swapAnalytics.setSlippageSetting(false); // false means ESlippageSetting.Auto
-    }
-  }, [slippageAutoValue, swapAnalytics]);
-
   return (
     <YStack gap="$4">
       {/* Trade type selector */}

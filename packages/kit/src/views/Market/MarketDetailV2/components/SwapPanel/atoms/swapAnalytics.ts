@@ -21,7 +21,7 @@ const initialState: ISwapAnalyticsState = {
 export const swapAnalyticsAtom = atom<ISwapAnalyticsState>(initialState);
 
 // Reset analytics data atom
-export const resetSwapAnalyticsAtom = atom(null, (get, set) => {
+export const resetSwapAnalyticsAtom = atom(null, (_, set) => {
   set(swapAnalyticsAtom, initialState);
 });
 

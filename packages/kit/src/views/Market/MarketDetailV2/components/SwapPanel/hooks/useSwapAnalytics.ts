@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
