@@ -33,7 +33,8 @@
     "build:winms": "cross-env NODE_ENV=production DESK_CHANNEL=ms-store yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish never",
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production DESK_CHANNEL=ms-store yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
-    "_folderslint": "yarn folderslint"
+    "_folderslint": "yarn folderslint",
+    "build:bundle-update": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build"
   },
   "dependencies": {
     "@sentry/electron": "5.8.0",

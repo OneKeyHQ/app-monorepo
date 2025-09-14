@@ -12,6 +12,7 @@ const { NODE_ENV, ENABLE_ANALYZER } = require('./constant');
 const babelTools = require('../babelTools');
 
 // Plugin to generate metadata.json with SHA512 hashes of all output files
+const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
 class FileHashMetadataPlugin {
   apply(compiler) {
     compiler.hooks.afterEmit.tapAsync(
@@ -82,8 +83,8 @@ module.exports = ({
           },
           plugins: [
             new SubresourceIntegrityPlugin(),
-            new FileHashMetadataPlugin(),
-          ],
+            BUILD_BUNDLE_UPDATE ? new FileHashMetadataPlugin() : undefined,
+          ].filter(Boolean),
         },
       );
     }
