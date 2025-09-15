@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "Отзовите их, чтобы избежать возможной потери активов.",
   "wallet.approval_risky_suggestion_title": "Обнаружено {number} рискованных разрешений",
   "wallet.approval_select_tokens": "Выберите токен",
+  "wallet.approval_summary_suggestion_desc_all": "Риск {riskyNumber} · Неактивно более 90 дней {inactiveNumber} — Рекомендуем отозвать, чтобы снизить риск и удалить ненужные разрешения.",
+  "wallet.approval_summary_suggestion_title": "{total} разрешений для проверки",
   "wallet.backup_prompt": "Создайте резервную копию вашего кошелька",
   "wallet.buy_crypto_instruction": "Купите криптовалюту для пополнения вашего кошелька",
   "wallet.collapsed_assets": "Скрытые активы",

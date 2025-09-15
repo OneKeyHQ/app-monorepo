@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "Révoquez-les pour éviter toute perte d'actifs potentielle.",
   "wallet.approval_risky_suggestion_title": "{number} approbations à risque détectées",
   "wallet.approval_select_tokens": "Sélectionner le jeton",
+  "wallet.approval_summary_suggestion_desc_all": "Risqué {riskyNumber} · Inactif depuis plus de 90 jours {inactiveNumber} — Nous recommandons la révocation pour réduire les risques et supprimer les autorisations inutiles.",
+  "wallet.approval_summary_suggestion_title": "{total} approbations à examiner",
   "wallet.backup_prompt": "Sauvegardez votre portefeuille",
   "wallet.buy_crypto_instruction": "Achetez des crypto-monnaies pour alimenter votre portefeuille",
   "wallet.collapsed_assets": "Actifs masqués",

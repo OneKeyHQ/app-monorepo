@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "潜在的な資産損失を避けるために、これらをすぐに取り消してください。",
   "wallet.approval_risky_suggestion_title": "{number} 件の危険な承認が検出されました",
   "wallet.approval_select_tokens": "トークンを選択",
+  "wallet.approval_summary_suggestion_desc_all": "危険 {riskyNumber}・90日以上未使用 {inactiveNumber} — リスクを減らし、不要な権限を整理するために、取り消しをお勧めします。",
+  "wallet.approval_summary_suggestion_title": "{total} 件の承認を確認する",
   "wallet.backup_prompt": "ウォレットをバックアップする",
   "wallet.buy_crypto_instruction": "ウォレットに資金を供給するために暗号通貨を購入する",
   "wallet.collapsed_assets": "非表示の資産",

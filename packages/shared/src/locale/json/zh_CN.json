@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "及时取消，避免造成资产损失。",
   "wallet.approval_risky_suggestion_title": "检测到 {number} 个有风险的授权",
   "wallet.approval_select_tokens": "选择代币",
+  "wallet.approval_summary_suggestion_desc_all": "高风险授权 {riskyNumber} 项 · 90 天未使用授权 {inactiveNumber} 项 — 建议撤销以降低风险并清理多余权限。",
+  "wallet.approval_summary_suggestion_title": "发现 {total} 个授权需要处理",
   "wallet.backup_prompt": "备份您的钱包",
   "wallet.buy_crypto_instruction": "购买加密货币至您的钱包",
   "wallet.collapsed_assets": "已收起资产",
