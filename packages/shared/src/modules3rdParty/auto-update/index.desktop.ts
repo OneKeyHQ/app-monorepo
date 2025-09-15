@@ -139,7 +139,9 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    const result = await globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params);
+    const result = await globalThis.desktopApiProxy.bundleUpdate.downloadBundle(
+      params,
+    );
     return result;
   },
   verifyBundle: () => Promise.resolve(),
