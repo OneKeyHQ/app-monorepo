@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "Cabut otorisasi untuk menghindari potensi kerugian aset.",
   "wallet.approval_risky_suggestion_title": "{number} persetujuan berisiko terdeteksi",
   "wallet.approval_select_tokens": "Pilih token",
+  "wallet.approval_summary_suggestion_desc_all": "Berisiko {riskyNumber} · Tidak aktif selama 90+ hari {inactiveNumber} — Sebaiknya cabut izin untuk mengurangi risiko dan membersihkan izin yang tidak perlu.",
+  "wallet.approval_summary_suggestion_title": "{total} persetujuan untuk ditinjau",
   "wallet.backup_prompt": "Cadangkan dompet Anda",
   "wallet.buy_crypto_instruction": "Beli kripto untuk mengisi dompet Anda",
   "wallet.collapsed_assets": "Aset tersembunyi",

@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
@@ -159,6 +160,7 @@ function ApprovalListContainer() {
       searchDisabled
       selectDisabled
       filterByNetworkDisabled
+      hideRiskOverview={accountUtils.isWatchingWallet({ walletId: wallet?.id })}
       onRefresh={onHomePageRefresh}
       onPress={handleApprovalOnPress}
       listViewStyleProps={{

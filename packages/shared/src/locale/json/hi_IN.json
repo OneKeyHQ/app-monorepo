@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "संभावित संपत्ति हानि से बचने के लिए उन्हें रद्द करें।",
   "wallet.approval_risky_suggestion_title": "{number} जोखिम भरे अनुमोदन का पता चला",
   "wallet.approval_select_tokens": "टोकन चुनें",
+  "wallet.approval_summary_suggestion_desc_all": "जोखिमपूर्ण {riskyNumber} · 90+ दिनों से निष्क्रिय {inactiveNumber} — हमारा सुझाव है कि आप जोखिम कम करने और अनावश्यक अनुमतियों को हटाने के लिए इसे रद्द कर दें।",
+  "wallet.approval_summary_suggestion_title": "समीक्षा के लिए {total} अनुमोदन",
   "wallet.backup_prompt": "अपने वॉलेट का बैकअप लें",
   "wallet.buy_crypto_instruction": "अपने वॉलेट को फंड करने के लिए क्रिप्टो खरीदें",
   "wallet.collapsed_assets": "छुपी संपत्तियां",

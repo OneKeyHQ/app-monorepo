@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "Widerrufen Sie sie, um potenzielle Vermögensverluste zu vermeiden.",
   "wallet.approval_risky_suggestion_title": "{number} riskante Genehmigungen erkannt",
   "wallet.approval_select_tokens": "Token auswählen",
+  "wallet.approval_summary_suggestion_desc_all": "Riskant {riskyNumber} · Seit über 90 Tagen inaktiv {inactiveNumber} — Wir empfehlen, die Berechtigung zu widerrufen, um Risiken zu verringern und unnötige Genehmigungen zu entfernen.",
+  "wallet.approval_summary_suggestion_title": "{total} Genehmigungen zu überprüfen",
   "wallet.backup_prompt": "Sichern Sie Ihre Wallet",
   "wallet.buy_crypto_instruction": "Kaufen Sie Krypto, um Ihre Geldbörse aufzuladen",
   "wallet.collapsed_assets": "Minimierte Assets",

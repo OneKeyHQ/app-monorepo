@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "সম্ভাব্য সম্পদ ক্ষতি এড়াতে সেগুলি প্রত্যাহার করুন।",
   "wallet.approval_risky_suggestion_title": "{number} ঝুঁকিপূর্ণ অনুমোদন সনাক্ত করা হয়েছে",
   "wallet.approval_select_tokens": "টোকেন নির্বাচন করুন",
+  "wallet.approval_summary_suggestion_desc_all": "ঝুঁকিপূর্ণ {riskyNumber} · ৯০+ দিন ধরে নিষ্ক্রিয় {inactiveNumber} — ঝুঁকি কমাতে ও অপ্রয়োজনীয় অনুমতি পরিষ্কার করতে এটি প্রত্যাহার করার পরামর্শ দেওয়া হচ্ছে।",
+  "wallet.approval_summary_suggestion_title": "পর্যালোচনার জন্য {total}টি অনুমোদন রয়েছে",
   "wallet.backup_prompt": "আপনার ওয়ালেট ব্যাকআপ করুন",
   "wallet.buy_crypto_instruction": "আপনার ওয়ালেট তৈরি করতে ক্রিপ্টো কিনুন",
   "wallet.collapsed_assets": "লুকানো সম্পদ",

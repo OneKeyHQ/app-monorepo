@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "Revoke them to avoid potential asset loss.",
   "wallet.approval_risky_suggestion_title": "{number} risky approvals detected",
   "wallet.approval_select_tokens": "Select tokens",
+  "wallet.approval_summary_suggestion_desc_all": "Risky approval(s) {riskyNumber} · Inactive for 90+ days {inactiveNumber} — We recommend revoking to reduce risk and clean up unnecessary permissions.",
+  "wallet.approval_summary_suggestion_title": "{total} approvals to review",
   "wallet.backup_prompt": "Backup your wallet",
   "wallet.buy_crypto_instruction": "Buy crypto to fund your wallet",
   "wallet.collapsed_assets": "Collapsed assets",
