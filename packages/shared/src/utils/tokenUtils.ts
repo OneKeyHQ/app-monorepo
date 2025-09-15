@@ -14,6 +14,7 @@ import type {
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
+import { getNetworkIdsMap } from '../config/networkIds';
 
 export const caseSensitiveNetworkImpl = [
   'sol',
@@ -839,7 +840,12 @@ export function buildHomeDefaultTokenMapKey({
   networkId: string;
   symbol: string;
 }) {
-  return `${networkId}_${symbol}`;
+  const networkIdKey =
+    networkId === getNetworkIdsMap().onekeyall
+      ? AGGREGATE_TOKEN_MOCK_NETWORK_ID
+      : networkId;
+
+  return `${networkIdKey}_${symbol}`;
 }
 
 export function sortTokensCommon({

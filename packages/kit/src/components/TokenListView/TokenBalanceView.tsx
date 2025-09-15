@@ -30,7 +30,7 @@ function TokenBalanceView(props: IProps) {
       formatterOptions={{ tokenSymbol: symbol }}
       {...rest}
     >
-      {token?.balanceParsed ?? '0'}
+      {token?.balanceParsed || '0'}
     </NumberSizeableTextWrapper>
   );
 }
