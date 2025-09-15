@@ -11,10 +11,8 @@ import { electronUpdateListeners } from './electronUpdateListeners';
 import type {
   IAppUpdate,
   IBundleUpdate,
-  IBundleUpdateDownloadedEvent,
   IClearPackage,
   IDownloadASC,
-  IDownloadBundle,
   IDownloadPackage,
   IInstallPackage,
   IManualInstallPackage,
@@ -141,7 +139,8 @@ export const AppUpdate: IAppUpdate = {
 
 export const BundleUpdate: IBundleUpdate = {
   downloadBundle: async (params) => {
-    return globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params);
+    const result = await globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params);
+    return result;
   },
   verifyBundle: () => Promise.resolve(),
   verifyBundleASC: () => Promise.resolve(),
