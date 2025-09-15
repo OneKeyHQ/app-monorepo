@@ -214,7 +214,7 @@ class DesktopApiAppBundleUpdate {
         reject(error);
       });
 
-      request.setTimeout(30_000, () => {
+      request.setTimeout(1000 * 60 * 30, () => {
         request.destroy();
         reject(new Error('Download timeout'));
       });
