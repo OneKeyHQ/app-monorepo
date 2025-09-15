@@ -31,14 +31,13 @@ import {
   WALLET_CONNECT_DEEP_LINK_NAME,
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IDesktopAppState,
   IDesktopSubModuleInitParams,
 } from '@onekeyhq/shared/types/desktop';
 
-import { getBundleExtractDir, getBundleIndexHtmlPath } from './bundle';
+import { getBundleIndexHtmlPath } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -500,11 +499,8 @@ function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  const bundleDirName =
-    globalThis.desktopApiProxy.bundleUpdate.getBundleDirName();
-  logger.info('bundleDirName >>>> ', bundleDirName);
-  const indexHtmlPath = getBundleIndexHtmlPath();
-  logger.info('indexHtmlPath >>>> ', indexHtmlPath);
+  const bundleIndexHtmlPath = getBundleIndexHtmlPath();
+  logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   const src = isDev
     ? 'http://localhost:3001/'
