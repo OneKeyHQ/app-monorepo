@@ -288,9 +288,14 @@ class DesktopApiAppBundleUpdate {
   }
 
   async verifyBundle(params: IUpdateDownloadedEvent) {
-    const { downloadedFile, sha256 } = params;
-    if (!downloadedFile || !sha256) {
-      return;
+    const {
+      downloadedFile,
+      sha256,
+      latestVersion: appVersion,
+      bundleVersion,
+    } = params || {};
+    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
+      throw new OneKeyLocalError('Invalid parameters');
     }
     const bundleDir = this.getBundleDirName();
     if (this.verifySha256(downloadedFile, sha256)) {
@@ -320,34 +325,75 @@ class DesktopApiAppBundleUpdate {
    * @returns Promise that resolves when verification is complete
    */
   async downloadBundleASC(params: IUpdateDownloadedEvent) {
-    const { downloadedFile, sha256 } = params;
-    if (!downloadedFile || !sha256) {
-      return;
+    const {
+      downloadedFile,
+      sha256,
+      latestVersion: appVersion,
+      bundleVersion,
+      signature,
+    } = params || {};
+    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
+      throw new OneKeyLocalError('Invalid parameters');
     }
-    this.verifySha256(downloadedFile, sha256);
+    if (!signature) {
+      throw new OneKeyLocalError('Invalid parameters');
+    }
   }
 
   async verifyBundleASC(params: IUpdateDownloadedEvent) {
-    const { downloadedFile, sha256 } = params;
-    const extractDir = this.getBundleExtractDir({
+    const {
       downloadedFile,
+      sha256,
+      latestVersion: appVersion,
+      bundleVersion,
+      signature,
+    } = params || {};
+    if (
+      !downloadedFile ||
+      !sha256 ||
+      !appVersion ||
+      !bundleVersion ||
+      !signature
+    ) {
+      throw new OneKeyLocalError('Invalid parameters');
+    }
+    const bundleDir = this.getBundleDirName();
+    const extractDir = this.getBundleExtractDir({
+      bundleDir,
       appVersion,
       bundleVersion,
     });
-    const metataJson = path.join(extractDir, 'metadata.json');
-    // return this.verifySha256(downloadedFile, sha256);
+    const metaDataJsonPath = path.join(extractDir, 'metadata.json');
+    logger.info('bundle-verifyBundleASC', metaDataJsonPath);
+    // await this.verifySha256(metaDataJsonPath, sha256);
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {
+    const {
+      downloadedFile,
+      sha256,
+      latestVersion: appVersion,
+      bundleVersion,
+      signature,
+    } = params || {};
+    if (
+      !downloadedFile ||
+      !sha256 ||
+      !appVersion ||
+      !bundleVersion ||
+      !signature
+    ) {
+      throw new OneKeyLocalError('Invalid parameters');
+    }
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
     store.setUpdateBundleData({
-      appVersion: params.appVersion,
-      bundleVersion: params.bundleVersion,
-      signature: params.signature,
+      appVersion,
+      bundleVersion,
+      signature,
     });
     setTimeout(() => {
       globalThis.location.reload();
-    }, 3500);
+    }, 1200);
   }
 
   async clearDownload() {
