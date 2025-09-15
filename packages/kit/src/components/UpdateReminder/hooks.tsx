@@ -234,7 +234,11 @@ export const useDownloadPackage = () => {
       const fileType = await getFileTypeFromUpdateInfo();
       try {
         if (fileType === EUpdateFileType.jsBundle) {
-          await BundleUpdate.installBundle(data);
+          if (!data.downloadedEvent) {
+            onFail();
+            return;
+          }
+          await BundleUpdate.installBundle(data.downloadedEvent);
         } else {
           await AppUpdate.installPackage(data);
         }

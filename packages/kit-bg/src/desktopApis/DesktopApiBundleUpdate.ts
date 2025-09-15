@@ -397,7 +397,10 @@ class DesktopApiAppBundleUpdate {
       signature,
     });
     setTimeout(() => {
-      globalThis.location.reload();
+      if (!process.mas) {
+        app.relaunch();
+      }
+      app.exit(0);
     }, 1200);
   }
 

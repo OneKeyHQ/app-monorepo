@@ -81,7 +81,7 @@ export type IVerifyBundleASC = (
 export type IDownloadBundleASC = (
   params: IUpdateDownloadedEvent,
 ) => Promise<void>;
-export type IInstallBundle = (params: IAppUpdateInfo) => Promise<void>;
+export type IInstallBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
 export type IClearBundle = () => Promise<void>;
 
 export interface IBundleUpdate {
