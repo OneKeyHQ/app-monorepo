@@ -9,9 +9,10 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
-  type IUpdateDownloadedEvent,
+  BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -308,6 +309,7 @@ class ServiceAppUpdate extends ServiceBase {
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
     await AppUpdate.clearPackage();
+    await BundleUpdate.clearBundle();
     await this.reset();
   }
 
