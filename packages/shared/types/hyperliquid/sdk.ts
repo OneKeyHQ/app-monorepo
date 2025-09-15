@@ -65,6 +65,7 @@ export type IEventNotificationParameters = HL.EventNotificationParameters;
 export type IEventTradesParameters = HL.EventTradesParameters;
 export type IEventUserEventsParameters = HL.EventUserEventsParameters;
 export type IEventWebData2Parameters = HL.EventWebData2Parameters;
+export type IEventUserFillsParameters = HL.EventUserFillsParameters;
 
 // Request types (define manually as SDK may not export these)
 export interface IOrderRequest {

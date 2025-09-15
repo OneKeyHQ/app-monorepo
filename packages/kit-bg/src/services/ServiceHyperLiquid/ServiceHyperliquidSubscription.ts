@@ -402,6 +402,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         metadata.coin = parts[2];
       } else if (
         subscriptionType === ESubscriptionType.WEB_DATA2 ||
+        subscriptionType === ESubscriptionType.USER_FILLS ||
         subscriptionType === ESubscriptionType.USER_EVENTS ||
         subscriptionType === ESubscriptionType.USER_NOTIFICATIONS ||
         subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA
@@ -462,6 +463,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return params;
       }
       case ESubscriptionType.WEB_DATA2:
+      case ESubscriptionType.USER_FILLS:
       case ESubscriptionType.USER_EVENTS:
       case ESubscriptionType.USER_NOTIFICATIONS:
         return { user: parts[2] };
