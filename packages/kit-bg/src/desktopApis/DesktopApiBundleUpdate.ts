@@ -30,6 +30,8 @@ class DesktopApiAppBundleUpdate {
 
   cancelCurrentDownload: (() => void) | null;
 
+  isDownloading = false;
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
     this.cancelCurrentDownload = () => {};
@@ -129,6 +131,7 @@ class DesktopApiAppBundleUpdate {
       let downloadRequest: http.ClientRequest | null = null;
 
       const protocol = bundleUrl.startsWith('https://') ? https : http;
+      this.isDownloading = true;
       downloadRequest = protocol.get(bundleUrl, options, (response) => {
         if (response.statusCode === 416) {
           // Range not satisfiable, file might be complete
@@ -181,6 +184,7 @@ class DesktopApiAppBundleUpdate {
         // Handle download cancellation
         const cancelDownload = () => {
           if (downloadRequest) {
+            this.isDownloading = false;
             downloadRequest.destroy();
             downloadRequest = null;
           }
@@ -213,6 +217,7 @@ class DesktopApiAppBundleUpdate {
         response.on('end', () => {
           writeStream.end();
 
+          this.isDownloading = false;
           if (downloadedBytes >= totalBytes) {
             // Download complete, rename and verify
             fs.renameSync(partialFilePath, filePath);
@@ -241,6 +246,7 @@ class DesktopApiAppBundleUpdate {
           downloadRequest.destroy();
           downloadRequest = null;
         }
+        this.isDownloading = false;
         this.cancelCurrentDownload = null;
         reject(new Error('Download timeout'));
       });
@@ -325,6 +331,7 @@ class DesktopApiAppBundleUpdate {
 
   async clearBundle() {
     return new Promise<void>((resolve) => {
+      this.isDownloading = false;
       this.cancelCurrentDownload?.();
       const bundleDir = this.getBundleDirName();
       fs.rmSync(bundleDir, { recursive: true });
