@@ -290,7 +290,7 @@ class DesktopApiAppBundleUpdate {
   async verifyBundle(params: IUpdateDownloadedEvent) {
     const { downloadedFile, sha256 } = params;
     if (!downloadedFile || !sha256) {
-      return false;
+      return;
     }
     const bundleDir = this.getBundleDirName();
     if (this.verifySha256(downloadedFile, sha256)) {
@@ -304,10 +304,9 @@ class DesktopApiAppBundleUpdate {
       try {
         const zip = new AdmZip(downloadedFile);
         zip.extractAllTo(extractDir, true);
-        return true;
       } catch (error) {
         logger.error('Failed to extract bundle zip file:', error);
-        return false;
+        throw error;
       }
     }
   }
@@ -323,9 +322,9 @@ class DesktopApiAppBundleUpdate {
   async downloadBundleASC(params: IUpdateDownloadedEvent) {
     const { downloadedFile, sha256 } = params;
     if (!downloadedFile || !sha256) {
-      return false;
+      return;
     }
-    return this.verifySha256(downloadedFile, sha256);
+    this.verifySha256(downloadedFile, sha256);
   }
 
   async verifyBundleASC(params: IUpdateDownloadedEvent) {

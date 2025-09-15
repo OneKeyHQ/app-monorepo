@@ -138,17 +138,15 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  downloadBundle: async (params) => {
-    const result = await globalThis.desktopApiProxy.bundleUpdate.downloadBundle(
-      params,
-    );
-    return result;
-  },
-  verifyBundle: () => Promise.resolve(),
-  verifyBundleASC: () => Promise.resolve(),
-  downloadBundleASC: () => Promise.resolve(),
-  installBundle: () => Promise.resolve(),
-  clearBundle: async () => {
-    await globalThis.desktopApiProxy.bundleUpdate.clearBundle();
-  },
+  downloadBundle: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params),
+  verifyBundle: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.verifyBundle(params),
+  verifyBundleASC: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.verifyBundleASC(params),
+  downloadBundleASC: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
+  installBundle: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+  clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
 };
