@@ -36,6 +36,8 @@ declare global {
     showMainWindow: () => void;
     refreshMenu: () => void;
     getAppName: () => string;
+    getBundleIndexHtmlPath: () => string | undefined;
+    useJsBundle: () => boolean;
   };
 
   var $$appGlobals: IAppGlobals;
