@@ -86,7 +86,7 @@ class DesktopApiAppBundleUpdate {
     return tempDir;
   }
 
-  downloadBundle({
+  async downloadBundle({
     latestVersion: appVersion,
     bundleVersion,
     downloadUrl: bundleUrl,
@@ -96,7 +96,11 @@ class DesktopApiAppBundleUpdate {
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
       return Promise.reject(new Error('Invalid parameters'));
     }
+    await this.clearDownload();
     return new Promise<IBundleDownloadedEvent>((resolve, reject) => {
+      if (this.isDownloading) {
+        return resolve({} as IBundleDownloadedEvent);
+      }
       const tempDir = this.getDownloadFileName();
       logger.info('bundle-download', {
         tempDir,
@@ -329,15 +333,22 @@ class DesktopApiAppBundleUpdate {
     }, 3500);
   }
 
+  async clearDownload() {
+    this.cancelCurrentDownload?.();
+    const downloadDir = this.getDownloadFileName();
+    fs.rmSync(downloadDir, { recursive: true });
+  }
+
+  async clearBundleExtract() {
+    const bundleDir = this.getBundleDirName();
+    fs.rmSync(bundleDir, { recursive: true });
+  }
+
   async clearBundle() {
+    await this.clearDownload();
+    await this.clearBundleExtract();
     return new Promise<void>((resolve) => {
-      this.isDownloading = false;
-      this.cancelCurrentDownload?.();
-      const bundleDir = this.getBundleDirName();
-      fs.rmSync(bundleDir, { recursive: true });
-      const downloadDir = this.getDownloadFileName();
-      fs.rmSync(downloadDir, { recursive: true });
-      setTimeout(() => {
+      setTimeout(() => { 
         resolve();
       }, 300);
     });
