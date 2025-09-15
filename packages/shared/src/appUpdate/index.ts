@@ -41,7 +41,7 @@ export const isVersionEqual = (appVersion?: string, bundleVersion?: string) => {
   }
   if (bundleVersion) {
     return (
-      semver.eq(appVersion ?? '', bundleVersion) &&
+      semver.eq(appVersion ?? '', APP_VERSION) &&
       Number(bundleVersion) !== Number(APP_BUNDLE_VERSION)
     );
   }
