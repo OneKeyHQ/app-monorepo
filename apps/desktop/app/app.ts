@@ -37,7 +37,7 @@ import type {
   IDesktopSubModuleInitParams,
 } from '@onekeyhq/shared/types/desktop';
 
-import { getBundleIndexHtmlPath } from './bundle';
+import { checkFileSha512, getBundleIndexHtmlPath, getMetadata } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -723,6 +723,7 @@ function createMainWindow() {
     const bundleDirPath = indexHtmlPath
       ? path.dirname(indexHtmlPath)
       : undefined;
+    const metadata = bundleDirPath ? getMetadata(bundleDirPath) : {};
     const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
@@ -746,18 +747,31 @@ function createMainWindow() {
           return;
         }
 
-        if (useJsBundle && bundleDirPath) {
-          const filePath = request.url.substring(PROTOCOL.length + 1);
-          callback({
-            path: path.join(bundleDirPath, filePath),
-          });
-          return;
-        }
-
         // move to parent folder
-        let url = request.url.substr(PROTOCOL.length + 1);
-        url = path.join(__dirname, '..', 'build', url);
-        callback(url);
+        let url = request.url.substring(PROTOCOL.length + 1);
+        if (useJsBundle && indexHtmlPath && bundleDirPath) {
+          url = decodeURIComponent(url);
+          if (!url.includes(bundleDirPath)) {
+            const key = url.replace(/^\/+/, '');
+            if (key) {
+              const sha512 = metadata[key];
+              const filePath = path.join(bundleDirPath, key);
+              if (!sha512) {
+                throw new OneKeyLocalError(
+                  `File ${url} not found in metadata.json`,
+                );
+              }
+              if (!checkFileSha512(filePath, sha512)) {
+                throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
+              }
+              callback(filePath);
+              return;
+            }
+          }
+          callback(indexHtmlPath);
+        } else {
+          callback(path.join(__dirname, '..', 'build', url));
+        }
       },
     );
     const safelyBrowserWindow = getSafelyBrowserWindow();
