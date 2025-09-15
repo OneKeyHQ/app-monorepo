@@ -2,6 +2,8 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+import type { IPerpBannerConfig } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
+
 export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
   hideNavBarConnectButton?: boolean;

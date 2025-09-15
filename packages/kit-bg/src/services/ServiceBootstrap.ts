@@ -33,6 +33,7 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceNotification.init(),
         this.backgroundApi.serviceReferralCode.getPostConfig(),
         this.backgroundApi.serviceToken.syncAggregateTokenConfigMap(),
+        this.backgroundApi.serviceWebviewPerp.updateBuilderFeeConfigByServerWithCache(),
       ]);
     } catch (error) {
       console.error(error);

@@ -3,6 +3,7 @@ import { ScrollView, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
@@ -12,6 +13,7 @@ function PerpDesktopLayout() {
   return (
     <ScrollView flex={1}>
       <YStack bg="$bgApp">
+        <PerpTips />
         <PerpTickerBar />
         <XStack flex={1}>
           <YStack

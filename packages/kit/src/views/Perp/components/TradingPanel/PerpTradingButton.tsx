@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpUseChainAccount } from '../../hooks/usePerpUseChainAccount';
@@ -41,10 +42,23 @@ export function PerpTradingButton({
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
-
+  const [{ perpConfigCommon }] = useSettingsPersistAtom();
   const buttonDisabled = useMemo(() => {
-    return !canTrade || isSubmitting || isNoEnoughMargin;
-  }, [canTrade, isSubmitting, isNoEnoughMargin]);
+    return (
+      !canTrade ||
+      isSubmitting ||
+      isNoEnoughMargin ||
+      (canTrade &&
+        (perpConfigCommon?.disablePerpActionButton ||
+          perpConfigCommon?.ipDisablePerp))
+    );
+  }, [
+    canTrade,
+    isSubmitting,
+    isNoEnoughMargin,
+    perpConfigCommon?.disablePerpActionButton,
+    perpConfigCommon?.ipDisablePerp,
+  ]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) return 'Placing...';

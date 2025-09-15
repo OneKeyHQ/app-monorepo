@@ -29,6 +29,7 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
+import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -147,10 +148,10 @@ export enum EPerpDefaultTabType {
   Web = 'web',
 }
 export interface IPerpBannerConfig {
+  id: string;
   title: string;
   description: string;
-  iconUrl?: string;
-  iconName?: string;
+  canClose?: boolean;
 }
 export interface IPerpConfigResponse {
   referrerAddress: string;
@@ -164,11 +165,11 @@ export interface IPerpConfigResponse {
       skipIfExists?: boolean;
     }
   >;
-  enableSwitchWebview?: boolean;
-  defaultPerpTabType?: EPerpDefaultTabType;
-  disablePerpTab?: boolean;
+  usePerpWeb?: boolean;
+  disablePerp?: boolean;
   disablePerpActionButton?: boolean;
   perpBannerConfig?: IPerpBannerConfig;
+  ipDisablePerp?: boolean;
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -183,33 +184,38 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async updatePerpConfig({
-    address,
-    fee,
+    referrerAddress,
+    referrerRate,
     customSettings,
     customLocalStorage,
     customLocalStorageV2,
-  }: {
-    address?: string;
-    fee?: number;
-    customSettings?: IHyperliquidCustomSettings;
-    customLocalStorage?: Record<string, any>;
-    customLocalStorageV2?: Record<
-      string,
-      {
-        value: any;
-        skipIfExists?: boolean;
-      }
-    >;
-  }) {
+    usePerpWeb,
+    disablePerp,
+    disablePerpActionButton,
+    perpBannerConfig,
+    ipDisablePerp,
+  }: IPerpConfigResponse) {
     let shouldNotifyToDapp = false;
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      perpConfigCommon: {
+        ...prev.perpConfigCommon,
+        usePerpWeb,
+        disablePerp,
+        disablePerpActionButton,
+        perpBannerConfig,
+        ipDisablePerp,
+      },
+    }));
     await this.backgroundApi.simpleDb.perp.setPerpConfig(
       (prev): ISimpleDbPerpConfig => {
         const newConfig: ISimpleDbPerpConfig = {
           ...prev,
-          hyperliquidBuilderAddress: address || prev?.hyperliquidBuilderAddress,
-          hyperliquidMaxBuilderFee: isNil(fee)
+          hyperliquidBuilderAddress:
+            referrerAddress || prev?.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: isNil(referrerRate)
             ? prev?.hyperliquidMaxBuilderFee
-            : fee,
+            : referrerRate,
           hyperliquidCustomSettings:
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
@@ -653,14 +659,19 @@ class ServiceWebviewPerp extends ServiceBase {
     //   };
     // }
     await this.updatePerpConfig({
-      address: resData?.data?.referrerAddress,
-      fee: resData?.data?.referrerRate,
+      referrerAddress: resData?.data?.referrerAddress,
+      referrerRate: resData?.data?.referrerRate,
       customSettings: resData?.data?.customSettings,
       customLocalStorage: resData?.data?.customLocalStorage,
       customLocalStorageV2: {
         ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
         ...resData?.data?.customLocalStorageV2,
       },
+      usePerpWeb: resData?.data?.usePerpWeb,
+      disablePerp: resData?.data?.disablePerp,
+      disablePerpActionButton: resData?.data?.disablePerpActionButton,
+      perpBannerConfig: resData?.data?.perpBannerConfig,
+      ipDisablePerp: resData?.data?.ipDisablePerp,
     });
     return resData;
   }
@@ -815,6 +826,14 @@ class ServiceWebviewPerp extends ServiceBase {
         },
       );
     }
+  }
+
+  @backgroundMethod()
+  async setPerpUserConfig(type: EPerpUserType) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
+    }));
   }
 }
 
