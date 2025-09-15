@@ -47,6 +47,7 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();
@@ -170,10 +171,27 @@ export function HomePageView({
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
 
-  const isBulkRevokeApprovalEnabled =
-    (network?.isAllNetworks ||
-      networksSupportBulkRevokeApproval[network?.id ?? '']) ??
-    false;
+  const isBulkRevokeApprovalEnabled = useMemo(() => {
+    if (network?.isAllNetworks) {
+      if (
+        accountUtils.isOthersAccount({
+          accountId: account?.id ?? '',
+        })
+      ) {
+        return networkUtils.isEvmNetwork({
+          networkId: account?.createAtNetwork ?? '',
+        });
+      }
+      return true;
+    }
+
+    return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    account?.id,
+    account?.createAtNetwork,
+  ]);
 
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
