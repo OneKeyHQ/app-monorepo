@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { forEach, isNil, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
+import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -14,7 +15,6 @@ import type {
   ITokenData,
   ITokenFiat,
 } from '../../types/token';
-import { getNetworkIdsMap } from '../config/networkIds';
 
 export const caseSensitiveNetworkImpl = [
   'sol',

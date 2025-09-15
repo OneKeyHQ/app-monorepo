@@ -1,5 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   NumberSizeableText,
   ScrollView,
@@ -10,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -17,8 +20,6 @@ import {
 
 import { usePerpSession } from '../../hooks';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useIntl } from 'react-intl';
 
 // Countdown timer hook for funding rate countdown (every hour)
 function useFundingCountdown() {

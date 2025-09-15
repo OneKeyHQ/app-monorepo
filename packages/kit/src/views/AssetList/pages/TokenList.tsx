@@ -23,6 +23,7 @@ import type {
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
+import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -38,7 +39,6 @@ import type {
   NativeSyntheticEvent,
   TextInputFocusEventData,
 } from 'react-native';
-import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 function TokenList() {
   const navigation = useAppNavigation();
