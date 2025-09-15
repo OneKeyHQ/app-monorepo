@@ -19,6 +19,7 @@ import {
   IconButton,
   Page,
   Popover,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -113,14 +114,87 @@ function TokenDetailsView() {
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
+  const renderAggregateTokenList = useCallback(
+    ({ closePopover }: { closePopover: () => void }) => {
+      return tokens.map((token) => (
+        <XStack
+          key={token.$key}
+          alignItems="center"
+          gap="$2"
+          justifyContent="space-between"
+        >
+          <XStack
+            gap="$2"
+            alignItems="center"
+            flex={1}
+            justifyContent="space-between"
+          >
+            <XStack gap="$2" alignItems="center">
+              <NetworkAvatar
+                networkId={token.networkId}
+                size={gtMd ? '$4' : '$5'}
+              />
+              <SizableText size="$bodyMd" numberOfLines={1}>
+                {token.networkName}
+              </SizableText>
+            </XStack>
+          </XStack>
+          {!token.address ? null : (
+            <XStack gap="$3" alignItems="center">
+              <Button
+                size="small"
+                variant="tertiary"
+                onPress={() => copyText(token.address)}
+              >
+                <XStack alignItems="center" gap="$2">
+                  <SizableText
+                    fontFamily="$monoRegular"
+                    size="$bodyMd"
+                    color="$textSubdued"
+                  >
+                    {accountUtils.shortenAddress({
+                      address: token.address,
+                      leadingLength: 6,
+                      trailingLength: 4,
+                    })}
+                  </SizableText>
+                  <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+                </XStack>
+              </Button>
+
+              <IconButton
+                title={intl.formatMessage({
+                  id: ETranslations.global_view_in_blockchain_explorer,
+                })}
+                iconSize="$4"
+                variant="tertiary"
+                icon="OpenOutline"
+                iconColor="$iconSubdued"
+                size="small"
+                onPress={() => {
+                  closePopover();
+                  void openTokenDetailsUrl({
+                    networkId: token.networkId ?? '',
+                    tokenAddress: token.address,
+                  });
+                }}
+              />
+            </XStack>
+          )}
+        </XStack>
+      ));
+    },
+    [gtMd, copyText, intl, tokens],
+  );
+
   const renderAggregateTokens = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
       return (
         <YStack
-          gap="$3"
           px="$5"
           pt="$2"
           pb="$5"
+          gap="$3"
           $gtMd={{
             px: '$3',
             py: '$2.5',
@@ -136,90 +210,19 @@ function TokenDetailsView() {
               id: ETranslations.global_contract_address,
             })}
           </SizableText>
-          {tokens.map((token) => (
-            <XStack
-              key={token.$key}
-              alignItems="center"
-              gap="$2"
-              justifyContent="space-between"
-            >
-              <XStack
-                gap="$2"
-                alignItems="center"
-                flex={1}
-                justifyContent="space-between"
-              >
-                <XStack gap="$2" alignItems="center">
-                  <NetworkAvatar
-                    networkId={token.networkId}
-                    size={gtMd ? '$4' : '$5'}
-                  />
-                  <SizableText size="$bodyMd" numberOfLines={1}>
-                    {token.networkName}
-                  </SizableText>
-                </XStack>
-              </XStack>
-              {!token.address ? null : (
-                <XStack gap="$3" alignItems="center">
-                  <Button
-                    size="small"
-                    variant="tertiary"
-                    onPress={() => copyText(token.address)}
-                  >
-                    <XStack alignItems="center" gap="$2">
-                      <SizableText
-                        fontFamily="$monoRegular"
-                        size="$bodyMd"
-                        color="$textSubdued"
-                      >
-                        {accountUtils.shortenAddress({
-                          address: token.address,
-                          leadingLength: 6,
-                          trailingLength: 4,
-                        })}
-                      </SizableText>
-                      <Icon
-                        name="Copy3Outline"
-                        size="$4"
-                        color="$iconSubdued"
-                      />
-                    </XStack>
-                  </Button>
-                  {/* <IconButton
-                    title={intl.formatMessage({
-                      id: ETranslations.global_copy,
-                    })}
-                    variant="tertiary"
-                    icon="Copy3Outline"
-                    iconColor="$iconSubdued"
-                    size="small"
-                    onPress={() => copyText(token.address)}
-                  /> */}
-                  <IconButton
-                    title={intl.formatMessage({
-                      id: ETranslations.global_view_in_blockchain_explorer,
-                    })}
-                    iconSize="$4"
-                    variant="tertiary"
-                    icon="OpenOutline"
-                    iconColor="$iconSubdued"
-                    size="small"
-                    onPress={() => {
-                      closePopover();
-                      void openTokenDetailsUrl({
-                        networkId: token.networkId ?? '',
-                        tokenAddress: token.address,
-                      });
-                    }}
-                  />
-                </XStack>
-              )}
-            </XStack>
-          ))}
+          {gtMd ? (
+            renderAggregateTokenList({ closePopover })
+          ) : (
+            <ScrollView maxHeight="$100">
+              <YStack gap="$3">
+                {renderAggregateTokenList({ closePopover })}
+              </YStack>
+            </ScrollView>
+          )}
         </YStack>
       );
     },
-    [intl, tokens, gtMd, copyText],
+    [intl, gtMd, renderAggregateTokenList],
   );
 
   const headerRight = useCallback(() => {
@@ -233,6 +236,9 @@ function TokenDetailsView() {
           })}
           renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
           renderContent={renderAggregateTokens}
+          sheetProps={{
+            disableDrag: true,
+          }}
           floatingPanelProps={{
             width: 320,
           }}

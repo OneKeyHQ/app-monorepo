@@ -67,6 +67,10 @@ function getRevokeStatusLabel({
       return intl.formatMessage({
         id: ETranslations.wallet_approval_bulk_revoke_status_skipped,
       });
+    case ERevokeTxStatus.Failed:
+      return intl.formatMessage({
+        id: ETranslations.wallet_approval_bulk_revoke_status_failed,
+      });
     default:
       return '';
   }
@@ -90,6 +94,8 @@ function RevokeStatusIcon(props: { status: IRevokeTxStatus }) {
     iconColor = '$iconCaution';
   } else if (status.status === ERevokeTxStatus.Skipped) {
     iconColor = '$iconInfo';
+  } else if (status.status === ERevokeTxStatus.Failed) {
+    iconColor = '$iconCritical';
   }
 
   return <Stack width="$2" height="$2" bg={iconColor} borderRadius="$full" />;
@@ -164,7 +170,10 @@ function BulkRevokeItem(props: IProps) {
           {status.skippedReason ? (
             <Popover
               title={intl.formatMessage({
-                id: ETranslations.approval_bulk_revoke_status_paused_reason_description,
+                id:
+                  status.status === ERevokeTxStatus.Failed
+                    ? ETranslations.wallet_approval_bulk_revoke_status_failed_reason_description
+                    : ETranslations.approval_bulk_revoke_status_paused_reason_description,
               })}
               renderTrigger={
                 <IconButton

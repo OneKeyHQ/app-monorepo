@@ -11,6 +11,7 @@ export enum ERevokeTxStatus {
   Processing = 'Processing',
   Pending = 'Pending',
   Skipped = 'Skipped',
+  Failed = 'Failed',
   Paused = 'Paused',
 }
 

@@ -111,7 +111,6 @@ class ServiceApproval extends ServiceBase {
     const contractApprovals = resp.data.data.contractApprovals ?? [];
 
     const riskApprovals: IContractApproval[] = [];
-    const inactiveApprovals: IContractApproval[] = [];
     const normalApprovals: IContractApproval[] = [];
 
     // 90 days
