@@ -43,7 +43,7 @@ export const getBundleIndexHtmlPath = () => {
   if (!fs.existsSync(extractDir)) {
     return undefined;
   }
-  const indexHtmlPath = path.join(extractDir, 'index.html');
+  const indexHtmlPath = path.join(extractDir, 'web', 'index.html');
   logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
   return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
