@@ -8,10 +8,15 @@ import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
 
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import type { IBundleDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import type {
+  IBundleDownloadedEvent,
+  IDownloadPackageParams,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 import type { IDesktopApi } from './base/types';
+import type { BrowserWindow } from 'electron';
 
 export interface IUpdateProgressUpdate {
   percent: number;
@@ -25,6 +30,10 @@ class DesktopApiAppBundleUpdate {
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
+  }
+
+  getMainWindow(): BrowserWindow | undefined {
+    return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
   verifySha256(filePath: string, sha256: string) {
@@ -50,18 +59,15 @@ class DesktopApiAppBundleUpdate {
   }
 
   downloadBundle({
-    appVersion,
+    latestVersion: appVersion,
     bundleVersion,
-    bundleUrl,
+    downloadUrl: bundleUrl,
     fileSize,
     sha256,
-  }: {
-    appVersion: string;
-    bundleVersion: string;
-    bundleUrl: string;
-    fileSize: number;
-    sha256: string;
-  }) {
+  }: IDownloadPackageParams) {
+    if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
+      return Promise.reject(new Error('Invalid parameters'));
+    }
     return new Promise<IBundleDownloadedEvent>((resolve, reject) => {
       const tempDir = path.join(
         app.getPath('userData'),
@@ -140,13 +146,16 @@ class DesktopApiAppBundleUpdate {
           // Emit progress
           const percent =
             totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : 0;
-          this.desktopApi.system.emitEvent('bundleUpdateProgress', {
-            percent,
-            transferred: downloadedBytes,
-            total: totalBytes,
-            bytesPerSecond: 0, // Could calculate this if needed
-            delta: (chunk as Buffer).length,
-          });
+          this.getMainWindow()?.webContents.send(
+            ipcMessageKeys.UPDATE_DOWNLOADING,
+            {
+              percent,
+              transferred: downloadedBytes,
+              total: totalBytes,
+              bytesPerSecond: 0, // Could calculate this if needed
+              delta: (chunk as Buffer).length,
+            },
+          );
         });
 
         response.on('end', () => {

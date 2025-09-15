@@ -9,10 +9,17 @@ export type IUpdateDownloadedEvent = {
   downloadUrl?: string;
 };
 
-export type IDownloadPackage = (params: {
+export interface IDownloadPackageParams {
   downloadUrl?: string;
   latestVersion?: string;
-}) => Promise<IUpdateDownloadedEvent>;
+  bundleVersion?: string;
+  fileSize?: number;
+  sha256?: string;
+}
+
+export type IDownloadPackage = (
+  params: IDownloadPackageParams,
+) => Promise<IUpdateDownloadedEvent>;
 
 export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
 
@@ -55,10 +62,9 @@ export type IElectronUpdateListeners = {
   ) => IDesktopEventUnSubscribe | undefined;
 };
 
-export type IDownloadBundle = (params: {
-  downloadUrl?: string;
-  latestVersion?: string;
-}) => Promise<IUpdateDownloadedEvent>;
+export type IDownloadBundle = (
+  params: IDownloadPackageParams,
+) => Promise<IUpdateDownloadedEvent>;
 
 export type IBundleDownloadedEvent = {
   downloadedFile?: string;

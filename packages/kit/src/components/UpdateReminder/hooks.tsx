@@ -24,6 +24,7 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IDownloadPackageParams } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
   BundleUpdate,
@@ -131,13 +132,28 @@ export const useDownloadPackage = () => {
     const fileType = await getFileTypeFromUpdateInfo();
     try {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
-      const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const { latestVersion, jsBundleVersion, downloadUrl, jsBundle } =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const downloadParams: IDownloadPackageParams = {
+        latestVersion,
+        bundleVersion: jsBundleVersion,
+        downloadUrl:
+          fileType === EUpdateFileType.jsBundle
+            ? jsBundle?.downloadUrl
+            : downloadUrl,
+        fileSize:
+          fileType === EUpdateFileType.jsBundle
+            ? jsBundle?.fileSize
+            : undefined,
+        sha256:
+          fileType === EUpdateFileType.jsBundle ? jsBundle?.sha256 : undefined,
+      };
       const result =
         fileType === EUpdateFileType.jsBundle
-          ? await BundleUpdate.downloadBundle(params)
-          : await AppUpdate.downloadPackage(params);
+          ? await BundleUpdate.downloadBundle(downloadParams)
+          : await AppUpdate.downloadPackage(downloadParams);
       await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
-        ...params,
+        ...downloadParams,
         ...result,
       });
       await downloadASC();
