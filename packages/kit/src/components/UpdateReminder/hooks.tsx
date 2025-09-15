@@ -16,13 +16,18 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
   EUpdateStrategy,
+  getUpdateFileType,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { AppUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  AppUpdate,
+  BundleUpdate,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -50,7 +55,14 @@ export const useDownloadPackage = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
+  const getFileTypeFromUpdateInfo = useCallback(async () => {
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    return getUpdateFileType(appUpdateInfo);
+  }, []);
+
   const verifyPackage = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -60,16 +72,19 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
-        AppUpdate.verifyPackage(params),
+        fileType === EUpdateFileType.jsBundle
+          ? BundleUpdate.verifyBundle(params)
+          : AppUpdate.verifyPackage(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, []);
+  }, [getFileTypeFromUpdateInfo]);
 
   const verifyASC = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -79,16 +94,19 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
-        AppUpdate.verifyASC(params),
+        fileType === EUpdateFileType.jsBundle
+          ? BundleUpdate.verifyBundleASC(params)
+          : AppUpdate.verifyASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await verifyPackage();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
-  }, [verifyPackage]);
+  }, [getFileTypeFromUpdateInfo, verifyPackage]);
 
   const downloadASC = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -98,20 +116,26 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
-        AppUpdate.downloadASC(params),
+        fileType === EUpdateFileType.jsBundle
+          ? BundleUpdate.downloadBundleASC(params)
+          : AppUpdate.downloadASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await verifyASC();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
-  }, [verifyASC]);
+  }, [getFileTypeFromUpdateInfo, verifyASC]);
 
   const downloadPackage = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      const result = await AppUpdate.downloadPackage(params);
+      const result =
+        fileType === EUpdateFileType.jsBundle
+          ? await BundleUpdate.downloadBundle(params)
+          : await AppUpdate.downloadPackage(params);
       await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
         ...params,
         ...result,
@@ -127,7 +151,7 @@ export const useDownloadPackage = () => {
         }),
       });
     }
-  }, [downloadASC, intl]);
+  }, [downloadASC, getFileTypeFromUpdateInfo, intl]);
 
   const resetToInComplete = useCallback(async () => {
     await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
@@ -190,6 +214,28 @@ export const useDownloadPackage = () => {
     }
   }, [intl, navigation, showUpdateInCompleteDialog]);
 
+  const installPackage = useCallback(
+    async (onSuccess: () => void, onFail: () => void) => {
+      const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const fileType = await getFileTypeFromUpdateInfo();
+      try {
+        if (fileType === EUpdateFileType.jsBundle) {
+          await BundleUpdate.installBundle(data);
+        } else {
+          await AppUpdate.installPackage(data);
+        }
+        onSuccess();
+      } catch (e: unknown) {
+        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+          onFail();
+        } else {
+          Toast.error({ title: (e as Error).message });
+        }
+      }
+    },
+    [getFileTypeFromUpdateInfo],
+  );
+
   return useMemo(
     () => ({
       downloadPackage,
@@ -197,17 +243,19 @@ export const useDownloadPackage = () => {
       verifyASC,
       downloadASC,
       resetToInComplete,
+      installPackage,
       manualInstallPackage,
       showUpdateInCompleteDialog,
     }),
     [
-      downloadASC,
       downloadPackage,
+      verifyPackage,
+      verifyASC,
+      downloadASC,
       resetToInComplete,
+      installPackage,
       manualInstallPackage,
       showUpdateInCompleteDialog,
-      verifyASC,
-      verifyPackage,
     ],
   );
 };
