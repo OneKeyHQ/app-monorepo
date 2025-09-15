@@ -505,7 +505,7 @@ function createMainWindow() {
   const src = isDev
     ? 'http://localhost:3001/'
     : formatUrl({
-        pathname: 'index.html',
+        pathname: bundleIndexHtmlPath || 'index.html',
         protocol: 'file',
         slashes: true,
       });
