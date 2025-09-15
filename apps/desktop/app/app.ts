@@ -504,11 +504,13 @@ function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  const src = formatUrl({
-    pathname: bundleIndexHtmlPath || 'index.html',
-    protocol: 'file',
-    slashes: true,
-  });
+  const src = isDev
+    ? 'http://localhost:3001/'
+    : formatUrl({
+        pathname: bundleIndexHtmlPath || 'index.html',
+        protocol: 'file',
+        slashes: true,
+      });
 
   void browserWindow.loadURL(src);
 
