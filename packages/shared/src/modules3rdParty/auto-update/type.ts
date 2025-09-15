@@ -3,15 +3,6 @@ import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/Des
 
 import type { IAppUpdateInfo } from '../../appUpdate';
 
-export type IUpdateDownloadedEvent =
-  | {
-      downloadedFile?: string;
-      latestVersion?: string;
-      downloadUrl?: string;
-      bundleVersion?: string;
-    }
-  | undefined;
-
 export interface IDownloadPackageParams {
   downloadUrl?: string;
   latestVersion?: string;
@@ -19,6 +10,13 @@ export interface IDownloadPackageParams {
   fileSize?: number;
   sha256?: string;
 }
+
+export type IUpdateDownloadedEvent =
+  | (IDownloadPackageParams & {
+      downloadedFile?: string;
+      signature?: string;
+    })
+  | undefined;
 
 export type IDownloadPackage = (
   params: IDownloadPackageParams,
