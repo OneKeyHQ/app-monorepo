@@ -61,13 +61,6 @@ export enum ERouter {
   OKX = 'OKX',
 }
 
-export enum EIntervalSelect {
-  OneHour = '1h',
-  FourHour = '4h',
-  EightHour = '8h',
-  TwentyFourHour = '24h',
-}
-
 export enum ETabSelect {
   Transactions = 'Transactions',
   Holders = 'Holders',
@@ -149,16 +142,12 @@ export interface IDexSwapParams {
   router: ERouter;
 }
 
-export interface IDexIntervalParams {
-  intervalSelect: EIntervalSelect;
-}
-
-export interface IDexButtonTabParams {
+export interface IDexBottomTabParams {
   tabSelect: ETabSelect;
 }
 
 export interface IDexTVIntervalParams {
-  tvIntervalSelect: ETVIntervalSelect;
+  tvIntervalSelect: string;
 }
 
 export interface IDexTVLineParams {
@@ -171,4 +160,8 @@ export interface IDexTVIndicatorParams {
 
 export interface IDexTVPriceMCParams {
   tvPriceMCSelect: ETVPriceMCSelect;
+}
+
+export interface IDexTVTimeframeParams {
+  tvTimeframeSelect: string;
 }

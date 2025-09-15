@@ -10,6 +10,7 @@ export async function handleKLineDataRequest({
 
   // Safely extract history data with proper type checking
   const messageData = data.data;
+
   if (
     messageData &&
     typeof messageData === 'object' &&
@@ -20,20 +21,9 @@ export async function handleKLineDataRequest({
   ) {
     // Extract properties safely with explicit checks
     const safeData = messageData as unknown as Record<string, unknown>;
-    const method = safeData.method as string;
     const resolution = safeData.resolution as string;
     const from = safeData.from as number;
     const to = safeData.to as number;
-    const firstDataRequest = safeData.firstDataRequest as boolean;
-
-    // console.log('TradingView request received:', {
-    //   method,
-    //   resolution,
-    //   from,
-    //   to,
-    //   firstDataRequest,
-    //   origin: data.origin,
-    // });
 
     // Use combined function to get sliced data
     try {

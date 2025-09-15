@@ -6,6 +6,7 @@ import type {
   IDexTVIntervalParams,
   IDexTVLineParams,
   IDexTVPriceMCParams,
+  IDexTVTimeframeParams,
 } from '../types';
 
 export class TradingViewScene extends BaseScene {
@@ -45,6 +46,16 @@ export class TradingViewScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public dexTVPriceMC(params: IDexTVPriceMCParams) {
+    return params;
+  }
+
+  /**
+   * Track TradingView chart time frame selection
+   * Reports on click, not default selection
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public dexTVTimeFrame(params: IDexTVTimeframeParams) {
     return params;
   }
 }
