@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { TonClient, WalletContractV4, internal } from '@ton/ton';
 import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
@@ -60,6 +61,7 @@ import {
   getJettonWalletAddress,
   getWalletContractInstance,
   serializeUnsignedTransaction,
+  serializeUnsignedTransaction1,
 } from './sdkTon/utils';
 import settings from './settings';
 
@@ -444,10 +446,20 @@ export default class Vault extends VaultBase {
       contract: wallet,
       encodedTx,
     });
+
+    const contract = WalletContractV4.create({
+      publicKey: Buffer.from(account.pub ?? ''),
+      workchain: -239,
+    });
+    const serializeUnsignedTx1 = await serializeUnsignedTransaction1({
+      contract,
+      encodedTx,
+    });
+
     return {
       encodedTx: {
         ...encodedTx,
-        body: Buffer.from(await serializeUnsignedTx.body.toBoc(false)).toString(
+        body: Buffer.from(serializeUnsignedTx1.toBoc({ idx: false })).toString(
           'base64',
         ),
         // eslint-disable-next-line spellcheck/spell-checker

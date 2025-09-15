@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { fromNano, toNano } from '@ton/core';
+import { Address, Cell, SendMode, TonClient, internal } from '@ton/ton';
 import BigNumber from 'bignumber.js';
 import TonWeb, { type StateInit } from 'tonweb';
 
@@ -13,9 +15,9 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 import { Provider } from './provider';
 
 import type { IAddressToString, ICell } from './types';
-import type { Cell } from 'tonweb/dist/types/boc/cell';
+import type { Contract } from '@ton/core';
+import type { WalletContractV4 } from '@ton/ton';
 import type { TransferBodyParams } from 'tonweb/dist/types/contract/token/ft/jetton-wallet';
-import type { Address } from 'tonweb/dist/types/utils/address';
 
 export function decodePayload(payload?: string | Uint8Array): {
   type: EDecodedTxActionType;
@@ -175,6 +177,95 @@ export function getWalletContractInstance({
     publicKey: publicKey ? bufferUtils.hexToBytes(publicKey) : undefined,
     address,
   });
+}
+
+export interface AmountValue {
+  max?: string;
+  amount: string;
+}
+
+export interface TransactionState extends AmountValue {
+  address: string;
+  data: string | Cell | undefined;
+  hex?: string;
+  isEncrypt?: boolean;
+}
+
+export interface InitData {
+  code?: Cell;
+  data?: Cell;
+}
+
+// export const getWalletContract = (wallet: WalletState) => {
+//   const publicKey = Buffer.from(wallet.publicKey, 'hex');
+//   switch (wallet.version) {
+//     case 'v2R1':
+//       return WalletContractV2R1.create({ workchain, publicKey });
+//     case 'v2R2':
+//       return WalletContractV2R2.create({ workchain, publicKey });
+//     case 'v3R1':
+//       return WalletContractV3R1.create({ workchain, publicKey });
+//     case 'v3R2':
+//       return WalletContractV3R2.create({ workchain, publicKey });
+//     case 'v4R1':
+//       throw new Error('Unsupported wallet contract version - v4R1');
+//     case 'v4R2':
+//       return WalletContractV4.create({ workchain, publicKey });
+//   }
+// };
+
+export const getTonSendMode = (max: string | undefined) => {
+  return max === '1'
+    ? SendMode.CARRY_ALL_REMAINING_BALANCE
+    : SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
+};
+
+const seeIfBounceable = (address: string) => {
+  return Address.isFriendly(address)
+    ? Address.parseFriendly(address).isBounceable
+    : false;
+};
+
+export const toStateInit = (stateInit?: string): InitData | undefined => {
+  if (!stateInit) {
+    return undefined;
+  }
+
+  const initSlice = Cell.fromBase64(stateInit).asSlice();
+  return {
+    code: initSlice.loadRef(),
+    data: initSlice.loadRef(),
+  };
+};
+
+export async function serializeUnsignedTransaction1({
+  contract,
+  encodedTx,
+}: {
+  contract: Contract;
+  encodedTx: IEncodedTxTon;
+}) {
+  const client = new TonClient({
+    endpoint: 'https://toncenter.com/api/v2/jsonRPC',
+  });
+  const wallet = client.open<WalletContractV4>(contract);
+
+  const transfer = wallet.createTransfer({
+    seqno: encodedTx.sequenceNo || 0,
+    secretKey: Buffer.from(new Uint8Array(64)),
+    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+    messages: encodedTx.messages.map((message) =>
+      internal({
+        to: message.address,
+        value: toNano(fromNano(message.amount)),
+        bounce: seeIfBounceable(message.address),
+        body: message.payload ? Cell.fromBase64(message.payload) : undefined,
+        init: toStateInit(message.stateInit),
+      }),
+    ),
+  });
+
+  return transfer;
 }
 
 export async function serializeUnsignedTransaction({

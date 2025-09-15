@@ -99,6 +99,7 @@
     "react-native-cloud-fs": "npm:@onekeyfe/react-native-cloud-fs@2.6.3",
     "react-native-collapsible-tab-view": "8.0.1",
     "react-native-crypto": "^2.2.0",
+    "react-native-fast-pbkdf2": "^0.3.1",
     "react-native-file-logger": "0.7.1",
     "react-native-fs": "npm:@dr.pogodin/react-native-fs@2.34.0",
     "react-native-gesture-handler": "2.27.1",
