@@ -122,7 +122,7 @@ function PerpPositionsList({
 
       showSetTpslDialog({
         position,
-        szDecimals: tokenInfo.szDecimals || 2,
+        szDecimals: tokenInfo.szDecimals ?? 2,
         assetId: tokenInfo.assetId,
         hyperliquidActions: actions,
       });
@@ -155,7 +155,7 @@ function PerpPositionsList({
       showClosePositionDialog({
         position,
         type,
-        szDecimals: tokenInfo.szDecimals || 2,
+        szDecimals: tokenInfo.szDecimals ?? 2,
         assetId: tokenInfo.assetId,
         hyperliquidActions: actions,
       });

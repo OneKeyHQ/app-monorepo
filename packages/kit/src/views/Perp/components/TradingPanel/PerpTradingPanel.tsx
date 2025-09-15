@@ -75,10 +75,9 @@ function PerpTradingPanel() {
       onConfirm: async () => {
         try {
           if (formData.type === 'market') {
-            await actions.current.marketOrderOpen({
+            await actions.current.orderOpen({
               assetId: tokenInfo.assetId,
               formData,
-              slippage: 0.08,
               midPx: tokenInfo.markPx || '0',
             });
           } else {

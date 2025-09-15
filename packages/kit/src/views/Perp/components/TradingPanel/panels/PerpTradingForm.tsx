@@ -151,7 +151,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
             }}
             value={formData.price}
             onChange={(value) => updateForm({ price: value })}
-            szDecimals={tokenInfo?.szDecimals || 2}
+            szDecimals={tokenInfo?.szDecimals ?? 2}
           />
         ) : null}
 
@@ -180,7 +180,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
             <TpslInput
               price={referencePrice.toFixed()}
               side={formData.side}
-              szDecimals={tokenInfo?.szDecimals || 2}
+              szDecimals={tokenInfo?.szDecimals ?? 2}
               leverage={leverage}
               tpsl={{
                 tpPrice: formData.tpTriggerPx,

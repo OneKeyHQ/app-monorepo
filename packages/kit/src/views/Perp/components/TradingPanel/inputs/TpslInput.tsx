@@ -3,12 +3,11 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
 
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
-
 import {
   formatPercentage,
   formatPriceToSignificantDigits,
   validatePriceInput,
-} from '../../../utils/tokenUtils';
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 interface ITpslInputProps {
   price: string;

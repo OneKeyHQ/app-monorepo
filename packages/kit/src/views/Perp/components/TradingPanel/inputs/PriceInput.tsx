@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import { validatePriceInput } from '../../../utils/tokenUtils';
+import { validatePriceInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
 

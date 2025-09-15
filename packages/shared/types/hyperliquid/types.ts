@@ -67,7 +67,7 @@ export interface IPlaceOrderParams {
   reduceOnly?: boolean;
 }
 
-export interface IMarketOrderOpenParams {
+export interface IOrderOpenParams {
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -78,7 +78,7 @@ export interface IMarketOrderOpenParams {
   slippage?: number;
 }
 
-export interface IMarketOrderCloseParams {
+export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;

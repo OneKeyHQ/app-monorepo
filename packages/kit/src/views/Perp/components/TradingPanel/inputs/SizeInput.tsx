@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { validateSizeInput } from '../../../utils/tokenUtils';
+import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
 
@@ -27,11 +27,10 @@ export const SizeInput = memo(
     side,
     label,
   }: ISizeInputProps) => {
-    const szDecimals = tokenInfo?.szDecimals || 4;
+    const szDecimals = tokenInfo?.szDecimals ?? 2;
     const isDisabled = disabled || !tokenInfo;
     const maxSzs = tokenInfo?.maxTradeSzs || [0, 0];
     const maxSize = maxSzs[side === 'long' ? 0 : 1];
-
     const validator = useCallback(
       (text: string) => validateSizeInput(text, szDecimals),
       [szDecimals],
@@ -41,18 +40,6 @@ export const SizeInput = memo(
       if (label) return label;
       return side === 'long' ? 'Buy amount' : 'Sell amount';
     }, [side, label]);
-
-    const helper = useMemo(() => {
-      if (Number(maxSize) <= 0) return undefined;
-
-      return {
-        text: `Max: ${Number(maxSize).toLocaleString('en-US', {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: szDecimals,
-        })}`,
-        align: 'right' as const,
-      };
-    }, [maxSize, szDecimals]);
 
     return (
       <TradingFormInput

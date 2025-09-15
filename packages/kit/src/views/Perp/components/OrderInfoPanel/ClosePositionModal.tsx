@@ -15,16 +15,16 @@ import {
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  formatPriceToSignificantDigits,
+  validateSizeInput,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IOrderResponse,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import {
-  formatPriceToSignificantDigits,
-  validateSizeInput,
-} from '../../utils/tokenUtils';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -47,7 +47,7 @@ interface IClosePositionParams {
   assetId: number;
   hyperliquidActions: {
     current: {
-      marketOrderClose: (params: {
+      orderClose: (params: {
         assetId: number;
         isBuy: boolean;
         size: string;
@@ -87,7 +87,7 @@ const ClosePositionForm = memo(
 
     const markPrice = useMemo(() => {
       const currentMidPrice = getMidPrice() || '0';
-      return formatPriceToSignificantDigits(Number(currentMidPrice));
+      return currentMidPrice;
     }, [getMidPrice]);
 
     const positionSize = useMemo(() => {
@@ -123,8 +123,8 @@ const ClosePositionForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatPriceToSignificantDigits(amount.toNumber());
-    }, [positionSize, formData.percentage]);
+      return formatPriceToSignificantDigits(amount.toNumber(), szDecimals);
+    }, [positionSize, formData.percentage, szDecimals]);
 
     const handlePercentageChange = useCallback(
       (percentage: number) => {
@@ -192,7 +192,7 @@ const ClosePositionForm = memo(
       if (latestMarkPrice) {
         setFormData((prev) => ({
           ...prev,
-          limitPrice: formatPriceToSignificantDigits(Number(latestMarkPrice)),
+          limitPrice: latestMarkPrice,
         }));
       }
     }, [getMidPrice]);
@@ -225,7 +225,7 @@ const ClosePositionForm = memo(
             });
           }
 
-          await hyperliquidActions.current.marketOrderClose({
+          await hyperliquidActions.current.orderClose({
             assetId,
             isBuy: isLongPosition,
             size: closeAmount,
@@ -317,8 +317,7 @@ const ClosePositionForm = memo(
               Position Size
             </SizableText>
             <SizableText size="$bodyMd" fontWeight="600">
-              {formatPriceToSignificantDigits(positionSize.toNumber())}{' '}
-              {position.coin}
+              {positionSize.toNumber()} {position.coin}
             </SizableText>
           </XStack>
 
@@ -369,9 +368,7 @@ const ClosePositionForm = memo(
             return validateSizeInput(processedValue, szDecimals);
           }}
           helper={{
-            text: `Max: ${formatPriceToSignificantDigits(
-              positionSize.toNumber(),
-            )}`,
+            text: `Max: ${positionSize.toNumber()} ${position.coin}`,
             align: 'right',
           }}
         />

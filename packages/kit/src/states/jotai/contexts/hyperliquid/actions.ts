@@ -345,7 +345,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
-      const slippage = params.slippage || 0.08;
+      const slippage = params.slippage;
 
       try {
         set(tradingLoadingAtom(), true);
@@ -376,7 +376,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  marketOrderOpen = contextAtomMethod(
+  orderOpen = contextAtomMethod(
     async (
       get,
       set,
@@ -388,13 +388,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
-      const slippage = params.slippage || 0.08;
+      const slippage = params.slippage;
 
       try {
         set(tradingLoadingAtom(), true);
 
         const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.marketOrderOpen({
+          await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
             assetId: params.assetId,
             isBuy: formData.side === 'long',
             size: formData.size,
@@ -408,7 +408,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return result;
       } catch (error) {
         console.error(
-          '[HyperliquidActions.marketOrderOpen] Failed to place market order:',
+          '[HyperliquidActions.orderOpen] Failed to place market order:',
           error,
         );
         throw error;
@@ -449,7 +449,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  marketOrderClose = contextAtomMethod(
+  orderClose = contextAtomMethod(
     async (
       get,
       set,
@@ -465,18 +465,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(tradingLoadingAtom(), true);
 
         const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.marketOrderClose({
+          await backgroundApiProxy.serviceHyperliquidExchange.orderClose({
             assetId: params.assetId,
             isBuy: params.isBuy,
             size: params.size,
             midPx: params.midPx,
-            slippage: params.slippage || 0.08,
+            slippage: params.slippage,
           });
 
         return result;
       } catch (error) {
         console.error(
-          '[HyperliquidActions.marketOrderClose] Failed to close position:',
+          '[HyperliquidActions.orderClose] Failed to close position:',
           error,
         );
         throw error;
@@ -557,7 +557,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
         }
 
-        return result as { success: boolean };
+        return result;
       } catch (error) {
         console.error(
           '[HyperliquidActions.cancelOrder] Failed to cancel orders:',
@@ -606,7 +606,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             isBuy: params.isBuy,
             tpTriggerPx: params.tpTriggerPx,
             slTriggerPx: params.slTriggerPx,
-            slippage: params.slippage || 0.08,
+            slippage: params.slippage,
           });
 
         // Show success toast by default
@@ -714,9 +714,9 @@ export function useHyperliquidActions() {
   const setTradingLoading = actions.setTradingLoading.use();
 
   const placeOrder = actions.placeOrder.use();
-  const marketOrderOpen = actions.marketOrderOpen.use();
+  const orderOpen = actions.orderOpen.use();
   const updateLeverage = actions.updateLeverage.use();
-  const marketOrderClose = actions.marketOrderClose.use();
+  const orderClose = actions.orderClose.use();
   const limitOrderClose = actions.limitOrderClose.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
@@ -748,9 +748,9 @@ export function useHyperliquidActions() {
     setTradingLoading,
 
     placeOrder,
-    marketOrderOpen,
+    orderOpen,
     updateLeverage,
-    marketOrderClose,
+    orderClose,
     limitOrderClose,
     cancelOrder,
     setPositionTpsl,
