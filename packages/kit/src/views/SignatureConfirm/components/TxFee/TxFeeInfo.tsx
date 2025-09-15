@@ -39,6 +39,7 @@ import {
   useTokenTransferAmountAtom,
   useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
+  useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
@@ -96,7 +97,6 @@ function TxFeeInfo(props: IProps) {
     feeInfoWrapperProps,
   } = props;
   const intl = useIntl();
-  const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
   const tronRentalUpdated = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
@@ -116,6 +116,7 @@ function TxFeeInfo(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
   const [megafuelEligible] = useMegafuelEligibleAtom();
+  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const {
     isResourceRentalNeeded,
     isResourceRentalEnabled,
@@ -134,6 +135,7 @@ function TxFeeInfo(props: IProps) {
     updateTronResourceRentalInfo,
     updatePayWithTokenInfo,
     updateMegafuelEligible,
+    updateTxFeeInfoInit,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -214,7 +216,7 @@ function TxFeeInfo(props: IProps) {
                 status: ESendFeeStatus.Success,
                 errMessage: '',
               });
-              setTxFeeInit(true);
+              updateTxFeeInfoInit(true);
               return {
                 r: undefined,
                 e: undefined,
@@ -246,7 +248,7 @@ function TxFeeInfo(props: IProps) {
             status: ESendFeeStatus.Success,
             errMessage: '',
           });
-          setTxFeeInit(true);
+          updateTxFeeInfoInit(true);
           updateTxAdvancedSettings({ dataChanged: false });
           return {
             r,
@@ -264,7 +266,7 @@ function TxFeeInfo(props: IProps) {
             status: ESendFeeStatus.Success,
             errMessage: '',
           });
-          setTxFeeInit(true);
+          updateTxFeeInfoInit(true);
           updateTxAdvancedSettings({ dataChanged: false });
           return {
             r: {
@@ -378,7 +380,7 @@ function TxFeeInfo(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
-        setTxFeeInit(true);
+        updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         return {
           r,
@@ -386,7 +388,7 @@ function TxFeeInfo(props: IProps) {
           m: undefined,
         };
       } catch (e) {
-        setTxFeeInit(true);
+        updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
@@ -412,6 +414,7 @@ function TxFeeInfo(props: IProps) {
       updateSendFeeStatus,
       updateTronResourceRentalInfo,
       updateTxAdvancedSettings,
+      updateTxFeeInfoInit,
     ],
     {
       watchLoading: true,
@@ -1181,7 +1184,7 @@ function TxFeeInfo(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit) return;
+    if (!txFeeInfoInit) return;
 
     if (payWithTokenInfo.enabled) {
       let requiredTokenBalance = new BigNumber(tokenTransferAmount ?? 0);
@@ -1266,6 +1269,7 @@ function TxFeeInfo(props: IProps) {
     }
   }, [
     decodedTxs,
+    txFeeInfoInit,
     extraFeeInfo.feeNative,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
@@ -1281,7 +1285,6 @@ function TxFeeInfo(props: IProps) {
     payWithTokenInfo.enabled,
     selectedFee,
     tokenTransferAmount,
-    txFeeInit,
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
@@ -1299,6 +1302,12 @@ function TxFeeInfo(props: IProps) {
       appEventBus.off(EAppEventBusNames.EstimateTxFeeRetry, callback);
     };
   }, [run]);
+
+  useEffect(() => {
+    if (unsignedTxs?.[0]?.uuid) {
+      updateTxFeeInfoInit(false);
+    }
+  }, [unsignedTxs, updateTxFeeInfoInit]);
 
   const handlePress = useCallback(() => {
     Dialog.show({
@@ -1353,7 +1362,7 @@ function TxFeeInfo(props: IProps) {
 
     if (sendFeeStatus.errMessage) return null;
 
-    if (!txFeeInit) {
+    if (!txFeeInfoInit) {
       return (
         <Stack py="$1">
           <Skeleton height="$3" width="$12" />
@@ -1378,7 +1387,9 @@ function TxFeeInfo(props: IProps) {
     return (
       <TxFeeSelectorTrigger
         onPress={handlePress}
-        disabled={sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit}
+        disabled={
+          sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInfoInit
+        }
       />
     );
   }, [
@@ -1392,7 +1403,7 @@ function TxFeeInfo(props: IProps) {
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
-    txFeeInit,
+    txFeeInfoInit,
     vaultSettings?.editFeeEnabled,
   ]);
 
@@ -1580,12 +1591,13 @@ function TxFeeInfo(props: IProps) {
 
   useEffect(() => {
     if (txAdvancedSettings.dataChanged) {
-      setTxFeeInit(false);
+      updateTxFeeInfoInit(false);
     }
   }, [
     txAdvancedSettings.dataChanged,
     updateSendSelectedFee,
     updateTxAdvancedSettings,
+    updateTxFeeInfoInit,
   ]);
 
   return (
@@ -1608,14 +1620,14 @@ function TxFeeInfo(props: IProps) {
       </XStack>
       {renderOriginalFeeInfo()}
       <XStack gap="$1" alignItems="center">
-        {txFeeInit ? (
+        {txFeeInfoInit ? (
           renderTotalNative()
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit && !isNil(selectedFee?.totalFiatMinForDisplay)
+        {txFeeInfoInit && !isNil(selectedFee?.totalFiatMinForDisplay)
           ? renderTotalFiat()
           : ''}
       </XStack>

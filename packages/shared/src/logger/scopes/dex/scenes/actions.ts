@@ -2,6 +2,7 @@ import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
 import type {
+  IDexBottomTabParams,
   IDexCheckRiskParams,
   IDexCopyCAParams,
   IDexVisitSiteParams,
@@ -32,6 +33,16 @@ export class ActionsScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public dexVisitSite(params: IDexVisitSiteParams) {
+    return params;
+  }
+
+  /**
+   * Track bottom information tab clicks
+   * Reports once per tab click, not default
+   */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public dexBottomTabs(params: IDexBottomTabParams) {
     return params;
   }
 }

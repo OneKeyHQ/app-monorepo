@@ -25,7 +25,7 @@ function PerpDesktopLayout() {
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
             >
-              <YStack flex={1} minHeight={300}>
+              <YStack flex={1} minHeight={600}>
                 <PerpCandles />
               </YStack>
 

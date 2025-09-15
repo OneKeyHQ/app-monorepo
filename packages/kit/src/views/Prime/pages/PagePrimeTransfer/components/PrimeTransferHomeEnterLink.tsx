@@ -20,6 +20,7 @@ import {
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -54,7 +55,9 @@ export function PrimeTransferHomeEnterLink({
     reValidateMode: 'onBlur',
     defaultValues: { pairingCode: remotePairingCode || '' },
   });
-
+  const isFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
   const { exitTransferFlow } = usePrimeTransferExit();
   const { gtSm } = useMedia();
 
@@ -226,32 +229,34 @@ export function PrimeTransferHomeEnterLink({
       if (autoConnect && remotePairingCode && websocketConnected) {
         if (!isAutoConnectedRef.current) {
           isAutoConnectedRef.current = true;
-          if (autoConnectCustomServer) {
-            Dialog.show({
-              description: intl.formatMessage(
-                {
-                  id: ETranslations.transfer_transfer_server_custom_confirm,
+          if (isFocusedRef.current) {
+            if (autoConnectCustomServer) {
+              Dialog.show({
+                description: intl.formatMessage(
+                  {
+                    id: ETranslations.transfer_transfer_server_custom_confirm,
+                  },
+                  {
+                    serverName: autoConnectCustomServer,
+                  },
+                ),
+                title: intl.formatMessage({
+                  id: ETranslations.transfer_transfer,
+                }),
+                onCancel: () => {
+                  exitTransferFlow();
                 },
-                {
-                  serverName: autoConnectCustomServer,
+                onConfirm: async () => {
+                  await saveCustomServerConfig({
+                    customServerTrimmed: autoConnectCustomServer,
+                    serverType: EPrimeTransferServerType.CUSTOM,
+                  });
+                  void doAutoConnect({ delay: 4000 });
                 },
-              ),
-              title: intl.formatMessage({
-                id: ETranslations.transfer_transfer,
-              }),
-              onCancel: () => {
-                exitTransferFlow();
-              },
-              onConfirm: async () => {
-                await saveCustomServerConfig({
-                  customServerTrimmed: autoConnectCustomServer,
-                  serverType: EPrimeTransferServerType.CUSTOM,
-                });
-                void doAutoConnect({ delay: 4000 });
-              },
-            });
-          } else {
-            await doAutoConnect({ delay: 2000 });
+              });
+            } else {
+              await doAutoConnect({ delay: 2000 });
+            }
           }
         }
       }

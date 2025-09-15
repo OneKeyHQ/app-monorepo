@@ -7,6 +7,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -29,6 +30,7 @@ interface IPerpTokenSelectorRowProps {
 
 const PerpTokenSelectorRow = memo(
   ({ token, onPress }: IPerpTokenSelectorRowProps) => {
+    const themeVariant = useThemeVariant();
     if (token.isDelisted) {
       return null;
     }
@@ -42,22 +44,25 @@ const PerpTokenSelectorRow = memo(
         px="$5"
         py="$3"
         cursor="pointer"
+        flex={1}
       >
         <XStack flex={1} alignItems="center">
           {/* Token Info */}
           <XStack
-            width={140}
+            width={150}
             justifyContent="flex-start"
             gap="$2"
             alignItems="center"
           >
             <Token
               size="xs"
+              borderRadius="$full"
+              bg={themeVariant === 'light' ? undefined : '$bgInverse'}
               tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
             <SizableText size="$bodySmMedium">{token.name}</SizableText>
-            <Badge radius="$2" bg="$bgInfo">
+            <Badge radius="$2" bg="$bgInfo" gap="$1">
               <SizableText color="$textInfo" size="$bodySm">
                 {token.maxLeverage}x
               </SizableText>
@@ -74,12 +79,20 @@ const PerpTokenSelectorRow = memo(
             </NumberSizeableText>
           </XStack>
 
-          <XStack width={120} justifyContent="flex-start">
+          <XStack width={130} justifyContent="flex-start">
             <SizableText
               size="$bodySm"
               color={token.change24hPercent > 0 ? '$green11' : '$red11'}
             >
-              {token.change24h} /{' '}
+              <NumberSizeableText
+                size="$bodySm"
+                color={token.change24hPercent > 0 ? '$green11' : '$red11'}
+                formatter="balance"
+                formatterOptions={{ showPlusMinusSigns: true }}
+              >
+                {token.change24h}
+              </NumberSizeableText>{' '}
+              /{' '}
               <NumberSizeableText
                 size="$bodySm"
                 color={token.change24hPercent > 0 ? '$green11' : '$red11'}
@@ -108,7 +121,11 @@ const PerpTokenSelectorRow = memo(
             <SizableText size="$bodySm" color="$text">
               $
               {formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(token.openInterest),
+                NUMBER_FORMATTER.marketCap(
+                  (
+                    Number(token.openInterest) * Number(token.markPrice)
+                  ).toString(),
+                ),
               )}
             </SizableText>
           </XStack>

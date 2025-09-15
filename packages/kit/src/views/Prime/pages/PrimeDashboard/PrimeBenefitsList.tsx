@@ -173,8 +173,7 @@ export function PrimeBenefitsList({
         }}
       />
       <PrimeBenefitsItem
-        isComingSoon
-        icon="UndoOutline"
+        icon="FlashOutline"
         title={intl.formatMessage({
           id: ETranslations.global_bulk_revoke,
         })}
@@ -182,13 +181,80 @@ export function PrimeBenefitsList({
           id: ETranslations.global_bulk_revoke_desc,
         })}
         onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.global_bulk_revoke,
+              }),
+            });
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkRevoke,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.BulkRevoke,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      />
+
+      <PrimeBenefitsItem
+        icon="BellOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_multi_account_notification,
+        })}
+        subtitle={intl.formatMessage(
+          {
+            id: ETranslations.global_on_chain_notifications_description,
+          },
+          {
+            number: 100,
+          },
+        )}
+        onPress={() => {
+          if (isPrimeSubscriptionActive) {
+            navigation.navigate(EModalRoutes.NotificationsModal);
+          } else {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.Notifications,
+              entryPoint: 'primePage',
+            });
+            navigation.navigate(EPrimePages.PrimeFeatures, {
+              showAllFeatures: true,
+              selectedFeature: EPrimeFeatures.Notifications,
+              selectedSubscriptionPeriod,
+              serverUserInfo,
+            });
+          }
+        }}
+      />
+
+      <PrimeBenefitsItem
+        isComingSoon
+        icon="ClockTimeHistoryOutline"
+        title={intl.formatMessage({
+          id: ETranslations.global_export_transaction_history,
+        })}
+        subtitle={intl.formatMessage(
+          {
+            id: ETranslations.wallet_export_on_chain_transactions_description,
+          },
+          {
+            networkCount: 12,
+          },
+        )}
+        onPress={() => {
           defaultLogger.prime.subscription.primeEntryClick({
-            featureName: EPrimeFeatures.BulkRevoke,
+            featureName: EPrimeFeatures.HistoryExport,
             entryPoint: 'primePage',
           });
           navigation.navigate(EPrimePages.PrimeFeatures, {
             showAllFeatures: true,
-            selectedFeature: EPrimeFeatures.BulkRevoke,
+            selectedFeature: EPrimeFeatures.HistoryExport,
             selectedSubscriptionPeriod,
             serverUserInfo,
           });
@@ -206,19 +272,6 @@ export function PrimeBenefitsList({
               if (process.env.NODE_ENV !== 'production') {
                 Toast.success({
                   title: 'Premium RPC',
-                });
-              }
-            }}
-          />
-          <PrimeBenefitsItem
-            isComingSoon
-            icon="BellOutline"
-            title="Account Activity"
-            subtitle="Subscribe to activities from up to 100 accounts."
-            onPress={() => {
-              if (process.env.NODE_ENV !== 'production') {
-                Toast.success({
-                  title: 'Account Activity',
                 });
               }
             }}

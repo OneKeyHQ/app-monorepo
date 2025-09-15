@@ -56,6 +56,8 @@ public class AppDelegate: ExpoAppDelegate {
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     JPUSHService.registerDeviceToken(deviceToken)
+    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0)}.joined()
+    LaunchOptionsManager.sharedInstance().saveDeviceToken(tokenString)
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries

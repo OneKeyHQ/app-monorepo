@@ -1,5 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Icon,
@@ -13,7 +15,9 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -24,6 +28,7 @@ function BasePerpTokenSelectorContent({
 }: {
   onLoadingChange: (isLoading: boolean) => void;
 }) {
+  const intl = useIntl();
   const { closePopover } = usePopoverContext();
   const {
     searchQuery,
@@ -48,17 +53,68 @@ function BasePerpTokenSelectorContent({
 
   return (
     <YStack>
-      <XStack px="$5" pt="$5">
-        <SearchBar
-          containerProps={{
-            borderRadius: '$2',
-          }}
-          autoFocus
-          placeholder="Search"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </XStack>
+      <YStack gap="$2">
+        <XStack px="$5" pt="$5">
+          <SearchBar
+            containerProps={{
+              borderRadius: '$2',
+            }}
+            autoFocus
+            placeholder="Search"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </XStack>
+        <XStack
+          px="$5"
+          py="$3"
+          borderBottomWidth="$px"
+          borderBottomColor="$borderSubdued"
+        >
+          <XStack width={150} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_asset,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack width={80} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_last_price,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack width={130} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_24h_change,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack width={100} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_funding,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack width={100} justifyContent="flex-start">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_volume,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack flex={1} justifyContent="flex-end">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_open_Interest,
+              })}
+            </SizableText>
+          </XStack>
+        </XStack>
+      </YStack>
 
       {/* Token List */}
       <YStack flex={1} maxHeight={300}>
@@ -71,49 +127,16 @@ function BasePerpTokenSelectorContent({
               onPress={() => handleSelectToken(token.name)}
             />
           )}
-          ListHeaderComponent={
-            <XStack
-              px="$5"
-              py="$3"
-              borderBottomWidth="$px"
-              borderBottomColor="$borderSubdued"
-            >
-              <XStack width={140} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Asset
-                </SizableText>
-              </XStack>
-              <XStack width={80} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Last Price
-                </SizableText>
-              </XStack>
-              <XStack width={120} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  24h Change
-                </SizableText>
-              </XStack>
-              <XStack width={100} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  8h Funding
-                </SizableText>
-              </XStack>
-              <XStack width={100} justifyContent="flex-start">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  24h Volume
-                </SizableText>
-              </XStack>
-              <XStack flex={1} justifyContent="flex-end">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  Open Interest
-                </SizableText>
-              </XStack>
-            </XStack>
-          }
           ListEmptyComponent={
             <XStack p="$5" justifyContent="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                {searchQuery ? 'No matching tokens found' : 'Loading tokens...'}
+                {searchQuery
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_token_selector_empty,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_token_selector_loading,
+                    })}
               </SizableText>
             </XStack>
           }
@@ -138,6 +161,7 @@ function PerpTokenSelectorContent({
 const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
+  const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
   const [currentToken] = useCurrentTokenAtom();
   const [isLoading, setIsLoading] = useState(false);
@@ -146,7 +170,7 @@ function BasePerpTokenSelector() {
       <Popover
         title="Select Token"
         floatingPanelProps={{
-          width: 700,
+          width: 680,
         }}
         open={isOpen}
         onOpenChange={setIsOpen}
@@ -169,6 +193,8 @@ function BasePerpTokenSelector() {
           >
             <Token
               size="md"
+              borderRadius="$full"
+              bg={themeVariant === 'light' ? null : '$bgInverse'}
               tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
@@ -187,7 +213,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, currentToken, isLoading],
+    [isOpen, currentToken, isLoading, themeVariant],
   );
 }
 

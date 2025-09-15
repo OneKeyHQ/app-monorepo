@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   useAllMidsAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
 import {
@@ -17,6 +19,8 @@ import { showSetTpslDialog } from '../SetTpslModal';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
+import type { AssetPosition } from '@nktkas/hyperliquid';
+
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
@@ -26,6 +30,7 @@ function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
 }: IPerpPositionsListProps) {
+  const intl = useIntl();
   const positions = usePerpPositions();
   const openOrders = usePerpOrders();
   const [allMids] = useAllMidsAtom();
@@ -34,66 +39,97 @@ function PerpPositionsList({
 
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
-      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
+      {
+        key: 'asset',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        width: 120,
+        align: 'left',
+      },
       {
         key: 'size',
-        title: 'Position Size',
-        minWidth: 100,
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_position_size,
+        }),
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },
       {
         key: 'entryPrice',
-        title: 'Entry Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_entry_price,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'markPrice',
-        title: 'Mark Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_mark_price,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'liqPrice',
-        title: 'Liq. Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_liq_price,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'pnl',
-        title: 'PnL (ROE %)',
-        minWidth: 140,
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_pnl,
+        }),
+        minWidth: 160,
         align: 'left',
         flex: 1,
       },
       {
         key: 'margin',
-        title: 'Margin',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_margin,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
       {
         key: 'funding',
-        title: 'Funding',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_funding_2,
+        }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 140, align: 'center', flex: 1 },
+      {
+        key: 'TPSL',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_tp_sl,
+        }),
+        minWidth: 140,
+        align: 'center',
+        flex: 1,
+      },
       {
         key: 'actions',
-        title: 'Close',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_close,
+        }),
         minWidth: 100,
         align: 'right',
         flex: 1,
       },
     ];
-  }, []);
+  }, [intl]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -102,15 +138,20 @@ function PerpPositionsList({
       ),
     [columnsConfig],
   );
+  const positionSort = useMemo<AssetPosition[]>(() => {
+    return positions.sort(
+      (a, b) =>
+        parseFloat(b.position.positionValue || '0') -
+        parseFloat(a.position.positionValue || '0'),
+    );
+  }, [positions]);
 
   const onAllClose = useCallback(() => {
     console.log('onAllClose');
   }, []);
 
   const handleSetTpsl = useCallback(
-    (
-      position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'],
-    ) => {
+    (position: AssetPosition['position']) => {
       const tokenInfo = getTokenInfo(position.coin);
       if (!tokenInfo) {
         console.error(
@@ -140,7 +181,7 @@ function PerpPositionsList({
       position,
       type,
     }: {
-      position: IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
+      position: AssetPosition['position'];
       type: 'market' | 'limit';
     }) => {
       const tokenInfo = getTokenInfo(position.coin);
@@ -163,10 +204,7 @@ function PerpPositionsList({
     [getTokenInfo, actions],
   );
 
-  const renderPositionRow = (
-    item: IWsWebData2['clearinghouseState']['assetPositions'][number],
-    _index: number,
-  ) => {
+  const renderPositionRow = (item: AssetPosition, _index: number) => {
     const position = item.position;
     const coin = position?.coin;
     const szi = position?.szi;
@@ -199,11 +237,15 @@ function PerpPositionsList({
     <CommonTableListView
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
-      data={positions}
+      data={positionSort}
       isMobile={isMobile}
       renderRow={renderPositionRow}
-      emptyMessage="No open positions"
-      emptySubMessage="Your positions will appear here after opening trades"
+      emptyMessage={intl.formatMessage({
+        id: ETranslations.perp_position_empty,
+      })}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_position_empty_desc,
+      })}
     />
   );
 }

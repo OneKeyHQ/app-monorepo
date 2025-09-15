@@ -277,12 +277,16 @@ export function PrimeLoginPasswordDialog({
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
-                        await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
-                          {
-                            passwordDialogPromiseId: promiseId,
-                            email,
-                          },
-                        );
+                        try {
+                          await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
+                            {
+                              passwordDialogPromiseId: promiseId,
+                              email,
+                            },
+                          );
+                        } finally {
+                          await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+                        }
                       }}
                     >
                       {intl.formatMessage({
