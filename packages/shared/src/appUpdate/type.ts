@@ -8,15 +8,30 @@ export enum EUpdateStrategy {
 }
 
 export interface IBasicAppUpdateInfo {
-  // app store url
+  /* app store url */
   storeUrl?: string;
-  // app download url
+  /* app download url */
   downloadUrl?: string;
-  // change log text
+  /* change log text */
   changeLog?: string;
-  // update strategy
+
+  /**
+   *  update strategy
+   * @enum EUpdateStrategy
+   * 0: silent
+   * 1: force
+   * 2: manual
+   * @default 2
+   */
   updateStrategy: EUpdateStrategy;
   summary?: string;
+  jsBundleVersion?: string;
+  jsBundleUrl?: {
+    downloadUrl?: string;
+    fileSize?: number;
+    sha256?: string;
+    signature?: string;
+  };
 }
 
 export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {

@@ -283,7 +283,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     return {
       isForceUpdate: response?.updateStrategy === EUpdateStrategy.force,
       isSilentUpdate: response?.updateStrategy === EUpdateStrategy.silent,
-      isNeedUpdate: isNeedUpdate(response?.latestVersion),
+      isNeedUpdate: isNeedUpdate(
+        response?.latestVersion,
+        response?.jsBundleVersion,
+        response?.status,
+      ),
       response,
     };
   }, []);
