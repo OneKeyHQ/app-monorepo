@@ -1,6 +1,7 @@
 import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
+  EUpdateStrategy,
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -74,7 +75,7 @@ class ServiceAppUpdate extends ServiceBase {
     if (isFirstLaunchAfterUpdated(appInfo)) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
-        isForceUpdate: false,
+        updateStrategy: EUpdateStrategy.manual,
         errorText: undefined,
         status: EAppUpdateStatus.done,
       }));
@@ -276,7 +277,7 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
       latestVersion: '0.0.0',
-      isForceUpdate: false,
+      updateStrategy: EUpdateStrategy.manual,
       updateAt: 0,
       summary: '',
       status: EAppUpdateStatus.done,

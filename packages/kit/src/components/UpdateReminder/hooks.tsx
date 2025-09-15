@@ -16,6 +16,7 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
+  EUpdateStrategy,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
@@ -253,14 +254,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         screen: EAppUpdateRoutes.UpdatePreview,
         params: {
           latestVersion: appUpdateInfo.latestVersion,
-          isForceUpdate: appUpdateInfo.isForceUpdate,
+          isForceUpdate: appUpdateInfo.updateStrategy === EUpdateStrategy.force,
           autoClose: isFull,
           ...params,
         },
       });
     },
     [
-      appUpdateInfo.isForceUpdate,
+      appUpdateInfo.updateStrategy,
       appUpdateInfo.latestVersion,
       navigation.pushFullModal,
       navigation.pushModal,
@@ -271,16 +272,16 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     navigation.pushModal(EModalRoutes.AppUpdateModal, {
       screen: EAppUpdateRoutes.DownloadVerify,
       params: {
-        isForceUpdate: appUpdateInfo.isForceUpdate,
+        isForceUpdate: appUpdateInfo.updateStrategy === EUpdateStrategy.force,
       },
     });
-  }, [appUpdateInfo.isForceUpdate, navigation]);
+  }, [appUpdateInfo.updateStrategy, navigation]);
 
   const checkForUpdates = useCallback(async () => {
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
     return {
-      isForceUpdate: !!response?.isForceUpdate,
+      isForceUpdate: response?.updateStrategy === EUpdateStrategy.force,
       isNeedUpdate: isNeedUpdate(response?.latestVersion),
       response,
     };

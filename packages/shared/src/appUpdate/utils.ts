@@ -10,6 +10,5 @@ export const getVersion = ({
   const latestVersion = (miniVersion ?? minVersion ?? version)?.join('.');
   return {
     latestVersion,
-    isForceUpdate: !!(miniVersion ?? minVersion),
   };
 };
