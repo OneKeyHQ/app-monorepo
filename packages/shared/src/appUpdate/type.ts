@@ -31,7 +31,7 @@ export interface IBasicAppUpdateInfo {
   updateStrategy: EUpdateStrategy;
   summary?: string;
   jsBundleVersion?: string;
-  jsBundleUrl?: {
+  jsBundle?: {
     downloadUrl?: string;
     fileSize?: number;
     sha256?: string;
