@@ -28,8 +28,11 @@ export interface IUpdateProgressUpdate {
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
+  cancelCurrentDownload: (() => void) | null;
+
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
     this.desktopApi = desktopApi;
+    this.cancelCurrentDownload = () => {};
   }
 
   getMainWindow(): BrowserWindow | undefined {
@@ -123,8 +126,10 @@ class DesktopApiAppBundleUpdate {
           downloadedBytes > 0 ? { Range: `bytes=${downloadedBytes}-` } : {},
       };
 
+      let downloadRequest: http.ClientRequest | null = null;
+
       const protocol = bundleUrl.startsWith('https://') ? https : http;
-      const request = protocol.get(bundleUrl, options, (response) => {
+      downloadRequest = protocol.get(bundleUrl, options, (response) => {
         if (response.statusCode === 416) {
           // Range not satisfiable, file might be complete
           if (fs.existsSync(partialFilePath)) {
@@ -173,6 +178,19 @@ class DesktopApiAppBundleUpdate {
           flags: downloadedBytes > 0 ? 'a' : 'w',
         });
 
+        // Handle download cancellation
+        const cancelDownload = () => {
+          if (downloadRequest) {
+            downloadRequest.destroy();
+            downloadRequest = null;
+          }
+          writeStream.destroy();
+          reject(new Error('Download cancelled'));
+        };
+
+        // Store cancel function for external access
+        this.cancelCurrentDownload = cancelDownload;
+
         response.on('data', (chunk) => {
           downloadedBytes += (chunk as Buffer).length;
           writeStream.write(chunk);
@@ -206,16 +224,24 @@ class DesktopApiAppBundleUpdate {
 
         response.on('error', (error) => {
           writeStream.destroy();
+          downloadRequest = null;
+          this.cancelCurrentDownload = () => {};
           reject(error);
         });
       });
 
-      request.on('error', (error) => {
+      downloadRequest.on('error', (error) => {
+        downloadRequest = null;
+        this.cancelCurrentDownload = null;
         reject(error);
       });
 
-      request.setTimeout(1000 * 60 * 30, () => {
-        request.destroy();
+      downloadRequest.setTimeout(1000 * 60 * 30, () => {
+        if (downloadRequest) {
+          downloadRequest.destroy();
+          downloadRequest = null;
+        }
+        this.cancelCurrentDownload = null;
         reject(new Error('Download timeout'));
       });
     });
@@ -299,6 +325,7 @@ class DesktopApiAppBundleUpdate {
 
   async clearBundle() {
     return new Promise<void>((resolve) => {
+      this.cancelCurrentDownload?.();
       const bundleDir = this.getBundleDirName();
       fs.rmSync(bundleDir, { recursive: true });
       const downloadDir = this.getDownloadFileName();
