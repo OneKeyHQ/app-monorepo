@@ -152,6 +152,9 @@ export const useDownloadPackage = () => {
         fileType === EUpdateFileType.jsBundle
           ? await BundleUpdate.downloadBundle(downloadParams)
           : await AppUpdate.downloadPackage(downloadParams);
+      if (!result) {
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
         ...downloadParams,
         ...result,

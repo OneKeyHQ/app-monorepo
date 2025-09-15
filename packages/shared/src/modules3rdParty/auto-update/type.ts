@@ -3,11 +3,14 @@ import type { IUpdateProgressUpdate } from '@onekeyhq/kit-bg/src/desktopApis/Des
 
 import type { IAppUpdateInfo } from '../../appUpdate';
 
-export type IUpdateDownloadedEvent = {
-  downloadedFile?: string;
-  latestVersion?: string;
-  downloadUrl?: string;
-};
+export type IUpdateDownloadedEvent =
+  | {
+      downloadedFile?: string;
+      latestVersion?: string;
+      downloadUrl?: string;
+      bundleVersion?: string;
+    }
+  | undefined;
 
 export interface IDownloadPackageParams {
   downloadUrl?: string;
@@ -65,13 +68,6 @@ export type IElectronUpdateListeners = {
 export type IDownloadBundle = (
   params: IDownloadPackageParams,
 ) => Promise<IUpdateDownloadedEvent>;
-
-export type IBundleDownloadedEvent = {
-  downloadedFile?: string;
-  latestVersion?: string;
-  downloadUrl?: string;
-  bundleVersion?: string;
-};
 
 export type IBundleUpdateDownloadedEvent = {
   downloadedFile?: string;

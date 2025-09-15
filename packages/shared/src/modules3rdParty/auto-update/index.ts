@@ -1,6 +1,5 @@
 import type {
   IAppUpdate,
-  IBundleDownloadedEvent,
   IBundleUpdate,
   IClearPackage,
   IDownloadASC,
@@ -39,7 +38,7 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  downloadBundle: () => Promise.resolve({} as IBundleDownloadedEvent),
+  downloadBundle: () => Promise.resolve({} as IUpdateDownloadedEvent),
   verifyBundle: () => Promise.resolve(),
   verifyBundleASC: () => Promise.resolve(),
   downloadBundleASC: () => Promise.resolve(),

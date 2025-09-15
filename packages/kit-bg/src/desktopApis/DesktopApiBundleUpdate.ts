@@ -12,8 +12,8 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
-  IBundleDownloadedEvent,
   IDownloadPackageParams,
+  IUpdateDownloadedEvent,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 import type { IDesktopApi } from './base/types';
@@ -90,15 +90,15 @@ class DesktopApiAppBundleUpdate {
     downloadUrl: bundleUrl,
     fileSize,
     sha256,
-  }: IDownloadPackageParams): Promise<IBundleDownloadedEvent> {
+  }: IDownloadPackageParams): Promise<IUpdateDownloadedEvent> {
+    if (this.isDownloading) {
+      return;
+    }
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
       return Promise.reject(new Error('Invalid parameters'));
     }
-    return new Promise<IBundleDownloadedEvent>((resolve, reject) => {
+    return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
       setTimeout(async () => {
-        if (this.isDownloading) {
-          return resolve({} as IBundleDownloadedEvent);
-        }
         const tempDir = this.getDownloadFileName();
         logger.info('bundle-download', {
           tempDir,
@@ -287,7 +287,7 @@ class DesktopApiAppBundleUpdate {
     return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
   }
 
-  async verifyBundle(params: IBundleDownloadedEvent) {
+  async verifyBundle(params: IUpdateDownloadedEvent) {
     const { downloadedFile, sha256 } = params;
     if (!downloadedFile || !sha256) {
       return false;
@@ -320,7 +320,7 @@ class DesktopApiAppBundleUpdate {
    * @param params - Bundle downloaded event containing file path and signature info
    * @returns Promise that resolves when verification is complete
    */
-  async downloadBundleASC(params: IBundleDownloadedEvent) {
+  async downloadBundleASC(params: IUpdateDownloadedEvent) {
     const { downloadedFile, sha256 } = params;
     if (!downloadedFile || !sha256) {
       return false;
@@ -328,7 +328,7 @@ class DesktopApiAppBundleUpdate {
     return this.verifySha256(downloadedFile, sha256);
   }
 
-  async verifyBundleASC(params: IBundleDownloadedEvent) {
+  async verifyBundleASC(params: IUpdateDownloadedEvent) {
     const { downloadedFile, sha256 } = params;
     const extractDir = this.getBundleExtractDir({
       downloadedFile,
@@ -339,7 +339,7 @@ class DesktopApiAppBundleUpdate {
     // return this.verifySha256(downloadedFile, sha256);
   }
 
-  async installBundle(params: IBundleDownloadedEvent) {
+  async installBundle(params: IUpdateDownloadedEvent) {
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
     store.setUpdateBundleData({
       appVersion: params.appVersion,
