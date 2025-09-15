@@ -2,9 +2,11 @@ import { useCallback, useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -15,8 +17,6 @@ import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
 import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useIntl } from 'react-intl';
 
 export const rowHeight = 24;
 
