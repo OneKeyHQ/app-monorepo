@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { pickBy } from 'lodash';
@@ -42,7 +42,12 @@ function ApprovalList() {
         EModalApprovalManagementRoutes.ApprovalList
       >
     >();
-  const { accountId, networkId, walletId } = route.params;
+  const {
+    accountId,
+    networkId,
+    walletId,
+    isBulkRevokeMode: routeBulkMode,
+  } = route.params;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const {
@@ -67,6 +72,13 @@ function ApprovalList() {
       walletId,
       networkId,
     });
+
+  useEffect(() => {
+    if (typeof routeBulkMode !== 'undefined') {
+      updateIsBulkRevokeMode(!!routeBulkMode);
+    }
+    // Only apply on mount or when param changes
+  }, [routeBulkMode, updateIsBulkRevokeMode]);
 
   const filteredSelectedTokensByNetwork = useMemo(() => {
     if (searchNetworkId === getNetworkIdsMap().onekeyall) {
@@ -233,7 +245,13 @@ function ApprovalList() {
   return (
     <Page onClose={handleOnClose}>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_approvals })}
+        title={
+          isBulkRevokeMode
+            ? intl.formatMessage({
+                id: ETranslations.wallet_approval_manage_title,
+              })
+            : intl.formatMessage({ id: ETranslations.global_approval_list })
+        }
         headerRight={renderHeaderRight}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({ id: ETranslations.global_search }),

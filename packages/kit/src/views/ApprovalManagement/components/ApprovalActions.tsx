@@ -52,7 +52,7 @@ function ApprovalActions(props: IProps) {
             ? `${intl.formatMessage({
                 id: ETranslations.global_revoke,
               })} (${selectedCount})`
-            : intl.formatMessage({ id: ETranslations.global_apply })
+            : intl.formatMessage({ id: ETranslations.global_continue })
         }
         onConfirm={onConfirm}
         onCancel={onCancel}

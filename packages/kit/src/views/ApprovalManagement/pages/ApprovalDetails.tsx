@@ -473,9 +473,15 @@ function ApprovalDetails() {
           setIsSelectAll={handleSelectAll}
           onConfirm={handleOnConfirm}
           onCancel={handleOnCancel}
-          onCancelText={intl.formatMessage({
-            id: ETranslations.wallet_approval_cancel,
-          })}
+          onCancelText={
+            isBulkRevokeMode
+              ? intl.formatMessage({
+                  id: ETranslations.wallet_approval_cancel,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.global_cancel,
+                })
+          }
           isSelectMode={isSelectMode}
           isBulkRevokeMode={isBulkRevokeMode}
           selectedCount={selectedCount}
@@ -529,9 +535,15 @@ function ApprovalDetails() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.wallet_approval_approval_details,
-        })}
+        title={
+          isSelectMode
+            ? intl.formatMessage({
+                id: ETranslations.wallet_approval_select_tokens,
+              })
+            : intl.formatMessage({
+                id: ETranslations.wallet_approval_approval_details,
+              })
+        }
         headerSearchBarOptions={
           isSelectMode
             ? {
