@@ -58,6 +58,27 @@ class DesktopApiAppBundleUpdate {
     }
   }
 
+  getDownloadFileName() {
+    const tempDir = path.join(
+      app.getPath('userData'),
+      'onekey-bundle-download',
+    );
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    logger.info('bundle-download', tempDir);
+    return tempDir;
+  }
+
+  getBundleDirName() {
+    const tempDir = path.join(app.getPath('userData'), 'onekey-bundle');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    logger.info('bundle-download', tempDir);
+    return tempDir;
+  }
+
   downloadBundle({
     latestVersion: appVersion,
     bundleVersion,
@@ -69,10 +90,10 @@ class DesktopApiAppBundleUpdate {
       return Promise.reject(new Error('Invalid parameters'));
     }
     return new Promise<IBundleDownloadedEvent>((resolve, reject) => {
-      const tempDir = path.join(
-        app.getPath('userData'),
-        'onekey-bundle-download',
-      );
+      const tempDir = this.getDownloadFileName();
+      logger.info('bundle-download', {
+        tempDir,
+      });
       const fileName = `${appVersion}-${bundleVersion}.zip`;
       const filePath = path.join(tempDir, fileName);
       const partialFilePath = `${filePath}.partial`;
@@ -188,18 +209,15 @@ class DesktopApiAppBundleUpdate {
   }
 
   getBundleExtractDir({
-    downloadedFile,
+    bundleDir,
     appVersion,
     bundleVersion,
   }: {
-    downloadedFile: string;
+    bundleDir: string;
     appVersion: string;
     bundleVersion: string;
   }) {
-    return path.join(
-      path.dirname(downloadedFile),
-      `${appVersion}-${bundleVersion}`,
-    );
+    return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
   }
 
   verifyBundle(params: IBundleDownloadedEvent) {
@@ -207,10 +225,11 @@ class DesktopApiAppBundleUpdate {
     if (!downloadedFile || !sha256) {
       return false;
     }
+    const bundleDir = this.getBundleDirName();
     if (this.verifySha256(downloadedFile, sha256)) {
       // Extract zip file to the same directory
       const extractDir = this.getBundleExtractDir({
-        downloadedFile,
+        bundleDir,
         appVersion,
         bundleVersion,
       });
@@ -265,7 +284,12 @@ class DesktopApiAppBundleUpdate {
     }, 3500);
   }
 
-  clearBundle(params: IBundleDownloadedEvent) {}
+  clearBundle(params: IBundleDownloadedEvent) {
+    const bundleDir = this.getBundleDirName();
+    fs.rmSync(bundleDir, { recursive: true });
+    const downloadDir = this.getDownloadFileName();
+    fs.rmSync(downloadDir, { recursive: true });
+  }
 }
 
 export default DesktopApiAppBundleUpdate;
