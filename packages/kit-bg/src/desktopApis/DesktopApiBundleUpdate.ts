@@ -7,19 +7,11 @@ import path from 'path';
 import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
-import { autoUpdater } from 'electron-updater';
 
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import type { IBundleDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
 
 import type { IDesktopApi } from './base/types';
-
-const isMas = !!process.mas;
-export interface ILatestVersion {
-  version: string;
-  releaseDate: string;
-  isManualCheck?: boolean;
-}
 
 export interface IUpdateProgressUpdate {
   percent: number;
@@ -28,13 +20,6 @@ export interface IUpdateProgressUpdate {
   total: number;
   transferred: number;
 }
-
-if (isMas) {
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.logger = logger;
-}
-
 class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
