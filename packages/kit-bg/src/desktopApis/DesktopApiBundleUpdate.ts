@@ -97,6 +97,7 @@ class DesktopApiAppBundleUpdate {
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
       return Promise.reject(new Error('Invalid parameters'));
     }
+    this.isDownloading = true;
     return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
       setTimeout(async () => {
         const tempDir = this.getDownloadFileName();
@@ -113,6 +114,7 @@ class DesktopApiAppBundleUpdate {
         if (fs.existsSync(filePath)) {
           const result = await this.verifyAndResolve(filePath, sha256);
           if (result) {
+            this.isDownloading = false;
             resolve({
               downloadedFile: filePath,
               downloadUrl: bundleUrl,
@@ -142,13 +144,13 @@ class DesktopApiAppBundleUpdate {
         let downloadRequest: http.ClientRequest | null = null;
 
         const protocol = bundleUrl.startsWith('https://') ? https : http;
-        this.isDownloading = true;
         downloadRequest = protocol.get(bundleUrl, options, async (response) => {
           if (response.statusCode === 416) {
             // Range not satisfiable, file might be complete
             if (fs.existsSync(partialFilePath)) {
               fs.renameSync(partialFilePath, filePath);
               await this.verifyAndResolve(filePath, sha256);
+              this.isDownloading = false;
               return {
                 downloadedFile: filePath,
                 downloadUrl: bundleUrl,
@@ -159,6 +161,7 @@ class DesktopApiAppBundleUpdate {
           }
 
           if (response.statusCode !== 200 && response.statusCode !== 206) {
+            this.isDownloading = false;
             reject(
               new Error(
                 `Download failed with status: ${response.statusCode || 0}`,
@@ -224,7 +227,6 @@ class DesktopApiAppBundleUpdate {
 
           response.on('end', async () => {
             writeStream.end();
-
             this.isDownloading = false;
             logger.info(
               'bundle-download-end',
@@ -251,6 +253,7 @@ class DesktopApiAppBundleUpdate {
           response.on('error', (error) => {
             writeStream.destroy();
             downloadRequest = null;
+            this.isDownloading = false;
             this.cancelCurrentDownload = () => {};
             reject(error);
           });
@@ -259,6 +262,7 @@ class DesktopApiAppBundleUpdate {
         downloadRequest.on('error', (error) => {
           downloadRequest = null;
           this.cancelCurrentDownload = null;
+          this.isDownloading = false;
           reject(error);
         });
 
