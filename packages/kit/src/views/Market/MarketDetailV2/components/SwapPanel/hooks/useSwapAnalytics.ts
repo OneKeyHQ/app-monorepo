@@ -1,8 +1,7 @@
 import { useCallback } from 'react';
 
-import { useAtom, useSetAtom } from 'jotai';
-
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSwapAnalyticsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EAmountEnterType,
@@ -12,21 +11,13 @@ import {
 } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import type { IDexSwapParams } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 
-import {
-  resetSwapAnalyticsAtom,
-  swapAnalyticsAtom,
-  updateSwapAnalyticsAtom,
-} from '../atoms/swapAnalytics';
-
 import { ESwapDirection, type ITradeType } from './useTradeType';
 
 import type { IToken } from '../types';
 import type { IAmountEnterSource } from '../types/analytics';
 
 export function useSwapAnalytics() {
-  const [analyticsState] = useAtom(swapAnalyticsAtom);
-  const updateAnalytics = useSetAtom(updateSwapAnalyticsAtom);
-  const resetAnalytics = useSetAtom(resetSwapAnalyticsAtom);
+  const [analyticsState, setAnalyticsState] = useSwapAnalyticsAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   // Set amount enter type
@@ -49,9 +40,9 @@ export function useSwapAnalytics() {
         default:
           amountEnterType = EAmountEnterType.Manual;
       }
-      updateAnalytics({ amountEnterType });
+      setAnalyticsState({ ...analyticsState, amountEnterType });
     },
-    [updateAnalytics],
+    [setAnalyticsState, analyticsState],
   );
 
   // Set slippage setting
@@ -60,12 +51,21 @@ export function useSwapAnalytics() {
       const slippageSetting = isManual
         ? ESlippageSetting.Manual
         : ESlippageSetting.Auto;
-      updateAnalytics({
+      setAnalyticsState({
+        ...analyticsState,
         slippageSetting,
       });
     },
-    [updateAnalytics],
+    [setAnalyticsState, analyticsState],
   );
+
+  // Reset analytics
+  const resetAnalytics = useCallback(() => {
+    setAnalyticsState({
+      amountEnterType: EAmountEnterType.Manual,
+      slippageSetting: ESlippageSetting.Auto,
+    });
+  }, [setAnalyticsState]);
 
   // Submit log with error handling
   const logSwapAction = useCallback(
