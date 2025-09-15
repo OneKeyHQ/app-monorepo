@@ -18,6 +18,23 @@ interface IIsNeedUpdateParams {
   status?: EAppUpdateStatus;
 }
 
+export const getUpdateFileType: (
+  params: IIsNeedUpdateParams,
+) => EUpdateFileType = ({
+  latestVersion,
+  jsBundleVersion,
+}: IIsNeedUpdateParams) => {
+  if (
+    latestVersion &&
+    semver.eq(latestVersion, APP_VERSION) &&
+    jsBundleVersion &&
+    jsBundleVersion !== APP_BUNDLE_VERSION
+  ) {
+    return EUpdateFileType.jsBundle;
+  }
+  return EUpdateFileType.appShell;
+};
+
 export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   shouldUpdate: boolean;
   fileType: EUpdateFileType;
