@@ -7648,7 +7648,7 @@ __metadata:
     react-native-get-random-values: "npm:1.9.0"
     react-native-reanimated: "npm:3.18.0"
     react-native-screens: "npm:4.11.0"
-    react-native-web: "npm:0.20.0"
+    react-native-web: "npm:0.21.1"
     react-refresh: "npm:^0.14.0"
     react-render-tracker: "npm:^0.7.6"
     react-router-dom: "npm:^7.1.1"
@@ -35563,9 +35563,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-web@npm:0.20.0":
-  version: 0.20.0
-  resolution: "react-native-web@npm:0.20.0"
+"react-native-web@npm:0.21.1":
+  version: 0.21.1
+  resolution: "react-native-web@npm:0.21.1"
   dependencies:
     "@babel/runtime": "npm:^7.18.6"
     "@react-native/normalize-colors": "npm:^0.74.1"
@@ -35578,7 +35578,7 @@ __metadata:
   peerDependencies:
     react: ^18.0.0 || ^19.0.0
     react-dom: ^18.0.0 || ^19.0.0
-  checksum: 10/2a2e84ca647b1b1422941f5d8e0a4f513ad61a34c5e47fb6888fc8ca3aca5cc105bc0c6207a3db4727a8333dfd9c7b27eb8d2acdab3bd4ca1abc6fe32459da92
+  checksum: 10/62cc21b514fd4abe3f9705bd9c835a7f6b910b41869f3c52d136e7ce758bbfa03f04e5df08ad430834faae236c575611430d69b4ca9cb87fb086c1a90392a784
   languageName: node
   linkType: hard
 
