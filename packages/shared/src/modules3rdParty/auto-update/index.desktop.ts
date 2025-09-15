@@ -60,7 +60,6 @@ const downloadPackage: IDownloadPackage = async () => {
       void globalThis.desktopApiProxy.appUpdate.downloadUpdate();
     });
   });
-  console.log('results', result);
   return result;
 };
 
@@ -141,12 +140,14 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  downloadBundle: async () => {
-    return {} as IBundleUpdateDownloadedEvent;
+  downloadBundle: async (params) => {
+    return globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params);
   },
   verifyBundle: () => Promise.resolve(),
   verifyBundleASC: () => Promise.resolve(),
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
-  clearBundle: () => Promise.resolve(),
+  clearBundle: async () => {
+    await globalThis.desktopApiProxy.bundleUpdate.clearBundle();
+  },
 };

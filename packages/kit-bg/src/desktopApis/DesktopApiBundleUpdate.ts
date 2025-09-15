@@ -85,7 +85,7 @@ class DesktopApiAppBundleUpdate {
     downloadUrl: bundleUrl,
     fileSize,
     sha256,
-  }: IDownloadPackageParams) {
+  }: IDownloadPackageParams): Promise<IBundleDownloadedEvent> {
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
       return Promise.reject(new Error('Invalid parameters'));
     }
@@ -127,7 +127,18 @@ class DesktopApiAppBundleUpdate {
           // Range not satisfiable, file might be complete
           if (fs.existsSync(partialFilePath)) {
             fs.renameSync(partialFilePath, filePath);
-            this.verifyAndResolve(filePath, sha256, resolve, reject);
+            this.verifyAndResolve(
+              filePath,
+              sha256,
+              () =>
+                resolve({
+                  downloadedFile: filePath,
+                  downloadUrl: bundleUrl,
+                  latestVersion: appVersion,
+                  bundleVersion,
+                }),
+              reject,
+            );
             return;
           }
         }
@@ -284,11 +295,16 @@ class DesktopApiAppBundleUpdate {
     }, 3500);
   }
 
-  clearBundle(params: IBundleDownloadedEvent) {
-    const bundleDir = this.getBundleDirName();
-    fs.rmSync(bundleDir, { recursive: true });
-    const downloadDir = this.getDownloadFileName();
-    fs.rmSync(downloadDir, { recursive: true });
+  async clearBundle() {
+    return new Promise<void>((resolve) => {
+      const bundleDir = this.getBundleDirName();
+      fs.rmSync(bundleDir, { recursive: true });
+      const downloadDir = this.getDownloadFileName();
+      fs.rmSync(downloadDir, { recursive: true });
+      setTimeout(() => {
+        resolve();
+      }, 3500);
+    });
   }
 }
 

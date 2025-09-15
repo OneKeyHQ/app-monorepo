@@ -70,6 +70,7 @@ export type IBundleDownloadedEvent = {
   downloadedFile?: string;
   latestVersion?: string;
   downloadUrl?: string;
+  bundleVersion?: string;
 };
 
 export type IBundleUpdateDownloadedEvent = {
