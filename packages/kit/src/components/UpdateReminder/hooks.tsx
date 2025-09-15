@@ -282,6 +282,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
     return {
       isForceUpdate: response?.updateStrategy === EUpdateStrategy.force,
+      isSilentUpdate: response?.updateStrategy === EUpdateStrategy.silent,
       isNeedUpdate: isNeedUpdate(response?.latestVersion),
       response,
     };
@@ -372,9 +373,16 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({
+          isNeedUpdate: needUpdate,
+          isForceUpdate,
+          isSilentUpdate,
+          response,
+        }) => {
           if (needUpdate) {
-            if (isForceUpdate) {
+            if (isSilentUpdate) {
+              void downloadPackage();
+            } else if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
             } else if (
               !platformEnv.isDev &&
