@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "Revocale per evitare potenziali perdite di asset.",
   "wallet.approval_risky_suggestion_title": "Rilevate {number} approvazioni rischiose",
   "wallet.approval_select_tokens": "Seleziona token",
+  "wallet.approval_summary_suggestion_desc_all": "Rischioso {riskyNumber} · Inattivo da oltre 90 giorni {inactiveNumber} — Si consiglia di revocarlo per ridurre i rischi e rimuovere le autorizzazioni non necessarie.",
+  "wallet.approval_summary_suggestion_title": "{total} approvazioni da rivedere",
   "wallet.backup_prompt": "Esegui il backup del tuo portafoglio",
   "wallet.buy_crypto_instruction": "Acquista criptovalute per finanziare il tuo portafoglio",
   "wallet.collapsed_assets": "Asset nascosti",

@@ -3297,6 +3297,8 @@
   "wallet.approval_risky_detected_suggestion_description": "เพิกถอนเพื่อหลีกเลี่ยงการสูญเสียทรัพย์สินที่อาจเกิดขึ้น",
   "wallet.approval_risky_suggestion_title": "ตรวจพบการอนุมัติที่มีความเสี่ยง {number} รายการ",
   "wallet.approval_select_tokens": "เลือกโทเคน",
+  "wallet.approval_summary_suggestion_desc_all": "เสี่ยง {riskyNumber} · ไม่ได้ใช้งานนานกว่า 90 วัน {inactiveNumber} — ขอแนะนำให้เพิกถอนเพื่อลดความเสี่ยงและล้างสิทธิ์ที่ไม่จำเป็นออก",
+  "wallet.approval_summary_suggestion_title": "มี {total} การอนุมัติที่ต้องตรวจสอบ",
   "wallet.backup_prompt": "สำรองข้อมูลกระเป๋าเงินของคุณ",
   "wallet.buy_crypto_instruction": "ซื้อคริปโตเพื่อเติมเงินในกระเป๋าเงินของคุณ",
   "wallet.collapsed_assets": "สินทรัพย์ที่ซ่อนไว้",

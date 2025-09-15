@@ -15,6 +15,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -23,6 +24,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -199,6 +201,19 @@ function ApprovalDetails() {
     async ({ tokenInfo }: { tokenInfo: IToken }) => {
       if (!isMountedRef.current) return;
 
+      if (
+        accountUtils.isWatchingAccount({
+          accountId: approval.accountId,
+        })
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_approval_revocation_not_available_for_watch_only_wallets,
+          }),
+        });
+        return;
+      }
+
       setIsBuildingRevokeTxs(true);
       setSelectedTokens({
         [approvalUtils.buildSelectedTokenKey({
@@ -250,6 +265,7 @@ function ApprovalDetails() {
       approval.contractAddress,
       approval.networkId,
       approval.owner,
+      intl,
       navigation,
       setIsBuildingRevokeTxs,
       setSelectedTokens,
@@ -430,6 +446,18 @@ function ApprovalDetails() {
                 variant="tertiary"
                 size="small"
                 onPress={() => {
+                  if (
+                    accountUtils.isWatchingAccount({
+                      accountId: approval.accountId,
+                    })
+                  ) {
+                    Toast.error({
+                      title: intl.formatMessage({
+                        id: ETranslations.wallet_approval_revocation_not_available_for_watch_only_wallets,
+                      }),
+                    });
+                    return;
+                  }
                   setIsBulkRevokeMode((v) => !v);
                 }}
               >

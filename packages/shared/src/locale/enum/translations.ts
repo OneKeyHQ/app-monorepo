@@ -3302,6 +3302,8 @@
   wallet_approval_risky_detected_suggestion_description = 'wallet.approval_risky_detected_suggestion_description',
   wallet_approval_risky_suggestion_title = 'wallet.approval_risky_suggestion_title',
   wallet_approval_select_tokens = 'wallet.approval_select_tokens',
+  wallet_approval_summary_suggestion_desc_all = 'wallet.approval_summary_suggestion_desc_all',
+  wallet_approval_summary_suggestion_title = 'wallet.approval_summary_suggestion_title',
   wallet_backup_prompt = 'wallet.backup_prompt',
   wallet_buy_crypto_instruction = 'wallet.buy_crypto_instruction',
   wallet_collapsed_assets = 'wallet.collapsed_assets',

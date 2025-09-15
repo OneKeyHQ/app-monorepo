@@ -105,7 +105,6 @@ function TokenSelector() {
               indexedAccountId,
               aggregateToken: token,
               onSelect,
-              closeAfterSelect,
               allAggregateTokenList,
             },
           );

@@ -31,8 +31,10 @@ function HeaderItem({ label }: { label: string }) {
 
 function ApprovalListHeader({
   recomputeLayout,
+  hideRiskOverview,
 }: {
   recomputeLayout: () => void;
+  hideRiskOverview?: boolean;
 }) {
   const intl = useIntl();
 
@@ -155,6 +157,10 @@ function ApprovalListHeader({
   }, [accountId, networkId, recomputeLayout]);
 
   const renderRiskOverview = useCallback(() => {
+    if (hideRiskOverview) {
+      return null;
+    }
+
     if (
       riskApprovals.length === 0 &&
       (warningApprovals.length === 0 || !showInactiveApprovalsAlert)
@@ -236,6 +242,7 @@ function ApprovalListHeader({
   }, [
     handleCloseInactiveApprovalsAlert,
     handleViewRiskApprovals,
+    hideRiskOverview,
     inactiveApprovalsAlertOpacity,
     intl,
     riskApprovals,
