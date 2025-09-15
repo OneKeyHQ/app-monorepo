@@ -748,21 +748,23 @@ function createMainWindow() {
         }
 
         // move to parent folder
-        let url = request.url.substring(PROTOCOL.length + 1);
+        const url = request.url.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
-          url = decodeURIComponent(url);
-          if (!url.includes(bundleDirPath)) {
-            const key = url.replace(/^\/+/, '');
+          const decodedUrl = decodeURIComponent(url);
+          if (!decodedUrl.includes(bundleDirPath)) {
+            const key = decodedUrl.replace(/^\/+/, '');
             if (key) {
               const sha512 = metadata[key];
               const filePath = path.join(bundleDirPath, key);
               if (!sha512) {
                 throw new OneKeyLocalError(
-                  `File ${url} not found in metadata.json`,
+                  `File ${decodedUrl} not found in metadata.json`,
                 );
               }
               if (!checkFileSha512(filePath, sha512)) {
-                throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
+                throw new OneKeyLocalError(
+                  `File ${decodedUrl} sha512 mismatch`,
+                );
               }
               callback(filePath);
               return;
