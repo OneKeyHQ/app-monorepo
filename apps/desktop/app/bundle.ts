@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -46,4 +47,18 @@ export const getBundleIndexHtmlPath = () => {
   const indexHtmlPath = path.join(extractDir, 'web', 'index.html');
   logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
   return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
+};
+
+export const checkFileSha512 = (filePath: string, sha512: string) => {
+  const file = fs.readFileSync(filePath);
+  const hash = crypto.createHash('sha512').update(file).digest('hex');
+  return hash === sha512;
+};
+
+export const getMetadata = (bundleDir: string) => {
+  const metadataPath = path.join(bundleDir, 'metadata.json');
+  return JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
+    string,
+    string
+  >;
 };
