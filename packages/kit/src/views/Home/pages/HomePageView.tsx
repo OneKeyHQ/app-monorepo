@@ -24,6 +24,7 @@ import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
@@ -47,7 +48,6 @@ import { TabHeaderSettings } from './TabHeaderSettings';
 import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 const networksSupportBulkRevokeApproval =
   getNetworksSupportBulkRevokeApproval();

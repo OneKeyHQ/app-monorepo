@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
@@ -24,7 +25,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useApprovalListActions } from '../../../states/jotai/contexts/approvalList';
 import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function ApprovalListContainer() {
   const {
