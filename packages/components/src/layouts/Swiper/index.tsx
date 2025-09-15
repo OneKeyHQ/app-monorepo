@@ -115,6 +115,7 @@ function BaseSwiperFlatList<T>(
         <>
           <ListView
             {...restProps}
+            useFlashList
             horizontal
             pagingEnabled
             ref={swiperRef}
