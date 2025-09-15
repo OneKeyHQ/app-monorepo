@@ -99,6 +99,7 @@ function DownloadVerify({
     verifyASC,
     verifyPackage,
     showUpdateInCompleteDialog,
+    installPackage,
   } = useDownloadPackage();
 
   const showInCompleteDialog = useCallback(() => {
@@ -112,22 +113,20 @@ function DownloadVerify({
   const [installing, setIsInstalling] = useState(false);
 
   const handleToUpdate = useCallback(async () => {
-    try {
-      setIsInstalling(true);
-      const timer = setTimeout(() => {
-        setIsInstalling(false);
-      }, 3500);
-      await AppUpdate.installPackage(data);
-      return () => clearTimeout(timer);
-    } catch (e: unknown) {
+    setIsInstalling(true);
+    const timer = setTimeout(() => {
       setIsInstalling(false);
-      if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+    }, 3500);
+    await installPackage(
+      () => {
+        setIsInstalling(false);
+        clearTimeout(timer);
+      },
+      () => {
         showInCompleteDialog();
-      } else {
-        Toast.error({ title: (e as Error).message });
-      }
-    }
-  }, [data, showInCompleteDialog]);
+      },
+    );
+  }, [installPackage, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const hasError = checkIsError(data.status);
 
