@@ -1,4 +1,5 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ETVPriceMCSelect } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 
 import type { IMessageHandlerParams } from '../types';
 
@@ -15,15 +16,25 @@ export async function handleAnalyticsPriceMC({
   ) {
     // Extract price market cap property safely
     const safeData = messageData as unknown as Record<string, unknown>;
-    const priceMCSelect = safeData.TVPriceMCSelect as string;
+    const priceMCSelectValue = safeData.TVPriceMCSelect as string;
 
-    try {
-      // Log to DEX analytics system
-      defaultLogger.dex.tradingView.dexTVPriceMC({
-        tvPriceMCSelect: priceMCSelect,
-      });
-    } catch (error) {
-      console.error('Failed to handle analytics price MC:', error);
+    // Validate that the value is a valid ETVPriceMCSelect enum value
+    if (
+      priceMCSelectValue === ETVPriceMCSelect.Price ||
+      priceMCSelectValue === ETVPriceMCSelect.MC
+    ) {
+      const priceMCSelect = priceMCSelectValue as ETVPriceMCSelect;
+
+      try {
+        // Log to DEX analytics system
+        defaultLogger.dex.tradingView.dexTVPriceMC({
+          tvPriceMCSelect: priceMCSelect,
+        });
+      } catch (error) {
+        console.error('Failed to handle analytics price MC:', error);
+      }
+    } else {
+      console.warn('Invalid TVPriceMCSelect value:', priceMCSelectValue);
     }
   }
 }
