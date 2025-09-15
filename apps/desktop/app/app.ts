@@ -717,6 +717,12 @@ function createMainWindow() {
   );
 
   if (!isDev) {
+    const indexHtmlPath =
+      globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
+    const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
+    const bundleDirPath = indexHtmlPath
+      ? path.dirname(indexHtmlPath)
+      : undefined;
     const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
@@ -736,6 +742,14 @@ function createMainWindow() {
               'js-sdk',
               'iframe.html',
             ),
+          });
+          return;
+        }
+
+        if (useJsBundle && bundleDirPath) {
+          const filePath = request.url.substring(PROTOCOL.length + 1);
+          callback({
+            path: path.join(bundleDirPath, filePath),
           });
           return;
         }
