@@ -4,6 +4,7 @@ import {
   EUpdateStrategy,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
+  isVersionEqual,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundClass,
@@ -80,6 +81,8 @@ class ServiceAppUpdate extends ServiceBase {
         updateStrategy: EUpdateStrategy.manual,
         errorText: undefined,
         status: EAppUpdateStatus.done,
+        jsBundleVersion: undefined,
+        jsBundle: undefined,
       }));
     }
   }
@@ -284,6 +287,8 @@ class ServiceAppUpdate extends ServiceBase {
       summary: '',
       status: EAppUpdateStatus.done,
       isShowUpdateDialog: false,
+      jsBundleVersion: undefined,
+      jsBundle: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
@@ -331,17 +336,17 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
-    const appInfo = await appUpdatePersistAtom.get();
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
-      const { shouldUpdate } = isNeedUpdate({
-        latestVersion: releaseInfo.version,
-        jsBundleVersion: releaseInfo.jsBundleVersion,
-        status: appInfo.status,
-      });
+      const shouldUpdate = isVersionEqual(
+        releaseInfo.version,
+        releaseInfo.jsBundleVersion,
+      );
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
+        jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
+        jsBundle: releaseInfo.jsBundle || undefined,
         summary: releaseInfo?.summary || '',
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
