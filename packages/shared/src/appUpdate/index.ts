@@ -35,6 +35,19 @@ export const getUpdateFileType: (
   return EUpdateFileType.appShell;
 };
 
+export const isVersionEqual = (appVersion?: string, bundleVersion?: string) => {
+  if (!appVersion) {
+    return false;
+  }
+  if (bundleVersion) {
+    return (
+      semver.eq(appVersion ?? '', bundleVersion) &&
+      Number(bundleVersion) !== Number(APP_BUNDLE_VERSION)
+    );
+  }
+  return semver.eq(appVersion ?? '', APP_VERSION);
+};
+
 export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   shouldUpdate: boolean;
   fileType: EUpdateFileType;
