@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { forEach, isNil, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
+import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -839,7 +840,12 @@ export function buildHomeDefaultTokenMapKey({
   networkId: string;
   symbol: string;
 }) {
-  return `${networkId}_${symbol}`;
+  const networkIdKey =
+    networkId === getNetworkIdsMap().onekeyall
+      ? AGGREGATE_TOKEN_MOCK_NETWORK_ID
+      : networkId;
+
+  return `${networkIdKey}_${symbol}`;
 }
 
 export function sortTokensCommon({
