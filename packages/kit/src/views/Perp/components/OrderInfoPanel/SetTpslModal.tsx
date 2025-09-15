@@ -108,7 +108,7 @@ const SetTpslForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatWithPrecision(amount.toNumber(), szDecimals);
+      return formatWithPrecision(amount.toNumber(), szDecimals, true);
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handleTpslChange = useCallback(

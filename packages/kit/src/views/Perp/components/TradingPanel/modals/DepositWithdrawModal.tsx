@@ -347,6 +347,7 @@ function DepositWithdrawContent({
         variant="primary"
         size="medium"
         disabled={!isValidAmount || isSubmitting || balanceLoading}
+        loading={isSubmitting}
         onPress={handleConfirm}
       >
         {buttonText}

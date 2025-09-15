@@ -285,15 +285,19 @@ function calculateSpreadPercentage(
 function formatWithPrecision(
   value: string | number | BigNumber,
   decimals: number,
+  removeTrailingZeros = false,
 ): string {
   const bn = value instanceof BigNumber ? value : new BigNumber(value);
   if (!bn.isFinite()) return '0';
-  return bn.isInteger()
-    ? bn.toFixed(0)
-    : bn
-        .toFixed(decimals)
-        .replace(/(\.\d*?)0+$/, '$1')
-        .replace(/\.$/, '');
+  if (removeTrailingZeros) {
+    return bn.isInteger()
+      ? bn.toFixed(0)
+      : bn
+          .toFixed(decimals)
+          .replace(/(\.\d*?)0+$/, '$1')
+          .replace(/\.$/, '');
+  }
+  return bn.toFixed(decimals);
 }
 
 /**

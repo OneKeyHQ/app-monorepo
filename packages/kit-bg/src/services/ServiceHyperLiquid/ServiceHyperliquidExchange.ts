@@ -75,7 +75,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       : new BigNumber(1).minus(params.slippage);
     const adjustedPrice = price.multipliedBy(slippageMultiplier);
     return formatPriceToSignificantDigits(
-      adjustedPrice.toNumber(),
+      +adjustedPrice.toFixed(validDecimals),
       MAX_DECIMALS_PERP - validDecimals,
     );
   }

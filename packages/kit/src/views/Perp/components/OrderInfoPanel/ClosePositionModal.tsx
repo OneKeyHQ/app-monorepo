@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
@@ -107,14 +107,20 @@ const ClosePositionForm = memo(
       percentage: 100,
     });
 
+    const [userSetPrice, setUserSetPrice] = useState(false);
+    const initPriceRef = useRef(false);
+
     useEffect(() => {
-      if (markPrice && !formData.limitPrice) {
+      if (!markPrice) return;
+
+      if (!initPriceRef.current && !userSetPrice) {
         setFormData((prev) => ({
           ...prev,
           limitPrice: markPrice,
         }));
+        initPriceRef.current = true;
       }
-    }, [markPrice, formData.limitPrice]);
+    }, [markPrice, userSetPrice]);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -123,7 +129,7 @@ const ClosePositionForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatWithPrecision(amount.toNumber(), szDecimals);
+      return formatWithPrecision(amount.toNumber(), szDecimals, true);
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handlePercentageChange = useCallback(
@@ -179,13 +185,20 @@ const ClosePositionForm = memo(
       [positionSize],
     );
 
-    const handleLimitPriceChange = useCallback((value: string) => {
-      const processedValue = value.replace(/。/g, '.');
-      setFormData((prev) => ({
-        ...prev,
-        limitPrice: processedValue,
-      }));
-    }, []);
+    const handleLimitPriceChange = useCallback(
+      (value: string) => {
+        const processedValue = value.replace(/。/g, '.');
+        setFormData((prev) => ({
+          ...prev,
+          limitPrice: processedValue,
+        }));
+
+        if (!userSetPrice) {
+          setUserSetPrice(true);
+        }
+      },
+      [userSetPrice],
+    );
 
     const handleUseMid = useCallback(() => {
       const latestMarkPrice = getMidPrice();
@@ -194,6 +207,9 @@ const ClosePositionForm = memo(
           ...prev,
           limitPrice: latestMarkPrice,
         }));
+
+        setUserSetPrice(false);
+        initPriceRef.current = false;
       }
     }, [getMidPrice]);
 
