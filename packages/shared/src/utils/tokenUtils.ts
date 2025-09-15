@@ -707,20 +707,6 @@ export function getTokenPriceChangeStyle({
   };
 }
 
-export function formatPriceToSignificantDigits(
-  price: number,
-  maxDigits = 5,
-): string {
-  if (!price || Number.isNaN(price)) return '0';
-  const precision = price.toPrecision(maxDigits);
-  const num = Number(precision);
-  let result = num.toString();
-  if (result.includes('.')) {
-    result = result.replace(/\.?0+$/, '');
-  }
-  return result;
-}
-
 export function buildAggregateTokenMapKeyForAggregateConfig(params: {
   networkId: string;
   tokenAddress: string;

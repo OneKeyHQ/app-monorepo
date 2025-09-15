@@ -1,4 +1,4 @@
-import type { IHex } from './sdk';
+import type { IHex, IWithdraw3Request } from './sdk';
 
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
@@ -65,9 +65,10 @@ export interface IPlaceOrderParams {
   limitPx?: string;
   orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
   slippage?: number;
+  reduceOnly?: boolean;
 }
 
-export interface IMarketOrderOpenParams {
+export interface IOrderOpenParams {
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -78,7 +79,7 @@ export interface IMarketOrderOpenParams {
   slippage?: number;
 }
 
-export interface IMarketOrderCloseParams {
+export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -107,6 +108,10 @@ export interface IMultiOrderParams {
   }>;
 }
 
+export interface IWithdrawParams extends IWithdraw3Request {
+  userAccountId: string;
+}
+
 export interface ILeverageUpdateRequest {
   asset: number;
   isCross: boolean;
@@ -121,6 +126,15 @@ export interface IBuilderFeeRequest {
 export interface IAgentApprovalRequest {
   agent: IHex;
   authorize: boolean;
+}
+
+export interface IPositionTpslOrderParams {
+  assetId: number;
+  positionSize: string;
+  isBuy: boolean;
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
 }
 
 export interface IL2BookOptions {

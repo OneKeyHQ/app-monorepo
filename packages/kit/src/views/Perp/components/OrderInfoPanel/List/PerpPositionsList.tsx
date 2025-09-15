@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,13 +8,14 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList } from '../../../hooks';
+import { useTokenList } from '../../../hooks/usePerpMarketData';
 import {
   usePerpOrders,
   usePerpPositions,
 } from '../../../hooks/usePerpOrderInfoPanel';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
+import { showSetTpslDialog } from '../SetTpslModal';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
@@ -35,6 +36,7 @@ function PerpPositionsList({
   const [allMids] = useAllMidsAtom();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
+
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
       {
@@ -144,34 +146,64 @@ function PerpPositionsList({
     );
   }, [positions]);
 
-  const onAllClose = () => {
+  const onAllClose = useCallback(() => {
     console.log('onAllClose');
-  };
-  const setTpsl = () => {
-    console.log('setTpsl');
-  };
-  const handleLimitClose = ({
-    position,
-  }: {
-    position: AssetPosition['position'];
-  }) => {
-    // TODO: implement limit close
-  };
-  const handleMarketClose = ({
-    position,
-  }: {
-    position: AssetPosition['position'];
-  }) => {
-    const tokenInfo = getTokenInfo(position.coin);
-    if (tokenInfo) {
-      showClosePositionDialog({
+  }, []);
+
+  const handleSetTpsl = useCallback(
+    (position: AssetPosition['position']) => {
+      const tokenInfo = getTokenInfo(position.coin);
+      if (!tokenInfo) {
+        console.error(
+          '[PerpPositionsList] Token info not found for',
+          position.coin,
+        );
+        return;
+      }
+
+      showSetTpslDialog({
         position,
+        szDecimals: tokenInfo.szDecimals ?? 2,
         assetId: tokenInfo.assetId,
-        mid: allMids?.mids?.[position.coin],
         hyperliquidActions: actions,
       });
-    }
-  };
+    },
+    [getTokenInfo, actions],
+  );
+
+  const allMidsRef = useRef(allMids);
+  useEffect(() => {
+    allMidsRef.current = allMids;
+  }, [allMids]);
+
+  const handleClosePosition = useCallback(
+    ({
+      position,
+      type,
+    }: {
+      position: AssetPosition['position'];
+      type: 'market' | 'limit';
+    }) => {
+      const tokenInfo = getTokenInfo(position.coin);
+      if (!tokenInfo) {
+        console.error(
+          '[PerpPositionsList] Token info not found for',
+          position.coin,
+        );
+        return;
+      }
+
+      showClosePositionDialog({
+        position,
+        type,
+        szDecimals: tokenInfo.szDecimals ?? 2,
+        assetId: tokenInfo.assetId,
+        hyperliquidActions: actions,
+      });
+    },
+    [getTokenInfo, actions],
+  );
+
   const renderPositionRow = (item: AssetPosition, _index: number) => {
     const position = item.position;
     const coin = position?.coin;
@@ -183,6 +215,7 @@ function PerpPositionsList({
         (order.orderType.startsWith('Take') ||
           order.orderType.startsWith('Stop')),
     );
+
     return (
       <PositionRow
         key={`${coin}_${szi}`}
@@ -192,16 +225,14 @@ function PerpPositionsList({
         tpslOrders={tpslOrders}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
-        handleMarketClose={handleMarketClose}
-        handleLimitClose={handleLimitClose}
+        handleClosePosition={(type) => handleClosePosition({ position, type })}
         handleViewTpslOrders={handleViewTpslOrders}
         onAllClose={onAllClose}
-        setTpsl={setTpsl}
+        setTpsl={() => handleSetTpsl(position)}
         index={_index}
       />
     );
   };
-
   return (
     <CommonTableListView
       columns={columnsConfig}

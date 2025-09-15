@@ -1,14 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
 import {
   Button,
   Dialog,
-  Icon,
   SizableText,
   Slider,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -25,60 +23,43 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
-import { PriceInput } from '../TradingPanel/inputs/PriceInput';
+import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
 type IPosition =
   IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
 
-type ICloseType = 'market' | 'limit';
-
-interface IClosePositionFormData {
-  type: ICloseType;
-  amount: string;
-  limitPrice: string;
-  percentage: number;
-}
-
-interface IClosePositionParams {
+interface ISetTpslParams {
   position: IPosition;
-  type: ICloseType;
   szDecimals: number;
   assetId: number;
   hyperliquidActions: {
     current: {
-      orderClose: (params: {
+      setPositionTpsl: (params: {
         assetId: number;
+        positionSize: string;
         isBuy: boolean;
-        size: string;
-        midPx: string;
+        tpTriggerPx?: string;
+        slTriggerPx?: string;
+        slippage?: number;
       }) => Promise<IOrderResponse>;
-      limitOrderClose: (params: {
-        assetId: number;
-        isBuy: boolean;
-        size: string;
-        limitPrice: string;
-      }) => Promise<IOrderResponse>;
-      resetTradingForm: () => void;
     };
   };
 }
 
-interface IClosePositionFormProps extends IClosePositionParams {
+interface ISetTpslFormProps extends ISetTpslParams {
   onClose: () => void;
 }
 
-const ClosePositionForm = memo(
+const SetTpslForm = memo(
   ({
     position,
-    type,
     szDecimals,
     assetId,
     hyperliquidActions,
     onClose,
-  }: IClosePositionFormProps) => {
+  }: ISetTpslFormProps) => {
     const [allMids] = useAllMidsAtom();
-
     const getMidPrice = useCallback(() => {
       if (!allMids?.mids) return '0';
       const midPrice = allMids.mids[position.coin];
@@ -100,27 +81,25 @@ const ClosePositionForm = memo(
       [position.szi],
     );
 
-    const [formData, setFormData] = useState<IClosePositionFormData>({
-      type,
+    const entryPrice = useMemo(() => {
+      return position.entryPx || '0';
+    }, [position.entryPx]);
+
+    const leverage = useMemo(() => {
+      const positionValue = new BigNumber(position.positionValue || '0').abs();
+      const marginUsed = new BigNumber(position.marginUsed || '0');
+      if (marginUsed.gt(0) && positionValue.gt(0)) {
+        return Math.round(positionValue.dividedBy(marginUsed).toNumber());
+      }
+      return 1; // Default leverage if calculation fails
+    }, [position.positionValue, position.marginUsed]);
+
+    const [formData, setFormData] = useState({
+      tpPrice: '',
+      slPrice: '',
       amount: '',
-      limitPrice: '',
       percentage: 100,
     });
-
-    const [userSetPrice, setUserSetPrice] = useState(false);
-    const initPriceRef = useRef(false);
-
-    useEffect(() => {
-      if (!markPrice) return;
-
-      if (!initPriceRef.current && !userSetPrice) {
-        setFormData((prev) => ({
-          ...prev,
-          limitPrice: markPrice,
-        }));
-        initPriceRef.current = true;
-      }
-    }, [markPrice, userSetPrice]);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -131,6 +110,17 @@ const ClosePositionForm = memo(
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
       return formatWithPrecision(amount.toNumber(), szDecimals, true);
     }, [positionSize, formData.percentage, szDecimals]);
+
+    const handleTpslChange = useCallback(
+      (data: { tpPrice: string; slPrice: string }) => {
+        setFormData((prev) => ({
+          ...prev,
+          tpPrice: data.tpPrice,
+          slPrice: data.slPrice,
+        }));
+      },
+      [],
+    );
 
     const handlePercentageChange = useCallback(
       (percentage: number) => {
@@ -185,102 +175,44 @@ const ClosePositionForm = memo(
       [positionSize],
     );
 
-    const handleLimitPriceChange = useCallback(
-      (value: string) => {
-        const processedValue = value.replace(/。/g, '.');
-        setFormData((prev) => ({
-          ...prev,
-          limitPrice: processedValue,
-        }));
-
-        if (!userSetPrice) {
-          setUserSetPrice(true);
-        }
-      },
-      [userSetPrice],
-    );
-
-    const handleUseMid = useCallback(() => {
-      const latestMarkPrice = getMidPrice();
-      if (latestMarkPrice) {
-        setFormData((prev) => ({
-          ...prev,
-          limitPrice: latestMarkPrice,
-        }));
-
-        setUserSetPrice(false);
-        initPriceRef.current = false;
-      }
-    }, [getMidPrice]);
-
-    const handleTypeChange = useCallback((value: string) => {
-      setFormData((prev) => ({
-        ...prev,
-        type: value as ICloseType,
-      }));
-    }, []);
-
     const handleSubmit = useCallback(async () => {
       try {
         setIsSubmitting(true);
 
-        const closeAmount = formData.amount || calculatedAmount;
-        const closeAmountBN = new BigNumber(closeAmount);
+        const tpslAmount = formData.amount || calculatedAmount;
+        const tpslAmountBN = new BigNumber(tpslAmount);
 
-        if (!closeAmount || closeAmountBN.lte(0)) {
+        if (!tpslAmount || tpslAmountBN.lte(0)) {
           throw new OneKeyLocalError({
             message: 'Please enter a valid amount',
           });
         }
 
-        if (formData.type === 'market') {
-          const latestMarkPrice = getMidPrice();
-          if (!latestMarkPrice) {
-            throw new OneKeyLocalError({
-              message: 'Unable to get current market price',
-            });
-          }
-
-          await hyperliquidActions.current.orderClose({
-            assetId,
-            isBuy: isLongPosition,
-            size: closeAmount,
-            midPx: latestMarkPrice,
-          });
-
-          Toast.success({
-            title: 'Position Closed Successfully',
-            message: `Market close for ${closeAmount} ${position.coin} has been submitted`,
-          });
-        } else {
-          const limitPriceBN = new BigNumber(formData.limitPrice || '0');
-          if (!formData.limitPrice || limitPriceBN.lte(0)) {
-            throw new OneKeyLocalError({
-              message: 'Please enter a valid limit price',
-            });
-          }
-
-          await hyperliquidActions.current.limitOrderClose({
-            assetId,
-            isBuy: isLongPosition,
-            size: closeAmount,
-            limitPrice: formData.limitPrice,
-          });
-
-          Toast.success({
-            title: 'Limit Close Order Placed',
-            message: `Limit close for ${closeAmount} ${position.coin} at $${formData.limitPrice} has been submitted`,
+        if (tpslAmountBN.gt(positionSize)) {
+          throw new OneKeyLocalError({
+            message: 'Amount cannot exceed position size',
           });
         }
 
-        hyperliquidActions.current.resetTradingForm();
+        if (!formData.tpPrice && !formData.slPrice) {
+          throw new OneKeyLocalError({
+            message: 'Please set at least TP or SL price',
+          });
+        }
+
+        // Call the actual setPositionTpsl action
+        await hyperliquidActions.current.setPositionTpsl({
+          assetId,
+          positionSize: tpslAmount,
+          isBuy: isLongPosition,
+          tpTriggerPx: formData.tpPrice || undefined,
+          slTriggerPx: formData.slPrice || undefined,
+        });
+
         onClose();
       } catch (error) {
-        Toast.error({
-          title: 'Close Position Failed',
-          message:
-            error instanceof Error ? error.message : 'Failed to close position',
-        });
+        // Error toast is handled in the action
+        console.error('SetTpslModal handleSubmit error:', error);
         throw error;
       } finally {
         setIsSubmitting(false);
@@ -288,36 +220,19 @@ const ClosePositionForm = memo(
     }, [
       formData,
       calculatedAmount,
+      positionSize,
       assetId,
-      getMidPrice,
       isLongPosition,
-      position.coin,
       hyperliquidActions,
       onClose,
     ]);
 
-    const isFormValid = useMemo(() => {
-      const amount = formData.amount || calculatedAmount;
-      const amountBN = new BigNumber(amount || '0');
-
-      if (!amount || amountBN.lte(0)) return false;
-      if (amountBN.gt(positionSize)) return false;
-
-      if (formData.type === 'market') {
-        return Boolean(markPrice);
-      }
-
-      const limitPriceBN = new BigNumber(formData.limitPrice || '0');
-      return Boolean(formData.limitPrice) && limitPriceBN.gt(0);
-    }, [formData, calculatedAmount, positionSize, markPrice]);
-
     return (
       <YStack gap="$4">
         <SizableText size="$bodyLg">
-          {formData.type === 'market'
-            ? 'This will attempt to immediately close the position.'
-            : 'This will send an order to close your position at the limit price.'}
+          Set a price to trigger a Take Profit or Stop Loss order.
         </SizableText>
+
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -339,38 +254,31 @@ const ClosePositionForm = memo(
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Price
+              Entry Price
             </SizableText>
-            <XStack
-              alignItems="center"
-              onPress={() =>
-                handleTypeChange(formData.type === 'limit' ? 'market' : 'limit')
-              }
-              cursor="pointer"
-            >
-              <SizableText size="$bodyMd">
-                {formData.type === 'limit' ? 'Limit' : 'Market'}
-              </SizableText>
-              <Icon
-                name="SwapVerOutline"
-                size="$3.5"
-                color="$text"
-                fontWeight="600"
-              />
-            </XStack>
+            <SizableText size="$bodyMd" fontWeight="600">
+              {entryPrice}
+            </SizableText>
+          </XStack>
+
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Mark Price
+            </SizableText>
+            <SizableText size="$bodyMd" fontWeight="600">
+              {markPrice}
+            </SizableText>
           </XStack>
         </YStack>
 
-        {formData.type === 'limit' ? (
-          <PriceInput
-            label="Limit Price"
-            value={formData.limitPrice}
-            onChange={handleLimitPriceChange}
-            onUseMarketPrice={handleUseMid}
-            disabled={!markPrice}
-            szDecimals={szDecimals}
-          />
-        ) : null}
+        <TpslInput
+          price={entryPrice}
+          side={isLongPosition ? 'long' : 'short'}
+          szDecimals={szDecimals}
+          leverage={leverage}
+          tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
+          onChange={handleTpslChange}
+        />
 
         <TradingFormInput
           label="Amount"
@@ -384,7 +292,7 @@ const ClosePositionForm = memo(
             return validateSizeInput(processedValue, szDecimals);
           }}
           helper={{
-            text: `Max: ${positionSize.toNumber()} ${position.coin}`,
+            text: `Max: ${positionSize.toNumber()}`,
             align: 'right',
           }}
         />
@@ -403,32 +311,30 @@ const ClosePositionForm = memo(
           size="large"
           variant="primary"
           onPress={handleSubmit}
-          disabled={!isFormValid || isSubmitting}
+          disabled={isSubmitting}
           loading={isSubmitting}
         >
-          {formData.type === 'market' ? 'Market Close' : 'Limit Close'}
+          Confirm TP/SL
         </Button>
       </YStack>
     );
   },
 );
 
-ClosePositionForm.displayName = 'ClosePositionForm';
+SetTpslForm.displayName = 'SetTpslForm';
 
-export function showClosePositionDialog({
+export function showSetTpslDialog({
   position,
-  type,
   szDecimals,
   assetId,
   hyperliquidActions,
-}: IClosePositionParams) {
+}: ISetTpslParams) {
   const dialogInstance = Dialog.show({
-    title: 'Close Position',
+    title: 'TP/SL for Position',
     renderContent: (
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
-        <ClosePositionForm
+        <SetTpslForm
           position={position}
-          type={type}
           szDecimals={szDecimals}
           assetId={assetId}
           hyperliquidActions={hyperliquidActions}

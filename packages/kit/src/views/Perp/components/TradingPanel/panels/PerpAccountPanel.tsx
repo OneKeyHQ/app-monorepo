@@ -10,25 +10,17 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { useHyperliquidAccount } from '../../hooks';
-import { usePerpUseChainAccount } from '../../hooks/usePerpUseChainAccount';
-
-import { showDepositWithdrawModal } from './DepositWithdrawModal';
+import { useHyperliquidAccount } from '../../../hooks';
+import { usePerpUseChainAccount } from '../../../hooks/usePerpUseChainAccount';
+import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 function PerpAccountPanel() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const { userWebData2, accountSummary, currentUser } = useHyperliquidAccount();
+  const { userWebData2, accountSummary } = useHyperliquidAccount();
   const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
-  const {
-    userAddress,
-    userAccountId,
-    activeAccountId,
-    activeAccountIndexedId,
-  } = usePerpUseChainAccount();
+  const { userAddress, userAccountId, activeAccountIndexedId } =
+    usePerpUseChainAccount();
 
   const accountDataInfo = useMemo(() => {
     const availableBalance = accountSummary.withdrawable;
@@ -44,20 +36,23 @@ function PerpAccountPanel() {
     return { availableBalance, currentPositionValue };
   }, [accountSummary.withdrawable, userWebData2]);
 
-  const handleDepositOrWithdraw = useCallback(() => {
-    if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
-      return;
-    }
+  const handleDepositOrWithdraw = useCallback(
+    (actionType: 'deposit' | 'withdraw') => {
+      if (!userAccountId || !userAddress) {
+        return;
+      }
 
-    const accountData = {
-      account: {
-        id: activeAccount.account.id,
-        address: activeAccount.account.address,
-      },
-    };
+      const params = {
+        withdrawable: accountSummary.withdrawable || '0',
+        userAddress,
+        userAccountId,
+        actionType,
+      };
 
-    showDepositWithdrawModal(accountData);
-  }, [activeAccount]);
+      showDepositWithdrawModal(params);
+    },
+    [userAccountId, userAddress, accountSummary.withdrawable],
+  );
 
   if (perpsAccountLoading) {
     return (
@@ -72,7 +67,7 @@ function PerpAccountPanel() {
       <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
         <SizableText size="$bodySm" color="$textSubdued" mt="$3">
           Please create an EVM address first: ____{activeAccountIndexedId}
-          ____{activeAccountId}
+          ____{userAccountId}
         </SizableText>
       </YStack>
     );
@@ -90,44 +85,33 @@ function PerpAccountPanel() {
   }
 
   return (
-    <YStack flex={1} gap="$3">
+    <YStack flex={1} gap="$2">
       {/* Header */}
       <XStack p="$4" justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingLg" fontWeight="600">
-          ACCOUNT OVERVIEW
-        </SizableText>
+        <SizableText size="$headingXs">ACCOUNT OVERVIEW</SizableText>
       </XStack>
 
-      <YStack flex={1} px="$4">
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            Account Address
-          </SizableText>
-          <SizableText size="$bodyMd">
-            {accountUtils.shortenAddress({ address: userAddress })}
-          </SizableText>
-        </XStack>
-
+      <YStack flex={1} px="$4" gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             Available to Trade
           </SizableText>
           <NumberSizeableText
-            size="$bodyMd"
-            formatter="price"
+            size="$bodySmMedium"
+            formatter="value"
             formatterOptions={{ currency: '$' }}
           >
             {accountDataInfo.availableBalance}
           </NumberSizeableText>
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued">
             Current Position
           </SizableText>
           <NumberSizeableText
-            size="$bodyMd"
-            formatter="price"
+            size="$bodySmMedium"
+            formatter="value"
             formatterOptions={{ currency: '$' }}
           >
             {accountDataInfo.currentPositionValue.toFixed()}
@@ -136,22 +120,26 @@ function PerpAccountPanel() {
       </YStack>
 
       {/* Action Buttons */}
-      <XStack px="$4" pb="$4" space="$2" mt="$4">
+      <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
         <Button
           flex={1}
           size="medium"
           variant="secondary"
-          onPress={handleDepositOrWithdraw}
+          onPress={() => handleDepositOrWithdraw('withdraw')}
+          alignItems="center"
+          justifyContent="center"
         >
-          <SizableText size="$bodySm">Withdraw</SizableText>
+          <SizableText size="$bodySmMedium">Withdraw</SizableText>
         </Button>
         <Button
           flex={1}
           size="medium"
           variant="secondary"
-          onPress={handleDepositOrWithdraw}
+          onPress={() => handleDepositOrWithdraw('deposit')}
+          alignItems="center"
+          justifyContent="center"
         >
-          <SizableText size="$bodySm">Deposit</SizableText>
+          <SizableText size="$bodySmMedium">Deposit</SizableText>
         </Button>
       </XStack>
     </YStack>
