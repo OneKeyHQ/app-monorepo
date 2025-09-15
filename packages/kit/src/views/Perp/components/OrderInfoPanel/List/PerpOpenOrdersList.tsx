@@ -134,8 +134,12 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
       data={orders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
-      emptyMessage="No open orders"
-      emptySubMessage="Your orders will appear here after opening trades"
+      emptyMessage={intl.formatMessage({
+        id: ETranslations.perp_open_order_empty,
+      })}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_open_order_empty_desc,
+      })}
     />
   );
 }

@@ -102,7 +102,7 @@ function PerpPositionsList({
       {
         key: 'funding',
         title: intl.formatMessage({
-          id: ETranslations.perp_position_funding,
+          id: ETranslations.perp_position_funding_2,
         }),
         minWidth: 100,
         align: 'left',
@@ -209,8 +209,12 @@ function PerpPositionsList({
       data={positionSort}
       isMobile={isMobile}
       renderRow={renderPositionRow}
-      emptyMessage="No open positions"
-      emptySubMessage="Your positions will appear here after opening trades"
+      emptyMessage={intl.formatMessage({
+        id: ETranslations.perp_position_empty,
+      })}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_position_empty_desc,
+      })}
     />
   );
 }
