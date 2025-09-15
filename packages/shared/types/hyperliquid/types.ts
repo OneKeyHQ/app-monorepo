@@ -4,6 +4,7 @@ export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
   WEB_DATA2 = 'webData2',
+  USER_FILLS = 'userFills',
   L2_BOOK = 'l2Book',
   TRADES = 'trades',
   BBO = 'bbo',
