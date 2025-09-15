@@ -479,6 +479,9 @@ function createMainWindow() {
     return undefined;
   };
 
+  const bundleIndexHtmlPath = getBundleIndexHtmlPath();
+  logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
+
   globalThis.$desktopMainAppFunctions = {
     getSafelyMainWindow,
     getSafelyBrowserWindow,
@@ -487,6 +490,8 @@ function createMainWindow() {
     showMainWindow,
     refreshMenu,
     getAppName: () => APP_NAME,
+    getBundleIndexHtmlPath: () => bundleIndexHtmlPath,
+    useJsBundle: () => !!bundleIndexHtmlPath,
   };
 
   if (isMac) {
@@ -499,16 +504,11 @@ function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath();
-  logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
-
-  const src = isDev
-    ? 'http://localhost:3001/'
-    : formatUrl({
-        pathname: bundleIndexHtmlPath || 'index.html',
-        protocol: 'file',
-        slashes: true,
-      });
+  const src = formatUrl({
+    pathname: bundleIndexHtmlPath || 'index.html',
+    protocol: 'file',
+    slashes: true,
+  });
 
   void browserWindow.loadURL(src);
 
