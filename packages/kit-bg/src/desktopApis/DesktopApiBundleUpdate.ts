@@ -41,6 +41,7 @@ class DesktopApiAppBundleUpdate {
     const fileContent = fs.readFileSync(filePath);
     hash.update(fileContent);
     const fileSha256 = hash.digest('hex');
+    logger.info('bundle-download-verifySha256', sha256, fileSha256);
     return fileSha256 === sha256;
   }
 
@@ -50,6 +51,7 @@ class DesktopApiAppBundleUpdate {
     resolve: (value: IBundleDownloadedEvent) => void,
     reject: (reason?: any) => void,
   ) {
+    logger.info('bundle-download-verifyAndResolve', filePath, sha256);
     const verified = this.verifySha256(filePath, sha256);
     if (verified) {
       resolve({ downloadedFile: filePath });
