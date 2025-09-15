@@ -14,6 +14,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
@@ -28,6 +29,7 @@ type IProps = {
 function TokenDetailsTabToolbar(props: IProps) {
   const { gtMd } = useMedia();
   const { tokens, onSelected } = props;
+  const themeVariant = useThemeVariant();
   const intl = useIntl();
   const { tokenDetails } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
@@ -119,7 +121,11 @@ function TokenDetailsTabToolbar(props: IProps) {
   return (
     <XStack pr="$5">
       <LinearGradient
-        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,1)']}
+        colors={
+          themeVariant === 'light'
+            ? ['rgba(255,255,255,0)', 'rgba(255,255,255,1)']
+            : ['rgba(15,15,15,0)', 'rgba(15,15,15,1)']
+        }
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         position="absolute"

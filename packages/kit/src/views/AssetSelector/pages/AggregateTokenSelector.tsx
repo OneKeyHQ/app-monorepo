@@ -157,6 +157,11 @@ function AggregateTokenListItem({
         src: network?.logoURI,
       }}
       onPress={handleOnPress}
+      {...(!accountId && {
+        subtitle: loading
+          ? intl.formatMessage({ id: ETranslations.global_creating_address })
+          : intl.formatMessage({ id: ETranslations.global_create_address }),
+      })}
     >
       <ListItem.Text
         align="right"
