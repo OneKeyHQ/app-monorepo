@@ -59,6 +59,14 @@ export function useSwapAnalytics() {
     [setAnalyticsState, analyticsState],
   );
 
+  // Reset analytics
+  const resetAnalytics = useCallback(() => {
+    setAnalyticsState({
+      amountEnterType: EAmountEnterType.Manual,
+      slippageSetting: ESlippageSetting.Auto,
+    });
+  }, [setAnalyticsState]);
+
   // Submit log with error handling
   const logSwapAction = useCallback(
     (params: {
@@ -123,11 +131,7 @@ export function useSwapAnalytics() {
     setSlippageSetting,
 
     // Batch operations
-    resetAnalytics: () =>
-      setAnalyticsState({
-        amountEnterType: EAmountEnterType.Manual,
-        slippageSetting: ESlippageSetting.Auto,
-      }),
+    resetAnalytics,
 
     // Log submission
     logSwapAction,
