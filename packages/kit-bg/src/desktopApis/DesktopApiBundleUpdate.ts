@@ -95,6 +95,7 @@ class DesktopApiAppBundleUpdate {
       return;
     }
     if (!appVersion || !bundleVersion || !bundleUrl || !fileSize || !sha256) {
+      this.isDownloading = false;
       return Promise.reject(new Error('Invalid parameters'));
     }
     this.isDownloading = true;
@@ -121,10 +122,10 @@ class DesktopApiAppBundleUpdate {
               latestVersion: appVersion,
               bundleVersion,
             });
-          } else {
-            await this.clearDownload();
-            fs.mkdirSync(tempDir, { recursive: true });
+            return;
           }
+          await this.clearDownload();
+          fs.mkdirSync(tempDir, { recursive: true });
         }
         // Check if partial file exists for resume
         if (fs.existsSync(partialFilePath)) {
