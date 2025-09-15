@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { memo, useCallback, useMemo, useState, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -19,12 +19,12 @@ import {
   IconButton,
   Page,
   Popover,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
   Tabs,
   XStack,
-  YStack,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
@@ -121,14 +121,17 @@ function TokenDetailsView() {
   const renderAggregateTokens = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
       return (
-        <YStack
-          gap="$3"
-          px="$5"
-          pt="$2"
-          pb="$5"
-          $gtMd={{
-            px: '$3',
-            py: '$2.5',
+        <ScrollView
+          contentContainerStyle={{
+            gap: '$5',
+            px: '$5',
+            pt: '$2',
+            pb: '$5',
+            $gtMd: {
+              px: '$3',
+              py: '$2.5',
+              gap: '$3',
+            },
           }}
         >
           <SizableText
@@ -145,25 +148,25 @@ function TokenDetailsView() {
             <XStack
               key={token.$key}
               alignItems="center"
-              gap="$2"
-              justifyContent="space-between"
+              gap="$3"
+              $gtMd={{
+                gap: '$2',
+              }}
             >
-              <XStack
-                gap="$2"
-                alignItems="center"
+              <NetworkAvatar
+                networkId={token.networkId}
+                size={gtMd ? '$4' : '$6'}
+              />
+              <SizableText
+                size="$bodyLg"
                 flex={1}
-                justifyContent="space-between"
+                numberOfLines={1}
+                $gtMd={{
+                  size: '$bodyMd',
+                }}
               >
-                <XStack gap="$2" alignItems="center">
-                  <NetworkAvatar
-                    networkId={token.networkId}
-                    size={gtMd ? '$4' : '$5'}
-                  />
-                  <SizableText size="$bodyMd" numberOfLines={1}>
-                    {token.networkName}
-                  </SizableText>
-                </XStack>
-              </XStack>
+                {token.networkName}
+              </SizableText>
               {!token.address ? null : (
                 <XStack gap="$3" alignItems="center">
                   <Button
@@ -174,37 +177,33 @@ function TokenDetailsView() {
                     <XStack alignItems="center" gap="$2">
                       <SizableText
                         fontFamily="$monoRegular"
-                        size="$bodyMd"
+                        size="$bodyLg"
+                        $gtMd={{
+                          size: '$bodyMd',
+                        }}
                         color="$textSubdued"
                       >
                         {accountUtils.shortenAddress({
                           address: token.address,
-                          leadingLength: 6,
+                          leadingLength: gtMd ? 6 : 4,
                           trailingLength: 4,
                         })}
                       </SizableText>
                       <Icon
                         name="Copy3Outline"
-                        size="$4"
+                        size="$5"
                         color="$iconSubdued"
+                        $gtMd={{
+                          size: '$4',
+                        }}
                       />
                     </XStack>
                   </Button>
-                  {/* <IconButton
-                    title={intl.formatMessage({
-                      id: ETranslations.global_copy,
-                    })}
-                    variant="tertiary"
-                    icon="Copy3Outline"
-                    iconColor="$iconSubdued"
-                    size="small"
-                    onPress={() => copyText(token.address)}
-                  /> */}
                   <IconButton
                     title={intl.formatMessage({
                       id: ETranslations.global_view_in_blockchain_explorer,
                     })}
-                    iconSize="$4"
+                    iconSize={gtMd ? '$4' : '$5'}
                     variant="tertiary"
                     icon="OpenOutline"
                     iconColor="$iconSubdued"
@@ -221,7 +220,7 @@ function TokenDetailsView() {
               )}
             </XStack>
           ))}
-        </YStack>
+        </ScrollView>
       );
     },
     [intl, tokens, gtMd, copyText],
@@ -236,10 +235,15 @@ function TokenDetailsView() {
           title={intl.formatMessage({
             id: ETranslations.global_contract_address,
           })}
+          sheetProps={{
+            snapPoints: [92],
+            snapPointsMode: 'percent',
+          }}
           renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
           renderContent={renderAggregateTokens}
           floatingPanelProps={{
             width: 320,
+            maxHeight: 372,
           }}
         />
       );

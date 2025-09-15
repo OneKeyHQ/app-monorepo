@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { type IProps } from '.';
 
@@ -370,33 +370,40 @@ function TokenDetailsHeader(props: IProps) {
               }
               px="$5"
               py="$3"
+              gap="$1"
               {...listItemPressStyle}
             >
-              <XStack
-                alignItems="center"
-                justifyContent="space-between"
-                gap="$4"
-              >
-                <YStack gap="$1" flex={1}>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.global_my_address,
-                    })}
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_my_address,
+                })}
+              </SizableText>
+              <XStack gap="$4">
+                {showLoadingState ? (
+                  <Skeleton.BodyMd />
+                ) : (
+                  <SizableText
+                    size="$bodyMd"
+                    color="$text"
+                    $platform-web={{
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {accountUtils.isHwWallet({ walletId }) ||
+                    accountUtils.isQrWallet({ walletId })
+                      ? accountUtils.shortenAddress({
+                          address: account?.address ?? '',
+                        })
+                      : account?.address}
                   </SizableText>
-                  {showLoadingState ? (
-                    <Skeleton.BodyMd />
-                  ) : (
-                    <SizableText size="$bodyMd" color="$text" flexWrap="wrap">
-                      {accountUtils.isHwWallet({ walletId }) ||
-                      accountUtils.isQrWallet({ walletId })
-                        ? accountUtils.shortenAddress({
-                            address: account?.address ?? '',
-                          })
-                        : account?.address}
-                    </SizableText>
-                  )}
-                </YStack>
-                <Icon name="Copy3Outline" color="$iconSubdued" size="$5" />
+                )}
+                <Icon
+                  name="Copy3Outline"
+                  color="$iconSubdued"
+                  size="$5"
+                  flexShrink={0}
+                  marginLeft="auto"
+                />
               </XStack>
             </YStack>
           </>
