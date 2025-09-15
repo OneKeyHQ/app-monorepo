@@ -16,7 +16,7 @@ import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliq
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
-  formatPriceToSignificantDigits,
+  formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
@@ -123,7 +123,7 @@ const ClosePositionForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return formatPriceToSignificantDigits(amount.toNumber(), szDecimals);
+      return formatWithPrecision(amount.toNumber(), szDecimals);
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handlePercentageChange = useCallback(

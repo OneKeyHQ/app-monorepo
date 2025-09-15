@@ -13,7 +13,10 @@ import {
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatWithPrecision,
+  validateSizeInput,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IOrderResponse,
   IWsWebData2,
@@ -105,7 +108,7 @@ const SetTpslForm = memo(
         ? 0
         : formData.percentage;
       const amount = positionSize.multipliedBy(percentage).dividedBy(100);
-      return amount.toNumber().toFixed(szDecimals);
+      return formatWithPrecision(amount.toNumber(), szDecimals);
     }, [positionSize, formData.percentage, szDecimals]);
 
     const handleTpslChange = useCallback(

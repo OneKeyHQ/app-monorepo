@@ -288,7 +288,12 @@ function formatWithPrecision(
 ): string {
   const bn = value instanceof BigNumber ? value : new BigNumber(value);
   if (!bn.isFinite()) return '0';
-  return bn.toFixed(decimals);
+  return bn.isInteger()
+    ? bn.toFixed(0)
+    : bn
+        .toFixed(decimals)
+        .replace(/(\.\d*?)0+$/, '$1')
+        .replace(/\.$/, '');
 }
 
 /**
