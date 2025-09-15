@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { SizableText, YStack, useMedia } from '@onekeyhq/components';
 
 import { useL2Book } from '../hooks/usePerpMarketData';
 
@@ -10,6 +10,7 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import type { ITickParam } from './OrderBook/tickSizeUtils';
 
 export function PerpOrderBook() {
+  const { gtMd } = useMedia();
   const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
   const prevSymbolRef = useRef<string | undefined>(undefined);
   const {
@@ -69,7 +70,7 @@ export function PerpOrderBook() {
         horizontal={false}
         bids={l2Book.bids}
         asks={l2Book.asks}
-        maxLevelsPerSide={12}
+        maxLevelsPerSide={gtMd ? 12 : 7}
         selectedTickOption={selectedTickOption}
         onTickOptionChange={handleTickOptionChange}
         tickOptions={tickOptionsData.tickOptions}
