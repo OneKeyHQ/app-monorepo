@@ -43,6 +43,7 @@ export type IPlatformEnv = {
 
   appFullName: string;
   version: string | undefined;
+  bundleVersion: string | undefined;
   buildNumber: string | undefined;
   buildTime: number | undefined;
   githubSHA: string | undefined;
@@ -458,6 +459,7 @@ const platformEnv: IPlatformEnv = {
 
   appFullName: '',
   version: process.env.VERSION,
+  bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,
   buildTime: Number(process.env.BUILD_TIME) || undefined,
   githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,
