@@ -35,7 +35,7 @@ if (isMas) {
   autoUpdater.logger = logger;
 }
 
-class DesktopApiAppUpdate {
+class DesktopApiAppBundleUpdate {
   desktopApi: IDesktopApi;
 
   constructor({ desktopApi }: { desktopApi: IDesktopApi }) {
@@ -274,4 +274,4 @@ class DesktopApiAppUpdate {
   clearBundle(params: IBundleDownloadedEvent) {}
 }
 
-export default DesktopApiAppUpdate;
+export default DesktopApiAppBundleUpdate;
