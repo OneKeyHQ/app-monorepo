@@ -303,7 +303,7 @@ class DesktopApiAppBundleUpdate {
       fs.rmSync(downloadDir, { recursive: true });
       setTimeout(() => {
         resolve();
-      }, 3500);
+      }, 300);
     });
   }
 }
