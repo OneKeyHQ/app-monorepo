@@ -280,14 +280,16 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const checkForUpdates = useCallback(async () => {
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
+    const { shouldUpdate, fileType } = isNeedUpdate({
+      latestVersion: response?.latestVersion,
+      jsBundleVersion: response?.jsBundleVersion,
+      status: response?.status,
+    });
     return {
       isForceUpdate: response?.updateStrategy === EUpdateStrategy.force,
       isSilentUpdate: response?.updateStrategy === EUpdateStrategy.silent,
-      isNeedUpdate: isNeedUpdate(
-        response?.latestVersion,
-        response?.jsBundleVersion,
-        response?.status,
-      ),
+      isNeedUpdate: shouldUpdate,
+      updateFileType: fileType,
       response,
     };
   }, []);
@@ -434,24 +436,26 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     toUpdatePreviewPage,
   ]);
 
-  return useMemo(
-    () => ({
-      isNeedUpdate: isNeedUpdate(
-        appUpdateInfo.latestVersion,
-        appUpdateInfo.status,
-      ),
+  return useMemo(() => {
+    const { shouldUpdate, fileType } = isNeedUpdate({
+      latestVersion: appUpdateInfo.latestVersion,
+      jsBundleVersion: appUpdateInfo.jsBundleVersion,
+      status: appUpdateInfo.status,
+    });
+    return {
+      isNeedUpdate: shouldUpdate,
+      updateFileType: fileType,
       data: appUpdateInfo,
       onUpdateAction,
       toUpdatePreviewPage,
       onViewReleaseInfo,
       checkForUpdates,
-    }),
-    [
-      appUpdateInfo,
-      checkForUpdates,
-      onUpdateAction,
-      onViewReleaseInfo,
-      toUpdatePreviewPage,
-    ],
-  );
+    };
+  }, [
+    appUpdateInfo,
+    checkForUpdates,
+    onUpdateAction,
+    onViewReleaseInfo,
+    toUpdatePreviewPage,
+  ]);
 };

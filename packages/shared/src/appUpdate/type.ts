@@ -7,6 +7,11 @@ export enum EUpdateStrategy {
   manual = 2,
 }
 
+export enum EUpdateFileType {
+  appShell = 1,
+  jsBundle = 2,
+}
+
 export interface IBasicAppUpdateInfo {
   /* app store url */
   storeUrl?: string;
