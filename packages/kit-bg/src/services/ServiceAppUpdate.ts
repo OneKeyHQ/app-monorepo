@@ -3,6 +3,7 @@ import {
   EAppUpdateStatus,
   EUpdateStrategy,
   isFirstLaunchAfterUpdated,
+  isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundClass,
@@ -330,19 +331,26 @@ class ServiceAppUpdate extends ServiceBase {
       return;
     }
 
+    const appInfo = await appUpdatePersistAtom.get();
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
-    if (releaseInfo?.version) {
+    if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      const { shouldUpdate } = isNeedUpdate({
+        latestVersion: releaseInfo.version,
+        jsBundleVersion: releaseInfo.jsBundleVersion,
+        status: appInfo.status,
+      });
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
         summary: releaseInfo?.summary || '',
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
-        status:
-          releaseInfo?.version && releaseInfo.version !== prev.latestVersion
-            ? EAppUpdateStatus.notify
-            : prev.status,
-        isShowUpdateDialog: platformEnv.version !== releaseInfo.version,
+        status: shouldUpdate ? EAppUpdateStatus.notify : prev.status,
+        isShowUpdateDialog:
+          releaseInfo.updateStrategy === EUpdateStrategy.force ||
+          releaseInfo.updateStrategy === EUpdateStrategy.manual
+            ? shouldUpdate
+            : false,
       }));
     } else {
       await this.reset();
