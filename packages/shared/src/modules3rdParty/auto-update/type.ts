@@ -9,6 +9,7 @@ export interface IDownloadPackageParams {
   bundleVersion?: string;
   fileSize?: number;
   sha256?: string;
+  signature?: string;
 }
 
 export type IUpdateDownloadedEvent =

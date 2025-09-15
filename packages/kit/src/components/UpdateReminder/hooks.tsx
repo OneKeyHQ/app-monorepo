@@ -134,19 +134,14 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const { latestVersion, jsBundleVersion, downloadUrl, jsBundle } =
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const isJsBundle = fileType === EUpdateFileType.jsBundle;
       const downloadParams: IDownloadPackageParams = {
+        signature: isJsBundle ? jsBundle?.signature : undefined,
         latestVersion,
         bundleVersion: jsBundleVersion,
-        downloadUrl:
-          fileType === EUpdateFileType.jsBundle
-            ? jsBundle?.downloadUrl
-            : downloadUrl,
-        fileSize:
-          fileType === EUpdateFileType.jsBundle
-            ? jsBundle?.fileSize
-            : undefined,
-        sha256:
-          fileType === EUpdateFileType.jsBundle ? jsBundle?.sha256 : undefined,
+        downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
+        fileSize: isJsBundle ? jsBundle?.fileSize : undefined,
+        sha256: isJsBundle ? jsBundle?.sha256 : undefined,
       };
       const result =
         fileType === EUpdateFileType.jsBundle
