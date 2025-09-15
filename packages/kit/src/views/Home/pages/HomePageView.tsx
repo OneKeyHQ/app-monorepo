@@ -122,6 +122,7 @@ export function HomePageView({
         });
 
       if (
+        !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
         approvalUtils.checkIsExistRiskApprovals({
           contractApprovals: resp.contractApprovals,
         })
@@ -160,6 +161,7 @@ export function HomePageView({
     navigation,
     account,
     updateApprovalsInfo,
+    wallet?.id,
   ]);
 
   const { vaultSettings, networkAccounts } = result.result ?? {};

@@ -24,6 +24,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useApprovalListActions } from '../../../states/jotai/contexts/approvalList';
 import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function ApprovalListContainer() {
   const {
@@ -159,6 +160,7 @@ function ApprovalListContainer() {
       searchDisabled
       selectDisabled
       filterByNetworkDisabled
+      hideRiskOverview={accountUtils.isWatchingWallet({ walletId: wallet?.id })}
       onRefresh={onHomePageRefresh}
       onPress={handleApprovalOnPress}
       listViewStyleProps={{
