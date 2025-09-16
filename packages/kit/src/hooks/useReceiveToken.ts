@@ -119,7 +119,9 @@ function useReceiveToken({
             allAggregateTokens,
             aggregateTokenSelectorScreen:
               EModalReceiveRoutes.ReceiveSelectAggregateToken,
-            title: intl.formatMessage({ id: ETranslations.global_receive }),
+            title: intl.formatMessage({
+              id: ETranslations.global_select_crypto,
+            }),
             networkId,
             accountId,
             indexedAccountId,

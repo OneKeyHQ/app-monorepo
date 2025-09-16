@@ -118,7 +118,6 @@ export function IconButton(props: IIconButtonProps) {
         renderTrigger={renderIconButton()}
         renderContent={title}
         placement={titlePlacement}
-        delay={300}
         {...(variant === 'tertiary' && { offset: 12 })}
         {...tooltipProps}
       />
