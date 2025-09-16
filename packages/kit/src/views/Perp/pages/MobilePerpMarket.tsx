@@ -1,5 +1,11 @@
+import { useEffect } from 'react';
+
 import { Page, YStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
@@ -9,6 +15,14 @@ import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarket
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 function MobilePerpMarket() {
+  useEffect(() => {
+    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+
+    return () => {
+      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+    };
+  }, []);
+
   return (
     <Page>
       <Page.Body px="$0" py="$0">
@@ -19,7 +33,7 @@ function MobilePerpMarket() {
             <PerpCandles />
           </YStack>
 
-          <YStack flexShrink={0} minHeight={360} bg="$bgApp">
+          <YStack flexShrink={0} bg="$bgApp">
             <PerpOrderBook entry="perpMobileMarket" />
           </YStack>
         </YStack>

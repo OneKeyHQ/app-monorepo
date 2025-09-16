@@ -16,7 +16,7 @@ import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
 import { usePerpSession } from '../hooks/usePerpSession';
 
-import { OrderBook, OrderBookMobile } from './OrderBook';
+import { OrderBook, OrderBookMobile, OrderPairBook } from './OrderBook';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
@@ -79,16 +79,7 @@ export function PerpOrderBook({
   const { gtMd } = useMedia();
   const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
   const prevSymbolRef = useRef<string | undefined>(undefined);
-  const {
-    l2Book,
-    hasOrderBook,
-    // getBestBid,
-    // getBestAsk,
-    // getSpread,
-    // getSpreadPercent,
-    // getTotalBidVolume,
-    // getTotalAskVolume,
-  } = useL2Book({
+  const { l2Book, hasOrderBook } = useL2Book({
     nSigFigs: selectedTickOption?.nSigFigs || null,
     mantissa: selectedTickOption?.mantissa,
   });
@@ -119,11 +110,12 @@ export function PerpOrderBook({
     if (gtMd) return null;
     if (entry === 'perpMobileMarket') {
       return (
-        <OrderBookMobile
+        <OrderBook
+          horizontal
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={9}
+          maxLevelsPerSide={12}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptionsData.tickOptions}
