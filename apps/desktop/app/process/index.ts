@@ -1,7 +1,6 @@
 import { app } from 'electron';
 import logger from 'electron-log/main';
 
-import autoUpdateInit from './AutoUpdate';
 import BridgeProcess, { BridgeHeart } from './Bridge';
 import HttpServerInit from './HttpServer';
 
@@ -39,11 +38,8 @@ export const restartBridge = async () => {
   await bridgeInstance?.restart();
 };
 
-const init = async ({ mainWindow, store }: IDependencies) => {
+const init = async () => {
   await launchBridge();
-  if (!process.mas) {
-    autoUpdateInit({ mainWindow, store });
-  }
   HttpServerInit();
 };
 

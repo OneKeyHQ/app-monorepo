@@ -93,5 +93,7 @@ export async function getRequestHeaders() {
     )?.toString(),
     [normalizeHeaderKey('X-Onekey-Request-Build-Number')]:
       platformEnv.buildNumber as string,
+    [normalizeHeaderKey('X-Onekey-Request-JS-Bundle-Version')]:
+      platformEnv.bundleVersion as string,
   };
 }
