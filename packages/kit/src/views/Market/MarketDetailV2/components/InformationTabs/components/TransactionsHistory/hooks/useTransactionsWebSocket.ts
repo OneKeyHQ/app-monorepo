@@ -75,8 +75,6 @@ export function useTransactionsWebSocket({
       data: any;
       originalData?: any;
     }) => {
-      console.log('transactionData', payload);
-
       // Only process transaction messages for our specific token (ignore network matching)
       if (payload.channel === 'tokenTxs') {
         // Convert the received data to IMarketTokenTransaction format
