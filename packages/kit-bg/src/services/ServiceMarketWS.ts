@@ -281,7 +281,7 @@ class ServiceMarketWS extends ServiceBase {
     // Handle different message formats from the WebSocket
     // Support both direct channel format and nested data format
     let channel: string;
-    let networkId: string;
+    let networkId = '';
     let tokenAddress = '';
     let messageType: string | undefined;
     let processedData: any;
@@ -293,24 +293,20 @@ class ServiceMarketWS extends ServiceBase {
 
       if (messageType === 'TXS_DATA') {
         channel = EChannel.tokenTxs;
-        const rawNetworkId = this.safeGetStringProperty(
-          processedData,
-          'network',
-        );
-        // Convert 'solana' to 'sol--101' to match the expected format
-        networkId = rawNetworkId === 'solana' ? 'sol--101' : rawNetworkId;
+
+        const txsData = processedData as {
+          from: {
+            address: string;
+          };
+          to: {
+            address: string;
+          };
+        };
 
         // Extract tokenAddress from transaction data - check from/to addresses
-        const fromAddress = this.safeGetStringProperty(
-          processedData.from as Record<string, any>,
-          'address',
-        );
-        const toAddress = this.safeGetStringProperty(
-          processedData.to as Record<string, any>,
-          'address',
-        );
+        const fromAddress = txsData.from.address;
+        const toAddress = txsData.to.address;
 
-        // Use the first non-SOL address as tokenAddress (SOL is the native token)
         const solAddress = 'So11111111111111111111111111111111111111112';
         if (fromAddress && fromAddress !== solAddress) {
           tokenAddress = fromAddress;
@@ -321,8 +317,6 @@ class ServiceMarketWS extends ServiceBase {
         }
       } else if (messageType === 'PRICE_DATA') {
         channel = EChannel.ohlcv;
-        // Extract networkId from address or use default
-        networkId = 'sol--101'; // Default for now, can be enhanced
         tokenAddress = this.safeGetStringProperty(processedData, 'address');
       } else {
         return;
@@ -345,10 +339,9 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     // Validate that we have the required data
-    if (!channel || !networkId || !tokenAddress) {
+    if (!channel || !tokenAddress) {
       console.warn('Invalid market data: missing required fields', {
         channel,
-        networkId,
         tokenAddress,
         originalData: data,
       });
