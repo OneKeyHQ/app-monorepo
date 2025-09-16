@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Maximal 50 Zeichen",
   "passphrase_disabled_dialog_desc": "Aktivieren Sie Passphrase auf Ihrem Gerät, um versteckte Wallets zu erstellen.",
   "passphrase_disabled_dialog_title": "Verstecktes Wallet kann nicht erstellt werden",
+  "perp.account_create": "Bitte erstellen Sie eine EVM-Adresse für dieses Konto",
   "perp.available_balance": "Verfügbares Guthaben",
   "perp.close_position": "Position schließen",
   "perp.close_position_amount_input": "Geben Sie die zu schließende Größe ein",

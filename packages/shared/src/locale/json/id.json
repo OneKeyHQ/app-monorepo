@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Maksimal 50 karakter",
   "passphrase_disabled_dialog_desc": "Aktifkan Passphrase di perangkat Anda untuk membuat dompet tersembunyi.",
   "passphrase_disabled_dialog_title": "Tidak dapat membuat dompet tersembunyi",
+  "perp.account_create": "Harap buat alamat EVM untuk akun ini",
   "perp.available_balance": "Saldo tersedia",
   "perp.close_position": "Tutup posisi",
   "perp.close_position_amount_input": "Masukkan ukuran untuk menutup",

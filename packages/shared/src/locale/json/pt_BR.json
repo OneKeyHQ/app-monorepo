@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Máximo 50 caracteres",
   "passphrase_disabled_dialog_desc": "Ative a Passphrase no seu dispositivo para criar carteiras ocultas.",
   "passphrase_disabled_dialog_title": "Não é possível criar carteira oculta",
+  "perp.account_create": "Por favor, crie um endereço EVM para esta conta",
   "perp.available_balance": "Saldo disponível",
   "perp.close_position": "Fechar posição",
   "perp.close_position_amount_input": "Insira o tamanho para fechar",

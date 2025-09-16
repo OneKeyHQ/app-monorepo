@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "अधिकतम 50 वर्ण",
   "passphrase_disabled_dialog_desc": "अपने डिवाइस पर Passphrase सक्षम करें ताकि छिपे हुए वॉलेट बनाए जा सकें।",
   "passphrase_disabled_dialog_title": "छिपा हुआ वॉलेट नहीं बना सकते",
+  "perp.account_create": "कृपया इस खाते के लिए एक EVM पता बनाएं",
   "perp.available_balance": "उपलब्ध शेष राशि",
   "perp.close_position": "पोजीशन बंद करें",
   "perp.close_position_amount_input": "बंद करने के लिए आकार दर्ज करें",

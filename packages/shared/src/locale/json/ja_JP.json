@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "最大50文字",
   "passphrase_disabled_dialog_desc": "デバイスでPassphraseを有効にして、隠しウォレットを作成しましょう。",
   "passphrase_disabled_dialog_title": "隠しウォレットを作成できません",
+  "perp.account_create": "このアカウント用のEVMアドレスを作成してください",
   "perp.available_balance": "利用可能残高",
   "perp.close_position": "ポジションをクローズする",
   "perp.close_position_amount_input": "クローズするサイズを入力してください",

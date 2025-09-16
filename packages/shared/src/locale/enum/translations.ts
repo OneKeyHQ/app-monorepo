@@ -2039,6 +2039,7 @@
   passphrase_character_limit = 'passphrase_character_limit',
   passphrase_disabled_dialog_desc = 'passphrase_disabled_dialog_desc',
   passphrase_disabled_dialog_title = 'passphrase_disabled_dialog_title',
+  perp_account_create = 'perp.account_create',
   perp_available_balance = 'perp.available_balance',
   perp_close_position = 'perp.close_position',
   perp_close_position_amount_input = 'perp.close_position_amount_input',

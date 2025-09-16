@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "最多 50 个字符",
   "passphrase_disabled_dialog_desc": "在您的设备上启用 Passphrase 以创建隐藏钱包。",
   "passphrase_disabled_dialog_title": "无法创建隐藏钱包",
+  "perp.account_create": "请为此账户创建一个 EVM 地址",
   "perp.available_balance": "可用余额",
   "perp.close_position": "平仓",
   "perp.close_position_amount_input": "输入平仓数量",

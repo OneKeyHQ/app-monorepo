@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Maximum 50 caractères",
   "passphrase_disabled_dialog_desc": "Activez Passphrase sur votre appareil pour créer des portefeuilles cachés.",
   "passphrase_disabled_dialog_title": "Impossible de créer un portefeuille caché",
+  "perp.account_create": "Veuillez créer une adresse EVM pour ce compte",
   "perp.available_balance": "Solde disponible",
   "perp.close_position": "Fermer la position",
   "perp.close_position_amount_input": "Saisir la taille à fermer",

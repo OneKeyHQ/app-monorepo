@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Максимум 50 символов",
   "passphrase_disabled_dialog_desc": "Включите Passphrase на вашем устройстве, чтобы создать скрытые кошельки.",
   "passphrase_disabled_dialog_title": "Не удаётся создать скрытый кошелёк",
+  "perp.account_create": "Пожалуйста, создайте EVM-адрес для этого аккаунта",
   "perp.available_balance": "Доступный баланс",
   "perp.close_position": "Закрыть позицию",
   "perp.close_position_amount_input": "Введите размер для закрытия",

@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Massimo 50 caratteri",
   "passphrase_disabled_dialog_desc": "Abilita la Passphrase sul tuo dispositivo per creare portafogli nascosti.",
   "passphrase_disabled_dialog_title": "Impossibile creare il portafoglio nascosto",
+  "perp.account_create": "Crea un indirizzo EVM per questo account",
   "perp.available_balance": "Saldo disponibile",
   "perp.close_position": "Chiudi posizione",
   "perp.close_position_amount_input": "Inserisci la dimensione da chiudere",

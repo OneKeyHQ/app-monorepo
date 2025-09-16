@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -57,17 +58,6 @@ function PerpAccountPanel() {
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
 
-  if (!userAddress) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-        <SizableText size="$bodySm" color="$textSubdued" mt="$3">
-          Please create an EVM address first: ____{activeAccountIndexedId}
-          ____{userAccountId}
-        </SizableText>
-      </YStack>
-    );
-  }
-
   return (
     <YStack flex={1} gap="$1.5">
       {/* Header */}
@@ -78,7 +68,6 @@ function PerpAccountPanel() {
           })}
         </SizableText>
       </XStack>
-
       <YStack flex={1} px="$4" gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
@@ -118,34 +107,51 @@ function PerpAccountPanel() {
           )}
         </XStack>
       </YStack>
-
       {/* Action Buttons */}
-      <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
-        <Button
+      {userAddress ? (
+        <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
+          <Button
+            flex={1}
+            size="medium"
+            variant="secondary"
+            onPress={() => handleDepositOrWithdraw('deposit')}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+            </SizableText>
+          </Button>
+          <Button
+            flex={1}
+            size="medium"
+            variant="secondary"
+            onPress={() => handleDepositOrWithdraw('withdraw')}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText size="$bodySmMedium" textAlign="center">
+              {intl.formatMessage({ id: ETranslations.perp_trade_withdraw })}
+            </SizableText>
+          </Button>
+        </XStack>
+      ) : (
+        <XStack
           flex={1}
-          size="medium"
-          variant="secondary"
-          onPress={() => handleDepositOrWithdraw('deposit')}
+          justifyContent="flex-start"
           alignItems="center"
-          justifyContent="center"
+          mt="$3"
+          px="$4"
+          gap="$1.5"
         >
-          <SizableText size="$bodySmMedium">
-            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          <Icon name="InfoCircleOutline" size="$3.5" color="$icon" />
+          <SizableText size="$bodySm" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.perp_account_create,
+            })}
           </SizableText>
-        </Button>
-        <Button
-          flex={1}
-          size="medium"
-          variant="secondary"
-          onPress={() => handleDepositOrWithdraw('withdraw')}
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText size="$bodySmMedium" textAlign="center">
-            {intl.formatMessage({ id: ETranslations.perp_trade_withdraw })}
-          </SizableText>
-        </Button>
-      </XStack>
+        </XStack>
+      )}
     </YStack>
   );
 }

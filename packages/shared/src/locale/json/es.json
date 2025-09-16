@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "Máximo 50 caracteres",
   "passphrase_disabled_dialog_desc": "Activa Passphrase en tu dispositivo para crear billeteras ocultas.",
   "passphrase_disabled_dialog_title": "No se puede crear la billetera oculta",
+  "perp.account_create": "Crea una dirección EVM para esta cuenta, por favor",
   "perp.available_balance": "Saldo disponible",
   "perp.close_position": "Cerrar posición",
   "perp.close_position_amount_input": "Ingrese el tamaño a cerrar",

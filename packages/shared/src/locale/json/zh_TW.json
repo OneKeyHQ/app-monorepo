@@ -2034,6 +2034,7 @@
   "passphrase_character_limit": "最多 50 個字元",
   "passphrase_disabled_dialog_desc": "在您的裝置上啟用 Passphrase 以創建隱藏錢包。",
   "passphrase_disabled_dialog_title": "無法建立隱藏錢包",
+  "perp.account_create": "請為此帳戶建立一個 EVM 地址",
   "perp.available_balance": "可用餘額",
   "perp.close_position": "平倉",
   "perp.close_position_amount_input": "輸入平倉數量",
