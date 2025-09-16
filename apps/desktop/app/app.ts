@@ -1,3 +1,4 @@
+/* eslint-disable dot-notation */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
 import * as path from 'path';
@@ -54,6 +55,11 @@ initSentry();
 
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
+
+globalThis.$desktopMainAppFunctions = {
+  getBundleIndexHtmlPath: () => getBundleIndexHtmlPath(),
+  useJsBundle: () => !!getBundleIndexHtmlPath(),
+} as typeof globalThis.$desktopMainAppFunctions;
 
 // WARNING: This name cannot be changed as it affects Electron data storage.
 // Changing it will cause the system to generate new storage, preventing users from accessing their existing data.
