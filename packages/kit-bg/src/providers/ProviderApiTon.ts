@@ -5,7 +5,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNaN } from 'lodash';
+import { get, isEmpty, isNaN } from 'lodash';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -23,9 +23,11 @@ import {
   getAccountVersion,
   getWalletContractInstance,
 } from '../vaults/impls/ton/sdkTon/utils';
-
+import { vaultFactory } from '../vaults/factory';
 import ProviderApiBase from './ProviderApiBase';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
+import type VaultTon from '../vaults/impls/ton/Vault';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type {
@@ -44,20 +46,20 @@ const TonResponseError = {
   ContentManifest: 3,
 } as const;
 
-export declare interface TonAddressItem {
+export declare interface ITonAddressItem {
   name: 'ton_addr';
 }
 
-export declare interface TonProofItem {
+export declare interface ITonProofItem {
   name: 'ton_proof';
   payload: string;
 }
 
-export type ConnectItem = TonAddressItem | TonProofItem;
+export type IConnectItem = ITonAddressItem | ITonProofItem;
 
-export interface ConnectRequest {
+export interface IConnectRequest {
   manifestUrl: string;
-  items: ConnectItem[];
+  items: IConnectItem[];
 }
 
 @backgroundClass()
@@ -116,12 +118,34 @@ class ProviderApiTon extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
+  private async _getAccount(request: IJsBridgeMessagePayload) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new OneKeyLocalError('No accounts');
+    }
+
+    return accounts[0];
+  }
+
+  private async getTonVault(
+    request: IJsBridgeMessagePayload,
+  ): Promise<VaultTon> {
+    const { account, accountInfo } = await this._getAccount(request);
+    const vault = (await vaultFactory.getVault({
+      networkId: accountInfo?.networkId ?? '',
+      accountId: account.id,
+    })) as VaultTon;
+
+    return vault;
+  }
+
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload, params: string[]) {
     if (
       !request?.data ||
       typeof request?.data !== 'object' ||
-      !('params' in request?.data)
+      request.data === null ||
+      !('params' in request.data)
     ) {
       throw new Web3RpcError(
         TonResponseError.InvalidManifestUrl,
@@ -138,7 +162,7 @@ class ProviderApiTon extends ProviderApiBase {
 
     const [_, connectRequest] = request?.data?.params as [
       string,
-      ConnectRequest,
+      IConnectRequest,
     ];
 
     if (!connectRequest.manifestUrl || isEmpty(connectRequest.manifestUrl)) {
@@ -160,14 +184,14 @@ class ProviderApiTon extends ProviderApiBase {
       },
     );
 
-    if (isEmpty(manifest.name) || isEmpty(manifest.url)) {
+    if (isEmpty(get(manifest, 'name')) || isEmpty(get(manifest, 'url'))) {
       throw new Web3RpcError(
         TonResponseError.ContentManifest,
         'App manifest content error',
       );
     }
     try {
-      const manifestUrl = new URL(manifest.url);
+      const manifestUrl = new URL(get(manifest, 'url'));
       const originUrl = new URL(request.origin ?? '');
 
       if (manifestUrl.host !== originUrl.host) {
@@ -380,6 +404,18 @@ class ProviderApiTon extends ProviderApiBase {
           );
         }
       }
+    }
+
+    const vault = await this.getTonVault(request);
+    try {
+      await vault.precheckUnsignedTx({
+        unsignedTx: {
+          encodedTx:encodedTx
+        },
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
+    } catch (e: any) {
+      throw new Web3RpcError(TonResponseError.BadRequest, "Not enough funds");
     }
 
     const accounts = await this.getAccountsInfo(request);

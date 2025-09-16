@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { TonClient, WalletContractV4, internal } from '@ton/ton';
 import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
@@ -61,7 +60,6 @@ import {
   getJettonWalletAddress,
   getWalletContractInstance,
   serializeUnsignedTransaction,
-  serializeUnsignedTransaction1,
 } from './sdkTon/utils';
 import settings from './settings';
 
@@ -447,32 +445,23 @@ export default class Vault extends VaultBase {
       encodedTx,
     });
 
-    const contract = WalletContractV4.create({
-      publicKey: Buffer.from(account.pub ?? ''),
-      workchain: -239,
-    });
-    const serializeUnsignedTx1 = await serializeUnsignedTransaction1({
-      contract,
-      encodedTx,
-    });
-
     return {
       encodedTx: {
         ...encodedTx,
-        body: Buffer.from(serializeUnsignedTx1.toBoc({ idx: false })).toString(
-          'base64',
-        ),
+        body: Buffer.from(
+          serializeUnsignedTx.signingMessage.toBoc({ idx: false }),
+        ).toString('base64'),
         // eslint-disable-next-line spellcheck/spell-checker
         ignore_chksig: true,
-        init_code: serializeUnsignedTx.code
-          ? Buffer.from(await serializeUnsignedTx.code.toBoc(false)).toString(
-              'base64',
-            )
+        init_code: serializeUnsignedTx.init_code
+          ? Buffer.from(
+              serializeUnsignedTx.init_code.toBoc({ idx: false }),
+            ).toString('base64')
           : undefined,
-        init_data: serializeUnsignedTx.data
-          ? Buffer.from(await serializeUnsignedTx.data.toBoc(false)).toString(
-              'base64',
-            )
+        init_data: serializeUnsignedTx.init_data
+          ? Buffer.from(
+              serializeUnsignedTx.init_data.toBoc({ idx: false }),
+            ).toString('base64')
           : undefined,
       } as unknown as IEncodedTx,
     };

@@ -1,5 +1,3 @@
-import { WalletContractV4 } from '@ton/ton';
-
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -12,7 +10,6 @@ import {
   getAccountVersion,
   getWalletContractInstance,
   serializeUnsignedTransaction,
-  serializeUnsignedTransaction1,
 } from './sdkTon/utils';
 
 import type { IWallet } from './sdkTon/utils';
@@ -55,29 +52,20 @@ export class KeyringHd extends KeyringHdBase {
     const account = await this.vault.getAccount();
     const version = getAccountVersion(account.id);
 
-    // const contract = getWalletContractInstance({
-    //   version,
-    //   publicKey: account.pub ?? '',
-    //   backgroundApi: this.vault.backgroundApi,
-    //   networkId: this.vault.networkId,
-    // }) as unknown as IWallet;
+    const contract = getWalletContractInstance({
+      version,
+      publicKey: account.pub ?? '',
+      backgroundApi: this.vault.backgroundApi,
+      networkId: this.vault.networkId,
+    }) as unknown as IWallet;
 
-    // const serializeUnsignedTx = await serializeUnsignedTransaction({
-    //   contract,
-    //   encodedTx,
-    // });
-
-    const contract = WalletContractV4.create({
-      publicKey: Buffer.from(account.pub ?? ''),
-      workchain: -239,
-    });
-    const serializeUnsignedTx = await serializeUnsignedTransaction1({
+    const serializeUnsignedTx = await serializeUnsignedTransaction({
       contract,
       encodedTx,
     });
 
     params.unsignedTx.rawTxUnsigned = hexUtils.hexlify(
-      await serializeUnsignedTx.signingMessage.toBoc(),
+      serializeUnsignedTx.signingMessage.toBoc(),
       {
         noPrefix: true,
       },
@@ -94,9 +82,9 @@ export class KeyringHd extends KeyringHdBase {
 
     return {
       ...signedTx,
-      rawTx: Buffer.from(await externalMessage.message.toBoc(false)).toString(
-        'base64',
-      ),
+      rawTx: Buffer.from(
+        externalMessage.message.toBoc({ idx: false }),
+      ).toString('base64'),
     };
   }
 

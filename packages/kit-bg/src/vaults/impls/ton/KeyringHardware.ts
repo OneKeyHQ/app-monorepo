@@ -2,12 +2,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
-import TonWeb from 'tonweb';
+import { Cell, CellType } from '@ton/core';
 
 import {
   ETonSendMode,
   genAddressFromPublicKey,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
+import { getRepr } from '@onekeyhq/core/src/chains/ton/sdkTon/descriptor';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -236,7 +237,16 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (msg.stateInit) {
       hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString('hex');
       hwParams.signingMessageRepr = bufferUtils.bytesToHex(
-        await signingMessage.getRepr(),
+        // await TonWeb.boc.Cell.oneFromBoc(Buffer.from(await signingMessage.toBoc())).getRepr(),
+        // only for hardware, only serialize for stateInit
+        getRepr(
+          signingMessage.bits,
+          signingMessage.bits,
+          signingMessage.refs,
+          0,
+          0,
+          CellType.Ordinary,
+        ),
       );
     }
 
@@ -256,12 +266,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     // pro return signning_message is message boc
     // pro blind sign return signning_message is null
     const signingMessageHexFromHw = result.signning_message as string | null;
-    const signingMessageHex = Buffer.from(
-      await signingMessage.toBoc(),
-    ).toString('hex');
-    const signingMessageHash = Buffer.from(
-      await signingMessage.hash(),
-    ).toString('hex');
+    const signingMessageHex = Buffer.from(signingMessage.toBoc()).toString(
+      'hex',
+    );
+    const signingMessageHash = Buffer.from(signingMessage.hash()).toString(
+      'hex',
+    );
     if (signingMessageHexFromHw) {
       // For Pro, check the boc
       if (
@@ -273,7 +283,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           signingMessageHexFromHw,
           signingMessageHex,
         );
-        signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+        signingMessage = Cell.fromHex(signingMessageHexFromHw);
       }
       // For 1S, check the hash
       if (
@@ -297,9 +307,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     return {
       txid: '',
-      rawTx: Buffer.from(await externalMessage.message.toBoc(false)).toString(
-        'base64',
-      ),
+      rawTx: Buffer.from(
+        externalMessage.message.toBoc({ idx: false }),
+      ).toString('base64'),
       encodedTx,
     };
   }
