@@ -14,16 +14,22 @@ const babelTools = require('../babelTools');
 // Plugin to generate metadata.json with SHA512 hashes of all output files
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
 
-const copyDir = (src, dest) => {
-  if (!fs.existsSync(src) || fs.existsSync(dest)) {
-    return;
+function copyRecursiveSync(src, dest) {
+  const exists = fs.existsSync(src);
+  const stats = exists && fs.statSync(src);
+  const isDirectory = exists && stats.isDirectory();
+  if (isDirectory) {
+    fs.mkdirSync(dest, { recursive: true });
+    fs.readdirSync(src).forEach((childItemName) => {
+      copyRecursiveSync(
+        path.join(src, childItemName),
+        path.join(dest, childItemName),
+      );
+    });
+  } else {
+    fs.copyFileSync(src, dest);
   }
-  fs.mkdirSync(dest, { recursive: true });
-  fs.readdirSync(src).forEach((file) => {
-    fs.copyFileSync(path.join(src, file), path.join(dest, file));
-  });
-};
-
+}
 class FileHashMetadataPlugin {
   apply(compiler) {
     compiler.hooks.afterEmit.tapAsync(
@@ -33,12 +39,12 @@ class FileHashMetadataPlugin {
         const destStaticPath = path.join(outputPath, 'static');
         const srcStaticPath = path.join(outputPath, '..', 'public', 'static');
 
-        copyDir(
+        copyRecursiveSync(
           path.join(srcStaticPath, 'js-sdk'),
           path.join(destStaticPath, 'js-sdk'),
         );
 
-        copyDir(
+        copyRecursiveSync(
           path.join(srcStaticPath, 'images'),
           path.join(destStaticPath, 'images'),
         );
