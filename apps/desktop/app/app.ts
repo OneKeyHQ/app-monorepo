@@ -1,7 +1,7 @@
 /* eslint-disable dot-notation */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { EventEmitter } from 'events';
-import * as path from 'path';
+import path, * as path from 'path';
 import { format as formatUrl } from 'url';
 
 import { initNobleBleSupport } from '@onekeyfe/hd-transport-electron';
@@ -732,6 +732,24 @@ function createMainWindow() {
       ? path.dirname(indexHtmlPath)
       : undefined;
     const metadata = bundleDirPath ? getMetadata(bundleDirPath) : {};
+    const checkFileHash = (url: string) => {
+      if (!bundleDirPath) {
+        throw new OneKeyLocalError('Bundle directory path not found');
+      }
+      const key = url.replace(/^\/+/, '');
+      if (!key) {
+        throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
+      }
+      const sha512 = metadata[key];
+      const filePath = path.join(bundleDirPath, key);
+      if (!sha512) {
+        throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
+      }
+      if (!checkFileSha512(filePath, sha512)) {
+        throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
+      }
+      return filePath;
+    };
     const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
@@ -743,9 +761,13 @@ function createMainWindow() {
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            callback(
-              path.join(bundleDirPath, 'static', 'js-sdk', 'iframe.html'),
-            );
+            const key = path.join('static', 'js-sdk', 'iframe.html');
+            const filePath = path.join(bundleDirPath, key);
+            const sha512 = metadata[key];
+            if (!checkFileSha512(filePath, sha512)) {
+              throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
+            }
+            callback(filePath);
             return;
           }
           callback({
@@ -766,23 +788,9 @@ function createMainWindow() {
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (!decodedUrl.includes(bundleDirPath)) {
-            const key = decodedUrl.replace(/^\/+/, '');
-            if (key) {
-              const sha512 = metadata[key];
-              const filePath = path.join(bundleDirPath, key);
-              if (!sha512) {
-                throw new OneKeyLocalError(
-                  `File ${decodedUrl} not found in metadata.json`,
-                );
-              }
-              if (!checkFileSha512(filePath, sha512)) {
-                throw new OneKeyLocalError(
-                  `File ${decodedUrl} sha512 mismatch`,
-                );
-              }
-              callback(filePath);
-              return;
-            }
+            const filePath = checkFileHash(decodedUrl);
+            callback(filePath);
+            return;
           }
           callback(indexHtmlPath);
         } else {
