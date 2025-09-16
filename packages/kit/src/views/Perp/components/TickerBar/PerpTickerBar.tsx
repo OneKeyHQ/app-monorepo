@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,8 +13,10 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -25,6 +27,7 @@ import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 
 function PerpTickerBar() {
   const { gtMd } = useMedia();
+  const navigation = useAppNavigation();
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
   const [priceData] = useCurrentTokenPriceAtom();
@@ -42,6 +45,10 @@ function PerpTickerBar() {
   const formattedOraclePrice = oraclePrice;
   const intl = useIntl();
   const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
+
+  const onPressCandleChart = useCallback(() => {
+    navigation.push(EModalPerpRoutes.MobilePerpMarket);
+  }, [navigation]);
 
   if (!gtMd) {
     return (
@@ -66,6 +73,7 @@ function PerpTickerBar() {
             icon="TradingViewCandlesOutline"
             size="medium"
             variant="tertiary"
+            onPress={onPressCandleChart}
           />
         </XStack>
       </XStack>
