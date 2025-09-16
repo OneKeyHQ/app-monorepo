@@ -54,6 +54,7 @@ export enum EWatchlistFrom {
   Homepage = 'Homepage',
   Detail = 'Detail',
   Search = 'Search',
+  Recommend = 'Recommend',
   Others = 'Others',
 }
 
