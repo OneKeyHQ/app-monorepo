@@ -57,10 +57,8 @@ export function PerpTradingButton({
       perpsAccount.accountAddress &&
       perpsAccount.accountId
     ) {
-      showDepositWithdrawModal({
+      await showDepositWithdrawModal({
         withdrawable: '0',
-        userAccountId: perpsAccount.accountId || '',
-        userAddress: perpsAccount.accountAddress || '',
         actionType: 'deposit',
       });
     }

@@ -21,7 +21,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  perpsSelectedAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -36,18 +40,18 @@ export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 interface IDepositWithdrawParams {
   withdrawable: string;
-  userAddress: string;
-  userAccountId: string;
   actionType: IPerpsDepositWithdrawActionType;
 }
 
 interface IDepositWithdrawContentProps {
   params: IDepositWithdrawParams;
+  selectedAccount: IPerpsSelectedAccount;
   onClose?: () => void;
 }
 
 function DepositWithdrawContent({
   params,
+  selectedAccount,
   onClose,
 }: IDepositWithdrawContentProps) {
   // const [selectedAction, setSelectedAction] = useState<IActionType>(
@@ -60,10 +64,8 @@ function DepositWithdrawContent({
   const [showMinDepositError, setShowMinDepositError] = useState(false);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
-    // networkId: 'evm--42161',
-    accountId: params.userAccountId,
+    accountId: selectedAccount.accountId || '',
     networkId: PERPS_CHAIN_ID,
-    // accountId: activeAccount.account.id,
   });
 
   const hyperliquidActions = useHyperliquidActions();
@@ -71,7 +73,7 @@ function DepositWithdrawContent({
 
   const { result: usdcBalance, isLoading: balanceLoading } =
     usePromiseResult(async () => {
-      if (!params.userAccountId || !params.userAddress) {
+      if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
         return '0';
       }
 
@@ -80,8 +82,8 @@ function DepositWithdrawContent({
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: PERPS_CHAIN_ID,
             contractAddress: USDC_TOKEN_INFO.address,
-            accountId: params.userAccountId,
-            accountAddress: params.userAddress,
+            accountId: selectedAccount.accountId,
+            accountAddress: selectedAccount.accountAddress,
           });
         return tokenDetails?.[0]?.balanceParsed || '0';
       } catch (error) {
@@ -91,7 +93,7 @@ function DepositWithdrawContent({
         );
         return '0';
       }
-    }, [params.userAccountId, params.userAddress]);
+    }, [selectedAccount.accountId, selectedAccount.accountAddress]);
   const availableBalance = useMemo(() => {
     if (selectedAction === 'withdraw') {
       return params.withdrawable;
@@ -155,7 +157,7 @@ function DepositWithdrawContent({
   }, [availableBalance]);
 
   const handleConfirm = useCallback(async () => {
-    if (!isValidAmount || !params.userAddress) return;
+    if (!isValidAmount || !selectedAccount.accountAddress) return;
 
     // Check minimum deposit amount on submit
     if (
@@ -177,7 +179,7 @@ function DepositWithdrawContent({
           },
           transfersInfo: [
             {
-              from: params.userAddress,
+              from: selectedAccount.accountAddress,
               to: HYPERLIQUID_DEPOSIT_ADDRESS,
               amount,
               tokenInfo: USDC_TOKEN_INFO,
@@ -193,9 +195,9 @@ function DepositWithdrawContent({
         onClose?.();
       } else {
         await withdraw({
-          userAccountId: params.userAccountId,
+          userAccountId: selectedAccount.accountId || '',
           amount,
-          destination: params.userAddress as `0x${string}`,
+          destination: selectedAccount.accountAddress,
         });
 
         onClose?.();
@@ -213,13 +215,13 @@ function DepositWithdrawContent({
     }
   }, [
     isValidAmount,
-    params.userAddress,
-    amount,
+    selectedAccount.accountAddress,
+    selectedAccount.accountId,
     selectedAction,
+    amount,
     normalizeTxConfirm,
-    withdraw,
-    params.userAccountId,
     onClose,
+    withdraw,
   ]);
 
   const isInsufficientBalance = useMemo(() => {
@@ -415,8 +417,9 @@ function DepositWithdrawContent({
   );
 }
 
-export function showDepositWithdrawModal(params: IDepositWithdrawParams) {
-  if (!params.userAccountId || !params.userAddress) {
+export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
+  const selectedAccount = await perpsSelectedAccountAtom.get();
+  if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
     console.error('[DepositWithdrawModal] Missing required parameters');
     // export function showDepositWithdrawModal(
     //   activeAccount: IActiveAccount,
@@ -432,6 +435,7 @@ export function showDepositWithdrawModal(params: IDepositWithdrawParams) {
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <DepositWithdrawContent
           params={params}
+          selectedAccount={selectedAccount}
           onClose={() => {
             void dialogInstance.close();
           }}

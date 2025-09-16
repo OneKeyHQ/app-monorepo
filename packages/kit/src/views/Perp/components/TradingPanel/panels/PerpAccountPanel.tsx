@@ -44,19 +44,17 @@ function PerpAccountPanel() {
   }, [accountSummary.withdrawable, userWebData2]);
   const intl = useIntl();
   const handleDepositOrWithdraw = useCallback(
-    (actionType: 'deposit' | 'withdraw') => {
+    async (actionType: 'deposit' | 'withdraw') => {
       if (!userAccountId || !userAddress) {
         return;
       }
 
       const params = {
         withdrawable: accountSummary.withdrawable || '0',
-        userAddress,
-        userAccountId,
         actionType,
       };
 
-      showDepositWithdrawModal(params);
+      await showDepositWithdrawModal(params);
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );

@@ -61,15 +61,13 @@ function PerpAccountPanel() {
   }, [accountSummary.withdrawable, userWebData2]);
 
   const handleDepositOrWithdraw = useCallback(
-    (actionType: IPerpsDepositWithdrawActionType) => {
+    async (actionType: IPerpsDepositWithdrawActionType) => {
       if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
         return;
       }
 
-      showDepositWithdrawModal({
+      await showDepositWithdrawModal({
         withdrawable: accountDataInfo.availableBalance || '0',
-        userAccountId: activeAccount.account.id,
-        userAddress: activeAccount.account.address,
         actionType,
       });
     },
