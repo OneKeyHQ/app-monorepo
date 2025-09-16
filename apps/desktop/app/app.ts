@@ -43,7 +43,7 @@ import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess from './process';
-import { resourcesPath, staticPath } from './resoucePath';
+import { getResourcesPath, getStaticPath } from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
 
@@ -62,6 +62,8 @@ const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
+const staticPath = getStaticPath();
+const resourcesPath = getResourcesPath();
 // static path
 const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
