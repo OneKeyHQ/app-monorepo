@@ -1,11 +1,11 @@
+import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useOpenOrdersListAtom,
   usePositionListAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
-
-import { usePerpUseChainAccount } from './usePerpUseChainAccount';
 
 export function usePerpPositions() {
   const [positions] = usePositionListAtom();
@@ -18,21 +18,22 @@ export function usePerpOrders() {
 }
 
 export function usePerpTradesHistory() {
-  const { userAddress } = usePerpUseChainAccount();
+  const [currentAccount] = usePerpsSelectedAccountAtom();
   const { result, isLoading } = usePromiseResult(
     async () => {
-      if (userAddress) {
-        const trades =
-          await backgroundApiProxy.serviceHyperliquidInfo.getUserFills({
-            user: userAddress,
+      if (currentAccount?.accountAddress) {
+        const trades = await backgroundApiProxy.serviceHyperliquid.getUserFills(
+          {
+            user: currentAccount?.accountAddress,
             aggregateByTime: true,
-          });
+          },
+        );
         const sortedTrades = trades.sort((a, b) => b.time - a.time);
         return sortedTrades;
       }
       return [];
     },
-    [userAddress],
+    [currentAccount?.accountAddress],
     { watchLoading: true, initResult: [] },
   );
   return {

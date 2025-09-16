@@ -22,6 +22,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -31,13 +32,13 @@ import {
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 
-type IActionType = 'deposit' | 'withdraw';
+export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 interface IDepositWithdrawParams {
   withdrawable: string;
   userAddress: string;
   userAccountId: string;
-  actionType: IActionType;
+  actionType: IPerpsDepositWithdrawActionType;
 }
 
 interface IDepositWithdrawContentProps {
@@ -49,16 +50,20 @@ function DepositWithdrawContent({
   params,
   onClose,
 }: IDepositWithdrawContentProps) {
-  const [selectedAction, setSelectedAction] = useState<IActionType>(
-    params.actionType,
-  );
+  // const [selectedAction, setSelectedAction] = useState<IActionType>(
+  //   params.actionType,
+  // );
+  const [selectedAction, setSelectedAction] =
+    useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinDepositError, setShowMinDepositError] = useState(false);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
-    networkId: 'evm--42161',
+    // networkId: 'evm--42161',
     accountId: params.userAccountId,
+    networkId: PERPS_CHAIN_ID,
+    // accountId: activeAccount.account.id,
   });
 
   const hyperliquidActions = useHyperliquidActions();
@@ -73,7 +78,7 @@ function DepositWithdrawContent({
       try {
         const tokenDetails =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: 'evm--42161',
+            networkId: PERPS_CHAIN_ID,
             contractAddress: USDC_TOKEN_INFO.address,
             accountId: params.userAccountId,
             accountAddress: params.userAddress,
@@ -166,6 +171,10 @@ function DepositWithdrawContent({
 
       if (selectedAction === 'deposit') {
         await normalizeTxConfirm({
+          onSuccess: () => {
+            // TODO wait tx confirmed then check account status
+            void backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+          },
           transfersInfo: [
             {
               from: params.userAddress,
@@ -409,7 +418,13 @@ function DepositWithdrawContent({
 export function showDepositWithdrawModal(params: IDepositWithdrawParams) {
   if (!params.userAccountId || !params.userAddress) {
     console.error('[DepositWithdrawModal] Missing required parameters');
-    return;
+    // export function showDepositWithdrawModal(
+    //   activeAccount: IActiveAccount,
+    //   actionType: IPerpsDepositWithdrawActionType,
+    // ) {
+    // if (!activeAccount?.account?.id) {
+    //   console.error('[DepositWithdrawModal] No active account available');
+    //   return;
   }
 
   const dialogInstance = Dialog.show({
@@ -422,6 +437,13 @@ export function showDepositWithdrawModal(params: IDepositWithdrawParams) {
           }}
         />
       </PerpsProviderMirror>
+      // <DepositWithdrawContent
+      //   actionType={actionType}
+      //   activeAccount={activeAccount}
+      //   onClose={() => {
+      //     void dialogInstance.close();
+      //   }}
+      // />
     ),
     showFooter: false,
     onClose: () => {

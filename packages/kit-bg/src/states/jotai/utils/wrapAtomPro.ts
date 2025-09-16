@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom } from 'jotai';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';

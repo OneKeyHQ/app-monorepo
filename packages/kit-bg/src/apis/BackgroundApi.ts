@@ -711,16 +711,6 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceHyperliquidInfo() {
-    const Service =
-      require('../services/ServiceHyperLiquid/ServiceHyperliquidInfo') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidInfo');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceHyperliquidInfo', { value });
-    return value;
-  }
-
   get serviceHyperliquidExchange(): ServiceHyperliquidExchange {
     const Service =
       require('../services/ServiceHyperLiquid/ServiceHyperliquidExchange') as typeof import('../services/ServiceHyperLiquid/ServiceHyperliquidExchange');

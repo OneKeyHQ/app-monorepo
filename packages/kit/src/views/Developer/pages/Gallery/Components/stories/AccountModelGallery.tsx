@@ -2,6 +2,8 @@ import { useState } from 'react';
 
 import * as crypto from 'crypto';
 
+import { ethers } from 'ethersV6';
+
 import {
   Button,
   Divider,
@@ -16,6 +18,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { Layout } from './utils/Layout';
 
@@ -26,7 +29,7 @@ function HyperLiquidAgentCredentialDemo() {
     '0x1234567890123456789012345678901234567890',
   );
   const [agentName, setAgentName] = useState<EHyperLiquidAgentName>(
-    EHyperLiquidAgentName.Desktop,
+    EHyperLiquidAgentName.OneKeyAgent1,
   );
   const [addedCredential, setAddedCredential] = useState<string>('');
   const [retrievedCredential, setRetrievedCredential] = useState<string>('');
@@ -103,6 +106,8 @@ function HyperLiquidAgentCredentialDemo() {
             const privateKeyBytes = crypto.randomBytes(32);
             const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
             console.log('Generated private key:', privateKeyHex);
+            const agentAddress = new ethers.Wallet(privateKeyHex)
+              .address as IHex;
 
             // Encode private key as sensitive text
             const encodedPrivateKey =
@@ -115,6 +120,8 @@ function HyperLiquidAgentCredentialDemo() {
               userAddress,
               agentName,
               privateKey: encodedPrivateKey,
+              agentAddress,
+              validUntil: Date.now() + 1000 * 60 * 60 * 24 * 30,
             });
             console.log('Added HyperLiquid agent credential:', result);
             setAddedCredential(
@@ -165,6 +172,8 @@ function HyperLiquidAgentCredentialDemo() {
             const privateKeyBytes = crypto.randomBytes(32);
             const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
             console.log('Generated new private key:', privateKeyHex);
+            const agentAddress = new ethers.Wallet(privateKeyHex)
+              .address as IHex;
 
             // Encode private key as sensitive text
             const encodedPrivateKey =
@@ -173,25 +182,19 @@ function HyperLiquidAgentCredentialDemo() {
               });
 
             // Update HyperLiquid agent credential
-            const result =
-              await serviceAccount.updateHyperLiquidAgentCredential({
-                userAddress,
-                agentName,
-                privateKey: encodedPrivateKey,
-              });
+            await serviceAccount.updateHyperLiquidAgentCredential({
+              userAddress,
+              agentAddress,
+              agentName,
+              privateKey: encodedPrivateKey,
+              validUntil: Date.now() + 1000 * 60 * 60 * 24 * 30,
+            });
+            const result = await serviceAccount.getHyperLiquidAgentCredential({
+              userAddress,
+              agentName,
+            });
             console.log('Updated HyperLiquid agent credential:', result);
-            setUpdatedCredential(
-              JSON.stringify(
-                {
-                  credentialId: result.credentialId,
-                  userAddress,
-                  agentName,
-                  privateKey: privateKeyHex,
-                },
-                null,
-                2,
-              ),
-            );
+            setUpdatedCredential(JSON.stringify(result, null, 2));
           } catch (error) {
             console.error(
               'Failed to update HyperLiquid agent credential:',
