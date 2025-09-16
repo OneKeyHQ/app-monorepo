@@ -33,7 +33,7 @@ function MobilePerpMarket() {
             <PerpCandles />
           </YStack>
 
-          <YStack flexShrink={0} bg="$bgApp">
+          <YStack flexShrink={0} bg="$bgApp" px="$5">
             <PerpOrderBook entry="perpMobileMarket" />
           </YStack>
         </YStack>

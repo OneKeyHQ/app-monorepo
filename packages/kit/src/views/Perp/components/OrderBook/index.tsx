@@ -432,7 +432,7 @@ export function OrderBook({
                   <ColorBlock
                     color={blockColors.red}
                     right={0}
-                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
+                    width={`${calculatePercentage(item.cumSize, askDepth)}%`}
                   />
                 </View>
               ))}
@@ -480,7 +480,7 @@ export function OrderBook({
                   ))}
                 </View>
                 <View style={styles.levelList}>
-                  {aggregatedData.asks.toReversed().map((item, index) => (
+                  {aggregatedData.asks.map((item, index) => (
                     <View
                       key={index}
                       style={{
