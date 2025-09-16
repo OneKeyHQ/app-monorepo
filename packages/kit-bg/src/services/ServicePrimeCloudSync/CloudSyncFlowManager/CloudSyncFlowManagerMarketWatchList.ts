@@ -92,8 +92,8 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     const result = watchList.data.find(
       (i) =>
         i.chainId === payload.chainId &&
-        i.contractAddress === payload.contractAddress &&
-        !!i.isNative === !!payload.isNative,
+        i.contractAddress === payload.contractAddress,
+      // !!i.isNative === !!payload.isNative,
     );
     return cloneDeep(result);
   }
