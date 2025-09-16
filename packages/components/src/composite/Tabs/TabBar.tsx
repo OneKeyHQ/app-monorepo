@@ -217,18 +217,21 @@ export function TabBar({
       userSelect="none"
       {...containerStyle}
     >
-      <ListView
-        data={tabNames}
-        estimatedItemSize={44}
-        ref={listViewRef}
-        horizontal
-        pr="$4"
-        contentContainerStyle={{
-          pr: 16,
-        }}
-        renderItem={handleRenderItem as any}
-        showsHorizontalScrollIndicator={false}
-      />
+      <XStack alignItems="center" gap="$2" justifyContent="space-between">
+        <ListView
+          data={tabNames}
+          estimatedItemSize={44}
+          ref={listViewRef}
+          horizontal
+          pr="$4"
+          contentContainerStyle={{
+            pr: 16,
+          }}
+          renderItem={handleRenderItem as any}
+          showsHorizontalScrollIndicator={false}
+        />
+        {renderToolbar?.({ focusedTab: currentTab })}
+      </XStack>
       {divider ? <Divider /> : null}
     </YStack>
   ) : (

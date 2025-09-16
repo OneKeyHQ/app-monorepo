@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -25,7 +25,6 @@ import {
   Stack,
   Tabs,
   XStack,
-  YStack,
   useClipboard,
   useMedia,
 } from '@onekeyhq/components';
@@ -60,6 +59,7 @@ import {
   useTokenDetailsContext,
 } from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
+import TokenDetailsTabToolbar from './TokenDetailsTabToolbar';
 import TokenDetailsViews from './TokenDetailsView';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
@@ -96,7 +96,8 @@ function TokenDetailsView() {
 
   const { copyText } = useClipboard();
 
-  const { updateTokenMetadata } = useTokenDetailsContext();
+  const { updateTokenMetadata, batchUpdateTokenDetails } =
+    useTokenDetailsContext();
 
   const {
     accountId,
@@ -106,98 +107,33 @@ function TokenDetailsView() {
     isAllNetworks,
     indexedAccountId,
     isAggregateToken,
+    tokenMap,
   } = route.params;
 
   const { gtMd } = useMedia();
+
+  const tabsRef = useRef<{
+    switchTab: (tabName: string) => void;
+  } | null>(null);
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
-  const renderAggregateTokenList = useCallback(
-    ({ closePopover }: { closePopover: () => void }) => {
-      return tokens.map((token) => (
-        <XStack
-          key={token.$key}
-          alignItems="center"
-          gap="$2"
-          justifyContent="space-between"
-        >
-          <XStack
-            gap="$2"
-            alignItems="center"
-            flex={1}
-            justifyContent="space-between"
-          >
-            <XStack gap="$2" alignItems="center">
-              <NetworkAvatar
-                networkId={token.networkId}
-                size={gtMd ? '$4' : '$5'}
-              />
-              <SizableText size="$bodyMd" numberOfLines={1}>
-                {token.networkName}
-              </SizableText>
-            </XStack>
-          </XStack>
-          {!token.address ? null : (
-            <XStack gap="$3" alignItems="center">
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={() => copyText(token.address)}
-              >
-                <XStack alignItems="center" gap="$2">
-                  <SizableText
-                    fontFamily="$monoRegular"
-                    size="$bodyMd"
-                    color="$textSubdued"
-                  >
-                    {accountUtils.shortenAddress({
-                      address: token.address,
-                      leadingLength: 6,
-                      trailingLength: 4,
-                    })}
-                  </SizableText>
-                  <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-                </XStack>
-              </Button>
-
-              <IconButton
-                title={intl.formatMessage({
-                  id: ETranslations.global_view_in_blockchain_explorer,
-                })}
-                iconSize="$4"
-                variant="tertiary"
-                icon="OpenOutline"
-                iconColor="$iconSubdued"
-                size="small"
-                onPress={() => {
-                  closePopover();
-                  void openTokenDetailsUrl({
-                    networkId: token.networkId ?? '',
-                    tokenAddress: token.address,
-                  });
-                }}
-              />
-            </XStack>
-          )}
-        </XStack>
-      ));
-    },
-    [gtMd, copyText, intl, tokens],
-  );
-
   const renderAggregateTokens = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
       return (
-        <YStack
-          px="$5"
-          pt="$2"
-          pb="$5"
-          gap="$3"
-          $gtMd={{
-            px: '$3',
-            py: '$2.5',
+        <ScrollView
+          contentContainerStyle={{
+            gap: '$5',
+            px: '$5',
+            pt: '$2',
+            pb: '$5',
+            $gtMd: {
+              px: '$3',
+              py: '$2.5',
+              gap: '$3',
+            },
           }}
         >
           <SizableText
@@ -210,19 +146,86 @@ function TokenDetailsView() {
               id: ETranslations.global_contract_address,
             })}
           </SizableText>
-          {gtMd ? (
-            renderAggregateTokenList({ closePopover })
-          ) : (
-            <ScrollView maxHeight="$100">
-              <YStack gap="$3">
-                {renderAggregateTokenList({ closePopover })}
-              </YStack>
-            </ScrollView>
-          )}
-        </YStack>
+          {tokens.map((token) => (
+            <XStack
+              key={token.$key}
+              alignItems="center"
+              gap="$3"
+              $gtMd={{
+                gap: '$2',
+              }}
+            >
+              <NetworkAvatar
+                networkId={token.networkId}
+                size={gtMd ? '$4' : '$6'}
+              />
+              <SizableText
+                size="$bodyLg"
+                flex={1}
+                numberOfLines={1}
+                $gtMd={{
+                  size: '$bodyMd',
+                }}
+              >
+                {token.networkName}
+              </SizableText>
+              {!token.address ? null : (
+                <XStack gap="$3" alignItems="center">
+                  <Button
+                    size="small"
+                    variant="tertiary"
+                    onPress={() => copyText(token.address)}
+                  >
+                    <XStack alignItems="center" gap="$2">
+                      <SizableText
+                        fontFamily="$monoRegular"
+                        size="$bodyLg"
+                        $gtMd={{
+                          size: '$bodyMd',
+                        }}
+                        color="$textSubdued"
+                      >
+                        {accountUtils.shortenAddress({
+                          address: token.address,
+                          leadingLength: gtMd ? 6 : 4,
+                          trailingLength: 4,
+                        })}
+                      </SizableText>
+                      <Icon
+                        name="Copy3Outline"
+                        size="$5"
+                        color="$iconSubdued"
+                        $gtMd={{
+                          size: '$4',
+                        }}
+                      />
+                    </XStack>
+                  </Button>
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_view_in_blockchain_explorer,
+                    })}
+                    iconSize={gtMd ? '$4' : '$5'}
+                    variant="tertiary"
+                    icon="OpenOutline"
+                    iconColor="$iconSubdued"
+                    size="small"
+                    onPress={() => {
+                      closePopover();
+                      void openTokenDetailsUrl({
+                        networkId: token.networkId ?? '',
+                        tokenAddress: token.address,
+                      });
+                    }}
+                  />
+                </XStack>
+              )}
+            </XStack>
+          ))}
+        </ScrollView>
       );
     },
-    [intl, gtMd, renderAggregateTokenList],
+    [intl, tokens, gtMd, copyText],
   );
 
   const headerRight = useCallback(() => {
@@ -234,13 +237,15 @@ function TokenDetailsView() {
           title={intl.formatMessage({
             id: ETranslations.global_contract_address,
           })}
+          sheetProps={{
+            snapPoints: [92],
+            snapPointsMode: 'percent',
+          }}
           renderTrigger={<HeaderIconButton icon="InfoCircleOutline" />}
           renderContent={renderAggregateTokens}
-          sheetProps={{
-            disableDrag: true,
-          }}
           floatingPanelProps={{
             width: 320,
+            maxHeight: 372,
           }}
         />
       );
@@ -418,10 +423,24 @@ function TokenDetailsView() {
       if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
           <Tabs.Container
+            ref={tabsRef as any}
             onIndexChange={(index) => {
               setActiveTabIndex(index);
             }}
-            renderTabBar={(props) => <Tabs.TabBar {...props} scrollable />}
+            renderTabBar={(props) => (
+              <Tabs.TabBar
+                {...props}
+                scrollable
+                renderToolbar={() => (
+                  <TokenDetailsTabToolbar
+                    tokens={tokens}
+                    onSelected={(token) => {
+                      tabsRef.current?.switchTab(token.networkName ?? '');
+                    }}
+                  />
+                )}
+              />
+            )}
           >
             {tabs}
           </Tabs.Container>
@@ -476,6 +495,29 @@ function TokenDetailsView() {
       </XStack>
     );
   }, [tokens, gtMd, network?.logoURI, networkId]);
+
+  useEffect(() => {
+    if (tokens && tokenMap) {
+      const details = tokens
+        .map((token) => {
+          const tokenFiat = tokenMap[token.$key];
+          if (tokenFiat) {
+            return {
+              accountId: token.accountId ?? accountId,
+              networkId: token.networkId ?? networkId,
+              isInit: true,
+              data: {
+                info: token,
+                ...tokenFiat,
+              },
+            };
+          }
+          return undefined;
+        })
+        .filter((detail) => detail !== undefined);
+      batchUpdateTokenDetails(details);
+    }
+  }, [tokens, tokenMap, accountId, networkId, batchUpdateTokenDetails]);
 
   return (
     <Page lazyLoad safeAreaEnabled={false}>
@@ -541,6 +583,34 @@ export default function TokenDetailsModal() {
     [],
   );
 
+  const batchUpdateTokenDetails = useCallback(
+    (
+      details: {
+        accountId: string;
+        networkId: string;
+        isInit: boolean;
+        data: IFetchTokenDetailItem;
+      }[],
+    ) => {
+      const dataToUpdate = details.reduce(
+        (acc, detail) => ({
+          ...acc,
+          [`${detail.accountId}_${detail.networkId}`]: {
+            init: detail.isInit,
+            data: detail.data,
+          },
+        }),
+        {} as Record<string, { init: boolean; data?: IFetchTokenDetailItem }>,
+      );
+
+      setTokenDetails((prev) => ({
+        ...prev,
+        ...dataToUpdate,
+      }));
+    },
+    [],
+  );
+
   // Context value
   const contextValue = useMemo(
     () => ({
@@ -550,6 +620,7 @@ export default function TokenDetailsModal() {
       updateIsLoadingTokenDetails,
       tokenDetails,
       updateTokenDetails,
+      batchUpdateTokenDetails,
     }),
     [
       tokenMetadata,
@@ -558,6 +629,7 @@ export default function TokenDetailsModal() {
       updateIsLoadingTokenDetails,
       tokenDetails,
       updateTokenDetails,
+      batchUpdateTokenDetails,
     ],
   );
   return (

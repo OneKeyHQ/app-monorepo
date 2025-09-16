@@ -121,6 +121,7 @@ class ServiceToken extends ServiceBase {
       blockedTokensRawData,
       unblockedTokensRawData,
       aggregateTokenConfigMapRawData,
+      aggregateTokenSymbolMapRawData,
       ...rest
     } = params;
     const { networkId } = rest;
@@ -280,7 +281,12 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.tokens.data = resp.data.data.tokens.data
       .map((token) => {
-        if (isAllNetworks && aggregateTokenConfigMapRawData) {
+        let isSameSymbolWithAggregateToken = false;
+        if (
+          isAllNetworks &&
+          aggregateTokenConfigMapRawData &&
+          aggregateTokenSymbolMapRawData
+        ) {
           const data = buildAggregateTokenListData({
             networkId,
             accountId,
@@ -289,8 +295,11 @@ class ServiceToken extends ServiceBase {
             aggregateTokenListMap,
             aggregateTokenMap,
             aggregateTokenConfigMapRawData,
+            aggregateTokenSymbolMapRawData,
             networkName: network?.name ?? '',
           });
+
+          isSameSymbolWithAggregateToken = data.isSameSymbolWithAggregateToken;
 
           if (data.isAggregateToken) {
             aggregateTokenListMap = data.aggregateTokenListMap;
@@ -309,6 +318,7 @@ class ServiceToken extends ServiceBase {
           networkId,
           networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+          isSameSymbolWithAggregateToken,
         };
       })
       .filter(Boolean);
@@ -330,7 +340,12 @@ class ServiceToken extends ServiceBase {
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data
         .map((token) => {
-          if (isAllNetworks && aggregateTokenConfigMapRawData) {
+          let isSameSymbolWithAggregateToken = false;
+          if (
+            isAllNetworks &&
+            aggregateTokenConfigMapRawData &&
+            aggregateTokenSymbolMapRawData
+          ) {
             const data = buildAggregateTokenListData({
               accountId,
               networkName: network?.name ?? '',
@@ -340,7 +355,11 @@ class ServiceToken extends ServiceBase {
               aggregateTokenListMap,
               aggregateTokenMap,
               aggregateTokenConfigMapRawData,
+              aggregateTokenSymbolMapRawData,
             });
+
+            isSameSymbolWithAggregateToken =
+              data.isSameSymbolWithAggregateToken;
 
             if (data.isAggregateToken) {
               aggregateTokenListMap = data.aggregateTokenListMap;
@@ -358,6 +377,7 @@ class ServiceToken extends ServiceBase {
             networkId,
             networkName: network?.name,
             mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
+            isSameSymbolWithAggregateToken,
           };
         })
         .filter(Boolean);
@@ -1030,6 +1050,7 @@ class ServiceToken extends ServiceBase {
 
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
+    const aggregateTokenSymbolMap: Record<string, boolean> = {};
     const listedNetworkMap = getListedNetworkMap();
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
@@ -1041,6 +1062,7 @@ class ServiceToken extends ServiceBase {
     });
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
+        aggregateTokenSymbolMap[commonSymbol] = true;
         const filteredData = data.filter(
           (token) => !!listedNetworkMap[token.networkId],
         );
@@ -1126,6 +1148,7 @@ class ServiceToken extends ServiceBase {
       aggregateTokenConfigMap,
       homeDefaultTokenMap,
       allAggregateTokenMap,
+      aggregateTokenSymbolMap,
     });
 
     return aggregateTokenConfigMap;
@@ -1134,6 +1157,11 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async getHomeDefaultTokenMap() {
     return this.backgroundApi.simpleDb.aggregateToken.getHomeDefaultTokenMap();
+  }
+
+  @backgroundMethod()
+  public async getAggregateTokenSymbolMap() {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenSymbolMap();
   }
 
   @backgroundMethod()
