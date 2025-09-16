@@ -1,11 +1,14 @@
 /* eslint-disable react/prop-types */
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   type IButtonProps,
   SegmentControl,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type ITradeSide,
@@ -43,7 +46,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
       },
       [onChange],
     );
-
+    const intl = useIntl();
     const isLongActive = value === 'long';
     const isShortActive = value === 'short';
 
@@ -61,7 +64,9 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             onPress={() => onChange('long')}
             disabled={disabled}
           >
-            Long
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_long,
+            })}
           </Button>
         ),
       },
@@ -75,7 +80,9 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             onPress={() => onChange('short')}
             disabled={disabled}
           >
-            Short
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_short,
+            })}
           </Button>
         ),
       },

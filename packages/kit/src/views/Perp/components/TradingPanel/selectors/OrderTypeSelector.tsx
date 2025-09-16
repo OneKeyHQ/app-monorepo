@@ -1,7 +1,10 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 interface IOrderTypeSelectorProps {
   value: 'market' | 'limit';
@@ -9,14 +12,27 @@ interface IOrderTypeSelectorProps {
   disabled?: boolean;
 }
 
-const orderTypeOptions: ISelectItem[] = [
-  { label: 'Market', value: 'market' },
-  { label: 'Limit', value: 'limit' },
-];
-
 export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
   // eslint-disable-next-line react/prop-types
   ({ value, onChange, disabled = false }) => {
+    const intl = useIntl();
+    const orderTypeOptions = useMemo(
+      (): ISelectItem[] => [
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_trade_market,
+          }),
+          value: 'market',
+        },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.perp_trade_limit,
+          }),
+          value: 'limit',
+        },
+      ],
+      [intl],
+    );
     return (
       <Select
         items={orderTypeOptions}

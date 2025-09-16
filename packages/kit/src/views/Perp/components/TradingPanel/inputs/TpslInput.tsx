@@ -1,8 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPercentage,
   formatPriceToSignificantDigits,
@@ -203,6 +205,7 @@ export const TpslInput = memo(
         canCalculate,
       ],
     );
+    const intl = useIntl();
 
     return (
       <YStack gap="$3">
@@ -210,7 +213,9 @@ export const TpslInput = memo(
           <YStack flex={1}>
             <Input
               h={40}
-              placeholder="TP Price"
+              placeholder={intl.formatMessage({
+                id: ETranslations.perp_trade_tp_price,
+              })}
               value={internalState.tpTriggerPx}
               onChangeText={handleTpPriceChange}
               disabled={disabled}
@@ -224,15 +229,19 @@ export const TpslInput = memo(
               }}
             />
           </YStack>
-          <YStack width={100}>
+          <YStack width={120}>
             <Input
               h={40}
-              placeholder="Gain"
+              placeholder={intl.formatMessage({
+                id: ETranslations.perp_trade_tp_price_gain,
+              })}
               value={internalState.tpGainPercent}
               onChangeText={handleTpPercentChange}
               disabled={disabled}
               keyboardType="decimal-pad"
               size="small"
+              textAlign="right"
+              leftIconName="PlusSmallOutline"
               containerProps={{
                 bg: '$bgSubdued',
                 borderRadius: '$2',
@@ -256,7 +265,9 @@ export const TpslInput = memo(
           <YStack flex={1}>
             <Input
               h={40}
-              placeholder="SL Price"
+              placeholder={intl.formatMessage({
+                id: ETranslations.perp_trade_sl_price,
+              })}
               value={internalState.slTriggerPx}
               onChangeText={handleSlPriceChange}
               disabled={disabled}
@@ -269,10 +280,14 @@ export const TpslInput = memo(
               }}
             />
           </YStack>
-          <YStack width={100}>
+          <YStack width={120}>
             <Input
               h={40}
-              placeholder="Loss"
+              placeholder={intl.formatMessage({
+                id: ETranslations.perp_trade_sl_price_loss,
+              })}
+              textAlign="right"
+              leftIconName="MinusSmallOutline"
               value={internalState.slLossPercent}
               onChangeText={handleSlPercentChange}
               disabled={disabled}
