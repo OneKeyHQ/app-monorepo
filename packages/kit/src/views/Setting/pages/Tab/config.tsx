@@ -363,6 +363,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
           ],
+          [
+            !settings.perpConfigCommon.disablePerp
+              ? {
+                  icon: 'LabOutline',
+                  title: 'Perp Config',
+                  onPress: (navigation) => {
+                    navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
+                  },
+                }
+              : null,
+          ],
         ],
       },
       {
@@ -791,6 +802,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       privacyPolicyUrl,
       copyText,
       settings.hardwareTransportType,
+      settings.perpConfigCommon.disablePerp,
     ],
   );
 };

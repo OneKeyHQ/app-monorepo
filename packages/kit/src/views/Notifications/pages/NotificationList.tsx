@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Alert,
   Dialog,
@@ -297,7 +298,7 @@ function BaseNotificationList() {
     useNotificationsAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
-
+  const listRef = useRef<ISectionListRef<unknown>>(null);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
@@ -403,7 +404,10 @@ function BaseNotificationList() {
         );
         setUnreadMap(hasUnreadMap);
       }
-      if (cacheListRef.current[topicType]?.length && r?.length > 0) {
+      if (
+        (cacheListRef.current[topicType]?.length || 0) === 0 &&
+        r?.length > 0
+      ) {
         setResult(r);
       }
       cacheListRef.current[topicType] = r;
@@ -452,6 +456,7 @@ function BaseNotificationList() {
     return (
       <SectionList
         useFlashList
+        ref={listRef}
         contentContainerStyle={{
           pb: bottom || '$5',
         }}
@@ -561,6 +566,12 @@ function BaseNotificationList() {
       if (tab) {
         focusedTab.value = tab.name;
         void reFetchList();
+        setTimeout(() => {
+          listRef.current?.scrollToIndex({
+            index: 0,
+            animated: false,
+          });
+        }, 10);
       }
     },
     [focusedTab, reFetchList, tabs],

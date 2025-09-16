@@ -9,7 +9,6 @@ import type { ViewStyle } from 'react-native';
 import type { WebViewProps } from 'react-native-webview';
 
 interface IBaseTradingViewProps {
-  mode: 'overview' | 'realtime';
   identifier: string;
   baseToken: string;
   targetToken: string;

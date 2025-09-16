@@ -1,7 +1,8 @@
 import {
   EAppUpdateStatus,
-  type IAppUpdateInfo,
+  EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
+import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -12,9 +13,9 @@ export const { target: appUpdatePersistAtom, use: useAppUpdatePersistAtom } =
     name: EAtomNames.appUpdatePersistAtom,
     initialValue: {
       latestVersion: '0.0.0',
-      isForceUpdate: false,
       updateAt: 0,
       status: EAppUpdateStatus.done,
+      updateStrategy: EUpdateStrategy.manual,
       isShowUpdateDialog: false,
     },
   });

@@ -82,6 +82,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenDetail?.symbol}
+                      isNative={isNative}
                     />
                   </Stack>
                 </YStack>
@@ -100,7 +101,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
         </YStack>
       );
     },
-    [height, networkId, tokenAddress, tokenDetail?.symbol],
+    [height, networkId, tokenAddress, tokenDetail?.symbol, isNative],
   );
 
   return (

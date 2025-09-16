@@ -24,6 +24,7 @@
     "build:electron:mac": "electron-builder build -m --config electron-builder.config.js",
     "build:electron:mas": "electron-builder build -m --config electron-builder-mas.config.js",
     "build:electron:snap": "electron-builder build -l --config electron-builder-snap.config.js",
+    "bundle:build": "yarn build:renderer",
     "build": "yarn keytar && cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish never",
     "build:snap": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never",
     "build:mac": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:mac --publish never",
@@ -32,7 +33,8 @@
     "build:winms": "cross-env NODE_ENV=production DESK_CHANNEL=ms-store yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish never",
     "publish:all": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish always",
     "publish:winms": "cross-env NODE_ENV=production DESK_CHANNEL=ms-store yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:winms --publish always",
-    "_folderslint": "yarn folderslint"
+    "_folderslint": "yarn folderslint",
+    "build:JsBundle": "cross-env NODE_ENV=production BUILD_BUNDLE_UPDATE=true NODE_OPTIONS=--max-old-space-size=8192 webpack build"
   },
   "dependencies": {
     "@sentry/electron": "5.8.0",

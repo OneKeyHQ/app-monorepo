@@ -193,6 +193,8 @@ export type ICoreHyperLiquidAgentCredential = {
   userAddress: string;
   agentName: EHyperLiquidAgentName;
   privateKey: string;
+  agentAddress: string;
+  validUntil: number;
 };
 export type ICoreHyperLiquidAgentCredentialEncryptHex = string;
 

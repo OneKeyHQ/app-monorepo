@@ -19,9 +19,9 @@ import {
   useCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
-import { usePerpUseChainAccount } from '../../../hooks/usePerpUseChainAccount';
 
 interface ILeverageContentProps {
   initialValue: number;
@@ -152,7 +152,8 @@ const LeverageContent = memo(
 LeverageContent.displayName = 'LeverageContent';
 
 export const LeverageAdjustModal = memo(() => {
-  const { userAccountId } = usePerpUseChainAccount();
+  const [selectedAccount] = usePerpsSelectedAccountAtom();
+  const userAddress = selectedAccount.accountAddress;
 
   const [currentToken] = useCurrentTokenAtom();
   const { getTokenInfo } = useTokenList();
@@ -161,7 +162,7 @@ export const LeverageAdjustModal = memo(() => {
   const tokenInfo = getTokenInfo(currentToken);
   const intl = useIntl();
   const showLeverageDialog = useCallback(() => {
-    if (!userAccountId || !tokenInfo || !activeAssetData) return;
+    if (!userAddress || !tokenInfo || !activeAssetData) return;
 
     const initialValue =
       activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
@@ -190,11 +191,9 @@ export const LeverageAdjustModal = memo(() => {
       ),
       showFooter: false,
     });
-  }, [tokenInfo, userAccountId, activeAssetData, intl]);
+  }, [tokenInfo, userAddress, activeAssetData, intl]);
 
-  if (!userAccountId || !tokenInfo) {
-    return null;
-  }
+  if (!userAddress || !tokenInfo) return null;
 
   return (
     <Badge

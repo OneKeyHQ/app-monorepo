@@ -11,7 +11,6 @@ const TradingViewGallery = () => (
         title: '默认状态',
         element: (
           <TradingView
-            mode="realtime"
             baseToken="BTC"
             targetToken="USDT"
             identifier="binance"
