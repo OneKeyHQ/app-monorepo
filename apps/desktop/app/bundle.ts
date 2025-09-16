@@ -44,7 +44,7 @@ export const getBundleIndexHtmlPath = () => {
   if (!fs.existsSync(extractDir)) {
     return undefined;
   }
-  const indexHtmlPath = path.join(extractDir, 'web', 'index.html');
+  const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
   logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
   return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
@@ -56,7 +56,7 @@ export const checkFileSha512 = (filePath: string, sha512: string) => {
 };
 
 export const getMetadata = (bundleDir: string) => {
-  const metadataPath = path.join(bundleDir, 'metadata.json');
+  const metadataPath = path.join(bundleDir, '..', 'metadata.json');
   return JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
     string,
     string
