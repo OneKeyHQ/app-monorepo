@@ -204,7 +204,7 @@ function TradingViewChart({
   defer,
   height,
   onLoadEnd,
-}: Omit<ITradingViewProps, 'mode'> & {
+}: ITradingViewProps & {
   defer: IDeferredPromise<unknown>;
   onLoadEnd: () => void;
 }) {
@@ -216,7 +216,6 @@ function TradingViewChart({
 
   return (
     <TradingView
-      mode="overview"
       h={height}
       $gtMd={{ pl: isModalPage ? 0 : '$5' }}
       $md={{ pt: '$3' }}

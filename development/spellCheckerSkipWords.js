@@ -1,5 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 module.exports = [
+  'unixTime',
   'nodata',
   'tradingview',
   'ohlcv',
