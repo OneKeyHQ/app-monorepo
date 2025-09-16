@@ -3,6 +3,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
+import {
+  EPerpUserType,
+  type IPerpCommonConfig,
+  type IPerpUserConfig,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
@@ -61,6 +66,9 @@ export type ISettingsPersistAtom = {
   hiddenWalletImmediately: boolean;
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
+
+  perpConfigCommon: IPerpCommonConfig;
+  perpUserConfig: IPerpUserConfig;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -95,6 +103,10 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
+  perpConfigCommon: {},
+  perpUserConfig: {
+    currentUserType: EPerpUserType.PERP_NATIVE,
+  },
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

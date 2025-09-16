@@ -3,6 +3,8 @@ import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
+import type { IPerpBannerConfig } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
+
 export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
   hideNavBarConnectButton?: boolean;

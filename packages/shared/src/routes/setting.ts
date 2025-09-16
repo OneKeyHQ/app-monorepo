@@ -7,6 +7,7 @@ export enum EModalSettingRoutes {
   SettingSpendUTXOModal = 'SettingSpendUTXOModal',
   SettingCustomRPC = 'SettingCustomRPC',
   SettingCustomTransaction = 'SettingCustomTransaction',
+  SettingPerpUserConfig = 'SettingPerpUserConfig',
   SettingCustomNetwork = 'SettingCustomNetwork',
   SettingAppAutoLockModal = 'SettingAppAutoLockModal',
   SettingProtectModal = 'SettingProtectModal',
@@ -53,4 +54,5 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
+  [EModalSettingRoutes.SettingPerpUserConfig]: undefined;
 };
