@@ -306,15 +306,11 @@ export function CommonTableListView({
               ListEmptyComponent={
                 <YStack
                   flex={1}
-                  justifyContent="center"
-                  alignItems="center"
-                  p="$6"
+                  justifyContent="flex-start"
+                  alignItems="flex-start"
+                  p="$5"
                 >
-                  <SizableText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    textAlign="center"
-                  >
+                  <SizableText size="$bodyMd" color="$text" textAlign="center">
                     {emptyMessage}
                   </SizableText>
                   <SizableText

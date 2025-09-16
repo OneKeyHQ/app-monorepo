@@ -54,6 +54,7 @@ export type IExtraAgent = HL.ExtraAgent;
 export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
 export type IUserFillsParameters = HL.UserFillsParameters;
 export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
+export type IWithdraw3Request = HL.Withdraw3Parameters;
 
 // Subscription parameter types
 export type IWsAllMidsParameters = HL.WsAllMidsParameters;
@@ -65,6 +66,7 @@ export type IEventNotificationParameters = HL.EventNotificationParameters;
 export type IEventTradesParameters = HL.EventTradesParameters;
 export type IEventUserEventsParameters = HL.EventUserEventsParameters;
 export type IEventWebData2Parameters = HL.EventWebData2Parameters;
+export type IEventUserFillsParameters = HL.EventUserFillsParameters;
 
 // Request types (define manually as SDK may not export these)
 export interface IOrderRequest {
