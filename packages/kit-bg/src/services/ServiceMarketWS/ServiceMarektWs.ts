@@ -284,23 +284,6 @@ class ServiceMarketWS extends ServiceBase {
 
     if (messageType === 'TXS_DATA') {
       channel = EChannel.tokenTxs;
-
-      const txsData = processedData as IWsTxsData;
-
-      // Extract tokenAddress from transaction data based on trading direction
-      const fromAddress = txsData.from.address;
-      const toAddress = txsData.to.address;
-
-      if (txsData.from.typeSwap === 'from' && txsData.to.typeSwap === 'to') {
-        tokenAddress = fromAddress;
-      } else if (
-        txsData.from.typeSwap === 'to' &&
-        txsData.to.typeSwap === 'from'
-      ) {
-        tokenAddress = toAddress;
-      } else {
-        return;
-      }
     } else if (messageType === 'PRICE_DATA') {
       channel = EChannel.ohlcv;
 
