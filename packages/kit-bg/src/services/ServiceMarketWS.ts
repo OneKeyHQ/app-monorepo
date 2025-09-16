@@ -26,7 +26,8 @@ type IMarketSubscription = {
   channel: string;
   networkId: string;
   tokenAddress: string;
-  queryType: 'simple';
+  chartType?: string;
+  currency?: string;
 };
 
 type IMarketMessage = {
@@ -46,7 +47,7 @@ class ServiceMarketWS extends ServiceBase {
   private isMarketListenerRegistered = false;
 
   @backgroundMethod()
-  async connect(_instanceId: string): Promise<void> {
+  async connect(): Promise<void> {
     // Get the shared WebSocket from PushProviderWebSocket
     const webSocketProvider = (
       await this.backgroundApi.serviceNotification.getNotificationProvider()
@@ -85,6 +86,7 @@ class ServiceMarketWS extends ServiceBase {
     this.subscriptions.clear();
   }
 
+  @backgroundMethod()
   async subscribeTokenTxs({
     networkId,
     tokenAddress,
@@ -105,7 +107,6 @@ class ServiceMarketWS extends ServiceBase {
           channel: EChannel.tokenTxs,
           networkId,
           tokenAddress,
-          queryType: 'simple',
         },
       ],
     };
@@ -123,31 +124,38 @@ class ServiceMarketWS extends ServiceBase {
   async subscribeOHLCV({
     networkId,
     tokenAddress,
+    chartType = '1m',
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
+    chartType?: string;
+    currency?: string;
   }) {
-    const subscriptionKey = `${EChannel.ohlcv}-${networkId}-${tokenAddress}`;
-
-    console.log('subscribeOHLCV', subscriptionKey);
+    const subscriptionKey = `${EChannel.ohlcv}-${networkId}-${tokenAddress}-${chartType}-${currency}`;
 
     if (this.subscriptions.has(subscriptionKey)) {
       return;
     }
 
-    const message: IMarketMessage = {
-      operation: EOperation.subscribe,
-      args: [
-        {
-          channel: EChannel.ohlcv,
-          networkId,
-          tokenAddress,
-          queryType: 'simple',
-        },
-      ],
+    const subscriptionArgs: IMarketSubscription = {
+      channel: EChannel.ohlcv,
+      networkId,
+      tokenAddress,
     };
 
-    console.log('subscribeOHLCV', message);
+    // Add optional parameters if provided
+    if (chartType) {
+      subscriptionArgs.chartType = chartType;
+    }
+    if (currency) {
+      subscriptionArgs.currency = currency;
+    }
+
+    const message: IMarketMessage = {
+      operation: EOperation.subscribe,
+      args: [subscriptionArgs],
+    };
 
     if (!this.socket?.connected) {
       console.error('WebSocket not connected');
@@ -158,31 +166,52 @@ class ServiceMarketWS extends ServiceBase {
     this.subscriptions.add(subscriptionKey);
   }
 
+  @backgroundMethod()
   async unsubscribe({
     channel,
     networkId,
     tokenAddress,
+    chartType,
+    currency,
   }: {
     channel: string;
     networkId: string;
     tokenAddress: string;
+    chartType?: string;
+    currency?: string;
   }) {
-    const subscriptionKey = `${channel}-${networkId}-${tokenAddress}`;
+    // Generate the same subscription key as used in subscribe methods
+    let subscriptionKey: string;
+    if (channel === EChannel.ohlcv && chartType && currency) {
+      subscriptionKey = `${channel}-${networkId}-${tokenAddress}-${chartType}-${currency}`;
+    } else {
+      subscriptionKey = `${channel}-${networkId}-${tokenAddress}`;
+    }
+
+    console.log('unsubscribe', subscriptionKey);
 
     if (!this.subscriptions.has(subscriptionKey)) {
+      console.log('Subscription not found:', subscriptionKey);
       return;
+    }
+
+    const subscriptionArgs: IMarketSubscription = {
+      channel,
+      networkId,
+      tokenAddress,
+    };
+
+    // Add optional parameters if provided
+    if (chartType) {
+      subscriptionArgs.chartType = chartType;
+    }
+    if (currency) {
+      subscriptionArgs.currency = currency;
     }
 
     const message: IMarketMessage = {
       operation: EOperation.unsubscribe,
-      args: [
-        {
-          channel,
-          networkId,
-          tokenAddress,
-          queryType: 'simple',
-        },
-      ],
+      args: [subscriptionArgs],
     };
 
     if (!this.socket?.connected) {
@@ -193,6 +222,52 @@ class ServiceMarketWS extends ServiceBase {
     this.subscriptions.delete(subscriptionKey);
   }
 
+  @backgroundMethod()
+  async unsubscribeTokenTxs({
+    networkId,
+    tokenAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    await this.unsubscribe({
+      channel: EChannel.tokenTxs,
+      networkId,
+      tokenAddress,
+    });
+  }
+
+  @backgroundMethod()
+  async unsubscribeOHLCV({
+    networkId,
+    tokenAddress,
+    chartType = '3m',
+    currency = 'pair',
+  }: {
+    networkId: string;
+    tokenAddress: string;
+    chartType?: string;
+    currency?: string;
+  }) {
+    await this.unsubscribe({
+      channel: EChannel.ohlcv,
+      networkId,
+      tokenAddress,
+      chartType,
+      currency,
+    });
+  }
+
+  private safeGetStringProperty(obj: Record<string, any>, key: string): string {
+    return key in obj && typeof obj[key] === 'string' ? obj[key] : '';
+  }
+
+  // private safeGetObjectProperty(obj: Record<string, any>, key: string): Record<string, any> | undefined {
+  //   return key in obj && obj[key] && typeof obj[key] === 'object'
+  //     ? obj[key] as Record<string, any>
+  //     : undefined;
+  // }
+
   private handleMarketMessage(data: unknown) {
     console.log('Market data received:', data);
 
@@ -201,26 +276,93 @@ class ServiceMarketWS extends ServiceBase {
       return;
     }
 
-    // Check required properties
-    const requiredProperties = ['channel', 'networkId', 'tokenAddress'];
-    const hasAllProperties = requiredProperties.every((prop) => prop in data);
+    const messageData = data as Record<string, any>;
 
-    if (!hasAllProperties) {
+    // Handle different message formats from the WebSocket
+    // Support both direct channel format and nested data format
+    let channel: string;
+    let networkId: string;
+    let tokenAddress = '';
+    let messageType: string | undefined;
+    let processedData: any;
+
+    if ('type' in messageData && 'data' in messageData) {
+      // Format: { type: 'TXS_DATA' | 'PRICE_DATA', data: {...} }
+      messageType = messageData.type as string;
+      processedData = messageData.data as Record<string, any>;
+
+      if (messageType === 'TXS_DATA') {
+        channel = EChannel.tokenTxs;
+        const rawNetworkId = this.safeGetStringProperty(
+          processedData,
+          'network',
+        );
+        // Convert 'solana' to 'sol--101' to match the expected format
+        networkId = rawNetworkId === 'solana' ? 'sol--101' : rawNetworkId;
+
+        // Extract tokenAddress from transaction data - check from/to addresses
+        const fromAddress = this.safeGetStringProperty(
+          processedData.from as Record<string, any>,
+          'address',
+        );
+        const toAddress = this.safeGetStringProperty(
+          processedData.to as Record<string, any>,
+          'address',
+        );
+
+        // Use the first non-SOL address as tokenAddress (SOL is the native token)
+        const solAddress = 'So11111111111111111111111111111111111111112';
+        if (fromAddress && fromAddress !== solAddress) {
+          tokenAddress = fromAddress;
+        } else if (toAddress && toAddress !== solAddress) {
+          tokenAddress = toAddress;
+        } else {
+          tokenAddress = fromAddress || toAddress || '';
+        }
+      } else if (messageType === 'PRICE_DATA') {
+        channel = EChannel.ohlcv;
+        // Extract networkId from address or use default
+        networkId = 'sol--101'; // Default for now, can be enhanced
+        tokenAddress = this.safeGetStringProperty(processedData, 'address');
+      } else {
+        return;
+      }
+    } else {
+      // Legacy format: { channel, networkId, tokenAddress, ... }
+      const requiredProperties = ['channel', 'networkId', 'tokenAddress'];
+      const hasAllProperties = requiredProperties.every(
+        (prop) => prop in messageData,
+      );
+
+      if (!hasAllProperties) {
+        return;
+      }
+
+      channel = messageData.channel as string;
+      networkId = messageData.networkId as string;
+      tokenAddress = messageData.tokenAddress as string;
+      processedData = messageData;
+    }
+
+    // Validate that we have the required data
+    if (!channel || !networkId || !tokenAddress) {
+      console.warn('Invalid market data: missing required fields', {
+        channel,
+        networkId,
+        tokenAddress,
+        originalData: data,
+      });
       return;
     }
 
-    const marketData = data as {
-      channel: string;
-      networkId: string;
-      tokenAddress: string;
-    };
-
-    // Emit event to app event bus
+    // Emit event to app event bus with standardized format
     appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
-      channel: marketData.channel,
-      networkId: marketData.networkId,
-      tokenAddress: marketData.tokenAddress,
-      data,
+      channel,
+      networkId,
+      tokenAddress,
+      messageType,
+      data: processedData,
+      originalData: data,
     });
   }
 

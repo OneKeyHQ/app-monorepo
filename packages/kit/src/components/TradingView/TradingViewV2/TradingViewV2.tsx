@@ -12,6 +12,7 @@ import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
   useNavigationHandler,
+  useTradingViewV2WebSocket,
 } from './hooks';
 import { useTradingViewMessageHandler } from './messageHandlers';
 
@@ -73,18 +74,29 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     },
   });
 
-  useAutoKLineUpdate({
-    tokenAddress,
-    networkId,
-    webRef,
-    enabled: mode === 'realtime',
-  });
+  // useAutoKLineUpdate({
+  //   tokenAddress,
+  //   networkId,
+  //   webRef,
+  //   enabled: mode === 'realtime',
+  // });
 
   useAutoTokenDetailUpdate({
     tokenAddress,
     networkId,
     webRef,
     enabled: mode === 'realtime',
+  });
+
+  // Enhanced WebSocket connection for real-time market data
+  useTradingViewV2WebSocket({
+    tokenAddress,
+    networkId,
+    webRef,
+    enabled: mode === 'realtime',
+    enableOHLCV: true,
+    chartType: '1m',
+    currency: 'usd',
   });
 
   const onShouldStartLoadWithRequest = useCallback(

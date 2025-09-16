@@ -39,7 +39,6 @@ export function useMarketTransactions({
     [tokenAddress, networkId],
     {
       watchLoading: true,
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
     },
   );
 
@@ -156,6 +155,29 @@ export function useMarketTransactions({
     await fetchTransactions();
   }, [fetchTransactions]);
 
+  const addNewTransaction = useCallback(
+    (newTransaction: IMarketTokenTransaction) => {
+      setAccumulatedTransactions((prev) => {
+        // Check if transaction already exists to avoid duplicates
+        const existingIndex = prev.findIndex(
+          (tx) => tx.hash === newTransaction.hash,
+        );
+
+        if (existingIndex !== -1) {
+          return prev;
+        }
+
+        // Add new transaction at the beginning and sort by timestamp
+        const updatedTransactions = [newTransaction, ...prev].sort(
+          (a, b) => b.timestamp - a.timestamp,
+        );
+
+        return updatedTransactions;
+      });
+    },
+    [],
+  );
+
   return {
     transactions: accumulatedTransactions,
     transactionsData,
@@ -165,5 +187,6 @@ export function useMarketTransactions({
     hasMore,
     loadMore,
     onRefresh,
+    addNewTransaction,
   };
 }

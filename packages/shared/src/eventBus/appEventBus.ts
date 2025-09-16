@@ -326,7 +326,9 @@ export interface IAppEventBusPayload {
     channel: string;
     networkId: string;
     tokenAddress: string;
+    messageType?: string;
     data: any;
+    originalData?: any;
   };
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
