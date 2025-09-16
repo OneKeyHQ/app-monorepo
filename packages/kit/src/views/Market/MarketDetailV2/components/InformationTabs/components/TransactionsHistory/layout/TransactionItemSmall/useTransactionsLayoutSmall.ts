@@ -5,8 +5,6 @@ export const useTransactionsLayoutSmall = () => {
     },
     amount: {
       width: '55%',
-      backgroundColor: '$red3',
-
       textAlign: 'center' as const,
     },
     price: {
