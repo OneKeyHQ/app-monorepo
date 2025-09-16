@@ -117,7 +117,7 @@ function BasePerpTokenSelectorContent({
       </YStack>
 
       {/* Token List */}
-      <YStack flex={1} maxHeight={300}>
+      <YStack flex={1} height={300}>
         <ListView
           useFlashList
           data={filteredTokens.filter((token) => !token.isDelisted)}

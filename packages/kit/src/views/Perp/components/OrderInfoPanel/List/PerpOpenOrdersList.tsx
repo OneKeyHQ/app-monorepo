@@ -26,24 +26,24 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
-        key: 'asset',
-        title: intl.formatMessage({
-          id: ETranslations.perp_token_selector_asset,
-        }),
-        width: 120,
-        align: 'left',
-      },
-      {
         key: 'time',
         title: intl.formatMessage({ id: ETranslations.perp_open_orders_time }),
         minWidth: 100,
         align: 'left',
-        flex: 1,
       },
+      {
+        key: 'asset',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        width: 80,
+        align: 'left',
+      },
+
       {
         key: 'type',
         title: intl.formatMessage({ id: ETranslations.perp_open_orders_type }),
-        minWidth: 100,
+        minWidth: 120,
         align: 'left',
         flex: 1,
       },

@@ -226,31 +226,12 @@ const OpenOrdersRow = memo(
           backgroundColor: '$bgSubdued',
         })}
       >
-        {/* Asset symbol */}
+        {/* Time */}
         <YStack
           {...getColumnStyle(columnConfigs[0])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[0].align)}
           pl="$2"
-        >
-          <SizableText size="$bodySm" numberOfLines={1} ellipsizeMode="tail">
-            {assetInfo.assetSymbol}
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color={assetInfo.typeColor}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {assetInfo.type}
-          </SizableText>
-        </YStack>
-
-        {/* Time */}
-        <YStack
-          {...getColumnStyle(columnConfigs[1])}
-          justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[1].align)}
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {dateInfo.date}
@@ -262,6 +243,24 @@ const OpenOrdersRow = memo(
             color="$textSubdued"
           >
             {dateInfo.time}
+          </SizableText>
+        </YStack>
+        {/* Asset symbol */}
+        <YStack
+          {...getColumnStyle(columnConfigs[1])}
+          justifyContent="center"
+          alignItems={calcCellAlign(columnConfigs[1].align)}
+        >
+          <SizableText size="$bodySm" numberOfLines={1} ellipsizeMode="tail">
+            {assetInfo.assetSymbol}
+          </SizableText>
+          <SizableText
+            size="$bodySm"
+            color={assetInfo.typeColor}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {assetInfo.type}
           </SizableText>
         </YStack>
 
@@ -357,7 +356,9 @@ const OpenOrdersRow = memo(
           alignItems="center"
         >
           <Button size="small" variant="tertiary" onPress={handleCancelOrder}>
-            <SizableText size="$bodyMd">Cancel</SizableText>
+            <SizableText size="$bodyMdMedium" color="$green11">
+              Cancel
+            </SizableText>
           </Button>
         </XStack>
       </XStack>
