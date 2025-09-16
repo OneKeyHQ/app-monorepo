@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq } from 'lodash';
+import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -1041,8 +1041,9 @@ class ServiceToken extends ServiceBase {
     });
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
-        const filteredData = data.filter(
-          (token) => !!listedNetworkMap[token.networkId],
+        const filteredData = uniqBy(
+          data.filter((token) => !!listedNetworkMap[token.networkId]),
+          (token) => token.networkId,
         );
 
         if (filteredData.length > 1) {

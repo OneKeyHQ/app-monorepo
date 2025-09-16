@@ -170,6 +170,7 @@ class ServiceApproval extends ServiceBase {
           accountId,
         },
       );
+
     if (config && config.lastShowTime) {
       const interval = Date.now() - config.lastShowTime;
       if (interval > timerUtils.getTimeDurationMs({ day: 14 })) {
