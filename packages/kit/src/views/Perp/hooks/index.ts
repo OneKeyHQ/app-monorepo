@@ -9,8 +9,6 @@ export {
 
 // HyperLiquid hooks
 export {
-  useHyperliquidEventBusListener,
-  useHyperliquidSession,
   useHyperliquidMarket,
   useHyperliquidAccount,
   useHyperliquidTrading,

@@ -137,7 +137,7 @@ function BulkRevoke() {
 
       setCurrentProcessIndex(i);
 
-      if (accountUtils.isOthersAccount({ accountId: tx.accountId })) {
+      if (accountUtils.isWatchingAccount({ accountId: tx.accountId ?? '' })) {
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
           [tx.uuid ?? '']: {
@@ -359,7 +359,7 @@ function BulkRevoke() {
           setRevokeTxsStatusMap((prev) => ({
             ...prev,
             [uuid]: {
-              status: ERevokeTxStatus.Skipped,
+              status: ERevokeTxStatus.Failed,
               skippedReason:
                 (error as { data: { data: IOneKeyRpcError } }).data?.data?.res
                   ?.error?.message ??

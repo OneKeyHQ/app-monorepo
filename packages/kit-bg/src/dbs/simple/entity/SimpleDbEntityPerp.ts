@@ -1,4 +1,5 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -9,7 +10,7 @@ export type IHyperliquidCustomSettings = {
   hideNavBarConnectButton?: boolean;
   hideNotOneKeyWalletConnectButton?: boolean;
 };
-export interface ISimpleDbPerpConfig {
+export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
   hyperliquidMaxBuilderFee?: number;
   hyperliquidCustomSettings?: IHyperliquidCustomSettings;
@@ -21,37 +22,76 @@ export interface ISimpleDbPerpConfig {
       skipIfExists?: boolean;
     }
   >;
+  hyperliquidCurrentToken?: string;
+  tradingUniverse: IPerpsUniverse[] | undefined;
 }
 
-export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpConfig> {
+export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
 
   @backgroundMethod()
-  async getPerpConfig(): Promise<ISimpleDbPerpConfig> {
-    const config = await this.getRawData();
-    return config || {};
+  async getTradingUniverse(): Promise<IPerpsUniverse[] | undefined> {
+    const config = await this.getPerpData();
+    return config.tradingUniverse;
   }
 
   @backgroundMethod()
-  async setPerpConfig(
+  async setTradingUniverse(universe: IPerpsUniverse[]) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        tradingUniverse: universe,
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getPerpData(): Promise<ISimpleDbPerpData> {
+    const config = await this.getRawData();
+    return (
+      config || {
+        tradingUniverse: [],
+      }
+    );
+  }
+
+  @backgroundMethod()
+  async setPerpData(
     setFn: (
-      prevConfig: ISimpleDbPerpConfig | null | undefined,
-    ) => ISimpleDbPerpConfig,
+      prevConfig: ISimpleDbPerpData | null | undefined,
+    ) => ISimpleDbPerpData,
   ) {
     await this.setRawData(setFn);
   }
 
   @backgroundMethod()
   async getExpectBuilderAddress(): Promise<string | undefined> {
-    const config = await this.getPerpConfig();
+    const config = await this.getPerpData();
     return config.hyperliquidBuilderAddress;
   }
 
   @backgroundMethod()
   async getExpectMaxBuilderFee(): Promise<number | undefined> {
-    const config = await this.getPerpConfig();
+    const config = await this.getPerpData();
     return config.hyperliquidMaxBuilderFee;
+  }
+
+  @backgroundMethod()
+  async getCurrentToken(): Promise<string> {
+    const config = await this.getPerpData();
+    return config.hyperliquidCurrentToken || 'ETH';
+  }
+
+  @backgroundMethod()
+  async setCurrentToken(token: string) {
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        tradingUniverse: prevConfig?.tradingUniverse,
+        hyperliquidCurrentToken: token,
+      }),
+    );
   }
 }

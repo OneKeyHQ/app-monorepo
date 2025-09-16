@@ -4,8 +4,9 @@ import {
   useCurrentTokenAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { getPriceDecimals } from '../utils/tokenUtils';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { useTokenList } from './usePerpMarketData';
 
@@ -47,7 +48,7 @@ export function usePerpTokenSelector() {
 
   const enhancedTokens = useMemo(() => {
     return tokenList.map((token) => {
-      const priceDecimals = getPriceDecimals(token.szDecimals);
+      const priceDecimals = getValidPriceDecimals(token.szDecimals);
       return {
         ...token,
         change24h: (
@@ -78,6 +79,9 @@ export function usePerpTokenSelector() {
 
       setIsLoading(true);
       try {
+        await backgroundApiProxy.serviceHyperliquid.changeSelectedSymbol({
+          coin: symbol,
+        });
         await actions.current.setCurrentToken(symbol);
       } catch (error) {
         console.error('[PerpTokenSelector] Failed to select token:', error);

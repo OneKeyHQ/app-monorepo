@@ -1,11 +1,13 @@
 import type { IPerpBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 
-import type { IHex } from './sdk';
+import type { IHex, IWithdraw3Request } from './sdk';
+import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
   WEB_DATA2 = 'webData2',
+  USER_FILLS = 'userFills',
   L2_BOOK = 'l2Book',
   TRADES = 'trades',
   BBO = 'bbo',
@@ -66,9 +68,10 @@ export interface IPlaceOrderParams {
   limitPx?: string;
   orderType: { limit: { tif: 'Gtc' | 'Ioc' } } | { market?: object };
   slippage?: number;
+  reduceOnly?: boolean;
 }
 
-export interface IMarketOrderOpenParams {
+export interface IOrderOpenParams {
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -79,7 +82,7 @@ export interface IMarketOrderOpenParams {
   slippage?: number;
 }
 
-export interface IMarketOrderCloseParams {
+export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;
@@ -108,10 +111,18 @@ export interface IMultiOrderParams {
   }>;
 }
 
+export interface IWithdrawParams extends IWithdraw3Request {
+  userAccountId: string;
+}
+
 export interface ILeverageUpdateRequest {
   asset: number;
   isCross: boolean;
   leverage: number;
+}
+
+export interface ISetReferrerRequest {
+  code: string;
 }
 
 export interface IBuilderFeeRequest {
@@ -121,7 +132,17 @@ export interface IBuilderFeeRequest {
 
 export interface IAgentApprovalRequest {
   agent: IHex;
+  agentName: EHyperLiquidAgentName | undefined;
   authorize: boolean;
+}
+
+export interface IPositionTpslOrderParams {
+  assetId: number;
+  positionSize: string;
+  isBuy: boolean;
+  tpTriggerPx?: string;
+  slTriggerPx?: string;
+  slippage?: number;
 }
 
 export interface IL2BookOptions {

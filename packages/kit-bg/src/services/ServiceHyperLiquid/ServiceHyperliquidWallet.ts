@@ -1,27 +1,25 @@
 /* eslint-disable max-classes-per-file */
-import * as crypto from 'crypto';
 
-import { Wallet } from 'ethers';
+import { ethers } from 'ethers';
 
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type {
+  ICoreHyperLiquidAgentCredential,
+  IUnsignedMessage,
+} from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import ServiceBase from '../ServiceBase';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-
-const CHAIN_ID = getNetworkIdsMap().arbitrum;
 
 interface IAbstractEthersV6Signer {
   signTypedData(
@@ -44,10 +42,10 @@ interface IAbstractEthersV6Signer {
 }
 
 export class WalletHyperliquidProxy implements IAbstractEthersV6Signer {
-  private wallet: Wallet;
+  private wallet: ethers.Wallet;
 
   constructor(encryptedPrivateKey: string) {
-    this.wallet = new Wallet(encryptedPrivateKey);
+    this.wallet = new ethers.Wallet(encryptedPrivateKey);
   }
 
   async signTypedData(
@@ -131,7 +129,7 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
     const result = await this.backgroundApi.serviceSend.signMessage({
       unsignedMessage,
       accountId: this.accountId,
-      networkId: CHAIN_ID,
+      networkId: PERPS_CHAIN_ID,
     });
 
     if (!result || typeof result !== 'string') {
@@ -148,7 +146,7 @@ export class WalletHyperliquidOnekey implements IAbstractEthersV6Signer {
   async getAddress(): Promise<string> {
     const account = await this.backgroundApi.serviceAccount.getAccount({
       accountId: this.accountId,
-      networkId: CHAIN_ID,
+      networkId: PERPS_CHAIN_ID,
     });
     return account.address;
   }
@@ -162,51 +160,29 @@ export default class ServiceHyperliquidWallet extends ServiceBase {
     super({ backgroundApi });
   }
 
+  // TODO remove cache
   private onekeyWalletCache = new Map<string, WalletHyperliquidOnekey>();
 
   @backgroundMethod()
-  async getProxyWallet(params: { userAddress: IHex }): Promise<{
+  async getProxyWallet(params: {
+    agentCredential?: ICoreHyperLiquidAgentCredential;
+  }): Promise<{
     address: IHex;
     wallet: WalletHyperliquidProxy;
   }> {
-    let credential =
-      await this.backgroundApi.serviceAccount.getHyperLiquidAgentCredential({
-        userAddress: params.userAddress,
-        agentName: EHyperLiquidAgentName.Desktop,
+    if (!params.agentCredential?.privateKey) {
+      throw new OneKeyLocalError({
+        message: `Failed to get private key for agent credential`,
       });
-
-    if (!credential) {
-      const privateKeyBytes = crypto.randomBytes(32);
-      const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
-
-      const encodedPrivateKey =
-        await this.backgroundApi.servicePassword.encodeSensitiveText({
-          text: privateKeyHex,
-        });
-
-      await this.backgroundApi.serviceAccount.addHyperLiquidAgentCredential({
-        userAddress: params.userAddress,
-        agentName: EHyperLiquidAgentName.Desktop,
-        privateKey: encodedPrivateKey,
-      });
-      credential = {
-        userAddress: params.userAddress,
-        agentName: EHyperLiquidAgentName.Desktop,
-        privateKey: encodedPrivateKey,
-      };
     }
-    const wallet = new WalletHyperliquidProxy(credential.privateKey);
+    const wallet = new WalletHyperliquidProxy(
+      params.agentCredential?.privateKey,
+    );
     const address = await wallet.getAddress();
     return {
       address,
       wallet,
     };
-  }
-
-  @backgroundMethod()
-  async getProxyWalletAddress(params: { userAddress: IHex }): Promise<IHex> {
-    const proxyWallet = await this.getProxyWallet(params);
-    return proxyWallet.address;
   }
 
   @backgroundMethod()

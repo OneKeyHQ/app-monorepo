@@ -60,6 +60,7 @@ export function useAutoKLineUpdate({
       }
 
       if (webRef.current && kLineData) {
+        console.log('pushLatestKLineData2', kLineData);
         webRef.current.sendMessageViaInjectedScript({
           type: 'autoKLineUpdate',
           payload: {

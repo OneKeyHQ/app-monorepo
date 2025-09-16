@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { uniqBy } from 'lodash';
 
 import {
@@ -18,13 +19,17 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  buildHomeDefaultTokenMapKey,
   getFilteredTokenBySearchKey,
   sortTokensByFiatValue,
   sortTokensByName,
   sortTokensByPrice,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ETokenListSortType } from '@onekeyhq/shared/types/token';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IHomeDefaultToken,
+} from '@onekeyhq/shared/types/token';
 
 import {
   useActiveAccountTokenListAtom,
@@ -96,6 +101,8 @@ type IProps = {
       tokens: IAccountToken[];
     }
   >;
+  hideZeroBalanceTokens?: boolean;
+  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -129,6 +136,8 @@ function TokenListViewCmp(props: IProps) {
     showNetworkIcon,
     allAggregateTokens,
     allAggregateTokenMap,
+    hideZeroBalanceTokens,
+    homeDefaultTokenMap,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -163,6 +172,34 @@ function TokenListViewCmp(props: IProps) {
       );
     }
 
+    if (isAllNetworks && hideZeroBalanceTokens && homeDefaultTokenMap) {
+      resultTokens = resultTokens.filter((item) => {
+        const tokenBalance = new BigNumber(
+          tokenListMap[item.$key]?.balance ??
+            aggregateTokenMap[item.$key]?.balance ??
+            0,
+        );
+
+        if (tokenBalance.gt(0)) {
+          return true;
+        }
+
+        if (
+          homeDefaultTokenMap[
+            buildHomeDefaultTokenMapKey({
+              networkId: item.networkId ?? '',
+              symbol: item.commonSymbol ?? item.symbol ?? '',
+            })
+          ] &&
+          (item.isNative || item.isAggregateToken)
+        ) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+
     return resultTokens;
   }, [
     showActiveAccountTokenList,
@@ -171,9 +208,13 @@ function TokenListViewCmp(props: IProps) {
     isAllNetworks,
     allAggregateTokenMap,
     allAggregateTokens,
+    hideZeroBalanceTokens,
+    homeDefaultTokenMap,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
+    tokenListMap,
+    aggregateTokenMap,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();

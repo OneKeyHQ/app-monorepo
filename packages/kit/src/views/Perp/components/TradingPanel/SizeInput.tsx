@@ -8,10 +8,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { validateSizeInput } from '../../utils/tokenUtils';
-
-import type { ISide } from './TradeSideToggle';
+import type { ISide } from './selectors/TradeSideToggle';
 import type { ICurrentTokenData } from '../../hooks/usePerpMarketData';
 
 interface ISizeInputProps {
@@ -83,20 +82,18 @@ export const SizeInput = memo<ISizeInputProps>(
               {error}
             </SizableText>
           ) : null}
-          {Number(maxSize) > 0 ? (
-            <XStack alignItems="center" alignSelf="flex-end" mt="$1" gap="$1">
-              <SizableText size="$bodySm" color="$textSubdued">
-                Max:
-              </SizableText>
-              <NumberSizeableText
-                size="$bodySm"
-                color="$textSubdued"
-                formatter="balance"
-              >
-                {maxSize}
-              </NumberSizeableText>
-            </XStack>
-          ) : null}
+          <XStack alignItems="center" alignSelf="flex-end" mt="$1" gap="$1">
+            <SizableText size="$bodySm" color="$textSubdued">
+              Max:
+            </SizableText>
+            <NumberSizeableText
+              size="$bodySm"
+              color="$textSubdued"
+              formatter="balance"
+            >
+              {Number(maxSize) > 0 ? maxSize : '0'}
+            </NumberSizeableText>
+          </XStack>
         </YStack>
       </YStack>
     );

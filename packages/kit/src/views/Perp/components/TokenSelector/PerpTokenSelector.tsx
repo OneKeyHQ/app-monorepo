@@ -71,7 +71,7 @@ function BasePerpTokenSelectorContent({
           borderBottomWidth="$px"
           borderBottomColor="$borderSubdued"
         >
-          <XStack width={140} justifyContent="flex-start">
+          <XStack width={150} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.perp_token_selector_asset,
@@ -85,7 +85,7 @@ function BasePerpTokenSelectorContent({
               })}
             </SizableText>
           </XStack>
-          <XStack width={120} justifyContent="flex-start">
+          <XStack width={130} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.perp_token_selector_24h_change,
@@ -95,14 +95,14 @@ function BasePerpTokenSelectorContent({
           <XStack width={100} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_token_bar_Funding,
+                id: ETranslations.perp_position_funding,
               })}
             </SizableText>
           </XStack>
           <XStack width={100} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
-                id: ETranslations.perp_token_bar_24h_Volume,
+                id: ETranslations.perp_token_selector_volume,
               })}
             </SizableText>
           </XStack>
@@ -130,7 +130,13 @@ function BasePerpTokenSelectorContent({
           ListEmptyComponent={
             <XStack p="$5" justifyContent="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                {searchQuery ? 'No matching tokens found' : 'Loading tokens...'}
+                {searchQuery
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_token_selector_empty,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_token_selector_loading,
+                    })}
               </SizableText>
             </XStack>
           }

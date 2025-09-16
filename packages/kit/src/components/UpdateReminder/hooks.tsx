@@ -16,17 +16,18 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
+  EUpdateFileType,
+  EUpdateStrategy,
+  getUpdateFileType,
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IDownloadPackageParams } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
-  downloadASC as NativeDownloadASC,
-  downloadPackage as NativeDownloadPackage,
-  manualInstallPackage as NativeManualInstallPackage,
-  verifyASC as NativeVerifyASC,
-  verifyPackage as NativeVerifyPackage,
+  AppUpdate,
+  BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -55,7 +56,14 @@ export const useDownloadPackage = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
 
+  const getFileTypeFromUpdateInfo = useCallback(async () => {
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    return getUpdateFileType(appUpdateInfo);
+  }, []);
+
   const verifyPackage = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -65,16 +73,19 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
-        NativeVerifyPackage(params),
+        fileType === EUpdateFileType.jsBundle
+          ? BundleUpdate.verifyBundle(params)
+          : AppUpdate.verifyPackage(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, []);
+  }, [getFileTypeFromUpdateInfo]);
 
   const verifyASC = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -84,16 +95,19 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
-        NativeVerifyASC(params),
+        fileType === EUpdateFileType.jsBundle
+          ? BundleUpdate.verifyBundleASC(params)
+          : AppUpdate.verifyASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await verifyPackage();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
-  }, [verifyPackage]);
+  }, [getFileTypeFromUpdateInfo, verifyPackage]);
 
   const downloadASC = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -103,22 +117,41 @@ export const useDownloadPackage = () => {
       }
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
-        NativeDownloadASC(params),
+        fileType === EUpdateFileType.jsBundle
+          ? BundleUpdate.downloadBundleASC(params)
+          : AppUpdate.downloadASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await verifyASC();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
-  }, [verifyASC]);
+  }, [getFileTypeFromUpdateInfo, verifyASC]);
 
   const downloadPackage = useCallback(async () => {
+    const fileType = await getFileTypeFromUpdateInfo();
     try {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
-      const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      const result = await NativeDownloadPackage(params);
+      const { latestVersion, jsBundleVersion, downloadUrl, jsBundle } =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const isJsBundle = fileType === EUpdateFileType.jsBundle;
+      const downloadParams: IDownloadPackageParams = {
+        signature: isJsBundle ? jsBundle?.signature : undefined,
+        latestVersion,
+        bundleVersion: jsBundleVersion,
+        downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
+        fileSize: isJsBundle ? jsBundle?.fileSize : undefined,
+        sha256: isJsBundle ? jsBundle?.sha256 : undefined,
+      };
+      const result =
+        fileType === EUpdateFileType.jsBundle
+          ? await BundleUpdate.downloadBundle(downloadParams)
+          : await AppUpdate.downloadPackage(downloadParams);
+      if (!result) {
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
-        ...params,
+        ...downloadParams,
         ...result,
       });
       await downloadASC();
@@ -132,7 +165,7 @@ export const useDownloadPackage = () => {
         }),
       });
     }
-  }, [downloadASC, intl]);
+  }, [downloadASC, getFileTypeFromUpdateInfo, intl]);
 
   const resetToInComplete = useCallback(async () => {
     await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
@@ -176,7 +209,7 @@ export const useDownloadPackage = () => {
   const manualInstallPackage = useCallback(async () => {
     const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
     try {
-      await NativeManualInstallPackage({
+      await AppUpdate.manualInstallPackage({
         ...params,
         buildNumber: String(platformEnv.buildNumber || 1),
       });
@@ -195,6 +228,32 @@ export const useDownloadPackage = () => {
     }
   }, [intl, navigation, showUpdateInCompleteDialog]);
 
+  const installPackage = useCallback(
+    async (onSuccess: () => void, onFail: () => void) => {
+      const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const fileType = await getFileTypeFromUpdateInfo();
+      try {
+        if (fileType === EUpdateFileType.jsBundle) {
+          if (!data.downloadedEvent) {
+            onFail();
+            return;
+          }
+          await BundleUpdate.installBundle(data.downloadedEvent);
+        } else {
+          await AppUpdate.installPackage(data);
+        }
+        onSuccess();
+      } catch (e: unknown) {
+        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+          onFail();
+        } else {
+          Toast.error({ title: (e as Error).message });
+        }
+      }
+    },
+    [getFileTypeFromUpdateInfo],
+  );
+
   return useMemo(
     () => ({
       downloadPackage,
@@ -202,17 +261,19 @@ export const useDownloadPackage = () => {
       verifyASC,
       downloadASC,
       resetToInComplete,
+      installPackage,
       manualInstallPackage,
       showUpdateInCompleteDialog,
     }),
     [
-      downloadASC,
       downloadPackage,
+      verifyPackage,
+      verifyASC,
+      downloadASC,
       resetToInComplete,
+      installPackage,
       manualInstallPackage,
       showUpdateInCompleteDialog,
-      verifyASC,
-      verifyPackage,
     ],
   );
 };
@@ -259,14 +320,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         screen: EAppUpdateRoutes.UpdatePreview,
         params: {
           latestVersion: appUpdateInfo.latestVersion,
-          isForceUpdate: appUpdateInfo.isForceUpdate,
+          isForceUpdate: appUpdateInfo.updateStrategy === EUpdateStrategy.force,
           autoClose: isFull,
           ...params,
         },
       });
     },
     [
-      appUpdateInfo.isForceUpdate,
+      appUpdateInfo.updateStrategy,
       appUpdateInfo.latestVersion,
       navigation.pushFullModal,
       navigation.pushModal,
@@ -277,17 +338,24 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     navigation.pushModal(EModalRoutes.AppUpdateModal, {
       screen: EAppUpdateRoutes.DownloadVerify,
       params: {
-        isForceUpdate: appUpdateInfo.isForceUpdate,
+        isForceUpdate: appUpdateInfo.updateStrategy === EUpdateStrategy.force,
       },
     });
-  }, [appUpdateInfo.isForceUpdate, navigation]);
+  }, [appUpdateInfo.updateStrategy, navigation]);
 
   const checkForUpdates = useCallback(async () => {
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
+    const { shouldUpdate, fileType } = isNeedUpdate({
+      latestVersion: response?.latestVersion,
+      jsBundleVersion: response?.jsBundleVersion,
+      status: response?.status,
+    });
     return {
-      isForceUpdate: !!response?.isForceUpdate,
-      isNeedUpdate: isNeedUpdate(response?.latestVersion),
+      isForceUpdate: response?.updateStrategy === EUpdateStrategy.force,
+      isSilentUpdate: response?.updateStrategy === EUpdateStrategy.silent,
+      isNeedUpdate: shouldUpdate,
+      updateFileType: fileType,
       response,
     };
   }, []);
@@ -377,12 +445,18 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+        async ({
+          isNeedUpdate: needUpdate,
+          isForceUpdate,
+          isSilentUpdate,
+          response,
+        }) => {
           if (needUpdate) {
-            if (isForceUpdate) {
+            if (isSilentUpdate) {
+              void downloadPackage();
+            } else if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
             } else if (
-              !platformEnv.isDev &&
               (platformEnv.isNative || platformEnv.isDesktop) &&
               response?.isShowUpdateDialog &&
               isFirstLaunch
@@ -427,24 +501,26 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     toUpdatePreviewPage,
   ]);
 
-  return useMemo(
-    () => ({
-      isNeedUpdate: isNeedUpdate(
-        appUpdateInfo.latestVersion,
-        appUpdateInfo.status,
-      ),
+  return useMemo(() => {
+    const { shouldUpdate, fileType } = isNeedUpdate({
+      latestVersion: appUpdateInfo.latestVersion,
+      jsBundleVersion: appUpdateInfo.jsBundleVersion,
+      status: appUpdateInfo.status,
+    });
+    return {
+      isNeedUpdate: shouldUpdate,
+      updateFileType: fileType,
       data: appUpdateInfo,
       onUpdateAction,
       toUpdatePreviewPage,
       onViewReleaseInfo,
       checkForUpdates,
-    }),
-    [
-      appUpdateInfo,
-      checkForUpdates,
-      onUpdateAction,
-      onViewReleaseInfo,
-      toUpdatePreviewPage,
-    ],
-  );
+    };
+  }, [
+    appUpdateInfo,
+    checkForUpdates,
+    onUpdateAction,
+    onViewReleaseInfo,
+    toUpdatePreviewPage,
+  ]);
 };

@@ -11,24 +11,40 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsSelectedAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { useHyperliquidAccount } from '../../hooks';
-import { usePerpUseChainAccount } from '../../hooks/usePerpUseChainAccount';
+import { useHyperliquidAccount } from '../../hooks/useHyperliquid';
 
-import { showDepositWithdrawModal } from './DepositWithdrawModal';
+import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
+
+import type { IPerpsDepositWithdrawActionType } from './modals/DepositWithdrawModal';
+
+export function PerpAccountDebugInfo() {
+  const { currentUser } = useHyperliquidAccount();
+  const [perpsSelectedAccount] = usePerpsSelectedAccountAtom();
+
+  if (!platformEnv.isDev) {
+    return null;
+  }
+
+  return (
+    <>
+      <SizableText>S:{perpsSelectedAccount.accountAddress}</SizableText>
+      <SizableText>W:{currentUser}</SizableText>
+    </>
+  );
+}
 
 function PerpAccountPanel() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { userWebData2, accountSummary, currentUser } = useHyperliquidAccount();
-  const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
-  const {
-    userAddress,
-    userAccountId,
-    activeAccountId,
-    activeAccountIndexedId,
-  } = usePerpUseChainAccount();
+  const [perpsSelectedAccount] = usePerpsSelectedAccountAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
 
   const accountDataInfo = useMemo(() => {
     const availableBalance = accountSummary.withdrawable;
@@ -44,22 +60,21 @@ function PerpAccountPanel() {
     return { availableBalance, currentPositionValue };
   }, [accountSummary.withdrawable, userWebData2]);
 
-  const handleDepositOrWithdraw = useCallback(() => {
-    if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
-      return;
-    }
+  const handleDepositOrWithdraw = useCallback(
+    async (actionType: IPerpsDepositWithdrawActionType) => {
+      if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
+        return;
+      }
 
-    const accountData = {
-      account: {
-        id: activeAccount.account.id,
-        address: activeAccount.account.address,
-      },
-    };
+      await showDepositWithdrawModal({
+        withdrawable: accountDataInfo.availableBalance || '0',
+        actionType,
+      });
+    },
+    [activeAccount, accountDataInfo.availableBalance],
+  );
 
-    showDepositWithdrawModal(accountData);
-  }, [activeAccount]);
-
-  if (perpsAccountLoading) {
+  if (perpsAccountLoading?.selectAccountLoading) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
         <Spinner size="large" />
@@ -67,12 +82,13 @@ function PerpAccountPanel() {
     );
   }
 
-  if (!userAddress) {
+  if (!perpsSelectedAccount?.accountAddress) {
     return (
       <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
         <SizableText size="$bodySm" color="$textSubdued" mt="$3">
-          Please create an EVM address first: ____{activeAccountIndexedId}
-          ____{activeAccountId}
+          Please create an EVM address first: ____
+          {perpsSelectedAccount?.indexedAccountId}
+          ____{perpsSelectedAccount?.accountId}
         </SizableText>
       </YStack>
     );
@@ -104,7 +120,9 @@ function PerpAccountPanel() {
             Account Address
           </SizableText>
           <SizableText size="$bodyMd">
-            {accountUtils.shortenAddress({ address: userAddress })}
+            {accountUtils.shortenAddress({
+              address: perpsSelectedAccount?.accountAddress,
+            })}
           </SizableText>
         </XStack>
 
@@ -141,7 +159,7 @@ function PerpAccountPanel() {
           flex={1}
           size="medium"
           variant="secondary"
-          onPress={handleDepositOrWithdraw}
+          onPress={() => handleDepositOrWithdraw('withdraw')}
         >
           <SizableText size="$bodySm">Withdraw</SizableText>
         </Button>
@@ -149,7 +167,7 @@ function PerpAccountPanel() {
           flex={1}
           size="medium"
           variant="secondary"
-          onPress={handleDepositOrWithdraw}
+          onPress={() => handleDepositOrWithdraw('deposit')}
         >
           <SizableText size="$bodySm">Deposit</SizableText>
         </Button>

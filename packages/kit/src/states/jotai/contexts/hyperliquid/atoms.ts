@@ -1,8 +1,12 @@
+import memoizee from 'memoizee';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
-import { ZERO_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
@@ -15,7 +19,7 @@ const {
   contextAtomComputed,
   contextAtomMethod,
 } = createJotaiContext();
-export { ProviderJotaiContextHyperliquid, contextAtomMethod };
+export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 
 export const { atom: allMidsAtom, use: useAllMidsAtom } =
   contextAtom<HL.IWsAllMids | null>(null);
@@ -39,20 +43,57 @@ export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
     reconnectCount: 0,
   });
 
-export const { atom: currentTokenAtom, use: useCurrentTokenAtom } =
-  contextAtom<string>('ETH');
+export const {
+  atom: basicCurrentTokenAtom,
+  useContextAtom: useCurrentTokenContextAtom,
+} = contextAtom<string>('ETH');
+
+export const {
+  atom: hyperliquidStorageReadyAtom,
+  use: useHyperliquidStorageReadyAtom,
+} = contextAtom<boolean>(false);
+
+const INIT = Symbol('INIT');
+export const currentTokenAtom = memoizee(() =>
+  atom(
+    (get) => {
+      const basicToken = get(basicCurrentTokenAtom());
+      return basicToken;
+    },
+    (get, set, arg: any) => {
+      if (arg === INIT) {
+        void backgroundApiProxy.simpleDb.perp
+          .getCurrentToken()
+          .then((token: string) => {
+            set(basicCurrentTokenAtom(), token);
+            set(hyperliquidStorageReadyAtom(), true);
+          });
+      } else {
+        set(basicCurrentTokenAtom(), arg);
+        if (get(hyperliquidStorageReadyAtom())) {
+          void backgroundApiProxy.simpleDb.perp.setCurrentToken(arg as string);
+        }
+      }
+    },
+  ),
+);
+
+currentTokenAtom().onMount = (setAtom) => {
+  setAtom(INIT);
+};
+
+export const useCurrentTokenAtom = () =>
+  useCurrentTokenContextAtom(currentTokenAtom());
 
 export const { atom: currentUserAtom, use: useCurrentUserAtom } =
   contextAtom<HL.IHex | null>(null);
 
-export const { atom: currentAccountAtom, use: useCurrentAccountAtom } =
-  contextAtom<string | null>(null);
-
 export const { atom: subscriptionActiveAtom, use: useSubscriptionActiveAtom } =
   contextAtom<boolean>(false);
 
-export const tokenListAtom = () =>
-  atom((get): ITokenListItem[] => {
+// TODO move to simpleDB
+export const { atom: tokenListAtom } = contextAtomComputed(
+  (get): ITokenListItem[] => {
     const webData2 = get(webData2Atom());
 
     const universe = webData2?.meta?.universe?.slice() || [];
@@ -81,7 +122,8 @@ export const tokenListAtom = () =>
         fundingRate: assetCtx?.funding || '0',
       };
     });
-  });
+  },
+);
 
 export const useTokenListAtom = () => tokenListAtom();
 
@@ -166,11 +208,6 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
   contextAtom<boolean>(false);
-
-export const {
-  atom: perpsAccountLoadingAtom,
-  use: usePerpsAccountLoadingAtom,
-} = contextAtom<boolean>(false);
 
 export const { atom: currentTokenPriceAtom, use: useCurrentTokenPriceAtom } =
   contextAtomComputed((get) => {
@@ -281,13 +318,40 @@ export const { atom: tradingPanelDataAtom, use: useTradingPanelDataAtom } =
   });
 
 export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =
-  contextAtomComputed((get) => {
+  contextAtomComputed<{
+    currentUser: HL.IHex | null; // current user address in webData2 from websocket message
+    isLoggedIn: boolean;
+    // TODO separate low frequency data and high frequency data
+    accountSummary: {
+      accountValue: string | undefined;
+      totalMarginUsed: string | undefined;
+      totalNtlPos: string | undefined;
+      totalRawUsd: string | undefined;
+      withdrawable: string | undefined;
+    };
+    positions: HL.IAssetPosition[];
+    orders: HL.IFrontendOrder[];
+    activeAssetData: HL.IActiveAssetData | null;
+    hasUserData: boolean;
+    userWebData2: HL.IWsWebData2 | null;
+  }>((get) => {
     const webData2 = get(webData2Atom());
     const activeAssetData = get(activeAssetDataAtom());
     const positions = get(positionListAtom());
     const orders = get(openOrdersListAtom());
+    const currentUserInAtom = get(currentUserAtom());
 
-    if (!webData2) {
+    const currentUser =
+      (webData2?.user === PERPS_EMPTY_ADDRESS ? null : webData2?.user) || null;
+
+    if (
+      !webData2 ||
+      !currentUser ||
+      !currentUserInAtom ||
+      (currentUserInAtom &&
+        currentUser &&
+        currentUser?.toLowerCase() !== currentUserInAtom?.toLowerCase())
+    ) {
       return {
         isLoggedIn: false,
         currentUser: null,
@@ -302,10 +366,10 @@ export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =
         orders: [],
         activeAssetData: null,
         hasUserData: false,
+        userWebData2: null,
       };
     }
 
-    const currentUser = webData2.user === ZERO_ADDRESS ? null : webData2.user;
     const isLoggedIn = !!currentUser;
     const hasUserData = isLoggedIn && !!webData2;
 

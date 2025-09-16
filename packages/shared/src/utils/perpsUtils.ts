@@ -285,13 +285,135 @@ function calculateSpreadPercentage(
 function formatWithPrecision(
   value: string | number | BigNumber,
   decimals: number,
+  removeTrailingZeros = false,
 ): string {
   const bn = value instanceof BigNumber ? value : new BigNumber(value);
   if (!bn.isFinite()) return '0';
+  if (removeTrailingZeros) {
+    return bn.isInteger()
+      ? bn.toFixed(0)
+      : bn
+          .toFixed(decimals)
+          .replace(/(\.\d*?)0+$/, '$1')
+          .replace(/\.$/, '');
+  }
   return bn.toFixed(decimals);
 }
 
+/**
+ * Validate size input based on szDecimals constraint
+ *
+ * Validates that the input string represents a valid number with appropriate
+ * decimal precision based on the szDecimals parameter.
+ *
+ * @param input - The input string to validate
+ * @param szDecimals - Maximum decimal places allowed for this asset
+ * @returns True if input is valid, false otherwise
+ */
+function validateSizeInput(input: string, szDecimals: number): boolean {
+  if (!input) return true;
+  if (szDecimals === 0) return /^[0-9]*$/.test(input);
+  if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
+
+  const [, dec = ''] = input.split('.');
+  return dec.length <= szDecimals;
+}
+
+/**
+ * Format percentage value with appropriate precision
+ *
+ * Rounds percentage to 2 decimal places and removes trailing zeros
+ * to provide clean percentage display.
+ *
+ * @param percent - The percentage value to format
+ * @returns Formatted percentage string without trailing zeros
+ */
+function formatPercentage(percent: number): string {
+  if (!percent || Number.isNaN(percent)) return '0';
+
+  const rounded = Math.round(percent * 100) / 100;
+  return Number.isInteger(rounded)
+    ? rounded.toString()
+    : rounded.toFixed(2).replace(/\.?0+$/, '');
+}
+
+/**
+ * Validate price input with significant digits and precision constraints
+ *
+ * Validates price input according to HyperLiquid rules:
+ * 1. Maximum 5 significant digits
+ * 2. Decimal places limited by (MAX_DECIMALS_PERP - szDecimals)
+ * 3. If integer part >= 5 digits, no decimals allowed
+ *
+ * @param input - The price input string to validate
+ * @param szDecimals - Asset's szDecimals value (default: 2)
+ * @returns True if input is valid according to trading rules
+ */
+function validatePriceInput(input: string, szDecimals = 2): boolean {
+  if (!input) return true;
+
+  const text = input.replace(/。/g, '.');
+  const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
+
+  if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
+    return false;
+  if (maxDecimals === 0) return !/\./.test(text);
+
+  const [int = '0', dec = ''] = text.split('.');
+  const hasDecimal = text.includes('.');
+
+  if (dec.length > Math.min(maxDecimals, 6)) return false;
+
+  const intLen = int.replace(/^0+/, '').length;
+  const isZeroInt = intLen === 0;
+
+  if (intLen >= MAX_SIGNIFICANT_FIGURES) return !hasDecimal;
+
+  if (isZeroInt) {
+    const leadingZeros = dec.match(/^0*/)?.[0].length || 0;
+    return dec.length - leadingZeros <= MAX_SIGNIFICANT_FIGURES;
+  }
+
+  return intLen + dec.length <= MAX_SIGNIFICANT_FIGURES;
+}
+
+/**
+ * Format price to display with significant digits and precision constraints
+ *
+ * Formats price according to HyperLiquid display rules:
+ * 1. Apply 5 significant digits first
+ * 2. Apply precision limit based on szDecimals if provided
+ * 3. Remove trailing zeros for clean display
+ *
+ * @param price - The numeric price to format
+ * @param szDecimals - Optional asset's szDecimals for precision limiting
+ * @returns Formatted price string suitable for display
+ */
+function formatPriceToSignificantDigits(
+  price: number,
+  szDecimals?: number,
+): string {
+  if (!price || Number.isNaN(price)) return '0';
+
+  let result = Number(price.toPrecision(MAX_SIGNIFICANT_FIGURES)).toString();
+
+  if (szDecimals !== undefined && szDecimals >= 0) {
+    const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
+    const dotIndex = result.indexOf('.');
+
+    if (dotIndex !== -1 && result.length > dotIndex + 1 + maxDecimals) {
+      result =
+        maxDecimals === 0
+          ? result.substring(0, dotIndex)
+          : result.substring(0, dotIndex + 1 + maxDecimals);
+    }
+  }
+
+  return result.replace(/\.?0+$/, '');
+}
+
 export {
+  MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
   calculatePriceScale,
@@ -301,9 +423,14 @@ export {
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
   calculateSpreadPercentage,
+  validateSizeInput,
+  formatPercentage,
+  validatePriceInput,
+  formatPriceToSignificantDigits,
 };
 
 export default {
+  MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
   calculatePriceScale,
@@ -313,4 +440,8 @@ export default {
   countDecimalPlaces,
   getMostFrequentDecimalPlaces,
   calculateSpreadPercentage,
+  validateSizeInput,
+  formatPercentage,
+  validatePriceInput,
+  formatPriceToSignificantDigits,
 };
