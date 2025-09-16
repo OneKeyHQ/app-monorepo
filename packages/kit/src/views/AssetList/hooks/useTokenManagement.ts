@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { flatten } from 'lodash';
+import { flatten, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -97,6 +97,7 @@ export function useTokenManagement({
             backgroundApiProxy.serviceCustomToken.getCustomTokens({
               accountId: item.accountId,
               networkId: item.networkId,
+              accountXpubOrAddress: item.accountXpubOrAddress,
             }),
           ),
         ),
@@ -111,16 +112,8 @@ export function useTokenManagement({
           }),
         ),
       );
-      const uniqueTokens = allTokens.filter(
-        (token, index, self) =>
-          index ===
-          self.findIndex(
-            (t) =>
-              t.networkId === token.networkId &&
-              t.accountId === token.accountId &&
-              t.address === token.address,
-          ),
-      );
+      const uniqueTokens = uniqBy(allTokens, (token) => token.$key);
+
       const addedTokens = uniqueTokens
         .map((token) => {
           const aggregateTokenConfigKey =

@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   Dialog,
   Input,
@@ -15,54 +15,58 @@ import {
   Toast,
   XStack,
   YStack,
+  getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  HYPERLIQUID_DEPOSIT_ADDRESS,
+  MIN_DEPOSIT_AMOUNT,
+  USDC_TOKEN_INFO,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
-const USDC_TOKEN_INFO = {
-  address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-  decimals: 6,
-  name: 'USD Coin',
-  symbol: 'USDC',
-  isNative: false,
-};
-
-const HYPERLIQUID_DEPOSIT_ADDRESS =
-  '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7';
-const MIN_DEPOSIT_AMOUNT = 5;
+import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 
 type IActionType = 'deposit' | 'withdraw';
 
-interface IActiveAccount {
-  account: {
-    id: string;
-    address: string;
-  };
+interface IDepositWithdrawParams {
+  withdrawable: string;
+  userAddress: string;
+  userAccountId: string;
+  actionType: IActionType;
 }
 
 interface IDepositWithdrawContentProps {
-  activeAccount: IActiveAccount;
+  params: IDepositWithdrawParams;
   onClose?: () => void;
 }
 
 function DepositWithdrawContent({
-  activeAccount,
+  params,
   onClose,
 }: IDepositWithdrawContentProps) {
-  const [selectedAction, setSelectedAction] = useState<IActionType>('deposit');
+  const [selectedAction, setSelectedAction] = useState<IActionType>(
+    params.actionType,
+  );
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinDepositError, setShowMinDepositError] = useState(false);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     networkId: 'evm--42161',
-    accountId: activeAccount.account.id,
+    accountId: params.userAccountId,
   });
+
+  const hyperliquidActions = useHyperliquidActions();
+  const { withdraw } = hyperliquidActions.current;
 
   const { result: usdcBalance, isLoading: balanceLoading } =
     usePromiseResult(async () => {
-      if (!activeAccount?.account?.id || !activeAccount?.account?.address) {
+      if (!params.userAccountId || !params.userAddress) {
         return '0';
       }
 
@@ -71,10 +75,9 @@ function DepositWithdrawContent({
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: 'evm--42161',
             contractAddress: USDC_TOKEN_INFO.address,
-            accountId: activeAccount.account.id,
-            accountAddress: activeAccount.account.address,
+            accountId: params.userAccountId,
+            accountAddress: params.userAddress,
           });
-
         return tokenDetails?.[0]?.balanceParsed || '0';
       } catch (error) {
         console.error(
@@ -83,11 +86,16 @@ function DepositWithdrawContent({
         );
         return '0';
       }
-    }, [activeAccount?.account?.id, activeAccount?.account?.address]);
-
+    }, [params.userAccountId, params.userAddress]);
+  const availableBalance = useMemo(() => {
+    if (selectedAction === 'withdraw') {
+      return params.withdrawable;
+    }
+    return usdcBalance;
+  }, [selectedAction, params.withdrawable, usdcBalance]);
   const isValidAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(usdcBalance || '0');
+    const balanceBN = new BigNumber(availableBalance || '0');
 
     if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
@@ -98,8 +106,12 @@ function DepositWithdrawContent({
       );
     }
 
+    if (selectedAction === 'withdraw') {
+      return amountBN.lte(balanceBN);
+    }
+
     return true;
-  }, [amount, usdcBalance, selectedAction, showMinDepositError]);
+  }, [amount, availableBalance, selectedAction, showMinDepositError]);
 
   const errorMessage = useMemo(() => {
     if (!amount) return '';
@@ -132,13 +144,13 @@ function DepositWithdrawContent({
   );
 
   const handleMaxPress = useCallback(() => {
-    if (selectedAction === 'deposit' && usdcBalance) {
-      setAmount(usdcBalance);
+    if (availableBalance) {
+      setAmount(availableBalance);
     }
-  }, [selectedAction, usdcBalance]);
+  }, [availableBalance]);
 
   const handleConfirm = useCallback(async () => {
-    if (!isValidAmount || !activeAccount?.account?.address) return;
+    if (!isValidAmount || !params.userAddress) return;
 
     // Check minimum deposit amount on submit
     if (
@@ -156,7 +168,7 @@ function DepositWithdrawContent({
         await normalizeTxConfirm({
           transfersInfo: [
             {
-              from: activeAccount.account.address,
+              from: params.userAddress,
               to: HYPERLIQUID_DEPOSIT_ADDRESS,
               amount,
               tokenInfo: USDC_TOKEN_INFO,
@@ -171,10 +183,13 @@ function DepositWithdrawContent({
 
         onClose?.();
       } else {
-        Toast.message({
-          title: 'Withdraw Coming Soon',
-          message: 'Withdraw functionality will be available soon',
+        await withdraw({
+          userAccountId: params.userAccountId,
+          amount,
+          destination: params.userAddress as `0x${string}`,
         });
+
+        onClose?.();
       }
     } catch (error) {
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
@@ -189,27 +204,22 @@ function DepositWithdrawContent({
     }
   }, [
     isValidAmount,
-    activeAccount,
+    params.userAddress,
     amount,
     selectedAction,
     normalizeTxConfirm,
+    withdraw,
+    params.userAccountId,
     onClose,
   ]);
 
   const isInsufficientBalance = useMemo(() => {
-    if (selectedAction !== 'deposit') return false;
     const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(usdcBalance || '0');
+    const balanceBN = new BigNumber(availableBalance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
-  }, [selectedAction, amount, usdcBalance]);
+  }, [amount, availableBalance]);
 
-  const getButtonBackground = () => {
-    if (isInsufficientBalance) return '$neutral7';
-    if (!isValidAmount || isSubmitting || balanceLoading) return '$neutral7';
-    return selectedAction === 'deposit' ? '$green9' : '$blue9';
-  };
-
-  const getButtonText = () => {
+  const buttonText = useMemo(() => {
     if (isSubmitting) {
       return `${
         selectedAction === 'deposit' ? 'Depositing' : 'Withdrawing'
@@ -217,8 +227,8 @@ function DepositWithdrawContent({
     }
     if (isInsufficientBalance) return 'Insufficient balance';
     return selectedAction === 'deposit' ? 'Deposit' : 'Withdraw';
-  };
-
+  }, [isSubmitting, isInsufficientBalance, selectedAction]);
+  const intl = useIntl();
   return (
     <YStack
       gap="$4"
@@ -227,26 +237,69 @@ function DepositWithdrawContent({
         marginTop: -22,
       }}
     >
-      {/* Tab Switch */}
       <SegmentControl
+        height={38}
+        segmentControlItemStyleProps={{
+          height: '100%',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: 80,
+        }}
         value={selectedAction}
         onChange={setSelectedAction as ISegmentControlProps['onChange']}
         options={[
-          { label: 'Deposit', value: 'deposit' },
-          { label: 'Withdraw', value: 'withdraw' },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_trade_deposit,
+            }),
+            value: 'deposit',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_trade_withdraw,
+            }),
+            value: 'withdraw',
+          },
         ]}
       />
-      {/* Chain and Token Info */}
-      <YStack gap="$3">
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {selectedAction === 'deposit' ? 'Deposit Chain' : 'Withdraw Chain'}
-          </SizableText>
-          <Badge size="small" variant="gray">
-            Arbitrum One
-          </Badge>
-        </XStack>
-      </YStack>
+      <XStack
+        borderWidth="$px"
+        borderColor={errorMessage ? '$red7' : '$borderSubdued'}
+        borderRadius="$3"
+        px="$3"
+        bg="$bgSubdued"
+        alignItems="center"
+        gap="$3"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {selectedAction === 'withdraw'
+            ? intl.formatMessage({ id: ETranslations.perp_withdraw_chain })
+            : intl.formatMessage({ id: ETranslations.perp_deposit_chain })}
+        </SizableText>
+        <Input
+          flex={1}
+          value="Arbitrum One"
+          onChangeText={() => {}}
+          keyboardType="default"
+          readonly
+          borderWidth={0}
+          size="medium"
+          fontSize={getFontSize('$bodyMd')}
+          containerProps={{
+            flex: 1,
+            borderWidth: 0,
+            bg: 'transparent',
+            p: 0,
+          }}
+          InputComponentStyle={{
+            p: 0,
+            bg: 'transparent',
+            justifyContent: 'flex-end',
+          }}
+          alignContent="flex-end"
+          textAlign="right"
+        />
+      </XStack>
 
       <YStack gap="$2">
         <XStack
@@ -259,18 +312,21 @@ function DepositWithdrawContent({
           gap="$3"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
-            Pay
+            {intl.formatMessage({ id: ETranslations.send_nft_amount })}
           </SizableText>
           <Input
+            alignItems="center"
             flex={1}
-            placeholder="0"
+            placeholder={intl.formatMessage({
+              id: ETranslations.form_amount_placeholder,
+            })}
             value={amount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
             disabled={isSubmitting}
             borderWidth={0}
             size="medium"
-            fontSize="$bodyLg"
+            fontSize={getFontSize('$bodyMd')}
             containerProps={{
               flex: 1,
               borderWidth: 0,
@@ -280,13 +336,12 @@ function DepositWithdrawContent({
             InputComponentStyle={{
               p: 0,
               bg: 'transparent',
+              justifyContent: 'flex-end',
             }}
-            alignContent="flex-end"
+            textAlign="right"
           />
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              USDC
-            </SizableText>
+          <XStack alignItems="center">
+            <SizableText size="$bodyMd">USDC</SizableText>
           </XStack>
         </XStack>
 
@@ -299,8 +354,14 @@ function DepositWithdrawContent({
       {/* Available Balance & You Will Get */}
       <YStack gap="$3">
         <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            Available balance
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {selectedAction === 'withdraw'
+              ? intl.formatMessage({
+                  id: ETranslations.perp_trade_withdrawable,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.perp_available_balance,
+                })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
             {balanceLoading ? (
@@ -308,61 +369,59 @@ function DepositWithdrawContent({
             ) : (
               <NumberSizeableText
                 onPress={handleMaxPress}
-                color="$textSubdued"
-                size="$bodySm"
-                fontWeight="500"
+                color="$text"
+                size="$bodyMd"
                 formatter="balance"
-                formatterOptions={{ tokenSymbol: 'USDC' }}
+                formatterOptions={{
+                  tokenSymbol: selectedAction === 'withdraw' ? 'USD' : 'USDC',
+                }}
               >
-                {usdcBalance || '0'}
+                {availableBalance || '0'}
               </NumberSizeableText>
             )}
           </XStack>
         </XStack>
 
         <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            You will get
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
           </SizableText>
-          <SizableText color="$textSubdued" size="$bodySm" fontWeight="500">
+          <SizableText color="$text" size="$bodyMd">
             ${amount || '0'} on{' '}
             {selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One'}
           </SizableText>
         </XStack>
       </YStack>
 
-      {/* Submit Button */}
       <Button
+        variant="primary"
         size="medium"
         disabled={!isValidAmount || isSubmitting || balanceLoading}
+        loading={isSubmitting}
         onPress={handleConfirm}
-        backgroundColor={getButtonBackground()}
       >
-        <SizableText
-          color={isInsufficientBalance ? '$blackA10' : '$white'}
-          fontWeight="600"
-        >
-          {getButtonText()}
-        </SizableText>
+        {buttonText}
       </Button>
     </YStack>
   );
 }
 
-export function showDepositWithdrawModal(activeAccount: IActiveAccount) {
-  if (!activeAccount?.account?.id) {
-    console.error('[DepositWithdrawModal] No active account available');
+export function showDepositWithdrawModal(params: IDepositWithdrawParams) {
+  if (!params.userAccountId || !params.userAddress) {
+    console.error('[DepositWithdrawModal] Missing required parameters');
     return;
   }
 
   const dialogInstance = Dialog.show({
     renderContent: (
-      <DepositWithdrawContent
-        activeAccount={activeAccount}
-        onClose={() => {
-          void dialogInstance.close();
-        }}
-      />
+      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+        <DepositWithdrawContent
+          params={params}
+          onClose={() => {
+            void dialogInstance.close();
+          }}
+        />
+      </PerpsProviderMirror>
     ),
     showFooter: false,
     onClose: () => {

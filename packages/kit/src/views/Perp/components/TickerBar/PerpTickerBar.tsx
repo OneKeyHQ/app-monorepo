@@ -3,6 +3,7 @@ import { memo, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  IconButton,
   NumberSizeableText,
   ScrollView,
   SizableText,
@@ -10,6 +11,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,16 +52,8 @@ function useFundingCountdown() {
   return countdown;
 }
 
-// Format funding rate percentage
-function formatFundingRate(rate: string | number): string {
-  const num = typeof rate === 'string' ? parseFloat(rate) : rate;
-  if (Number.isNaN(num)) return '0.000000%';
-
-  // Convert to percentage and format with 6 decimal places
-  return `${(num * 100).toFixed(6)}%`;
-}
-
 function PerpTickerBar() {
+  const { gtMd } = useMedia();
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
   const [priceData] = useCurrentTokenPriceAtom();
@@ -71,13 +65,41 @@ function PerpTickerBar() {
     openInterest,
     volume24h,
     change24hPercent,
-    coin,
   } = priceData;
 
   const formattedMarkPrice = markPrice;
   const formattedOraclePrice = oraclePrice;
   const intl = useIntl();
   const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
+
+  if (!gtMd) {
+    return (
+      <XStack
+        bg="$bgApp"
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+        p="$4"
+        alignItems="center"
+        justifyContent="flex-start"
+        gap="$6"
+        h={62}
+      >
+        <XStack
+          flex={1}
+          gap="$4"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <PerpTokenSelector />
+          <IconButton
+            icon="TradingViewCandlesOutline"
+            size="medium"
+            variant="tertiary"
+          />
+        </XStack>
+      </XStack>
+    );
+  }
 
   return (
     <XStack

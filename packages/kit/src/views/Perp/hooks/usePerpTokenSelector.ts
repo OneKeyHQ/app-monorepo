@@ -4,8 +4,7 @@ import {
   useCurrentTokenAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-
-import { getPriceDecimals } from '../utils/tokenUtils';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useTokenList } from './usePerpMarketData';
 
@@ -47,7 +46,7 @@ export function usePerpTokenSelector() {
 
   const enhancedTokens = useMemo(() => {
     return tokenList.map((token) => {
-      const priceDecimals = getPriceDecimals(token.szDecimals);
+      const priceDecimals = getValidPriceDecimals(token.szDecimals);
       return {
         ...token,
         change24h: (

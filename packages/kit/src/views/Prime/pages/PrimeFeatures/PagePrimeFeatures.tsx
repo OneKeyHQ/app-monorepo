@@ -305,7 +305,7 @@ export default function PagePrimeFeatures() {
             w="100%"
             h={bannerHeight}
             maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
+            source={require('@onekeyhq/kit/assets/prime/increase_notification_limit_banner.png')}
           />
         ),
         title: intl.formatMessage({
@@ -321,21 +321,12 @@ export default function PagePrimeFeatures() {
         ),
         details: [
           {
-            icon: 'GasOutline',
+            icon: 'EyeOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+              id: ETranslations.prime_features_increase_notification_limit_one_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
-            }),
-          },
-          {
-            icon: 'WalletCryptoOutline',
-            title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
-            }),
-            description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+              id: ETranslations.prime_features_increase_notification_limit_one_desc,
             }),
           },
         ],
@@ -347,7 +338,7 @@ export default function PagePrimeFeatures() {
             w="100%"
             h={bannerHeight}
             maxWidth={393}
-            source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
+            source={require('@onekeyhq/kit/assets/prime/export_transactions_banner.png')}
           />
         ),
         title: intl.formatMessage({
@@ -363,21 +354,21 @@ export default function PagePrimeFeatures() {
         ),
         details: [
           {
-            icon: 'GasOutline',
+            icon: 'ArchiveBoxOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+              id: ETranslations.prime_features_export_transactions_one_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+              id: ETranslations.prime_features_export_transactions_one_desc,
             }),
           },
           {
-            icon: 'WalletCryptoOutline',
+            icon: 'BillOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_title,
+              id: ETranslations.prime_features_export_transactions_two_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
+              id: ETranslations.prime_features_export_transactions_two_desc,
             }),
           },
         ],

@@ -7,7 +7,7 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 
-import { useCurrentTokenData } from '../../hooks';
+import { useCurrentTokenData } from '../../../hooks';
 
 type IMarginMode = 'isolated' | 'cross';
 
@@ -64,7 +64,6 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
           cursor="pointer"
           onPress={onPress}
           disabled={disabledTrigger}
-          width={100}
           height={30}
           bg="$bgSubdued"
           borderRadius="$2"
@@ -72,14 +71,15 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
           justifyContent="space-between"
           px="$3"
         >
-          <SizableText>{label}</SizableText>
+          <SizableText size="$bodyMdMedium">{label}</SizableText>
           <Icon
             name="ChevronTriangleDownSmallOutline"
-            color="$iconSubdued"
+            color="$icon"
             size="$5"
           />
         </XStack>
       )}
+      placement="bottom-start"
       floatingPanelProps={{
         width: 120,
       }}

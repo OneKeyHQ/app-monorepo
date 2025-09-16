@@ -117,8 +117,12 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
       isMobile={isMobile}
       minTableWidth={totalMinWidth}
       renderRow={renderTradesHistoryRow}
-      emptyMessage="No trades found"
-      emptySubMessage="Your trades will appear here"
+      emptyMessage={intl.formatMessage({
+        id: ETranslations.perp_trade_history_empty,
+      })}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_trade_history_empty_desc,
+      })}
       enablePagination
       pageSize={20}
     />
