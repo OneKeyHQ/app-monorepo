@@ -1,4 +1,6 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
 
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components';
@@ -6,6 +8,7 @@ import {
   useActiveAssetDataAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentTokenData } from '../../../hooks';
 
@@ -15,15 +18,29 @@ interface IMarginModeSelectorProps {
   disabled?: boolean;
 }
 
-const marginModeOptions: ISelectItem[] = [
-  { label: 'Isolated', value: 'isolated' },
-  { label: 'Cross', value: 'cross' },
-];
-
 const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
+  const intl = useIntl();
   const [activeAssetData] = useActiveAssetDataAtom();
   const tokenInfo = useCurrentTokenData();
   const actions = useHyperliquidActions();
+
+  const marginModeOptions = useMemo(
+    (): ISelectItem[] => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_trade_isolated,
+        }),
+        value: 'isolated',
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.perp_trade_cross,
+        }),
+        value: 'cross',
+      },
+    ],
+    [intl],
+  );
 
   const currentMode: IMarginMode =
     activeAssetData?.leverage?.type || 'isolated';
