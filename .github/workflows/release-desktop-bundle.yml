@@ -107,7 +107,7 @@ jobs:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
           artifact-type: Desktop
-          artifact-name: OneKey-Desktop-MAS
+          artifact-name: OneKey-Desktop-Bundle
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
