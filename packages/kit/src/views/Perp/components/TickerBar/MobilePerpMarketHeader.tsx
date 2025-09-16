@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -12,13 +13,9 @@ import {
 } from '@onekeyhq/components';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  NUMBER_FORMATTER,
-  formatDisplayNumber,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { useFundingCountdown, usePerpSession } from '../../hooks';
-import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
+import { usePerpSession } from '../../hooks';
 
 function StatRow({
   label,
@@ -32,18 +29,17 @@ function StatRow({
   showSkeleton: boolean;
 }) {
   return (
-    <YStack gap="$1">
+    <XStack alignItems="center" justifyContent="space-between" gap="$1">
       <SizableText size="$bodySm" color="$textSubdued">
         {label}
       </SizableText>
       {showSkeleton ? <Skeleton width={skeletonWidth} height={16} /> : children}
-    </YStack>
+    </XStack>
   );
 }
 
 function MobilePerpMarketHeader() {
   const intl = useIntl();
-  const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
   const [priceData] = useCurrentTokenPriceAtom();
 
@@ -81,16 +77,20 @@ function MobilePerpMarketHeader() {
     ) {
       return '--';
     }
-    return oraclePrice;
+    return `$${oraclePrice}`;
   }, [oraclePrice]);
 
   const volumeDisplay = useMemo(() => {
     if (volume24h === undefined || volume24h === null) {
       return '--';
     }
-    return `$${formatDisplayNumber(
-      NUMBER_FORMATTER.marketCap(volume24h.toString()),
-    )}`;
+    const formatted = numberFormat(volume24h.toString(), {
+      formatter: 'marketCap',
+    });
+    if (typeof formatted !== 'string' || formatted.length === 0) {
+      return '--';
+    }
+    return `$${formatted}`;
   }, [volume24h]);
 
   const openInterestDisplay = useMemo(() => {
@@ -104,47 +104,54 @@ function MobilePerpMarketHeader() {
     ) {
       return '--';
     }
-    const dollarValue = NUMBER_FORMATTER.marketCap(
-      (Number(openInterest) * Number(markPrice || 0)).toString(),
-    );
-    return `$${formatDisplayNumber(dollarValue)}`;
+    const notional = (Number(openInterest) * Number(markPrice || 0)).toString();
+    const formatted = numberFormat(notional, {
+      formatter: 'marketCap',
+    });
+    if (typeof formatted !== 'string' || formatted.length === 0) {
+      return '--';
+    }
+    return `$${formatted}`;
   }, [markPrice, openInterest]);
 
   return (
-    <YStack
-      bg="$bgApp"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
-      p="$5"
-      gap="$5"
-    >
-      <PerpTokenSelector />
-
-      <XStack alignItems="flex-start" justifyContent="space-between" gap="$6">
-        <YStack gap="$1">
+    <YStack bg="$bgApp" px="$5" py="$3" gap="$2.5">
+      <XStack alignItems="flex-start" gap="$4">
+        <YStack gap="$1" flex={1} minWidth={0} width="50%">
           {showSkeleton ? (
             <Skeleton width={120} height={28} />
           ) : (
-            <SizableText size="$headingXl">{markPrice}</SizableText>
+            <SizableText size="$heading3xl">{`$${markPrice}`}</SizableText>
           )}
 
           {showSkeleton ? (
             <Skeleton width={72} height={16} />
           ) : (
-            <NumberSizeableText
-              size="$bodyLg"
-              color={change24hPercent >= 0 ? '$green11' : '$red11'}
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-            >
-              {change24hPercent}
-            </NumberSizeableText>
+            <XStack alignItems="center" gap="$0.5">
+              <Icon
+                name={
+                  change24hPercent >= 0
+                    ? 'ArrowTriangleTopSolid'
+                    : 'ArrowTriangleBottomSolid'
+                }
+                size="$3"
+                color={change24hPercent >= 0 ? '$green11' : '$red11'}
+              />
+              <NumberSizeableText
+                size="$bodySmMedium"
+                color={change24hPercent >= 0 ? '$green11' : '$red11'}
+                formatter="priceChange"
+                formatterOptions={{
+                  showPlusMinusSigns: true,
+                }}
+              >
+                {change24hPercent}
+              </NumberSizeableText>
+            </XStack>
           )}
         </YStack>
 
-        <YStack gap="$4" flex={1}>
+        <YStack gap="$1.5" flex={1} minWidth={0} width="50%">
           <StatRow
             label={intl.formatMessage({
               id: ETranslations.perp_token_bar_oracle_price,
@@ -152,7 +159,14 @@ function MobilePerpMarketHeader() {
             skeletonWidth={96}
             showSkeleton={showSkeleton}
           >
-            <SizableText size="$bodyLgMedium">{oraclePriceDisplay}</SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              flex={1}
+              textAlign="right"
+            >
+              {oraclePriceDisplay}
+            </SizableText>
           </StatRow>
 
           <StatRow
@@ -162,7 +176,14 @@ function MobilePerpMarketHeader() {
             skeletonWidth={120}
             showSkeleton={showSkeleton}
           >
-            <SizableText size="$bodyLgMedium">{volumeDisplay}</SizableText>
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              flex={1}
+              textAlign="right"
+            >
+              {volumeDisplay}
+            </SizableText>
           </StatRow>
 
           <StatRow
@@ -172,26 +193,31 @@ function MobilePerpMarketHeader() {
             skeletonWidth={120}
             showSkeleton={showSkeleton}
           >
-            <SizableText size="$bodyLgMedium">
+            <SizableText
+              size="$bodySmMedium"
+              color="$text"
+              flex={1}
+              textAlign="right"
+            >
               {openInterestDisplay}
             </SizableText>
           </StatRow>
 
           <StatRow
             label={intl.formatMessage({
-              id: ETranslations.perp_token_bar_Funding,
+              id: ETranslations.perp_position_funding,
             })}
             skeletonWidth={140}
             showSkeleton={showSkeleton}
           >
-            <XStack alignItems="center" gap="$2">
-              <SizableText size="$bodyLgMedium" color={fundingColor}>
-                {fundingDisplay}
-              </SizableText>
-              <SizableText size="$bodySm" color="$text">
-                {countdown}
-              </SizableText>
-            </XStack>
+            <SizableText
+              size="$bodySmMedium"
+              flex={1}
+              textAlign="right"
+              color={fundingColor}
+            >
+              {fundingDisplay}
+            </SizableText>
           </StatRow>
         </YStack>
       </XStack>

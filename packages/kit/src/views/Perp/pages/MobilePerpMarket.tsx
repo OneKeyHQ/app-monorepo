@@ -15,12 +15,7 @@ function MobilePerpMarket() {
         <YStack flex={1} bg="$bgApp">
           <MobilePerpMarketHeader />
 
-          <YStack
-            flex={1}
-            minHeight={320}
-            borderBottomWidth="$px"
-            borderBottomColor="$borderSubdued"
-          >
+          <YStack flex={1} minHeight={364}>
             <PerpCandles />
           </YStack>
 
