@@ -9,6 +9,7 @@ import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 import { notificationStatusAtom } from '../../states/jotai/atoms/notifications';
 import ServiceBase from '../ServiceBase';
 
+import type { IWsPriceData, IWsTxsData } from './types';
 import type { Socket } from 'socket.io-client';
 
 const EOperation = {
@@ -280,61 +281,43 @@ class ServiceMarketWS extends ServiceBase {
     // Handle different message formats from the WebSocket
     // Support both direct channel format and nested data format
     let channel: string;
-    let networkId = '';
+    const networkId = '';
     let tokenAddress = '';
     let messageType: string | undefined;
     let processedData: any;
 
     if ('type' in messageData && 'data' in messageData) {
-      // Format: { type: 'TXS_DATA' | 'PRICE_DATA', data: {...} }
       messageType = messageData.type as string;
       processedData = messageData.data as Record<string, any>;
-
-      if (messageType === 'TXS_DATA') {
-        channel = EChannel.tokenTxs;
-
-        const txsData = processedData as {
-          from: {
-            address: string;
-          };
-          to: {
-            address: string;
-          };
-        };
-
-        // Extract tokenAddress from transaction data - check from/to addresses
-        const fromAddress = txsData.from.address;
-        const toAddress = txsData.to.address;
-
-        const solAddress = 'So11111111111111111111111111111111111111112';
-        if (fromAddress && fromAddress !== solAddress) {
-          tokenAddress = fromAddress;
-        } else if (toAddress && toAddress !== solAddress) {
-          tokenAddress = toAddress;
-        } else {
-          tokenAddress = fromAddress || toAddress || '';
-        }
-      } else if (messageType === 'PRICE_DATA') {
-        channel = EChannel.ohlcv;
-        tokenAddress = this.safeGetStringProperty(processedData, 'address');
-      } else {
-        return;
-      }
     } else {
-      // Legacy format: { channel, networkId, tokenAddress, ... }
-      const requiredProperties = ['channel', 'networkId', 'tokenAddress'];
-      const hasAllProperties = requiredProperties.every(
-        (prop) => prop in messageData,
-      );
+      return;
+    }
 
-      if (!hasAllProperties) {
-        return;
+    if (messageType === 'TXS_DATA') {
+      channel = EChannel.tokenTxs;
+
+      const txsData = processedData as IWsTxsData;
+
+      // Extract tokenAddress from transaction data - check from/to addresses
+      const fromAddress = txsData.from.address;
+      const toAddress = txsData.to.address;
+
+      const solAddress = 'So11111111111111111111111111111111111111112';
+      if (fromAddress && fromAddress !== solAddress) {
+        tokenAddress = fromAddress;
+      } else if (toAddress && toAddress !== solAddress) {
+        tokenAddress = toAddress;
+      } else {
+        tokenAddress = fromAddress || toAddress || '';
       }
+    } else if (messageType === 'PRICE_DATA') {
+      channel = EChannel.ohlcv;
 
-      channel = messageData.channel as string;
-      networkId = messageData.networkId as string;
-      tokenAddress = messageData.tokenAddress as string;
-      processedData = messageData;
+      const priceData = processedData as IWsPriceData;
+
+      tokenAddress = priceData.address;
+    } else {
+      return;
     }
 
     // Validate that we have the required data
@@ -356,14 +339,6 @@ class ServiceMarketWS extends ServiceBase {
       data: processedData,
       originalData: data,
     });
-  }
-
-  async getConnectionStatus() {
-    const { websocketConnected } = await notificationStatusAtom.get();
-    return {
-      connected: websocketConnected,
-      subscriptions: Array.from(this.subscriptions),
-    };
   }
 }
 
