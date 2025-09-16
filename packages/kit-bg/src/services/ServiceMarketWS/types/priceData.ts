@@ -1,5 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 
+import type { EMessageType } from './messageType';
+
 export interface IWsPriceData {
   o: number; // open price
   h: number; // high price
@@ -14,7 +16,7 @@ export interface IWsPriceData {
 }
 
 export interface IWsPriceDataMessage {
-  type: 'PRICE_DATA';
+  type: EMessageType.PRICE_DATA;
   data: IWsPriceData;
 }
 

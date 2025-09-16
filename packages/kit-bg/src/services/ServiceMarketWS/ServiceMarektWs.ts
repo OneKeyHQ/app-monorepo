@@ -258,16 +258,6 @@ class ServiceMarketWS extends ServiceBase {
     });
   }
 
-  private safeGetStringProperty(obj: Record<string, any>, key: string): string {
-    return key in obj && typeof obj[key] === 'string' ? obj[key] : '';
-  }
-
-  // private safeGetObjectProperty(obj: Record<string, any>, key: string): Record<string, any> | undefined {
-  //   return key in obj && obj[key] && typeof obj[key] === 'object'
-  //     ? obj[key] as Record<string, any>
-  //     : undefined;
-  // }
-
   private handleMarketMessage(data: unknown) {
     console.log('Market data received:', data);
 
@@ -298,17 +288,19 @@ class ServiceMarketWS extends ServiceBase {
 
       const txsData = processedData as IWsTxsData;
 
-      // Extract tokenAddress from transaction data - check from/to addresses
+      // Extract tokenAddress from transaction data based on trading direction
       const fromAddress = txsData.from.address;
       const toAddress = txsData.to.address;
 
-      const solAddress = 'So11111111111111111111111111111111111111112';
-      if (fromAddress && fromAddress !== solAddress) {
+      if (txsData.from.typeSwap === 'from' && txsData.to.typeSwap === 'to') {
         tokenAddress = fromAddress;
-      } else if (toAddress && toAddress !== solAddress) {
+      } else if (
+        txsData.from.typeSwap === 'to' &&
+        txsData.to.typeSwap === 'from'
+      ) {
         tokenAddress = toAddress;
       } else {
-        tokenAddress = fromAddress || toAddress || '';
+        return;
       }
     } else if (messageType === 'PRICE_DATA') {
       channel = EChannel.ohlcv;

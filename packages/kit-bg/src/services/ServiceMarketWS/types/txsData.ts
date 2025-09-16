@@ -1,5 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 
+import type { EMessageType } from './messageType';
+
 export interface IWsTxsTransferInfo {
   address: string;
   amount: number;
@@ -36,7 +38,7 @@ export interface IWsTxsData {
 }
 
 export interface IWsTxsDataMessage {
-  type: 'TXS_DATA';
+  type: EMessageType.TXS_DATA;
   data: IWsTxsData;
 }
 
