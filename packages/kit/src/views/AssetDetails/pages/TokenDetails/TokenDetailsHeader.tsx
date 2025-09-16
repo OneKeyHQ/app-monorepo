@@ -5,6 +5,7 @@ import { type IProps } from '.';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   DebugRenderTracker,
   Divider,
   Icon,
@@ -232,6 +233,16 @@ function TokenDetailsHeader(props: IProps) {
   return (
     <DebugRenderTracker timesBadgePosition="top-right">
       <>
+        {isAllNetworks &&
+        !tokenInfo.isAggregateToken &&
+        tokenInfo.isSameSymbolWithAggregateToken ? (
+          <Alert
+            icon="InfoCircleOutline"
+            type="critical"
+            title="检测到钱包中存在相同或相似名称的资产，请谨慎操作，避免损失"
+            fullBleed
+          />
+        ) : null}
         {/* Overview */}
         <Stack px="$5" pb="$5" pt={isTabView ? '$5' : '$0'}>
           {/* Balance */}
