@@ -1,16 +1,20 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   NumberSizeableText,
   SizableText,
+  Skeleton,
   Spinner,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useHyperliquidAccount } from '../../../hooks';
 import { usePerpUseChainAccount } from '../../../hooks/usePerpUseChainAccount';
@@ -35,7 +39,7 @@ function PerpAccountPanel() {
     }
     return { availableBalance, currentPositionValue };
   }, [accountSummary.withdrawable, userWebData2]);
-
+  const intl = useIntl();
   const handleDepositOrWithdraw = useCallback(
     (actionType: 'deposit' | 'withdraw') => {
       if (!userAccountId || !userAddress) {
@@ -54,94 +58,100 @@ function PerpAccountPanel() {
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
 
-  if (perpsAccountLoading) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-        <Spinner size="large" />
-      </YStack>
-    );
-  }
-
-  if (!userAddress) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-        <SizableText size="$bodySm" color="$textSubdued" mt="$3">
-          Please create an EVM address first: ____{activeAccountIndexedId}
-          ____{userAccountId}
-        </SizableText>
-      </YStack>
-    );
-  }
-
-  if (!userWebData2) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-        <Spinner size="large" />
-        <SizableText size="$bodySm" color="$textSubdued" mt="$3">
-          Loading account data...
-        </SizableText>
-      </YStack>
-    );
-  }
-
   return (
-    <YStack flex={1} gap="$2">
+    <YStack flex={1} gap="$1.5">
       {/* Header */}
       <XStack p="$4" justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingXs">ACCOUNT OVERVIEW</SizableText>
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_account_overview,
+          })}
+        </SizableText>
       </XStack>
-
       <YStack flex={1} px="$4" gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
-            Available to Trade
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_account_overview_available,
+            })}
           </SizableText>
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {accountDataInfo.availableBalance}
-          </NumberSizeableText>
+          {perpsAccountLoading || !userWebData2 ? (
+            <Skeleton width={70} height={16} />
+          ) : (
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {accountDataInfo.availableBalance}
+            </NumberSizeableText>
+          )}
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
-            Current Position
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_current_position,
+            })}
           </SizableText>
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {accountDataInfo.currentPositionValue.toFixed()}
-          </NumberSizeableText>
+          {perpsAccountLoading || !userWebData2 ? (
+            <Skeleton width={60} height={16} />
+          ) : (
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {accountDataInfo.currentPositionValue.toFixed()}
+            </NumberSizeableText>
+          )}
         </XStack>
       </YStack>
-
       {/* Action Buttons */}
-      <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
-        <Button
+      {userAddress ? (
+        <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
+          <Button
+            flex={1}
+            size="medium"
+            variant="secondary"
+            onPress={() => handleDepositOrWithdraw('deposit')}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+            </SizableText>
+          </Button>
+          <Button
+            flex={1}
+            size="medium"
+            variant="secondary"
+            onPress={() => handleDepositOrWithdraw('withdraw')}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText size="$bodySmMedium" textAlign="center">
+              {intl.formatMessage({ id: ETranslations.perp_trade_withdraw })}
+            </SizableText>
+          </Button>
+        </XStack>
+      ) : (
+        <XStack
           flex={1}
-          size="medium"
-          variant="secondary"
-          onPress={() => handleDepositOrWithdraw('withdraw')}
+          justifyContent="flex-start"
           alignItems="center"
-          justifyContent="center"
+          mt="$3"
+          px="$4"
+          gap="$1.5"
         >
-          <SizableText size="$bodySmMedium">Withdraw</SizableText>
-        </Button>
-        <Button
-          flex={1}
-          size="medium"
-          variant="secondary"
-          onPress={() => handleDepositOrWithdraw('deposit')}
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText size="$bodySmMedium">Deposit</SizableText>
-        </Button>
-      </XStack>
+          <Icon name="InfoCircleOutline" size="$3.5" color="$icon" />
+          <SizableText size="$bodySm" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.perp_account_create,
+            })}
+          </SizableText>
+        </XStack>
+      )}
     </YStack>
   );
 }

@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   Dialog,
   Input,
@@ -15,12 +15,14 @@ import {
   Toast,
   XStack,
   YStack,
+  getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
@@ -226,7 +228,7 @@ function DepositWithdrawContent({
     if (isInsufficientBalance) return 'Insufficient balance';
     return selectedAction === 'deposit' ? 'Deposit' : 'Withdraw';
   }, [isSubmitting, isInsufficientBalance, selectedAction]);
-
+  const intl = useIntl();
   return (
     <YStack
       gap="$4"
@@ -235,26 +237,69 @@ function DepositWithdrawContent({
         marginTop: -22,
       }}
     >
-      {/* Tab Switch */}
       <SegmentControl
+        height={38}
+        segmentControlItemStyleProps={{
+          height: '100%',
+          justifyContent: 'center',
+          alignItems: 'center',
+          width: 80,
+        }}
         value={selectedAction}
         onChange={setSelectedAction as ISegmentControlProps['onChange']}
         options={[
-          { label: 'Deposit', value: 'deposit' },
-          { label: 'Withdraw', value: 'withdraw' },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_trade_deposit,
+            }),
+            value: 'deposit',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_trade_withdraw,
+            }),
+            value: 'withdraw',
+          },
         ]}
       />
-      {/* Chain and Token Info */}
-      <YStack gap="$3">
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {selectedAction === 'deposit' ? 'Deposit Chain' : 'Withdraw Chain'}
-          </SizableText>
-          <Badge size="small" variant="gray">
-            Arbitrum One
-          </Badge>
-        </XStack>
-      </YStack>
+      <XStack
+        borderWidth="$px"
+        borderColor={errorMessage ? '$red7' : '$borderSubdued'}
+        borderRadius="$3"
+        px="$3"
+        bg="$bgSubdued"
+        alignItems="center"
+        gap="$3"
+      >
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {selectedAction === 'withdraw'
+            ? intl.formatMessage({ id: ETranslations.perp_withdraw_chain })
+            : intl.formatMessage({ id: ETranslations.perp_deposit_chain })}
+        </SizableText>
+        <Input
+          flex={1}
+          value="Arbitrum One"
+          onChangeText={() => {}}
+          keyboardType="default"
+          readonly
+          borderWidth={0}
+          size="medium"
+          fontSize={getFontSize('$bodyMd')}
+          containerProps={{
+            flex: 1,
+            borderWidth: 0,
+            bg: 'transparent',
+            p: 0,
+          }}
+          InputComponentStyle={{
+            p: 0,
+            bg: 'transparent',
+            justifyContent: 'flex-end',
+          }}
+          alignContent="flex-end"
+          textAlign="right"
+        />
+      </XStack>
 
       <YStack gap="$2">
         <XStack
@@ -267,18 +312,21 @@ function DepositWithdrawContent({
           gap="$3"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
-            Pay
+            {intl.formatMessage({ id: ETranslations.send_nft_amount })}
           </SizableText>
           <Input
+            alignItems="center"
             flex={1}
-            placeholder="0"
+            placeholder={intl.formatMessage({
+              id: ETranslations.form_amount_placeholder,
+            })}
             value={amount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
             disabled={isSubmitting}
             borderWidth={0}
             size="medium"
-            fontSize="$bodyLg"
+            fontSize={getFontSize('$bodyMd')}
             containerProps={{
               flex: 1,
               borderWidth: 0,
@@ -288,13 +336,12 @@ function DepositWithdrawContent({
             InputComponentStyle={{
               p: 0,
               bg: 'transparent',
+              justifyContent: 'flex-end',
             }}
-            alignContent="flex-end"
+            textAlign="right"
           />
-          <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              USDC
-            </SizableText>
+          <XStack alignItems="center">
+            <SizableText size="$bodyMd">USDC</SizableText>
           </XStack>
         </XStack>
 
@@ -307,10 +354,14 @@ function DepositWithdrawContent({
       {/* Available Balance & You Will Get */}
       <YStack gap="$3">
         <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {selectedAction === 'withdraw'
-              ? 'Withdrawable'
-              : 'Available balance'}
+              ? intl.formatMessage({
+                  id: ETranslations.perp_trade_withdrawable,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.perp_available_balance,
+                })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
             {balanceLoading ? (
@@ -318,9 +369,8 @@ function DepositWithdrawContent({
             ) : (
               <NumberSizeableText
                 onPress={handleMaxPress}
-                color="$textSubdued"
-                size="$bodySm"
-                fontWeight="500"
+                color="$text"
+                size="$bodyMd"
                 formatter="balance"
                 formatterOptions={{
                   tokenSymbol: selectedAction === 'withdraw' ? 'USD' : 'USDC',
@@ -333,10 +383,10 @@ function DepositWithdrawContent({
         </XStack>
 
         <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodySm" color="$textSubdued">
-            You will get
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
           </SizableText>
-          <SizableText color="$textSubdued" size="$bodySm" fontWeight="500">
+          <SizableText color="$text" size="$bodyMd">
             ${amount || '0'} on{' '}
             {selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One'}
           </SizableText>
