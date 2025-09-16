@@ -52,6 +52,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 
 function usePreloadJsUrl() {
   const { preloadJsUrl } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
+  console.log('preloadJsUrl', preloadJsUrl);
   useEffect(() => {
     if (preloadJsUrl) {
       return;
