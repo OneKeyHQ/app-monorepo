@@ -15,7 +15,7 @@ const babelTools = require('../babelTools');
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
 
 const copyDir = (src, dest) => {
-  if (!fs.existsSync(src)) {
+  if (!fs.existsSync(src) || fs.existsSync(dest)) {
     return;
   }
   fs.mkdirSync(dest, { recursive: true });
