@@ -736,6 +736,12 @@ function createMainWindow() {
 
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
+          if (useJsBundle && indexHtmlPath && bundleDirPath) {
+            callback(
+              path.join(bundleDirPath, 'static', 'js-sdk', 'iframe.html'),
+            );
+            return;
+          }
           callback({
             path: path.join(
               __dirname,
