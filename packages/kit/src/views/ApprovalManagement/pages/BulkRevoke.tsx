@@ -417,7 +417,6 @@ function BulkRevoke() {
 
   useEffect(() => {
     const handleVisibilityStateChange = (visible: boolean) => {
-      console.log('handleVisibilityStateChange', visible);
       if (visible === false) {
         setProgressState(ERevokeProgressState.Paused);
         setRevokeTxsStatusMap((prev) => ({
