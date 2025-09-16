@@ -119,6 +119,7 @@ export interface IDexSortParams {
 
 export interface IDexCopyCAParams {
   copyFrom: ECopyFrom;
+  copiedContent: string;
 }
 
 export interface IDexCheckRiskParams {
