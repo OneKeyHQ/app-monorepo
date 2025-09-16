@@ -106,11 +106,19 @@ function TokenNameView(props: IProps) {
       !isAggregateToken &&
       !showNetworkName &&
       isSameSymbolWithAggregateToken ? (
-        <Icon
-          flexShrink={0}
-          name="InfoCircleOutline"
-          color="$iconCritical"
-          size="$4"
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <Icon
+              flexShrink={0}
+              name="InfoCircleOutline"
+              color="$iconCritical"
+              size="$4"
+            />
+          }
+          renderContent={intl.formatMessage({
+            id: ETranslations.identical_name_asset_alert,
+          })}
         />
       ) : null}
     </XStack>

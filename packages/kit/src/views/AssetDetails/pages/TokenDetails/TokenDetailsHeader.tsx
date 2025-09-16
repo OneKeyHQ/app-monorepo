@@ -239,12 +239,14 @@ function TokenDetailsHeader(props: IProps) {
           <Alert
             icon="InfoCircleOutline"
             type="critical"
-            title="检测到钱包中存在相同或相似名称的资产，请谨慎操作，避免损失"
+            title={intl.formatMessage({
+              id: ETranslations.identical_name_asset_alert,
+            })}
             fullBleed
           />
         ) : null}
         {/* Overview */}
-        <Stack px="$5" pb="$5" pt={isTabView ? '$5' : '$0'}>
+        <Stack px="$5" py="$5">
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             <Stack flex={1}>
