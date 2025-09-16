@@ -9,12 +9,18 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
+import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
+  const actionsRef = useHyperliquidActions();
+  const longButtonStyle = getTradingButtonStyleProps('long');
+  const shortButtonStyle = getTradingButtonStyleProps('short');
+
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
@@ -24,7 +30,7 @@ function MobilePerpMarket() {
   }, []);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Body px="$0" py="$0">
         <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />
@@ -38,6 +44,36 @@ function MobilePerpMarket() {
           </YStack>
         </YStack>
       </Page.Body>
+      <Page.Footer
+        onCancelText="Long"
+        onConfirmText="Short"
+        cancelButtonProps={{
+          flex: 1,
+          height: 38,
+          borderRadius: '$2',
+          bg: longButtonStyle.bg,
+          hoverStyle: longButtonStyle.hoverStyle,
+          pressStyle: longButtonStyle.pressStyle,
+          color: longButtonStyle.textColor,
+        }}
+        confirmButtonProps={{
+          flex: 1,
+          height: 38,
+          borderRadius: '$2',
+          bg: shortButtonStyle.bg,
+          hoverStyle: shortButtonStyle.hoverStyle,
+          pressStyle: shortButtonStyle.pressStyle,
+          color: shortButtonStyle.textColor,
+        }}
+        onCancel={(close) => {
+          actionsRef.current.updateTradingForm({ side: 'long' });
+          close();
+        }}
+        onConfirm={(close) => {
+          actionsRef.current.updateTradingForm({ side: 'short' });
+          close();
+        }}
+      />
     </Page>
   );
 }
