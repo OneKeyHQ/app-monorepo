@@ -21,7 +21,8 @@ import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { usePerpsAccountLoadingInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useCurrentTokenData, useHyperliquidAccount } from '../../../hooks';
+import { useCurrentTokenData } from '../../../hooks';
+import { useHyperliquidAccount } from '../../../hooks/useHyperliquid';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpslInput } from '../inputs/TpslInput';
@@ -56,7 +57,6 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
     }
     return { availableBalance, currentPositionValue };
   }, [accountSummary.withdrawable, userWebData2]);
-
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
       actions.current.updateTradingForm(updates);
@@ -175,7 +175,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                 id: ETranslations.perp_trade_account_overview_available,
               })}
             </SizableText>
-            {perpsAccountLoading || !userWebData2 ? (
+            {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
               <Skeleton width={70} height={16} />
             ) : (
               <NumberSizeableText
@@ -193,7 +193,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                 id: ETranslations.perp_trade_current_position,
               })}
             </SizableText>
-            {perpsAccountLoading || !userWebData2 ? (
+            {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
               <Skeleton width={60} height={16} />
             ) : (
               <NumberSizeableText
