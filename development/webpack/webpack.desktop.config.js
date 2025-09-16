@@ -13,12 +13,41 @@ const babelTools = require('../babelTools');
 
 // Plugin to generate metadata.json with SHA512 hashes of all output files
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
+
+const copyDir = (src, dest) => {
+  if (!fs.existsSync(src)) {
+    return;
+  }
+  fs.mkdirSync(dest, { recursive: true });
+  fs.readdirSync(src).forEach((file) => {
+    fs.copyFileSync(path.join(src, file), path.join(dest, file));
+  });
+};
+
 class FileHashMetadataPlugin {
   apply(compiler) {
     compiler.hooks.afterEmit.tapAsync(
       'FileHashMetadataPlugin',
       (compilation, callback) => {
         const outputPath = compilation.outputOptions.path;
+        const destStaticPath = path.join(outputPath, 'static');
+        const srcStaticPath = path.join(outputPath, '..', 'public', 'static');
+
+        copyDir(
+          path.join(srcStaticPath, 'js-sdk'),
+          path.join(destStaticPath, 'js-sdk'),
+        );
+
+        copyDir(
+          path.join(srcStaticPath, 'images'),
+          path.join(destStaticPath, 'images'),
+        );
+
+        fs.copyFileSync(
+          path.join(srcStaticPath, 'preload.js'),
+          path.join(destStaticPath, 'preload.js'),
+        );
+
         const metadata = {};
 
         // Get all emitted assets
