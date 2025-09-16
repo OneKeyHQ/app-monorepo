@@ -71,7 +71,6 @@ export function useTransactionsWebSocket({
 
     const handleTransactionUpdate = (payload: {
       channel: string;
-      tokenAddress: string;
       messageType?: string;
       data: any;
       originalData?: any;
@@ -79,12 +78,16 @@ export function useTransactionsWebSocket({
       console.log('transactionData', payload);
 
       // Only process transaction messages for our specific token (ignore network matching)
-      if (
-        payload.channel === 'tokenTxs' &&
-        payload.tokenAddress === tokenAddress
-      ) {
+      if (payload.channel === 'tokenTxs') {
         // Convert the received data to IMarketTokenTransaction format
         const transactionData = payload.data as IWsTxsData;
+
+        if (
+          transactionData.from?.address !== tokenAddress &&
+          transactionData.to?.address !== tokenAddress
+        ) {
+          return;
+        }
 
         if (transactionData && typeof transactionData === 'object') {
           // Map the received data to the expected transaction format
