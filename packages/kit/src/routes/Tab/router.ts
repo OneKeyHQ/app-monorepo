@@ -21,7 +21,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { usePerpConfig } from '../../hooks/usePerpConfig';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';

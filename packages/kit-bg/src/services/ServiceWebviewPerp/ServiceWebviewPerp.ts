@@ -153,9 +153,21 @@ export interface IPerpBannerConfig {
   description: string;
   canClose?: boolean;
 }
-export interface IPerpConfigResponse {
+
+export interface IPerReferrerConfig {
   referrerAddress: string;
   referrerRate: number;
+}
+
+export interface IPerpCommonConfig {
+  usePerpWeb?: boolean;
+  disablePerp?: boolean;
+  disablePerpActionButton?: boolean;
+  ipDisablePerp?: boolean;
+}
+
+export interface IPerpConfigResponse {
+  referrerConfig: IPerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
   customLocalStorage?: Record<string, any>;
   customLocalStorageV2?: Record<
@@ -165,11 +177,8 @@ export interface IPerpConfigResponse {
       skipIfExists?: boolean;
     }
   >;
-  usePerpWeb?: boolean;
-  disablePerp?: boolean;
-  disablePerpActionButton?: boolean;
-  perpBannerConfig?: IPerpBannerConfig;
-  ipDisablePerp?: boolean;
+  commonConfig?: IPerpCommonConfig;
+  bannerConfig?: IPerpBannerConfig;
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -184,27 +193,23 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async updatePerpConfig({
-    referrerAddress,
-    referrerRate,
+    referrerConfig,
     customSettings,
     customLocalStorage,
     customLocalStorageV2,
-    usePerpWeb,
-    disablePerp,
-    disablePerpActionButton,
-    perpBannerConfig,
-    ipDisablePerp,
+    commonConfig,
+    bannerConfig,
   }: IPerpConfigResponse) {
     let shouldNotifyToDapp = false;
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       perpConfigCommon: {
         ...prev.perpConfigCommon,
-        usePerpWeb,
-        disablePerp,
-        disablePerpActionButton,
-        perpBannerConfig,
-        ipDisablePerp,
+        usePerpWeb: commonConfig?.usePerpWeb,
+        disablePerp: commonConfig?.disablePerp,
+        disablePerpActionButton: commonConfig?.disablePerpActionButton,
+        perpBannerConfig: bannerConfig,
+        ipDisablePerp: commonConfig?.ipDisablePerp,
       },
     }));
     await this.backgroundApi.simpleDb.perp.setPerpConfig(
@@ -212,10 +217,10 @@ class ServiceWebviewPerp extends ServiceBase {
         const newConfig: ISimpleDbPerpConfig = {
           ...prev,
           hyperliquidBuilderAddress:
-            referrerAddress || prev?.hyperliquidBuilderAddress,
-          hyperliquidMaxBuilderFee: isNil(referrerRate)
+            referrerConfig?.referrerAddress || prev?.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: isNil(referrerConfig?.referrerRate)
             ? prev?.hyperliquidMaxBuilderFee
-            : referrerRate,
+            : referrerConfig?.referrerRate,
           hyperliquidCustomSettings:
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
@@ -659,19 +664,15 @@ class ServiceWebviewPerp extends ServiceBase {
     //   };
     // }
     await this.updatePerpConfig({
-      referrerAddress: resData?.data?.referrerAddress,
-      referrerRate: resData?.data?.referrerRate,
+      referrerConfig: resData?.data?.referrerConfig,
       customSettings: resData?.data?.customSettings,
       customLocalStorage: resData?.data?.customLocalStorage,
       customLocalStorageV2: {
         ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
         ...resData?.data?.customLocalStorageV2,
       },
-      usePerpWeb: resData?.data?.usePerpWeb,
-      disablePerp: resData?.data?.disablePerp,
-      disablePerpActionButton: resData?.data?.disablePerpActionButton,
-      perpBannerConfig: resData?.data?.perpBannerConfig,
-      ipDisablePerp: resData?.data?.ipDisablePerp,
+      commonConfig: resData?.data?.commonConfig,
+      bannerConfig: resData?.data?.bannerConfig,
     });
     return resData;
   }
