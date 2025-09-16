@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
-import { Page, YStack } from '@onekeyhq/components';
+import { Page, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -9,7 +9,12 @@ import {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
+import { Token } from '../../../components/Token';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import {
+  useCurrentTokenAtom,
+  useHyperliquidActions,
+} from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
@@ -18,8 +23,30 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const actionsRef = useHyperliquidActions();
+  const [currentToken] = useCurrentTokenAtom();
+  const themeVariant = useThemeVariant();
   const longButtonStyle = getTradingButtonStyleProps('long');
   const shortButtonStyle = getTradingButtonStyleProps('short');
+
+  const renderHeaderTitle = useCallback(() => {
+    const pairLabel = currentToken ? `${currentToken} - USD` : '--';
+    return (
+      <XStack alignItems="center" gap="$2">
+        <Token
+          size="sm"
+          borderRadius="$full"
+          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+          tokenImageUri={
+            currentToken
+              ? `https://app.hyperliquid.xyz/coins/${currentToken}.svg`
+              : undefined
+          }
+          fallbackIcon="CryptoCoinOutline"
+        />
+        <SizableText size="$headingLg">{pairLabel}</SizableText>
+      </XStack>
+    );
+  }, [currentToken, themeVariant]);
 
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
@@ -31,6 +58,7 @@ function MobilePerpMarket() {
 
   return (
     <Page scrollEnabled>
+      <Page.Header headerTitle={renderHeaderTitle} />
       <Page.Body px="$0" py="$0">
         <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />
