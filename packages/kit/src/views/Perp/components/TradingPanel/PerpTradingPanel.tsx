@@ -1,12 +1,15 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { Button, SizableText, Spinner, YStack } from '@onekeyhq/components';
+import { SizableText, YStack } from '@onekeyhq/components';
 import {
   useHyperliquidActions,
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsSelectedAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -20,17 +23,18 @@ import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 
 function PerpTradingPanel() {
-  const { canTrade, loading, currentUser, checkAndApproveWallet } =
-    useHyperliquidTrading();
-  const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
-  const { userWebData2, accountSummary } = useHyperliquidAccount();
+  const { canTrade, loading, currentUser } = useHyperliquidTrading();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const hlAccount = useHyperliquidAccount();
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
   const [isSubmitting] = useTradingLoadingAtom();
 
+  const [selectedAccount] = usePerpsSelectedAccountAtom();
+
   const universalLoading = useMemo(() => {
-    return perpsAccountLoading || loading;
-  }, [perpsAccountLoading, loading]);
+    return perpsAccountLoading?.selectAccountLoading || loading;
+  }, [perpsAccountLoading?.selectAccountLoading, loading]);
 
   const leverage = useMemo(() => {
     return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
@@ -45,15 +49,15 @@ function PerpTradingPanel() {
     if (formData.type === 'limit') {
       return (
         (+formData.price * +formData.size) / leverage >
-        +(accountSummary?.withdrawable || 0)
+        +(hlAccount?.accountSummary?.withdrawable || 0)
       );
     }
     return +formData.size > maxTradeSz;
   }, [
+    hlAccount?.accountSummary?.withdrawable,
     formData.size,
     maxTradeSz,
     formData.type,
-    accountSummary?.withdrawable,
     formData.price,
     leverage,
   ]);
@@ -104,10 +108,7 @@ function PerpTradingPanel() {
     <YStack gap="$2" p="$4">
       <PerpTradingForm isSubmitting={isSubmitting} />
       <PerpTradingButton
-        userWebData2={userWebData2}
         loading={universalLoading}
-        canTrade={canTrade}
-        checkAndApproveWallet={checkAndApproveWallet}
         handleShowConfirm={handleShowConfirm}
         formData={formData}
         isSubmitting={isSubmitting}

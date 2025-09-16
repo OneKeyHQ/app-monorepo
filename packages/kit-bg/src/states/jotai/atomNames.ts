@@ -55,6 +55,11 @@ export enum EAtomNames {
   allNetworksPersistAtom = 'allNetworksPersistAtom',
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
+  // perps
+  perpsSelectedAccountAtom = 'perpsSelectedAccountAtom',
+  perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',
+  perpsSelectedAccountStatusAtom = 'perpsSelectedAccountStatusAtom',
+  perpsSelectedSymbolAtom = 'perpsSelectedSymbolAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

@@ -16,7 +16,6 @@ import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/rou
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
-import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import ApprovalListView from '../../../components/ApprovalListView';
@@ -40,15 +39,8 @@ function RevokeSuggestion() {
         EModalApprovalManagementRoutes.RevokeSuggestion
       >
     >();
-  const {
-    accountId,
-    networkId,
-    approvals,
-    alertType,
-    tokenMap,
-    contractMap,
-    autoShow,
-  } = route.params;
+  const { accountId, networkId, approvals, tokenMap, contractMap, autoShow } =
+    route.params;
   const {
     updateApprovalList,
     updateTokenMap,
@@ -64,6 +56,15 @@ function RevokeSuggestion() {
     useBulkRevoke();
 
   const [{ selectedTokens }] = useSelectedTokensAtom();
+  const { riskyNumber, inactiveNumber } = useMemo(() => {
+    let risky = 0;
+    let inactive = 0;
+    approvals.forEach((item) => {
+      if (item.isRiskContract) risky += 1;
+      if (item.isInactiveApproval) inactive += 1;
+    });
+    return { riskyNumber: risky, inactiveNumber: inactive };
+  }, [approvals]);
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
     return approvalUtils.checkIsSelectAllTokens({
       approvals,
@@ -98,7 +99,6 @@ function RevokeSuggestion() {
     updateIsBulkRevokeMode(true);
   }, [
     approvals,
-    alertType,
     contractMap,
     tokenMap,
     updateApprovalList,
@@ -134,77 +134,70 @@ function RevokeSuggestion() {
   );
 
   const renderRevokeSuggestionOverview = useCallback(() => {
+    const hasRisk = riskyNumber > 0;
+    const hasInactive = inactiveNumber > 0;
+    const bgColor = hasRisk ? '$bgCritical' : '$bgCaution';
+    const iconColor = hasRisk ? '$iconCritical' : '$iconCaution';
+
+    let titleId = ETranslations.wallet_approval_suggestion_title_only_inactive;
+    if (hasRisk && hasInactive) {
+      titleId = ETranslations.wallet_approval_suggestion_title_summary;
+    } else if (hasRisk) {
+      titleId = ETranslations.wallet_approval_suggestion_title_only_risky;
+    }
+
     return (
       <YStack p="$5" gap="$4">
         <XStack>
-          <Stack
-            borderRadius="$full"
-            bg={
-              alertType === EContractApprovalAlertType.Warning
-                ? '$bgCaution'
-                : '$bgCritical'
-            }
-            p="$3"
-          >
-            <Icon
-              name="ShieldExclamationOutline"
-              size="$8"
-              color={
-                alertType === EContractApprovalAlertType.Warning
-                  ? '$iconCaution'
-                  : '$iconCritical'
-              }
-            />
+          <Stack borderRadius="$full" bg={bgColor} p="$3">
+            <Icon name="ShieldExclamationOutline" size="$8" color={iconColor} />
           </Stack>
         </XStack>
         <YStack gap="$1">
           <SizableText size="$heading2xl">
             {intl.formatMessage(
+              { id: titleId },
               {
-                id:
-                  alertType === EContractApprovalAlertType.Warning
-                    ? ETranslations.wallet_approval_inactive_suggestion_title
-                    : ETranslations.wallet_approval_risky_suggestion_title,
-              },
-              {
-                number: (
-                  <SizableText
-                    size="$heading2xl"
-                    color={
-                      alertType === EContractApprovalAlertType.Warning
-                        ? '$textCaution'
-                        : '$textCritical'
-                    }
-                  >
-                    {approvals.length}
+                riskyNumber: (
+                  <SizableText size="$heading2xl" color="$textCritical">
+                    {riskyNumber}
                   </SizableText>
-                ),
+                ) as unknown as string,
+                inactiveNumber: (
+                  <SizableText size="$heading2xl" color="$textCaution">
+                    {inactiveNumber}
+                  </SizableText>
+                ) as unknown as string,
               },
             )}
           </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText size="$bodyLg" color="$textSubdued">
             {intl.formatMessage({
-              id:
-                alertType === EContractApprovalAlertType.Warning
-                  ? ETranslations.wallet_approval_inactive_suggestion_description
-                  : ETranslations.wallet_approval_risky_detected_suggestion_description,
+              id: ETranslations.wallet_approval_summary_suggestion_desc_all,
             })}
           </SizableText>
         </YStack>
       </YStack>
     );
-  }, [alertType, approvals, intl]);
+  }, [inactiveNumber, intl, riskyNumber]);
 
   const renderRevokeSuggestionList = useCallback(() => {
+    const shouldShowBadge = riskyNumber > 0 && inactiveNumber > 0;
     return (
       <ApprovalListView
-        hideRiskBadge
+        hideRiskBadge={!shouldShowBadge}
         onPress={handleApprovalItemOnPress}
         accountId={accountId}
         networkId={networkId}
       />
     );
-  }, [accountId, handleApprovalItemOnPress, networkId]);
+  }, [
+    accountId,
+    handleApprovalItemOnPress,
+    networkId,
+    riskyNumber,
+    inactiveNumber,
+  ]);
 
   const handleSelectAll = useCallback(() => {
     const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
@@ -226,15 +219,33 @@ function RevokeSuggestion() {
   }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
   const handleOnCancel = useCallback(async () => {
     if (autoShow) {
-      await backgroundApiProxy.serviceApproval.updateRiskApprovalsRevokeSuggestionConfig(
-        {
-          networkId,
-          accountId,
-        },
-      );
+      const tasks: Promise<unknown>[] = [];
+      if (riskyNumber > 0) {
+        tasks.push(
+          backgroundApiProxy.serviceApproval.updateRiskApprovalsRevokeSuggestionConfig(
+            {
+              networkId,
+              accountId,
+            },
+          ),
+        );
+      }
+      if (inactiveNumber > 0) {
+        tasks.push(
+          backgroundApiProxy.serviceApproval.updateInactiveApprovalsAlertConfig(
+            {
+              networkId,
+              accountId,
+            },
+          ),
+        );
+      }
+      if (tasks.length) {
+        await Promise.all(tasks);
+      }
     }
     navigation.popStack();
-  }, [navigation, networkId, accountId, autoShow]);
+  }, [autoShow, navigation, networkId, accountId, riskyNumber, inactiveNumber]);
 
   const renderBulkRevokeActions = () => {
     return (

@@ -2,10 +2,11 @@ import { safeStorage } from 'electron';
 import logger from 'electron-log/main';
 import Store from 'electron-store';
 
-import {
-  EDesktopStoreKeys,
-  type IDesktopStoreMap,
-  type IDesktopStoreUpdateSettings,
+import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
+import type {
+  IDesktopStoreMap,
+  IDesktopStoreUpdateBundleData,
+  IDesktopStoreUpdateSettings,
 } from '@onekeyhq/shared/types/desktop';
 
 const store = new Store<IDesktopStoreMap>({ name: 'OneKey' });
@@ -133,4 +134,39 @@ export const getUpdateBuildNumber = () =>
 
 export const clearUpdateBuildNumber = () => {
   store.delete(EDesktopStoreKeys.UpdateBuildNumber);
+};
+
+export const setUpdateBundleData = (
+  updateBundleData: IDesktopStoreUpdateBundleData,
+) => {
+  store.set(EDesktopStoreKeys.UpdateBundleData, updateBundleData);
+};
+
+export const getUpdateBundleData = () =>
+  store.get(
+    EDesktopStoreKeys.UpdateBundleData,
+    {} as IDesktopStoreUpdateBundleData,
+  );
+
+export const clearUpdateBundleData = () => {
+  store.delete(EDesktopStoreKeys.UpdateBundleData);
+};
+
+export const setFallbackUpdateBundleData = (
+  fallbackUpdateBundleData: IDesktopStoreUpdateBundleData,
+) => {
+  store.set(
+    EDesktopStoreKeys.FallbackUpdateBundleData,
+    fallbackUpdateBundleData,
+  );
+};
+
+export const getFallbackUpdateBundleData = () =>
+  store.get(
+    EDesktopStoreKeys.FallbackUpdateBundleData,
+    {} as IDesktopStoreUpdateBundleData,
+  );
+
+export const clearFallbackUpdateBundleData = () => {
+  store.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
 };

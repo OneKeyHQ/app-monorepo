@@ -80,7 +80,7 @@ export function usePerpsMessageHandler({
       targetUserAddress: IHex,
     ): Promise<ITradingMark[]> => {
       const historyTrades =
-        await backgroundApiProxy.serviceHyperliquidInfo.getUserFillsByTime({
+        await backgroundApiProxy.serviceHyperliquid.getUserFillsByTime({
           user: targetUserAddress,
           startTime: 1_731_024_000_000,
           endTime: 2_114_352_000_000,

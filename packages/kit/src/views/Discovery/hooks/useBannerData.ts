@@ -36,7 +36,7 @@ export function useBannerData(banners: IDiscoveryBanner[]) {
     hasActiveBanners: data.length > 0,
     closeBanner: (id: string) => {
       setBannerClose({
-        ids: [...bannerClose.ids, id],
+        ids: [...new Set([...bannerClose.ids, id])],
       });
     },
     closeAllBanners: () => {

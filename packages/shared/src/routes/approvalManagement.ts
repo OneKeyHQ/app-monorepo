@@ -1,8 +1,5 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import type {
-  EContractApprovalAlertType,
-  IContractApproval,
-} from '@onekeyhq/shared/types/approval';
+import type { IContractApproval } from '@onekeyhq/shared/types/approval';
 
 import type { IAddressInfo } from '../../types/address';
 import type { IToken } from '../../types/token';
@@ -44,7 +41,6 @@ export type IModalApprovalManagementParamList = {
         info: IToken;
       }
     >;
-    alertType: EContractApprovalAlertType;
     autoShow?: boolean;
   };
   [EModalApprovalManagementRoutes.ApprovalList]: {

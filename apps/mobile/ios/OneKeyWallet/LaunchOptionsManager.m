@@ -30,6 +30,10 @@ static LaunchOptionsManager *sharedInstance = nil;
     return self;
 }
 
+- (void)log:(NSString *)msg {
+    DDLogDebug(@"LaunchOptionsManager: %@", msg);
+}
+
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions {
     if (launchOptions) {
         // Show alert with launch options on main thread

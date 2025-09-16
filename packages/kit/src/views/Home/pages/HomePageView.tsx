@@ -23,11 +23,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -122,13 +120,20 @@ export function HomePageView({
           accountAddress: account.address,
         });
 
+      const riskApprovals = resp.contractApprovals.filter(
+        (item) => item.isRiskContract,
+      );
+      const inactiveApprovals = resp.contractApprovals.filter(
+        (item) => item.isInactiveApproval,
+      );
+
       if (
         !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
-        approvalUtils.checkIsExistRiskApprovals({
-          contractApprovals: resp.contractApprovals,
-        })
+        (riskApprovals.length > 0 || inactiveApprovals.length > 0)
       ) {
-        updateApprovalsInfo({ hasRiskApprovals: true });
+        if (riskApprovals.length > 0) {
+          updateApprovalsInfo({ hasRiskApprovals: true });
+        }
         const shouldShowRiskApprovalsRevokeSuggestion =
           await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
             {
@@ -136,18 +141,14 @@ export function HomePageView({
               accountId: account.id,
             },
           );
-
         if (shouldShowRiskApprovalsRevokeSuggestion) {
           await timerUtils.wait(2000);
           navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
             screen: EModalApprovalManagementRoutes.RevokeSuggestion,
             params: {
-              approvals: resp.contractApprovals.filter(
-                (item) => item.isRiskContract,
-              ),
+              approvals: [...riskApprovals, ...inactiveApprovals],
               contractMap: resp.contractMap,
               tokenMap: resp.tokenMap,
-              alertType: EContractApprovalAlertType.Risk,
               accountId: account.id,
               networkId: network.id,
               autoShow: true,

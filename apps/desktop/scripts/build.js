@@ -69,6 +69,11 @@ build({
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
+    'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
+    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER || '1'),
+    'process.env.BUNDLE_VERSION': JSON.stringify(
+      process.env.BUNDLE_VERSION || '1',
+    ),
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',
     ),

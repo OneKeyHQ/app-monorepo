@@ -1,4 +1,5 @@
 import type { IHex, IWithdraw3Request } from './sdk';
+import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
@@ -118,6 +119,10 @@ export interface ILeverageUpdateRequest {
   leverage: number;
 }
 
+export interface ISetReferrerRequest {
+  code: string;
+}
+
 export interface IBuilderFeeRequest {
   builder: IHex;
   maxFeeRate: `${string}%`;
@@ -125,6 +130,7 @@ export interface IBuilderFeeRequest {
 
 export interface IAgentApprovalRequest {
   agent: IHex;
+  agentName: EHyperLiquidAgentName | undefined;
   authorize: boolean;
 }
 
