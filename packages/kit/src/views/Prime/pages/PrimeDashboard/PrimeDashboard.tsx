@@ -7,6 +7,7 @@ import { StyleSheet } from 'react-native';
 import {
   Icon,
   IconButton,
+  NavCloseButton,
   Page,
   SizableText,
   Spinner,
@@ -23,7 +24,6 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -46,7 +46,7 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 import type { RouteProp } from '@react-navigation/core';
 
-function PrimeBanner() {
+function PrimeBanner({ isPrimeActive = false }: { isPrimeActive?: boolean }) {
   const intl = useIntl();
 
   return (
@@ -61,9 +61,11 @@ function PrimeBanner() {
         textAlign="center"
         color="$textSubdued"
       >
-        {intl.formatMessage({
-          id: ETranslations.prime_description,
-        })}
+        {isPrimeActive
+          ? intl.formatMessage({
+              id: ETranslations.prime_unlock_description,
+            })
+          : intl.formatMessage({ id: ETranslations.prime_description })}
       </SizableText>
     </YStack>
   );
@@ -303,7 +305,9 @@ export default function PrimeDashboard({
   return (
     <>
       <Theme name="dark">
-        <Page.CloseButton />
+        <Stack position="absolute" left="$5" top={top || '$5'} zIndex="$5">
+          <NavCloseButton onPress={() => navigation.popStack()} />
+        </Stack>
         <Stack position="absolute" right="$5" top={top || '$5'} zIndex="$5">
           <IconButton
             onPress={() => {
@@ -335,7 +339,7 @@ export default function PrimeDashboard({
               borderBottomColor="$borderSubdued"
             >
               <PrimeLottieAnimation />
-              <PrimeBanner />
+              <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
               {isLoggedInMaybe ? <PrimeUserInfo /> : null}
             </Stack>
 

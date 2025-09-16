@@ -166,6 +166,20 @@ axios.interceptors.response.use(
           code: 403,
           requestId: description,
         });
+      } else if (
+        isOneKeyDomain &&
+        Number(response.status) >= 500 &&
+        Number(response.status) < 600
+      ) {
+        const title = appLocale.intl.formatMessage({
+          id: ETranslations.global_server_error,
+        });
+        throw new OneKeyServerApiError({
+          autoToast: true,
+          message: title,
+          code: Number(response.status),
+          requestId: config.headers[HEADER_REQUEST_ID_KEY],
+        });
       }
     }
     if (

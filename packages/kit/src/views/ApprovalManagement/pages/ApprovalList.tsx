@@ -1,16 +1,18 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/native';
+import { pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { Button, Page, XStack } from '@onekeyhq/components';
+import { Button, Page, Toast, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IContractApproval } from '@onekeyhq/shared/types/approval';
@@ -41,7 +43,12 @@ function ApprovalList() {
         EModalApprovalManagementRoutes.ApprovalList
       >
     >();
-  const { accountId, networkId, walletId } = route.params;
+  const {
+    accountId,
+    networkId,
+    walletId,
+    isBulkRevokeMode: routeBulkMode,
+  } = route.params;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const {
@@ -67,12 +74,44 @@ function ApprovalList() {
       networkId,
     });
 
+  useEffect(() => {
+    if (
+      typeof routeBulkMode !== 'undefined' &&
+      !accountUtils.isWatchingWallet({ walletId })
+    ) {
+      updateIsBulkRevokeMode(!!routeBulkMode);
+    }
+    // Only apply on mount or when param changes
+  }, [routeBulkMode, updateIsBulkRevokeMode, walletId]);
+
+  const filteredSelectedTokensByNetwork = useMemo(() => {
+    if (searchNetworkId === getNetworkIdsMap().onekeyall) {
+      return selectedTokens;
+    }
+    return pickBy(selectedTokens, (_, key) => {
+      return (
+        approvalUtils.parseSelectedTokenKey({
+          selectedTokenKey: key,
+        }).networkId === searchNetworkId
+      );
+    });
+  }, [selectedTokens, searchNetworkId]);
+
+  const filteredApprovalsByNetwork = useMemo(() => {
+    if (searchNetworkId === getNetworkIdsMap().onekeyall) {
+      return approvals;
+    }
+    return approvals.filter((approval) => {
+      return approval.networkId === searchNetworkId;
+    });
+  }, [approvals, searchNetworkId]);
+
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
     return approvalUtils.checkIsSelectAllTokens({
-      approvals,
-      selectedTokens,
+      approvals: filteredApprovalsByNetwork,
+      selectedTokens: filteredSelectedTokensByNetwork,
     });
-  }, [selectedTokens, approvals]);
+  }, [filteredSelectedTokensByNetwork, filteredApprovalsByNetwork]);
 
   const renderNetworkFilter = useCallback(() => {
     if (!networkUtils.isAllNetwork({ networkId })) {
@@ -113,6 +152,15 @@ function ApprovalList() {
         size="medium"
         variant="tertiary"
         onPress={() => {
+          if (accountUtils.isWatchingWallet({ walletId })) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.wallet_approval_revocation_not_available_for_watch_only_wallets,
+              }),
+            });
+            return;
+          }
+
           toggleIsBulkRevokeMode();
         }}
       >
@@ -121,7 +169,7 @@ function ApprovalList() {
           : intl.formatMessage({ id: ETranslations.global_edit })}
       </Button>
     );
-  }, [intl, toggleIsBulkRevokeMode, isBulkRevokeMode]);
+  }, [intl, toggleIsBulkRevokeMode, isBulkRevokeMode, walletId]);
 
   const handleSearchTextChange = useDebouncedCallback((text: string) => {
     updateSearchKey(text);
@@ -142,29 +190,39 @@ function ApprovalList() {
             merge: true,
           });
         },
-        selectedTokens,
+        selectedTokens: filteredSelectedTokensByNetwork,
       });
     },
-    [navigation, isBulkRevokeMode, updateSelectedTokens, selectedTokens],
+    [
+      navigation,
+      isBulkRevokeMode,
+      updateSelectedTokens,
+      filteredSelectedTokensByNetwork,
+    ],
   );
   const handleSelectAll = useCallback(() => {
     const selectedTokensTemp = approvalUtils.buildToggleSelectAllTokensMap({
-      approvals,
+      approvals: filteredApprovalsByNetwork,
       toggle: !(isSelectAllTokens === true),
     });
 
     updateSelectedTokens({
       selectedTokens: selectedTokensTemp,
     });
-  }, [updateSelectedTokens, approvals, isSelectAllTokens]);
+  }, [updateSelectedTokens, filteredApprovalsByNetwork, isSelectAllTokens]);
 
   const handleOnConfirm = useCallback(() => {
     void navigationToBulkRevokeProcess({
-      selectedTokens,
+      selectedTokens: filteredSelectedTokensByNetwork,
       tokenMap,
       contractMap,
     });
-  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
+  }, [
+    navigationToBulkRevokeProcess,
+    filteredSelectedTokensByNetwork,
+    tokenMap,
+    contractMap,
+  ]);
   const handleOnCancel = useCallback(() => {
     updateIsBulkRevokeMode(false);
   }, [updateIsBulkRevokeMode]);
@@ -182,7 +240,7 @@ function ApprovalList() {
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
         onCancelText={intl.formatMessage({
-          id: ETranslations.global_cancel,
+          id: ETranslations.wallet_approval_cancel,
         })}
         selectedCount={selectedCount}
         isBuildingRevokeTxs={isBuildingRevokeTxs}
@@ -200,7 +258,13 @@ function ApprovalList() {
   return (
     <Page onClose={handleOnClose}>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_approvals })}
+        title={
+          isBulkRevokeMode
+            ? intl.formatMessage({
+                id: ETranslations.wallet_approval_manage_title,
+              })
+            : intl.formatMessage({ id: ETranslations.global_approval_list })
+        }
         headerRight={renderHeaderRight}
         headerSearchBarOptions={{
           placeholder: intl.formatMessage({ id: ETranslations.global_search }),
@@ -211,6 +275,7 @@ function ApprovalList() {
         {renderNetworkFilter()}
         <ApprovalListView
           withHeader
+          hideRiskOverview={accountUtils.isWatchingWallet({ walletId })}
           accountId={accountId}
           networkId={networkId}
           onPress={handleApprovalOnPress}

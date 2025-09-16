@@ -20,6 +20,7 @@ import {
   contextAtomMethod,
   customFeeAtom,
   decodedTxsAtom,
+  decodedTxsInitAtom,
   extraFeeInfoAtom,
   isSinglePresetAtom,
   megafuelEligibleAtom,
@@ -36,6 +37,7 @@ import {
   tokenTransferAmountAtom,
   tronResourceRentalInfoAtom,
   txAdvancedSettingsAtom,
+  txFeeInfoInitAtom,
   unsignedTxsAtom,
 } from './atoms';
 
@@ -281,6 +283,16 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateDecodedTxsInit = contextAtomMethod(
+    (_, set, decodedTxsInit: boolean) => {
+      set(decodedTxsInitAtom(), decodedTxsInit);
+    },
+  );
+
+  updateTxFeeInfoInit = contextAtomMethod((_, set, txFeeInfoInit: boolean) => {
+    set(txFeeInfoInitAtom(), txFeeInfoInit);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -312,6 +324,8 @@ export function useSignatureConfirmActions() {
   const updatePayWithTokenInfo = actions.updatePayWithTokenInfo.use();
   const updateTokenTransferAmount = actions.updateTokenTransferAmount.use();
   const updateMegafuelEligible = actions.updateMegafuelEligible.use();
+  const updateDecodedTxsInit = actions.updateDecodedTxsInit.use();
+  const updateTxFeeInfoInit = actions.updateTxFeeInfoInit.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -332,5 +346,7 @@ export function useSignatureConfirmActions() {
     updatePayWithTokenInfo,
     updateTokenTransferAmount,
     updateMegafuelEligible,
+    updateDecodedTxsInit,
+    updateTxFeeInfoInit,
   });
 }

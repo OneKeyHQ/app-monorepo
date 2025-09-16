@@ -232,6 +232,11 @@ function TokenListContainer({
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
 
+  const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
+    const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
+    return r;
+  }, []);
+
   const { run } = usePromiseResult(
     async () => {
       let accountId = account?.id ?? '';
@@ -1811,6 +1816,7 @@ function TokenListContainer({
       inTabList
       hideValue
       withSwapAction
+      hideZeroBalanceTokens
       onRefresh={onHomePageRefresh}
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
@@ -1822,6 +1828,7 @@ function TokenListContainer({
       onManageToken={handleOnManageToken}
       onPressToken={handleOnPressToken}
       isAllNetworks={network?.isAllNetworks}
+      homeDefaultTokenMap={homeDefaultTokenMap}
       {...(media.gtLg && {
         tableLayout: true,
       })}

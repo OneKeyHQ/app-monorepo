@@ -4,7 +4,7 @@ import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPa
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
-import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {
@@ -25,7 +25,7 @@ function PerpDesktopLayout() {
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
             >
-              <YStack flex={1}>
+              <YStack flex={1} minHeight={600}>
                 <PerpCandles />
               </YStack>
 
@@ -33,16 +33,17 @@ function PerpDesktopLayout() {
                 <YStack
                   borderLeftWidth="$px"
                   borderLeftColor="$borderSubdued"
-                  w={320}
+                  w={300}
                 >
                   <PerpOrderBook />
                 </YStack>
               ) : null}
             </XStack>
             {/* Positions Section */}
-            <PerpOrderInfoPanel />
+            <YStack flex={1} overflow="hidden">
+              <PerpOrderInfoPanel />
+            </YStack>
           </YStack>
-
           <YStack w={360}>
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">

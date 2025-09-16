@@ -1,3 +1,6 @@
+import memoizee from 'memoizee';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   atom,
   createJotaiContext,
@@ -39,8 +42,47 @@ export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
     reconnectCount: 0,
   });
 
-export const { atom: currentTokenAtom, use: useCurrentTokenAtom } =
-  contextAtom<string>('ETH');
+export const {
+  atom: basicCurrentTokenAtom,
+  useContextAtom: useCurrentTokenContextAtom,
+} = contextAtom<string>('ETH');
+
+export const {
+  atom: hyperliquidStorageReadyAtom,
+  use: useHyperliquidStorageReadyAtom,
+} = contextAtom<boolean>(false);
+
+const INIT = Symbol('INIT');
+export const currentTokenAtom = memoizee(() =>
+  atom(
+    (get) => {
+      const basicToken = get(basicCurrentTokenAtom());
+      return basicToken;
+    },
+    (get, set, arg: any) => {
+      if (arg === INIT) {
+        void backgroundApiProxy.simpleDb.perp
+          .getCurrentToken()
+          .then((token: string) => {
+            set(basicCurrentTokenAtom(), token);
+            set(hyperliquidStorageReadyAtom(), true);
+          });
+      } else {
+        set(basicCurrentTokenAtom(), arg);
+        if (get(hyperliquidStorageReadyAtom())) {
+          void backgroundApiProxy.simpleDb.perp.setCurrentToken(arg as string);
+        }
+      }
+    },
+  ),
+);
+
+currentTokenAtom().onMount = (setAtom) => {
+  setAtom(INIT);
+};
+
+export const useCurrentTokenAtom = () =>
+  useCurrentTokenContextAtom(currentTokenAtom());
 
 export const { atom: currentUserAtom, use: useCurrentUserAtom } =
   contextAtom<HL.IHex | null>(null);

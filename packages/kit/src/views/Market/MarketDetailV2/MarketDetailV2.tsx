@@ -15,6 +15,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
+import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -25,9 +26,12 @@ import { MobileLayout } from './layouts/MobileLayout';
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, networkId } = route.params;
+  const { tokenAddress, networkId, isNative } = route.params;
   const media = useMedia();
   const tokenDetailActions = useTokenDetailActions();
+
+  // Track market entry analytics
+  useMarketEnterAnalytics();
 
   // Clear all token detail content when unmount
   useEffect(() => {
@@ -48,9 +52,15 @@ function MarketDetail({
 
   return (
     <Page>
-      <MarketDetailHeader />
+      <MarketDetailHeader isNative={isNative} />
 
-      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+      <Page.Body>
+        {media.gtLg ? (
+          <DesktopLayout isNative={isNative} />
+        ) : (
+          <MobileLayout isNative={isNative} />
+        )}
+      </Page.Body>
     </Page>
   );
 }

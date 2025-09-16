@@ -22,7 +22,7 @@ export function TradingView({
     return (
       <TradingViewV2
         {...props}
-        decimal={decimal || 2}
+        decimal={decimal ?? 2}
         symbol={symbol ?? ''}
         onPanesCountChange={onPanesCountChange}
       />

@@ -1,30 +1,34 @@
-import { useCallback } from 'react';
-
-import { SizableText, Tabs, XStack, YStack } from '@onekeyhq/components';
+import { ScrollView, XStack, YStack } from '@onekeyhq/components';
 
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
+import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
+import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 export function PerpMobileLayout() {
-  const renderTabHeader = useCallback(() => {
-    return (
-      <XStack gap="$3" px="$5">
-        <YStack>
-          <SizableText>Long Or Short</SizableText>
-        </YStack>
-        <YStack>
-          <SizableText>PriceBook</SizableText>
-        </YStack>
-      </XStack>
-    );
-  }, []);
   return (
-    <YStack>
-      <XStack px="$5">
-        <SizableText>BTC</SizableText>
-      </XStack>
-      <YStack flex={0.4} minHeight={300}>
-        <PerpOrderInfoPanel isMobile />
+    <ScrollView flex={1}>
+      <YStack bg="$bgApp">
+        <PerpTickerBar />
+
+        <XStack gap="$3" alignItems="stretch">
+          <YStack flex={1}>
+            <PerpTradingPanel />
+          </YStack>
+          <YStack
+            w={220}
+            borderLeftWidth="$px"
+            borderLeftColor="$borderSubdued"
+            minHeight={460}
+          >
+            <PerpOrderBook />
+          </YStack>
+        </XStack>
+
+        <YStack mt="$5">
+          <PerpOrderInfoPanel isMobile />
+        </YStack>
       </YStack>
-    </YStack>
+    </ScrollView>
   );
 }

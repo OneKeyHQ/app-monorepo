@@ -1,5 +1,11 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useTokenList } from '../../../hooks';
 import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
@@ -12,49 +18,140 @@ interface IPerpOpenOrdersListProps {
 }
 
 function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
+  const intl = useIntl();
   const orders = usePerpOrders();
+  const actions = useHyperliquidActions();
+  const { getTokenInfo } = useTokenList();
+
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
-      { key: 'asset', title: 'Asset', width: 100, align: 'left' },
-      { key: 'time', title: 'Time', minWidth: 100, align: 'left', flex: 1 },
-      { key: 'type', title: 'Type', minWidth: 100, align: 'left', flex: 1 },
-      { key: 'size', title: 'Size', minWidth: 100, align: 'left', flex: 1 },
       {
-        key: 'originalSize',
-        title: 'Original Size',
+        key: 'asset',
+        title: intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        }),
+        width: 120,
+        align: 'left',
+      },
+      {
+        key: 'time',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_time }),
         minWidth: 100,
         align: 'left',
         flex: 1,
       },
-      { key: 'value', title: 'Value', minWidth: 100, flex: 1, align: 'left' },
+      {
+        key: 'type',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_type }),
+        minWidth: 100,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'size',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_size }),
+        minWidth: 100,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'originalSize',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_original_size,
+        }),
+        minWidth: 100,
+        align: 'left',
+        flex: 1,
+      },
+      {
+        key: 'value',
+        title: intl.formatMessage({ id: ETranslations.perp_open_orders_value }),
+        minWidth: 100,
+        flex: 1,
+        align: 'left',
+      },
       {
         key: 'executePrice',
-        title: 'Execute Price',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_execute_price,
+        }),
         minWidth: 100,
         flex: 1,
         align: 'left',
       },
       {
         key: 'triggerCondition',
-        title: 'Trigger Condition',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_trigger_condition,
+        }),
         minWidth: 160,
         flex: 1,
         align: 'left',
       },
-      { key: 'TPSL', title: 'TP/SL', minWidth: 140, flex: 1, align: 'center' },
+      {
+        key: 'TPSL',
+        title: intl.formatMessage({
+          id: ETranslations.perp_position_tp_sl,
+        }),
+        minWidth: 140,
+        flex: 1,
+        align: 'center',
+      },
       {
         key: 'cancel',
-        title: 'Cancel All',
+        title: intl.formatMessage({
+          id: ETranslations.perp_open_orders_cancel_all,
+        }),
         minWidth: 100,
         align: 'right',
         flex: 1,
       },
     ],
-    [],
+    [intl],
   );
-  const handleCancelAll = () => {
-    console.log('handleCancelAll');
-  };
+
+  const handleCancelOrder = useCallback(
+    (order: FrontendOrder) => {
+      const tokenInfo = getTokenInfo(order.coin);
+      if (!tokenInfo) {
+        console.warn(`Token info not found for coin: ${order.coin}`);
+        return;
+      }
+      void actions.current.cancelOrder({
+        orders: [
+          {
+            assetId: tokenInfo.assetId,
+            oid: order.oid,
+          },
+        ],
+      });
+    },
+    [getTokenInfo, actions],
+  );
+
+  const handleCancelAll = useCallback(() => {
+    const ordersToCancel = orders
+      .map((order) => {
+        const tokenInfo = getTokenInfo(order.coin);
+        if (!tokenInfo) {
+          console.warn(`Token info not found for coin: ${order.coin}`);
+          return null;
+        }
+        return {
+          assetId: tokenInfo.assetId,
+          oid: order.oid,
+        };
+      })
+      .filter(Boolean);
+
+    if (ordersToCancel.length === 0) {
+      console.warn('No valid orders to cancel or token info unavailable');
+      return;
+    }
+
+    void actions.current.cancelOrder({ orders: ordersToCancel });
+  }, [orders, getTokenInfo, actions]);
+
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -70,7 +167,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         isMobile={isMobile}
         cellMinWidth={totalMinWidth}
         columnConfigs={columnsConfig}
-        handleCancelAll={handleCancelAll}
+        handleCancelOrder={() => handleCancelOrder(item)}
         index={_index}
       />
     );
@@ -82,8 +179,12 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
       data={orders}
       isMobile={isMobile}
       renderRow={renderOrderRow}
-      emptyMessage="No open orders"
-      emptySubMessage="Your orders will appear here after opening trades"
+      emptyMessage={intl.formatMessage({
+        id: ETranslations.perp_open_order_empty,
+      })}
+      emptySubMessage={intl.formatMessage({
+        id: ETranslations.perp_open_order_empty_desc,
+      })}
     />
   );
 }
