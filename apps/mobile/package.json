@@ -11,6 +11,7 @@
     "android:build": "cd android && ./gradlew assembleDebug",
     "ios": "SENTRY_DISABLE_AUTO_UPLOAD=true expo run:ios",
     "ios:bundle:build": "npx react-native bundle --platform ios --dev false --entry-file ./apps/mobile/index.ts --bundle-output ios-build/main.jsbundle --assets-dest ios-build",
+    "ios:bundle:hbc": "ios/Pods/hermes-engine/destroot/bin/hermesc -O -emit-binary -output-source-map -out=ios-build/main.jsbundle.hbc ios-build/main.jsbundle",
     "ios:build": "cd ios && xcodebuild -workspace OneKeyWallet.xcworkspace -scheme OneKeyWallet -configuration Release -archivePath ./build/OneKeyWallet.xcarchive",
     "ios:pod-install": "cd ios && pod install && cd ..",
     "native-bundle": "react-native start",
