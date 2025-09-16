@@ -10,6 +10,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpMarketData } from '../../hooks/usePerpMarketData';
+
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
@@ -805,8 +807,9 @@ export function OrderPairBook({
 }
 
 // Compact row height for mobile
-export const MOBILE_ROW_GAP = 1;
+const MOBILE_ROW_GAP = 1;
 const MOBILE_ROW_HEIGHT = 19;
+const MOBILE_SPREAD_ROW_HEIGHT = 35;
 const MobileRow = ({
   item,
   priceColor,
@@ -859,6 +862,7 @@ export function OrderBookMobile({
   style,
 }: IOrderBookProps) {
   const intl = useIntl();
+  const { markPrice, oraclePrice } = usePerpMarketData();
   const aggregatedData = useAggregatedBook(
     bids,
     asks,
@@ -882,14 +886,6 @@ export function OrderBookMobile({
 
   const textColor = useTextColor();
   const blockColors = useBlockColorsMobile();
-  const spreadColor = useSpreadColor();
-
-  const spreadPercentage = useMemo(() => {
-    const bestBid = aggregatedData.bids[0]?.price;
-    const bestAsk = aggregatedData.asks[0]?.price;
-    if (!bestBid || !bestAsk) return '0.000%';
-    return calculateSpreadPercentage(bestBid, bestAsk);
-  }, [aggregatedData.bids, aggregatedData.asks]);
 
   return (
     <View style={style}>
@@ -931,10 +927,9 @@ export function OrderBookMobile({
             style={{
               flexDirection: 'row',
               gap: 12,
-              height: 28,
+              height: MOBILE_SPREAD_ROW_HEIGHT,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: spreadColor.backgroundColor,
             }}
           />
           {aggregatedData.bids.map((itemData, index) => (
@@ -967,21 +962,38 @@ export function OrderBookMobile({
             style={{
               flexDirection: 'row',
               gap: 12,
-              height: 28,
               alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: spreadColor.backgroundColor,
+              justifyContent: 'space-between',
+              height: MOBILE_SPREAD_ROW_HEIGHT,
             }}
           >
-            <Text style={[styles.bodySm, { color: textColor.text }]}>
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
+            <Text
+              style={[
+                styles.monospaceText,
+                {
+                  color: textColor.red,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  lineHeight: 24,
+                },
+              ]}
+            >
+              {markPrice || midPrice}
             </Text>
-            <Text style={[styles.bodySmMedium, { color: textColor.text }]}>
-              {' '}
-              {midPrice}{' '}
-            </Text>
-            <Text style={[styles.bodySm, { color: textColor.text }]}>
-              {spreadPercentage}
+            <Text
+              style={[
+                styles.monospaceText,
+                {
+                  color: textColor.textSubdued,
+                  fontSize: 10,
+                  fontWeight: '400',
+                  lineHeight: 16,
+                  textDecorationLine: 'underline',
+                  textDecorationStyle: 'dotted',
+                },
+              ]}
+            >
+              {oraclePrice}
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (

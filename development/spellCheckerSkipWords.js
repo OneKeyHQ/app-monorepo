@@ -981,4 +981,6 @@ module.exports = [
   'unsubscriptions',
   'Unsubscriptions',
   'Resizing',
+  'OrderBook',
+  'orderbook',
 ];
