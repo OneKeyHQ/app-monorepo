@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IWsTxsData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -82,65 +83,35 @@ export function useTransactionsWebSocket({
         payload.tokenAddress === tokenAddress
       ) {
         // Convert the received data to IMarketTokenTransaction format
-        const transactionData = payload.data as Record<string, any>;
+        const transactionData = payload.data as IWsTxsData;
 
         if (transactionData && typeof transactionData === 'object') {
-          // Helper function to safely get nested property
-          const safeGetNested = (obj: any, path: string): string => {
-            const keys = path.split('.');
-            let current = obj;
-            for (const key of keys) {
-              if (current && typeof current === 'object' && key in current) {
-                current = (current as Record<string, any>)[key];
-              } else {
-                return '';
-              }
-            }
-            // Convert to string for all types
-            if (current === null || current === undefined) {
-              return '';
-            }
-            return String(current);
-          };
-
           // Map the received data to the expected transaction format
           const transaction: IMarketTokenTransaction = {
-            pairAddress:
-              typeof transactionData.poolId === 'string'
-                ? transactionData.poolId
-                : '',
-            hash:
-              typeof transactionData.txHash === 'string'
-                ? transactionData.txHash
-                : '',
-            owner:
-              typeof transactionData.owner === 'string'
-                ? transactionData.owner
-                : '',
+            pairAddress: transactionData.poolId || '',
+            hash: transactionData.txHash || '',
+            owner: transactionData.owner || '',
             type: (() => {
               if (transactionData.side === 'swap') {
-                return safeGetNested(transactionData, 'from.symbol') !== 'SOL'
+                return transactionData.from?.address === tokenAddress
                   ? 'sell'
                   : 'buy';
               }
               return 'buy';
             })(),
-            timestamp:
-              typeof transactionData.blockUnixTime === 'number'
-                ? transactionData.blockUnixTime
-                : Date.now() / 1000,
+            timestamp: transactionData.blockUnixTime || Date.now() / 1000,
             url: '', // URL not provided in data, could be constructed from txHash
             from: {
-              symbol: safeGetNested(transactionData, 'from.symbol'),
-              amount: safeGetNested(transactionData, 'from.amount') || '0',
-              address: safeGetNested(transactionData, 'from.address'),
-              price: safeGetNested(transactionData, 'from.price') || '0',
+              symbol: transactionData.from?.symbol || '',
+              amount: String(transactionData.from?.amount || '0'),
+              address: transactionData.from?.address || '',
+              price: String(transactionData.from?.price || '0'),
             },
             to: {
-              symbol: safeGetNested(transactionData, 'to.symbol'),
-              amount: safeGetNested(transactionData, 'to.amount') || '0',
-              address: safeGetNested(transactionData, 'to.address'),
-              price: safeGetNested(transactionData, 'to.price') || '0',
+              symbol: transactionData.to?.symbol || '',
+              amount: String(transactionData.to?.amount || '0'),
+              address: transactionData.to?.address || '',
+              price: String(transactionData.to?.price || '0'),
             },
           };
 

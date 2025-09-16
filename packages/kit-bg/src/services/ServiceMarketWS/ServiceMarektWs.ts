@@ -6,7 +6,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
-import { notificationStatusAtom } from '../../states/jotai/atoms/notifications';
 import ServiceBase from '../ServiceBase';
 
 import type { IWsPriceData, IWsTxsData } from './types';
@@ -17,7 +16,7 @@ const EOperation = {
   unsubscribe: 'unsubscribe',
 };
 
-const EChannel = {
+export const EChannel = {
   tokenTxs: 'tokenTxs',
   ohlcv: 'ohlcv',
 };
