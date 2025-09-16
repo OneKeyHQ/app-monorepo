@@ -12,21 +12,15 @@ function MobilePerpMarket() {
   return (
     <Page>
       <Page.Body px="$0" py="$0">
-        <YStack flex={1} bg="$bgApp">
+        <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />
 
           <YStack flex={1} minHeight={364}>
             <PerpCandles />
           </YStack>
 
-          <YStack
-            flexShrink={0}
-            minHeight={360}
-            bg="$bgApp"
-            borderTopWidth="$px"
-            borderTopColor="$borderSubdued"
-          >
-            <PerpOrderBook />
+          <YStack flexShrink={0} minHeight={360} bg="$bgApp">
+            <PerpOrderBook entry="perpMobileMarket" />
           </YStack>
         </YStack>
       </Page.Body>

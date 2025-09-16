@@ -71,7 +71,11 @@ function MobileHeader() {
 }
 const MobileHeaderMemo = memo(MobileHeader);
 
-export function PerpOrderBook() {
+export function PerpOrderBook({
+  entry,
+}: {
+  entry?: 'perpTab' | 'perpMobileMarket';
+}) {
   const { gtMd } = useMedia();
   const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
   const prevSymbolRef = useRef<string | undefined>(undefined);
@@ -110,6 +114,52 @@ export function PerpOrderBook() {
     setSelectedTickOption(option);
   }, []);
 
+  const mobileOrderBook = useMemo(() => {
+    if (!hasOrderBook || !l2Book) return null;
+    if (gtMd) return null;
+    if (entry === 'perpMobileMarket') {
+      return (
+        <OrderBookMobile
+          symbol={l2Book.coin}
+          bids={l2Book.bids}
+          asks={l2Book.asks}
+          maxLevelsPerSide={9}
+          selectedTickOption={selectedTickOption}
+          onTickOptionChange={handleTickOptionChange}
+          tickOptions={tickOptionsData.tickOptions}
+          showTickSelector
+          priceDecimals={tickOptionsData.priceDecimals}
+          sizeDecimals={tickOptionsData.sizeDecimals}
+        />
+      );
+    }
+    return (
+      <>
+        <MobileHeaderMemo />
+        <OrderBookMobile
+          symbol={l2Book.coin}
+          bids={l2Book.bids}
+          asks={l2Book.asks}
+          maxLevelsPerSide={9}
+          selectedTickOption={selectedTickOption}
+          onTickOptionChange={handleTickOptionChange}
+          tickOptions={tickOptionsData.tickOptions}
+          showTickSelector
+          priceDecimals={tickOptionsData.priceDecimals}
+          sizeDecimals={tickOptionsData.sizeDecimals}
+        />
+      </>
+    );
+  }, [
+    entry,
+    gtMd,
+    handleTickOptionChange,
+    l2Book,
+    selectedTickOption,
+    tickOptionsData,
+    hasOrderBook,
+  ]);
+
   if (!hasOrderBook || !l2Book) {
     return (
       <YStack flex={1} p="$4" justifyContent="center" alignItems="center">
@@ -119,11 +169,6 @@ export function PerpOrderBook() {
       </YStack>
     );
   }
-
-  // const bestBid = getBestBid();
-  // const bestAsk = getBestAsk();
-  // const spread = getSpread();
-  // const spreadPercent = getSpreadPercent();
 
   return (
     <YStack flex={1} bg="$bgApp">
@@ -142,21 +187,7 @@ export function PerpOrderBook() {
           sizeDecimals={tickOptionsData.sizeDecimals}
         />
       ) : (
-        <>
-          <MobileHeaderMemo />
-          <OrderBookMobile
-            symbol={l2Book.coin}
-            bids={l2Book.bids}
-            asks={l2Book.asks}
-            maxLevelsPerSide={9}
-            selectedTickOption={selectedTickOption}
-            onTickOptionChange={handleTickOptionChange}
-            tickOptions={tickOptionsData.tickOptions}
-            showTickSelector
-            priceDecimals={tickOptionsData.priceDecimals}
-            sizeDecimals={tickOptionsData.sizeDecimals}
-          />
-        </>
+        mobileOrderBook
       )}
     </YStack>
   );
