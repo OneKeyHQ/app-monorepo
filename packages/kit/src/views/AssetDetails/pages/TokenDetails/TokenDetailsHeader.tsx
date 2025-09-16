@@ -91,7 +91,7 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
-  const { result: tokenDetailsResult, isLoading } = usePromiseResult(
+  const { result: tokenDetailsResult } = usePromiseResult(
     async () => {
       const tokensDetails =
         await backgroundApiProxy.serviceToken.fetchTokensDetails({
@@ -120,7 +120,6 @@ function TokenDetailsHeader(props: IProps) {
       updateTokenDetails,
     ],
     {
-      watchLoading: true,
       overrideIsFocused: (isPageFocused) =>
         isPageFocused && (isTabView ? isFocused : true),
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -129,13 +128,6 @@ function TokenDetailsHeader(props: IProps) {
 
   const tokenDetails =
     tokenDetailsResult ?? tokenDetailsContext[tokenDetailsKey]?.data;
-
-  const showLoadingState = useMemo(() => {
-    if (tokenDetailsContext[tokenDetailsKey]?.init) {
-      return false;
-    }
-    return isLoading;
-  }, [tokenDetailsContext, tokenDetailsKey, isLoading]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
@@ -245,34 +237,25 @@ function TokenDetailsHeader(props: IProps) {
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             <Stack flex={1}>
-              {showLoadingState ? (
-                <Skeleton.Group show>
-                  <Skeleton.Heading4Xl />
-                  <Skeleton.BodyLg />
-                </Skeleton.Group>
-              ) : (
-                <>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    size="$heading4xl"
-                    formatter="balance"
-                    fontWeight="bold"
-                  >
-                    {tokenDetails?.balanceParsed ?? '0'}
-                  </NumberSizeableTextWrapper>
-                  <NumberSizeableTextWrapper
-                    hideValue
-                    formatter="value"
-                    formatterOptions={{
-                      currency: settings.currencyInfo.symbol,
-                    }}
-                    color="$textSubdued"
-                    size="$bodyLg"
-                  >
-                    {tokenDetails?.fiatValue ?? '0'}
-                  </NumberSizeableTextWrapper>
-                </>
-              )}
+              <NumberSizeableTextWrapper
+                hideValue
+                size="$heading4xl"
+                formatter="balance"
+                fontWeight="bold"
+              >
+                {tokenDetails?.balanceParsed ?? '0'}
+              </NumberSizeableTextWrapper>
+              <NumberSizeableTextWrapper
+                hideValue
+                formatter="value"
+                formatterOptions={{
+                  currency: settings.currencyInfo.symbol,
+                }}
+                color="$textSubdued"
+                size="$bodyLg"
+              >
+                {tokenDetails?.fiatValue ?? '0'}
+              </NumberSizeableTextWrapper>
             </Stack>
           </XStack>
           {/* Actions */}
@@ -379,24 +362,20 @@ function TokenDetailsHeader(props: IProps) {
                 })}
               </SizableText>
               <XStack gap="$4">
-                {showLoadingState ? (
-                  <Skeleton.BodyMd />
-                ) : (
-                  <SizableText
-                    size="$bodyMd"
-                    color="$text"
-                    $platform-web={{
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    {accountUtils.isHwWallet({ walletId }) ||
-                    accountUtils.isQrWallet({ walletId })
-                      ? accountUtils.shortenAddress({
-                          address: account?.address ?? '',
-                        })
-                      : account?.address}
-                  </SizableText>
-                )}
+                <SizableText
+                  size="$bodyMd"
+                  color="$text"
+                  $platform-web={{
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {accountUtils.isHwWallet({ walletId }) ||
+                  accountUtils.isQrWallet({ walletId })
+                    ? accountUtils.shortenAddress({
+                        address: account?.address ?? '',
+                      })
+                    : account?.address}
+                </SizableText>
                 <Icon
                   name="Copy3Outline"
                   color="$iconSubdued"

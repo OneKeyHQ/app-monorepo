@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -96,7 +96,8 @@ function TokenDetailsView() {
 
   const { copyText } = useClipboard();
 
-  const { updateTokenMetadata } = useTokenDetailsContext();
+  const { updateTokenMetadata, batchUpdateTokenDetails } =
+    useTokenDetailsContext();
 
   const {
     accountId,
@@ -106,6 +107,7 @@ function TokenDetailsView() {
     isAllNetworks,
     indexedAccountId,
     isAggregateToken,
+    tokenMap,
   } = route.params;
 
   const { gtMd } = useMedia();
@@ -494,6 +496,29 @@ function TokenDetailsView() {
     );
   }, [tokens, gtMd, network?.logoURI, networkId]);
 
+  useEffect(() => {
+    if (tokens && tokenMap) {
+      const details = tokens
+        .map((token) => {
+          const tokenFiat = tokenMap[token.$key];
+          if (tokenFiat) {
+            return {
+              accountId: token.accountId ?? accountId,
+              networkId: token.networkId ?? networkId,
+              isInit: true,
+              data: {
+                info: token,
+                ...tokenFiat,
+              },
+            };
+          }
+          return undefined;
+        })
+        .filter((detail) => detail !== undefined);
+      batchUpdateTokenDetails(details);
+    }
+  }, [tokens, tokenMap, accountId, networkId, batchUpdateTokenDetails]);
+
   return (
     <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
@@ -558,6 +583,34 @@ export default function TokenDetailsModal() {
     [],
   );
 
+  const batchUpdateTokenDetails = useCallback(
+    (
+      details: {
+        accountId: string;
+        networkId: string;
+        isInit: boolean;
+        data: IFetchTokenDetailItem;
+      }[],
+    ) => {
+      const dataToUpdate = details.reduce(
+        (acc, detail) => ({
+          ...acc,
+          [`${detail.accountId}_${detail.networkId}`]: {
+            init: detail.isInit,
+            data: detail.data,
+          },
+        }),
+        {} as Record<string, { init: boolean; data?: IFetchTokenDetailItem }>,
+      );
+
+      setTokenDetails((prev) => ({
+        ...prev,
+        ...dataToUpdate,
+      }));
+    },
+    [],
+  );
+
   // Context value
   const contextValue = useMemo(
     () => ({
@@ -567,6 +620,7 @@ export default function TokenDetailsModal() {
       updateIsLoadingTokenDetails,
       tokenDetails,
       updateTokenDetails,
+      batchUpdateTokenDetails,
     }),
     [
       tokenMetadata,
@@ -575,6 +629,7 @@ export default function TokenDetailsModal() {
       updateIsLoadingTokenDetails,
       tokenDetails,
       updateTokenDetails,
+      batchUpdateTokenDetails,
     ],
   );
   return (
