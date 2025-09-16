@@ -1,10 +1,15 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
 import { BigNumber } from 'bignumber.js';
 
+import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  type EHyperLiquidAgentName,
+  PERPS_EMPTY_ADDRESS,
+} from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   MAX_DECIMALS_PERP,
@@ -28,6 +33,7 @@ import type {
   IOrderOpenParams,
   IPlaceOrderParams,
   IPositionTpslOrderParams,
+  ISetReferrerRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -38,9 +44,6 @@ import type {
   WalletHyperliquidProxy,
 } from './ServiceHyperliquidWallet';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-
-// TODO: Dynamic set agent name based on client type
-const AGENT_NAME = 'OneKey_Desktop';
 
 @backgroundClass()
 export default class ServiceHyperliquidExchange extends ServiceBase {
@@ -84,8 +87,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setup(params: {
     userAddress: IHex;
     userAccountId?: string;
+    agentCredential?: ICoreHyperLiquidAgentCredential;
   }): Promise<void> {
     try {
+      if (!params.userAddress) {
+        throw new OneKeyLocalError(
+          'ServiceHyperliquidExchange.setup Error: User address is required',
+        );
+      }
       const transport = new HttpTransport();
 
       let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
@@ -100,7 +109,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       } else {
         const proxyWallet =
           await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
-            userAddress: params.userAddress,
+            agentCredential: params.agentCredential,
           });
         wallet = proxyWallet.wallet;
         account = proxyWallet.address;
@@ -119,32 +128,112 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async getOnekeyWalletClient(params: {
-    userAddress: IHex;
-    userAccountId?: string;
-  }): Promise<ExchangeClient> {
-    const transport = new HttpTransport();
+  // @backgroundMethod()
+  // async getOnekeyWalletClient(params: {
+  //   userAddress: IHex;
+  //   userAccountId?: string;
+  // }): Promise<ExchangeClient> {
+  //   const transport = new HttpTransport();
 
-    let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
+  //   let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
 
-    if (params.userAccountId) {
-      wallet =
-        await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
-          userAccountId: params.userAccountId,
-        });
-    } else {
-      const proxyWallet =
-        await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
-          userAddress: params.userAddress,
-        });
-      wallet = proxyWallet.wallet;
+  //   if (params.userAccountId) {
+  //     wallet =
+  //       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
+  //         userAccountId: params.userAccountId,
+  //       });
+  //   } else {
+  //     const proxyWallet =
+  //       await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
+  //         userAddress: params.userAddress,
+  //       });
+  //     wallet = proxyWallet.wallet;
+  //   }
+
+  //   return new ExchangeClient({
+  //     transport,
+  //     wallet,
+  //   });
+  // }
+
+  private _ensureSetup(): void {
+    if (!this._account || !this._exchangeClient) {
+      throw new OneKeyLocalError(
+        'Exchange client not setup. Call setup() first.',
+      );
     }
+  }
 
-    return new ExchangeClient({
-      transport,
-      wallet,
+  @backgroundMethod()
+  async setReferrerCode(params: ISetReferrerRequest) {
+    this._ensureSetup();
+    return this._exchangeClient!.setReferrer(params);
+  }
+
+  @backgroundMethod()
+  async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
+    this._ensureSetup();
+
+    try {
+      await this._exchangeClient!.updateLeverage(params);
+    } catch (error) {
+      throw new OneKeyLocalError(`Failed to update leverage: ${String(error)}`);
+    }
+  }
+
+  @backgroundMethod()
+  async approveBuilderFee(params: IBuilderFeeRequest) {
+    this._ensureSetup();
+
+    try {
+      return await this._exchangeClient!.approveBuilderFee(params);
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to approve builder fee: ${String(error)}`,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async approveAgent(params: IAgentApprovalRequest) {
+    this._ensureSetup();
+
+    try {
+      return await this._exchangeClient!.approveAgent({
+        agentAddress: params.agent,
+        agentName: params.agentName || null,
+      });
+    } catch (error) {
+      throw new OneKeyLocalError(`Failed to approve agent: ${String(error)}`);
+    }
+  }
+
+  @backgroundMethod()
+  async removeAgent(params: { agentName: EHyperLiquidAgentName | undefined }) {
+    this._ensureSetup();
+    return this.approveAgent({
+      agent: PERPS_EMPTY_ADDRESS,
+      agentName: params.agentName,
+      authorize: true,
     });
+  }
+
+  @backgroundMethod()
+  async getAccount(): Promise<string | null> {
+    return this._account;
+  }
+
+  @backgroundMethod()
+  async placeOrderRaw(params: IOrderRequest): Promise<IOrderResponse> {
+    this._ensureSetup();
+    try {
+      return await this._exchangeClient!.order({
+        orders: params.action.orders,
+        grouping: params.action.grouping,
+      });
+    } catch (error) {
+      throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
+    }
   }
 
   @backgroundMethod()
@@ -155,50 +244,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async dispose(): Promise<void> {
     this._account = null;
     this._exchangeClient = null;
-  }
-
-  @backgroundMethod()
-  async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
-    try {
-      await this.exchangeClient.updateLeverage(params);
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to update leverage: ${String(error)}`);
-    }
-  }
-
-  @backgroundMethod()
-  async approveBuilderFee(params: IBuilderFeeRequest): Promise<void> {
-    try {
-      await this.exchangeClient.approveBuilderFee(params);
-    } catch (error) {
-      throw new OneKeyLocalError(
-        `Failed to approve builder fee: ${String(error)}`,
-      );
-    }
-  }
-
-  @backgroundMethod()
-  async approveAgent(params: IAgentApprovalRequest): Promise<void> {
-    try {
-      await this.exchangeClient.approveAgent({
-        agentAddress: params.agent,
-        agentName: AGENT_NAME,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to approve agent: ${String(error)}`);
-    }
-  }
-
-  @backgroundMethod()
-  async placeOrderRaw(params: IOrderRequest): Promise<IOrderResponse> {
-    try {
-      return await this.exchangeClient.order({
-        orders: params.action.orders,
-        grouping: params.action.grouping,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
-    }
   }
 
   @backgroundMethod()

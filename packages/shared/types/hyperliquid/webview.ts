@@ -25,11 +25,11 @@ export type IHyperLiquidMessageApproveAgent = {
 // https://github.com/hyperliquid-dex/hyperliquid-python-sdk/blob/master/hyperliquid/utils/signing.py#L395
 // eslint-disable-next-line spellcheck/spell-checker
 /*
-{"name": "hyperliquidChain", "type": "string"},
-{"name": "maxFeeRate", "type": "string"},
-{"name": "builder", "type": "address"},
-{"name": "nonce", "type": "uint64"},
-*/
+  {"name": "hyperliquidChain", "type": "string"},
+  {"name": "maxFeeRate", "type": "string"},
+  {"name": "builder", "type": "address"},
+  {"name": "nonce", "type": "uint64"},
+  */
 export type IHyperLiquidMessageApproveBuilderFee = {
   // action = {"maxFeeRate": max_fee_rate, "builder": builder, "nonce": timestamp, "type": "approveBuilderFee"}
   // action["hyperliquidChain"] = "Mainnet" if is_mainnet else "Testnet"

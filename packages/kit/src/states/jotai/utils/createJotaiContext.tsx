@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, createStore, useAtom } from 'jotai';
 
 import type {

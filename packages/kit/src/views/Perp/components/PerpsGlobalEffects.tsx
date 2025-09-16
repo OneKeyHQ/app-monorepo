@@ -1,80 +1,256 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { noop } from 'lodash';
+
+import { useUpdateEffect } from '@onekeyhq/components';
+import {
+  useAccountIsAutoCreatingAtom,
+  useIndexedAccountAddressCreationStateAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsSelectedSymbolAtom,
+  usePerpsSelectedAccountAtom,
+  usePerpsSelectedAccountStatusAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  IActiveAssetData,
+  IBook,
+  IWsActiveAssetCtx,
+  IWsAllMids,
+  IWsWebData2,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
-import { usePerpsAccountLoadingAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import {
+  useConnectionStateAtom,
+  useCurrentUserAtom,
+  useSubscriptionActiveAtom,
+} from '../../../states/jotai/contexts/hyperliquid/atoms';
 
-export function PerpsGlobalEffectsView() {
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const [, setPerpsAccountLoading] = usePerpsAccountLoadingAtom();
+function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
-  const hidePerpsAccountLoadingTimer = useRef<
-    ReturnType<typeof setTimeout> | undefined
-  >(undefined);
-  const { result: ethAccountData } = usePromiseResult<
-    INetworkAccount | null | undefined
-  >(async () => {
-    try {
-      clearTimeout(hidePerpsAccountLoadingTimer.current);
-      setPerpsAccountLoading(true);
-      const indexedAccountId = activeAccount?.indexedAccount?.id;
-      const accountId = activeAccount?.account?.id;
-      const deriveType = activeAccount?.deriveType;
 
-      if (!indexedAccountId && !accountId) return null;
+  useEffect(() => {
+    const handleDataUpdate = (payload: unknown) => {
+      const eventPayload = payload as {
+        type: 'market' | 'account';
+        subType: string;
+        data: any;
+        metadata: {
+          timestamp: number;
+          source: string;
+          key?: string;
+          coin?: string;
+          userId?: string;
+          interval?: string;
+        };
+      };
+      const { subType, data } = eventPayload;
 
-      const ethNetworkId = getNetworkIdsMap().arbitrum;
+      try {
+        switch (subType) {
+          case ESubscriptionType.ALL_MIDS:
+            void actions.current.updateAllMids(data as IWsAllMids);
+            break;
 
-      const account = await backgroundApiProxy.serviceAccount.getNetworkAccount(
-        {
-          indexedAccountId,
-          accountId: indexedAccountId ? undefined : accountId,
-          networkId: ethNetworkId,
-          deriveType: deriveType || 'default',
-        },
+          case ESubscriptionType.ACTIVE_ASSET_CTX:
+            if (eventPayload.metadata.coin) {
+              void actions.current.updateActiveAssetCtx(
+                data as IWsActiveAssetCtx,
+                eventPayload.metadata.coin,
+              );
+            }
+            break;
+
+          case ESubscriptionType.WEB_DATA2:
+            void actions.current.updateWebData2(data as IWsWebData2);
+            break;
+
+          case ESubscriptionType.ACTIVE_ASSET_DATA:
+            if (eventPayload.metadata.coin) {
+              void actions.current.updateActiveAssetData(
+                data as IActiveAssetData,
+                eventPayload.metadata.coin,
+              );
+            }
+            break;
+
+          case ESubscriptionType.L2_BOOK:
+            void actions.current.updateL2Book(data as IBook);
+            break;
+
+          case ESubscriptionType.BBO:
+            break;
+
+          default:
+        }
+      } catch (error) {
+        console.error('Failed to process data update:', error);
+      }
+    };
+
+    const handleConnectionChange = (payload: unknown) => {
+      const eventPayload = payload as {
+        type: 'connection';
+        subType: string;
+        data: {
+          status: 'connected' | 'disconnected';
+          lastConnected: number;
+          service: string;
+          activeSubscriptions: number;
+        };
+        metadata: {
+          timestamp: number;
+          source: string;
+        };
+      };
+      const { data } = eventPayload;
+
+      try {
+        void actions.current.updateConnectionState({
+          isConnected: data.status === 'connected',
+        });
+      } catch (error) {
+        console.error('Failed to process connection change:', error);
+      }
+    };
+
+    appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, handleDataUpdate);
+    appEventBus.on(
+      EAppEventBusNames.HyperliquidConnectionChange,
+      handleConnectionChange,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        handleDataUpdate,
       );
+      appEventBus.off(
+        EAppEventBusNames.HyperliquidConnectionChange,
+        handleConnectionChange,
+      );
+    };
+  }, [actions]);
+}
 
-      return account;
-    } catch (error) {
-      console.error(error);
-      return null;
-    } finally {
-      hidePerpsAccountLoadingTimer.current = setTimeout(() => {
-        setPerpsAccountLoading(false);
-      }, 200);
-    }
+function useHyperliquidSession() {
+  const [subscriptionActive] = useSubscriptionActiveAtom();
+  const [connectionState] = useConnectionStateAtom();
+  const actions = useHyperliquidActions();
+
+  const [currentAccount] = usePerpsSelectedAccountAtom();
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    (isFocus: boolean, isHiddenByModal: boolean) => {
+      if (isFocus && !isHiddenByModal) {
+        // Handle tab focus
+      } else {
+        // Handle tab unfocus
+      }
+    },
+  );
+
+  useEffect(() => {
+    const actionsRef = actions.current;
+    return () => {
+      void actionsRef.clearAllData();
+    };
+  }, [actions]);
+
+  return {
+    userAddress: currentAccount?.accountAddress,
+    isConnected: connectionState.isConnected,
+    isActive: subscriptionActive,
+  };
+}
+
+function useHyperliquidAccountSelect() {
+  const { activeAccount } = useActiveAccount({ num: 0 });
+  const [currentPerpsAccount] = usePerpsSelectedAccountAtom();
+  const actions = useHyperliquidActions();
+  const isFirstMountRef = useRef(true);
+  const [, setCurrentUser] = useCurrentUserAtom();
+  const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
+  const [indexedAccountAddressCreationState] =
+    useIndexedAccountAddressCreationStateAtom();
+
+  // const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
+  // const perpsAccountStatusRef = useRef(perpsAccountStatus);
+  // perpsAccountStatusRef.current = perpsAccountStatus;
+
+  const selectPerpsAccount = useCallback(async () => {
+    noop(activeAccount.account?.address);
+    const account =
+      await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
+        indexedAccountId: activeAccount?.indexedAccount?.id || null,
+        accountId: activeAccount?.account?.id || null,
+        deriveType: activeAccount?.deriveType ?? 'default',
+      });
+    setCurrentUser(account.accountAddress);
+    const checkResult =
+      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+    console.log('checkPerpsAccountStatus::', checkResult);
   }, [
+    activeAccount.account?.address,
+    activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
     activeAccount?.deriveType,
-    activeAccount?.indexedAccount?.id,
-    setPerpsAccountLoading,
+    setCurrentUser,
   ]);
-  const userAddress = ethAccountData?.address ?? null;
-  const userAccountId = ethAccountData?.id ?? null;
+  const selectPerpsAccountRef = useRef(selectPerpsAccount);
+  selectPerpsAccountRef.current = selectPerpsAccount;
+
   useEffect(() => {
-    console.log('usePerpUseChainAccount -> activeAccountId: ', {
-      userAddress,
-      userAccountId,
-    });
-    if (
-      typeof userAddress === 'string' &&
-      userAddress.startsWith('0x') &&
-      userAccountId
-    ) {
-      void actions.current.setCurrentUser(userAddress as IHex);
-      void actions.current.setCurrentAccount(userAccountId);
-    } else {
-      void actions.current.setCurrentUser(null);
-      void actions.current.setCurrentAccount(null);
+    void selectPerpsAccount();
+  }, [selectPerpsAccount]);
+
+  useUpdateEffect(() => {
+    if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
+      void selectPerpsAccountRef.current();
     }
-  }, [userAddress, actions, userAccountId]);
+  }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
+
+  useEffect(() => {
+    noop(currentPerpsAccount?.accountAddress);
+
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      if (currentPerpsAccount?.accountAddress) {
+        void actions.current.updateSubscriptions();
+      }
+    } else {
+      void actions.current.updateSubscriptions();
+    }
+  }, [actions, currentPerpsAccount?.accountAddress]);
+}
+
+function useHyperliquidSymbolSelect() {
+  const actions = useHyperliquidActions();
+  useEffect(() => {
+    void (async () => {
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingUniverse();
+      const currentToken = await perpsSelectedSymbolAtom.get();
+      await actions.current.setCurrentToken(currentToken.coin);
+    })();
+  }, [actions]);
+}
+
+function PerpsGlobalEffectsView() {
+  useHyperliquidEventBusListener();
+  useHyperliquidSession();
+  useHyperliquidAccountSelect();
+  useHyperliquidSymbolSelect();
 
   return null;
 }

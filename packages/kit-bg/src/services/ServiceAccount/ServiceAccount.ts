@@ -1,4 +1,5 @@
 import { Semaphore } from 'async-mutex';
+import { ethers } from 'ethers';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -1241,18 +1242,20 @@ class ServiceAccount extends ServiceBase {
     });
   }
 
-  async prepareHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-    privateKey,
-  }: ICoreHyperLiquidAgentCredential) {
-    ensureSensitiveTextEncoded(privateKey);
+  async prepareHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ) {
+    ensureSensitiveTextEncoded(params.privateKey);
+    const decodedPrivateKey = await decodeSensitiveTextAsync({
+      encodedText: params.privateKey,
+    });
+    const agentWallet = new ethers.Wallet(decodedPrivateKey);
     const credential: ICoreHyperLiquidAgentCredential = {
-      userAddress,
-      agentName,
-      privateKey: await decodeSensitiveTextAsync({
-        encodedText: privateKey,
-      }),
+      userAddress: params.userAddress,
+      agentName: params.agentName,
+      privateKey: decodedPrivateKey,
+      agentAddress: agentWallet.address,
+      validUntil: params.validUntil,
     };
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerify({
@@ -1266,19 +1269,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async addHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-    privateKey,
-  }: ICoreHyperLiquidAgentCredential): Promise<{
+  async addHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ): Promise<{
     credentialId: string;
   }> {
     const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential({
-        userAddress,
-        agentName,
-        privateKey,
-      });
+      await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.addHyperLiquidAgentCredential({
       credential,
       password,
@@ -1290,19 +1287,13 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async updateHyperLiquidAgentCredential({
-    userAddress,
-    agentName,
-    privateKey,
-  }: ICoreHyperLiquidAgentCredential): Promise<{
+  async updateHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ): Promise<{
     credentialId: string;
   }> {
     const { credential, password } =
-      await this.prepareHyperLiquidAgentCredential({
-        userAddress,
-        agentName,
-        privateKey,
-      });
+      await this.prepareHyperLiquidAgentCredential(params);
     const { credentialId } = await localDb.updateHyperLiquidAgentCredential({
       credential,
       password,

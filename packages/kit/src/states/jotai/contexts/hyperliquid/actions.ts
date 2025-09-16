@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -13,9 +14,7 @@ import {
   allMidsAtom,
   connectionStateAtom,
   contextAtomMethod,
-  currentAccountAtom,
   currentTokenAtom,
-  currentUserAtom,
   l2BookAtom,
   subscriptionActiveAtom,
   tradingFormAtom,
@@ -91,28 +90,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     await this.updateSubscriptions.call(set);
   });
 
-  setCurrentUser = contextAtomMethod(async (get, set, user: HL.IHex | null) => {
-    const currentUser = get(currentUserAtom());
-    if (currentUser === user) return;
-
-    set(currentUserAtom(), user);
-
-    if (user !== currentUser) {
-      set(webData2Atom(), null);
-      set(activeAssetDataAtom(), null);
-    }
-    await this.updateSubscriptions.call(set);
-  });
-
-  setCurrentAccount = contextAtomMethod(
-    async (get, set, accountId: string | null) => {
-      set(currentAccountAtom(), accountId);
-    },
-  );
-
   updateSubscriptions = contextAtomMethod(async (get, _set) => {
     const currentToken = get(currentTokenAtom());
-    const currentUser = get(currentUserAtom());
+    const currentAccount = await perpsSelectedAccountAtom.get();
+    const currentUser = currentAccount?.accountAddress;
     const isActive = get(subscriptionActiveAtom());
 
     if (!isActive) {
@@ -137,7 +118,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateL2BookSubscription = contextAtomMethod(
     async (get, set, options?: IL2BookOptions) => {
       const currentToken = get(currentTokenAtom());
-      const currentUser = get(currentUserAtom());
+      const currentAccount = await perpsSelectedAccountAtom.get();
+      const currentUser = currentAccount?.accountAddress;
       const isActive = get(subscriptionActiveAtom());
 
       if (!isActive) {
@@ -231,6 +213,18 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  // setCurrentUser = contextAtomMethod(async (get, set, user: HL.IHex | null) => {
+  //   const currentUser = get(currentUserAtom());
+  //   if (currentUser === user) return;
+  //   set(currentUserAtom(), user);
+  //   if (user !== currentUser) {
+  //     set(webData2Atom(), null);
+  //     set(activeAssetDataAtom(), null);
+  //   }
+  //   await this.updateSubscriptions.call(set);
+  // });
+
+  // TODO why
   setupTradingSession = contextAtomMethod(
     async (
       get,
@@ -238,7 +232,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       payload: { userAddress: HL.IHex; userAccountId: string },
     ) => {
       try {
-        await this.setCurrentUser.call(set, payload.userAddress);
+        // await this.setCurrentUser.call(set, payload.userAddress);
+        //   if (user !== currentUser) {
+        //     set(webData2Atom(), null);
+        //     set(activeAssetDataAtom(), null);
+        //   }
+        //   await this.updateSubscriptions.call(set);
 
         await backgroundApiProxy.serviceHyperliquidExchange.setup({
           userAddress: payload.userAddress,
@@ -253,43 +252,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  checkWalletStatus = contextAtomMethod(
-    async (get, set, userAddress: HL.IHex) => {
-      try {
-        return await backgroundApiProxy.serviceHyperliquid.checkWalletStatus({
-          userAddress,
-        });
-      } catch (error) {
-        console.error('Failed to check wallet status:', error);
-        return null;
-      }
-    },
-  );
-
-  enableTrading = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: {
-        userAddress: HL.IHex;
-        userAccountId: string;
-        approveAgent?: boolean;
-        approveBuilderFee?: boolean;
-      },
-    ) => {
-      try {
-        return await backgroundApiProxy.serviceHyperliquid.enableTrading(
-          payload,
-        );
-      } catch (error) {
-        console.error('Failed to enable trading:', error);
-        return { success: false };
-      }
-    },
-  );
+  enableTrading = contextAtomMethod(async (get, set) => {
+    try {
+      return await backgroundApiProxy.serviceHyperliquid.enableTrading();
+    } catch (error) {
+      console.error('Failed to enable trading:', error);
+      return { success: false };
+    }
+  });
 
   clearUserData = contextAtomMethod((get, set) => {
-    set(currentUserAtom(), null);
     set(webData2Atom(), null);
     set(activeAssetDataAtom(), null);
   });
@@ -301,7 +273,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(activeAssetDataAtom(), null);
     set(l2BookAtom(), null);
     set(currentTokenAtom(), 'ETH');
-    set(currentUserAtom(), null);
     set(subscriptionActiveAtom(), false);
     set(connectionStateAtom(), {
       isConnected: false,
@@ -694,8 +665,6 @@ export function useHyperliquidActions() {
   const updateConnectionState = actions.updateConnectionState.use();
 
   const setCurrentToken = actions.setCurrentToken.use();
-  const setCurrentUser = actions.setCurrentUser.use();
-  const setCurrentAccount = actions.setCurrentAccount.use();
   const updateSubscriptions = actions.updateSubscriptions.use();
   const updateL2BookSubscription = actions.updateL2BookSubscription.use();
   const startSubscriptions = actions.startSubscriptions.use();
@@ -703,7 +672,6 @@ export function useHyperliquidActions() {
   const reconnectSubscriptions = actions.reconnectSubscriptions.use();
 
   const setupTradingSession = actions.setupTradingSession.use();
-  const checkWalletStatus = actions.checkWalletStatus.use();
   const enableTrading = actions.enableTrading.use();
 
   const clearUserData = actions.clearUserData.use();
@@ -730,15 +698,12 @@ export function useHyperliquidActions() {
     updateL2Book,
     updateConnectionState,
     setCurrentToken,
-    setCurrentUser,
-    setCurrentAccount,
     updateSubscriptions,
     updateL2BookSubscription,
     startSubscriptions,
     stopSubscriptions,
     reconnectSubscriptions,
     setupTradingSession,
-    checkWalletStatus,
     enableTrading,
     clearUserData,
     clearAllData,
