@@ -15,6 +15,8 @@ import {
   Stack,
   XStack,
   YStack,
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -412,6 +414,26 @@ function BulkRevoke() {
   useEffect(() => {
     progressStateRef.current = progressState;
   }, [progressState]);
+
+  useEffect(() => {
+    const handleVisibilityStateChange = (visible: boolean) => {
+      console.log('handleVisibilityStateChange', visible);
+      if (visible === false) {
+        setProgressState(ERevokeProgressState.Paused);
+        setRevokeTxsStatusMap((prev) => ({
+          ...prev,
+          [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+            status: ERevokeTxStatus.Paused,
+          },
+        }));
+      }
+    };
+    handleVisibilityStateChange(getCurrentVisibilityState());
+    const removeSubscription = onVisibilityStateChange(
+      handleVisibilityStateChange,
+    );
+    return removeSubscription;
+  }, [currentProcessIndex, unsignedTxs]);
 
   const handleOnConfirm = useCallback(() => {
     if (progressState === ERevokeProgressState.Finished) {
