@@ -312,12 +312,14 @@ function DepositWithdrawContent({
           gap="$3"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
-            Amount
+            {intl.formatMessage({ id: ETranslations.send_nft_amount })}
           </SizableText>
           <Input
             alignItems="center"
             flex={1}
-            placeholder="Enter amount"
+            placeholder={intl.formatMessage({
+              id: ETranslations.form_amount_placeholder,
+            })}
             value={amount}
             onChangeText={handleAmountChange}
             keyboardType="decimal-pad"
@@ -354,8 +356,12 @@ function DepositWithdrawContent({
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
             {selectedAction === 'withdraw'
-              ? 'Withdrawable'
-              : 'Available balance'}
+              ? intl.formatMessage({
+                  id: ETranslations.perp_trade_withdrawable,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.perp_available_balance,
+                })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
             {balanceLoading ? (
@@ -378,7 +384,7 @@ function DepositWithdrawContent({
 
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            You will get
+            {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
           </SizableText>
           <SizableText color="$text" size="$bodyMd">
             ${amount || '0'} on{' '}

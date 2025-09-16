@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "टीपी मूल्य",
   "perp.trade_tp_price_gain": "लाभ",
   "perp.trade_withdraw": "निकालना",
-  "perp.trade_withdrawable": "निकासी",
+  "perp.trade_withdrawable": "निकालने योग्य",
   "perp.trades_close_pnl": "पीएनएल बंद करें",
   "perp.trades_history_direction": "दिशा",
   "perp.trades_history_fee": "शुल्क",

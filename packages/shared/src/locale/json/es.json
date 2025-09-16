@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "Precio TP",
   "perp.trade_tp_price_gain": "Ganancia",
   "perp.trade_withdraw": "Retirar",
-  "perp.trade_withdrawable": "Retiro",
+  "perp.trade_withdrawable": "Retirable",
   "perp.trades_close_pnl": "Cerrar PnL",
   "perp.trades_history_direction": "Dirección",
   "perp.trades_history_fee": "Comisión",

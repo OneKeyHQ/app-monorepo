@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "Harga TP",
   "perp.trade_tp_price_gain": "Keuntungan",
   "perp.trade_withdraw": "Menarik",
-  "perp.trade_withdrawable": "Penarikan",
+  "perp.trade_withdrawable": "Dapat ditarik",
   "perp.trades_close_pnl": "Tutup PnL",
   "perp.trades_history_direction": "Arah",
   "perp.trades_history_fee": "Biaya",

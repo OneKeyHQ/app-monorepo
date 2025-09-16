@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "Giá TP",
   "perp.trade_tp_price_gain": "Lợi nhuận",
   "perp.trade_withdraw": "Rút",
-  "perp.trade_withdrawable": "Rút tiền",
+  "perp.trade_withdrawable": "Có thể rút",
   "perp.trades_close_pnl": "Đóng PnL",
   "perp.trades_history_direction": "Hướng",
   "perp.trades_history_fee": "Phí",

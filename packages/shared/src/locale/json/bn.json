@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "TP মূল্য",
   "perp.trade_tp_price_gain": "লাভ",
   "perp.trade_withdraw": "প্রত্যাহার করুন",
-  "perp.trade_withdrawable": "উত্তোলন",
+  "perp.trade_withdrawable": "উত্তোলনযোগ্য",
   "perp.trades_close_pnl": "PnL বন্ধ করুন",
   "perp.trades_history_direction": "দিক",
   "perp.trades_history_fee": "ফি",

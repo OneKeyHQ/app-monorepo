@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "Ціна TP",
   "perp.trade_tp_price_gain": "Прибуток",
   "perp.trade_withdraw": "Вилучити",
-  "perp.trade_withdrawable": "Виведення",
+  "perp.trade_withdrawable": "Доступний для зняття",
   "perp.trades_close_pnl": "Закрити PnL",
   "perp.trades_history_direction": "Напрямок",
   "perp.trades_history_fee": "Комісія",

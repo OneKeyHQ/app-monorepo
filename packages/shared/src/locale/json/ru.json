@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "Цена TP",
   "perp.trade_tp_price_gain": "Прибыль",
   "perp.trade_withdraw": "Отзывать",
-  "perp.trade_withdrawable": "Вывод средств",
+  "perp.trade_withdrawable": "Доступно для вывода",
   "perp.trades_close_pnl": "Закрыть PnL",
   "perp.trades_history_direction": "Направление",
   "perp.trades_history_fee": "Комиссия",

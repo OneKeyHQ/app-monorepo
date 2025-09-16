@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "ราคา TP",
   "perp.trade_tp_price_gain": "กำไร",
   "perp.trade_withdraw": "ถอน",
-  "perp.trade_withdrawable": "การถอนเงิน",
+  "perp.trade_withdrawable": "ถอนได้",
   "perp.trades_close_pnl": "ปิดกำไรขาดทุน",
   "perp.trades_history_direction": "ทิศทาง",
   "perp.trades_history_fee": "ค่าธรรมเนียม",

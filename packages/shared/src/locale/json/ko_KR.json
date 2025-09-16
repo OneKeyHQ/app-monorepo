@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "TP 가격",
   "perp.trade_tp_price_gain": "이익",
   "perp.trade_withdraw": "철회하다",
-  "perp.trade_withdrawable": "출금",
+  "perp.trade_withdrawable": "출금 가능",
   "perp.trades_close_pnl": "손익 정산",
   "perp.trades_history_direction": "방향",
   "perp.trades_history_fee": "수수료",

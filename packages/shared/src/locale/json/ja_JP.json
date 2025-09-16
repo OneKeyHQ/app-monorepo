@@ -2111,7 +2111,7 @@
   "perp.trade_tp_price": "TP価格",
   "perp.trade_tp_price_gain": "利益",
   "perp.trade_withdraw": "撤回する",
-  "perp.trade_withdrawable": "出金",
+  "perp.trade_withdrawable": "引き出し可能",
   "perp.trades_close_pnl": "損益を確定する",
   "perp.trades_history_direction": "方向",
   "perp.trades_history_fee": "手数料",
