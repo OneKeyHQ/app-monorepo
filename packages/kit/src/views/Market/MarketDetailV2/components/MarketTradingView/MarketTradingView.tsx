@@ -7,6 +7,7 @@ interface IMarketTradingViewProps {
   identifier?: string;
   decimal?: number;
   onPanesCountChange?: (count: number) => void;
+  isNative?: boolean;
 }
 
 export function MarketTradingView({
@@ -16,11 +17,11 @@ export function MarketTradingView({
   identifier = 'OneKey',
   decimal = 8,
   onPanesCountChange,
+  isNative = false,
 }: IMarketTradingViewProps) {
   return (
     <TradingView
       version="v2"
-      mode="realtime"
       identifier={identifier}
       baseToken={tokenSymbol}
       targetToken="USDT"
@@ -33,6 +34,7 @@ export function MarketTradingView({
         console.log('📊 MarketDetailV2 - Panels count:', count);
         onPanesCountChange?.(count);
       }}
+      isNative={isNative}
     />
   );
 }

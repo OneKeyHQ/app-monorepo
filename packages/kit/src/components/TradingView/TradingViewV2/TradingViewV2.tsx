@@ -22,7 +22,6 @@ import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewV2Props {
-  mode: 'overview' | 'realtime';
   identifier: string;
   symbol: string;
   targetToken: string;
@@ -35,6 +34,7 @@ interface IBaseTradingViewV2Props {
   timeTo?: number;
   decimal: number;
   onPanesCountChange?: (count: number) => void;
+  isNative?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -46,7 +46,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const theme = useThemeVariant();
 
   const {
-    mode,
     onLoadEnd,
     tradingViewUrl,
     tokenAddress = '',
@@ -54,6 +53,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     symbol,
     decimal,
     onPanesCountChange,
+    isNative = false,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -74,18 +74,21 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     },
   });
 
-  // useAutoKLineUpdate({
-  //   tokenAddress,
-  //   networkId,
-  //   webRef,
-  //   enabled: mode === 'realtime',
-  // });
+  // Use different data update strategies based on token type
+  // For native tokens (main coins), use traditional K-line updates
+  // For other tokens, use WebSocket for better real-time data
+  useAutoKLineUpdate({
+    tokenAddress,
+    networkId,
+    webRef,
+    enabled: isNative,
+  });
 
   useAutoTokenDetailUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: mode === 'realtime',
+    enabled: true,
   });
 
   // Enhanced WebSocket connection for real-time market data
@@ -93,7 +96,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
-    enabled: mode === 'realtime',
+    enabled: !isNative,
     enableOHLCV: true,
     chartType: '1m',
     currency: 'usd',

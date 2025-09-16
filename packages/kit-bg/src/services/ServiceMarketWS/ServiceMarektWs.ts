@@ -240,7 +240,7 @@ class ServiceMarketWS extends ServiceBase {
   async unsubscribeOHLCV({
     networkId,
     tokenAddress,
-    chartType = '3m',
+    chartType = '1m',
     currency = 'pair',
   }: {
     networkId: string;

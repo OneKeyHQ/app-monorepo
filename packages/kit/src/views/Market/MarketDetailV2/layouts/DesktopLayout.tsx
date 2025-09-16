@@ -48,6 +48,7 @@ export function DesktopLayout({ isNative = false }: { isNative?: boolean }) {
                 tokenAddress={tokenAddress}
                 networkId={networkId}
                 tokenSymbol={tokenDetail?.symbol}
+                isNative={isNative}
               />
             ) : null}
           </Stack>
