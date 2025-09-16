@@ -35,6 +35,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -454,7 +455,7 @@ function Dashboard({
 
   const { result: earnToken } = usePromiseResult(async () => {
     return backgroundApiProxy.serviceToken.getToken({
-      networkId: 'evm--42161',
+      networkId: PERPS_CHAIN_ID,
       tokenIdOnNetwork: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
       accountId: activeAccount.account?.id ?? '',
     });

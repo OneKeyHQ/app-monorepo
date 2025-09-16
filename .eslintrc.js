@@ -90,6 +90,12 @@ const restrictedImportsPatterns = [
     group: ['**/v4localDBStoreNames.native'],
     message: 'import v4localDBStoreNames instead ',
   },
+  {
+    group: ['jotai'],
+    importNames: ['useAtom', 'useSetAtom', 'atom'],
+    message:
+      'Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead.',
+  },
   //
 ];
 const tsRules = {

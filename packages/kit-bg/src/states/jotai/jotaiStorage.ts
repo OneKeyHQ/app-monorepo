@@ -1,5 +1,6 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable camelcase */
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom } from 'jotai';
 import { isEqual, isString, merge } from 'lodash';
 

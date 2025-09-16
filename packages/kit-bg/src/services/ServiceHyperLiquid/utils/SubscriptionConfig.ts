@@ -1,4 +1,4 @@
-import { ZERO_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import type {
   IActiveAssetData,
   IBook,
@@ -285,7 +285,7 @@ export function calculateRequiredSubscriptions(
     });
   }
 
-  const effectiveUser = state.currentUser || ZERO_ADDRESS;
+  const effectiveUser = state.currentUser || PERPS_EMPTY_ADDRESS;
 
   specs.push({
     type: ESubscriptionType.WEB_DATA2,
@@ -305,7 +305,7 @@ export function calculateRequiredSubscriptions(
     priority: getSubscriptionPriority(ESubscriptionType.USER_FILLS),
   });
 
-  if (state.currentUser && state.currentUser !== ZERO_ADDRESS) {
+  if (state.currentUser && state.currentUser !== PERPS_EMPTY_ADDRESS) {
     if (state.currentSymbol) {
       specs.push({
         type: ESubscriptionType.ACTIVE_ASSET_DATA,
