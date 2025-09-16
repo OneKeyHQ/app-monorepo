@@ -267,10 +267,11 @@ class ServiceMarketWS extends ServiceBase {
 
     const messageData = data as Record<string, any>;
 
+    console.log('messageData', messageData);
+
     // Handle different message formats from the WebSocket
     // Support both direct channel format and nested data format
     let channel: string;
-    const networkId = '';
     let tokenAddress = '';
     let messageType: string | undefined;
     let processedData: any;
@@ -291,23 +292,17 @@ class ServiceMarketWS extends ServiceBase {
 
       tokenAddress = priceData.address;
     } else {
-      return;
-    }
-
-    // Validate that we have the required data
-    if (!channel || !tokenAddress) {
       console.warn('Invalid market data: missing required fields', {
-        channel,
         tokenAddress,
         originalData: data,
       });
+
       return;
     }
 
     // Emit event to app event bus with standardized format
     appEventBus.emit(EAppEventBusNames.MarketWSDataUpdate, {
       channel,
-      networkId,
       tokenAddress,
       messageType,
       data: processedData,

@@ -324,7 +324,6 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
-    networkId: string;
     tokenAddress: string;
     messageType?: string;
     data: any;

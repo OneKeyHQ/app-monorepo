@@ -5,6 +5,7 @@ import {
   useTokenDetailActions,
   useTokenDetailAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import type { IWsPriceData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -89,17 +90,14 @@ export function useTradingViewV2WebSocket({
 
     const handleMarketDataUpdate = (payload: {
       channel: string;
-      networkId: string;
       tokenAddress: string;
       messageType?: string;
       data: any;
       originalData?: any;
     }) => {
+      console.log('handleMarketDataUpdate', payload);
       // Only process messages for our specific token and network
-      if (
-        payload.networkId === networkId &&
-        payload.tokenAddress === tokenAddress
-      ) {
+      if (payload.tokenAddress === tokenAddress) {
         console.log('Processing market data for TradingView:', payload);
 
         if (payload.channel === 'ohlcv') {
@@ -113,18 +111,8 @@ export function useTradingViewV2WebSocket({
           if (webRef.current) {
             console.log('pushLatestKLineData1', payload.data);
 
-            const receivedData = payload.data as Record<string, any>;
-            console.log('kLineData validation:', {
-              hasPoints: receivedData && Array.isArray(receivedData.points),
-              pointsLength:
-                receivedData && Array.isArray(receivedData.points)
-                  ? receivedData.points.length
-                  : 0,
-              hasTokenDetail: !!tokenDetail,
-              isSinglePoint:
-                receivedData && 'c' in receivedData && 't' in receivedData,
-              payload: receivedData,
-            });
+            const receivedData = payload.data as IWsPriceData;
+
             // Follow useAutoKLineUpdate pattern
             // Convert single point to array format if needed
             const dataForWebView =
@@ -134,7 +122,7 @@ export function useTradingViewV2WebSocket({
                     points: [
                       {
                         ...receivedData,
-                        t: receivedData.unixTime || receivedData.t, // Convert timestamp to t
+                        t: receivedData.unixTime, // Convert timestamp to t
                       },
                     ],
                     total: 1,
@@ -149,59 +137,13 @@ export function useTradingViewV2WebSocket({
               },
             });
 
-            // Update token detail price following useAutoKLineUpdate pattern
-            const kLineData = payload.data as Record<string, any>;
-
-            // Handle two data formats:
-            // 1. Array format: { points: [{ o, h, l, c, v, t }], total: number }
-            // 2. Single point format: { o, h, l, c, v, t, eventType, type, unixTime, symbol, address }
-            let latestPoint: Record<string, any> | undefined;
-
-            if (
-              kLineData &&
-              Array.isArray(kLineData.points) &&
-              kLineData.points.length > 0
-            ) {
-              // Array format - sort and get latest
-              const sortedPoints = [...kLineData.points].sort(
-                (a: any, b: any) => {
-                  const aPoint = a as Record<string, any>;
-                  const bPoint = b as Record<string, any>;
-                  const aTime =
-                    aPoint &&
-                    typeof aPoint === 'object' &&
-                    typeof aPoint.t === 'number'
-                      ? aPoint.t
-                      : 0;
-                  const bTime =
-                    bPoint &&
-                    typeof bPoint === 'object' &&
-                    typeof bPoint.t === 'number'
-                      ? bPoint.t
-                      : 0;
-                  return aTime - bTime;
-                },
-              );
-              latestPoint = sortedPoints[sortedPoints.length - 1] as Record<
-                string,
-                any
-              >;
-            } else if (
-              kLineData &&
-              typeof kLineData.c === 'number' &&
-              ('t' in kLineData || 'unixTime' in kLineData)
-            ) {
-              // Single point format - use directly
-              latestPoint = kLineData;
-            }
-
             // Update token detail if we have valid price data
             if (
-              latestPoint &&
-              typeof latestPoint.c === 'number' &&
+              receivedData &&
+              typeof receivedData.c === 'number' &&
               tokenDetail
             ) {
-              const latestPrice = latestPoint.c.toString(); // close price
+              const latestPrice = receivedData.c.toString(); // close price
 
               // Only update if the price is different to avoid unnecessary updates
               if (tokenDetail.price !== latestPrice) {

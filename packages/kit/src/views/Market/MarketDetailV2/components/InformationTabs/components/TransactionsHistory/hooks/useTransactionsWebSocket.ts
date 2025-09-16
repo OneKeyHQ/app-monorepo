@@ -71,12 +71,13 @@ export function useTransactionsWebSocket({
 
     const handleTransactionUpdate = (payload: {
       channel: string;
-      networkId: string;
       tokenAddress: string;
       messageType?: string;
       data: any;
       originalData?: any;
     }) => {
+      console.log('transactionData', payload);
+
       // Only process transaction messages for our specific token (ignore network matching)
       if (
         payload.channel === 'tokenTxs' &&
