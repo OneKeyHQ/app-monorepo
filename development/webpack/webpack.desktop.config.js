@@ -14,16 +14,22 @@ const babelTools = require('../babelTools');
 // Plugin to generate metadata.json with SHA512 hashes of all output files
 const BUILD_BUNDLE_UPDATE = process.env.BUILD_BUNDLE_UPDATE === 'true';
 
-const copyDir = (src, dest) => {
-  if (!fs.existsSync(src)) {
-    return;
+function copyRecursiveSync(src, dest) {
+  const exists = fs.existsSync(src);
+  const stats = exists && fs.statSync(src);
+  const isDirectory = exists && stats.isDirectory();
+  if (isDirectory) {
+    fs.mkdirSync(dest, { recursive: true });
+    fs.readdirSync(src).forEach((childItemName) => {
+      copyRecursiveSync(
+        path.join(src, childItemName),
+        path.join(dest, childItemName),
+      );
+    });
+  } else {
+    fs.copyFileSync(src, dest);
   }
-  fs.mkdirSync(dest, { recursive: true });
-  fs.readdirSync(src).forEach((file) => {
-    fs.copyFileSync(path.join(src, file), path.join(dest, file));
-  });
-};
-
+}
 class FileHashMetadataPlugin {
   apply(compiler) {
     compiler.hooks.afterEmit.tapAsync(
@@ -33,12 +39,12 @@ class FileHashMetadataPlugin {
         const destStaticPath = path.join(outputPath, 'static');
         const srcStaticPath = path.join(outputPath, '..', 'public', 'static');
 
-        copyDir(
+        copyRecursiveSync(
           path.join(srcStaticPath, 'js-sdk'),
           path.join(destStaticPath, 'js-sdk'),
         );
 
-        copyDir(
+        copyRecursiveSync(
           path.join(srcStaticPath, 'images'),
           path.join(destStaticPath, 'images'),
         );
@@ -50,25 +56,54 @@ class FileHashMetadataPlugin {
 
         const metadata = {};
 
+        const isIgnoreFile = (filePath) => {
+          return (
+            filePath.endsWith('.DS_Store') ||
+            filePath.endsWith('.js.LICENSE.txt') ||
+            filePath.endsWith('.js.map')
+          );
+        };
+
         // Get all emitted assets
-        const assets = compilation.getAssets();
-
-        assets.forEach((asset) => {
-          const filePath = path.join(outputPath, asset.name);
-
+        function hashFile(filePath, relativePath) {
           try {
-            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const stats = fs.statSync(filePath);
+            if (stats.isFile()) {
+              // Skip .DS_Store files
+              if (isIgnoreFile(filePath)) {
+                return;
+              }
               const fileContent = fs.readFileSync(filePath);
               const hash = crypto
                 .createHash('sha512')
                 .update(fileContent)
                 .digest('hex');
-              metadata[asset.name] = hash;
+              metadata[relativePath] = hash;
+            } else if (stats.isDirectory()) {
+              const files = fs.readdirSync(filePath);
+              files.forEach((file) => {
+                // Skip .DS_Store files
+                if (!isIgnoreFile(file)) {
+                  const fullPath = path.join(filePath, file);
+                  const relPath = path.join(relativePath, file);
+                  hashFile(fullPath, relPath);
+                }
+              });
             }
           } catch (error) {
-            console.warn(`Failed to hash file ${asset.name}:`, error.message);
+            console.warn(`Failed to hash path ${filePath}:`, error.message);
           }
+        }
+
+        // Hash all emitted assets first
+        const assets = compilation.getAssets();
+        assets.forEach((asset) => {
+          const filePath = path.join(outputPath, asset.name);
+          hashFile(filePath, asset.name);
         });
+
+        // Then recursively hash all files in output directory
+        hashFile(outputPath, '');
 
         // Write metadata.json
         const metadataPath = path.join(outputPath, 'metadata.json');
