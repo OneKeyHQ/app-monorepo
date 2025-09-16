@@ -1,8 +1,11 @@
 import { memo, useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Badge,
   Dialog,
+  Icon,
   Input,
   SizableText,
   Slider,
@@ -15,6 +18,7 @@ import {
   useActiveAssetDataAtom,
   useCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
@@ -85,45 +89,56 @@ const LeverageContent = memo(
       activeAssetData?.leverage?.type,
       dialogInstance,
     ]);
-
     const isDisabled = value <= 0 || loading;
-
+    const intl = useIntl();
     return (
       <YStack>
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$color11">
-            Leverage
-          </SizableText>
-          <Input
-            size="small"
-            value={value ? value.toString() : ''}
-            onChangeText={handleInputChange}
-            keyboardType="numeric"
-            width={60}
-            textAlign="center"
-            disabled={loading}
-            addOns={[{ label: 'x' }]}
-          />
-        </XStack>
-
-        <YStack p="$1" my="$3">
-          <Slider
-            value={value || 1}
-            onChange={handleSliderChange}
-            min={1}
-            max={maxLeverage}
-            step={1}
-            disabled={loading}
-          />
+        <YStack p="$1" my="$3" gap="$3">
+          <XStack flex={1} alignItems="center" gap="$4">
+            <Slider
+              value={value || 1}
+              onChange={handleSliderChange}
+              min={1}
+              max={maxLeverage}
+              step={1}
+              disabled={loading}
+              flex={1}
+            />
+            <Input
+              containerProps={{
+                borderRadius: '$3',
+              }}
+              size="medium"
+              alignItems="center"
+              value={value ? value.toString() : ''}
+              onChangeText={handleInputChange}
+              keyboardType="numeric"
+              width={40}
+              textAlign="right"
+              disabled={loading}
+              addOns={[
+                {
+                  renderContent: (
+                    <XStack alignItems="center" pr="$1">
+                      <Icon name="CrossedSmallOutline" size="$5" />
+                    </XStack>
+                  ),
+                },
+              ]}
+            />
+          </XStack>
         </YStack>
         <SizableText size="$bodySm" color="$textSubdued">
-          The maximum leverage is {maxLeverage}x. Max position size decreases
-          the higher your leverage.
+          {intl.formatMessage({
+            id: ETranslations.perp_leverage_maximum_desc,
+          })}
         </SizableText>
 
         <Dialog.Footer
           onConfirm={handleConfirm}
-          onConfirmText="Confirm"
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_confirm,
+          })}
           confirmButtonProps={{
             disabled: isDisabled,
             loading,
@@ -145,7 +160,7 @@ export const LeverageAdjustModal = memo(() => {
   const [activeAssetData] = useActiveAssetDataAtom();
 
   const tokenInfo = getTokenInfo(currentToken);
-
+  const intl = useIntl();
   const showLeverageDialog = useCallback(() => {
     if (!userAddress || !tokenInfo || !activeAssetData) return;
 
@@ -154,8 +169,18 @@ export const LeverageAdjustModal = memo(() => {
     const maxLeverage = tokenInfo.maxLeverage || 25;
 
     Dialog.show({
-      title: 'Adjust Leverage',
-      description: `Control the leverage used for ${tokenInfo.name} positions.`,
+      title: intl.formatMessage({
+        id: ETranslations.perp_trading_adjust_leverage,
+      }),
+      description: intl.formatMessage(
+        {
+          id: ETranslations.perp_leverage_desc,
+        },
+        {
+          token: tokenInfo.name,
+          leverage: maxLeverage,
+        },
+      ),
       renderContent: (
         <LeverageContent
           initialValue={initialValue}
@@ -166,11 +191,9 @@ export const LeverageAdjustModal = memo(() => {
       ),
       showFooter: false,
     });
-  }, [tokenInfo, userAddress, activeAssetData]);
+  }, [tokenInfo, userAddress, activeAssetData, intl]);
 
-  if (!userAddress || !tokenInfo) {
-    return null;
-  }
+  if (!userAddress || !tokenInfo) return null;
 
   return (
     <Badge

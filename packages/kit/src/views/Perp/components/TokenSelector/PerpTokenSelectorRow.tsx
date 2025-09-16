@@ -78,20 +78,17 @@ const PerpTokenSelectorRow = memo(
               {token.markPrice}
             </NumberSizeableText>
           </XStack>
-
           <XStack width={130} justifyContent="flex-start">
             <SizableText
               size="$bodySm"
               color={token.change24hPercent > 0 ? '$green11' : '$red11'}
             >
-              <NumberSizeableText
+              <SizableText
                 size="$bodySm"
                 color={token.change24hPercent > 0 ? '$green11' : '$red11'}
-                formatter="balance"
-                formatterOptions={{ showPlusMinusSigns: true }}
               >
                 {token.change24h}
-              </NumberSizeableText>{' '}
+              </SizableText>{' '}
               /{' '}
               <NumberSizeableText
                 size="$bodySm"
