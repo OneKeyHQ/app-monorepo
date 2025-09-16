@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
+import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 
 import { StickyHeader } from './StickyHeader';
 
@@ -37,6 +38,7 @@ export function DesktopInformationTabs() {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
   const networkIdsMap = getNetworkIdsMap();
+  const { handleTabChange } = useBottomTabAnalytics();
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <DesktopInformationTabsHeader {...props} />;
@@ -47,7 +49,7 @@ export function DesktopInformationTabs() {
   }
 
   return (
-    <Tabs.Container renderTabBar={renderTabBar}>
+    <Tabs.Container renderTabBar={renderTabBar} onTabChange={handleTabChange}>
       <Tabs.Tab
         name={intl.formatMessage({
           id: ETranslations.dexmarket_details_transactions,

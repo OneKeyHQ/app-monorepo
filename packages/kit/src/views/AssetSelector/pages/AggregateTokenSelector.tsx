@@ -235,9 +235,11 @@ function AggregateTokenSelector() {
   const handleOnPressToken = useCallback(
     async (token: IAccountToken) => {
       void onSelect(token);
-      navigation.pop();
+      if (closeAfterSelect) {
+        navigation.pop();
+      }
     },
-    [onSelect, navigation],
+    [onSelect, navigation, closeAfterSelect],
   );
 
   const sortedAggregateTokens = useMemo(() => {

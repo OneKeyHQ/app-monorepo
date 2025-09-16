@@ -62,40 +62,46 @@ const PaginationFooter = ({
     <XStack
       py="$3"
       px="$4"
-      gap="$3"
+      gap="$4"
       justifyContent={isMobile ? 'center' : 'flex-end'}
       alignItems="center"
       bg={headerBgColor}
     >
       <IconButton
+        borderRadius="$full"
+        borderWidth="$px"
+        borderColor="$border"
         variant="tertiary"
         size="small"
         disabled={currentPage === 1}
         onPress={onPreviousPage}
         icon="ChevronLeftOutline"
       />
-
-      <Input
-        value={inputValue}
-        onChangeText={handleInputChange}
-        onSubmitEditing={handleInputSubmit}
-        onBlur={handleInputBlur}
-        keyboardType="numeric"
-        w="$12"
-        h="$7.5"
-        textAlign="center"
-        size="small"
-        borderColor="$borderStrong"
-        borderRadius="$2"
-        maxLength={3}
-      />
-      <SizableText size="$bodyLg" color={headerTextColor}>
-        /
-      </SizableText>
-      <SizableText size="$bodyLg" color={headerTextColor}>
-        {totalPages}
-      </SizableText>
+      <XStack gap="$2" alignItems="center">
+        <Input
+          value={inputValue}
+          onChangeText={handleInputChange}
+          onSubmitEditing={handleInputSubmit}
+          onBlur={handleInputBlur}
+          keyboardType="numeric"
+          w="$8"
+          h="$7"
+          textAlign="center"
+          borderColor="$borderStrong"
+          borderRadius="$2"
+          maxLength={totalPages.toString().length}
+        />
+        <SizableText size="$bodyMd" color={headerTextColor}>
+          /
+        </SizableText>
+        <SizableText size="$bodyMd" color={headerTextColor}>
+          {totalPages}
+        </SizableText>
+      </XStack>
       <IconButton
+        borderRadius="$full"
+        borderWidth="$px"
+        borderColor="$border"
         variant="tertiary"
         size="small"
         disabled={currentPage === totalPages}
@@ -147,7 +153,6 @@ export function CommonTableListView({
   pageSize = 20,
 }: ICommonTableListViewProps) {
   const [currentPage, setCurrentPage] = useState(1);
-
   const paginatedData = useMemo<any[]>(() => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     if (!enablePagination || data.length <= pageSize) return data;
@@ -206,6 +211,9 @@ export function CommonTableListView({
               </SizableText>
             </YStack>
           }
+          contentContainerStyle={{
+            paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+          }}
         />
         {enablePagination && totalPages > 1 ? (
           <PaginationFooter
@@ -289,7 +297,7 @@ export function CommonTableListView({
             </XStack>
             <ListView
               style={{
-                maxHeight: 254,
+                height: 400,
               }}
               data={paginatedData}
               renderItem={({ item, index }) => {
@@ -319,6 +327,9 @@ export function CommonTableListView({
                   </SizableText>
                 </YStack>
               }
+              contentContainerStyle={{
+                paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+              }}
             />
             {enablePagination && totalPages > 1 ? (
               <PaginationFooter

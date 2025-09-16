@@ -51,6 +51,7 @@ export type IModalApprovalManagementParamList = {
     walletId: string;
     accountId: string;
     networkId: string;
+    isBulkRevokeMode?: boolean;
   };
   [EModalApprovalManagementRoutes.BulkRevoke]: {
     unsignedTxs: IUnsignedTxPro[];

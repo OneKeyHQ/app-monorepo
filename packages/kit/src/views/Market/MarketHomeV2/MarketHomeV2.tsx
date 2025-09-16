@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -8,22 +8,29 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useSelectedNetworkIdAtom } from '../../../states/jotai/contexts/marketV2';
-import { useMarketBasicConfig } from '../hooks';
+import { useMarketBasicConfig, useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
+import { useNetworkAnalytics, useTabAnalytics } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
 import type { ITimeRangeSelectorValue } from './components/TimeRangeSelector';
-import type { ILiquidityFilter, IMarketHomeTabValue } from './types';
+import type { ILiquidityFilter } from './types';
 
 function MarketHome() {
   const { md } = useMedia();
 
   // Load market basic config using the new hook
   const { defaultNetworkId, formattedMinLiquidity } = useMarketBasicConfig();
-
   const [selectedNetworkId, setSelectedNetworkId] = useSelectedNetworkIdAtom();
+
+  // Track market entry analytics
+  useMarketEnterAnalytics();
+
+  // Market analytics hooks
+  const { handleTabChange } = useTabAnalytics();
+  const { handleNetworkChange } = useNetworkAnalytics(selectedNetworkId);
 
   // Update selectedNetworkId when config loads and it's still the default
   useEffect(() => {
@@ -44,9 +51,12 @@ function MarketHome() {
   }, [formattedMinLiquidity, liquidityFilter.min]);
   const [timeRange, setTimeRange] = useState<ITimeRangeSelectorValue>('5m');
 
-  const handleTabChange = (_tabId: IMarketHomeTabValue) => {
-    // Tab change is now handled by the atomic state in layouts
-  };
+  const handleNetworkIdChange = useCallback(
+    (networkId: string) => {
+      handleNetworkChange(networkId, setSelectedNetworkId);
+    },
+    [handleNetworkChange, setSelectedNetworkId],
+  );
 
   const mobileProps = useMemo(
     () => ({
@@ -54,7 +64,7 @@ function MarketHome() {
         selectedNetworkId,
         timeRange,
         liquidityFilter,
-        onNetworkIdChange: setSelectedNetworkId,
+        onNetworkIdChange: handleNetworkIdChange,
         onTimeRangeChange: setTimeRange,
         onLiquidityFilterChange: setLiquidityFilter,
       },
@@ -62,7 +72,13 @@ function MarketHome() {
       liquidityFilter,
       onTabChange: handleTabChange,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
+    [
+      selectedNetworkId,
+      timeRange,
+      liquidityFilter,
+      handleNetworkIdChange,
+      handleTabChange,
+    ],
   );
 
   const desktopProps = useMemo(
@@ -71,7 +87,7 @@ function MarketHome() {
         selectedNetworkId,
         timeRange,
         liquidityFilter,
-        onNetworkIdChange: setSelectedNetworkId,
+        onNetworkIdChange: handleNetworkIdChange,
         onTimeRangeChange: setTimeRange,
         onLiquidityFilterChange: setLiquidityFilter,
       },
@@ -79,7 +95,13 @@ function MarketHome() {
       liquidityFilter,
       onTabChange: handleTabChange,
     }),
-    [selectedNetworkId, timeRange, liquidityFilter, setSelectedNetworkId],
+    [
+      selectedNetworkId,
+      timeRange,
+      liquidityFilter,
+      handleNetworkIdChange,
+      handleTabChange,
+    ],
   );
 
   return (

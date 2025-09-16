@@ -29,6 +29,8 @@ export enum EPrimeFeatures {
   BulkRevoke = 'BulkRevoke',
   DeviceManagement = 'DeviceManagement',
   CloudTransfer = 'CloudTransfer',
+  Notifications = 'Notifications',
+  HistoryExport = 'HistoryExport',
 }
 
 export type IPrimeParamList = {

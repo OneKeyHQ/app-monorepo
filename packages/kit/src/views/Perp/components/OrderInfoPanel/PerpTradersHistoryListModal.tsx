@@ -1,8 +1,10 @@
 import { Page } from '@onekeyhq/components';
 import { PageBody } from '@onekeyhq/components/src/layouts/Page/PageBody';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
-import { ProviderJotaiContextHyperliquid } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
 
@@ -18,9 +20,9 @@ export function PerpTradersHistoryListModal() {
 
 const PerpTradersHistoryListModalWithProvider = () => {
   return (
-    <ProviderJotaiContextHyperliquid>
+    <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
       <PerpTradersHistoryListModal />
-    </ProviderJotaiContextHyperliquid>
+    </PerpsProviderMirror>
   );
 };
 

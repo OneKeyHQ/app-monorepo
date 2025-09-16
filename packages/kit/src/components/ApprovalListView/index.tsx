@@ -45,6 +45,7 @@ type IProps = {
   selectDisabled?: boolean;
   searchDisabled?: boolean;
   filterByNetworkDisabled?: boolean;
+  hideRiskOverview?: boolean;
 };
 
 function ApprovalListViewCmp(props: IProps) {
@@ -57,6 +58,7 @@ function ApprovalListViewCmp(props: IProps) {
     withHeader,
     searchDisabled,
     filterByNetworkDisabled,
+    hideRiskOverview,
   } = props;
   const intl = useIntl();
   const [{ approvals }] = useApprovalListAtom();
@@ -193,7 +195,10 @@ function ApprovalListViewCmp(props: IProps) {
       ListEmptyComponent={EmptyComponentElement}
       ListHeaderComponent={
         withHeader && !showSkeleton ? (
-          <ApprovalListHeader recomputeLayout={recomputeLayout} />
+          <ApprovalListHeader
+            recomputeLayout={recomputeLayout}
+            hideRiskOverview={hideRiskOverview}
+          />
         ) : null
       }
       renderItem={({ item }) => (

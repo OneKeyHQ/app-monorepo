@@ -15,9 +15,9 @@ import {
   useHyperliquidTrading,
 } from '../../hooks';
 
-import { showOrderConfirmDialog } from './OrderConfirmModal';
+import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
+import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
-import { PerpTradingForm } from './PerpTradingForm';
 
 function PerpTradingPanel() {
   const { canTrade, loading, currentUser, checkAndApproveWallet } =
@@ -75,10 +75,9 @@ function PerpTradingPanel() {
       onConfirm: async () => {
         try {
           if (formData.type === 'market') {
-            await actions.current.marketOrderOpen({
+            await actions.current.orderOpen({
               assetId: tokenInfo.assetId,
               formData,
-              slippage: 0.08,
               midPx: tokenInfo.markPx || '0',
             });
           } else {
@@ -102,9 +101,8 @@ function PerpTradingPanel() {
   }, [tokenInfo, formData, actions]);
 
   return (
-    <YStack gap="$4" p="$4">
+    <YStack gap="$2" p="$4">
       <PerpTradingForm isSubmitting={isSubmitting} />
-
       <PerpTradingButton
         userWebData2={userWebData2}
         loading={universalLoading}

@@ -1,14 +1,20 @@
 import { memo, useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
+  IconButton,
   NumberSizeableText,
   ScrollView,
   SizableText,
   Skeleton,
+  Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
@@ -46,16 +52,8 @@ function useFundingCountdown() {
   return countdown;
 }
 
-// Format funding rate percentage
-function formatFundingRate(rate: string | number): string {
-  const num = typeof rate === 'string' ? parseFloat(rate) : rate;
-  if (Number.isNaN(num)) return '0.000000%';
-
-  // Convert to percentage and format with 6 decimal places
-  return `${(num * 100).toFixed(6)}%`;
-}
-
 function PerpTickerBar() {
+  const { gtMd } = useMedia();
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
   const [priceData] = useCurrentTokenPriceAtom();
@@ -71,8 +69,37 @@ function PerpTickerBar() {
 
   const formattedMarkPrice = markPrice;
   const formattedOraclePrice = oraclePrice;
-
+  const intl = useIntl();
   const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
+
+  if (!gtMd) {
+    return (
+      <XStack
+        bg="$bgApp"
+        borderBottomWidth="$px"
+        borderBottomColor="$borderSubdued"
+        p="$4"
+        alignItems="center"
+        justifyContent="flex-start"
+        gap="$6"
+        h={62}
+      >
+        <XStack
+          flex={1}
+          gap="$4"
+          alignItems="center"
+          justifyContent="space-between"
+        >
+          <PerpTokenSelector />
+          <IconButton
+            icon="TradingViewCandlesOutline"
+            size="medium"
+            variant="tertiary"
+          />
+        </XStack>
+      </XStack>
+    );
+  }
 
   return (
     <XStack
@@ -91,7 +118,21 @@ function PerpTickerBar() {
           {showSkeleton ? (
             <Skeleton width={80} height={28} />
           ) : (
-            <SizableText size="$headingXl">{formattedMarkPrice}</SizableText>
+            <Tooltip
+              placement="top"
+              renderTrigger={
+                <SizableText size="$headingXl">
+                  {formattedMarkPrice}
+                </SizableText>
+              }
+              renderContent={
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_token_selector_last_price,
+                  })}
+                </SizableText>
+              }
+            />
           )}
 
           {showSkeleton ? (
@@ -123,11 +164,26 @@ function PerpTickerBar() {
         }}
       >
         <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Oracle Price
-          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_oracle_price,
+                })}
+              </SizableText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_oracle_price_tooltip,
+                })}
+              </SizableText>
+            }
+            placement="top"
+          />
+
           {showSkeleton ? (
-            <Skeleton width={100} height={20} />
+            <Skeleton width={80} height={16} />
           ) : (
             <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
           )}
@@ -135,10 +191,12 @@ function PerpTickerBar() {
 
         <YStack>
           <SizableText size="$bodySm" color="$textSubdued">
-            24h Volume
+            {intl.formatMessage({
+              id: ETranslations.perp_token_bar_24h_Volume,
+            })}
           </SizableText>
           {showSkeleton ? (
-            <Skeleton width={100} height={20} />
+            <Skeleton width={80} height={16} />
           ) : (
             <SizableText size="$headingXs">
               $
@@ -150,27 +208,57 @@ function PerpTickerBar() {
         </YStack>
 
         <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Open Interest
-          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_open_Interest,
+                })}
+              </SizableText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_open_interest_tooltip,
+                })}
+              </SizableText>
+            }
+            placement="top"
+          />
           {showSkeleton ? (
-            <Skeleton width={100} height={20} />
+            <Skeleton width={80} height={16} />
           ) : (
             <SizableText size="$headingXs">
-              ${formatDisplayNumber(NUMBER_FORMATTER.marketCap(openInterest))}
+              $
+              {formatDisplayNumber(
+                NUMBER_FORMATTER.marketCap(
+                  (Number(openInterest) * Number(markPrice)).toString(),
+                ),
+              )}
             </SizableText>
           )}
         </YStack>
 
         <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            Funding / Countdown
-          </SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_Funding,
+                })}
+              </SizableText>
+            }
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_tooltip,
+                })}
+              </SizableText>
+            }
+            placement="top"
+          />
           {showSkeleton ? (
-            <XStack alignItems="center" gap="$2">
-              <Skeleton width={80} height={20} />
-              <Skeleton width={40} height={20} />
-            </XStack>
+            <Skeleton width={120} height={16} />
           ) : (
             <XStack alignItems="center" gap="$2">
               <SizableText

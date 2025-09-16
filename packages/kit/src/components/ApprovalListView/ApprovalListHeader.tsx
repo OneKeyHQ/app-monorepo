@@ -31,8 +31,10 @@ function HeaderItem({ label }: { label: string }) {
 
 function ApprovalListHeader({
   recomputeLayout,
+  hideRiskOverview,
 }: {
   recomputeLayout: () => void;
+  hideRiskOverview?: boolean;
 }) {
   const intl = useIntl();
 
@@ -86,14 +88,14 @@ function ApprovalListHeader({
         <Stack flexGrow={1} flexBasis={0}>
           <HeaderItem
             label={intl.formatMessage({
-              id: ETranslations.global_approval_time,
+              id: ETranslations.wallet_approval_approved_token,
             })}
           />
         </Stack>
         <Stack flexGrow={1} flexBasis={0} alignItems="flex-end" maxWidth="$36">
           <HeaderItem
             label={intl.formatMessage({
-              id: ETranslations.wallet_approval_approved_token,
+              id: ETranslations.global_approval_time,
             })}
           />
         </Stack>
@@ -155,6 +157,10 @@ function ApprovalListHeader({
   }, [accountId, networkId, recomputeLayout]);
 
   const renderRiskOverview = useCallback(() => {
+    if (hideRiskOverview) {
+      return null;
+    }
+
     if (
       riskApprovals.length === 0 &&
       (warningApprovals.length === 0 || !showInactiveApprovalsAlert)
@@ -236,6 +242,7 @@ function ApprovalListHeader({
   }, [
     handleCloseInactiveApprovalsAlert,
     handleViewRiskApprovals,
+    hideRiskOverview,
     inactiveApprovalsAlertOpacity,
     intl,
     riskApprovals,

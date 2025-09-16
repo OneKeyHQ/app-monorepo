@@ -1708,13 +1708,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       updateItem.dataTime &&
       updateItem.dataTime >= item.dataTime;
 
-    let newDataTime = updateItem.dataTime ?? item.dataTime;
+    const newDataTime = updateItem.dataTime ?? item.dataTime;
     if (isNil(updateItem.dataTime)) {
       shouldUpdate = false;
 
       if (!item.pwdHash && updateItem.pwdHash && updateItem.data) {
         shouldUpdate = true;
-        newDataTime = undefined;
+        // newDataTime = undefined;
       }
     }
 

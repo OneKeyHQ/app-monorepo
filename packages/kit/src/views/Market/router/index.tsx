@@ -14,6 +14,7 @@ export type IModalMarketParamList = {
     tokenAddress: string;
     networkId: string;
     symbol?: string;
+    isNative?: boolean;
   };
 };
 
