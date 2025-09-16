@@ -18,7 +18,7 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsAccountLoadingInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentTokenData, useHyperliquidAccount } from '../../../hooks';
@@ -38,7 +38,7 @@ interface IPerpTradingFormProps {
 
 function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
   const { userWebData2, accountSummary } = useHyperliquidAccount();
-  const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [formData] = useTradingFormAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
