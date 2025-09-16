@@ -56,25 +56,54 @@ class FileHashMetadataPlugin {
 
         const metadata = {};
 
+        const isIgnoreFile = (filePath) => {
+          return (
+            filePath.endsWith('.DS_Store') ||
+            filePath.endsWith('.js.LICENSE.txt') ||
+            filePath.endsWith('.js.map')
+          );
+        };
+
         // Get all emitted assets
-        const assets = compilation.getAssets();
-
-        assets.forEach((asset) => {
-          const filePath = path.join(outputPath, asset.name);
-
+        function hashFile(filePath, relativePath) {
           try {
-            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            const stats = fs.statSync(filePath);
+            if (stats.isFile()) {
+              // Skip .DS_Store files
+              if (isIgnoreFile(filePath)) {
+                return;
+              }
               const fileContent = fs.readFileSync(filePath);
               const hash = crypto
                 .createHash('sha512')
                 .update(fileContent)
                 .digest('hex');
-              metadata[asset.name] = hash;
+              metadata[relativePath] = hash;
+            } else if (stats.isDirectory()) {
+              const files = fs.readdirSync(filePath);
+              files.forEach((file) => {
+                // Skip .DS_Store files
+                if (!isIgnoreFile(file)) {
+                  const fullPath = path.join(filePath, file);
+                  const relPath = path.join(relativePath, file);
+                  hashFile(fullPath, relPath);
+                }
+              });
             }
           } catch (error) {
-            console.warn(`Failed to hash file ${asset.name}:`, error.message);
+            console.warn(`Failed to hash path ${filePath}:`, error.message);
           }
+        }
+
+        // Hash all emitted assets first
+        const assets = compilation.getAssets();
+        assets.forEach((asset) => {
+          const filePath = path.join(outputPath, asset.name);
+          hashFile(filePath, asset.name);
         });
+
+        // Then recursively hash all files in output directory
+        hashFile(outputPath, '');
 
         // Write metadata.json
         const metadataPath = path.join(outputPath, 'metadata.json');
