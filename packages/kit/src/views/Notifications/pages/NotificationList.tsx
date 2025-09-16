@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Alert,
   Dialog,
@@ -12,7 +13,6 @@ import {
   Empty,
   HeaderButtonGroup,
   HeaderIconButton,
-  ISectionListRef,
   Icon,
   Image,
   Page,
