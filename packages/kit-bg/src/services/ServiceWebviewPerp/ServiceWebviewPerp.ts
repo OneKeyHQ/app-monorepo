@@ -29,6 +29,7 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
+import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { settingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -147,14 +148,26 @@ export enum EPerpDefaultTabType {
   Web = 'web',
 }
 export interface IPerpBannerConfig {
+  id: string;
   title: string;
   description: string;
-  iconUrl?: string;
-  iconName?: string;
+  canClose?: boolean;
 }
+
+export interface IPerReferrerConfig {
+  referrerAddress?: string;
+  referrerRate?: number;
+}
+
+export interface IPerpCommonConfig {
+  usePerpWeb?: boolean;
+  disablePerp?: boolean;
+  disablePerpActionButton?: boolean;
+  ipDisablePerp?: boolean;
+}
+
 export interface IPerpConfigResponse {
-  referrerAddress: string;
-  referrerRate: number;
+  referrerConfig: IPerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
   customLocalStorage?: Record<string, any>;
   customLocalStorageV2?: Record<
@@ -164,11 +177,8 @@ export interface IPerpConfigResponse {
       skipIfExists?: boolean;
     }
   >;
-  enableSwitchWebview?: boolean;
-  defaultPerpTabType?: EPerpDefaultTabType;
-  disablePerpTab?: boolean;
-  disablePerpActionButton?: boolean;
-  perpBannerConfig?: IPerpBannerConfig;
+  commonConfig?: IPerpCommonConfig;
+  bannerConfig?: IPerpBannerConfig;
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -183,34 +193,35 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async updatePerpConfig({
-    address,
-    fee,
+    referrerConfig,
     customSettings,
     customLocalStorage,
     customLocalStorageV2,
-  }: {
-    address?: string;
-    fee?: number;
-    customSettings?: IHyperliquidCustomSettings;
-    customLocalStorage?: Record<string, any>;
-    customLocalStorageV2?: Record<
-      string,
-      {
-        value: any;
-        skipIfExists?: boolean;
-      }
-    >;
-  }) {
+    commonConfig,
+    bannerConfig,
+  }: IPerpConfigResponse) {
     let shouldNotifyToDapp = false;
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      perpConfigCommon: {
+        ...prev.perpConfigCommon,
+        usePerpWeb: commonConfig?.usePerpWeb,
+        disablePerp: commonConfig?.disablePerp,
+        disablePerpActionButton: commonConfig?.disablePerpActionButton,
+        perpBannerConfig: bannerConfig,
+        ipDisablePerp: commonConfig?.ipDisablePerp,
+      },
+    }));
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
           tradingUniverse: prev?.tradingUniverse,
           ...prev,
-          hyperliquidBuilderAddress: address || prev?.hyperliquidBuilderAddress,
-          hyperliquidMaxBuilderFee: isNil(fee)
+          hyperliquidBuilderAddress:
+            referrerConfig?.referrerAddress || prev?.hyperliquidBuilderAddress,
+          hyperliquidMaxBuilderFee: isNil(referrerConfig?.referrerRate)
             ? prev?.hyperliquidMaxBuilderFee
-            : fee,
+            : referrerConfig?.referrerRate,
           hyperliquidCustomSettings:
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
@@ -649,14 +660,15 @@ class ServiceWebviewPerp extends ServiceBase {
     }
 
     await this.updatePerpConfig({
-      address: resData?.data?.referrerAddress,
-      fee: resData?.data?.referrerRate,
+      referrerConfig: resData?.data?.referrerConfig,
       customSettings: resData?.data?.customSettings,
       customLocalStorage: resData?.data?.customLocalStorage,
       customLocalStorageV2: {
         ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
         ...resData?.data?.customLocalStorageV2,
       },
+      commonConfig: resData?.data?.commonConfig,
+      bannerConfig: resData?.data?.bannerConfig,
     });
     return resData;
   }
@@ -811,6 +823,14 @@ class ServiceWebviewPerp extends ServiceBase {
         },
       );
     }
+  }
+
+  @backgroundMethod()
+  async setPerpUserConfig(type: EPerpUserType) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
+    }));
   }
 }
 
