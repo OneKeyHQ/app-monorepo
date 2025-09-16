@@ -13,18 +13,21 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { usePerpsAccountLoadingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsSelectedAccountAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useHyperliquidAccount } from '../../../hooks';
-import { usePerpUseChainAccount } from '../../../hooks/usePerpUseChainAccount';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 function PerpAccountPanel() {
   const { userWebData2, accountSummary } = useHyperliquidAccount();
-  const [perpsAccountLoading] = usePerpsAccountLoadingAtom();
-  const { userAddress, userAccountId, activeAccountIndexedId } =
-    usePerpUseChainAccount();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [selectedAccount] = usePerpsSelectedAccountAtom();
+  const userAddress = selectedAccount.accountAddress;
+  const userAccountId = selectedAccount.accountId;
 
   const accountDataInfo = useMemo(() => {
     const availableBalance = accountSummary.withdrawable;
@@ -41,19 +44,17 @@ function PerpAccountPanel() {
   }, [accountSummary.withdrawable, userWebData2]);
   const intl = useIntl();
   const handleDepositOrWithdraw = useCallback(
-    (actionType: 'deposit' | 'withdraw') => {
+    async (actionType: 'deposit' | 'withdraw') => {
       if (!userAccountId || !userAddress) {
         return;
       }
 
       const params = {
         withdrawable: accountSummary.withdrawable || '0',
-        userAddress,
-        userAccountId,
         actionType,
       };
 
-      showDepositWithdrawModal(params);
+      await showDepositWithdrawModal(params);
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );

@@ -64,7 +64,7 @@ export function PerpApiTests() {
   // Load stored perp configuration
   const loadPerpConfig = async () => {
     try {
-      const config = await backgroundApiProxy.simpleDb.perp.getPerpConfig();
+      const config = await backgroundApiProxy.simpleDb.perp.getPerpData();
       setStoredBuilderAddress(config.hyperliquidBuilderAddress || '');
       setStoredMaxBuilderFee(config.hyperliquidMaxBuilderFee?.toString() || '');
       setNewBuilderAddress(config.hyperliquidBuilderAddress || '');

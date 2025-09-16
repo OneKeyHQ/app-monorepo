@@ -1,4 +1,5 @@
 /* eslint-disable camelcase */
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { atom, useAtom } from 'jotai';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
