@@ -1,3 +1,5 @@
+import type { IPerpBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
+
 import type { IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
@@ -146,4 +148,21 @@ export interface IPositionTpslOrderParams {
 export interface IL2BookOptions {
   nSigFigs?: 2 | 3 | 4 | 5 | null;
   mantissa?: 2 | 5 | null;
+}
+
+export interface IPerpCommonConfig {
+  disablePerp?: boolean;
+  usePerpWeb?: boolean;
+  disablePerpActionButton?: boolean;
+  perpBannerConfig?: IPerpBannerConfig;
+  ipDisablePerp?: boolean;
+  perpBannerClosedIds?: string[];
+}
+
+export enum EPerpUserType {
+  PERP_NATIVE = 'perpNative',
+  PERP_WEB = 'perpWeb',
+}
+export interface IPerpUserConfig {
+  currentUserType?: EPerpUserType;
 }

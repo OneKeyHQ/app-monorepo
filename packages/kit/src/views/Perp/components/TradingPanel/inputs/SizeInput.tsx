@@ -1,5 +1,8 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
@@ -27,6 +30,7 @@ export const SizeInput = memo(
     side,
     label,
   }: ISizeInputProps) => {
+    const intl = useIntl();
     const szDecimals = tokenInfo?.szDecimals ?? 2;
     const isDisabled = disabled || !tokenInfo;
     const maxSzs = tokenInfo?.maxTradeSzs || [0, 0];
@@ -38,8 +42,14 @@ export const SizeInput = memo(
 
     const formatLabel = useMemo(() => {
       if (label) return label;
-      return side === 'long' ? 'Buy amount' : 'Sell amount';
-    }, [side, label]);
+      return side === 'long'
+        ? intl.formatMessage({
+            id: ETranslations.perp_trade_buy_amount,
+          })
+        : intl.formatMessage({
+            id: ETranslations.perp_trade_sell_amount,
+          });
+    }, [side, label, intl]);
 
     return (
       <TradingFormInput

@@ -15,6 +15,7 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsSelectedAccountAtom,
   usePerpsSelectedAccountStatusAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
@@ -35,6 +36,7 @@ export function PerpTradingButton({
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
+  const [{ perpConfigCommon }] = useSettingsPersistAtom();
 
   const [perpsAccount] = usePerpsSelectedAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -70,7 +72,10 @@ export function PerpTradingButton({
       !perpsAccountStatus.canTrade ||
       isSubmitting ||
       isNoEnoughMargin ||
-      isAccountLoading
+      isAccountLoading ||
+      (perpsAccountStatus.canTrade &&
+        (perpConfigCommon?.disablePerpActionButton ||
+          perpConfigCommon?.ipDisablePerp))
     );
   }, [
     formData.size,
@@ -78,6 +83,8 @@ export function PerpTradingButton({
     isSubmitting,
     isNoEnoughMargin,
     isAccountLoading,
+    perpConfigCommon?.disablePerpActionButton,
+    perpConfigCommon?.ipDisablePerp,
   ]);
 
   const buttonText = useMemo(() => {
