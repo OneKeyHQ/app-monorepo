@@ -1,15 +1,17 @@
 export const useTransactionsLayoutSmall = () => {
   const styles = {
     time: {
-      width: '$20',
+      width: '20%',
     },
     amount: {
-      flex: 1,
+      width: '55%',
+      backgroundColor: '$red3',
+
       textAlign: 'center' as const,
     },
     price: {
+      width: '25%',
       textAlign: 'right' as const,
-      width: '$32',
     },
   };
 
