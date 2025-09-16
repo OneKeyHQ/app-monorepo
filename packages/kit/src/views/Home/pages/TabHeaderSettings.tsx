@@ -179,6 +179,7 @@ function ApprovalSettings() {
         walletId: wallet?.id ?? '',
         accountId: account?.id ?? '',
         networkId: network?.id ?? '',
+        isBulkRevokeMode: true,
       },
     });
   }, [account?.id, navigation, network?.id, wallet?.id]);
@@ -187,10 +188,10 @@ function ApprovalSettings() {
   return (
     <IconButton
       title={intl.formatMessage({
-        id: ETranslations.global_approvals,
+        id: ETranslations.wallet_approval_manage_title,
       })}
       variant="tertiary"
-      icon="Document2Outline"
+      icon="SliderHorOutline"
       onPress={handleOnOpenApprovalList}
     />
   );

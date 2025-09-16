@@ -1015,8 +1015,12 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async syncAggregateTokenConfigMap() {
     await this.abortFetchAggregateTokenMap();
-    const { tokens = {}, meta: { homeDefaults = [] } = {} } =
-      await this.fetchAggregateTokenConfigMap();
+    const resp = await this.fetchAggregateTokenConfigMap();
+
+    if (!resp) {
+      return;
+    }
+    const { tokens = {}, meta: { homeDefaults = [] } = {} } = resp;
     const allAggregateTokenMap: Record<
       string,
       {
@@ -1128,6 +1132,11 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getHomeDefaultTokenMap() {
+    return this.backgroundApi.simpleDb.aggregateToken.getHomeDefaultTokenMap();
+  }
+
+  @backgroundMethod()
   public async getAggregateTokenConfigMap() {
     return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenConfigMap();
   }
@@ -1143,12 +1152,7 @@ class ServiceToken extends ServiceBase {
       );
       return resp.data.data;
     } catch (e) {
-      return {
-        tokens: {},
-        meta: {
-          homeDefaults: [],
-        },
-      };
+      return null;
     }
   }
 

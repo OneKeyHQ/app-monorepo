@@ -19,7 +19,7 @@ import type { PerpsUniverse } from '@nktkas/hyperliquid';
 
 export interface IPerpMarketDataReturn {
   currentTokenData: any | null;
-  allMids: any | null;
+  allMids: HL.IWsAllMids | null;
   markPrice: string;
   oraclePrice: string;
   volume24h: string;
@@ -139,12 +139,11 @@ export function useCurrentTokenData(): ICurrentTokenData | null {
   const universe = webData2.meta?.universe || [];
   const assetId = universe.findIndex((token) => token.name === currentToken);
   const tokenFromUniverse: PerpsUniverse | undefined = universe[assetId];
-
   return {
     ...tradingData,
     name: currentToken,
     assetId,
-    szDecimals: tokenFromUniverse?.szDecimals || 2,
+    szDecimals: tokenFromUniverse?.szDecimals ?? 2,
     maxLeverage: tokenFromUniverse?.maxLeverage,
     maxTradeSzs: activeAssetData?.maxTradeSzs
       ? [

@@ -9,6 +9,7 @@ import type {
   IEventNotificationParameters,
   IEventTradesParameters,
   IEventUserEventsParameters,
+  IEventUserFillsParameters,
   IEventWebData2Parameters,
   IHex,
   ISubscriptionClient,
@@ -17,6 +18,7 @@ import type {
   IWsBbo,
   IWsNotification,
   IWsUserEvent,
+  IWsUserFills,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -54,6 +56,17 @@ export const SUBSCRIPTION_TYPE_INFO = {
       params: IEventWebData2Parameters,
       handleData: (data: IWsWebData2) => void,
     ) => client.webData2(params, handleData),
+  },
+  [ESubscriptionType.USER_FILLS]: {
+    eventType: 'account',
+    priority: 2,
+    keyGenerator: (params: IEventUserFillsParameters) =>
+      `account:userFills:${params.user}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventUserFillsParameters,
+      handleData: (data: IWsUserFills) => void,
+    ) => client.userFills(params, handleData),
   },
   [ESubscriptionType.L2_BOOK]: {
     eventType: 'market',
@@ -212,6 +225,7 @@ export function validateSubscriptionParams(
           (obj.nSigFigs === 5 && [1, 2, 5].includes(obj.mantissa as number)))
       );
     case ESubscriptionType.WEB_DATA2:
+    case ESubscriptionType.USER_FILLS:
     case ESubscriptionType.USER_EVENTS:
     case ESubscriptionType.USER_NOTIFICATIONS:
       return (
@@ -280,6 +294,15 @@ export function calculateRequiredSubscriptions(
     }),
     params: { user: effectiveUser },
     priority: getSubscriptionPriority(ESubscriptionType.WEB_DATA2),
+  });
+
+  specs.push({
+    type: ESubscriptionType.USER_FILLS,
+    key: generateSubscriptionKey(ESubscriptionType.USER_FILLS, {
+      user: effectiveUser,
+    }),
+    params: { user: effectiveUser },
+    priority: getSubscriptionPriority(ESubscriptionType.USER_FILLS),
   });
 
   if (state.currentUser && state.currentUser !== ZERO_ADDRESS) {

@@ -34,6 +34,8 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
+  useAggregateTokensListMapAtom,
+  useAggregateTokensMapAtom,
   useRiskyTokenListAtom,
   useRiskyTokenListMapAtom,
   useSearchKeyAtom,
@@ -51,7 +53,14 @@ function TokenListFooter(props: IProps) {
   const { tableLayout } = props;
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet, deriveType, deriveInfo },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      deriveType,
+      deriveInfo,
+      indexedAccount,
+    },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -69,6 +78,10 @@ function TokenListFooter(props: IProps) {
   const [riskyTokenListMap] = useRiskyTokenListMapAtom();
 
   const [searchKey] = useSearchKeyAtom();
+
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+
+  const [aggregateTokensMap] = useAggregateTokensMapAtom();
 
   const { smallBalanceTokens, keys: smallBalanceTokenKeys } =
     smallBalanceTokenList;
@@ -108,21 +121,25 @@ function TokenListFooter(props: IProps) {
         deriveInfo,
         hideValue,
         isAllNetworks: network.isAllNetworks,
+        aggregateTokensListMap,
+        aggregateTokensMap,
       },
     });
   }, [
     account,
-    deriveInfo,
-    deriveType,
-    intl,
-    navigation,
     network,
+    wallet,
+    smallBalanceTokens,
+    navigation,
+    intl,
+    helpText,
     smallBalanceTokenKeys,
     smallBalanceTokenListMap,
-    smallBalanceTokens,
-    wallet,
-    helpText,
+    deriveType,
+    deriveInfo,
     hideValue,
+    aggregateTokensListMap,
+    aggregateTokensMap,
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {
@@ -133,6 +150,7 @@ function TokenListFooter(props: IProps) {
         accountId: account.id,
         networkId: network.id,
         walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
         tokenList: {
           tokens: riskyTokens,
           keys: riskyTokenKeys,
@@ -146,14 +164,15 @@ function TokenListFooter(props: IProps) {
     });
   }, [
     account,
-    deriveInfo,
-    deriveType,
-    navigation,
     network,
+    wallet,
+    navigation,
+    indexedAccount?.id,
+    riskyTokens,
     riskyTokenKeys,
     riskyTokenListMap,
-    riskyTokens,
-    wallet,
+    deriveType,
+    deriveInfo,
     hideValue,
   ]);
 

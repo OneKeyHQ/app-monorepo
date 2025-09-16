@@ -49,7 +49,7 @@ const PerpTokenSelectorRow = memo(
         <XStack flex={1} alignItems="center">
           {/* Token Info */}
           <XStack
-            width={140}
+            width={150}
             justifyContent="flex-start"
             gap="$2"
             alignItems="center"
@@ -62,7 +62,7 @@ const PerpTokenSelectorRow = memo(
               fallbackIcon="CryptoCoinOutline"
             />
             <SizableText size="$bodySmMedium">{token.name}</SizableText>
-            <Badge radius="$2" bg="$bgInfo">
+            <Badge radius="$2" bg="$bgInfo" gap="$1">
               <SizableText color="$textInfo" size="$bodySm">
                 {token.maxLeverage}x
               </SizableText>
@@ -79,12 +79,20 @@ const PerpTokenSelectorRow = memo(
             </NumberSizeableText>
           </XStack>
 
-          <XStack width={120} justifyContent="flex-start">
+          <XStack width={130} justifyContent="flex-start">
             <SizableText
               size="$bodySm"
               color={token.change24hPercent > 0 ? '$green11' : '$red11'}
             >
-              {token.change24h} /{' '}
+              <NumberSizeableText
+                size="$bodySm"
+                color={token.change24hPercent > 0 ? '$green11' : '$red11'}
+                formatter="balance"
+                formatterOptions={{ showPlusMinusSigns: true }}
+              >
+                {token.change24h}
+              </NumberSizeableText>{' '}
+              /{' '}
               <NumberSizeableText
                 size="$bodySm"
                 color={token.change24hPercent > 0 ? '$green11' : '$red11'}

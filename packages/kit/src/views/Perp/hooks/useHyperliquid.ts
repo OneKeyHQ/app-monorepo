@@ -4,7 +4,6 @@ import { useAtom } from 'jotai';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   activeAssetCtxAtom,
@@ -195,10 +194,9 @@ export function useHyperliquidAccount() {
 }
 
 export function useHyperliquidTrading() {
-  const { currentUser, hasUserData } = useHyperliquidAccount();
-  const { userAddress } = usePerpUseChainAccount();
-  const { activeAccount } = useActiveAccount({ num: 0 });
-  const currentAccount = activeAccount?.account?.id;
+  const { userAddress, userAccountId } = usePerpUseChainAccount();
+  const currentUser = userAddress;
+  const currentAccount = userAccountId;
   const [loading, setLoading] = useState(false);
   const [canTrade, setCanTrade] = useState(false);
 
@@ -282,7 +280,6 @@ export function useHyperliquidTrading() {
     loading,
     canTrade: Boolean(canTrade && currentUser),
     currentUser,
-    hasUserData,
     checkWalletStatus,
     checkAndApproveWallet,
   };

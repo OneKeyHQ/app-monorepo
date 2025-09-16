@@ -19,6 +19,7 @@ export interface ISimpleDbPerpConfig {
       skipIfExists?: boolean;
     }
   >;
+  hyperliquidCurrentToken?: string;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpConfig> {
@@ -51,5 +52,19 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpConfig> 
   async getExpectMaxBuilderFee(): Promise<number | undefined> {
     const config = await this.getPerpConfig();
     return config.hyperliquidMaxBuilderFee;
+  }
+
+  @backgroundMethod()
+  async getCurrentToken(): Promise<string> {
+    const config = await this.getPerpConfig();
+    return config.hyperliquidCurrentToken || 'ETH';
+  }
+
+  @backgroundMethod()
+  async setCurrentToken(token: string) {
+    await this.setPerpConfig((prevConfig) => ({
+      ...prevConfig,
+      hyperliquidCurrentToken: token,
+    }));
   }
 }
