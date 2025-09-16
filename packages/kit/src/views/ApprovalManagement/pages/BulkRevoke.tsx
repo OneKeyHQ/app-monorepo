@@ -498,7 +498,7 @@ function BulkRevoke() {
           <YStack
             gap="$1"
             $md={{
-              flex: 1,
+              width: '100%',
               pb: '$2.5',
             }}
           >
@@ -509,13 +509,7 @@ function BulkRevoke() {
                 justifyContent: 'space-between',
               }}
             >
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                $md={{
-                  width: '$72',
-                }}
-              >
+              <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.global_process,
                 })}
