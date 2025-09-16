@@ -1723,6 +1723,7 @@
   "id.prime_soon": "Presto",
   "id.refer_a_friend": "Segnala un amico",
   "id.refer_a_friend_desc": "Invita amici per guadagnare ricompense",
+  "identical_name_asset_alert": "Abbiamo rilevato asset con nomi simili nel tuo portafoglio. Procedi con cautela.",
   "insufficient_fee_append_desc": "basato sulla tariffa massima stimata: {amount} {symbol}",
   "interact_with_contract": "Interagisci con (A)",
   "kaspa_official": "Kaspa ufficiale",

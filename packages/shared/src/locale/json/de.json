@@ -1723,6 +1723,7 @@
   "id.prime_soon": "Bald",
   "id.refer_a_friend": "Einen Freund empfehlen",
   "id.refer_a_friend_desc": "Laden Sie Freunde ein, um Belohnungen zu verdienen",
+  "identical_name_asset_alert": "Wir haben Vermögenswerte mit ähnlichen Namen in deiner Wallet erkannt. Bitte sei vorsichtig.",
   "insufficient_fee_append_desc": "basierend auf der maximal geschätzten Gebühr: {amount} {symbol}",
   "interact_with_contract": "Interagieren mit (An)",
   "kaspa_official": "Kaspa Offiziell",

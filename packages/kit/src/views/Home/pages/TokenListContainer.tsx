@@ -77,8 +77,8 @@ import {
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
   useTokenListActions,
+  useTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
@@ -225,7 +225,7 @@ function TokenListContainer({
   } = useTokenListActions().current;
 
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
+  const [tokenListMapAtom] = useTokenListMapAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
@@ -556,6 +556,8 @@ function TokenListContainer({
           riskTokenManagementRawData.current.unblockedTokens,
         aggregateTokenConfigMapRawData:
           aggregateTokenRawData.current?.aggregateTokenConfigMap,
+        aggregateTokenSymbolMapRawData:
+          aggregateTokenRawData.current?.aggregateTokenSymbolMap,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
@@ -1632,7 +1634,7 @@ function TokenListContainer({
 
         sortedTokens = sortTokensCommon({
           tokens,
-          tokenListMap: allTokenListMapAtom,
+          tokenListMap: tokenListMapAtom,
         });
       }
 
@@ -1650,6 +1652,7 @@ function TokenListContainer({
           indexedAccountId: indexedAccount?.id ?? '',
           tokens: sortedTokens,
           isAggregateToken: token.isAggregateToken,
+          tokenMap: tokenListMapAtom,
         },
       });
     },
@@ -1662,7 +1665,7 @@ function TokenListContainer({
       network,
       wallet,
       aggregateTokenListMapAtom,
-      allTokenListMapAtom,
+      tokenListMapAtom,
     ],
   );
 

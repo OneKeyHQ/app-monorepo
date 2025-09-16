@@ -1723,6 +1723,7 @@
   "id.prime_soon": "Скоро",
   "id.refer_a_friend": "Пригласите друга",
   "id.refer_a_friend_desc": "Пригласите друзей, чтобы заработать награды",
+  "identical_name_asset_alert": "Мы обнаружили активы с похожими названиями в вашем кошельке. Действуйте с осторожностью.",
   "insufficient_fee_append_desc": "на основе макс. оценочной комиссии: {amount} {symbol}",
   "interact_with_contract": "Взаимодействовать с (К)",
   "kaspa_official": "Kaspa Официальный",

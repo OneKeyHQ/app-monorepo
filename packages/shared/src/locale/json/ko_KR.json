@@ -1723,6 +1723,7 @@
   "id.prime_soon": "곧",
   "id.refer_a_friend": "친구 추천",
   "id.refer_a_friend_desc": "친구를 초대하여 보상을 받으세요",
+  "identical_name_asset_alert": "지갑에서 이름이 비슷한 자산을 감지했습니다. 주의해서 진행하세요.",
   "insufficient_fee_append_desc": "최대 예상 수수료 기준: {amount} {symbol}",
   "interact_with_contract": "(~와) 상호 작용하기",
   "kaspa_official": "Kaspa 공식",

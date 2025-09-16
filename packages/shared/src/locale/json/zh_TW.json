@@ -1723,6 +1723,7 @@
   "id.prime_soon": "即將推出",
   "id.refer_a_friend": "推薦獎勵",
   "id.refer_a_friend_desc": "邀請朋友以獲得獎勵",
+  "identical_name_asset_alert": "檢測到錢包中存在相同或相似名稱的資產，請謹慎操作，避免損失。",
   "insufficient_fee_append_desc": "基於最大估計費用：{amount} {symbol}",
   "interact_with_contract": "互動地址 (至)",
   "kaspa_official": "Kaspa 官方",

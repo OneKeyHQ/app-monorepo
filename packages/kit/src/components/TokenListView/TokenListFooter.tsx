@@ -309,6 +309,7 @@ function TokenListFooter(props: IProps) {
             />
             {tableLayout ? (
               <Popover
+                placement="top-start"
                 title={intl.formatMessage({
                   id: ETranslations.low_value_assets,
                 })}

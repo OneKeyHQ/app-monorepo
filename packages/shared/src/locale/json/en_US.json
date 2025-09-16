@@ -1723,6 +1723,7 @@
   "id.prime_soon": "Soon",
   "id.refer_a_friend": "Refer a Friend",
   "id.refer_a_friend_desc": "Invite friends to earn rewards",
+  "identical_name_asset_alert": "We've detected assets with similar names in your wallet. Proceed with caution.",
   "insufficient_fee_append_desc": "based on max est. fee: {amount} {symbol}",
   "interact_with_contract": "Interact with (To)",
   "kaspa_official": "Kaspa Official",

@@ -1728,6 +1728,7 @@
   id_prime_soon = 'id.prime_soon',
   id_refer_a_friend = 'id.refer_a_friend',
   id_refer_a_friend_desc = 'id.refer_a_friend_desc',
+  identical_name_asset_alert = 'identical_name_asset_alert',
   insufficient_fee_append_desc = 'insufficient_fee_append_desc',
   interact_with_contract = 'interact_with_contract',
   kaspa_official = 'kaspa_official',

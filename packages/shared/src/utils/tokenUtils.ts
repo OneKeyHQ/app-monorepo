@@ -737,6 +737,7 @@ export function buildAggregateTokenListData(params: {
   >;
   aggregateTokenMap: Record<string, ITokenFiat>;
   aggregateTokenConfigMapRawData: Record<string, IAggregateToken>;
+  aggregateTokenSymbolMapRawData: Record<string, boolean>;
   networkName: string;
 }) {
   const {
@@ -747,12 +748,14 @@ export function buildAggregateTokenListData(params: {
     aggregateTokenMap,
     token,
     aggregateTokenConfigMapRawData,
+    aggregateTokenSymbolMapRawData,
     networkName,
   } = params;
 
   const newAggregateTokenListMap = { ...aggregateTokenListMap };
   const newAggregateTokenMap = { ...aggregateTokenMap };
   let isAggregateToken = false;
+  let isSameSymbolWithAggregateToken = false;
 
   const aggregateToken =
     aggregateTokenConfigMapRawData[
@@ -802,8 +805,13 @@ export function buildAggregateTokenListData(params: {
     };
   }
 
+  if (aggregateTokenSymbolMapRawData[token.symbol]) {
+    isSameSymbolWithAggregateToken = true;
+  }
+
   return {
     isAggregateToken,
+    isSameSymbolWithAggregateToken,
     aggregateTokenListMap: newAggregateTokenListMap,
     aggregateTokenMap: newAggregateTokenMap,
   };

@@ -1723,6 +1723,7 @@
   "id.prime_soon": "Sớm",
   "id.refer_a_friend": "Giới thiệu bạn bè",
   "id.refer_a_friend_desc": "Mời bạn bè để nhận phần thưởng",
+  "identical_name_asset_alert": "Chúng tôi đã phát hiện thấy tài sản có tên tương tự trong ví của bạn. Hãy tiếp tục một cách thận trọng.",
   "insufficient_fee_append_desc": "dựa trên phí ước tính tối đa: {amount} {symbol}",
   "interact_with_contract": "Tương tác với (Đến)",
   "kaspa_official": "Kaspa Chính Thức",
