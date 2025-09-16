@@ -83,7 +83,8 @@ const downloadPackage: IDownloadPackage = async ({
   };
 };
 
-const downloadASC: IDownloadASC = async ({ downloadUrl, latestVersion }) => {
+const downloadASC: IDownloadASC = async (params) => {
+  const { downloadUrl, latestVersion } = params || {};
   if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
     return;
   }
@@ -93,7 +94,8 @@ const downloadASC: IDownloadASC = async ({ downloadUrl, latestVersion }) => {
   });
 };
 
-const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
+const verifyASC: IVerifyASC = async (params) => {
+  const { downloadUrl, latestVersion } = params || {};
   if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
     return;
   }
@@ -104,12 +106,13 @@ const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
 };
 
 const verifyPackage: IVerifyPackage = async (params) => {
-  if (!AutoUpdateModule) {
+  const { downloadedFile, downloadUrl } = params || {};
+  if (!AutoUpdateModule || !downloadedFile || !downloadUrl) {
     return;
   }
   await AutoUpdateModule.verifyAPK({
-    filePath: params.downloadedFile || '',
-    downloadUrl: params.downloadUrl || '',
+    filePath: downloadedFile || '',
+    downloadUrl: downloadUrl || '',
   });
 };
 
