@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -483,21 +484,16 @@ export const useCheckUpdateOnDesktop =
   !platformEnv.isDesktopWinMsStore
     ? () => {
         useEffect(() => {
-          globalThis.desktopApi.on(
-            ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
+          const subscription = electronUpdateListeners.onDownloadedFileEvent?.(
             (downloadUrl) => {
-              defaultLogger.update.app.log(
-                'UPDATE_DOWNLOAD_FILE_INFO',
-                downloadUrl,
-              );
               void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
                 downloadUrl,
               );
             },
           );
-          setTimeout(() => {
+          setTimeout(async () => {
             const previousBuildNumber =
-              globalThis.desktopApi.getPreviousUpdateBuildNumber();
+              await globalThis.desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber();
             if (
               previousBuildNumber &&
               getBuilderNumber(previousBuildNumber) >=
@@ -506,6 +502,9 @@ export const useCheckUpdateOnDesktop =
               void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
             }
           }, 0);
+          return () => {
+            subscription?.();
+          };
         }, []);
       }
     : noop;
