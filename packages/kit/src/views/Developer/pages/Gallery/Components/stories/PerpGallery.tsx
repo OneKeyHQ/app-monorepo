@@ -79,12 +79,16 @@ export function PerpApiTests() {
     try {
       if (newBuilderAddress) {
         await backgroundApiProxy.serviceWebviewPerp.updatePerpConfig({
-          address: newBuilderAddress,
+          referrerConfig: {
+            referrerAddress: newBuilderAddress,
+          },
         });
       }
       if (newMaxBuilderFee) {
         await backgroundApiProxy.serviceWebviewPerp.updatePerpConfig({
-          fee: Number(newMaxBuilderFee),
+          referrerConfig: {
+            referrerRate: Number(newMaxBuilderFee),
+          },
         });
       }
       await loadPerpConfig(); // Reload to confirm changes

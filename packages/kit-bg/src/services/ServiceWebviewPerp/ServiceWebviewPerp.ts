@@ -155,8 +155,8 @@ export interface IPerpBannerConfig {
 }
 
 export interface IPerReferrerConfig {
-  referrerAddress: string;
-  referrerRate: number;
+  referrerAddress?: string;
+  referrerRate?: number;
 }
 
 export interface IPerpCommonConfig {
