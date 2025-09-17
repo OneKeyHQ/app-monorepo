@@ -92,7 +92,7 @@ const generateMetadataJson = async (dirPath) => {
   }
 };
 
-const generateFileInfo = async (filePath) => {
+const generateFileInfo = async (filePath, outputFilePath) => {
   if (!fs.existsSync(filePath)) {
     console.warn(`File not found: ${filePath}`);
     return;
@@ -105,7 +105,7 @@ const generateFileInfo = async (filePath) => {
   const fileName = path.basename(filePath);
   const fileDir = path.dirname(filePath);
   const infoFileName = `${fileName}.info`;
-  const infoFilePath = path.join(fileDir, infoFileName);
+  const infoFilePath = outputFilePath || path.join(fileDir, infoFileName);
 
   const fileInfo = {
     fileName,
@@ -240,6 +240,10 @@ const buildIOSBundle = async () => {
   const zipFilePath = buildZipOutputAssetPath('ios-bundle.zip');
   fs.moveSync(buildIOSOutputAssetPath('dist.zip'), zipFilePath);
   generateFileInfo(zipFilePath);
+  generateFileInfo(
+    buildIOSOutputAssetPath('dist/metadata.json'),
+    buildZipOutputAssetPath('ios.metadata.json.info'),
+  );
   console.log('build ios bundle compress dist to zip done');
   console.log('build ios bundle done');
 };
