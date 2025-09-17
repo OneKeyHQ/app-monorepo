@@ -44,8 +44,8 @@ function BasePerpTokenSelectorContent({
 
   const handleSelectToken = async (symbol: string) => {
     try {
+      void closePopover?.();
       await selectToken(symbol);
-      await closePopover?.();
     } catch (error) {
       console.error('Failed to switch token:', error);
     }
@@ -117,7 +117,7 @@ function BasePerpTokenSelectorContent({
       </YStack>
 
       {/* Token List */}
-      <YStack flex={1} maxHeight={300}>
+      <XStack flex={1} maxHeight={300}>
         <ListView
           useFlashList
           data={filteredTokens.filter((token) => !token.isDelisted)}
@@ -141,7 +141,7 @@ function BasePerpTokenSelectorContent({
             </XStack>
           }
         />
-      </YStack>
+      </XStack>
     </YStack>
   );
 }
