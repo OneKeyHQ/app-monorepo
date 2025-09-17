@@ -269,6 +269,14 @@ const buildAndroidBundle = async () => {
     --bundle-output ${buildAndroidOutputAssetPath('main.jsbundle')} \
     --sourcemap-output ${buildAndroidOutputAssetPath('main.jsbundle.map')}    
     `,
+    {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_OPTIONS: '--max-old-space-size=8192',
+        NODE_ENV: 'production',
+      },
+    },
   );
   console.log('build android bundle done');
 
