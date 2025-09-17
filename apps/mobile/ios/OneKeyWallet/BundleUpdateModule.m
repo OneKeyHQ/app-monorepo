@@ -61,21 +61,121 @@ RCT_EXPORT_MODULE();
     return bundleDir;
 }
 
-- (dispatch_queue_t)methodQueue {
-    return dispatch_queue_create("com.onekey.bundleupdate", DISPATCH_QUEUE_SERIAL);
++ (NSString *)currentBundleVersion {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    return [userDefaults objectForKey:@"currentBundleVersion"];
 }
 
-- (void)clearDownloadTask {
-    self.isDownloading = NO;
-    if (self.downloadTask != nil) {
-        [self.downloadTask cancel];
-        self.downloadTask = nil;
++ (NSString *)currentBundleDir {
+    NSString *folderName = [self currentBundleVersion];
+    if (!folderName) {
+        return nil;
     }
-    self.downloadTask = nil;
-    self.downloadBundleResult = nil;
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    return [bundleDir stringByAppendingPathComponent:folderName];
 }
 
-- (NSString *)calculateSHA256:(NSString *)filePath {
++ (NSString *)currentBundleMainJSBundle {
+    NSString *folderName = [self currentBundleDir];
+    if (!folderName) {
+        return nil;
+    }
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *mainJSBundle = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"main.jsbundle.hbc"];
+    return mainJSBundle;
+}
+
++ (NSDictionary *)currentMetadataJson {
+    NSString *folderName = [self currentBundleDir];
+    if (!folderName) {
+        return nil;
+    }
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *metadataJson = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"metadata.json"];
+    NSData *jsonData = [NSData dataWithContentsOfFile:metadataJson];
+    if (!jsonData) {
+        return nil;
+    }
+    
+    NSError *error;
+    NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+    if (error) {
+        NSLog(@"Error parsing metadata.json: %@", error.localizedDescription);
+        return nil;
+    }
+    return metadata;
+}
+
++ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata {
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    
+    // Get all files recursively, excluding metadata.json
+    NSDirectoryEnumerator *enumerator = [fileManager enumeratorAtPath:DirPath];
+    NSString *file;
+    
+    while ((file = [enumerator nextObject])) {
+        // Skip metadata.json
+        if ([file isEqualToString:@"metadata.json"]) {
+            continue;
+        }
+        
+        // Get full path
+        NSString *fullPath = [DirPath stringByAppendingPathComponent:file];
+        
+        // Skip directories
+        BOOL isDirectory;
+        if ([fileManager fileExistsAtPath:fullPath isDirectory:&isDirectory] && isDirectory) {
+            BOOL result = [self valiateAllFilesInDir:fullPath metadata:metadata];
+            if (result) {
+                continue;
+            } else {
+                return NO;
+            }
+        }
+        
+        NSString *relativePath = [fullPath stringByReplacingOccurrencesOfString:bundleDir withString:@""];
+        NSLog(@"relativePath: %@", relativePath);
+        DDLogDebug(@"relativePath: %@", relativePath);
+
+        if ([relativePath isEqualToString:@"metadata.json"]) {
+            continue;
+        }
+
+        // Get expected SHA256 from metadata
+        NSString *expectedSHA256 = metadata[relativePath];
+        if (!expectedSHA256) {
+            NSLog(@"File %@ not found in metadata", relativePath);
+            DDLogDebug(@"File %@ not found in metadata", relativePath);
+            return NO;
+        }
+        
+        // Calculate actual SHA256
+        NSString *actualSHA256 = [BundleUpdateModule calculateSHA256:fullPath];
+        if (!actualSHA256) {
+            NSLog(@"Failed to calculate SHA256 for file %@", relativePath);
+            DDLogDebug(@"Failed to calculate SHA256 for file %@", relativePath);
+            return NO;
+        }
+        
+        // Compare SHA256 values
+        if (![expectedSHA256 isEqualToString:actualSHA256]) {
+            NSLog(@"SHA256 mismatch for file %@. Expected: %@, Actual: %@", relativePath, expectedSHA256, actualSHA256);
+            DDLogDebug(@"SHA256 mismatch for file %@. Expected: %@, Actual: %@", relativePath, expectedSHA256, actualSHA256);
+            return NO;
+        }
+    }
+    
+    return YES;
+}
+
++ (void)setCurrentBundleVersion:(NSString *)version {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    [userDefaults setObject:version forKey:@"currentBundleVersion"];
+    [userDefaults synchronize];
+}
+
++ (NSString *)calculateSHA256:(NSString *)filePath {
     NSFileHandle *fileHandle = [NSFileHandle fileHandleForReadingAtPath:filePath];
     if (!fileHandle) {
         return nil;
@@ -100,6 +200,20 @@ RCT_EXPORT_MODULE();
     }
     
     return [hashString copy];
+}
+
+- (dispatch_queue_t)methodQueue {
+    return dispatch_queue_create("com.onekey.bundleupdate", DISPATCH_QUEUE_SERIAL);
+}
+
+- (void)clearDownloadTask {
+    self.isDownloading = NO;
+    if (self.downloadTask != nil) {
+        [self.downloadTask cancel];
+        self.downloadTask = nil;
+    }
+    self.downloadTask = nil;
+    self.downloadBundleResult = nil;
 }
 
 - (NSString *)extractSHA256FromASCFile:(NSString *)ascFilePath {
@@ -135,7 +249,7 @@ RCT_EXPORT_MODULE();
 }
 
 - (BOOL)verifyBundleSHA256:(NSString *)bundlePath sha256:(NSString *)sha256 {
-    NSString *calculatedSHA256 = [self calculateSHA256:bundlePath];
+    NSString *calculatedSHA256 = [BundleUpdateModule calculateSHA256:bundlePath];
     NSString *expectedSHA256 = sha256;
     
     if (!calculatedSHA256 || !expectedSHA256) {
@@ -268,6 +382,10 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
     [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
+    if (![self valiateAllFilesInDir:destination metadata:metadata]) {
+        reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
+        return;
+    }
     resolve(nil);
 }
 
