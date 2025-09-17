@@ -18,6 +18,8 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 @property (nonatomic, assign) BOOL isDownloading;
 @property (nonatomic, strong) NSURLSessionDownloadTask *downloadTask;
 @property (nonatomic, strong) NSURLSession *urlSession;
+@property (nonatomic, strong) NSString *filePath;
+@property (nonatomic, strong) NSDictionary *downloadBundleResult;
 @end
 
 @implementation BundleUpdateModule
@@ -37,7 +39,7 @@ RCT_EXPORT_MODULE();
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"update/start", @"update/downloading", @"update/complete"];
+    return @[@"update/start", @"update/downloading", @"update/complete", @"update/error"];
 }
 
 + (NSString *)downloadBundleDir {
@@ -60,6 +62,16 @@ RCT_EXPORT_MODULE();
 
 - (dispatch_queue_t)methodQueue {
     return dispatch_queue_create("com.onekey.bundleupdate", DISPATCH_QUEUE_SERIAL);
+}
+
+- (void)clearDownloadTask {
+    self.isDownloading = NO;
+    if (self.downloadTask != nil) {
+        [self.downloadTask cancel];
+        self.downloadTask = nil;
+    }
+    self.downloadTask = nil;
+    self.downloadBundleResult = nil;
 }
 
 - (NSString *)calculateSHA256:(NSString *)filePath {
@@ -161,9 +173,48 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     }
 }
 
+- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didCompleteWithError:(NSError *)error {
+    self.isDownloading = NO;
+    self.downloadTask = nil;
+    if (error) {
+        [self sendEventWithName:@"update/error" body:@{
+            @"error": error.localizedDescription,
+        }];
+    }
+}
+
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask
 didFinishDownloadingToURL:(NSURL *)location {
-    // This will be handled in the completion handler
+        NSError *moveError;
+        const NSString *filePath = self.downloadBundleResult[@"downloadedFile"];
+        [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+        BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
+        
+        if (!success) {
+            self.isDownloading = NO;
+            [self sendEventWithName:@"update/error" body:@{
+                @"error": [NSString stringWithFormat:@"%ld", (long)moveError.code],
+                @"errorMessage": moveError.localizedDescription,
+            }];
+            return;
+        }
+
+        self.isDownloading = NO;
+        [[NSFileManager defaultManager] removeItemAtPath:partialFilePath error:nil];
+
+        if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+            [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+            [self.sendEventWithName:@"update/error" body:@{
+                @"error": @"Bundle signature verification failed",
+            }];
+            return;
+        }
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self sendEventWithName:@"update/complete" body:nil];
+        });
+        DDLogDebug(@"downloadBundle: Download completed");
+        [self clearDownloadTask];
 }
 
 RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
@@ -350,54 +401,10 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     NSURL *url = [NSURL URLWithString:downloadUrl];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     self.downloadTask = [self.urlSession downloadTaskWithRequest:request];
-    
-    // self.downloadTask = [self.urlSession downloadTaskWithRequest:mutableRequest
-    //                                             completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
-    //     if (error) {
-    //         self.isDownloading = NO;
-    //         reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-    //         return;
-    //     }
-        
-    //     NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-    //     if (httpResponse.statusCode != 200 && httpResponse.statusCode != 206) {
-    //         NSError *httpError = [NSError errorWithDomain:@"BundleUpdateError" 
-    //                                                code:httpResponse.statusCode 
-    //                                            userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
-    //         self.isDownloading = NO;
-    //         reject([NSString stringWithFormat:@"%ld", (long)httpError.code], httpError.localizedDescription, httpError);
-    //         return;
-    //     }
-        
-    //     // Move downloaded file to target location
-    //     NSError *moveError;
-    //     [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-    //     BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
-        
-    //     if (!success) {
-    //         self.isDownloading = NO;
-    //         reject([NSString stringWithFormat:@"%ld", (long)moveError.code], moveError.localizedDescription, moveError);
-    //         return;
-    //     }
-
-    //     self.isDownloading = NO;
-    //     [[NSFileManager defaultManager] removeItemAtPath:partialFilePath error:nil];
-
-    //     if (![self verifyBundleSHA256:filePath sha256:sha256]) {
-    //         [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-    //         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
-    //         return;
-    //     }
-        
-    //     dispatch_async(dispatch_get_main_queue(), ^{
-    //         [self sendEventWithName:@"update/complete" body:result];
-    //     });
-        
-    //     DDLogDebug(@"downloadBundle: Download completed");
-    //     resolve(result);
-    // }];
     [self sendEventWithName:@"update/start" body:nil];
     [self.downloadTask resume];
+    self.downloadBundleResult = result;
+    resolve(result);
 }
 
 RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
@@ -471,6 +478,7 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
         [self.downloadTask cancel];
         self.downloadTask = nil;
     }
+    [self clearDownloadTask];
     resolve(nil);
 }
 
