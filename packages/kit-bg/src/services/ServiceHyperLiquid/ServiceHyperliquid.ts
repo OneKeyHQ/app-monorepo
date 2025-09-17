@@ -308,7 +308,6 @@ export default class ServiceHyperliquid extends ServiceBase {
                 await this.backgroundApi.simpleDb.perp.getPerpData();
               // referrer code can be approved by agent
               void this.exchangeService.setReferrerCode({
-                // TODO use server config
                 code: referralCode || HYPERLIQUID_REFERRAL_CODE,
               });
             })();
