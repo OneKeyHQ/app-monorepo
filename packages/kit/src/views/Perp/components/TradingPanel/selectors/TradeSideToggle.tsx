@@ -65,7 +65,10 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             onPress={() => onChange('long')}
             disabled={disabled}
           >
-            <SizableText size="$bodyMdMedium">
+            <SizableText
+              size="$bodyMdMedium"
+              color={isLongActive ? '$textOnColor' : '$textDisabled'}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_trade_long,
               })}
@@ -83,7 +86,10 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             onPress={() => onChange('short')}
             disabled={disabled}
           >
-            <SizableText size="$bodyMdMedium">
+            <SizableText
+              size="$bodyMdMedium"
+              color={isShortActive ? '$textOnColor' : '$textDisabled'}
+            >
               {intl.formatMessage({
                 id: ETranslations.perp_trade_short,
               })}
