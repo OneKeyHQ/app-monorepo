@@ -308,7 +308,8 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
         if ([self verifyBundleSHA256:filePath sha256:sha256]) {
             resolve(result);
-            self.isDownloading = NO;
+            [self clearDownloadTask];
+            [self sendEventWithName:@"update/complete" body:nil];
             return;
         } else {
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
