@@ -36,7 +36,7 @@ class ServiceMarketWS extends ServiceBase {
 
   private isMarketListenerRegistered = false;
 
-  private subscriptionTracker = new MarketSubscriptionTracker();
+  subscriptionTracker = new MarketSubscriptionTracker();
 
   @backgroundMethod()
   async connect(): Promise<void> {

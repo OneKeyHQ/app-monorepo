@@ -55,6 +55,16 @@ export class MarketSubscriptionTracker {
     );
   }
 
+  clearDataCount(address: string, type: ISubscriptionType): boolean {
+    const existing = this.subscriptions.find(
+      (sub) => sub.address === address && sub.type === type,
+    );
+    if (existing) {
+      existing.dataCount = 0;
+    }
+    return false;
+  }
+
   incrementDataCount(address: string, type: ISubscriptionType): boolean {
     const existing = this.subscriptions.find(
       (sub) => sub.address === address && sub.type === type,

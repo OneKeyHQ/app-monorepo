@@ -97,11 +97,8 @@ export function useTradingViewV2WebSocket({
       data: any;
       originalData?: any;
     }) => {
-      console.log('handleMarketDataUpdate', payload);
       // Only process messages for our specific token and network
       if (payload.tokenAddress === tokenAddress) {
-        console.log('Processing market data for TradingView:', payload);
-
         if (payload.channel === 'ohlcv') {
           const now = Math.floor(Date.now() / 1000);
 
@@ -138,6 +135,11 @@ export function useTradingViewV2WebSocket({
                 timestamp: now,
               },
             });
+
+            void backgroundApiProxy.serviceMarketWS.subscriptionTracker.clearDataCount(
+              tokenAddress,
+              'ohlcv',
+            );
 
             // Update token detail if we have valid price data
             if (
