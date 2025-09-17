@@ -11,6 +11,7 @@ import ServiceBase from '../ServiceBase';
 import { EChannel, EOperation } from './const';
 import { MarketSubscriptionTracker } from './MarketSubscriptionTracker';
 
+import type { ISubscriptionType } from './MarketSubscriptionTracker';
 import type { IWsPriceData, IWsTxsData } from './types';
 import type { Socket } from 'socket.io-client';
 
@@ -36,7 +37,13 @@ class ServiceMarketWS extends ServiceBase {
 
   private isMarketListenerRegistered = false;
 
-  subscriptionTracker = new MarketSubscriptionTracker();
+  subscriptionTracker: MarketSubscriptionTracker =
+    new MarketSubscriptionTracker();
+
+  @backgroundMethod()
+  async clearDataCount(params: { address: string; type: ISubscriptionType }) {
+    this.subscriptionTracker.clearDataCount(params);
+  }
 
   @backgroundMethod()
   async connect(): Promise<void> {
