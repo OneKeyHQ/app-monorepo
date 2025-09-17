@@ -7,6 +7,7 @@ import {
   Button,
   type IButtonProps,
   SegmentControl,
+  SizableText,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -64,9 +65,14 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             onPress={() => onChange('long')}
             disabled={disabled}
           >
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_long,
-            })}
+            <SizableText
+              size="$bodyMdMedium"
+              color={isLongActive ? '$textOnColor' : '$textDisabled'}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_long,
+              })}
+            </SizableText>
           </Button>
         ),
       },
@@ -80,9 +86,14 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
             onPress={() => onChange('short')}
             disabled={disabled}
           >
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_short,
-            })}
+            <SizableText
+              size="$bodyMdMedium"
+              color={isShortActive ? '$textOnColor' : '$textDisabled'}
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_short,
+              })}
+            </SizableText>
           </Button>
         ),
       },

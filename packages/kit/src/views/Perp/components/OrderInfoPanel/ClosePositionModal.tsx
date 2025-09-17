@@ -15,6 +15,8 @@ import {
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   formatWithPrecision,
   validateSizeInput,
@@ -313,33 +315,32 @@ const ClosePositionForm = memo(
 
     return (
       <YStack gap="$4">
-        <SizableText size="$bodyLg">
-          {formData.type === 'market'
-            ? 'This will attempt to immediately close the position.'
-            : 'This will send an order to close your position at the limit price.'}
-        </SizableText>
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Coin
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_token_selector_asset,
+              })}
             </SizableText>
-            <SizableText size="$bodyMd" fontWeight="600">
-              {position.coin}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">{position.coin}</SizableText>
           </XStack>
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Position Size
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
             </SizableText>
-            <SizableText size="$bodyMd" fontWeight="600">
+            <SizableText size="$bodyMdMedium">
               {positionSize.toNumber()} {position.coin}
             </SizableText>
           </XStack>
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Price
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_trade_order_type,
+              })}
             </SizableText>
             <XStack
               alignItems="center"
@@ -347,12 +348,13 @@ const ClosePositionForm = memo(
                 handleTypeChange(formData.type === 'limit' ? 'market' : 'limit')
               }
               cursor="pointer"
+              gap="$1"
             >
-              <SizableText size="$bodyMd">
+              <SizableText size="$bodyMdMedium">
                 {formData.type === 'limit' ? 'Limit' : 'Market'}
               </SizableText>
               <Icon
-                name="SwapVerOutline"
+                name="RepeatOutline"
                 size="$3.5"
                 color="$text"
                 fontWeight="600"
@@ -363,17 +365,22 @@ const ClosePositionForm = memo(
 
         {formData.type === 'limit' ? (
           <PriceInput
-            label="Limit Price"
+            label={appLocale.intl.formatMessage({
+              id: ETranslations.perp_trade_limit_pirce,
+            })}
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
             onUseMarketPrice={handleUseMid}
             disabled={!markPrice}
             szDecimals={szDecimals}
+            ifDialog
           />
         ) : null}
 
         <TradingFormInput
-          label="Amount"
+          label={appLocale.intl.formatMessage({
+            id: ETranslations.dexmarket_details_history_amount,
+          })}
           value={
             formData.amount || (formData.percentage > 0 ? calculatedAmount : '')
           }
@@ -383,10 +390,7 @@ const ClosePositionForm = memo(
             const processedValue = value.replace(/。/g, '.');
             return validateSizeInput(processedValue, szDecimals);
           }}
-          helper={{
-            text: `Max: ${positionSize.toNumber()} ${position.coin}`,
-            align: 'right',
-          }}
+          ifDialog
         />
 
         <YStack gap="$2" p="$2">
@@ -406,7 +410,9 @@ const ClosePositionForm = memo(
           disabled={!isFormValid || isSubmitting}
           loading={isSubmitting}
         >
-          {formData.type === 'market' ? 'Market Close' : 'Limit Close'}
+          {appLocale.intl.formatMessage({
+            id: ETranslations.perp_confirm_order,
+          })}
         </Button>
       </YStack>
     );
@@ -423,7 +429,14 @@ export function showClosePositionDialog({
   hyperliquidActions,
 }: IClosePositionParams) {
   const dialogInstance = Dialog.show({
-    title: 'Close Position',
+    title:
+      type === 'market'
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.perp_close_position_button_market,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.perp_close_position_button_limit,
+          }),
     renderContent: (
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <ClosePositionForm
