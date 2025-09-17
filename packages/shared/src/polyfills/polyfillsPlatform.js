@@ -193,18 +193,6 @@ if (platformEnv.isNative) {
     };
   }
 
-  if (typeof Promise.withResolvers !== 'function') {
-    Promise.withResolvers = function withResolvers() {
-      let resolve;
-      let reject;
-      const promise = new Promise((res, rej) => {
-        resolve = res;
-        reject = rej;
-      });
-      return { promise, resolve, reject };
-    };
-  }
-
   if (!ArrayBuffer.prototype.transfer) {
     // eslint-disable-next-line no-extend-native
     ArrayBuffer.prototype.transfer = function (newByteLength) {

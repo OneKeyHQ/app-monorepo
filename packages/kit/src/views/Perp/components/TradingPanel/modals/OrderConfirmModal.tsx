@@ -7,6 +7,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import {
   getTradingButtonStyleProps,
@@ -44,9 +46,11 @@ export function showOrderConfirmDialog({
         {/* Action */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Action
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_confirm_order_action,
+            })}
           </SizableText>
-          <SizableText size="$bodyMd" color={actionColor} fontWeight="600">
+          <SizableText size="$bodyMdMedium" color={actionColor}>
             {actionText}
           </SizableText>
         </XStack>
@@ -54,26 +58,29 @@ export function showOrderConfirmDialog({
         {/* Position Size */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Position Size
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_position_position_size,
+            })}
           </SizableText>
-          <SizableText size="$bodyMd" fontWeight="500" color={actionColor}>
-            {sizeDisplay}
-          </SizableText>
+          <SizableText size="$bodyMdMedium">{sizeDisplay}</SizableText>
         </XStack>
 
         {/* Price */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Price
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_orderbook_price,
+            })}
           </SizableText>
           {formData.type === 'market' || !formData.price ? (
-            <SizableText size="$bodyMd" fontWeight="500">
-              Market
+            <SizableText size="$bodyMdMedium">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_trade_market,
+              })}
             </SizableText>
           ) : (
             <NumberSizeableText
               size="$bodyMd"
-              fontWeight="500"
               formatter="price"
               formatterOptions={{ currency: '$' }}
             >
@@ -85,16 +92,15 @@ export function showOrderConfirmDialog({
         {/* Liquidation Price */}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Liquidation Price
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_position_liq_price,
+            })}
           </SizableText>
           {!liquidationPrice ? (
-            <SizableText size="$bodyMd" fontWeight="500">
-              N/A
-            </SizableText>
+            <SizableText size="$bodyMdMedium">N/A</SizableText>
           ) : (
             <NumberSizeableText
-              size="$bodyMd"
-              fontWeight="500"
+              size="$bodyMdMedium"
               formatter="price"
               formatterOptions={{ currency: '$' }}
             >
@@ -107,9 +113,12 @@ export function showOrderConfirmDialog({
   );
 
   Dialog.confirm({
-    title: 'Confirm Order',
-    description:
-      'You pay no gas. The order will be confirmed within a few seconds.',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_confirm_order,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.perp_confirm_order_desc,
+    }),
     renderContent: <OrderContent />,
     confirmButtonProps: {
       bg: buttonStyleProps.bg,
