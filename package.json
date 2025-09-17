@@ -31,6 +31,7 @@
     "app:web-embed:build": "yarn workspace @onekeyhq/web-embed build",
     "app:native-bundle": "yarn workspace @onekeyhq/mobile native-bundle",
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
+    "app:build-bundle": "yarn workspace @onekeyhq/mobile build-bundle",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
     "app:ios:pod-install": "yarn workspace @onekeyhq/mobile ios:pod-install",
