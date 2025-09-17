@@ -413,6 +413,23 @@ const BaseDevSettingsSection = () => {
           value={devSettings.settings?.disableSolanaPriorityFee}
         />
       </SectionFieldItem>
+      <SectionFieldItem
+        icon="GasIllus"
+        name="enableMockHighTxFee"
+        title="模拟交易费过高"
+        subtitle="强制交易费用检测判定为过高"
+      >
+        <Switch
+          size={ESwitchSize.small}
+          onChange={() => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'enableMockHighTxFee',
+              !devSettings.settings?.enableMockHighTxFee,
+            );
+          }}
+          value={devSettings.settings?.enableMockHighTxFee}
+        />
+      </SectionFieldItem>
       <SectionPressItem
         icon="SwapHorOutline"
         title="force RTL"

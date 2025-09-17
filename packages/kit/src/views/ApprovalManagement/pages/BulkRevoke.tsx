@@ -15,6 +15,8 @@ import {
   Stack,
   XStack,
   YStack,
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -110,26 +112,31 @@ function BulkRevoke() {
     return waitUntilInProgress();
   }, [isAborted]);
 
-  const { succeededTxCount, skippedTxCount, totalFeeFiat } = useMemo(() => {
-    let _succeededTxCount = 0;
-    let _skippedTxCount = 0;
-    let _totalFeeFiat = new BigNumber(0);
+  const { succeededTxCount, skippedTxCount, failedTxCount, totalFeeFiat } =
+    useMemo(() => {
+      let _succeededTxCount = 0;
+      let _skippedTxCount = 0;
+      let _failedTxCount = 0;
+      let _totalFeeFiat = new BigNumber(0);
 
-    Object.values(revokeTxsStatusMap).forEach((status) => {
-      if (status.status === ERevokeTxStatus.Succeeded) {
-        _succeededTxCount += 1;
-        _totalFeeFiat = _totalFeeFiat.plus(status.feeFiat ?? 0);
-      } else if (status.status === ERevokeTxStatus.Skipped) {
-        _skippedTxCount += 1;
-      }
-    });
+      Object.values(revokeTxsStatusMap).forEach((status) => {
+        if (status.status === ERevokeTxStatus.Succeeded) {
+          _succeededTxCount += 1;
+          _totalFeeFiat = _totalFeeFiat.plus(status.feeFiat ?? 0);
+        } else if (status.status === ERevokeTxStatus.Skipped) {
+          _skippedTxCount += 1;
+        } else if (status.status === ERevokeTxStatus.Failed) {
+          _failedTxCount += 1;
+        }
+      });
 
-    return {
-      succeededTxCount: _succeededTxCount,
-      skippedTxCount: _skippedTxCount,
-      totalFeeFiat: _totalFeeFiat.toFixed(),
-    };
-  }, [revokeTxsStatusMap]);
+      return {
+        succeededTxCount: _succeededTxCount,
+        skippedTxCount: _skippedTxCount,
+        failedTxCount: _failedTxCount,
+        totalFeeFiat: _totalFeeFiat.toFixed(),
+      };
+    }, [revokeTxsStatusMap]);
 
   usePromiseResult(async () => {
     for (let i = 0; i < unsignedTxs?.length; i += 1) {
@@ -413,6 +420,25 @@ function BulkRevoke() {
     progressStateRef.current = progressState;
   }, [progressState]);
 
+  useEffect(() => {
+    const handleVisibilityStateChange = (visible: boolean) => {
+      if (visible === false) {
+        setProgressState(ERevokeProgressState.Paused);
+        setRevokeTxsStatusMap((prev) => ({
+          ...prev,
+          [unsignedTxs[currentProcessIndex].uuid ?? '']: {
+            status: ERevokeTxStatus.Paused,
+          },
+        }));
+      }
+    };
+    handleVisibilityStateChange(getCurrentVisibilityState());
+    const removeSubscription = onVisibilityStateChange(
+      handleVisibilityStateChange,
+    );
+    return removeSubscription;
+  }, [currentProcessIndex, unsignedTxs]);
+
   const handleOnConfirm = useCallback(() => {
     if (progressState === ERevokeProgressState.Finished) {
       navigation.popStack();
@@ -477,7 +503,7 @@ function BulkRevoke() {
           <YStack
             gap="$1"
             $md={{
-              flex: 1,
+              width: '100%',
               pb: '$2.5',
             }}
           >
@@ -488,13 +514,7 @@ function BulkRevoke() {
                 justifyContent: 'space-between',
               }}
             >
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                $md={{
-                  width: '$72',
-                }}
-              >
+              <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.global_process,
                 })}
@@ -504,6 +524,8 @@ function BulkRevoke() {
                   unsignedTxs?.length ?? 0
                 } (${succeededTxCount} ${intl.formatMessage({
                   id: ETranslations.wallet_approval_bulk_revoke_status_succeeded,
+                })}, ${failedTxCount} ${intl.formatMessage({
+                  id: ETranslations.wallet_approval_bulk_revoke_status_failed,
                 })}, ${skippedTxCount} ${intl.formatMessage({
                   id: ETranslations.wallet_approval_bulk_revoke_status_skipped,
                 })})`}
