@@ -155,7 +155,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
         DDLogDebug(@"downloadBundle: progress: %f, bytesWritten: %lld, totalBytes: %lld", progress, totalBytesWritten, totalBytesExpectedToWrite);
         dispatch_async(dispatch_get_main_queue(), ^{
             [self sendEventWithName:@"update/downloading" body:@{
-                @"progress": @(progress),
+                @"progress": @(progress * 100),
             }];
         });
     }
@@ -335,8 +335,6 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
         }
     }
     
-    NSURL *url = [NSURL URLWithString:downloadUrl];
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
     
     // Check if partial file exists and get its size
     NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -349,57 +347,55 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     }
     
     // Create request with Range header if resuming
-    NSMutableURLRequest *mutableRequest = [request mutableCopy];
-    if (downloadedBytes > 0) {
-        [mutableRequest setValue:[NSString stringWithFormat:@"bytes=%lld-", downloadedBytes] forHTTPHeaderField:@"Range"];
-    }
+    NSURL *url = [NSURL URLWithString:downloadUrl];
+    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    self.downloadTask = [self.urlSession downloadTaskWithRequest:request];
     
-    self.downloadTask = [self.urlSession downloadTaskWithRequest:mutableRequest
-                                                completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
-        if (error) {
-            self.isDownloading = NO;
-            reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-            return;
-        }
+    // self.downloadTask = [self.urlSession downloadTaskWithRequest:mutableRequest
+    //                                             completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+    //     if (error) {
+    //         self.isDownloading = NO;
+    //         reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
+    //         return;
+    //     }
         
-        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-        if (httpResponse.statusCode != 200 && httpResponse.statusCode != 206) {
-            NSError *httpError = [NSError errorWithDomain:@"BundleUpdateError" 
-                                                   code:httpResponse.statusCode 
-                                               userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
-            self.isDownloading = NO;
-            reject([NSString stringWithFormat:@"%ld", (long)httpError.code], httpError.localizedDescription, httpError);
-            return;
-        }
+    //     NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+    //     if (httpResponse.statusCode != 200 && httpResponse.statusCode != 206) {
+    //         NSError *httpError = [NSError errorWithDomain:@"BundleUpdateError" 
+    //                                                code:httpResponse.statusCode 
+    //                                            userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
+    //         self.isDownloading = NO;
+    //         reject([NSString stringWithFormat:@"%ld", (long)httpError.code], httpError.localizedDescription, httpError);
+    //         return;
+    //     }
         
-        // Move downloaded file to target location
-        NSError *moveError;
-        [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-        BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
+    //     // Move downloaded file to target location
+    //     NSError *moveError;
+    //     [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+    //     BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
         
-        if (!success) {
-            self.isDownloading = NO;
-            reject([NSString stringWithFormat:@"%ld", (long)moveError.code], moveError.localizedDescription, moveError);
-            return;
-        }
+    //     if (!success) {
+    //         self.isDownloading = NO;
+    //         reject([NSString stringWithFormat:@"%ld", (long)moveError.code], moveError.localizedDescription, moveError);
+    //         return;
+    //     }
 
-        self.isDownloading = NO;
-        [[NSFileManager defaultManager] removeItemAtPath:partialFilePath error:nil];
+    //     self.isDownloading = NO;
+    //     [[NSFileManager defaultManager] removeItemAtPath:partialFilePath error:nil];
 
-        if (![self verifyBundleSHA256:filePath sha256:sha256]) {
-            [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-            reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
-            return;
-        }
+    //     if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+    //         [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+    //         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
+    //         return;
+    //     }
         
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self sendEventWithName:@"update/complete" body:result];
-        });
+    //     dispatch_async(dispatch_get_main_queue(), ^{
+    //         [self sendEventWithName:@"update/complete" body:result];
+    //     });
         
-        DDLogDebug(@"downloadBundle: Download completed");
-        resolve(result);
-    }];
-    
+    //     DDLogDebug(@"downloadBundle: Download completed");
+    //     resolve(result);
+    // }];
     [self sendEventWithName:@"update/start" body:nil];
     [self.downloadTask resume];
 }
@@ -470,6 +466,10 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
             reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
             return;
         }
+    }
+    if (self.downloadTask != nil) {
+        [self.downloadTask cancel];
+        self.downloadTask = nil;
     }
     resolve(nil);
 }
