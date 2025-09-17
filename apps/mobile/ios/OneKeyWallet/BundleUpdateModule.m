@@ -306,13 +306,13 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
 
     NSString *appVersion = params[@"latestVersion"];
     NSString *bundleVersion = params[@"bundleVersion"];
-    NSString *downloadUrl = params[@"bundleUrl"];
+    NSString *downloadUrl = params[@"downloadUrl"];
     NSNumber *fileSize = params[@"fileSize"];
     NSString *sha256 = params[@"sha256"];
     
-    if (!downloadUrl || !fileSize) {
+    if (!downloadUrl || !fileSize || !sha256 || !appVersion || !bundleVersion) {
         self.isDownloading = NO;
-        reject(@"INVALID_PARAMS", @"downloadUrl and fileSize are required", nil);
+        reject(@"INVALID_PARAMS", @"downloadUrl and fileSize and sha256 and appVersion and bundleVersion are required", nil);
         return;
     }
     
