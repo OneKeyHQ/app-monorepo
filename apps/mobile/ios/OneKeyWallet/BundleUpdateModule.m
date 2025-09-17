@@ -250,31 +250,18 @@ RCT_EXPORT_METHOD(verifyASC:(NSDictionary *)params
 RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *filePath = params[@"filePath"];
-    
-    if (!filePath) {
-        reject(@"INVALID_PARAMS", @"filePath is required", nil);
+    NSString *filePath = params[@"downloadedFile"];
+    NSString *sha256 = params[@"sha256"];
+    if (!filePath || !sha256) {
+        reject(@"INVALID_PARAMS", @"filePath and sha256 are required", nil);
         return;
     }
     
-    if (![[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
-        NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
-                                             code:-1 
-                                         userInfo:@{NSLocalizedDescriptionKey: @"Bundle file not found"}];
-        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
+    if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+        reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
-    
-    NSString *ascFilePath = [filePath stringByAppendingString:@".SHA256SUMS.asc"];
-    BOOL isValid = [self verifyBundleSHA256:filePath ascPath:ascFilePath];
-    
-    if (!isValid) {
-        NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
-                                             code:-1 
-                                         userInfo:@{NSLocalizedDescriptionKey: @"Bundle signature verification failed"}];
-        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-        return;
-    }
+
     
     resolve(nil);
 }
