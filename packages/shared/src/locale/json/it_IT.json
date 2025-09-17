@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "Rilevate {riskyNumber} approvazioni a rischio",
   "wallet.approval_suggestion_title_summary": "Rilevate {riskyNumber} approvazioni a rischio e {inactiveNumber} contratti inattivi da più di 90 giorni",
   "wallet.approval_summary_suggestion_desc_all": "Revoca per ridurre il rischio e rimuovere le autorizzazioni non necessarie.",
-  "wallet.backup_now": "Esegui backup ora",
+  "wallet.backup_now": "Sincronizza ora",
   "wallet.backup_prompt": "Esegui il backup del tuo portafoglio",
   "wallet.buy_crypto_instruction": "Acquista criptovalute per finanziare il tuo portafoglio",
   "wallet.collapsed_assets": "Asset nascosti",

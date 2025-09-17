@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "偵測到 {riskyNumber} 項風險授權",
   "wallet.approval_suggestion_title_summary": "偵測到 {riskyNumber} 項風險授權和 {inactiveNumber} 個超過 90 日未活躍嘅合約",
   "wallet.approval_summary_suggestion_desc_all": "撤銷以降低風險並移除不必要嘅授權。",
-  "wallet.backup_now": "立即備份",
+  "wallet.backup_now": "立即同步",
   "wallet.backup_prompt": "備份你的錢包",
   "wallet.buy_crypto_instruction": "購買加密貨幣至您的錢包",
   "wallet.collapsed_assets": "已收起資產",
