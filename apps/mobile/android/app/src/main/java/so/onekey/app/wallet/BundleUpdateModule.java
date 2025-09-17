@@ -123,7 +123,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             
             Log.d(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
             
-            if (currentBundleVersion == null) {
+            if (currentbundleVersion == 0) {
                 return null;
             }
             
@@ -254,7 +254,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         int bundleVersion = params.getInt("bundleVersion");
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == null || sha256 == null) {
+        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == 0 || sha256 == null) {
             promise.reject("INVALID_PARAMS", "downloadUrl, filePath, signature, appVersion, bundleVersion and sha256 are required");
             return;
         }
@@ -334,7 +334,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         int fileSize = params.getInt("fileSize");
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == null) {
+        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == 0) {
             isDownloading = false;
             promise.reject("INVALID_PARAMS", "downloadUrl, fileSize, sha256, appVersion and bundleVersion are required");
             return;
@@ -439,7 +439,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         int bundleVersion = params.getInt("bundleVersion");
         String filePath = params.getString("downloadedFile");
         
-        if (filePath == null || appVersion == null || bundleVersion == null) {
+        if (filePath == null || appVersion == null || bundleVersion == 0) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
         }
