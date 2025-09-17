@@ -345,10 +345,10 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
   );
 
+  const webEmbedAndroidPath = path.join(distPath, 'web-embed');
   if (!fs.existsSync(webEmbedAndroidPath)) {
     fs.mkdirSync(webEmbedAndroidPath, { recursive: true });
   }
-  const webEmbedAndroidPath = path.join(distPath, 'web-embed');
   execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedAndroidPath}/`, {
     stdio: 'inherit',
   });
