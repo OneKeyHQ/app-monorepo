@@ -270,7 +270,74 @@ const buildAndroidBundle = async () => {
     --sourcemap-output ${buildAndroidOutputAssetPath('main.jsbundle.map')}    
     `,
   );
+  console.log('build android bundle done');
+
+  console.log('build android bundle compress to hbc');
+  execSync(
+    `${path.join(
+      projectRootPath,
+      'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
+    )} -emit-binary -out ${buildAndroidOutputAssetPath(
+      'main.jsbundle.hbc',
+    )} ${buildAndroidOutputAssetPath('main.jsbundle')}`,
+    {
+      stdio: 'inherit',
+    },
+  );
+  console.log('build android bundle compress to hbc done');
+
+  if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
+    console.log('build android bundle upload source maps');
+    execSync(
+      `${path.join(
+        projectRootPath,
+        'node_modules/@sentry/cli/bin/sentry-cli',
+      )}  sourcemaps upload \
+  --debug-id-reference \
+  --strip-prefix ${projectRootPath} \
+  ${buildAndroidOutputAssetPath('main.jsbundle')} ${buildAndroidOutputAssetPath(
+        'main.jsbundle.map',
+      )}`,
+      {
+        stdio: 'inherit',
+        env: {
+          SENTRY_AUTH_TOKEN,
+          SENTRY_ORG,
+          SENTRY_PROJECT,
+        },
+      },
+    );
+    console.log('build android bundle upload source maps done');
+  }
+  const distPath = buildAndroidOutputAssetPath('dist');
+  if (!fs.existsSync(distPath)) {
+    fs.mkdirSync(distPath);
+  }
+  fs.moveSync(
+    buildAndroidOutputAssetPath('assets'),
+    buildAndroidOutputAssetPath('dist/assets'),
+  );
+  fs.moveSync(
+    buildAndroidOutputAssetPath('main.jsbundle.hbc'),
+    buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
+  );
+  console.log('build android bundle compress dist to zip');
+  generateMetadataJson(distPath);
+  execSync(`cd ${distPath} && zip -r dist.zip .`, {
+    stdio: 'inherit',
+  });
+
+  const zipFilePath = buildZipOutputAssetPath('android-bundle.zip');
+  fs.moveSync(buildAndroidOutputAssetPath('dist/dist.zip'), zipFilePath);
+  generateFileInfo(zipFilePath);
+  generateFileInfo(
+    buildAndroidOutputAssetPath('dist/metadata.json'),
+    buildZipOutputAssetPath('android.metadata.json.info'),
+  );
+  console.log('build android bundle compress dist to zip done');
+  console.log('build android bundle done');
 };
 
-// cleanBundleOutput();
+cleanBundleOutput();
 buildIOSBundle();
+buildAndroidBundle();
