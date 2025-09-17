@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -254,6 +255,11 @@ export const BundleUpdate: IBundleUpdate = {
   verifyBundle: (params) => BundleUpdateModule.verifyBundle(params),
   verifyBundleASC: (params) => BundleUpdateModule.verifyBundleASC(params),
   downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
-  installBundle: (params) => BundleUpdateModule.installBundle(params),
+  installBundle: async (params) => {
+    await BundleUpdateModule.installBundle(params);
+    setTimeout(() => {
+      RNRestart.restart();
+    }, 2500);
+  },
   clearBundle: () => BundleUpdateModule.clearBundle(),
 };
