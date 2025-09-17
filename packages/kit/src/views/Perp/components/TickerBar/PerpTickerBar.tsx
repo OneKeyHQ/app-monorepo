@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,47 +13,21 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { usePerpSession } from '../../hooks';
+import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
-
-// Countdown timer hook for funding rate countdown (every hour)
-function useFundingCountdown() {
-  const [countdown, setCountdown] = useState('00:00');
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const now = new Date();
-      const nextHour = new Date(now);
-      nextHour.setHours(nextHour.getHours() + 1, 0, 0, 0);
-
-      const diff = nextHour.getTime() - now.getTime();
-      const minutes = Math.floor(diff / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-      setCountdown(
-        `${minutes.toString().padStart(2, '0')}:${seconds
-          .toString()
-          .padStart(2, '0')}`,
-      );
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return countdown;
-}
 
 function PerpTickerBar() {
   const { gtMd } = useMedia();
+  const navigation = useAppNavigation();
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
   const [priceData] = useCurrentTokenPriceAtom();
@@ -71,6 +45,10 @@ function PerpTickerBar() {
   const formattedOraclePrice = oraclePrice;
   const intl = useIntl();
   const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
+
+  const onPressCandleChart = useCallback(() => {
+    navigation.push(EModalPerpRoutes.MobilePerpMarket);
+  }, [navigation]);
 
   if (!gtMd) {
     return (
@@ -95,6 +73,7 @@ function PerpTickerBar() {
             icon="TradingViewCandlesOutline"
             size="medium"
             variant="tertiary"
+            onPress={onPressCandleChart}
           />
         </XStack>
       </XStack>

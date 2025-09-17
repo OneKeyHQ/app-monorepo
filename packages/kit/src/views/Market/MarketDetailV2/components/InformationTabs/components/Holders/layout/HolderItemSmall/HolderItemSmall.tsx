@@ -26,20 +26,26 @@ function HolderItemSmallBase({
     useHolderItemData({ item, index });
 
   return (
-    <XStack h={40} px="$4" alignItems="center" gap="$3">
-      {/* Rank */}
-      <SizableText size="$bodyMd" color="$textSubdued" {...styles.rank}>
-        #{rank}
-      </SizableText>
+    <XStack h={52} px="$4" alignItems="center" gap="$3">
+      <XStack gap="$4" alignItems="center">
+        {/* Rank */}
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {rank}
+        </SizableText>
 
-      {/* Address */}
-      <AddressDisplay
-        address={accountAddress}
-        enableCopy
-        enableOpenInBrowser
-        networkId={networkId}
-        style={styles.address}
-      />
+        {/* Address */}
+        <AddressDisplay
+          style={{
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            ...styles.address,
+          }}
+          address={accountAddress}
+          enableCopy
+          enableOpenInBrowser
+          networkId={networkId}
+        />
+      </XStack>
 
       {/* Percentage */}
       <SizableText size="$bodyMd" color="$text" {...styles.percentage}>

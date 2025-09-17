@@ -306,6 +306,7 @@ function AppDataSection() {
   const [config] = usePrimeCloudSyncPersistAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isSubmittingRef = useRef(false);
+  const manualSyncingRef = useRef(false);
 
   const reloadServerUserInfo = useCallback(async () => {
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
@@ -325,9 +326,51 @@ function AppDataSection() {
     return ' - ';
   }, [config.lastSyncTime]);
 
+  const handleManualSync = useCallback(async () => {
+    if (!config.isCloudSyncEnabled) {
+      return;
+    }
+    if (manualSyncingRef.current) {
+      return;
+    }
+    manualSyncingRef.current = true;
+    try {
+      await backgroundApiProxy.serviceApp.showDialogLoading({
+        title: intl.formatMessage({
+          id: ETranslations.global_syncing,
+        }),
+      });
+      await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+        callerName: 'Manual Cloud Sync',
+      });
+      await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime();
+    } finally {
+      manualSyncingRef.current = false;
+      await timerUtils.wait(1000);
+      await backgroundApiProxy.serviceApp.hideDialogLoading();
+    }
+    void backgroundApiProxy.serviceApp.showToast({
+      method: 'success',
+      title: intl.formatMessage({
+        id: ETranslations.global_sync_successfully,
+      }),
+    });
+  }, [config.isCloudSyncEnabled, intl]);
+
   return (
     <>
       <EnableOneKeyCloudSwitchListItem />
+
+      {config?.isCloudSyncEnabled ? (
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.wallet_backup_now,
+          })}
+          icon="RefreshCwOutline"
+          drillIn
+          onPress={handleManualSync}
+        />
+      ) : null}
 
       {config?.isCloudSyncEnabled || isServerMasterPasswordSet ? (
         <ListItem
