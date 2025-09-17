@@ -141,6 +141,7 @@ function BulkRevokeItem(props: IProps) {
               formatterOptions={{
                 tokenSymbol: status.feeSymbol,
               }}
+              numberOfLines={1}
             >
               {status.feeBalance ?? '-'}
             </NumberSizeableText>
@@ -152,6 +153,7 @@ function BulkRevokeItem(props: IProps) {
                 formatterOptions={{
                   currency: settings.currencyInfo.symbol,
                 }}
+                numberOfLines={1}
               >
                 {status.feeFiat ?? '-'}
               </NumberSizeableText>

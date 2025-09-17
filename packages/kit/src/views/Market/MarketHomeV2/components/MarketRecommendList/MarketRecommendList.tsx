@@ -12,6 +12,8 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketBasicConfigToken } from '@onekeyhq/shared/types/marketV2';
 
@@ -88,6 +90,16 @@ export function MarketRecommendList({
 
       actions.addIntoWatchListV2(items);
 
+      // Log analytics for each token added to watchlist from recommend list
+      selectedTokens.forEach((token) => {
+        defaultLogger.dex.watchlist.dexAddToWatchlist({
+          network: token.chainId,
+          tokenSymbol: token.symbol || '',
+          tokenContract: token.contractAddress,
+          addFrom: EWatchlistFrom.Recommend,
+        });
+      });
+
       setTimeout(() => {
         setSelectedTokens(defaultTokens);
       }, 50);
@@ -124,7 +136,7 @@ export function MarketRecommendList({
   );
 
   const stackPaddingBottom = useMemo(() => {
-    if (platformEnv.isNativeAndroid) return 100;
+    if (platformEnv.isNativeAndroid) return 80;
     if (platformEnv.isExtension) return 50;
     return 0;
   }, []);
@@ -134,7 +146,7 @@ export function MarketRecommendList({
   }
 
   return (
-    <Stack flex={1} paddingBottom={stackPaddingBottom}>
+    <Stack flex={1} width="100%" paddingBottom={stackPaddingBottom}>
       <ScrollView
         contentContainerStyle={{ ai: 'center' }}
         px="$5"

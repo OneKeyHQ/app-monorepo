@@ -1,13 +1,10 @@
 import {
   Divider,
-  Icon,
+  InteractiveIcon,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
-import { NATIVE_HIT_SLOP } from '@onekeyhq/components/src/utils';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -15,34 +12,6 @@ import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
-
-function InteractiveIcon({
-  icon,
-  onPress,
-  size = '$4',
-}: {
-  icon: IKeyOfIcons;
-  onPress: () => void;
-  size?: IIconProps['size'];
-}) {
-  return (
-    <Stack
-      w={size}
-      h={size}
-      cursor="pointer"
-      onPress={onPress}
-      hitSlop={NATIVE_HIT_SLOP}
-      group
-    >
-      <Icon
-        name={icon}
-        size={size}
-        color="$iconSubdued"
-        $group-hover={{ color: '$iconHover' }}
-      />
-    </Stack>
-  );
-}
 
 interface ITokenDetailHeaderLeftProps {
   tokenDetail?: IMarketTokenDetail;

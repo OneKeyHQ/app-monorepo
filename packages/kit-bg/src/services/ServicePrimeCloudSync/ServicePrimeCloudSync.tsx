@@ -34,7 +34,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
-import type { IMarketWatchListItem } from '@onekeyhq/shared/types/market';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   ICloudSyncCredential,
   ICloudSyncCredentialForLock,
@@ -1471,9 +1471,9 @@ class ServicePrimeCloudSync extends ServiceBase {
         initDataTime: undefined,
       });
 
-    const allMarketWatchList: IMarketWatchListItem[] =
+    const allMarketWatchList: IMarketWatchListItemV2[] =
       (
-        await this.backgroundApi.serviceMarket.getMarketWatchListWithFillingSortIndex()
+        await this.backgroundApi.serviceMarketV2.getMarketWatchListWithFillingSortIndexV2()
       )?.data || [];
     const syncItemsForMarketWatchList: IDBCloudSyncItem[] =
       await this.syncManagers.marketWatchList.buildInitSyncDBItems({

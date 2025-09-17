@@ -112,6 +112,7 @@ export function MarketTokenAddress({
           // Dex analytics
           defaultLogger.dex.actions.dexCopyCA({
             copyFrom,
+            copiedContent: address,
           });
         }}
       />

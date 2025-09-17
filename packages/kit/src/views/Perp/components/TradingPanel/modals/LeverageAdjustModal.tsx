@@ -18,8 +18,8 @@ import {
   useActiveAssetDataAtom,
   useCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
 
