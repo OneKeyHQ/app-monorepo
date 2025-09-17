@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
@@ -48,7 +49,6 @@ import {
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 
 import type { RouteProp } from '@react-navigation/core';
-import BigNumber from 'bignumber.js';
 
 const listedNetworkMap = getListedNetworkMap();
 

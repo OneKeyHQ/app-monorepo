@@ -1,7 +1,3 @@
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 

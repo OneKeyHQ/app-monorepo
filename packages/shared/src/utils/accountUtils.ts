@@ -17,6 +17,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
   type EHyperLiquidAgentName,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
@@ -39,7 +40,6 @@ import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 
 import type { IExternalConnectionInfo } from '../../types/externalWallet.types';
-import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 
 function getWalletIdFromAccountId({ accountId }: { accountId: string }) {
   /*
