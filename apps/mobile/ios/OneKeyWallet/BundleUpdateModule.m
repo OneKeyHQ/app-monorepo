@@ -7,36 +7,37 @@
 
 #import "BundleUpdateModule.h"
 #import <React/RCTLog.h>
+#import <CocoaLumberjack/CocoaLumberjack.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <React/RCTUtils.h>
 
+static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
+
 @implementation BundleUpdateModule
+@property (nonatomic, assign) BOOL isDownloading;
 
 RCT_EXPORT_MODULE();
 
-- (NSArray<NSString *> *)supportedEvents {
-    return @[@"update/start", @"update/downloading", @"update/downloaded", @"update/error"];
++ (NSString *)downloadBundleDir {
+    NSString *homeDir = NSHomeDirectory();
+    NSString *bundleUpdateDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle-download"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:bundleUpdateDir]) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:bundleUpdateDir withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    return bundleUpdateDir;
+}
+
++ (NSString *)bundleDir {
+    NSString *homeDir = NSHomeDirectory();
+    NSString *bundleDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:bundleDir]) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:bundleDir withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    return bundleDir;
 }
 
 - (dispatch_queue_t)methodQueue {
     return dispatch_queue_create("com.onekey.bundleupdate", DISPATCH_QUEUE_SERIAL);
-}
-
-- (void)log:(NSString *)name message:(NSString *)message {
-    NSString *timestamp = [NSDateFormatter localizedStringFromDate:[NSDate date]
-                                                         dateStyle:NSDateFormatterNoStyle
-                                                         timeStyle:NSDateFormatterMediumStyle];
-    RCTLogInfo(@"%@ | INFO : app => native => BundleUpdate:%@: %@", timestamp, name, message);
-}
-
-- (void)sendEvent:(NSString *)eventName params:(NSDictionary *)params {
-    [self sendEventWithName:eventName body:params];
-}
-
-- (void)sendDownloadError:(NSError *)error promise:(RCTPromiseRejectBlock)reject {
-    NSDictionary *params = @{@"message": error.localizedDescription ?: @"Unknown error"};
-    [self sendEvent:@"update/error" params:params];
-    reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
 }
 
 - (NSString *)calculateSHA256:(NSString *)filePath {
@@ -72,7 +73,7 @@ RCT_EXPORT_MODULE();
                                                      encoding:NSUTF8StringEncoding
                                                         error:&error];
     if (error || !ascContent) {
-        [self log:@"extractSHA256" message:[NSString stringWithFormat:@"Error reading ASC file: %@", error.localizedDescription]];
+        DDLogDebug(@"extractSHA256: Error reading ASC file: %@", error.localizedDescription);
         return nil;
     }
     
@@ -98,7 +99,7 @@ RCT_EXPORT_MODULE();
     return [[string stringByTrimmingCharactersInSet:hexCharacterSet] isEqualToString:@""];
 }
 
-- (BOOL)verifyBundleSignature:(NSString *)bundlePath ascPath:(NSString *)ascPath {
+- (BOOL)verifyBundleSHA256:(NSString *)bundlePath ascPath:(NSString *)ascPath {
     NSString *calculatedSHA256 = [self calculateSHA256:bundlePath];
     NSString *expectedSHA256 = [self extractSHA256FromASCFile:ascPath];
     
@@ -107,9 +108,7 @@ RCT_EXPORT_MODULE();
     }
     
     BOOL isValid = [calculatedSHA256 isEqualToString:expectedSHA256];
-    [self log:@"verifySignature" message:[NSString stringWithFormat:@"Calculated: %@, Expected: %@, Valid: %@", 
-                                         calculatedSHA256, expectedSHA256, isValid ? @"YES" : @"NO"]];
-    
+    DDLogDebug(@"verifyBundleSHA256: Calculated: %@, Expected: %@, Valid: %@", calculatedSHA256, expectedSHA256, isValid ? @"YES" : @"NO");
     return isValid;
 }
 
@@ -133,7 +132,7 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
                                                                  completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) {
-            [self sendDownloadError:error promise:reject];
+            reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
             return;
         }
         
@@ -142,7 +141,7 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
             NSError *httpError = [NSError errorWithDomain:@"BundleUpdateError" 
                                                      code:httpResponse.statusCode 
                                                  userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
-            [self sendDownloadError:httpError promise:reject];
+            reject([NSString stringWithFormat:@"%ld", (long)httpError.code], httpError.localizedDescription, httpError);
             return;
         }
         
@@ -151,11 +150,11 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
             NSError *emptyError = [NSError errorWithDomain:@"BundleUpdateError" 
                                                       code:-1 
                                                   userInfo:@{NSLocalizedDescriptionKey: @"Empty ASC file content"}];
-            [self sendDownloadError:emptyError promise:reject];
+            reject([NSString stringWithFormat:@"%ld", (long)emptyError.code], emptyError.localizedDescription, emptyError);
             return;
         }
         
-        [self log:@"downloadASC" message:ascContent];
+        DDLogDebug(@"downloadASC: ASC file content: %@", ascContent);
         
         NSError *writeError;
         BOOL success = [ascContent writeToFile:ascFilePath 
@@ -164,7 +163,7 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
                                          error:&writeError];
         
         if (!success) {
-            [self sendDownloadError:writeError promise:reject];
+            reject([NSString stringWithFormat:@"%ld", (long)writeError.code], writeError.localizedDescription, writeError);
             return;
         }
         
@@ -190,7 +189,7 @@ RCT_EXPORT_METHOD(verifyASC:(NSDictionary *)params
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
                                              code:-1 
                                          userInfo:@{NSLocalizedDescriptionKey: @"ASC file not found"}];
-        [self sendDownloadError:error promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
         return;
     }
     
@@ -199,7 +198,7 @@ RCT_EXPORT_METHOD(verifyASC:(NSDictionary *)params
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
                                              code:-1 
                                          userInfo:@{NSLocalizedDescriptionKey: @"Failed to extract SHA256 from ASC file"}];
-        [self sendDownloadError:error promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
         return;
     }
     
@@ -220,18 +219,18 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
                                              code:-1 
                                          userInfo:@{NSLocalizedDescriptionKey: @"Bundle file not found"}];
-        [self sendDownloadError:error promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
         return;
     }
     
     NSString *ascFilePath = [filePath stringByAppendingString:@".SHA256SUMS.asc"];
-    BOOL isValid = [self verifyBundleSignature:filePath ascPath:ascFilePath];
+    BOOL isValid = [self verifyBundleSHA256:filePath ascPath:ascFilePath];
     
     if (!isValid) {
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
                                              code:-1 
                                          userInfo:@{NSLocalizedDescriptionKey: @"Bundle signature verification failed"}];
-        [self sendDownloadError:error promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
         return;
     }
     
@@ -241,36 +240,79 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
 RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *downloadUrl = params[@"downloadUrl"];
-    NSString *filePath = params[@"filePath"];
-    NSString *notificationTitle = params[@"notificationTitle"] ?: @"Downloading Update";
+
+    if (self.isDownloading) {
+        resolve(nil);
+        return;
+    }
+
+    self.isDownloading = YES;
+
+    NSString *appVersion = params[@"latestVersion"];
+    NSString *bundleVersion = params[@"bundleVersion"];
+    NSString *downloadUrl = params[@"bundleUrl"];
+    NSNumber *fileSize = params[@"fileSize"];
+    NSString *sha256 = params[@"sha256"];
     
-    if (!downloadUrl || !filePath) {
-        reject(@"INVALID_PARAMS", @"downloadUrl and filePath are required", nil);
+    if (!downloadUrl || !filePath || !fileSize) {
+        self.isDownloading = NO;
+        reject(@"INVALID_PARAMS", @"downloadUrl, filePath and fileSize are required", nil);
         return;
     }
     
-    // Remove existing file if it exists
-    [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+    NSString *fileName = [NSString stringWithFormat:@"%@-%@.zip", appVersion, bundleVersion];
+    NSString *filePath = [BundleUpdateModule.downloadBundleDir stringByAppendingPathComponent:fileName];
+    NSDictionary *result = @{
+        @"downloadedFile": filePath,
+        @"downloadUrl": bundleUrl,
+        @"latestVersion": appVersion,
+        @"bundleVersion": bundleVersion
+    };
+
+    if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
+        if ([self verifyBundleSHA256:filePath sha256:sha256]) {
+            resolve(result);
+            self.isDownloading = NO;
+            return;
+        } else {
+            [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+        }
+    }
     
     NSURL *url = [NSURL URLWithString:downloadUrl];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     
-    [self sendEvent:@"update/start" params:nil];
+    // Check if partial file exists and get its size
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    NSString *partialFilePath = [filePath stringByAppendingString:@".partial"];
+    long long downloadedBytes = 0;
     
-    NSURLSessionDownloadTask *downloadTask = [[NSURLSession sharedSession] downloadTaskWithRequest:request
-                                                                                  completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+    if ([fileManager fileExistsAtPath:partialFilePath]) {
+        NSDictionary *fileAttributes = [fileManager attributesOfItemAtPath:partialFilePath error:nil];
+        downloadedBytes = [fileAttributes fileSize];
+    }
+    
+    // Create request with Range header if resuming
+    NSMutableURLRequest *mutableRequest = [request mutableCopy];
+    if (downloadedBytes > 0) {
+        [mutableRequest setValue:[NSString stringWithFormat:@"bytes=%lld-", downloadedBytes] forHTTPHeaderField:@"Range"];
+    }
+    
+    NSURLSessionDownloadTask *downloadTask = [[NSURLSession sharedSession] downloadTaskWithRequest:mutableRequest
+                                                                                completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
         if (error) {
-            [self sendDownloadError:error promise:reject];
+            self.isDownloading = NO;
+            reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
             return;
         }
         
         NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-        if (httpResponse.statusCode != 200) {
+        if (httpResponse.statusCode != 200 && httpResponse.statusCode != 206) {
             NSError *httpError = [NSError errorWithDomain:@"BundleUpdateError" 
-                                                     code:httpResponse.statusCode 
-                                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
-            [self sendDownloadError:httpError promise:reject];
+                                                   code:httpResponse.statusCode 
+                                               userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
+            self.isDownloading = NO;
+            reject([NSString stringWithFormat:@"%ld", (long)httpError.code], httpError.localizedDescription, httpError);
             return;
         }
         
@@ -280,14 +322,23 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
         BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
         
         if (!success) {
-            [self sendDownloadError:moveError promise:reject];
+            self.isDownloading = NO;
+            reject([NSString stringWithFormat:@"%ld", (long)moveError.code], moveError.localizedDescription, moveError);
+            return;
+        }
+
+        self.isDownloading = NO;
+        [[NSFileManager defaultManager] removeItemAtPath:partialFilePath error:nil];
+
+        if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+            [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+            reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
             return;
         }
         
-        [self log:@"downloadBundle" message:@"Download completed"];
-        [self sendEvent:@"update/downloaded" params:nil];
         
-        resolve(nil);
+        DDLogDebug(@"downloadBundle: Download completed");
+        resolve(result);
     }];
     
     [downloadTask resume];
@@ -307,7 +358,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
                                              code:-1 
                                          userInfo:@{NSLocalizedDescriptionKey: @"Bundle file not found"}];
-        [self sendDownloadError:error promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
         return;
     }
     
@@ -319,7 +370,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
                                              code:-1 
                                          userInfo:@{NSLocalizedDescriptionKey: @"Bundle signature verification failed"}];
-        [self sendDownloadError:error promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
         return;
     }
     
@@ -340,11 +391,11 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     BOOL success = [[NSFileManager defaultManager] copyItemAtPath:filePath toPath:targetPath error:&copyError];
     
     if (!success) {
-        [self sendDownloadError:copyError promise:reject];
+        reject([NSString stringWithFormat:@"%ld", (long)copyError.code], copyError.localizedDescription, copyError);
         return;
     }
     
-    [self log:@"installBundle" message:[NSString stringWithFormat:@"Bundle installed to: %@", targetPath]];
+    DDLogDebug(@"installBundle: Bundle installed to: %@", targetPath);
     
     resolve(nil);
 }
