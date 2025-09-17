@@ -15,11 +15,6 @@ function HoldersHeaderSmallBase() {
 
   return (
     <XStack px="$4" py="$3" alignItems="center" gap="$3">
-      <SizableText {...commonTextProps} {...styles.rank}>
-        {intl.formatMessage({
-          id: ETranslations.dexmarket_details_holders_rank,
-        })}
-      </SizableText>
       <SizableText {...commonTextProps} {...styles.address}>
         {intl.formatMessage({
           id: ETranslations.global_address,
