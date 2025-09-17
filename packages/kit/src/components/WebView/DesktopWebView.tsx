@@ -111,6 +111,7 @@ const DesktopWebView = forwardRef(
       while (pendingScriptsRef.current.length) {
         const script = pendingScriptsRef.current.shift();
         if (!script) {
+          // eslint-disable-next-line no-continue
           continue;
         }
         try {
@@ -281,7 +282,10 @@ const DesktopWebView = forwardRef(
               try {
                 webviewRef.current.executeJavaScript(script);
               } catch (error) {
-                console.error('DesktopWebView: failed to execute script', error);
+                console.error(
+                  'DesktopWebView: failed to execute script',
+                  error,
+                );
               }
             }
           },
