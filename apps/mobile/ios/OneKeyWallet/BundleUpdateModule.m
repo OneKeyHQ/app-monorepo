@@ -221,7 +221,7 @@ RCT_EXPORT_METHOD(downloadBundleASC:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSString *downloadUrl = params[@"downloadUrl"];
-    NSString *filePath = params[@"filePath"];
+    NSString *filePath = params[@"downloadedFile"];
     NSString *signature = params[@"signature"];
     NSString *appVersion = params[@"latestVersion"];
     NSString *bundleVersion = params[@"bundleVersion"];
