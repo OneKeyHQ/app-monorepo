@@ -2099,6 +2099,8 @@
   perp_token_selector_last_price = 'perp.token_selector_last_price',
   perp_token_selector_loading = 'perp.token_selector_loading',
   perp_token_selector_volume = 'perp.token_selector_volume',
+  perp_tp_sl_position = 'perp.tp_sl_position',
+  perp_tp_sl_position_desc = 'perp.tp_sl_position_desc',
   perp_trade_account_overview = 'perp.trade_account_overview',
   perp_trade_account_overview_available = 'perp.trade_account_overview_available',
   perp_trade_button_account_unsupported = 'perp.trade_button_account_unsupported',

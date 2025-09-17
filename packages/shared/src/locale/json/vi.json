@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "Giá cuối cùng",
   "perp.token_selector_loading": "Đang tải token...",
   "perp.token_selector_volume": "Âm lượng",
+  "perp.tp_sl_position": "TP/SL cho vị thế",
+  "perp.tp_sl_position_desc": "Đặt một mức giá để kích hoạt lệnh Chốt lời (Take Profit) hoặc Cắt lỗ (Stop Loss).",
   "perp.trade_account_overview": "Tổng quan tài khoản",
   "perp.trade_account_overview_available": "Có sẵn để giao dịch",
   "perp.trade_button_account_unsupported": "Tài khoản không được hỗ trợ",

@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "Letzter Preis",
   "perp.token_selector_loading": "Token werden geladen...",
   "perp.token_selector_volume": "Lautstärke",
+  "perp.tp_sl_position": "TP/SL für Position",
+  "perp.tp_sl_position_desc": "Legen Sie einen Preis fest, um eine Take-Profit- oder Stop-Loss-Order auszulösen.",
   "perp.trade_account_overview": "Kontoübersicht",
   "perp.trade_account_overview_available": "Verfügbar zum Handeln",
   "perp.trade_button_account_unsupported": "Konto nicht unterstützt",

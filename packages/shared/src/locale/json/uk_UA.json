@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "Остання ціна",
   "perp.token_selector_loading": "Завантаження токенів...",
   "perp.token_selector_volume": "Гучність",
+  "perp.tp_sl_position": "TP/SL для позиції",
+  "perp.tp_sl_position_desc": "Встановіть ціну для активації ордера Take Profit або Stop Loss.",
   "perp.trade_account_overview": "Огляд рахунку",
   "perp.trade_account_overview_available": "Доступно для торгівлі",
   "perp.trade_button_account_unsupported": "Акаунт не підтримується",

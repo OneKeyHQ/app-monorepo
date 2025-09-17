@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "Harga terakhir",
   "perp.token_selector_loading": "Memuat token...",
   "perp.token_selector_volume": "Volume",
+  "perp.tp_sl_position": "TP/SL untuk Posisi",
+  "perp.tp_sl_position_desc": "Tetapkan harga untuk memicu order Take Profit atau Stop Loss.",
   "perp.trade_account_overview": "Ringkasan Akun",
   "perp.trade_account_overview_available": "Tersedia untuk diperdagangkan",
   "perp.trade_button_account_unsupported": "Akun Tidak Didukung",

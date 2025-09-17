@@ -387,6 +387,7 @@ const ClosePositionForm = memo(
             text: `Max: ${positionSize.toNumber()} ${position.coin}`,
             align: 'right',
           }}
+          ifDialog
         />
 
         <YStack gap="$2" p="$2">
@@ -423,7 +424,7 @@ export function showClosePositionDialog({
   hyperliquidActions,
 }: IClosePositionParams) {
   const dialogInstance = Dialog.show({
-    title: 'Close Position',
+    title: ,
     renderContent: (
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <ClosePositionForm

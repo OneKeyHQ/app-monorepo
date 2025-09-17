@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "最終価格",
   "perp.token_selector_loading": "トークンを読み込んでいます...",
   "perp.token_selector_volume": "音量",
+  "perp.tp_sl_position": "ポジションのTP/SL",
+  "perp.tp_sl_position_desc": "テイクプロフィットまたはストップロス注文を発動させる価格を設定します。",
   "perp.trade_account_overview": "アカウント概要",
   "perp.trade_account_overview_available": "取引可能",
   "perp.trade_button_account_unsupported": "アカウントがサポートされていません",

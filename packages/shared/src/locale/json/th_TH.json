@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "ราคาล่าสุด",
   "perp.token_selector_loading": "กำลังโหลดโทเคน...",
   "perp.token_selector_volume": "ปริมาตร",
+  "perp.tp_sl_position": "TP/SL สำหรับโพซิชัน",
+  "perp.tp_sl_position_desc": "กำหนดราคาเพื่อให้คำสั่งทำกำไร (Take Profit) หรือหยุดขาดทุน (Stop Loss) ทำงาน",
   "perp.trade_account_overview": "ภาพรวมบัญชี",
   "perp.trade_account_overview_available": "พร้อมสำหรับการเทรด",
   "perp.trade_button_account_unsupported": "บัญชีไม่รองรับ",

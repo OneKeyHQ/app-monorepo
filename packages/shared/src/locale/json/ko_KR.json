@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "최종 가격",
   "perp.token_selector_loading": "토큰을 불러오는 중...",
   "perp.token_selector_volume": "볼륨",
+  "perp.tp_sl_position": "포지션용 TP/SL",
+  "perp.tp_sl_position_desc": "수익 실현 또는 손절매 주문을 트리거할 가격을 설정하세요.",
   "perp.trade_account_overview": "계정 개요",
   "perp.trade_account_overview_available": "거래 가능",
   "perp.trade_button_account_unsupported": "지원되지 않는 계정",

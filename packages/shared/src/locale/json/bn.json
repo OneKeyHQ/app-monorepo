@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "সর্বশেষ মূল্য",
   "perp.token_selector_loading": "টোকেন লোড হচ্ছে...",
   "perp.token_selector_volume": "ভলিউম",
+  "perp.tp_sl_position": "পজিশনের জন্য TP/SL",
+  "perp.tp_sl_position_desc": "টেক প্রফিট বা স্টপ লস অর্ডার ট্রিগার করার জন্য একটি মূল্য নির্ধারণ করুন।",
   "perp.trade_account_overview": "অ্যাকাউন্ট ওভারভিউ",
   "perp.trade_account_overview_available": "লেনদেনের জন্য উপলব্ধ",
   "perp.trade_button_account_unsupported": "অ্যাকাউন্ট সমর্থিত নয়",

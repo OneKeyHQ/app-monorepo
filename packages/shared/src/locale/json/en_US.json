@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "Last price",
   "perp.token_selector_loading": "Loading tokens...",
   "perp.token_selector_volume": "Volume",
+  "perp.tp_sl_position": "TP/SL for Position",
+  "perp.tp_sl_position_desc": "Set a price to trigger a Take Profit or Stop Loss order.",
   "perp.trade_account_overview": "Account Overview",
   "perp.trade_account_overview_available": "Available to trade",
   "perp.trade_button_account_unsupported": "Account Unspported",

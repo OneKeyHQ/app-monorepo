@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "अंतिम मूल्य",
   "perp.token_selector_loading": "टोकन लोड हो रहे हैं...",
   "perp.token_selector_volume": "आयतन",
+  "perp.tp_sl_position": "स्थिति के लिए TP/SL",
+  "perp.tp_sl_position_desc": "टेक प्रॉफिट या स्टॉप लॉस ऑर्डर को ट्रिगर करने के लिए एक कीमत सेट करें।",
   "perp.trade_account_overview": "खाता अवलोकन",
   "perp.trade_account_overview_available": "ट्रेड के लिए उपलब्ध",
   "perp.trade_button_account_unsupported": "खाता असमर्थित",

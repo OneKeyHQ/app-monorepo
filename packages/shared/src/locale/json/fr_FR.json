@@ -2094,6 +2094,8 @@
   "perp.token_selector_last_price": "Dernier prix",
   "perp.token_selector_loading": "Chargement des jetons...",
   "perp.token_selector_volume": "Volume",
+  "perp.tp_sl_position": "TP/SL pour Position",
+  "perp.tp_sl_position_desc": "Définissez un prix pour déclencher un ordre Take Profit ou Stop Loss.",
   "perp.trade_account_overview": "Aperçu du compte",
   "perp.trade_account_overview_available": "Disponible pour le trading",
   "perp.trade_button_account_unsupported": "Compte Non Pris en Charge",
