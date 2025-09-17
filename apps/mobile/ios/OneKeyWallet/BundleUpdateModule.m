@@ -13,10 +13,32 @@
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
-@implementation BundleUpdateModule
+
+@interface BundleUpdateModule ()
 @property (nonatomic, assign) BOOL isDownloading;
+@property (nonatomic, strong) NSURLSessionDownloadTask *downloadTask;
+@property (nonatomic, strong) NSURLSession *urlSession;
+@end
+
+@implementation BundleUpdateModule
 
 RCT_EXPORT_MODULE();
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        self.isDownloading = NO;
+        
+        // Create URL session with delegate for progress tracking
+        NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
+        self.urlSession = [NSURLSession sessionWithConfiguration:config delegate:self delegateQueue:nil];
+    }
+    return self;
+}
+
+- (NSArray<NSString *> *)supportedEvents {
+    return @[@"update/start", @"update/progress", @"update/complete"];
+}
 
 + (NSString *)downloadBundleDir {
     NSString *homeDir = NSHomeDirectory();
@@ -99,9 +121,9 @@ RCT_EXPORT_MODULE();
     return [[string stringByTrimmingCharactersInSet:hexCharacterSet] isEqualToString:@""];
 }
 
-- (BOOL)verifyBundleSHA256:(NSString *)bundlePath ascPath:(NSString *)ascPath {
+- (BOOL)verifyBundleSHA256:(NSString *)bundlePath sha256:(NSString *)sha256 {
     NSString *calculatedSHA256 = [self calculateSHA256:bundlePath];
-    NSString *expectedSHA256 = [self extractSHA256FromASCFile:ascPath];
+    NSString *expectedSHA256 = sha256;
     
     if (!calculatedSHA256 || !expectedSHA256) {
         return NO;
@@ -110,6 +132,40 @@ RCT_EXPORT_MODULE();
     BOOL isValid = [calculatedSHA256 isEqualToString:expectedSHA256];
     DDLogDebug(@"verifyBundleSHA256: Calculated: %@, Expected: %@, Valid: %@", calculatedSHA256, expectedSHA256, isValid ? @"YES" : @"NO");
     return isValid;
+}
+
+- (BOOL)verifyBundleSHA256:(NSString *)bundlePath ascPath:(NSString *)ascFilePath {
+    NSString *extractedSHA256 = [self extractSHA256FromASCFile:ascFilePath];
+    if (!extractedSHA256) {
+        return NO;
+    }
+    
+    return [self verifyBundleSHA256:bundlePath sha256:extractedSHA256];
+}
+
+#pragma mark - NSURLSessionDownloadDelegate
+
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask
+      didWriteData:(int64_t)bytesWritten
+ totalBytesWritten:(int64_t)totalBytesWritten
+totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
+    
+    if (totalBytesExpectedToWrite > 0) {
+        double progress = (double)totalBytesWritten / (double)totalBytesExpectedToWrite;
+        
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self sendEventWithName:@"update/progress" body:@{
+                @"progress": @(progress),
+                @"bytesWritten": @(totalBytesWritten),
+                @"totalBytes": @(totalBytesExpectedToWrite)
+            }];
+        });
+    }
+}
+
+- (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask
+didFinishDownloadingToURL:(NSURL *)location {
+    // This will be handled in the completion handler
 }
 
 RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
@@ -254,9 +310,9 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     NSNumber *fileSize = params[@"fileSize"];
     NSString *sha256 = params[@"sha256"];
     
-    if (!downloadUrl || !filePath || !fileSize) {
+    if (!downloadUrl || !fileSize) {
         self.isDownloading = NO;
-        reject(@"INVALID_PARAMS", @"downloadUrl, filePath and fileSize are required", nil);
+        reject(@"INVALID_PARAMS", @"downloadUrl and fileSize are required", nil);
         return;
     }
     
@@ -264,7 +320,7 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     NSString *filePath = [BundleUpdateModule.downloadBundleDir stringByAppendingPathComponent:fileName];
     NSDictionary *result = @{
         @"downloadedFile": filePath,
-        @"downloadUrl": bundleUrl,
+        @"downloadUrl": downloadUrl,
         @"latestVersion": appVersion,
         @"bundleVersion": bundleVersion
     };
@@ -298,8 +354,8 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
         [mutableRequest setValue:[NSString stringWithFormat:@"bytes=%lld-", downloadedBytes] forHTTPHeaderField:@"Range"];
     }
     
-    NSURLSessionDownloadTask *downloadTask = [[NSURLSession sharedSession] downloadTaskWithRequest:mutableRequest
-                                                                                completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
+    self.downloadTask = [self.urlSession downloadTaskWithRequest:mutableRequest
+                                                completionHandler:^(NSURL *location, NSURLResponse *response, NSError *error) {
         if (error) {
             self.isDownloading = NO;
             reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
@@ -336,12 +392,16 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
             return;
         }
         
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self sendEventWithName:@"update/complete" body:result];
+        });
         
         DDLogDebug(@"downloadBundle: Download completed");
         resolve(result);
     }];
     
-    [downloadTask resume];
+    [self sendEventWithName:@"update/start" body:nil];
+    [self.downloadTask resume];
 }
 
 RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
@@ -364,7 +424,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     
     // Verify bundle before installation
     NSString *ascFilePath = [filePath stringByAppendingString:@".SHA256SUMS.asc"];
-    BOOL isValid = [self verifyBundleSignature:filePath ascPath:ascFilePath];
+    BOOL isValid = [self verifyBundleSHA256:filePath ascPath:ascFilePath];
     
     if (!isValid) {
         NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
