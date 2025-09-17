@@ -78,6 +78,8 @@ RCT_EXPORT_MODULE();
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     NSString *currentBundleVersion = [self currentBundleVersion];
+    NSLog(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
+    DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
     if (currentBundleVersion == nil) {
         return nil;
     }
