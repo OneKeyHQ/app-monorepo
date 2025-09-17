@@ -1,25 +1,16 @@
 package so.onekey.app.wallet;
 
+import android.app.Application;
 import android.content.Context;
-
-import com.facebook.react.ReactNativeHost;
-import com.facebook.react.ReactPackage;
-import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
-import com.facebook.react.bridge.ReactMethod;
-import com.facebook.react.bridge.Promise;
 import com.facebook.react.defaults.DefaultReactNativeHost;
-
 import java.io.File;
-import java.util.List;
 
-public class CustomReactNativeHost extends DefaultReactNativeHost {
+public abstract class CustomReactNativeHost extends DefaultReactNativeHost {
     private Context context;
 
-    public CustomReactNativeHost(Context context) {
-        super(context);
-        this.context = context;
+    public CustomReactNativeHost(Application application) {
+        super(application);
+        this.context = application;
     }
 
     @Override
