@@ -136,6 +136,7 @@ function TokenList() {
         indexedAccountId: indexedAccountId ?? '',
         tokens: sortedTokens,
         isAggregateToken: token.isAggregateToken,
+        tokenMap,
       });
     },
     [

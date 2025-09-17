@@ -22,6 +22,7 @@ type IProps = {
   name: string;
   isNative?: boolean;
   isAggregateToken?: boolean;
+  isSameSymbolWithAggregateToken?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
@@ -36,6 +37,7 @@ function TokenNameView(props: IProps) {
     name,
     isNative,
     isAggregateToken,
+    isSameSymbolWithAggregateToken,
     isAllNetworks,
     withNetwork,
     networkId,
@@ -98,6 +100,25 @@ function TokenNameView(props: IProps) {
               size="$5"
             />
           }
+        />
+      ) : null}
+      {isAllNetworks &&
+      !isAggregateToken &&
+      !showNetworkName &&
+      isSameSymbolWithAggregateToken ? (
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <Icon
+              flexShrink={0}
+              name="InfoCircleOutline"
+              color="$iconCritical"
+              size="$4"
+            />
+          }
+          renderContent={intl.formatMessage({
+            id: ETranslations.identical_name_asset_alert,
+          })}
         />
       ) : null}
     </XStack>

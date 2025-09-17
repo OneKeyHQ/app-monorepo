@@ -61,6 +61,9 @@ function BasicTokenListItem(props: ITokenListItemProps) {
                   : token.symbol
               }
               isAggregateToken={token.isAggregateToken}
+              isSameSymbolWithAggregateToken={
+                token.isSameSymbolWithAggregateToken
+              }
               isNative={token.isNative}
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
@@ -105,6 +108,9 @@ function BasicTokenListItem(props: ITokenListItemProps) {
                 : token.symbol
             }
             isAggregateToken={token.isAggregateToken}
+            isSameSymbolWithAggregateToken={
+              token.isSameSymbolWithAggregateToken
+            }
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}
@@ -126,6 +132,9 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             isAggregateToken={token.isAggregateToken}
+            isSameSymbolWithAggregateToken={
+              token.isSameSymbolWithAggregateToken
+            }
             showNetworkName
           />
         </YStack>
