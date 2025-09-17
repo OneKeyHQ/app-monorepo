@@ -37,7 +37,7 @@ RCT_EXPORT_MODULE();
 }
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"update/start", @"update/progress", @"update/complete"];
+    return @[@"update/start", @"update/downloading", @"update/complete"];
 }
 
 + (NSString *)downloadBundleDir {
