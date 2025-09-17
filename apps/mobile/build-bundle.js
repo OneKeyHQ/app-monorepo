@@ -246,7 +246,12 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
   console.log('build ios bundle compress dist to zip');
-  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${distPath}/`, {
+
+  const webEmbedIOSPath = path.join(distPath, 'web-embed');
+  if (!fs.existsSync(webEmbedIOSPath)) {
+    fs.mkdirSync(webEmbedIOSPath, { recursive: true });
+  }
+  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedIOSPath}/`, {
     stdio: 'inherit',
   });
   generateMetadataJson(distPath);
@@ -340,7 +345,11 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
   );
 
-  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${distPath}/`, {
+  if (!fs.existsSync(webEmbedAndroidPath)) {
+    fs.mkdirSync(webEmbedAndroidPath, { recursive: true });
+  }
+  const webEmbedAndroidPath = path.join(distPath, 'web-embed');
+  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${webEmbedAndroidPath}/`, {
     stdio: 'inherit',
   });
 
