@@ -16,5 +16,9 @@
 + (NSString *)bundleDir;
 + (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion;
 + (NSString *)calculateSHA256:(NSString *)filePath;
-
++ (NSString *)currentBundleMainJSBundle;
++ (NSString *)currentBundleVersion;
++ (NSString *)currentBundleDir;
++ (NSDictionary *)currentMetadataJson;
++ (void)setCurrentBundleVersion:(NSString *)version;
 @end
