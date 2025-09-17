@@ -76,7 +76,7 @@ function TokenNameView(props: IProps) {
         </Badge>
       ) : null}
       {withNetwork &&
-      (network ||
+      ((network && !isAggregateToken) ||
         (firstAggregateTokenNetwork &&
           aggregateTokenList?.length === 1 &&
           allAggregateTokenList.length === 0)) &&
