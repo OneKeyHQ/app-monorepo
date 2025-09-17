@@ -60,27 +60,31 @@ export function RecommendItem({
       <XStack gap="$3" ai="center" flexShrink={1}>
         <MarketTokenIcon uri={icon} size="md" networkId={networkId} />
         <YStack flexShrink={1}>
-          <SizableText
-            size="$bodyLgMedium"
-            numberOfLines={1}
-            $sm={{
-              size: '$bodyMdMedium',
-            }}
-          >
-            {symbol}
-          </SizableText>
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            flexShrink={1}
-            numberOfLines={1}
-            maxWidth={120}
-            $sm={{
-              maxWidth: 70,
-            }}
-          >
-            {tokenName}
-          </SizableText>
+          <XStack>
+            <SizableText
+              size="$bodyLgMedium"
+              numberOfLines={1}
+              $sm={{
+                size: '$bodyMdMedium',
+              }}
+            >
+              {symbol}
+            </SizableText>
+          </XStack>
+          <XStack>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              flexShrink={1}
+              numberOfLines={1}
+              maxWidth={120}
+              $sm={{
+                maxWidth: 70,
+              }}
+            >
+              {tokenName}
+            </SizableText>
+          </XStack>
         </YStack>
       </XStack>
       {checked ? (
