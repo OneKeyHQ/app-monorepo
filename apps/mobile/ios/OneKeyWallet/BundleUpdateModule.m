@@ -152,12 +152,10 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     
     if (totalBytesExpectedToWrite > 0) {
         double progress = (double)totalBytesWritten / (double)totalBytesExpectedToWrite;
-        
+        DDLogDebug(@"downloadBundle: progress: %f, bytesWritten: %lld, totalBytes: %lld", progress, totalBytesWritten, totalBytesExpectedToWrite);
         dispatch_async(dispatch_get_main_queue(), ^{
-            [self sendEventWithName:@"update/progress" body:@{
+            [self sendEventWithName:@"update/downloading" body:@{
                 @"progress": @(progress),
-                @"bytesWritten": @(totalBytesWritten),
-                @"totalBytes": @(totalBytesExpectedToWrite)
             }];
         });
     }
