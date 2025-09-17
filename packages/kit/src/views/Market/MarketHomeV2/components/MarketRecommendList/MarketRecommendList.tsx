@@ -136,7 +136,7 @@ export function MarketRecommendList({
   );
 
   const stackPaddingBottom = useMemo(() => {
-    if (platformEnv.isNativeAndroid) return 100;
+    if (platformEnv.isNativeAndroid) return 80;
     if (platformEnv.isExtension) return 50;
     return 0;
   }, []);
@@ -146,7 +146,7 @@ export function MarketRecommendList({
   }
 
   return (
-    <Stack flex={1} paddingBottom={stackPaddingBottom}>
+    <Stack flex={1} width="100%" paddingBottom={stackPaddingBottom}>
       <ScrollView
         contentContainerStyle={{ ai: 'center' }}
         px="$5"
