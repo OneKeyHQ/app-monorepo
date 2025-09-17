@@ -207,6 +207,7 @@ class ServiceWebviewPerp extends ServiceBase {
         ...prev,
         perpConfigCommon: {
           ...prev.perpConfigCommon,
+          // usePerpWeb: true,
           usePerpWeb: commonConfig?.usePerpWeb,
           disablePerp: commonConfig?.disablePerp,
           disablePerpActionButton: commonConfig?.disablePerpActionButton,
