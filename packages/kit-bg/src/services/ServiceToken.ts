@@ -1062,16 +1062,12 @@ class ServiceToken extends ServiceBase {
     });
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
-<<<<<<< HEAD
         const filteredData = uniqBy(
           data.filter((token) => !!listedNetworkMap[token.networkId]),
           (token) => token.networkId,
-=======
-        aggregateTokenSymbolMap[commonSymbol] = true;
-        const filteredData = data.filter(
-          (token) => !!listedNetworkMap[token.networkId],
->>>>>>> 269de2d767 (optimize: aggregate token details OK-43109 OK-43111 (#8373))
         );
+
+        aggregateTokenSymbolMap[commonSymbol] = true;
 
         if (filteredData.length > 1) {
           filteredData.forEach((token) => {
