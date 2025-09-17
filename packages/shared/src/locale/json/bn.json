@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "{riskyNumber} টি ঝুঁকিপূর্ণ অনুমোদন শনাক্ত করা হয়েছে",
   "wallet.approval_suggestion_title_summary": "{riskyNumber} টি ঝুঁকিপূর্ণ অনুমোদন এবং {inactiveNumber} টি চুক্তি ৯০+ দিনের জন্য নিষ্ক্রিয় সনাক্ত করা হয়েছে",
   "wallet.approval_summary_suggestion_desc_all": "ঝুঁকি কমাতে এবং অপ্রয়োজনীয় অনুমতিগুলো हटाতে প্রত্যাহার করুন।",
-  "wallet.backup_now": "এখনই ব্যাক আপ করুন",
+  "wallet.backup_now": "এখনই সিঙ্ক করুন",
   "wallet.backup_prompt": "আপনার ওয়ালেট ব্যাকআপ করুন",
   "wallet.buy_crypto_instruction": "আপনার ওয়ালেট তৈরি করতে ক্রিপ্টো কিনুন",
   "wallet.collapsed_assets": "লুকানো সম্পদ",

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 interface IUseMarketTransactionsProps {
@@ -36,9 +37,14 @@ export function useMarketTransactions({
       return response;
     },
     [tokenAddress, networkId],
-    {
-      watchLoading: true,
-    },
+    platformEnv.isNative
+      ? {
+          watchLoading: true,
+          pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
+        }
+      : {
+          watchLoading: true,
+        },
   );
 
   // Reset accumulated state when token address or network ID changes
