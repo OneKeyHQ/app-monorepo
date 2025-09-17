@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
@@ -134,7 +134,20 @@ const installPackage: IInstallPackage = async ({
   });
 };
 
-const eventEmitter = new NativeEventEmitter(NativeModules.AutoUpdateModule);
+let AutoUpdateEventEmitter: NativeEventEmitter | null = null;
+if (NativeModules.AutoUpdateModule) {
+  AutoUpdateEventEmitter = new NativeEventEmitter(
+    NativeModules.AutoUpdateModule,
+  );
+}
+
+let BundleUpdateEventEmitter: NativeEventEmitter | null = null;
+if (NativeModules.BundleUpdateModule) {
+  BundleUpdateEventEmitter = new NativeEventEmitter(
+    NativeModules.BundleUpdateModule,
+  );
+}
+
 export const useDownloadProgress: IUseDownloadProgress = () => {
   const [percent, setPercent] = useState(0);
 
@@ -147,23 +160,37 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     10,
   );
 
+  const startDownload = useCallback(() => {
+    defaultLogger.update.app.log('start');
+    setPercent(0);
+  }, []);
+
   useEffect(() => {
-    const onStartEventListener = eventEmitter.addListener(
+    const onStartEventListener = AutoUpdateEventEmitter?.addListener(
       'update/start',
-      () => {
-        defaultLogger.update.app.log('start');
-        setPercent(0);
-      },
+      startDownload,
     );
-    const onDownloadingEventListener = eventEmitter.addListener(
+    const onDownloadingEventListener = AutoUpdateEventEmitter?.addListener(
       'update/downloading',
       updatePercent,
     );
+
+    const onBundleStartEventListener = BundleUpdateEventEmitter?.addListener(
+      'update/start',
+      startDownload,
+    );
+    const onBundleDownloadingEventListener =
+      BundleUpdateEventEmitter?.addListener(
+        'update/downloading',
+        updatePercent,
+      );
     return () => {
-      onStartEventListener.remove();
-      onDownloadingEventListener.remove();
+      onStartEventListener?.remove();
+      onDownloadingEventListener?.remove();
+      onBundleStartEventListener?.remove();
+      onBundleDownloadingEventListener?.remove();
     };
-  }, [updatePercent]);
+  }, [startDownload, updatePercent]);
   return percent;
 };
 
