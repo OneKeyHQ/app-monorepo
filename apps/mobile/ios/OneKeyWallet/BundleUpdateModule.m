@@ -307,9 +307,11 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     DDLogDebug(@"downloadBundle: filePath: %@", filePath);
     if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
         if ([self verifyBundleSHA256:filePath sha256:sha256]) {
-            resolve(result);
-            [self clearDownloadTask];
-            [self sendEventWithName:@"update/complete" body:nil];
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                resolve(result);
+                [self clearDownloadTask];
+                [self sendEventWithName:@"update/complete" body:nil];
+            });
             return;
         } else {
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
