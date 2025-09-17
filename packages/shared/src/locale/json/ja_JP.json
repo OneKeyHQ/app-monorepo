@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "{riskyNumber} 件の危険な承認が検出されました",
   "wallet.approval_suggestion_title_summary": "{riskyNumber} 件の危険な承認と、90 日以上利用されていない {inactiveNumber} 件の契約が検出されました",
   "wallet.approval_summary_suggestion_desc_all": "リスクを軽減し、不要な権限を削除するために取り消します。",
-  "wallet.backup_now": "今すぐバックアップ",
+  "wallet.backup_now": "今すぐ同期",
   "wallet.backup_prompt": "ウォレットをバックアップする",
   "wallet.buy_crypto_instruction": "ウォレットに資金を供給するために暗号通貨を購入する",
   "wallet.collapsed_assets": "非表示の資産",
