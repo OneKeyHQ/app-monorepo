@@ -90,11 +90,10 @@ RCT_EXPORT_MODULE();
         }
     }
     NSString *folderName = [self currentBundleDir];
-    if (!folderName) {
+    if (!folderName || ![[NSFileManager defaultManager] fileExistsAtPath:folderName]) {
         return nil;
     }
-    NSString *bundleDir = [BundleUpdateModule bundleDir];
-    NSString *mainJSBundle = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"main.jsbundle.hbc"];
+    NSString *mainJSBundle = [folderName stringByAppendingPathComponent:@"main.jsbundle.hbc"];
     return mainJSBundle;
 }
 
