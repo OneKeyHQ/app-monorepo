@@ -109,7 +109,7 @@ RCT_EXPORT_MODULE();
 + (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion {
     NSString *parentBundleDir = [BundleUpdateModule bundleDir];
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
-    NSString *bundleDir = [parentBundleDir stringByAppendingPathComponent:folderName];
+    NSString *jsBundleDir = [[parentBundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent: @"/"];
     NSFileManager *fileManager = [NSFileManager defaultManager];
     
     // Get all files recursively, excluding metadata.json
@@ -136,7 +136,7 @@ RCT_EXPORT_MODULE();
             }
         }
         
-        NSString *relativePath = [fullPath stringByReplacingOccurrencesOfString:bundleDir withString:@""];
+        NSString *relativePath = [fullPath stringByReplacingOccurrencesOfString:jsBundleDir withString:@""];
         NSLog(@"relativePath: %@", relativePath);
         DDLogDebug(@"relativePath: %@", relativePath);
 
