@@ -47,7 +47,7 @@ export const useWatchListV2Action = () => {
       );
 
       try {
-        actions.current.addIntoWatchListV2(watchListItems);
+        void actions.current.addIntoWatchListV2(watchListItems);
 
         Toast.success({
           title: intl.formatMessage({

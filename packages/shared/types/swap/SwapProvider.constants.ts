@@ -1817,4 +1817,9 @@ export const wrappedTokens = [
     address: '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91',
     logo: 'https://uni.onekey-asset.com/static/logo/WETH.png',
   },
+  {
+    networkId: 'evm--5000',
+    address: '0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8',
+    logo: 'https://uni-test.onekey-asset.com/server-service-onchain/evm--5000/tokens/0x78c1b0c915c4faa5fffa6cabf0219da63d7f4cb8.png',
+  },
 ];

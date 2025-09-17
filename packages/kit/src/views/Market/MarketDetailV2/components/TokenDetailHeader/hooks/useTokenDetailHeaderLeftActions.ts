@@ -31,6 +31,7 @@ export function useTokenDetailHeaderLeftActions({
       // Dex analytics
       defaultLogger.dex.actions.dexCopyCA({
         copyFrom: ECopyFrom.Detail,
+        copiedContent: address,
       });
     }
   }, [address, copyText]);
