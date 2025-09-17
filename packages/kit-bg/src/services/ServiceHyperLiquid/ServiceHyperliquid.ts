@@ -12,6 +12,7 @@ import {
   EHyperLiquidAgentName,
   FALLBACK_BUILDER_ADDRESS,
   FALLBACK_MAX_BUILDER_FEE,
+  HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_CHAIN_ID,
 } from '@onekeyhq/shared/src/consts/perp';
@@ -301,11 +302,17 @@ export default class ServiceHyperliquid extends ServiceBase {
               userAddress: accountAddress,
               agentCredential,
             });
-            // referrer code can be approved by agent
-            void this.exchangeService.setReferrerCode({
-              // TODO use server config
-              code: HYPERLIQUID_REFERRAL_CODE,
-            });
+
+            void (async () => {
+              const { referralCode } =
+                await this.backgroundApi.simpleDb.perp.getPerpData();
+              // referrer code can be approved by agent
+              void this.exchangeService.setReferrerCode({
+                // TODO use server config
+                code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+              });
+            })();
+
             // referral code is optional, so we set it to true by default
             statusDetails.referralCodeOk = true;
           }
@@ -367,7 +374,11 @@ export default class ServiceHyperliquid extends ServiceBase {
             });
             if (
               agent.address &&
-              agent.validUntil > now && // TODO more than 1 day
+              agent.validUntil >
+                now +
+                  timerUtils.getTimeDurationMs({
+                    day: 1,
+                  }) &&
               credential?.agentAddress?.toLowerCase() ===
                 agent.address.toLowerCase()
             ) {
@@ -457,18 +468,18 @@ export default class ServiceHyperliquid extends ServiceBase {
         agentNameToApprove = EHyperLiquidAgentName.OneKeyAgent1;
       }
 
-      const validUntil =
-        Date.now() +
-        timerUtils.getTimeDurationMs({
-          month: 1,
-        });
+      const { agentTTL = HYPERLIQUID_AGENT_TTL_DEFAULT } =
+        await this.backgroundApi.simpleDb.perp.getPerpData();
+
+      const validUntil = Date.now() + agentTTL;
+      // {name} valid_until 1765710491688
+      const agentNameToApproveWithValidUntil = `${agentNameToApprove} valid_until ${validUntil}`;
       const approveAgentFn = () =>
         this.exchangeService.approveAgent({
           agent: agentAddress,
-          agentName: agentNameToApprove,
+          agentName: agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
           // agentName: EHyperLiquidAgentName.Official,
           authorize: true,
-          // TODO add validUntil here
         });
       let retryTimes = 5;
       let approveAgentResult: IApiRequestResult | undefined;
