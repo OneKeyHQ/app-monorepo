@@ -222,91 +222,28 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
     NSString *downloadUrl = params[@"downloadUrl"];
     NSString *filePath = params[@"filePath"];
     NSString *signature = params[@"signature"];
-    
-    if (!downloadUrl || !filePath) {
-        reject(@"INVALID_PARAMS", @"downloadUrl and filePath are required", nil);
+    NSString *appVersion = params[@"latestVersion"];
+    NSString *bundleVersion = params[@"bundleVersion"];
+    NSString *sha256 = params[@"sha256"];
+
+    if (!downloadUrl || !filePath || !signature || !appVersion || !bundleVersion || !sha256) {
+        reject(@"INVALID_PARAMS", @"downloadUrl and filePath and signature and appVersion and bundleVersion and sha256 are required", nil);
         return;
     }
     
-    NSString *ascFileUrl = [downloadUrl stringByAppendingString:@".SHA256SUMS.asc"];
-    NSString *ascFilePath = [filePath stringByAppendingString:@".SHA256SUMS.asc"];
+    NSString *storageKey = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    [userDefaults setObject:signature forKey:storageKey];
+    [userDefaults synchronize];
     
-    NSURL *url = [NSURL URLWithString:ascFileUrl];
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
+    DDLogDebug(@"downloadASC: Stored signature for key: %@", storageKey);
     
-    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request
-                                                                 completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        if (error) {
-            reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-            return;
-        }
-        
-        NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-        if (httpResponse.statusCode != 200) {
-            NSError *httpError = [NSError errorWithDomain:@"BundleUpdateError" 
-                                                     code:httpResponse.statusCode 
-                                                 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"HTTP %ld", (long)httpResponse.statusCode]}];
-            reject([NSString stringWithFormat:@"%ld", (long)httpError.code], httpError.localizedDescription, httpError);
-            return;
-        }
-        
-        NSString *ascContent = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-        if (!ascContent || ascContent.length == 0) {
-            NSError *emptyError = [NSError errorWithDomain:@"BundleUpdateError" 
-                                                      code:-1 
-                                                  userInfo:@{NSLocalizedDescriptionKey: @"Empty ASC file content"}];
-            reject([NSString stringWithFormat:@"%ld", (long)emptyError.code], emptyError.localizedDescription, emptyError);
-            return;
-        }
-        
-        DDLogDebug(@"downloadASC: ASC file content: %@", ascContent);
-        
-        NSError *writeError;
-        BOOL success = [ascContent writeToFile:ascFilePath 
-                                    atomically:YES 
-                                      encoding:NSUTF8StringEncoding 
-                                         error:&writeError];
-        
-        if (!success) {
-            reject([NSString stringWithFormat:@"%ld", (long)writeError.code], writeError.localizedDescription, writeError);
-            return;
-        }
-        
-        resolve(nil);
-    }];
-    
-    [task resume];
+    resolve(nil);
 }
 
 RCT_EXPORT_METHOD(verifyASC:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *filePath = params[@"filePath"];
-    
-    if (!filePath) {
-        reject(@"INVALID_PARAMS", @"filePath is required", nil);
-        return;
-    }
-    
-    NSString *ascFilePath = [filePath stringByAppendingString:@".SHA256SUMS.asc"];
-    
-    if (![[NSFileManager defaultManager] fileExistsAtPath:ascFilePath]) {
-        NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
-                                             code:-1 
-                                         userInfo:@{NSLocalizedDescriptionKey: @"ASC file not found"}];
-        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-        return;
-    }
-    
-    NSString *extractedSHA256 = [self extractSHA256FromASCFile:ascFilePath];
-    if (!extractedSHA256 || extractedSHA256.length == 0) {
-        NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
-                                             code:-1 
-                                         userInfo:@{NSLocalizedDescriptionKey: @"Failed to extract SHA256 from ASC file"}];
-        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-        return;
-    }
-    
     resolve(nil);
 }
 
