@@ -33,7 +33,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -474,14 +475,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             destDir.mkdirs();
         }
 
+        // Normalize destination directory path for security checks
+        Path destDirPath = Paths.get(destDir.getCanonicalPath());
+
         try (ZipInputStream zipIn = new ZipInputStream(new FileInputStream(zipFilePath))) {
             ZipEntry entry = zipIn.getNextEntry();
             while (entry != null) {
-                String filePath = destDirectory + File.separator + entry.getName();
+                String entryName = entry.getName();
+                // Construct normalized output path
+                File outFile = new File(destDir, entryName);
+                Path outPath = Paths.get(outFile.getCanonicalPath());
+
+                // Ensure that the output file is within the destination directory
+                if (!outPath.startsWith(destDirPath)) {
+                    throw new IOException("Entry is outside of the target dir: " + entryName);
+                }
+
                 if (!entry.isDirectory()) {
-                    extractFile(zipIn, filePath);
+                    extractFile(zipIn, outPath.toString());
                 } else {
-                    File dir = new File(filePath);
+                    File dir = outPath.toFile();
                     dir.mkdirs();
                 }
                 zipIn.closeEntry();
