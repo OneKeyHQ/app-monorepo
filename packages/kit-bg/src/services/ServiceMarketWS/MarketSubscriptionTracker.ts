@@ -5,6 +5,9 @@ type ISubscriptionType = (typeof EChannel)[keyof typeof EChannel];
 type ISubscription = {
   address: string;
   type: ISubscriptionType;
+  networkId: string;
+  chartType?: string;
+  currency?: string;
   connectionCount: number;
   dataCount: number;
 };
@@ -12,9 +15,26 @@ type ISubscription = {
 export class MarketSubscriptionTracker {
   private subscriptions: ISubscription[] = [];
 
-  addSubscription(address: string, type: ISubscriptionType) {
+  addSubscription({
+    address,
+    type,
+    networkId,
+    chartType,
+    currency,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+    networkId: string;
+    chartType?: string;
+    currency?: string;
+  }) {
     const existing = this.subscriptions.find(
-      (sub) => sub.address === address && sub.type === type,
+      (sub) =>
+        sub.address === address &&
+        sub.type === type &&
+        sub.networkId === networkId &&
+        sub.chartType === chartType &&
+        sub.currency === currency,
     );
     if (existing) {
       existing.connectionCount += 1;
@@ -22,15 +42,35 @@ export class MarketSubscriptionTracker {
       this.subscriptions.push({
         address,
         type,
+        networkId,
+        chartType,
+        currency,
         connectionCount: 1,
         dataCount: 0,
       });
     }
   }
 
-  removeSubscription(address: string, type: ISubscriptionType) {
+  removeSubscription({
+    address,
+    type,
+    networkId,
+    chartType,
+    currency,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+    networkId: string;
+    chartType?: string;
+    currency?: string;
+  }) {
     const existingIndex = this.subscriptions.findIndex(
-      (sub) => sub.address === address && sub.type === type,
+      (sub) =>
+        sub.address === address &&
+        sub.type === type &&
+        sub.networkId === networkId &&
+        sub.chartType === chartType &&
+        sub.currency === currency,
     );
     if (existingIndex !== -1) {
       const existing = this.subscriptions[existingIndex];
@@ -49,31 +89,90 @@ export class MarketSubscriptionTracker {
     return this.subscriptions.filter((sub) => sub.type === type);
   }
 
-  hasSubscription(address: string, type: ISubscriptionType): boolean {
+  hasSubscription({
+    address,
+    type,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+  }): boolean {
     return this.subscriptions.some(
       (sub) => sub.address === address && sub.type === type,
     );
   }
 
-  clearDataCount(address: string, type: ISubscriptionType): boolean {
+  getSubscription({
+    address,
+    type,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+  }): ISubscription | undefined {
+    return this.subscriptions.find(
+      (sub) => sub.address === address && sub.type === type,
+    );
+  }
+
+  clearDataCount({
+    address,
+    type,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+  }): boolean {
     const existing = this.subscriptions.find(
       (sub) => sub.address === address && sub.type === type,
     );
     if (existing) {
       existing.dataCount = 0;
+      return true;
     }
     return false;
   }
 
-  incrementDataCount(address: string, type: ISubscriptionType): boolean {
+  incrementDataCount({
+    address,
+    type,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+  }): number {
     const existing = this.subscriptions.find(
       (sub) => sub.address === address && sub.type === type,
     );
     if (existing) {
       existing.dataCount += 1;
-      return true;
+      return existing.dataCount;
     }
-    return false;
+    return 0;
+  }
+
+  getDataCount({
+    address,
+    type,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+  }): number {
+    const existing = this.subscriptions.find(
+      (sub) => sub.address === address && sub.type === type,
+    );
+    return existing ? existing.dataCount : 0;
+  }
+
+  shouldUnsubscribe({
+    address,
+    type,
+    threshold,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+    threshold: number;
+  }): boolean {
+    const existing = this.subscriptions.find(
+      (sub) => sub.address === address && sub.type === type,
+    );
+    return existing ? existing.dataCount >= threshold : false;
   }
 
   clear() {

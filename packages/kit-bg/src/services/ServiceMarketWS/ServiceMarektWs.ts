@@ -88,9 +88,16 @@ class ServiceMarketWS extends ServiceBase {
   }) {
     // Check if already subscribed
     if (
-      this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.tokenTxs)
+      this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.tokenTxs,
+      })
     ) {
-      this.subscriptionTracker.addSubscription(tokenAddress, EChannel.tokenTxs);
+      this.subscriptionTracker.addSubscription({
+        address: tokenAddress,
+        type: EChannel.tokenTxs,
+        networkId,
+      });
       return;
     }
 
@@ -111,7 +118,11 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptionTracker.addSubscription(tokenAddress, EChannel.tokenTxs);
+    this.subscriptionTracker.addSubscription({
+      address: tokenAddress,
+      type: EChannel.tokenTxs,
+      networkId,
+    });
   }
 
   @backgroundMethod()
@@ -128,9 +139,18 @@ class ServiceMarketWS extends ServiceBase {
   }) {
     // Check if already subscribed
     if (
-      this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.ohlcv)
+      this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.ohlcv,
+      })
     ) {
-      this.subscriptionTracker.addSubscription(tokenAddress, EChannel.ohlcv);
+      this.subscriptionTracker.addSubscription({
+        address: tokenAddress,
+        type: EChannel.ohlcv,
+        networkId,
+        chartType,
+        currency,
+      });
       return;
     }
 
@@ -159,7 +179,13 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptionTracker.addSubscription(tokenAddress, EChannel.ohlcv);
+    this.subscriptionTracker.addSubscription({
+      address: tokenAddress,
+      type: EChannel.ohlcv,
+      networkId,
+      chartType,
+      currency,
+    });
   }
 
   private async unsubscribe({
@@ -209,14 +235,18 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    this.subscriptionTracker.removeSubscription(
-      tokenAddress,
-      EChannel.tokenTxs,
-    );
+    this.subscriptionTracker.removeSubscription({
+      address: tokenAddress,
+      type: EChannel.tokenTxs,
+      networkId,
+    });
 
     // Only unsubscribe from WebSocket if no more connections
     if (
-      !this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.tokenTxs)
+      !this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.tokenTxs,
+      })
     ) {
       await this.unsubscribe({
         channel: EChannel.tokenTxs,
@@ -231,18 +261,27 @@ class ServiceMarketWS extends ServiceBase {
     networkId,
     tokenAddress,
     chartType = '1m',
-    currency = 'pair',
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
     chartType?: string;
     currency?: string;
   }) {
-    this.subscriptionTracker.removeSubscription(tokenAddress, EChannel.ohlcv);
+    this.subscriptionTracker.removeSubscription({
+      address: tokenAddress,
+      type: EChannel.ohlcv,
+      networkId,
+      chartType,
+      currency,
+    });
 
     // Only unsubscribe from WebSocket if no more connections
     if (
-      !this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.ohlcv)
+      !this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.ohlcv,
+      })
     ) {
       await this.unsubscribe({
         channel: EChannel.ohlcv,
@@ -288,22 +327,28 @@ class ServiceMarketWS extends ServiceBase {
       let hasSubscription = false;
       if (
         fromAddress &&
-        this.subscriptionTracker.hasSubscription(fromAddress, EChannel.tokenTxs)
+        this.subscriptionTracker.hasSubscription({
+          address: fromAddress,
+          type: EChannel.tokenTxs,
+        })
       ) {
-        this.subscriptionTracker.incrementDataCount(
-          fromAddress,
-          EChannel.tokenTxs,
-        );
+        this.subscriptionTracker.incrementDataCount({
+          address: fromAddress,
+          type: EChannel.tokenTxs,
+        });
         tokenAddress = fromAddress;
         hasSubscription = true;
       } else if (
         toAddress &&
-        this.subscriptionTracker.hasSubscription(toAddress, EChannel.tokenTxs)
+        this.subscriptionTracker.hasSubscription({
+          address: toAddress,
+          type: EChannel.tokenTxs,
+        })
       ) {
-        this.subscriptionTracker.incrementDataCount(
-          toAddress,
-          EChannel.tokenTxs,
-        );
+        this.subscriptionTracker.incrementDataCount({
+          address: toAddress,
+          type: EChannel.tokenTxs,
+        });
         tokenAddress = toAddress;
         hasSubscription = true;
       }
@@ -319,12 +364,15 @@ class ServiceMarketWS extends ServiceBase {
 
       // Increment data count for PRICE_DATA
       if (
-        this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.ohlcv)
+        this.subscriptionTracker.hasSubscription({
+          address: tokenAddress,
+          type: EChannel.ohlcv,
+        })
       ) {
-        this.subscriptionTracker.incrementDataCount(
-          tokenAddress,
-          EChannel.ohlcv,
-        );
+        this.subscriptionTracker.incrementDataCount({
+          address: tokenAddress,
+          type: EChannel.ohlcv,
+        });
       } else {
         // If no subscription found, skip this message
         return;
@@ -336,6 +384,41 @@ class ServiceMarketWS extends ServiceBase {
       });
 
       return;
+    }
+
+    // Check if subscription should be auto-unsubscribed due to data accumulation
+    const DATA_COUNT_THRESHOLD = 20;
+    if (
+      this.subscriptionTracker.shouldUnsubscribe({
+        address: tokenAddress,
+        type: channel as any,
+        threshold: DATA_COUNT_THRESHOLD,
+      })
+    ) {
+      const subscription = this.subscriptionTracker.getSubscription({
+        address: tokenAddress,
+        type: channel as any,
+      });
+      if (subscription) {
+        console.warn(
+          `Auto-unsubscribing due to data accumulation: ${tokenAddress}, channel: ${channel}, dataCount: ${subscription.dataCount}`,
+        );
+
+        // Auto-unsubscribe based on channel type
+        if (channel === EChannel.tokenTxs) {
+          void this.unsubscribeTokenTxs({
+            networkId: subscription.networkId,
+            tokenAddress: subscription.address,
+          });
+        } else if (channel === EChannel.ohlcv) {
+          void this.unsubscribeOHLCV({
+            networkId: subscription.networkId,
+            tokenAddress: subscription.address,
+            chartType: subscription.chartType,
+            currency: subscription.currency,
+          });
+        }
+      }
     }
 
     // Emit event to app event bus with standardized format

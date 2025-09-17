@@ -137,8 +137,10 @@ export function useTradingViewV2WebSocket({
             });
 
             void backgroundApiProxy.serviceMarketWS.subscriptionTracker.clearDataCount(
-              tokenAddress,
-              'ohlcv',
+              {
+                address: tokenAddress,
+                type: 'ohlcv',
+              },
             );
 
             // Update token detail if we have valid price data

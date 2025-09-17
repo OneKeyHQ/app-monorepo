@@ -118,8 +118,10 @@ export function useTransactionsWebSocket({
           };
 
           void backgroundApiProxy.serviceMarketWS.subscriptionTracker.clearDataCount(
-            tokenAddress,
-            'tokenTxs',
+            {
+              address: tokenAddress,
+              type: 'tokenTxs',
+            },
           );
 
           onNewTransaction(transaction);
