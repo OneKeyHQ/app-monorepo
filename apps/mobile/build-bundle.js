@@ -33,11 +33,18 @@ const buildAndroidOutputBundlePath = (bundleName) => {
 
 const cleanBundleOutput = async () => {
   fs.rmSync(bundleOutputPath, { recursive: true, force: true });
+  fs.rmSync(zipOutputPath, { recursive: true, force: true });
 };
 
 const ensureBundleOutputPath = async () => {
   if (!fs.existsSync(bundleOutputPath)) {
     fs.mkdirSync(bundleOutputPath, { recursive: true });
+  }
+};
+
+const ensureZipOutputPath = async () => {
+  if (!fs.existsSync(zipOutputPath)) {
+    fs.mkdirSync(zipOutputPath, { recursive: true });
   }
 };
 
@@ -122,6 +129,7 @@ const generateFileInfo = async (filePath, outputFilePath) => {
 
 const buildIOSBundle = async () => {
   ensureBundleOutputPath();
+  ensureZipOutputPath();
   console.log('build ios bundle');
   execSync(
     `npx react-native bundle \
@@ -238,7 +246,7 @@ const buildIOSBundle = async () => {
   });
 
   const zipFilePath = buildZipOutputAssetPath('ios-bundle.zip');
-  fs.moveSync(buildIOSOutputAssetPath('dist.zip'), zipFilePath);
+  fs.moveSync(buildIOSOutputAssetPath('dist/dist.zip'), zipFilePath);
   generateFileInfo(zipFilePath);
   generateFileInfo(
     buildIOSOutputAssetPath('dist/metadata.json'),
@@ -250,6 +258,7 @@ const buildIOSBundle = async () => {
 
 const buildAndroidBundle = async () => {
   ensureBundleOutputPath();
+  ensureZipOutputPath();
   execSync(
     `npx react-native bundle \
     --dev false \
@@ -263,5 +272,5 @@ const buildAndroidBundle = async () => {
   );
 };
 
-cleanBundleOutput();
+// cleanBundleOutput();
 buildIOSBundle();
