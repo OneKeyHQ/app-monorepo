@@ -123,7 +123,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             
             Log.d(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
             
-            if (currentbundleVersion == 0) {
+            if (currentBundleVersion == null) {
                 return null;
             }
             
