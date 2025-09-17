@@ -77,21 +77,27 @@ function MobilePerpMarket() {
         onConfirmText="Short"
         cancelButtonProps={{
           flex: 1,
+          padding: 0,
           height: 38,
           borderRadius: '$2',
           bg: longButtonStyle.bg,
           hoverStyle: longButtonStyle.hoverStyle,
           pressStyle: longButtonStyle.pressStyle,
           color: longButtonStyle.textColor,
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
         confirmButtonProps={{
           flex: 1,
+          padding: 0,
           height: 38,
           borderRadius: '$2',
           bg: shortButtonStyle.bg,
           hoverStyle: shortButtonStyle.hoverStyle,
           pressStyle: shortButtonStyle.pressStyle,
           color: shortButtonStyle.textColor,
+          justifyContent: 'center',
+          alignItems: 'center',
         }}
         onCancel={(close) => {
           actionsRef.current.updateTradingForm({ side: 'long' });
