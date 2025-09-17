@@ -75,7 +75,7 @@ export function TransactionsHistory({
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled: true,
+    enabled: !platformEnv.isNative,
     onNewTransaction: addNewTransaction,
   });
 
@@ -123,7 +123,7 @@ export function TransactionsHistory({
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
       key={listKey}
-      onEndReached={handleEndReached}
+      onEndReached={platformEnv.isNative ? undefined : handleEndReached}
       onEndReachedThreshold={0.2}
       data={transactions}
       renderItem={renderItem}

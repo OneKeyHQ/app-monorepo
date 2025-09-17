@@ -44,8 +44,8 @@ function BasePerpTokenSelectorContent({
 
   const handleSelectToken = async (symbol: string) => {
     try {
+      void closePopover?.();
       await selectToken(symbol);
-      await closePopover?.();
     } catch (error) {
       console.error('Failed to switch token:', error);
     }
@@ -78,14 +78,14 @@ function BasePerpTokenSelectorContent({
               })}
             </SizableText>
           </XStack>
-          <XStack width={80} justifyContent="flex-start">
+          <XStack width={100} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.perp_token_selector_last_price,
               })}
             </SizableText>
           </XStack>
-          <XStack width={130} justifyContent="flex-start">
+          <XStack width={120} justifyContent="flex-start">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.perp_token_selector_24h_change,
@@ -107,7 +107,7 @@ function BasePerpTokenSelectorContent({
             </SizableText>
           </XStack>
           <XStack flex={1} justifyContent="flex-end">
-            <SizableText size="$bodySm" color="$textSubdued">
+            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
               {intl.formatMessage({
                 id: ETranslations.perp_token_bar_open_Interest,
               })}
@@ -120,6 +120,9 @@ function BasePerpTokenSelectorContent({
       <YStack flex={1} height={300}>
         <ListView
           useFlashList
+          contentContainerStyle={{
+            paddingBottom: 10,
+          }}
           data={filteredTokens.filter((token) => !token.isDelisted)}
           renderItem={({ item: token }) => (
             <PerpTokenSelectorRow
@@ -170,7 +173,7 @@ function BasePerpTokenSelector() {
       <Popover
         title="Select Token"
         floatingPanelProps={{
-          width: 680,
+          width: 700,
         }}
         open={isOpen}
         onOpenChange={setIsOpen}

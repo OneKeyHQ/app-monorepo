@@ -105,6 +105,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     // Dex analytics
     defaultLogger.dex.actions.dexCopyCA({
       copyFrom,
+      copiedContent: address,
     });
   };
 

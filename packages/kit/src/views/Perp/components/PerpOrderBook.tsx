@@ -1,28 +1,85 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { SizableText, YStack, useMedia } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
 
+import {
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
+import { usePerpSession } from '../hooks/usePerpSession';
 
-import { OrderBook } from './OrderBook';
+import { OrderBook, OrderBookMobile, OrderPairBook } from './OrderBook';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
 
-export function PerpOrderBook() {
+function MobileHeader() {
+  const intl = useIntl();
+  const countdown = useFundingCountdown();
+  const { isReady, hasError } = usePerpSession();
+  const [priceData] = useCurrentTokenPriceAtom();
+
+  const { funding: fundingRate, markPrice } = priceData;
+  const fundingRateNumber = parseFloat(fundingRate);
+  const hasFundingValue = Number.isFinite(fundingRateNumber);
+  const fundingColor = useMemo(() => {
+    if (!hasFundingValue) {
+      return '$textSubdued';
+    }
+    return fundingRateNumber >= 0 ? '$green11' : '$red11';
+  }, [fundingRateNumber, hasFundingValue]);
+
+  const fundingDisplay = hasFundingValue
+    ? `${(fundingRateNumber * 100).toFixed(4)}%`
+    : '--';
+  const markPriceNumber = parseFloat(markPrice);
+  const showSkeleton =
+    !isReady ||
+    hasError ||
+    !Number.isFinite(markPriceNumber) ||
+    markPriceNumber === 0;
+
+  return (
+    <YStack alignItems="flex-end" mb="$2">
+      <SizableText size="$bodySm" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.perp_token_bar_Funding,
+        })}
+      </SizableText>
+      {showSkeleton ? (
+        <Skeleton width={120} height={16} />
+      ) : (
+        <XStack alignItems="center" gap={6}>
+          <SizableText size="$bodySmMedium" color={fundingColor}>
+            {fundingDisplay}
+          </SizableText>
+          <SizableText size="$bodySmMedium" color="$text">
+            {countdown}
+          </SizableText>
+        </XStack>
+      )}
+    </YStack>
+  );
+}
+const MobileHeaderMemo = memo(MobileHeader);
+
+export function PerpOrderBook({
+  entry,
+}: {
+  entry?: 'perpTab' | 'perpMobileMarket';
+}) {
   const { gtMd } = useMedia();
   const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
   const prevSymbolRef = useRef<string | undefined>(undefined);
-  const {
-    l2Book,
-    hasOrderBook,
-    // getBestBid,
-    // getBestAsk,
-    // getSpread,
-    // getSpreadPercent,
-    // getTotalBidVolume,
-    // getTotalAskVolume,
-  } = useL2Book({
+  const { l2Book, hasOrderBook } = useL2Book({
     nSigFigs: selectedTickOption?.nSigFigs || null,
     mantissa: selectedTickOption?.mantissa,
   });
@@ -48,6 +105,53 @@ export function PerpOrderBook() {
     setSelectedTickOption(option);
   }, []);
 
+  const mobileOrderBook = useMemo(() => {
+    if (!hasOrderBook || !l2Book) return null;
+    if (gtMd) return null;
+    if (entry === 'perpMobileMarket') {
+      return (
+        <OrderBook
+          horizontal
+          symbol={l2Book.coin}
+          bids={l2Book.bids}
+          asks={l2Book.asks}
+          maxLevelsPerSide={12}
+          selectedTickOption={selectedTickOption}
+          onTickOptionChange={handleTickOptionChange}
+          tickOptions={tickOptionsData.tickOptions}
+          showTickSelector
+          priceDecimals={tickOptionsData.priceDecimals}
+          sizeDecimals={tickOptionsData.sizeDecimals}
+        />
+      );
+    }
+    return (
+      <>
+        <MobileHeaderMemo />
+        <OrderBookMobile
+          symbol={l2Book.coin}
+          bids={l2Book.bids}
+          asks={l2Book.asks}
+          maxLevelsPerSide={9}
+          selectedTickOption={selectedTickOption}
+          onTickOptionChange={handleTickOptionChange}
+          tickOptions={tickOptionsData.tickOptions}
+          showTickSelector
+          priceDecimals={tickOptionsData.priceDecimals}
+          sizeDecimals={tickOptionsData.sizeDecimals}
+        />
+      </>
+    );
+  }, [
+    entry,
+    gtMd,
+    handleTickOptionChange,
+    l2Book,
+    selectedTickOption,
+    tickOptionsData,
+    hasOrderBook,
+  ]);
+
   if (!hasOrderBook || !l2Book) {
     return (
       <YStack flex={1} p="$4" justifyContent="center" alignItems="center">
@@ -58,26 +162,25 @@ export function PerpOrderBook() {
     );
   }
 
-  // const bestBid = getBestBid();
-  // const bestAsk = getBestAsk();
-  // const spread = getSpread();
-  // const spreadPercent = getSpreadPercent();
-
   return (
     <YStack flex={1} bg="$bgApp">
-      <OrderBook
-        symbol={l2Book.coin}
-        horizontal={false}
-        bids={l2Book.bids}
-        asks={l2Book.asks}
-        maxLevelsPerSide={gtMd ? 12 : 7}
-        selectedTickOption={selectedTickOption}
-        onTickOptionChange={handleTickOptionChange}
-        tickOptions={tickOptionsData.tickOptions}
-        showTickSelector
-        priceDecimals={tickOptionsData.priceDecimals}
-        sizeDecimals={tickOptionsData.sizeDecimals}
-      />
+      {gtMd ? (
+        <OrderBook
+          symbol={l2Book.coin}
+          horizontal={false}
+          bids={l2Book.bids}
+          asks={l2Book.asks}
+          maxLevelsPerSide={12}
+          selectedTickOption={selectedTickOption}
+          onTickOptionChange={handleTickOptionChange}
+          tickOptions={tickOptionsData.tickOptions}
+          showTickSelector
+          priceDecimals={tickOptionsData.priceDecimals}
+          sizeDecimals={tickOptionsData.sizeDecimals}
+        />
+      ) : (
+        mobileOrderBook
+      )}
     </YStack>
   );
 }

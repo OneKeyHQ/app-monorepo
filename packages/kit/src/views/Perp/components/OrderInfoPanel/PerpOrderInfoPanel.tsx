@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -16,6 +16,9 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
+import { usePerpPositions } from '../../hooks';
+import { usePerpOrders } from '../../hooks/usePerpOrderInfoPanel';
+
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
@@ -26,6 +29,8 @@ interface IPerpOrderInfoPanelProps {
 
 function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   const intl = useIntl();
+  const orders = usePerpOrders();
+  const positions = usePerpPositions();
   const tabsRef = useRef<{
     switchTab: (tabName: string) => void;
   } | null>(null);
@@ -44,6 +49,22 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       screen: EModalPerpRoutes.PerpTradersHistoryList,
     });
   };
+
+  const tabCount = useCallback(
+    (name: string) => {
+      if (name === 'Trades History') {
+        return '';
+      }
+      if (name === 'Positions' && positions.length > 0) {
+        return `(${positions.length})`;
+      }
+      if (name === 'Open Orders' && orders.length > 0) {
+        return `(${orders.length})`;
+      }
+      return '';
+    },
+    [positions.length, orders.length],
+  );
 
   return (
     <YStack overflow="hidden">
@@ -78,11 +99,11 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
                 onPress={() => onPress(name)}
               >
                 <SizableText size="$headingXs">
-                  {intl.formatMessage({
+                  {`${intl.formatMessage({
                     id: tabNameToTranslationKey[
                       name as keyof typeof tabNameToTranslationKey
                     ],
-                  })}
+                  })} ${tabCount(name)}`}
                 </SizableText>
               </XStack>
             )}
