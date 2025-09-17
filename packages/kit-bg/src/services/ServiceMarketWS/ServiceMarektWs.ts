@@ -39,8 +39,6 @@ class ServiceMarketWS extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private subscriptions = new Set<string>();
-
   private socket: Socket | null = null;
 
   private isMarketListenerRegistered = false;
@@ -82,7 +80,6 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket = null;
-    this.subscriptions.clear();
   }
 
   @backgroundMethod()
@@ -93,12 +90,6 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    const subscriptionKey = `${EChannel.tokenTxs}-${networkId}-${tokenAddress}`;
-
-    if (this.subscriptions.has(subscriptionKey)) {
-      return;
-    }
-
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
       args: [
@@ -116,7 +107,6 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptions.add(subscriptionKey);
   }
 
   @backgroundMethod()
@@ -131,12 +121,6 @@ class ServiceMarketWS extends ServiceBase {
     chartType?: string;
     currency?: string;
   }) {
-    const subscriptionKey = `${EChannel.ohlcv}-${networkId}-${tokenAddress}-${chartType}-${currency}`;
-
-    if (this.subscriptions.has(subscriptionKey)) {
-      return;
-    }
-
     const subscriptionArgs: IMarketSubscription = {
       channel: EChannel.ohlcv,
       networkId,
@@ -162,7 +146,6 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptions.add(subscriptionKey);
   }
 
   @backgroundMethod()
@@ -179,21 +162,6 @@ class ServiceMarketWS extends ServiceBase {
     chartType?: string;
     currency?: string;
   }) {
-    // Generate the same subscription key as used in subscribe methods
-    let subscriptionKey: string;
-    if (channel === EChannel.ohlcv && chartType && currency) {
-      subscriptionKey = `${channel}-${networkId}-${tokenAddress}-${chartType}-${currency}`;
-    } else {
-      subscriptionKey = `${channel}-${networkId}-${tokenAddress}`;
-    }
-
-    console.log('unsubscribe', subscriptionKey);
-
-    if (!this.subscriptions.has(subscriptionKey)) {
-      console.log('Subscription not found:', subscriptionKey);
-      return;
-    }
-
     const subscriptionArgs: IMarketSubscription = {
       channel,
       networkId,
@@ -218,7 +186,6 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptions.delete(subscriptionKey);
   }
 
   @backgroundMethod()
