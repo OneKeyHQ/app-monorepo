@@ -325,6 +325,7 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
         @"bundleVersion": bundleVersion
     };
 
+    DDLogDebug(@"downloadBundle: filePath: %@", filePath);
     if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
         if ([self verifyBundleSHA256:filePath sha256:sha256]) {
             resolve(result);
