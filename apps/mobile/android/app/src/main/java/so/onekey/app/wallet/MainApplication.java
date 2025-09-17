@@ -31,7 +31,7 @@ import java.util.List;
 public class MainApplication extends Application implements ReactApplication {
 
   private final ReactNativeHost mReactNativeHost =
-    new ReactNativeHostWrapper(this, new DefaultReactNativeHost(this) {
+    new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
       @Override
       public boolean getUseDeveloperSupport() {
         return BuildConfig.DEBUG;
@@ -43,6 +43,7 @@ public class MainApplication extends Application implements ReactApplication {
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new AutoUpdateModulePackage(mReactNativeHost));
+        packages.add(new BundleUpdatePackage());
         packages.add(new RootViewBackgroundPackage());
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
