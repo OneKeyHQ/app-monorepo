@@ -642,7 +642,10 @@ function TokenDetailsView() {
         <SizableText size="$headingLg" numberOfLines={1}>
           {tokenInfo.commonSymbol ?? tokenInfo.symbol ?? tokenInfo.name ?? ''}
         </SizableText>
-        {tokens?.length <= 1 && gtMd ? (
+        {!isLoadingTokens &&
+        !isLoading &&
+        (tokens?.length <= 1 || !tokenInfo.isAggregateToken) &&
+        gtMd ? (
           <Badge badgeSize="sm">
             <Badge.Text>{tokenInfo.networkName ?? ''}</Badge.Text>
           </Badge>
@@ -654,11 +657,14 @@ function TokenDetailsView() {
     tokenInfo.commonSymbol,
     tokenInfo.symbol,
     tokenInfo.name,
+    tokenInfo.isAggregateToken,
     tokenInfo.networkName,
-    tokens?.length,
+    tokens.length,
     gtMd,
     network?.logoURI,
     networkId,
+    isLoadingTokens,
+    isLoading,
   ]);
 
   useEffect(() => {

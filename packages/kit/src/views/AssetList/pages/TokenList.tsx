@@ -24,7 +24,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';

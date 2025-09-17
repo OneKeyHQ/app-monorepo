@@ -556,8 +556,6 @@ function TokenListContainer({
           riskTokenManagementRawData.current.unblockedTokens,
         aggregateTokenConfigMapRawData:
           aggregateTokenRawData.current?.aggregateTokenConfigMap,
-        aggregateTokenSymbolMapRawData:
-          aggregateTokenRawData.current?.aggregateTokenSymbolMap,
       });
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {

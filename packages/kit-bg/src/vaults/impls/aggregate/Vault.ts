@@ -46,7 +46,15 @@ export default class Vault extends VaultBase {
   override buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
   ): Promise<INetworkAccountAddressDetail> {
-    throw new NotImplemented();
+    return Promise.resolve({
+      networkId: params.networkId,
+      normalizedAddress: '',
+      displayAddress: '',
+      address: '',
+      baseAddress: '',
+      isValid: true,
+      allowEmptyAddress: true,
+    });
   }
 
   override buildEncodedTx(params: IBuildEncodedTxParams): Promise<IEncodedTx> {

@@ -244,7 +244,7 @@ function TokenDetailsHeader(props: IProps) {
       <>
         {isAllNetworks &&
         !tokenInfo.isAggregateToken &&
-        tokenInfo.isSameSymbolWithAggregateToken ? (
+        tokenInfo.hasSameSymbolToken ? (
           <Alert
             icon="InfoCircleOutline"
             type="critical"

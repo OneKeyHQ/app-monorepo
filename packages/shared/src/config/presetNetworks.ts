@@ -26,6 +26,7 @@ export const dangerAggregateTokenNetworkRepresent: IServerNetwork = {
     'symbol': '0',
   },
   'defaultEnabled': false,
+  'isAggregateNetwork': true,
   'status': ENetworkStatus.LISTED,
 };
 
