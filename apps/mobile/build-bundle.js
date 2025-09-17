@@ -41,6 +41,14 @@ const ensureBundleOutputPath = async () => {
   }
 };
 
+const ignoreFiles = ['.DS_Store'];
+
+const shouldIgnoreFile = (fileName) => {
+  return ignoreFiles.some((pattern) => {
+    return fileName.endsWith(pattern);
+  });
+};
+
 const generateMetadataJson = async (dirPath) => {
   const metadata = {};
 
@@ -51,7 +59,7 @@ const generateMetadataJson = async (dirPath) => {
       const itemPath = path.join(currentPath, item);
       const stat = fs.statSync(itemPath);
 
-      if (stat.isFile()) {
+      if (stat.isFile() && !shouldIgnoreFile(item)) {
         try {
           const fileContent = fs.readFileSync(itemPath);
           const hash = crypto
@@ -124,8 +132,7 @@ const buildIOSBundle = async () => {
     --reset-cache \
     --assets-dest ${buildIOSOutputAssetPath('assets')} \
     --bundle-output ${buildIOSOutputAssetPath('main.jsbundle')} \
-    --sourcemap-output ${buildIOSOutputAssetPath('main.jsbundle.map')}   
-
+    --sourcemap-output ${buildIOSOutputAssetPath('main.jsbundle.map')}
     `,
     {
       stdio: 'inherit',
@@ -213,7 +220,9 @@ const buildIOSBundle = async () => {
     console.log('build ios bundle upload source maps done');
   }
   const distPath = buildIOSOutputAssetPath('dist');
-  fs.mkdirSync(buildIOSOutputAssetPath('dist'));
+  if (!fs.existsSync(distPath)) {
+    fs.mkdirSync(distPath);
+  }
   fs.moveSync(
     buildIOSOutputAssetPath('assets'),
     buildIOSOutputAssetPath('dist/assets'),
