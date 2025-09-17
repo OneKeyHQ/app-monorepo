@@ -186,12 +186,13 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
 - (void)URLSession:(NSURLSession *)session downloadTask:(NSURLSessionDownloadTask *)downloadTask
 didFinishDownloadingToURL:(NSURL *)location {
         NSError *moveError;
-        const NSString *filePath = self.downloadBundleResult[@"downloadedFile"];
+        NSString *filePath = self.downloadBundleResult[@"downloadedFile"];
+        NSString *sha256 = self.downloadBundleResult[@"sha256"];
         [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
         BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
         
         if (!success) {
-            self.isDownloading = NO;
+            [self clearDownloadTask];
             [self sendEventWithName:@"update/error" body:@{
                 @"error": [NSString stringWithFormat:@"%ld", (long)moveError.code],
                 @"errorMessage": moveError.localizedDescription,
@@ -199,12 +200,10 @@ didFinishDownloadingToURL:(NSURL *)location {
             return;
         }
 
-        self.isDownloading = NO;
-        [[NSFileManager defaultManager] removeItemAtPath:partialFilePath error:nil];
-
         if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+            [self clearDownloadTask];
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-            [self.sendEventWithName:@"update/error" body:@{
+            [self sendEventWithName:@"update/error" body:@{
                 @"error": @"Bundle signature verification failed",
             }];
             return;
@@ -372,7 +371,8 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
         @"downloadedFile": filePath,
         @"downloadUrl": downloadUrl,
         @"latestVersion": appVersion,
-        @"bundleVersion": bundleVersion
+        @"bundleVersion": bundleVersion,
+        @"sha256": sha256,
     };
 
     DDLogDebug(@"downloadBundle: filePath: %@", filePath);
