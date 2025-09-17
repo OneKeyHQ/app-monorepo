@@ -123,8 +123,9 @@ function EmptyToken(props: IProps) {
 
   return (
     <Empty
+      mt="24%"
       testID="Wallet-No-Token-Empty"
-      icon="CryptoCoinOutline"
+      icon="CoinsOutline"
       title={intl.formatMessage({ id: ETranslations.send_no_token_message })}
     />
   );
