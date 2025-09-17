@@ -14,7 +14,7 @@
 - (NSString *)extractSHA256FromASCFile:(NSString *)ascPath;
 + (NSString *)downloadBundleDir;
 + (NSString *)bundleDir;
-+ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata;
++ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion;
 + (NSString *)calculateSHA256:(NSString *)filePath;
 
 @end
