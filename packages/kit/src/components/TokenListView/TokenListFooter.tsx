@@ -5,6 +5,7 @@ import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -48,11 +49,12 @@ import {
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
+  isLoading?: boolean;
 };
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
-  const { tableLayout, hideZeroBalanceTokens } = props;
+  const { tableLayout, hideZeroBalanceTokens, isLoading } = props;
   const navigation = useAppNavigation();
   const {
     activeAccount: {
@@ -229,6 +231,21 @@ function TokenListFooter(props: IProps) {
     hideValue,
   ]);
 
+  const handleOnPressManageTokens = useCallback(() => {
+    if (!account || !network || !wallet) return;
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenManagerModal,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+        walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
+        deriveType,
+        isAllNetworks: network.isAllNetworks,
+      },
+    });
+  }, [account, network, wallet, navigation, indexedAccount?.id, deriveType]);
+
   const { result: blockedTokensLength, run } = usePromiseResult(
     async () => {
       if (!network) return filteredRiskyTokens?.length ?? 0;
@@ -375,6 +392,18 @@ function TokenListFooter(props: IProps) {
             />
           </XStack>
         </ListItem>
+      ) : null}
+      {!isLoading ? (
+        <Button
+          mt="$5"
+          alignSelf="center"
+          $gtMd={{
+            size: 'small',
+          }}
+          onPress={handleOnPressManageTokens}
+        >
+          {intl.formatMessage({ id: ETranslations.manage_token_title })}
+        </Button>
       ) : null}
     </Stack>
   );
