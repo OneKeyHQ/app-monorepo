@@ -6,6 +6,7 @@ type ISubscription = {
   address: string;
   type: ISubscriptionType;
   connectionCount: number;
+  dataCount: number;
 };
 
 export class MarketSubscriptionTracker {
@@ -18,7 +19,12 @@ export class MarketSubscriptionTracker {
     if (existing) {
       existing.connectionCount += 1;
     } else {
-      this.subscriptions.push({ address, type, connectionCount: 1 });
+      this.subscriptions.push({
+        address,
+        type,
+        connectionCount: 1,
+        dataCount: 0,
+      });
     }
   }
 
@@ -47,6 +53,17 @@ export class MarketSubscriptionTracker {
     return this.subscriptions.some(
       (sub) => sub.address === address && sub.type === type,
     );
+  }
+
+  incrementDataCount(address: string, type: ISubscriptionType): boolean {
+    const existing = this.subscriptions.find(
+      (sub) => sub.address === address && sub.type === type,
+    );
+    if (existing) {
+      existing.dataCount += 1;
+      return true;
+    }
+    return false;
   }
 
   clear() {

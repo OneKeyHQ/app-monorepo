@@ -162,8 +162,7 @@ class ServiceMarketWS extends ServiceBase {
     this.subscriptionTracker.addSubscription(tokenAddress, EChannel.ohlcv);
   }
 
-  @backgroundMethod()
-  async unsubscribe({
+  private async unsubscribe({
     channel,
     networkId,
     tokenAddress,
@@ -279,12 +278,57 @@ class ServiceMarketWS extends ServiceBase {
 
     if (messageType === 'TXS_DATA') {
       channel = EChannel.tokenTxs;
+      const txsData = processedData as IWsTxsData;
+
+      // Check both from and to addresses for TXS_DATA
+      const fromAddress = txsData.from?.address;
+      const toAddress = txsData.to?.address;
+
+      // Try to find which address has subscription and increment its data count
+      let hasSubscription = false;
+      if (
+        fromAddress &&
+        this.subscriptionTracker.hasSubscription(fromAddress, EChannel.tokenTxs)
+      ) {
+        this.subscriptionTracker.incrementDataCount(
+          fromAddress,
+          EChannel.tokenTxs,
+        );
+        tokenAddress = fromAddress;
+        hasSubscription = true;
+      } else if (
+        toAddress &&
+        this.subscriptionTracker.hasSubscription(toAddress, EChannel.tokenTxs)
+      ) {
+        this.subscriptionTracker.incrementDataCount(
+          toAddress,
+          EChannel.tokenTxs,
+        );
+        tokenAddress = toAddress;
+        hasSubscription = true;
+      }
+
+      // If no subscription found, skip this message
+      if (!hasSubscription) {
+        return;
+      }
     } else if (messageType === 'PRICE_DATA') {
       channel = EChannel.ohlcv;
-
       const priceData = processedData as IWsPriceData;
-
       tokenAddress = priceData.address;
+
+      // Increment data count for PRICE_DATA
+      if (
+        this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.ohlcv)
+      ) {
+        this.subscriptionTracker.incrementDataCount(
+          tokenAddress,
+          EChannel.ohlcv,
+        );
+      } else {
+        // If no subscription found, skip this message
+        return;
+      }
     } else {
       console.warn('Invalid market data: missing required fields', {
         tokenAddress,
