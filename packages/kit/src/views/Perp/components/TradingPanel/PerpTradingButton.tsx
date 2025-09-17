@@ -107,12 +107,12 @@ export function PerpTradingButton({
 
     const getBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '#18794E' : '#C62A2F';
+      return isLong ? '#18794E' : '#E5484D';
     };
 
     const getHoverBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '$green8' : '$red8';
+      return isLong ? '$green8' : '$red10';
     };
 
     const getPressBgColor = () => {

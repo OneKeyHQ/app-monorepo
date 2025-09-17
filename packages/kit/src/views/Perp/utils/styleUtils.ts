@@ -9,7 +9,7 @@ export function getTradingButtonStyleProps(side: ITradeSide, disabled = false) {
   const isLong = side === 'long';
 
   return {
-    bg: isLong ? '#18794E' : '#C62A2F',
+    bg: isLong ? '#18794E' : '#E5484D',
     hoverStyle: { bg: isLong ? '$green8' : '$red8' },
     pressStyle: { bg: isLong ? '$green8' : '$red8' },
     textColor: (disabled ? '$textDisabled' : '$textOnColor') as ColorTokens,

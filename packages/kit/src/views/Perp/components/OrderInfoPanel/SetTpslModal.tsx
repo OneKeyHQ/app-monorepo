@@ -229,10 +229,6 @@ const SetTpslForm = memo(
 
     return (
       <YStack gap="$4">
-        <SizableText size="$bodyLg">
-          Set a price to trigger a Take Profit or Stop Loss order.
-        </SizableText>
-
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -331,6 +327,7 @@ export function showSetTpslDialog({
 }: ISetTpslParams) {
   const dialogInstance = Dialog.show({
     title: 'TP/SL for Position',
+    description: 'Set a price to trigger a Take Profit or Stop Loss order.',
     renderContent: (
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <SetTpslForm
