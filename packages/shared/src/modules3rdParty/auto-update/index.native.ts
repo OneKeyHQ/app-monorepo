@@ -20,6 +20,7 @@ import type {
   IVerifyASC,
   IVerifyPackage,
 } from './type';
+import type { NativeEventSubscription } from 'react-native';
 
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
@@ -152,6 +153,7 @@ const DOWNLOAD_EVENT_TYPE = {
   start: 'update/start',
   downloading: 'update/downloading',
   complete: 'update/complete',
+  error: 'update/error',
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => {
@@ -217,7 +219,38 @@ const { BundleUpdateModule } = NativeModules as {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  downloadBundle: (params) => BundleUpdateModule.downloadBundle(params),
+  downloadBundle: (params) => {
+    return new Promise((resolve, reject) => {
+      BundleUpdateModule.downloadBundle(params)
+        .then((result) => {
+          // eslint-disable-next-line prefer-const
+          let onSuccessSubscription: NativeEventSubscription | undefined;
+          // eslint-disable-next-line prefer-const
+          let onErrorSubscription: NativeEventSubscription | undefined;
+          const removeSubscriptions = () => {
+            onSuccessSubscription?.remove();
+            onErrorSubscription?.remove();
+          };
+          const onSuccess = () => {
+            resolve(result);
+            removeSubscriptions();
+          };
+          const onError = (error: string) => {
+            reject(error);
+            removeSubscriptions();
+          };
+          onSuccessSubscription = BundleUpdateEventEmitter?.addListener(
+            DOWNLOAD_EVENT_TYPE.error,
+            onError,
+          );
+          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
+            DOWNLOAD_EVENT_TYPE.complete,
+            onSuccess,
+          );
+        })
+        .catch(reject);
+    });
+  },
   verifyBundle: (params) => BundleUpdateModule.verifyBundle(params),
   verifyBundleASC: (params) => BundleUpdateModule.verifyBundleASC(params),
   downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
