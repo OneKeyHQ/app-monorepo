@@ -24,8 +24,7 @@ export type IModalAssetDetailsParamList = {
     riskyTokens?: string[];
     isAllNetworks?: boolean;
     indexedAccountId: string;
-    tokens: IAccountToken[];
-    isAggregateToken?: boolean;
+    tokenInfo: IAccountToken;
     tokenMap?: Record<string, ITokenFiat>;
   };
   [EModalAssetDetailRoutes.MarketDetail]: {

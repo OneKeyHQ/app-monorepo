@@ -25,6 +25,7 @@ import type {
   EAssetSelectorRoutes,
   IAssetSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   sortTokensByOrder,
   sortTokensCommon,
@@ -37,7 +38,6 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import { EmptySearch } from '../../../components/Empty';
 import { ListItem } from '../../../components/ListItem';
-import { useAccountData } from '../../../hooks/useAccountData';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -54,9 +54,26 @@ const listedNetworkMap = getListedNetworkMap();
 function AggregateTokenListItem({
   token,
   onPress,
+  allNetworksState,
+  refreshAllNetworkState,
 }: {
   token: IAccountToken;
-  onPress: (token: IAccountToken) => void;
+  onPress: ({
+    token,
+    enabledInAllNetworks,
+  }: {
+    token: IAccountToken;
+    enabledInAllNetworks?: boolean;
+  }) => void;
+  allNetworksState: {
+    disabledNetworks: Record<string, boolean>;
+    enabledNetworks: Record<string, boolean>;
+  };
+  refreshAllNetworkState: ({
+    alwaysSetState,
+  }: {
+    alwaysSetState?: boolean;
+  }) => void;
 }) {
   const [loading, setLoading] = useState(false);
   const intl = useIntl();
@@ -100,8 +117,10 @@ function AggregateTokenListItem({
   const handleOnPress = useCallback(async () => {
     if (accountId) {
       onPress({
-        ...token,
-        accountId,
+        token: {
+          ...token,
+          accountId,
+        },
       });
     } else {
       try {
@@ -122,22 +141,40 @@ function AggregateTokenListItem({
           num: 0,
         });
         if (createAddressResult) {
-          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-            enabledNetworks: { [network?.id ?? '']: true },
-          });
+          const isEnabled =
+            token.networkId &&
+            isEnabledNetworksInAllNetworks({
+              networkId: token.networkId,
+              disabledNetworks: allNetworksState.disabledNetworks,
+              enabledNetworks: allNetworksState.enabledNetworks,
+              isTestnet: false,
+            });
+
+          if (!isEnabled && token.networkId) {
+            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+              enabledNetworks: { [token.networkId]: true },
+            });
+            void refreshAllNetworkState({ alwaysSetState: true });
+          }
           Toast.success({
             title: intl.formatMessage({
               id: ETranslations.swap_page_toast_address_generated,
             }),
-            message: intl.formatMessage({
-              id: ETranslations.network_also_enabled,
-            }),
+            message: isEnabled
+              ? ''
+              : intl.formatMessage({
+                  id: ETranslations.network_also_enabled,
+                }),
           });
           onPress({
-            ...token,
-            accountId: createAddressResult.accounts[0]?.id,
+            token: {
+              ...token,
+              accountId: createAddressResult.accounts[0]?.id,
+            },
+            enabledInAllNetworks: true,
           });
           void run();
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         }
       } finally {
         setLoading(false);
@@ -145,14 +182,17 @@ function AggregateTokenListItem({
     }
   }, [
     accountId,
-    network?.id,
     onPress,
     token,
+    network?.id,
     createAddress,
     wallet?.id,
     indexedAccount?.id,
+    allNetworksState.disabledNetworks,
+    allNetworksState.enabledNetworks,
     intl,
     run,
+    refreshAllNetworkState,
   ]);
 
   return (
@@ -235,29 +275,69 @@ function AggregateTokenSelector() {
     return aggregateTokensListMapAtom[aggregateToken.$key]?.tokens ?? [];
   }, [aggregateTokensListMapAtom, aggregateToken.$key]);
 
+  const { result: allNetworksState, run: refreshAllNetworkState } =
+    usePromiseResult(
+      async () => {
+        return backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+      },
+      [],
+      {
+        initResult: {
+          disabledNetworks: {},
+          enabledNetworks: {},
+        },
+      },
+    );
+
   const handleSearchTextChange = useDebouncedCallback((text: string) => {
     setSearchKey(text);
   }, 500);
 
   const handleOnPressToken = useCallback(
-    async (token: IAccountToken) => {
+    async ({
+      token,
+      enabledInAllNetworks,
+    }: {
+      token: IAccountToken;
+      enabledInAllNetworks?: boolean;
+    }) => {
       void onSelect(token);
       if (enableNetworkAfterSelect) {
-        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-          enabledNetworks: { [token.networkId ?? '']: true },
-        });
-        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.network_also_enabled,
-          }),
-        });
+        if (
+          token.networkId &&
+          !enabledInAllNetworks &&
+          !isEnabledNetworksInAllNetworks({
+            networkId: token.networkId,
+            disabledNetworks: allNetworksState.disabledNetworks,
+            enabledNetworks: allNetworksState.enabledNetworks,
+            isTestnet: false,
+          })
+        ) {
+          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+            enabledNetworks: { [token.networkId]: true },
+          });
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.network_also_enabled,
+            }),
+          });
+          void refreshAllNetworkState({ alwaysSetState: true });
+        }
       }
       if (closeAfterSelect) {
         navigation.pop();
       }
     },
-    [onSelect, navigation, closeAfterSelect, enableNetworkAfterSelect, intl],
+    [
+      onSelect,
+      navigation,
+      closeAfterSelect,
+      enableNetworkAfterSelect,
+      intl,
+      allNetworksState,
+      refreshAllNetworkState,
+    ],
   );
 
   const sortedAggregateTokens = useMemo(() => {
@@ -303,9 +383,17 @@ function AggregateTokenSelector() {
         key={token.$key}
         token={token}
         onPress={handleOnPressToken}
+        allNetworksState={allNetworksState}
+        refreshAllNetworkState={refreshAllNetworkState}
       />
     ));
-  }, [filteredAggregateTokens, handleOnPressToken, searchKey]);
+  }, [
+    filteredAggregateTokens,
+    handleOnPressToken,
+    searchKey,
+    allNetworksState,
+    refreshAllNetworkState,
+  ]);
 
   return (
     <Page scrollEnabled>

@@ -167,17 +167,17 @@ export function sortTokensByFiatValue({
   sortDirection?: 'desc' | 'asc';
 }) {
   return tokens?.sort((a, b) => {
-    const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
-    const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
+    const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? -1);
+    const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? -1);
 
     if (sortDirection === 'desc') {
-      return new BigNumber(bFiat.isNaN() ? 0 : bFiat).comparedTo(
-        new BigNumber(aFiat.isNaN() ? 0 : aFiat),
+      return new BigNumber(bFiat.isNaN() ? -1 : bFiat).comparedTo(
+        new BigNumber(aFiat.isNaN() ? -1 : aFiat),
       );
     }
 
-    return new BigNumber(aFiat.isNaN() ? 0 : aFiat).comparedTo(
-      new BigNumber(bFiat.isNaN() ? 0 : bFiat),
+    return new BigNumber(aFiat.isNaN() ? -1 : aFiat).comparedTo(
+      new BigNumber(bFiat.isNaN() ? -1 : bFiat),
     );
   });
 }
@@ -707,6 +707,15 @@ export function getTokenPriceChangeStyle({
   };
 }
 
+export function buildTokenListMapKey(params: {
+  networkId: string;
+  accountAddress: string;
+  tokenAddress: string;
+}) {
+  const { networkId, accountAddress, tokenAddress } = params;
+  return `${networkId}_${accountAddress}_${tokenAddress}`;
+}
+
 export function buildAggregateTokenMapKeyForAggregateConfig(params: {
   networkId: string;
   tokenAddress: string;
@@ -857,9 +866,15 @@ export function sortTokensCommon({
     map: tokenListMap,
   });
 
-  const index = sortedTokens.findIndex((t) =>
-    new BigNumber(tokenListMap[t.$key]?.fiatValue ?? 0).isZero(),
+  let index = sortedTokens.findIndex((t) =>
+    new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isNegative(),
   );
+
+  if (index === -1) {
+    index = sortedTokens.findIndex((t) =>
+      new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isZero(),
+    );
+  }
 
   // sort zero fiat value tokens by order
   if (index > -1) {

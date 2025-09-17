@@ -1628,48 +1628,28 @@ function TokenListContainer({
     (token: IAccountToken) => {
       if (!network || !wallet || !deriveInfo || !deriveType) return;
 
-      let sortedTokens = [token];
-
-      if (token.isAggregateToken) {
-        const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
-
-        sortedTokens = uniqBy(
-          sortTokensCommon({
-            tokens,
-            tokenListMap: tokenListMapAtom,
-          }),
-          (item) => item.$key,
-        );
-      }
-
-      if (sortedTokens.length === 0) {
-        return;
-      }
-
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
-          accountId: sortedTokens[0]?.accountId ?? account?.id ?? '',
-          networkId: sortedTokens[0]?.networkId ?? network.id,
+          accountId: token.accountId ?? account?.id ?? '',
+          networkId: token.networkId ?? network.id,
           walletId: wallet.id,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
-          tokens: sortedTokens,
-          isAggregateToken: token.isAggregateToken,
+          tokenInfo: token,
           tokenMap: tokenListMapAtom,
         },
       });
     },
     [
-      account,
+      account?.id,
       deriveInfo,
       deriveType,
       indexedAccount?.id,
       navigation,
       network,
-      wallet,
-      aggregateTokenListMapAtom,
       tokenListMapAtom,
+      wallet,
     ],
   );
 
