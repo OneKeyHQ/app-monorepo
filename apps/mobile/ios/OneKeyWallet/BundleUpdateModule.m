@@ -10,6 +10,7 @@
 #import <CocoaLumberjack/CocoaLumberjack.h>
 #import <CommonCrypto/CommonDigest.h>
 #import <React/RCTUtils.h>
+#import "SSZipArchive.h"
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
@@ -49,6 +50,15 @@ RCT_EXPORT_MODULE();
         [[NSFileManager defaultManager] createDirectoryAtPath:bundleUpdateDir withIntermediateDirectories:YES attributes:nil error:nil];
     }
     return bundleUpdateDir;
+}
+
++ (NSString *)bundleDir {
+    NSString *homeDir = NSHomeDirectory();
+    NSString *bundleDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:bundleDir]) {
+        [[NSFileManager defaultManager] createDirectoryAtPath:bundleDir withIntermediateDirectories:YES attributes:nil error:nil];
+    }
+    return bundleDir;
 }
 
 + (NSString *)bundleDir {
@@ -252,6 +262,8 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSString *filePath = params[@"downloadedFile"];
     NSString *sha256 = params[@"sha256"];
+    NSString *appVersion = params[@"latestVersion"];
+    NSString *bundleVersion = params[@"bundleVersion"];
     if (!filePath || !sha256) {
         reject(@"INVALID_PARAMS", @"filePath and sha256 are required", nil);
         return;
@@ -262,7 +274,9 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
         return;
     }
 
-    
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
+    [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
     resolve(nil);
 }
 
@@ -334,56 +348,18 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
 RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *filePath = params[@"filePath"];
-    
-    if (!filePath) {
-        reject(@"INVALID_PARAMS", @"filePath is required", nil);
+    NSString *appVersion = params[@"latestVersion"];
+    NSString *bundleVersion = params[@"bundleVersion"];
+    NSString *filePath = params[@"downloadedFile"];
+    if (!filePath || !appVersion || !bundleVersion) {
+        reject(@"INVALID_PARAMS", @"filePath and appVersion and bundleVersion are required", nil);
         return;
     }
     
-    if (![[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
-        NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
-                                             code:-1 
-                                         userInfo:@{NSLocalizedDescriptionKey: @"Bundle file not found"}];
-        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-        return;
-    }
-    
-    // Verify bundle before installation
-    NSString *ascFilePath = [filePath stringByAppendingString:@".SHA256SUMS.asc"];
-    BOOL isValid = [self verifyBundleSHA256:filePath ascPath:ascFilePath];
-    
-    if (!isValid) {
-        NSError *error = [NSError errorWithDomain:@"BundleUpdateError" 
-                                             code:-1 
-                                         userInfo:@{NSLocalizedDescriptionKey: @"Bundle signature verification failed"}];
-        reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
-        return;
-    }
-    
-    // Copy bundle to app bundle location
-    NSString *bundleName = @"main";
-    NSString *bundleExtension = @"jsbundle";
-    NSString *targetPath = [[NSBundle mainBundle] pathForResource:bundleName ofType:bundleExtension];
-    
-    if (!targetPath) {
-        // If main.jsbundle doesn't exist, create it in the Documents directory
-        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-        NSString *documentsDirectory = [paths objectAtIndex:0];
-        targetPath = [documentsDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.%@", bundleName, bundleExtension]];
-    }
-    
-    NSError *copyError;
-    [[NSFileManager defaultManager] removeItemAtPath:targetPath error:nil];
-    BOOL success = [[NSFileManager defaultManager] copyItemAtPath:filePath toPath:targetPath error:&copyError];
-    
-    if (!success) {
-        reject([NSString stringWithFormat:@"%ld", (long)copyError.code], copyError.localizedDescription, copyError);
-        return;
-    }
-    
-    DDLogDebug(@"installBundle: Bundle installed to: %@", targetPath);
-    
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
+    [userDefaults synchronize];
     resolve(nil);
 }
 
