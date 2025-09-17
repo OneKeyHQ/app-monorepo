@@ -232,8 +232,23 @@ export class KeyringHardware extends KeyringHardwareBase {
     }
 
     let signingMessage = serializeUnsignedTx.signingMessage;
-    if (msg.stateInit) {
-      hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString('hex');
+    let useBlindSignature = false;
+
+    try {
+      if (msg.stateInit) {
+        hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString(
+          'hex',
+        );
+        useBlindSignature = true;
+      } else if (hwParams.comment && Cell.fromHex(hwParams.comment).isExotic) {
+        useBlindSignature = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    // Blind signature
+    if (useBlindSignature) {
       hwParams.signingMessageRepr = bufferUtils.bytesToHex(
         // await TonWeb.boc.Cell.oneFromBoc(Buffer.from(signingMessage.toBoc())).getRepr(),
         // only for hardware, only serialize for stateInit

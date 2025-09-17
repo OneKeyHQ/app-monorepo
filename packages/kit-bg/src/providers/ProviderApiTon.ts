@@ -280,8 +280,6 @@ class ProviderApiTon extends ProviderApiBase {
       valid_until: number;
     },
   ): Promise<any> {
-    console.log('sendTransaction ========>>>>> encodedTx: ', encodedTx);
-
     const validUntil = encodedTx.validUntil || encodedTx.valid_until;
     if (
       validUntil !== undefined &&

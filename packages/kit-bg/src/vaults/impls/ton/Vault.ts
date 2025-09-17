@@ -418,7 +418,7 @@ export default class Vault extends VaultBase {
         validUntil === null ||
         validUntil < Date.now() / 1000)
     ) {
-      throw new OneKeyLocalError('Bad request: Invalid validUntil');
+      throw new OneKeyLocalError('Transaction has expired');
     }
 
     // check messages
