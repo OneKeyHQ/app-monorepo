@@ -266,6 +266,7 @@ const buildAndroidBundle = async () => {
     --platform android \
     --entry-file ${indexFilePath} \
     --reset-cache \
+    --assets-dest ${buildAndroidOutputAssetPath('assets')} \
     --bundle-output ${buildAndroidOutputAssetPath('main.jsbundle')} \
     --sourcemap-output ${buildAndroidOutputAssetPath('main.jsbundle.map')}    
     `,
