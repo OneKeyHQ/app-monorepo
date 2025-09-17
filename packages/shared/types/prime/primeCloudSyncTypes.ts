@@ -13,7 +13,7 @@ import type { IServerNetwork } from '..';
 import type { EPrimeCloudSyncDataType } from '../../src/consts/primeConsts';
 import type { IAvatarInfo } from '../../src/utils/emojiUtils';
 import type { IDBCustomRpc } from '../customRpc';
-import type { IMarketWatchListItem } from '../market';
+import type { IMarketWatchListItemV2 } from '../market';
 import type { ICloudSyncCustomToken } from '../token';
 
 // for user to manual resolve diff items
@@ -37,7 +37,7 @@ export type ICloudSyncServerDiffItem = {
     | IDBAccount
     | IDBIndexedAccount
     | IBrowserBookmark
-    | IMarketWatchListItem
+    | IMarketWatchListItemV2
     | IDBCustomRpc
     | IServerNetwork
     | IAddressItem
@@ -93,7 +93,7 @@ export type ICloudSyncDBRecord =
   | IDBAccount
   | IDBIndexedAccount
   | IBrowserBookmark
-  | IMarketWatchListItem
+  | IMarketWatchListItemV2
   | IDBCustomRpc
   | IServerNetwork // CustomNetwork
   | IAddressItem
@@ -103,7 +103,7 @@ export type ICloudSyncDBRecords =
   | IDBAccount[]
   | IDBIndexedAccount[]
   | IBrowserBookmark[]
-  | IMarketWatchListItem[]
+  | IMarketWatchListItemV2[]
   | IDBCustomRpc[]
   | IServerNetwork[] // CustomNetwork
   | IAddressItem[]
@@ -145,7 +145,7 @@ export type ICloudSyncTargetBrowserBookmark = ICloudSyncTargetBase & {
 
 export type ICloudSyncTargetMarketWatchList = ICloudSyncTargetBase & {
   dataType: EPrimeCloudSyncDataType.MarketWatchList;
-  watchListItem: IMarketWatchListItem;
+  watchListItem: IMarketWatchListItemV2;
 };
 
 export type ICloudSyncTargetCustomRpc = ICloudSyncTargetBase & {
@@ -285,7 +285,7 @@ export type ICloudSyncPayloadLock = {
 
 export type ICloudSyncPayloadBrowserBookmark = IBrowserBookmark;
 
-export type ICloudSyncPayloadMarketWatchList = IMarketWatchListItem;
+export type ICloudSyncPayloadMarketWatchList = IMarketWatchListItemV2;
 
 export type ICloudSyncPayloadCustomRpc = IDBCustomRpc;
 
