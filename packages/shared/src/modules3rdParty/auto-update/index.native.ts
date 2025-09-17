@@ -10,6 +10,7 @@ import RNFS from '../react-native-fs';
 
 import type {
   IAppUpdate,
+  IBundleUpdate,
   IClearPackage,
   IDownloadASC,
   IDownloadPackage,
@@ -176,4 +177,17 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+};
+
+const { BundleUpdateModule } = NativeModules as {
+  BundleUpdateModule: IBundleUpdate;
+};
+
+export const BundleUpdate: IBundleUpdate = {
+  downloadBundle: (params) => BundleUpdateModule.downloadBundle(params),
+  verifyBundle: (params) => BundleUpdateModule.verifyBundle(params),
+  verifyBundleASC: (params) => BundleUpdateModule.verifyBundleASC(params),
+  downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
+  installBundle: (params) => BundleUpdateModule.installBundle(params),
+  clearBundle: () => BundleUpdateModule.clearBundle(),
 };
