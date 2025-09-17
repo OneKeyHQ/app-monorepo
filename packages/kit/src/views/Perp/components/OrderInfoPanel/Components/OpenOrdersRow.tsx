@@ -53,12 +53,16 @@ const OpenOrdersRow = memo(
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
       const executePrice = order.triggerPx;
+      const executePriceLimit = order.limitPx;
       const origSize = order.origSz;
       const triggerCondition = order.triggerCondition;
       const origSizeFormatted = numberFormat(origSize, {
         formatter: 'balance',
       });
       const executePriceFormatted = numberFormat(executePrice, {
+        formatter: 'price',
+      });
+      const executePriceLimitFormatted = numberFormat(executePriceLimit, {
         formatter: 'price',
       });
       const priceFormatted = numberFormat(price, {
@@ -78,6 +82,7 @@ const OpenOrdersRow = memo(
         triggerCondition,
         origSizeFormatted,
         executePriceFormatted,
+        executePriceLimitFormatted,
         priceFormatted,
         sizeFormatted,
         valueFormatted,
@@ -325,7 +330,9 @@ const OpenOrdersRow = memo(
           alignItems="center"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {orderBaseInfo.executePriceFormatted as string}
+            {order.orderType.includes('Market')
+              ? 'Market'
+              : orderBaseInfo.executePriceLimitFormatted}
           </SizableText>
         </XStack>
         {/* Trigger Condition */}

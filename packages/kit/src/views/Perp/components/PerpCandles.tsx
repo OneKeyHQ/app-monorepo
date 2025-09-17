@@ -10,10 +10,10 @@ export function PerpCandles() {
 
   return (
     <Stack w="100%" h="100%">
-      <TradingViewPerpsV2
+      {/* <TradingViewPerpsV2
         userAddress={currentAccount?.accountAddress}
         symbol={currentToken}
-      />
+      /> */}
     </Stack>
   );
 }

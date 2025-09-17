@@ -78,7 +78,7 @@ const TradesHistoryRow = memo(
 
     const closePnlInfo = useMemo(() => {
       const closePnl = fill.closedPnl;
-      const closePnlBN = new BigNumber(closePnl);
+      const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
       let closePnlPlusOrMinus = '';
       let closePnlColor = '#18794E';
       if (closePnlBN.lt(0)) {
@@ -93,7 +93,7 @@ const TradesHistoryRow = memo(
         },
       });
       return { closePnlFormatted, closePnlColor, closePnlPlusOrMinus };
-    }, [fill.closedPnl]);
+    }, [fill.closedPnl, fill.fee]);
 
     if (isMobile) {
       return (
