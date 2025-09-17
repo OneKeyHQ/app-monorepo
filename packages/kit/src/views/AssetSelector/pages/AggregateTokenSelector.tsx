@@ -48,6 +48,7 @@ import {
 import { HomeTokenListProviderMirrorWrapper } from '../../Home/components/HomeTokenListProvider';
 
 import type { RouteProp } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 
 const listedNetworkMap = getListedNetworkMap();
 
@@ -261,6 +262,7 @@ function AggregateTokenSelector() {
     closeAfterSelect,
     allAggregateTokenList,
     enableNetworkAfterSelect,
+    hideZeroBalanceTokens,
   } = route.params;
 
   const intl = useIntl();
@@ -341,10 +343,18 @@ function AggregateTokenSelector() {
   );
 
   const sortedAggregateTokens = useMemo(() => {
-    const tokens = sortTokensCommon({
+    let tokens = sortTokensCommon({
       tokens: aggregateTokens,
       tokenListMap: allTokenListMapAtom,
     });
+
+    if (hideZeroBalanceTokens) {
+      tokens = tokens.filter((token) => {
+        return new BigNumber(
+          allTokenListMapAtom[token.$key]?.fiatValue ?? -1,
+        ).gt(0);
+      });
+    }
 
     return uniqBy(
       [
@@ -353,7 +363,12 @@ function AggregateTokenSelector() {
       ],
       (token) => token.networkId,
     );
-  }, [aggregateTokens, allTokenListMapAtom, allAggregateTokenList]);
+  }, [
+    aggregateTokens,
+    allTokenListMapAtom,
+    allAggregateTokenList,
+    hideZeroBalanceTokens,
+  ]);
 
   const filteredAggregateTokens = useMemo(() => {
     if (searchKey) {
