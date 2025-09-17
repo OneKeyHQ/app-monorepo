@@ -15,12 +15,7 @@ export function PerpMobileLayout() {
           <YStack flex={1}>
             <PerpTradingPanel />
           </YStack>
-          <YStack
-            w={220}
-            borderLeftWidth="$px"
-            borderLeftColor="$borderSubdued"
-            minHeight={460}
-          >
+          <YStack w={161} pr="$5" pl="$0">
             <PerpOrderBook />
           </YStack>
         </XStack>
