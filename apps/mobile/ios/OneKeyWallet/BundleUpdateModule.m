@@ -31,7 +31,7 @@ RCT_EXPORT_MODULE();
         
         // Create URL session with delegate for progress tracking
         NSURLSessionConfiguration *config = [NSURLSessionConfiguration defaultSessionConfiguration];
-        self.urlSession = [NSURLSession sessionWithConfiguration:config delegate:self delegateQueue:nil];
+        self.urlSession = [NSURLSession sessionWithConfiguration:config delegate:(id<NSURLSessionDelegate>)self delegateQueue:nil];
     }
     return self;
 }
