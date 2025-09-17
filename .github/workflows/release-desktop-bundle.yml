@@ -91,13 +91,33 @@ jobs:
           mkdir -p apps/desktop/bundle
           mv apps/desktop/web-build/metadata.json apps/desktop/bundle/metadata.json
           mv apps/desktop/web-build apps/desktop/bundle/build
+          cd apps/desktop/bundle && zip -r bundle.zip .
+          mkdir -p apps/desktop/bundle-zip
+          mv apps/desktop/bundle/bundle.zip apps/desktop/bundle-zip/bundle.zip
+
+      - name: Generate bundle metadata info
+        run: |
+          cd apps/desktop/bundle-zip
+          BUNDLE_FILE="bundle.zip"
+          BUNDLE_SHA256=$(shasum -a 256 "$BUNDLE_FILE" | cut -d ' ' -f 1)
+          BUNDLE_SIZE=$(stat -f%z "$BUNDLE_FILE" 2>/dev/null || stat -c%s "$BUNDLE_FILE")
+          GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+          
+          cat > desktop.metadata.json.info << EOF
+          {
+            "fileName": "$BUNDLE_FILE",
+            "sha256": "$BUNDLE_SHA256",
+            "size": $BUNDLE_SIZE,
+            "generatedAt": "$GENERATED_AT"
+          }
+          EOF
       
       - name: upload bundle
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-bundle
           path: |
-            ./apps/desktop/bundle/*
+            ./apps/desktop/bundle-zip/*
             !**/.DS_Store
 
       - name: 'Notify to Slack'
