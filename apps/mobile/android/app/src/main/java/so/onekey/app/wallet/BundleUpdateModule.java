@@ -251,7 +251,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         String appVersion = params.getString("latestVersion");
-        String bundleVersion = params.getInt("bundleVersion");
+        int bundleVersion = params.getInt("bundleVersion");
         String sha256 = params.getString("sha256");
 
         if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == null || sha256 == null) {
@@ -278,7 +278,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
-        String bundleVersion = params.getInt("bundleVersion");
+        int bundleVersion = params.getInt("bundleVersion");
 
         if (filePath == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
@@ -329,7 +329,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         isDownloading = true;
 
         String appVersion = params.getString("latestVersion");
-        String bundleVersion = params.getInt("bundleVersion");
+        int bundleVersion = params.getInt("bundleVersion");
         String downloadUrl = params.getString("downloadUrl");
         int fileSize = params.getInt("fileSize");
         String sha256 = params.getString("sha256");
@@ -436,7 +436,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void installBundle(ReadableMap params, Promise promise) {
         String appVersion = params.getString("latestVersion");
-        String bundleVersion = params.getInt("bundleVersion");
+        int bundleVersion = params.getInt("bundleVersion");
         String filePath = params.getString("downloadedFile");
         
         if (filePath == null || appVersion == null || bundleVersion == null) {
