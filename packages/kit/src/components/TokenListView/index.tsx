@@ -103,6 +103,7 @@ type IProps = {
   >;
   hideZeroBalanceTokens?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+  keepDefaultZeroBalanceTokens?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -138,6 +139,7 @@ function TokenListViewCmp(props: IProps) {
     allAggregateTokenMap,
     hideZeroBalanceTokens,
     homeDefaultTokenMap,
+    keepDefaultZeroBalanceTokens = true,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -172,7 +174,7 @@ function TokenListViewCmp(props: IProps) {
       );
     }
 
-    if (isAllNetworks && hideZeroBalanceTokens && homeDefaultTokenMap) {
+    if (isAllNetworks && hideZeroBalanceTokens) {
       resultTokens = resultTokens.filter((item) => {
         const tokenBalance = new BigNumber(
           tokenListMap[item.$key]?.balance ??
@@ -184,16 +186,18 @@ function TokenListViewCmp(props: IProps) {
           return true;
         }
 
-        if (
-          homeDefaultTokenMap[
-            buildHomeDefaultTokenMapKey({
-              networkId: item.networkId ?? '',
-              symbol: item.commonSymbol ?? item.symbol ?? '',
-            })
-          ] &&
-          (item.isNative || item.isAggregateToken)
-        ) {
-          return true;
+        if (keepDefaultZeroBalanceTokens && homeDefaultTokenMap) {
+          if (
+            homeDefaultTokenMap[
+              buildHomeDefaultTokenMapKey({
+                networkId: item.networkId ?? '',
+                symbol: item.commonSymbol ?? item.symbol ?? '',
+              })
+            ] &&
+            (item.isNative || item.isAggregateToken)
+          ) {
+            return true;
+          }
         }
 
         return false;
@@ -210,6 +214,7 @@ function TokenListViewCmp(props: IProps) {
     allAggregateTokens,
     hideZeroBalanceTokens,
     homeDefaultTokenMap,
+    keepDefaultZeroBalanceTokens,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
@@ -462,7 +467,12 @@ function TokenListViewCmp(props: IProps) {
       )}
       ListFooterComponent={
         <Stack pb="$5">
-          {withFooter ? <TokenListFooter tableLayout={tableLayout} /> : null}
+          {withFooter ? (
+            <TokenListFooter
+              tableLayout={tableLayout}
+              hideZeroBalanceTokens={hideZeroBalanceTokens}
+            />
+          ) : null}
           {footerTipText ? (
             <Stack jc="center" ai="center" pt="$3">
               <SizableText size="$bodySm" color="$textSubdued">

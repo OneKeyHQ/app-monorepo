@@ -227,6 +227,13 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async preCheckIsFeeInfoOverflow(params: IPreCheckFeeInfoParams) {
+    const devSettings =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+
+    if (devSettings.enabled && devSettings.settings?.enableMockHighTxFee) {
+      return true;
+    }
+
     try {
       const isCustomNetwork =
         await this.backgroundApi.serviceNetwork.isCustomNetwork({

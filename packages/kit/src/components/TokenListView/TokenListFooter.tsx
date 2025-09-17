@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -46,11 +47,12 @@ import {
 
 type IProps = {
   tableLayout?: boolean;
+  hideZeroBalanceTokens?: boolean;
 };
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
-  const { tableLayout } = props;
+  const { tableLayout, hideZeroBalanceTokens } = props;
   const navigation = useAppNavigation();
   const {
     activeAccount: {
@@ -101,6 +103,56 @@ function TokenListFooter(props: IProps) {
     [intl],
   );
 
+  const filteredSmallBalanceTokens = useMemo(() => {
+    if (hideZeroBalanceTokens && network?.isAllNetworks) {
+      return smallBalanceTokens.filter((token) => {
+        const tokenBalance = new BigNumber(
+          smallBalanceTokenListMap[token.$key]?.balance ??
+            aggregateTokensMap[token.$key]?.balance ??
+            0,
+        );
+
+        if (tokenBalance.gt(0)) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+    return smallBalanceTokens;
+  }, [
+    smallBalanceTokens,
+    hideZeroBalanceTokens,
+    network?.isAllNetworks,
+    smallBalanceTokenListMap,
+    aggregateTokensMap,
+  ]);
+
+  const filteredRiskyTokens = useMemo(() => {
+    if (hideZeroBalanceTokens && network?.isAllNetworks) {
+      return riskyTokens.filter((token) => {
+        const tokenBalance = new BigNumber(
+          riskyTokenListMap[token.$key]?.balance ??
+            aggregateTokensMap[token.$key]?.balance ??
+            0,
+        );
+
+        if (tokenBalance.gt(0)) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+    return riskyTokens;
+  }, [
+    riskyTokens,
+    hideZeroBalanceTokens,
+    network?.isAllNetworks,
+    riskyTokenListMap,
+    aggregateTokensMap,
+  ]);
+
   const handleOnPressLowValueTokens = useCallback(() => {
     if (!account || !network || !wallet || smallBalanceTokens.length === 0)
       return;
@@ -113,7 +165,7 @@ function TokenListFooter(props: IProps) {
         networkId: network.id,
         walletId: wallet.id,
         tokenList: {
-          tokens: smallBalanceTokens,
+          tokens: filteredSmallBalanceTokens,
           keys: smallBalanceTokenKeys,
           map: smallBalanceTokenListMap,
         },
@@ -129,10 +181,11 @@ function TokenListFooter(props: IProps) {
     account,
     network,
     wallet,
-    smallBalanceTokens,
+    smallBalanceTokens.length,
     navigation,
     intl,
     helpText,
+    filteredSmallBalanceTokens,
     smallBalanceTokenKeys,
     smallBalanceTokenListMap,
     deriveType,
@@ -152,7 +205,7 @@ function TokenListFooter(props: IProps) {
         walletId: wallet.id,
         indexedAccountId: indexedAccount?.id,
         tokenList: {
-          tokens: riskyTokens,
+          tokens: filteredRiskyTokens,
           keys: riskyTokenKeys,
           map: riskyTokenListMap,
         },
@@ -168,7 +221,7 @@ function TokenListFooter(props: IProps) {
     wallet,
     navigation,
     indexedAccount?.id,
-    riskyTokens,
+    filteredRiskyTokens,
     riskyTokenKeys,
     riskyTokenListMap,
     deriveType,
@@ -178,7 +231,7 @@ function TokenListFooter(props: IProps) {
 
   const { result: blockedTokensLength, run } = usePromiseResult(
     async () => {
-      if (!network) return riskyTokens?.length ?? 0;
+      if (!network) return filteredRiskyTokens?.length ?? 0;
 
       const [unblockedTokensMap, blockedTokensMap, customTokens] =
         await Promise.all([
@@ -198,7 +251,7 @@ function TokenListFooter(props: IProps) {
 
       const blockedTokens = [];
 
-      for (const token of riskyTokens) {
+      for (const token of filteredRiskyTokens) {
         const tokenNetworkId = token.networkId ?? network.id;
 
         if (
@@ -215,7 +268,7 @@ function TokenListFooter(props: IProps) {
 
       return blockedTokens.length;
     },
-    [network, riskyTokens],
+    [network, filteredRiskyTokens],
     {
       initResult: 0,
     },
@@ -234,7 +287,7 @@ function TokenListFooter(props: IProps) {
 
   return (
     <Stack>
-      {!isSearchMode && smallBalanceTokens.length > 0 ? (
+      {!isSearchMode && filteredSmallBalanceTokens.length > 0 ? (
         <ListItem onPress={handleOnPressLowValueTokens} userSelect="none">
           <XStack flexGrow={1} flexBasis={0} alignItems="center" gap="$3">
             <Stack p="$2" borderRadius="$full" bg="$bgStrong">
@@ -245,7 +298,9 @@ function TokenListFooter(props: IProps) {
               />
             </Stack>
             <ListItem.Text
-              primary={`${smallBalanceTokens.length} ${intl.formatMessage({
+              primary={`${
+                filteredSmallBalanceTokens.length
+              } ${intl.formatMessage({
                 id: ETranslations.low_value_assets,
               })}`}
               {...(tableLayout && {
@@ -301,7 +356,7 @@ function TokenListFooter(props: IProps) {
           {tableLayout ? <Stack flexGrow={1} flexBasis={0} /> : null}
         </ListItem>
       ) : null}
-      {!isSearchMode && riskyTokens.length > 0 ? (
+      {!isSearchMode && filteredRiskyTokens.length > 0 ? (
         <ListItem onPress={handleOnPressRiskyTokens} userSelect="none">
           <XStack alignItems="center" gap="$3" flex={1}>
             <Stack p="$2" borderRadius="$full" bg="$bgStrong">

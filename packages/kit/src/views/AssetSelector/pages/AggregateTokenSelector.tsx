@@ -16,6 +16,10 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EAssetSelectorRoutes,
@@ -68,7 +72,7 @@ function AggregateTokenListItem({
 
   const { createAddress } = useAccountSelectorCreateAddress();
 
-  const { result: accountId } = usePromiseResult(async () => {
+  const { result: accountId, run } = usePromiseResult(async () => {
     if (token.accountId) {
       return token.accountId;
     }
@@ -133,6 +137,7 @@ function AggregateTokenListItem({
             ...token,
             accountId: createAddressResult.accounts[0]?.id,
           });
+          void run();
         }
       } finally {
         setLoading(false);
@@ -147,6 +152,7 @@ function AggregateTokenListItem({
     wallet?.id,
     indexedAccount?.id,
     intl,
+    run,
   ]);
 
   return (
@@ -214,6 +220,7 @@ function AggregateTokenSelector() {
     onSelect,
     closeAfterSelect,
     allAggregateTokenList,
+    enableNetworkAfterSelect,
   } = route.params;
 
   const intl = useIntl();
@@ -235,11 +242,22 @@ function AggregateTokenSelector() {
   const handleOnPressToken = useCallback(
     async (token: IAccountToken) => {
       void onSelect(token);
+      if (enableNetworkAfterSelect) {
+        await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+          enabledNetworks: { [token.networkId ?? '']: true },
+        });
+        appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.network_also_enabled,
+          }),
+        });
+      }
       if (closeAfterSelect) {
         navigation.pop();
       }
     },
-    [onSelect, navigation, closeAfterSelect],
+    [onSelect, navigation, closeAfterSelect, enableNetworkAfterSelect, intl],
   );
 
   const sortedAggregateTokens = useMemo(() => {
