@@ -363,14 +363,17 @@ const buildAndroidBundle = async () => {
 
 const buildWebEmbed = async () => {
   console.log('build web embed');
-  execSync('yarn app:web-embed:build', {
-    stdio: 'inherit',
-    env: {
-      ...process.env,
-      NODE_OPTIONS: '--max-old-space-size=8192',
-      NODE_ENV: 'production',
+  execSync(
+    `cd ${path.join(projectRootPath, 'apps/web-embed')} &&  webpack build`,
+    {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_OPTIONS: '--max-old-space-size=8192',
+        NODE_ENV: 'production',
+      },
     },
-  });
+  );
   console.log('build web embed done');
 };
 
