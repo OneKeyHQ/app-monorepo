@@ -21,8 +21,8 @@ function TransactionsHeaderSmallBase() {
       alignItems="center"
       backgroundColor="$bgApp"
     >
-      <YStack>
-        <SizableText {...commonTextProps} {...styles.time}>
+      <YStack {...styles.time}>
+        <SizableText {...commonTextProps}>
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_history_type,
           })}
