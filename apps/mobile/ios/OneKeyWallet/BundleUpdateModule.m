@@ -488,9 +488,9 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
 
 RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    const NSString *downloadBundleDir = BundleUpdateModule.downloadBundleDir;
+    NSString *downloadBundleDir = BundleUpdateModule.downloadBundleDir;
     NSError *error;
-    if ([[NSFileManager defaultManager] fileExistsAtPath:downloadBundleDir]) {
+    if (downloadBundleDir != nil && [[NSFileManager defaultManager] fileExistsAtPath:downloadBundleDir]) {
         [[NSFileManager defaultManager] removeItemAtPath:downloadBundleDir error:&error];
         if (error) {
             reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
