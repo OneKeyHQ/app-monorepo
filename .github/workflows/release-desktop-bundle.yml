@@ -88,10 +88,15 @@ jobs:
 
       - name: bundle folder
         run: |
+          echo "current dir: $(pwd)"
           mkdir -p apps/desktop/bundle
           mv apps/desktop/web-build/metadata.json apps/desktop/bundle/metadata.json
           mv apps/desktop/web-build apps/desktop/bundle/build
-          cd apps/desktop/bundle && zip -r bundle.zip .
+          cd apps/desktop/bundle
+          echo "current dir: $(pwd)"
+          zip -r bundle.zip .
+          cd ../../../
+          echo "current dir: $(pwd)"
           mkdir -p apps/desktop/bundle-zip
           mv apps/desktop/bundle/bundle.zip apps/desktop/bundle-zip/bundle.zip
 
