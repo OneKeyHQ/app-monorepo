@@ -15,6 +15,8 @@ export {
   useHyperliquidConnectionStatus,
 } from './useHyperliquid';
 
+export { useFundingCountdown } from './useFundingCountdown';
+
 export type { IPerpTokenSelectorReturn } from './usePerpTokenSelector';
 export type { IPerpSessionReturn } from './usePerpSession';
 export type { IPerpMarketDataReturn } from './usePerpMarketData';

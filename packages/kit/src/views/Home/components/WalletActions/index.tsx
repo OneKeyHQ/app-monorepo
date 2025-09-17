@@ -120,6 +120,8 @@ function WalletActionSend() {
     navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
       screen: EModalSignatureConfirmRoutes.TxSelectToken,
       params: {
+        hideZeroBalanceTokens: true,
+        keepDefaultZeroBalanceTokens: false,
         aggregateTokenSelectorScreen:
           EModalSignatureConfirmRoutes.TxSelectAggregateToken,
         title: intl.formatMessage({ id: ETranslations.global_select_crypto }),

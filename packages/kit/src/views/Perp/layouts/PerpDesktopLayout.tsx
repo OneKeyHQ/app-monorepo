@@ -8,7 +8,7 @@ import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import {
   PerpAccountDebugInfo,
   PerpAccountPanel,
-} from '../components/TradingPanel/PerpAccountPanel';
+} from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {

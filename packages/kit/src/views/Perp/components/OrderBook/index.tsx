@@ -10,6 +10,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpMarketData } from '../../hooks/usePerpMarketData';
+
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
@@ -207,14 +209,16 @@ type IColorBlockProps = {
   width: DimensionValue;
   left?: number;
   right?: number;
+  height?: number;
 };
 
-function ColorBlock({ color, width, left, right }: IColorBlockProps) {
+function ColorBlock({ color, width, left, right, height }: IColorBlockProps) {
   return (
     <View
       style={[
         styles.colorBlock,
         {
+          height: height ?? rowHeight,
           right,
           left,
           width,
@@ -294,6 +298,17 @@ const useSpreadColor = () => {
       backgroundColor: theme.bgSubdued.val,
     };
   }, [theme.bgSubdued]);
+};
+
+// Lighter background colors for compact/mobile presentation
+const useBlockColorsMobile = () => {
+  const themeName = useThemeName();
+  return useMemo(() => {
+    return {
+      red: colorTokens[themeName].red.red3,
+      green: colorTokens[themeName].green.green3,
+    };
+  }, [themeName]);
 };
 
 export function OrderBook({
@@ -417,7 +432,7 @@ export function OrderBook({
                   <ColorBlock
                     color={blockColors.red}
                     right={0}
-                    width={`${calculatePercentage(item.cumSize, bidDepth)}%`}
+                    width={`${calculatePercentage(item.cumSize, askDepth)}%`}
                   />
                 </View>
               ))}
@@ -465,7 +480,7 @@ export function OrderBook({
                   ))}
                 </View>
                 <View style={styles.levelList}>
-                  {aggregatedData.asks.toReversed().map((item, index) => (
+                  {aggregatedData.asks.map((item, index) => (
                     <View
                       key={index}
                       style={{
@@ -779,6 +794,211 @@ export function OrderPairBook({
           {aggregatedData.bids.map((itemData, index) => (
             <View key={index} style={styles.pairBookRow}>
               <OrderBookPairRow
+                item={itemData}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// Compact row height for mobile
+const MOBILE_ROW_GAP = 1;
+const MOBILE_ROW_HEIGHT = 19;
+const MOBILE_SPREAD_ROW_HEIGHT = 35;
+const MobileRow = ({
+  item,
+  priceColor,
+  sizeColor,
+}: {
+  item: IOBLevel;
+  priceColor: string;
+  sizeColor: string;
+}) => (
+  <View
+    style={{
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      height: MOBILE_ROW_HEIGHT,
+    }}
+  >
+    <Text
+      numberOfLines={1}
+      style={[
+        styles.monospaceText,
+        { color: priceColor, fontSize: 11, lineHeight: 14 },
+      ]}
+    >
+      {item.price}
+    </Text>
+    <Text
+      numberOfLines={1}
+      style={[
+        styles.monospaceText,
+        { color: sizeColor, fontSize: 11, lineHeight: 14 },
+      ]}
+    >
+      {item.size}
+    </Text>
+  </View>
+);
+
+// A compact, mobile-friendly order book: two columns (Price/Size),
+// asks on top, bids at bottom, with a prominent spread row in the middle.
+export function OrderBookMobile({
+  symbol: _symbol,
+  bids,
+  asks,
+  maxLevelsPerSide = 14,
+  selectedTickOption,
+  priceDecimals = 2,
+  sizeDecimals = 3,
+  style,
+}: IOrderBookProps) {
+  const intl = useIntl();
+  const { markPrice, oraclePrice } = usePerpMarketData();
+  const aggregatedData = useAggregatedBook(
+    bids,
+    asks,
+    maxLevelsPerSide,
+    selectedTickOption,
+    priceDecimals,
+    sizeDecimals,
+  );
+
+  const bidDepth = useMemo(() => {
+    return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
+  }, [aggregatedData.bids]);
+  const askDepth = useMemo(() => {
+    return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
+  }, [aggregatedData.asks]);
+
+  const midPrice = getMidPrice(
+    parseFloat(bids[0]?.px ?? '0'),
+    parseFloat(asks[0]?.px ?? '0'),
+  );
+
+  const textColor = useTextColor();
+  const blockColors = useBlockColorsMobile();
+
+  return (
+    <View style={style}>
+      <View style={styles.pairBookHeader}>
+        <Text
+          style={[
+            styles.headerText,
+            { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
+          ]}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+        </Text>
+        <Text
+          style={[
+            styles.headerText,
+            { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
+          ]}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+        </Text>
+      </View>
+      <View style={styles.relativeContainer}>
+        {/* background depth bars */}
+        <View style={styles.relativeContainer}>
+          {aggregatedData.asks.toReversed().map((itemData, index) => (
+            <View
+              key={index}
+              style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+            >
+              <ColorBlock
+                color={blockColors.red}
+                left={0}
+                height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
+                width={`${calculatePercentage(itemData.cumSize, askDepth)}%`}
+              />
+            </View>
+          ))}
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 12,
+              height: MOBILE_SPREAD_ROW_HEIGHT,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          />
+          {aggregatedData.bids.map((itemData, index) => (
+            <View
+              key={index}
+              style={{ position: 'relative', height: MOBILE_ROW_HEIGHT }}
+            >
+              <ColorBlock
+                color={blockColors.green}
+                left={0}
+                height={MOBILE_ROW_HEIGHT - MOBILE_ROW_GAP}
+                width={`${calculatePercentage(itemData.cumSize, bidDepth)}%`}
+              />
+            </View>
+          ))}
+        </View>
+
+        {/* foreground texts */}
+        <View style={styles.absoluteContainer}>
+          {aggregatedData.asks.toReversed().map((itemData, index) => (
+            <View key={index} style={{ height: MOBILE_ROW_HEIGHT }}>
+              <MobileRow
+                item={itemData}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+              />
+            </View>
+          ))}
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 12,
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              height: MOBILE_SPREAD_ROW_HEIGHT,
+            }}
+          >
+            <Text
+              style={[
+                styles.monospaceText,
+                {
+                  color: textColor.red,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  lineHeight: 24,
+                },
+              ]}
+            >
+              {markPrice || midPrice}
+            </Text>
+            <Text
+              style={[
+                styles.monospaceText,
+                {
+                  color: textColor.textSubdued,
+                  fontSize: 10,
+                  fontWeight: '400',
+                  lineHeight: 16,
+                  textDecorationLine: 'underline',
+                  textDecorationStyle: 'dotted',
+                },
+              ]}
+            >
+              {oraclePrice}
+            </Text>
+          </View>
+          {aggregatedData.bids.map((itemData, index) => (
+            <View key={index} style={{ height: MOBILE_ROW_HEIGHT }}>
+              <MobileRow
                 item={itemData}
                 priceColor={textColor.green}
                 sizeColor={textColor.textSubdued}

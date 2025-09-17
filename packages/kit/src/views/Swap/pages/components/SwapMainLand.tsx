@@ -292,8 +292,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       checkWrappedTokenPair({
         fromToken: fromSelectToken,
         toToken: toSelectToken,
-      }),
-    [fromSelectToken, toSelectToken],
+      }) || currentQuoteRes?.isWrapped,
+    [fromSelectToken, toSelectToken, currentQuoteRes?.isWrapped],
   );
   const swapBatchTransferType = useSwapBatchTransferType(
     swapFromAddressInfo.networkId,
