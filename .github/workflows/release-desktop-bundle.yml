@@ -98,17 +98,17 @@ jobs:
           cd ../../../
           echo "current dir: $(pwd)"
           mkdir -p apps/desktop/bundle-zip
-          mv apps/desktop/bundle/bundle.zip apps/desktop/bundle-zip/bundle.zip
+          mv apps/desktop/bundle/bundle.zip apps/desktop/bundle-zip/electron-bundle.zip
 
       - name: Generate bundle metadata info
         run: |
           cd apps/desktop/bundle-zip
-          BUNDLE_FILE="bundle.zip"
+          BUNDLE_FILE="electron-bundle.zip"
           BUNDLE_SHA256=$(shasum -a 256 "$BUNDLE_FILE" | cut -d ' ' -f 1)
           BUNDLE_SIZE=$(stat -f%z "$BUNDLE_FILE" 2>/dev/null || stat -c%s "$BUNDLE_FILE")
           GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
           
-          cat > desktop.metadata.json.info << EOF
+          cat > electron-bundle.zip.metadata.json.info << EOF
           {
             "fileName": "$BUNDLE_FILE",
             "sha256": "$BUNDLE_SHA256",
