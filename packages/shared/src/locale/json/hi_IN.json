@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "{riskyNumber} जोखिम भरे अनुमोदन पाए गए",
   "wallet.approval_suggestion_title_summary": "{riskyNumber} जोखिम भरे अनुमोदन और {inactiveNumber} अनुबंध 90+ दिनों से निष्क्रिय पाए गए",
   "wallet.approval_summary_suggestion_desc_all": "जोखिम कम करने और अनावश्यक अनुमतियों को हटाने के लिए निरस्त करें।",
-  "wallet.backup_now": "अभी बैक अप करें",
+  "wallet.backup_now": "अभी सिंक करें",
   "wallet.backup_prompt": "अपने वॉलेट का बैकअप लें",
   "wallet.buy_crypto_instruction": "अपने वॉलेट को फंड करने के लिए क्रिप्टो खरीदें",
   "wallet.collapsed_assets": "छुपी संपत्तियां",

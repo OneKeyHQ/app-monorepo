@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "Đã phát hiện {riskyNumber} phê duyệt rủi ro",
   "wallet.approval_suggestion_title_summary": "Đã phát hiện {riskyNumber} phê duyệt rủi ro và {inactiveNumber} hợp đồng không hoạt động trong hơn 90 ngày",
   "wallet.approval_summary_suggestion_desc_all": "Thu hồi để giảm thiểu rủi ro và loại bỏ các quyền không cần thiết.",
-  "wallet.backup_now": "Sao lưu ngay",
+  "wallet.backup_now": "Đồng bộ ngay",
   "wallet.backup_prompt": "Sao lưu ví của bạn",
   "wallet.buy_crypto_instruction": "Mua tiền điện tử để nạp vào ví của bạn",
   "wallet.collapsed_assets": "Tài sản đã ẩn",

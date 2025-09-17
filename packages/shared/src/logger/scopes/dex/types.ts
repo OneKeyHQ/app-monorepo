@@ -54,6 +54,7 @@ export enum EWatchlistFrom {
   Homepage = 'Homepage',
   Detail = 'Detail',
   Search = 'Search',
+  Recommend = 'Recommend',
   Others = 'Others',
 }
 
@@ -119,6 +120,7 @@ export interface IDexSortParams {
 
 export interface IDexCopyCAParams {
   copyFrom: ECopyFrom;
+  copiedContent: string;
 }
 
 export interface IDexCheckRiskParams {
