@@ -1633,10 +1633,13 @@ function TokenListContainer({
       if (token.isAggregateToken) {
         const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
 
-        sortedTokens = sortTokensCommon({
-          tokens,
-          tokenListMap: tokenListMapAtom,
-        });
+        sortedTokens = uniqBy(
+          sortTokensCommon({
+            tokens,
+            tokenListMap: tokenListMapAtom,
+          }),
+          (item) => item.$key,
+        );
       }
 
       if (sortedTokens.length === 0) {

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce, isString } from 'lodash';
+import { debounce, isString, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -115,10 +115,13 @@ function TokenList() {
       if (token.isAggregateToken && aggregateTokensListMap) {
         const aggregateTokens = aggregateTokensListMap[token.$key]?.tokens;
 
-        sortedTokens = sortTokensCommon({
-          tokens: aggregateTokens,
-          tokenListMap: tokenMap,
-        });
+        sortedTokens = uniqBy(
+          sortTokensCommon({
+            tokens: aggregateTokens,
+            tokenListMap: tokenMap,
+          }),
+          (item) => item.$key,
+        );
       }
 
       if (sortedTokens.length === 0) {
