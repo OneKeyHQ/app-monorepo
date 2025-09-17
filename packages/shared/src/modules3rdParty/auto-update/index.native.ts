@@ -148,6 +148,12 @@ if (NativeModules.BundleUpdateModule) {
   );
 }
 
+const DOWNLOAD_EVENT_TYPE = {
+  start: 'update/start',
+  downloading: 'update/downloading',
+  complete: 'update/complete',
+};
+
 export const useDownloadProgress: IUseDownloadProgress = () => {
   const [percent, setPercent] = useState(0);
 
@@ -167,21 +173,21 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
 
   useEffect(() => {
     const onStartEventListener = AutoUpdateEventEmitter?.addListener(
-      'update/start',
+      DOWNLOAD_EVENT_TYPE.start,
       startDownload,
     );
     const onDownloadingEventListener = AutoUpdateEventEmitter?.addListener(
-      'update/downloading',
+      DOWNLOAD_EVENT_TYPE.downloading,
       updatePercent,
     );
 
     const onBundleStartEventListener = BundleUpdateEventEmitter?.addListener(
-      'update/start',
+      DOWNLOAD_EVENT_TYPE.start,
       startDownload,
     );
     const onBundleDownloadingEventListener =
       BundleUpdateEventEmitter?.addListener(
-        'update/downloading',
+        DOWNLOAD_EVENT_TYPE.downloading,
         updatePercent,
       );
     return () => {
