@@ -381,4 +381,3 @@ cleanBundleOutput();
 buildWebEmbed();
 buildIOSBundle();
 buildAndroidBundle();
-buildWebEmbed();
