@@ -1,5 +1,8 @@
 import { memo, useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { validatePriceInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
@@ -23,8 +26,9 @@ export const PriceInput = memo(
     disabled = false,
     onUseMarketPrice,
     szDecimals,
-    label = 'Limit Price',
+    label,
   }: IPriceInputProps) => {
+    const intl = useIntl();
     const handleInputChange = useCallback(
       (text: string) => {
         const processedText = text.replace(/。/g, '.');
@@ -55,7 +59,12 @@ export const PriceInput = memo(
       <TradingFormInput
         value={value}
         onChange={handleInputChange}
-        label={label}
+        label={
+          label ??
+          intl.formatMessage({
+            id: ETranslations.perp_trade_limit_pirce,
+          })
+        }
         disabled={disabled}
         error={error}
         validator={validator}

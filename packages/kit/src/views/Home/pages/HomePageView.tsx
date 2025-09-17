@@ -134,14 +134,26 @@ export function HomePageView({
         if (riskApprovals.length > 0) {
           updateApprovalsInfo({ hasRiskApprovals: true });
         }
-        const shouldShowRiskApprovalsRevokeSuggestion =
-          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
+        const [
+          shouldShowRiskApprovalsRevokeSuggestion,
+          shouldShowInactiveApprovalsAlert,
+        ] = await Promise.all([
+          backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
             {
               networkId: network.id,
               accountId: account.id,
             },
-          );
-        if (shouldShowRiskApprovalsRevokeSuggestion) {
+          ),
+          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
+            networkId: network.id,
+            accountId: account.id,
+          }),
+        ]);
+        if (
+          (shouldShowRiskApprovalsRevokeSuggestion &&
+            riskApprovals.length > 0) ||
+          (shouldShowInactiveApprovalsAlert && inactiveApprovals.length > 0)
+        ) {
           await timerUtils.wait(2000);
           navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
             screen: EModalApprovalManagementRoutes.RevokeSuggestion,

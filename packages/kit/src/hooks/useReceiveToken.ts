@@ -11,7 +11,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IAccountToken,
-  IAggregateToken,
   IToken,
   ITokenData,
 } from '@onekeyhq/shared/types/token';
@@ -119,7 +118,9 @@ function useReceiveToken({
             allAggregateTokens,
             aggregateTokenSelectorScreen:
               EModalReceiveRoutes.ReceiveSelectAggregateToken,
-            title: intl.formatMessage({ id: ETranslations.global_receive }),
+            title: intl.formatMessage({
+              id: ETranslations.global_select_crypto,
+            }),
             networkId,
             accountId,
             indexedAccountId,
@@ -127,6 +128,7 @@ function useReceiveToken({
             tokenListState,
             searchAll: true,
             closeAfterSelect: false,
+            enableNetworkAfterSelect: true,
             onSelect: async (t: IToken) => {
               if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {
                 navigation.pushModal(EModalRoutes.ReceiveModal, {

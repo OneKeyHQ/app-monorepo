@@ -84,24 +84,37 @@ const PerpTokenSelectorRow = memo(
             color={token.change24hPercent > 0 ? '$green11' : '$red11'}
           >
             <NumberSizeableText
+              formatter="price"
+              size="$bodySmMedium"
+              color="$text"
+            >
+              {token.markPrice}
+            </NumberSizeableText>
+          </XStack>
+          <XStack width={130} justifyContent="flex-start">
+            <SizableText
               size="$bodySm"
               color={token.change24hPercent > 0 ? '$green11' : '$red11'}
               formatter="balance"
               formatterOptions={{ showPlusMinusSigns: true }}
             >
-              {token.change24h}
-            </NumberSizeableText>{' '}
-            /{' '}
-            <NumberSizeableText
-              size="$bodySm"
-              color={token.change24hPercent > 0 ? '$green11' : '$red11'}
-              formatter="priceChange"
-              formatterOptions={{ showPlusMinusSigns: true }}
-            >
-              {token.change24hPercent.toString()}
-            </NumberSizeableText>
-          </SizableText>
-        </XStack>
+              <SizableText
+                size="$bodySm"
+                color={token.change24hPercent > 0 ? '$green11' : '$red11'}
+              >
+                {token.change24h}
+              </SizableText>{' '}
+              /{' '}
+              <NumberSizeableText
+                size="$bodySm"
+                color={token.change24hPercent > 0 ? '$green11' : '$red11'}
+                formatter="priceChange"
+                formatterOptions={{ showPlusMinusSigns: true }}
+              >
+                {token.change24hPercent.toString()}
+              </NumberSizeableText>
+            </SizableText>
+          </XStack>
 
         <XStack width={100} justifyContent="flex-start">
           <SizableText size="$bodySm" color="$text">

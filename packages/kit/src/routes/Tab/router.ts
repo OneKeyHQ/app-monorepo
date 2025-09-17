@@ -15,6 +15,7 @@ import {
   useIsShowMyOneKeyOnTabbar,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -68,7 +69,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
-
+  const [{ perpConfigCommon }] = useSettingsPersistAtom();
   const isShowMDDiscover = useMemo(
     () =>
       !isShowDesktopDiscover &&
@@ -81,7 +82,47 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
-
+  const perpTabShowRes = useMemo(() => {
+    if (perpConfigCommon?.disablePerp) {
+      return null;
+    }
+    if (perpConfigCommon?.usePerpWeb && platformEnv.isDesktop) {
+      return {
+        name: ETabRoutes.WebviewPerpTrade,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+        translationId: ETranslations.global_perp,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        rewrite: '/perp',
+        exact: true,
+        tabbarOnPress: platformEnv.isExtension
+          ? async () => {
+              if (platformEnv.isExtension) {
+                await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+              }
+            }
+          : undefined,
+        children: platformEnv.isExtension
+          ? // small screen error: Cannot read properties of null (reading 'filter')
+            // null
+            perpTradeRouters
+          : perpTradeRouters,
+        trackId: 'global-perp',
+      };
+    }
+    return {
+      name: ETabRoutes.Perp,
+      tabBarIcon: (focused?: boolean) =>
+        focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
+      translationId: ETranslations.global_perp,
+      freezeOnBlur: Boolean(params?.freezeOnBlur),
+      children: perpRouters,
+    };
+  }, [
+    perpConfigCommon?.disablePerp,
+    perpConfigCommon?.usePerpWeb,
+    params?.freezeOnBlur,
+  ]);
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {
@@ -144,41 +185,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
-        {
-          name: ETabRoutes.Perp,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-          translationId: ETranslations.global_perp,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          children: perpRouters,
-        },
-        // platformEnv.isDesktop || platformEnv.isNative
-        platformEnv.isDesktop
-          ? {
-              name: ETabRoutes.WebviewPerpTrade,
-              tabBarIcon: (focused?: boolean) =>
-                focused
-                  ? 'TradingViewCandlesSolid'
-                  : 'TradingViewCandlesOutline',
-              translationId: ETranslations.global_perp,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/perp',
-              exact: true,
-              tabbarOnPress: platformEnv.isExtension
-                ? async () => {
-                    if (platformEnv.isExtension) {
-                      await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-                    }
-                  }
-                : undefined,
-              children: platformEnv.isExtension
-                ? // small screen error: Cannot read properties of null (reading 'filter')
-                  // null
-                  perpTradeRouters
-                : perpTradeRouters,
-              trackId: 'global-perp',
-            }
-          : null,
+        perpTabShowRes,
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
@@ -253,6 +260,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       toMyOneKeyModal,
       toReferFriendsPage,
       handleMarketTabPress,
+      perpTabShowRes,
     ],
   );
 };

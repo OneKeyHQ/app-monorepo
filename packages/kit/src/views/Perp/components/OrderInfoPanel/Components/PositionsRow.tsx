@@ -338,6 +338,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySmMedium"
+            fontWeight="900"
             color={assetInfo.assetColor}
           >
             {assetInfo.assetSymbol}
@@ -507,12 +508,20 @@ const PositionRow = memo(
             cursor="pointer"
             onPress={() => handleClosePosition('market')}
           >
-            <SizableText color="$textSuccess" size="$bodySm">
+            <SizableText
+              color="$textSuccess"
+              size="$bodySmMedium"
+              fontWeight={600}
+            >
               Market
             </SizableText>
           </XStack>
           <XStack cursor="pointer" onPress={() => handleClosePosition('limit')}>
-            <SizableText color="$textSuccess" size="$bodySm">
+            <SizableText
+              color="$textSuccess"
+              size="$bodySmMedium"
+              fontWeight={600}
+            >
               Limit
             </SizableText>
           </XStack>

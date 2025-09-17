@@ -29,6 +29,7 @@ export type IToken = {
 
   // for aggregate token
   isAggregateToken?: boolean;
+  isSameSymbolWithAggregateToken?: boolean;
   commonSymbol?: string;
 };
 
@@ -85,6 +86,7 @@ export type IFetchAccountTokensParams = {
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
   aggregateTokenConfigMapRawData?: Record<string, IAggregateToken>;
+  aggregateTokenSymbolMapRawData?: Record<string, boolean>;
 };
 
 export type ITokenData = {
