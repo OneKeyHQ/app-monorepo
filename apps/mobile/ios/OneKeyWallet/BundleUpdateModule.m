@@ -217,7 +217,7 @@ didFinishDownloadingToURL:(NSURL *)location {
         [self clearDownloadTask];
 }
 
-RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
+RCT_EXPORT_METHOD(downloadBundleASC:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSString *downloadUrl = params[@"downloadUrl"];
@@ -242,7 +242,7 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
     resolve(nil);
 }
 
-RCT_EXPORT_METHOD(verifyASC:(NSDictionary *)params
+RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     resolve(nil);
