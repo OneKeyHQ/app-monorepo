@@ -1801,7 +1801,7 @@ function TokenListContainer({
       inTabList
       hideValue
       withSwapAction
-      hideZeroBalanceTokens
+      hideZeroBalanceTokens={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}

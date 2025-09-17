@@ -174,7 +174,7 @@ function TokenListViewCmp(props: IProps) {
       );
     }
 
-    if (isAllNetworks && hideZeroBalanceTokens) {
+    if (hideZeroBalanceTokens) {
       resultTokens = resultTokens.filter((item) => {
         const tokenBalance = new BigNumber(
           tokenListMap[item.$key]?.balance ??
