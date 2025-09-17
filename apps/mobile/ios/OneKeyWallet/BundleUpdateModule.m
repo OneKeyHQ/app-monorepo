@@ -140,10 +140,6 @@ RCT_EXPORT_MODULE();
         NSLog(@"relativePath: %@", relativePath);
         DDLogDebug(@"relativePath: %@", relativePath);
 
-        if ([relativePath isEqualToString:@"metadata.json"]) {
-            continue;
-        }
-
         // Get expected SHA256 from metadata
         NSString *expectedSHA256 = metadata[relativePath];
         if (!expectedSHA256) {
