@@ -307,7 +307,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String metadataContent = readFileContent(metadataFile);
             Map<String, String> metadata = parseMetadataJson(metadataContent);
             
-            if (!validateAllFilesInDir(reactContext, destination, metadata, appVersion, bundleVersion)) {
+            if (!validateAllFilesInDir(reactContext, destination, metadata, appVersion, String.valueOf(bundleVersion))) {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
@@ -347,7 +347,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         result.putString("downloadedFile", filePath);
         result.putString("downloadUrl", downloadUrl);
         result.putString("latestVersion", appVersion);
-        result.putString("bundleVersion", bundleVersion);
+        result.putInt("bundleVersion", bundleVersion);
         result.putString("sha256", sha256);
 
         log("downloadBundle", "filePath: " + filePath);
