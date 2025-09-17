@@ -1,14 +1,12 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
-import { Cell, CellType } from '@ton/core';
+import { Cell } from '@ton/core';
 
 import {
   ETonSendMode,
   genAddressFromPublicKey,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
-import { getRepr } from '@onekeyhq/core/src/chains/ton/sdkTon/descriptor';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -237,16 +235,10 @@ export class KeyringHardware extends KeyringHardwareBase {
     if (msg.stateInit) {
       hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString('hex');
       hwParams.signingMessageRepr = bufferUtils.bytesToHex(
-        // await TonWeb.boc.Cell.oneFromBoc(Buffer.from(await signingMessage.toBoc())).getRepr(),
+        // await TonWeb.boc.Cell.oneFromBoc(Buffer.from(signingMessage.toBoc())).getRepr(),
         // only for hardware, only serialize for stateInit
-        getRepr(
-          signingMessage.bits,
-          signingMessage.bits,
-          signingMessage.refs,
-          0,
-          0,
-          CellType.Ordinary,
-        ),
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        Buffer.from(signingMessage.repr()).toString('hex'),
       );
     }
 

@@ -18,17 +18,18 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EMessageTypesTon } from '@onekeyhq/shared/types/message';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
+import { vaultFactory } from '../vaults/factory';
 import {
   getAccountVersion,
   getWalletContractInstance,
 } from '../vaults/impls/ton/sdkTon/utils';
-import { vaultFactory } from '../vaults/factory';
-import ProviderApiBase from './ProviderApiBase';
-import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
-import type VaultTon from '../vaults/impls/ton/Vault';
+import ProviderApiBase from './ProviderApiBase';
+
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type VaultTon from '../vaults/impls/ton/Vault';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   SignDataRequest,
@@ -410,12 +411,12 @@ class ProviderApiTon extends ProviderApiBase {
     try {
       await vault.precheckUnsignedTx({
         unsignedTx: {
-          encodedTx:encodedTx
+          encodedTx,
         },
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
     } catch (e: any) {
-      throw new Web3RpcError(TonResponseError.BadRequest, "Not enough funds");
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Not enough funds');
     }
 
     const accounts = await this.getAccountsInfo(request);
