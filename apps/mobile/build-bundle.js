@@ -15,6 +15,11 @@ const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
 
+const webEmbedOutputPath = path.join(
+  projectRootPath,
+  'apps/web-embed/web-build',
+);
+
 const buildZipOutputAssetPath = (zipName) => {
   return path.join(zipOutputPath, zipName);
 };
@@ -32,6 +37,7 @@ const buildAndroidOutputBundlePath = (bundleName) => {
 };
 
 const cleanBundleOutput = async () => {
+  fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
   fs.rmSync(bundleOutputPath, { recursive: true, force: true });
   fs.rmSync(zipOutputPath, { recursive: true, force: true });
 };
@@ -240,6 +246,9 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
   console.log('build ios bundle compress dist to zip');
+  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${distPath}/`, {
+    stdio: 'inherit',
+  });
   generateMetadataJson(distPath);
   execSync(`cd ${distPath} && zip -r dist.zip .`, {
     stdio: 'inherit',
@@ -330,6 +339,11 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('main.jsbundle.hbc'),
     buildAndroidOutputAssetPath('dist/main.jsbundle.hbc'),
   );
+
+  execSync(`rsync -r -c -v ${webEmbedOutputPath}/ ${distPath}/`, {
+    stdio: 'inherit',
+  });
+
   console.log('build android bundle compress dist to zip');
   generateMetadataJson(distPath);
   execSync(`cd ${distPath} && zip -r dist.zip .`, {
@@ -347,6 +361,21 @@ const buildAndroidBundle = async () => {
   console.log('build android bundle done');
 };
 
+const buildWebEmbed = async () => {
+  console.log('build web embed');
+  execSync('yarn app:web-embed:build', {
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      NODE_OPTIONS: '--max-old-space-size=8192',
+      NODE_ENV: 'production',
+    },
+  });
+  console.log('build web embed done');
+};
+
 cleanBundleOutput();
+buildWebEmbed();
 buildIOSBundle();
 buildAndroidBundle();
+buildWebEmbed();
