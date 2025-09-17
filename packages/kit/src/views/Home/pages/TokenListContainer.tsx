@@ -902,17 +902,17 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
-      const localAggregateTokenMap =
-        await backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
-          accountId,
-          networkId,
-        });
-
-      const localAggregateTokenListMap =
-        await backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
-          accountId,
-          networkId,
-        });
+      const [localAggregateTokenMap, localAggregateTokenListMap] =
+        await Promise.all([
+          backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+            accountId,
+            networkId,
+          }),
+        ]);
 
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -1371,16 +1371,6 @@ function TokenListContainer({
   ]);
 
   useEffect(() => {
-    void updateAllNetworksTokenList();
-  }, [updateAllNetworksTokenList]);
-
-  useEffect(() => {
-    if (isHeaderRefreshing) {
-      void run();
-    }
-  }, [isHeaderRefreshing, run]);
-
-  useEffect(() => {
     const initTokenListData = async ({
       accountId,
       networkId,
@@ -1408,6 +1398,7 @@ function TokenListContainer({
           initialized: false,
           isRefreshing: true,
         });
+        handleClearAllNetworkData();
         return;
       }
 
@@ -1622,6 +1613,16 @@ function TokenListContainer({
     updateTokenListState,
     wallet?.id,
   ]);
+
+  useEffect(() => {
+    void updateAllNetworksTokenList();
+  }, [updateAllNetworksTokenList]);
+
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
 
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
