@@ -124,6 +124,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     },
   );
 
+  // ------------------------------------------------------------
   refreshWatchListV2 = contextAtomMethod(async (_get, set) => {
     const data =
       await backgroundApiProxy.serviceMarketV2.getMarketWatchListV2();
@@ -143,7 +144,11 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   addIntoWatchListV2 = contextAtomMethod(
-    (get, set, payload: IMarketWatchListItemV2 | IMarketWatchListItemV2[]) => {
+    async (
+      get,
+      set,
+      payload: IMarketWatchListItemV2 | IMarketWatchListItemV2[],
+    ) => {
       const params: IMarketWatchListItemV2[] = !Array.isArray(payload)
         ? [payload]
         : payload;
@@ -161,14 +166,15 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(marketWatchListV2Atom(), { ...prev, data: sortedNewData });
 
       // Asynchronously call API without waiting for result
-      void backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
+      await backgroundApiProxy.serviceMarketV2.addMarketWatchListV2({
         watchList: params,
       });
+      await this.refreshWatchListV2.call(set);
     },
   );
 
   removeFromWatchListV2 = contextAtomMethod(
-    (get, set, chainId: string, contractAddress: string) => {
+    async (get, set, chainId: string, contractAddress: string) => {
       const prev = get(marketWatchListV2Atom());
       if (!prev.isMounted) {
         return;
@@ -188,9 +194,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(marketWatchListV2Atom(), { ...prev, data: newData });
 
       // Asynchronously call API without waiting for result
-      void backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
+      await backgroundApiProxy.serviceMarketV2.removeMarketWatchListV2({
         items: [{ chainId, contractAddress }],
       });
+      await this.refreshWatchListV2.call(set);
     },
   );
 
@@ -238,8 +245,8 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
   );
 
   saveWatchListV2 = contextAtomMethod(
-    (_get, set, payload: IMarketWatchListItemV2[]) => {
-      void this.addIntoWatchListV2.call(set, payload);
+    async (_get, set, payload: IMarketWatchListItemV2[]) => {
+      await this.addIntoWatchListV2.call(set, payload);
     },
   );
 

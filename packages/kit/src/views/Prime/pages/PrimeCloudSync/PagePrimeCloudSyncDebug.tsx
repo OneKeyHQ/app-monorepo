@@ -125,7 +125,9 @@ function RawDataJsonView({
     return (
       <SizableText>
         {[
-          rawDataJson.payload.coingeckoId,
+          rawDataJson.payload.chainId,
+          rawDataJson.payload.contractAddress,
+          rawDataJson.payload.isNative ? 'native' : '',
           shortSortIndex(rawDataJson.payload.sortIndex),
         ].join('>>')}
       </SizableText>

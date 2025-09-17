@@ -198,7 +198,6 @@ export function usePromiseResult<T>(
             }
           }
         } catch (err) {
-          console.error(err);
           if (shouldSetState(config) && undefinedResultIfError) {
             setResult(undefined);
           } else {

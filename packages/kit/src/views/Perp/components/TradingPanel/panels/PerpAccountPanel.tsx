@@ -18,9 +18,26 @@ import {
   usePerpsSelectedAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHyperliquidAccount } from '../../../hooks';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+
+export function PerpAccountDebugInfo() {
+  const { currentUser } = useHyperliquidAccount();
+  const [perpsSelectedAccount] = usePerpsSelectedAccountAtom();
+
+  if (!platformEnv.isDev) {
+    return null;
+  }
+
+  return (
+    <>
+      <SizableText>S:{perpsSelectedAccount.accountAddress}</SizableText>
+      <SizableText>W:{currentUser}</SizableText>
+    </>
+  );
+}
 
 function PerpAccountPanel() {
   const { userWebData2, accountSummary } = useHyperliquidAccount();

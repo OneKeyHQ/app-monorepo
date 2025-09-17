@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
@@ -18,6 +20,8 @@ import type {
   IMarketTokenSecurityBatchResponse,
   IMarketTokenTransactionsResponse,
 } from '@onekeyhq/shared/types/marketV2';
+
+import { type IDBCloudSyncItem } from '../dbs/local/types';
 
 import ServiceBase from './ServiceBase';
 
@@ -237,41 +241,127 @@ class ServiceMarketV2 extends ServiceBase {
     return data;
   }
 
+  async buildMarketWatchListV2SyncItems({
+    watchList,
+    isDeleted,
+  }: {
+    watchList: IMarketWatchListItemV2[];
+    isDeleted?: boolean;
+  }): Promise<IDBCloudSyncItem[]> {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+
+    const syncItems = (
+      await Promise.all(
+        watchList.map(async (watchListItem) => {
+          return syncManagers.marketWatchList.buildSyncItemByDBQuery({
+            syncCredential,
+            dbRecord: watchListItem,
+            dataTime: now,
+            isDeleted,
+          });
+        }),
+      )
+    ).filter(Boolean);
+    return syncItems;
+  }
+
+  async withMarketWatchListV2CloudSync({
+    fn,
+    watchList,
+    isDeleted,
+    skipSaveLocalSyncItem,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    skipEventEmit,
+  }: {
+    fn: () => Promise<void>;
+    watchList: IMarketWatchListItemV2[];
+    isDeleted: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      syncItems = await this.buildMarketWatchListV2SyncItems({
+        watchList,
+        isDeleted,
+      });
+    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
+    });
+  }
+
   @backgroundMethod()
   async addMarketWatchListV2({
     watchList,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
   }: {
     watchList: IMarketWatchListItemV2[];
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
   }) {
     const currentData =
       await this.backgroundApi.simpleDb.marketWatchListV2.getRawData();
-
     const newWatchList = sortUtils.fillingSaveItemsSortIndex({
       oldList: currentData?.data ?? [],
       saveItems: watchList,
     });
-
-    return this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
+    return this.withMarketWatchListV2CloudSync({
       watchList: newWatchList,
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+      fn: () =>
+        this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
+          watchList: newWatchList,
+        }),
     });
   }
 
   @backgroundMethod()
   async removeMarketWatchListV2({
     items,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
   }: {
     items: Array<{ chainId: string; contractAddress: string }>;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
   }) {
-    return this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2(
-      {
-        items,
-      },
-    );
+    return this.withMarketWatchListV2CloudSync({
+      watchList: items,
+      isDeleted: true,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+      fn: () =>
+        this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2({
+          items,
+        }),
+    });
   }
 
   @backgroundMethod()
   async getMarketWatchListV2() {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+  }
+
+  async getMarketWatchListWithFillingSortIndexV2() {
+    const items = await this.getMarketWatchListV2();
+    const hasMissingSortIndex = items.data.some((item) =>
+      isNil(item.sortIndex),
+    );
+    if (hasMissingSortIndex) {
+      const newList = sortUtils.fillingMissingSortIndex({ items: items.data });
+      await this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
+        watchList: newList.items,
+      });
+    }
+    return this.getMarketWatchListV2();
   }
 
   @backgroundMethod()
