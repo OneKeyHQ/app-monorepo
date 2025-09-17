@@ -485,6 +485,7 @@ function TokenListViewCmp(props: IProps) {
             <TokenListFooter
               tableLayout={tableLayout}
               hideZeroBalanceTokens={hideZeroBalanceTokens}
+              isLoading={showSkeleton}
             />
           ) : null}
           {footerTipText ? (
