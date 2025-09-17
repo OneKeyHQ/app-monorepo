@@ -171,6 +171,7 @@ RCT_EXPORT_METHOD(downloadASC:(NSDictionary *)params
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSString *downloadUrl = params[@"downloadUrl"];
     NSString *filePath = params[@"filePath"];
+    NSString *signature = params[@"signature"];
     
     if (!downloadUrl || !filePath) {
         reject(@"INVALID_PARAMS", @"downloadUrl and filePath are required", nil);
@@ -459,22 +460,17 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     resolve(nil);
 }
 
-RCT_EXPORT_METHOD(clearCache:(RCTPromiseResolveBlock)resolve
+RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    // Clear any cached files
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
-    NSString *cachesDirectory = [paths objectAtIndex:0];
-    
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    NSArray *files = [fileManager contentsOfDirectoryAtPath:cachesDirectory error:nil];
-    
-    for (NSString *file in files) {
-        if ([file hasPrefix:@"bundle_update_"]) {
-            NSString *filePath = [cachesDirectory stringByAppendingPathComponent:file];
-            [fileManager removeItemAtPath:filePath error:nil];
+    const NSString *downloadBundleDir = BundleUpdateModule.downloadBundleDir;
+    NSError *error;
+    if ([[NSFileManager defaultManager] fileExistsAtPath:downloadBundleDir]) {
+        [[NSFileManager defaultManager] removeItemAtPath:downloadBundleDir error:&error];
+        if (error) {
+            reject([NSString stringWithFormat:@"%ld", (long)error.code], error.localizedDescription, error);
+            return;
         }
     }
-    
     resolve(nil);
 }
 
