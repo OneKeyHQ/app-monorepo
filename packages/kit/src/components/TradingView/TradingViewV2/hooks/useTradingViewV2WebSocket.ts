@@ -37,7 +37,7 @@ export function useTradingViewV2WebSocket({
   const [tokenDetail] = useTokenDetailAtom();
   // Initialize and manage WebSocket connection
   useEffect(() => {
-    if (!enabled || !networkId || !tokenAddress) {
+    if (!networkId || !tokenAddress) {
       return;
     }
 
@@ -59,7 +59,9 @@ export function useTradingViewV2WebSocket({
       }
     };
 
-    void initWebSocket();
+    if (enabled) {
+      void initWebSocket();
+    }
 
     return () => {
       // Clean up specific subscriptions instead of disconnecting everything
