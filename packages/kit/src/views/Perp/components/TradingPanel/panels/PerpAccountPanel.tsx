@@ -166,6 +166,7 @@ function PerpAccountPanel() {
       {userAddress ? (
         <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
           <Button
+            borderRadius="$3"
             flex={1}
             size="medium"
             variant="secondary"
@@ -178,6 +179,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
           <Button
+            borderRadius="$3"
             flex={1}
             size="medium"
             variant="secondary"
@@ -190,23 +192,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
         </XStack>
-      ) : (
-        <XStack
-          flex={1}
-          justifyContent="flex-start"
-          alignItems="center"
-          mt="$3"
-          px="$4"
-          gap="$1.5"
-        >
-          <Icon name="InfoCircleOutline" size="$3.5" color="$icon" />
-          <SizableText size="$bodySm" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.perp_account_create,
-            })}
-          </SizableText>
-        </XStack>
-      )}
+      ) : null}
     </YStack>
   );
 }
