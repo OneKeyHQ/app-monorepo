@@ -16,6 +16,7 @@ interface IPriceInputProps {
   onUseMarketPrice?: () => void;
   szDecimals?: number;
   label?: string;
+  ifDialog?: boolean;
 }
 
 export const PriceInput = memo(
@@ -27,6 +28,7 @@ export const PriceInput = memo(
     onUseMarketPrice,
     szDecimals,
     label,
+    ifDialog = false,
   }: IPriceInputProps) => {
     const intl = useIntl();
     const handleInputChange = useCallback(
@@ -69,6 +71,7 @@ export const PriceInput = memo(
         error={error}
         validator={validator}
         actions={actions}
+        ifDialog={ifDialog}
       />
     );
   },

@@ -17,6 +17,7 @@ import {
   usePerpsSelectedAccountStatusAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
 
@@ -88,22 +89,30 @@ export function PerpTradingButton({
   ]);
 
   const buttonText = useMemo(() => {
-    if (isSubmitting) return 'Placing...';
-    if (isNoEnoughMargin) return 'Not Enough Margin';
-    return 'Place order';
-  }, [isSubmitting, isNoEnoughMargin]);
+    if (isSubmitting)
+      return intl.formatMessage({
+        id: ETranslations.perp_trading_button_placing,
+      });
+    if (isNoEnoughMargin)
+      return intl.formatMessage({
+        id: ETranslations.perp_trading_button_no_enough_margin,
+      });
+    return intl.formatMessage({
+      id: ETranslations.perp_trade_button_place_order,
+    });
+  }, [isSubmitting, isNoEnoughMargin, intl]);
 
   const buttonStyles = useMemo(() => {
     const isLong = formData.side === 'long';
 
     const getBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '$buttonSuccess' : '$buttonCritical';
+      return isLong ? '#18794E' : '#E5484D';
     };
 
     const getHoverBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '$green7' : '$red7';
+      return isLong ? '$green8' : '$red10';
     };
 
     const getPressBgColor = () => {
@@ -120,19 +129,21 @@ export function PerpTradingButton({
   }, [formData.side, buttonDisabled, isAccountLoading]);
 
   const createAddressButtonRender = useCallback((props: IButtonProps) => {
-    return <Button size="large" borderRadius="$3" {...props} />;
+    return <Button size="medium" borderRadius="$3" {...props} />;
   }, []);
 
   const accountNotSupportedButton = useMemo(() => {
     return createAddressButtonRender({
-      children: 'Account not supported',
+      children: intl.formatMessage({
+        id: ETranslations.perp_trade_button_account_unsupported,
+      }),
       disabled: true,
     });
-  }, [createAddressButtonRender]);
+  }, [createAddressButtonRender, intl]);
 
   if (loading || perpsAccountLoading?.selectAccountLoading) {
     return (
-      <Button size="large" borderRadius="$3" disabled>
+      <Button size="medium" borderRadius="$3" disabled>
         <Spinner />
       </Button>
     );
@@ -159,14 +170,21 @@ export function PerpTradingButton({
   ) {
     return (
       <Button
-        size="large"
+        size="medium"
         borderRadius="$3"
+        bg="#18794E"
+        hoverStyle={{ bg: '$green8' }}
+        pressStyle={{ bg: '$green8' }}
         loading={isAccountLoading}
         onPress={async () => {
           await enableTrading();
         }}
       >
-        <SizableText>Enable trading</SizableText>
+        <SizableText size="$bodyMdMedium" color="$textOnColor">
+          {intl.formatMessage({
+            id: ETranslations.perp_trade_button_enable_trading,
+          })}
+        </SizableText>
       </Button>
     );
   }
@@ -184,11 +202,7 @@ export function PerpTradingButton({
       size="medium"
       borderRadius="$3"
     >
-      <SizableText
-        color={buttonStyles.textColor}
-        fontWeight="600"
-        size="$bodyLgMedium"
-      >
+      <SizableText color={buttonStyles.textColor} size="$bodyMdMedium">
         {buttonText}
       </SizableText>
     </Button>

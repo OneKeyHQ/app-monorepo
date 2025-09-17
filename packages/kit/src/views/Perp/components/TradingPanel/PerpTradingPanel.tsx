@@ -105,7 +105,7 @@ function PerpTradingPanel() {
   }, [tokenInfo, formData, actions]);
 
   return (
-    <YStack gap="$2" p="$4">
+    <YStack gap="$4" p="$4">
       <PerpTradingForm isSubmitting={isSubmitting} />
       <PerpTradingButton
         loading={universalLoading}
