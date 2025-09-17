@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "{riskyNumber}개의 위험한 승인이 감지되었습니다",
   "wallet.approval_suggestion_title_summary": "{riskyNumber}개의 위험한 승인과 90일 이상 비활성 상태인 {inactiveNumber}개의 계약이 감지되었습니다",
   "wallet.approval_summary_suggestion_desc_all": "위험을 줄이고 불필요한 권한을 제거하려면 해지하세요.",
-  "wallet.backup_now": "지금 백업",
+  "wallet.backup_now": "지금 동기화",
   "wallet.backup_prompt": "지갑을 백업하세요",
   "wallet.buy_crypto_instruction": "지갑에 자금을 충전하기 위해 암호화폐를 구매하세요",
   "wallet.collapsed_assets": "숨겨진 자산",

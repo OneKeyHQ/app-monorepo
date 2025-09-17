@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "ตรวจพบการอนุมัติที่มีความเสี่ยง {riskyNumber} รายการ",
   "wallet.approval_suggestion_title_summary": "ตรวจพบการอนุมัติที่มีความเสี่ยง {riskyNumber} รายการและสัญญาที่ไม่มีการใช้งานนานกว่า 90 วัน {inactiveNumber} ฉบับ",
   "wallet.approval_summary_suggestion_desc_all": "เพิกถอนเพื่อลดความเสี่ยงและลบการอนุญาตที่ไม่จำเป็นออก",
-  "wallet.backup_now": "สำรองข้อมูลตอนนี้",
+  "wallet.backup_now": "ซิงค์ทันที",
   "wallet.backup_prompt": "สำรองข้อมูลกระเป๋าเงินของคุณ",
   "wallet.buy_crypto_instruction": "ซื้อคริปโตเพื่อเติมเงินในกระเป๋าเงินของคุณ",
   "wallet.collapsed_assets": "สินทรัพย์ที่ซ่อนไว้",

@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "{riskyNumber} riskante Genehmigungen erkannt",
   "wallet.approval_suggestion_title_summary": "{riskyNumber} riskante Genehmigungen und {inactiveNumber} seit über 90 Tagen inaktive Verträge erkannt",
   "wallet.approval_summary_suggestion_desc_all": "Widerrufen, um Risiken zu verringern und unnötige Berechtigungen zu entfernen.",
-  "wallet.backup_now": "Jetzt sichern",
+  "wallet.backup_now": "Jetzt synchronisieren",
   "wallet.backup_prompt": "Sichern Sie Ihre Wallet",
   "wallet.buy_crypto_instruction": "Kaufen Sie Krypto, um Ihre Geldbörse aufzuladen",
   "wallet.collapsed_assets": "Minimierte Assets",

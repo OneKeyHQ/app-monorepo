@@ -3313,7 +3313,7 @@
   "wallet.approval_suggestion_title_only_risky": "Виявлено {riskyNumber} ризикованих дозволів",
   "wallet.approval_suggestion_title_summary": "Виявлено {riskyNumber} ризикованих дозволів та {inactiveNumber} контрактів, що неактивні понад 90 днів",
   "wallet.approval_summary_suggestion_desc_all": "Скасуйте, щоб зменшити ризики та видалити непотрібні дозволи.",
-  "wallet.backup_now": "Створити резервну копію зараз",
+  "wallet.backup_now": "Синхронізувати зараз",
   "wallet.backup_prompt": "Створіть резервну копію гаманця",
   "wallet.buy_crypto_instruction": "Купуйте криптовалюту, щоб поповнити свій гаманець",
   "wallet.collapsed_assets": "Приховані активи",
