@@ -10,4 +10,7 @@
 
 @interface BundleUpdateModule : RCTEventEmitter <RCTBridgeModule>
 
++ (NSString *)downloadBundleDir;
++ (NSString *)bundleDir;
+
 @end
