@@ -19,6 +19,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
@@ -69,7 +70,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
-  const [{ perpConfigCommon }] = useSettingsPersistAtom();
+  const [{ perpConfigCommon, perpUserConfig }] = useSettingsPersistAtom();
   const isShowMDDiscover = useMemo(
     () =>
       !isShowDesktopDiscover &&
@@ -86,7 +87,11 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     if (perpConfigCommon?.disablePerp) {
       return null;
     }
-    if (perpConfigCommon?.usePerpWeb && platformEnv.isDesktop) {
+    if (
+      (perpConfigCommon?.usePerpWeb ||
+        perpUserConfig.currentUserType === EPerpUserType.PERP_WEB) &&
+      platformEnv.isDesktop
+    ) {
       return {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
@@ -121,6 +126,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   }, [
     perpConfigCommon?.disablePerp,
     perpConfigCommon?.usePerpWeb,
+    perpUserConfig.currentUserType,
     params?.freezeOnBlur,
   ]);
   // Custom Market tab press handler - only for non-mobile platforms
