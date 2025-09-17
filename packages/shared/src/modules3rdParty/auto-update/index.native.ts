@@ -161,7 +161,7 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     ({ progress }: { progress: number }) => {
       console.log('update/downloading', progress);
       defaultLogger.update.app.log('downloading', progress);
-      setPercent(progress);
+      setPercent(parseInt(progress.toString(), 10));
     },
     10,
   );
