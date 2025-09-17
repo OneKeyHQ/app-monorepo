@@ -76,6 +76,17 @@ RCT_EXPORT_MODULE();
 }
 
 + (NSString *)currentBundleMainJSBundle {
+    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *currentBundleVersion = [self currentBundleVersion];
+    if (currentBundleVersion == nil) {
+        return nil;
+    }
+    if (currentAppVersion != nil) {
+        NSString *bundleAppVersion = [currentBundleVersion componentsSeparatedByString:@"-"][0];
+        if (![currentAppVersion isEqualToString:bundleAppVersion]) {
+            return nil;
+        }
+    }
     NSString *folderName = [self currentBundleDir];
     if (!folderName) {
         return nil;
