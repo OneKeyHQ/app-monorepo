@@ -4,28 +4,33 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ETabSelect } from '@onekeyhq/shared/src/logger/scopes/dex';
 
 export function useBottomTabAnalytics() {
-  const trackTabClick = useCallback((tabName: string) => {
-    let tabSelect: ETabSelect;
+  const trackTabClick = useCallback(
+    (data: { index: number; tabName: string }) => {
+      let tabSelect: ETabSelect;
 
-    switch (tabName.toLowerCase()) {
-      case 'transactions':
-        tabSelect = ETabSelect.Transactions;
-        break;
-      case 'holders':
-        tabSelect = ETabSelect.Holders;
-        break;
-      default:
-        return; // Don't track unknown tabs
-    }
+      // Use index to identify tab type since tabName is localized
+      switch (data.index) {
+        case 0: // First tab is always transactions
+          tabSelect = ETabSelect.Transactions;
+          break;
+        case 1: // Second tab is holders (when available)
+          tabSelect = ETabSelect.Holders;
+          break;
+        default:
+          return; // Don't track unknown tabs
+      }
 
-    defaultLogger.dex.actions.dexBottomTabs({
-      tabSelect,
-    });
-  }, []);
+      defaultLogger.dex.actions.dexBottomTabs({
+        tabSelect,
+      });
+    },
+    [],
+  );
 
   const handleTabChange = useCallback(
-    (data: { tabName: string }) => {
-      trackTabClick(data.tabName);
+    (data: { index: number; tabName: string }) => {
+      console.log('handleTabChange', data);
+      trackTabClick(data);
     },
     [trackTabClick],
   );
