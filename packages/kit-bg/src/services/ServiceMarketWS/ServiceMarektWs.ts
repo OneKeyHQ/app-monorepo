@@ -8,18 +8,11 @@ import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import ServiceBase from '../ServiceBase';
 
+import { EChannel, EOperation } from './const';
+import { MarketSubscriptionTracker } from './MarketSubscriptionTracker';
+
 import type { IWsPriceData, IWsTxsData } from './types';
 import type { Socket } from 'socket.io-client';
-
-const EOperation = {
-  subscribe: 'subscribe',
-  unsubscribe: 'unsubscribe',
-};
-
-export const EChannel = {
-  tokenTxs: 'tokenTxs',
-  ohlcv: 'ohlcv',
-};
 
 type IMarketSubscription = {
   channel: string;
@@ -42,6 +35,8 @@ class ServiceMarketWS extends ServiceBase {
   private socket: Socket | null = null;
 
   private isMarketListenerRegistered = false;
+
+  private subscriptionTracker = new MarketSubscriptionTracker();
 
   @backgroundMethod()
   async connect(): Promise<void> {
@@ -80,6 +75,7 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket = null;
+    this.subscriptionTracker.clear();
   }
 
   @backgroundMethod()
@@ -90,6 +86,14 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
+    // Check if already subscribed
+    if (
+      this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.tokenTxs)
+    ) {
+      this.subscriptionTracker.addSubscription(tokenAddress, EChannel.tokenTxs);
+      return;
+    }
+
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
       args: [
@@ -107,6 +111,7 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
+    this.subscriptionTracker.addSubscription(tokenAddress, EChannel.tokenTxs);
   }
 
   @backgroundMethod()
@@ -121,6 +126,14 @@ class ServiceMarketWS extends ServiceBase {
     chartType?: string;
     currency?: string;
   }) {
+    // Check if already subscribed
+    if (
+      this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.ohlcv)
+    ) {
+      this.subscriptionTracker.addSubscription(tokenAddress, EChannel.ohlcv);
+      return;
+    }
+
     const subscriptionArgs: IMarketSubscription = {
       channel: EChannel.ohlcv,
       networkId,
@@ -146,6 +159,7 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
+    this.subscriptionTracker.addSubscription(tokenAddress, EChannel.ohlcv);
   }
 
   @backgroundMethod()
@@ -196,11 +210,21 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    await this.unsubscribe({
-      channel: EChannel.tokenTxs,
-      networkId,
+    this.subscriptionTracker.removeSubscription(
       tokenAddress,
-    });
+      EChannel.tokenTxs,
+    );
+
+    // Only unsubscribe from WebSocket if no more connections
+    if (
+      !this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.tokenTxs)
+    ) {
+      await this.unsubscribe({
+        channel: EChannel.tokenTxs,
+        networkId,
+        tokenAddress,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -215,26 +239,29 @@ class ServiceMarketWS extends ServiceBase {
     chartType?: string;
     currency?: string;
   }) {
-    await this.unsubscribe({
-      channel: EChannel.ohlcv,
-      networkId,
-      tokenAddress,
-      chartType,
-      currency,
-    });
+    this.subscriptionTracker.removeSubscription(tokenAddress, EChannel.ohlcv);
+
+    // Only unsubscribe from WebSocket if no more connections
+    if (
+      !this.subscriptionTracker.hasSubscription(tokenAddress, EChannel.ohlcv)
+    ) {
+      await this.unsubscribe({
+        channel: EChannel.ohlcv,
+        networkId,
+        tokenAddress,
+        chartType,
+        currency,
+      });
+    }
   }
 
   private handleMarketMessage(data: unknown) {
-    console.log('Market data received:', data);
-
     // Basic type validation
     if (typeof data !== 'object' || data === null) {
       return;
     }
 
     const messageData = data as Record<string, any>;
-
-    console.log('messageData', messageData);
 
     // Handle different message formats from the WebSocket
     // Support both direct channel format and nested data format
