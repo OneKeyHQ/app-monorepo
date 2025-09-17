@@ -198,14 +198,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async approveAgent(params: IAgentApprovalRequest) {
     this._ensureSetup();
 
-    try {
-      return await this._exchangeClient!.approveAgent({
-        agentAddress: params.agent,
-        agentName: params.agentName || null,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to approve agent: ${String(error)}`);
-    }
+    return this._exchangeClient!.approveAgent({
+      agentAddress: params.agent,
+      agentName: params.agentName || null,
+    });
   }
 
   @backgroundMethod()
