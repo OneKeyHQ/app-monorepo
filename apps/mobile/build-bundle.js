@@ -1,5 +1,6 @@
 require('../../development/env');
 
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs-extra');
@@ -8,10 +9,15 @@ const mobileDirPath = __dirname;
 const projectRootPath = path.join(mobileDirPath, '../..');
 const indexFilePath = path.join(mobileDirPath, 'index.ts');
 const bundleOutputPath = path.join(mobileDirPath, 'out-dir-bundle');
+const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
 
 const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
+
+const buildZipOutputAssetPath = (zipName) => {
+  return path.join(zipOutputPath, zipName);
+};
 
 const buildIOSOutputAssetPath = (assetName) => {
   return path.join(bundleOutputPath, 'ios', assetName);
@@ -33,6 +39,77 @@ const ensureBundleOutputPath = async () => {
   if (!fs.existsSync(bundleOutputPath)) {
     fs.mkdirSync(bundleOutputPath, { recursive: true });
   }
+};
+
+const generateMetadataJson = async (dirPath) => {
+  const metadata = {};
+
+  const traverseDirectory = (currentPath) => {
+    const items = fs.readdirSync(currentPath);
+
+    items.forEach((item) => {
+      const itemPath = path.join(currentPath, item);
+      const stat = fs.statSync(itemPath);
+
+      if (stat.isFile()) {
+        try {
+          const fileContent = fs.readFileSync(itemPath);
+          const hash = crypto
+            .createHash('sha256')
+            .update(fileContent)
+            .digest('hex');
+
+          // Use relative path from the base directory as the key
+          const relativePath = path.relative(dirPath, itemPath);
+          metadata[relativePath] = hash;
+        } catch (error) {
+          console.warn(`Failed to hash file ${itemPath}:`, error.message);
+        }
+      } else if (stat.isDirectory()) {
+        traverseDirectory(itemPath);
+      }
+    });
+  };
+
+  if (fs.existsSync(dirPath)) {
+    traverseDirectory(dirPath);
+
+    // Write metadata.json
+    const metadataPath = path.join(dirPath, 'metadata.json');
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    console.log(`Generated metadata.json at: ${metadataPath}`);
+    console.log(`Total files processed: ${Object.keys(metadata).length}`);
+  } else {
+    console.warn(`Directory not found: ${dirPath}`);
+  }
+};
+
+const generateFileInfo = async (filePath) => {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`File not found: ${filePath}`);
+    return;
+  }
+
+  const fileBuffer = fs.readFileSync(filePath);
+  const sha256 = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+  const size = fileBuffer.length;
+
+  const fileName = path.basename(filePath);
+  const fileDir = path.dirname(filePath);
+  const infoFileName = `${fileName}.info`;
+  const infoFilePath = path.join(fileDir, infoFileName);
+
+  const fileInfo = {
+    fileName,
+    sha256,
+    size,
+    generatedAt: new Date().toISOString(),
+  };
+
+  fs.writeFileSync(infoFilePath, JSON.stringify(fileInfo, null, 2));
+  console.log(`Generated info file: ${infoFilePath}`);
+  console.log(`SHA256: ${sha256}`);
+  console.log(`Size: ${size} bytes`);
 };
 
 const buildIOSBundle = async () => {
@@ -135,6 +212,26 @@ const buildIOSBundle = async () => {
     );
     console.log('build ios bundle upload source maps done');
   }
+  const distPath = buildIOSOutputAssetPath('dist');
+  fs.mkdirSync(buildIOSOutputAssetPath('dist'));
+  fs.moveSync(
+    buildIOSOutputAssetPath('assets'),
+    buildIOSOutputAssetPath('dist/assets'),
+  );
+  fs.moveSync(
+    buildIOSOutputAssetPath('main.jsbundle.hbc'),
+    buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
+  );
+  console.log('build ios bundle compress dist to zip');
+  generateMetadataJson(distPath);
+  execSync(`cd ${distPath} && zip -r dist.zip .`, {
+    stdio: 'inherit',
+  });
+
+  const zipFilePath = buildZipOutputAssetPath('ios-bundle.zip');
+  fs.moveSync(buildIOSOutputAssetPath('dist.zip'), zipFilePath);
+  generateFileInfo(zipFilePath);
+  console.log('build ios bundle compress dist to zip done');
   console.log('build ios bundle done');
 };
 
