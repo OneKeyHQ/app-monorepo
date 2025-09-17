@@ -382,7 +382,20 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
     [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
-    if (![self valiateAllFilesInDir:destination metadata:metadata]) {
+    NSString *metadataJsonPath = [[destination stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"metadata.json"];
+    NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
+    if (!jsonData) {
+        reject(@"INVALID_PARAMS", @"Failed to read metadata.json", nil);
+        return;
+    }
+    
+    NSError *error;
+    NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+    if (error) {
+        reject(@"INVALID_PARAMS", [NSString stringWithFormat:@"Error parsing metadata.json: %@", error.localizedDescription], nil);
+        return;
+    }
+    if (![BundleUpdateModule valiateAllFilesInDir:destination metadata:metadata]) {
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
