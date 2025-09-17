@@ -372,7 +372,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         currentDownloadCall = httpClient.newCall(request);
         
         sendEvent("update/start", null);
-        
         currentDownloadCall.enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
@@ -428,9 +427,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 sendEvent("update/complete", null);
                 log("downloadBundle", "Download completed");
                 clearDownloadTask();
-                promise.resolve(result);
             }
         });
+        promise.resolve(result);
     }
 
     @ReactMethod
