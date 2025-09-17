@@ -106,8 +106,10 @@ RCT_EXPORT_MODULE();
     return metadata;
 }
 
-+ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata {
-    NSString *bundleDir = [BundleUpdateModule bundleDir];
++ (BOOL)valiateAllFilesInDir:(NSString *)DirPath metadata:(NSDictionary *)metadata appVersion:(NSString *)appVersion bundleVersion:(NSString *)bundleVersion {
+    NSString *parentBundleDir = [BundleUpdateModule bundleDir];
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [parentBundleDir stringByAppendingPathComponent:folderName];
     NSFileManager *fileManager = [NSFileManager defaultManager];
     
     // Get all files recursively, excluding metadata.json
@@ -116,7 +118,7 @@ RCT_EXPORT_MODULE();
     
     while ((file = [enumerator nextObject])) {
         // Skip metadata.json
-        if ([file isEqualToString:@"metadata.json"]) {
+        if ([file containsString:@"metadata.json"] || [file containsString:@".DS_Store"]) {
             continue;
         }
         
@@ -126,7 +128,7 @@ RCT_EXPORT_MODULE();
         // Skip directories
         BOOL isDirectory;
         if ([fileManager fileExistsAtPath:fullPath isDirectory:&isDirectory] && isDirectory) {
-            BOOL result = [self valiateAllFilesInDir:fullPath metadata:metadata];
+            BOOL result = [self valiateAllFilesInDir:fullPath metadata:metadata appVersion:appVersion bundleVersion:bundleVersion];
             if (result) {
                 continue;
             } else {
@@ -382,7 +384,7 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
     [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
-    NSString *metadataJsonPath = [[destination stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"metadata.json"];
+    NSString *metadataJsonPath = [destination stringByAppendingPathComponent:@"metadata.json"];
     NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
     if (!jsonData) {
         reject(@"INVALID_PARAMS", @"Failed to read metadata.json", nil);
@@ -395,7 +397,7 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
         reject(@"INVALID_PARAMS", [NSString stringWithFormat:@"Error parsing metadata.json: %@", error.localizedDescription], nil);
         return;
     }
-    if (![BundleUpdateModule valiateAllFilesInDir:destination metadata:metadata]) {
+    if (![BundleUpdateModule valiateAllFilesInDir:destination metadata:metadata appVersion:appVersion bundleVersion:bundleVersion]) {
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
@@ -438,7 +440,7 @@ RCT_EXPORT_METHOD(downloadBundle:(NSDictionary *)params
     DDLogDebug(@"downloadBundle: filePath: %@", filePath);
     if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
         if ([self verifyBundleSHA256:filePath sha256:sha256]) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                 resolve(result);
                 [self clearDownloadTask];
                 [self sendEventWithName:@"update/complete" body:nil];
