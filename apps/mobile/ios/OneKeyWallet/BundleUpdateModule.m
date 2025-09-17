@@ -61,15 +61,6 @@ RCT_EXPORT_MODULE();
     return bundleDir;
 }
 
-+ (NSString *)bundleDir {
-    NSString *homeDir = NSHomeDirectory();
-    NSString *bundleDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle"];
-    if (![[NSFileManager defaultManager] fileExistsAtPath:bundleDir]) {
-        [[NSFileManager defaultManager] createDirectoryAtPath:bundleDir withIntermediateDirectories:YES attributes:nil error:nil];
-    }
-    return bundleDir;
-}
-
 - (dispatch_queue_t)methodQueue {
     return dispatch_queue_create("com.onekey.bundleupdate", DISPATCH_QUEUE_SERIAL);
 }
