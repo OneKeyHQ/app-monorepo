@@ -18,7 +18,6 @@ interface IUseTradingViewV2WebSocketProps {
   tokenAddress: string;
   webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
-  enableOHLCV?: boolean;
   chartType?: string;
   currency?: string;
 }
@@ -28,7 +27,6 @@ export function useTradingViewV2WebSocket({
   tokenAddress,
   webRef,
   enabled = true,
-  enableOHLCV = true,
   chartType = '1m',
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps) {
@@ -46,14 +44,12 @@ export function useTradingViewV2WebSocket({
         await backgroundApiProxy.serviceMarketWS.connect();
 
         // Subscribe to OHLCV data if enabled
-        if (enableOHLCV) {
-          await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
-            networkId,
-            tokenAddress,
-            chartType,
-            currency,
-          });
-        }
+        await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
+          networkId,
+          tokenAddress,
+          chartType,
+          currency,
+        });
       } catch (error) {
         console.error('Failed to initialize market WebSocket:', error);
       }
@@ -67,14 +63,12 @@ export function useTradingViewV2WebSocket({
       // Clean up specific subscriptions instead of disconnecting everything
       const cleanup = async () => {
         try {
-          if (enableOHLCV) {
-            await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
-              networkId,
-              tokenAddress,
-              chartType,
-              currency,
-            });
-          }
+          await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
+            networkId,
+            tokenAddress,
+            chartType,
+            currency,
+          });
         } catch (error) {
           console.error('Failed to unsubscribe from market data:', error);
         }
@@ -82,7 +76,7 @@ export function useTradingViewV2WebSocket({
 
       void cleanup();
     };
-  }, [networkId, tokenAddress, enabled, enableOHLCV, chartType, currency]);
+  }, [networkId, tokenAddress, enabled, chartType, currency]);
 
   // Listen for market data updates via the app event bus
   useEffect(() => {

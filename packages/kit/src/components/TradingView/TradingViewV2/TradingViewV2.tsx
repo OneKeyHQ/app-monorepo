@@ -99,7 +99,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     networkId,
     webRef,
     enabled: isVisible && !isNative,
-    enableOHLCV: true,
     chartType: '1m',
     currency: 'usd',
   });
