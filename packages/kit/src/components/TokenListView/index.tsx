@@ -62,14 +62,10 @@ type IProps = {
   withHeader?: boolean;
   withFooter?: boolean;
   withPrice?: boolean;
-  withBuyAndReceive?: boolean;
   withNetwork?: boolean;
   withSmallBalanceTokens?: boolean;
   withSwapAction?: boolean;
   inTabList?: boolean;
-  onReceiveToken?: () => void;
-  onBuyToken?: () => void;
-  isBuyTokenSupported?: boolean;
   onManageToken?: () => void;
   manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
@@ -114,12 +110,8 @@ function TokenListViewCmp(props: IProps) {
     withFooter,
     withPrice,
     inTabList = false,
-    withBuyAndReceive,
     withNetwork,
     withSwapAction,
-    onReceiveToken,
-    onBuyToken,
-    isBuyTokenSupported,
     onManageToken,
     manageTokenEnabled,
     isAllNetworks,
@@ -405,24 +397,15 @@ function TokenListViewCmp(props: IProps) {
         manageTokenEnabled={manageTokenEnabled}
       />
     ) : (
-      <EmptyToken
-        withBuyAndReceive={withBuyAndReceive}
-        isBuyTokenSupported={isBuyTokenSupported}
-        onBuy={onBuyToken}
-        onReceive={onReceiveToken}
-      />
+      <EmptyToken />
     );
   }, [
     emptyAccountView,
-    isBuyTokenSupported,
     manageTokenEnabled,
-    onBuyToken,
     onManageToken,
-    onReceiveToken,
     searchKey,
     showSkeleton,
     tableLayout,
-    withBuyAndReceive,
   ]);
 
   return (

@@ -13,7 +13,6 @@ import {
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBAggregateToken } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAggregateToken';
 import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
@@ -21,7 +20,6 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -70,7 +68,6 @@ import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import {
   useAccountOverviewActions,
   useAllNetworksStateStateAtom,
@@ -159,18 +156,6 @@ function TokenListContainer({
   const aggregateTokenRawData = useRef<ISimpleDBAggregateToken | undefined>(
     undefined,
   );
-
-  const { handleFiatCrypto, isSupported } = useFiatCrypto({
-    accountId: account?.id ?? '',
-    networkId: network?.id ?? '',
-    fiatCryptoType: 'buy',
-  });
-  const { handleOnReceive } = useReceiveToken({
-    accountId: account?.id ?? '',
-    networkId: network?.id ?? '',
-    walletId: wallet?.id ?? '',
-    indexedAccountId: indexedAccount?.id ?? '',
-  });
 
   const { handleOnManageToken, manageTokenEnabled } = useManageToken({
     accountId: account?.id ?? '',
@@ -1793,13 +1778,6 @@ function TokenListContainer({
     ],
   );
 
-  const isBuyAndReceiveEnabled = useMemo(
-    () =>
-      !vaultSettings?.disabledSendAction &&
-      wallet?.type !== WALLET_TYPE_WATCHING,
-    [vaultSettings?.disabledSendAction, wallet?.type],
-  );
-
   const handleRefreshAllNetworkData = useCallback(() => {
     isAllNetworkManualRefresh.current = true;
     void runAllNetworksRequests({ alwaysSetState: true });
@@ -1945,12 +1923,6 @@ function TokenListContainer({
       withSwapAction
       hideZeroBalanceTokens={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
-      withBuyAndReceive={isBuyAndReceiveEnabled}
-      isBuyTokenSupported={isSupported}
-      onBuyToken={handleFiatCrypto}
-      onReceiveToken={() =>
-        handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks })
-      }
       manageTokenEnabled={manageTokenEnabled}
       onManageToken={handleOnManageToken}
       onPressToken={handleOnPressToken}
