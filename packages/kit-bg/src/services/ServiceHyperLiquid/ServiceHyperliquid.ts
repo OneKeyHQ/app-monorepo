@@ -189,6 +189,10 @@ export default class ServiceHyperliquid extends ServiceBase {
         console.log('selectPerpsAccount______222', account);
         perpsAccount.accountId = account.id || null;
         perpsAccount.accountAddress = (account.address as IHex) || null;
+        void this.backgroundApi.serviceAccount.saveAccountAddresses({
+          account,
+          networkId: ethNetworkId,
+        });
       }
     } catch (error) {
       console.error(error);

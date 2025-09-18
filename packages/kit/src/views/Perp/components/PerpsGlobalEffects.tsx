@@ -235,6 +235,7 @@ function useHyperliquidAccountSelect() {
         deriveType: globalDeriveType,
       });
     setCurrentUser(account.accountAddress);
+
     await checkPerpsAccountStatus();
   }, [
     activeAccount.account?.address,
