@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
+import { useThrottledCallback } from 'use-debounce';
 
 import { useUpdateEffect } from '@onekeyhq/components';
 import {
@@ -17,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IActiveAssetData,
   IBook,
@@ -191,7 +193,9 @@ function useHyperliquidAccountSelect() {
   // const perpsAccountStatusRef = useRef(perpsAccountStatus);
   // perpsAccountStatusRef.current = perpsAccountStatus;
 
+  const lastCheckTimeRef = useRef(0);
   const checkPerpsAccountStatus = useCallback(async () => {
+    lastCheckTimeRef.current = Date.now();
     const checkResult =
       await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
     console.log('checkPerpsAccountStatus::', checkResult);
@@ -224,19 +228,24 @@ function useHyperliquidAccountSelect() {
   }, [selectPerpsAccount]);
 
   useUpdateEffect(() => {
-    if (isFocused) {
-      if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
-        void selectPerpsAccountRef.current();
-      } else {
-        void checkPerpsAccountStatus();
-      }
+    if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
+      void selectPerpsAccountRef.current();
     }
-  }, [
-    accountIsAutoCreating,
-    indexedAccountAddressCreationState,
-    isFocused,
-    checkPerpsAccountStatus,
-  ]);
+  }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
+
+  useUpdateEffect(() => {
+    if (
+      isFocused &&
+      lastCheckTimeRef.current +
+        timerUtils.getTimeDurationMs({
+          // seconds: 10,
+          hour: 1,
+        }) <
+        Date.now()
+    ) {
+      void checkPerpsAccountStatus();
+    }
+  }, [isFocused, checkPerpsAccountStatus]);
 
   useEffect(() => {
     noop(currentPerpsAccount?.accountAddress);
