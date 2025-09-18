@@ -202,10 +202,33 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             if (bundleDir == null || !new File(bundleDir).exists()) {
                 return null;
             }
-            
-            String mainJSBundle = new File(bundleDir, "main.jsbundle.hbc").getAbsolutePath();
-            return new File(mainJSBundle).exists() ? mainJSBundle : null;
+            if (!validateMetadataFileSha256(context)) {
+                return null;
+            }
+            Map<String, String> metadata = parseMetadataJson(getMetadataFileContent(context));
+            String bundleName = "main.jsbundle.hbc";
+            File mainJSBundleFile = new File(bundleDir, bundleName);
+            String mainJSBundlePath = mainJSBundleFile.getAbsolutePath();
+            staticLog(TAG, "mainJSBundlePath: " + mainJSBundlePath);
+            if (!mainJSBundleFile.exists() || mainJSBundlePath == null || mainJSBundlePath.isEmpty()) {
+                staticLog(TAG, "mainJSBundleFile does not exist");
+                return null;
+            }
+
+            String sha256 = metadata.get("main.jsbundle.hbc");
+            String calculatedSha256 = calculateSHA256(mainJSBundlePath);
+            staticLog(TAG, "calculatedSha256: " + calculatedSha256 + ", sha256: " + sha256);
+            if (calculatedSha256 == null || sha256 == null) {
+                return null;
+            }
+            if (!calculatedSha256.equals(sha256)) {
+                return null;
+            }
+            return mainJSBundlePath;
         } catch (PackageManager.NameNotFoundException e) {
+            staticLog(TAG, "Error getting package info: " + e.getMessage());
+            return null;
+        } catch (IOException e) {
             staticLog(TAG, "Error getting package info: " + e.getMessage());
             return null;
         }
