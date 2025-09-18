@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
@@ -7,8 +6,15 @@ import path from 'path';
 import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
+import { readCleartextMessage, readKey } from 'openpgp';
 
+import {
+  verifyMetadataFileSha256,
+  verifySha256,
+} from '@onekeyhq/desktop/app/bundle';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
+import { ETranslations } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
@@ -42,19 +48,10 @@ class DesktopApiAppBundleUpdate {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
-  verifySha256(filePath: string, sha256: string) {
-    const hashSum = crypto.createHash('sha256');
-    const fileBuffer = fs.readFileSync(filePath);
-    hashSum.update(fileBuffer);
-    const fileSha256 = hashSum.digest('hex');
-    logger.info('bundle-download-verifySha256', sha256, fileSha256);
-    return fileSha256 === sha256;
-  }
-
   async verifyAndResolve(filePath: string, sha256: string) {
     return new Promise<boolean>((resolve, reject) => {
       setTimeout(async () => {
-        const verified = this.verifySha256(filePath, sha256);
+        const verified = verifySha256(filePath, sha256);
         if (!verified) {
           reject(new OneKeyLocalError('Downloaded file is not valid'));
         }
@@ -281,7 +278,6 @@ class DesktopApiAppBundleUpdate {
   }
 
   getBundleExtractDir({
-    bundleDir,
     appVersion,
     bundleVersion,
   }: {
@@ -289,7 +285,83 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
+    const bundleDir = this.getBundleDirName();
     return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
+  }
+
+  getBundleBuildPath({
+    appVersion,
+    bundleVersion,
+  }: {
+    appVersion: string;
+    bundleVersion: string;
+  }) {
+    const bundleDir = this.getBundleDirName();
+    return path.join(bundleDir, `${appVersion}-${bundleVersion}`, 'build');
+  }
+
+  getMetadataFilePath({
+    appVersion,
+    bundleVersion,
+  }: {
+    appVersion: string;
+    bundleVersion: string;
+  }) {
+    const bundleDir = this.getBundleDirName();
+    return path.join(
+      bundleDir,
+      `${appVersion}-${bundleVersion}`,
+      'metadata.json',
+    );
+  }
+
+  async readMetadataFileSha256(signature: string) {
+    try {
+      const ascFileMessage = signature;
+      if (!ascFileMessage) {
+        return '';
+      }
+      logger.info('auto-updater', `signatureFileContent: ${ascFileMessage}`);
+
+      const signedMessage = await readCleartextMessage({
+        cleartextMessage: ascFileMessage,
+      });
+      const publicKey = await readKey({ armoredKey: PUBLIC_KEY });
+      const result = await signedMessage.verify([publicKey]);
+      // Get result (validity of the signature)
+      const valid = await result[0].verified;
+      logger.info('auto-updater', `file valid: ${String(valid)}`);
+      if (valid) {
+        const texts = signedMessage.getText();
+        const json = JSON.parse(texts) as {
+          sha256: string;
+        };
+        const sha256 = json.sha256;
+        logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
+        return sha256;
+      }
+      throw new OneKeyLocalError(
+        ETranslations.update_signature_verification_failed_alert_text,
+      );
+    } catch (error) {
+      logger.error(
+        'auto-updater',
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+        `getSha256 Error: ${(error as any).toString()}`,
+      );
+      const { message } = error as { message: string };
+
+      const lowerCaseMessage = message.toLowerCase();
+      const isInValid =
+        lowerCaseMessage.includes('signed digest did not match') ||
+        lowerCaseMessage.includes('misformed armored text') ||
+        lowerCaseMessage.includes('ascii armor integrity check failed');
+      throw new OneKeyLocalError(
+        isInValid
+          ? ETranslations.update_signature_verification_failed_alert_text
+          : ETranslations.update_installation_package_possibly_compromised,
+      );
+    }
   }
 
   async verifyBundle(params: IUpdateDownloadedEvent) {
@@ -303,21 +375,13 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const bundleDir = this.getBundleDirName();
-    if (this.verifySha256(downloadedFile, sha256)) {
+    if (verifySha256(downloadedFile, sha256)) {
       // Extract zip file to the same directory
       const extractDir = this.getBundleExtractDir({
         bundleDir,
         appVersion,
         bundleVersion,
       });
-
-      try {
-        const zip = new AdmZip(downloadedFile);
-        zip.extractAllTo(extractDir, true);
-      } catch (error) {
-        logger.error('Failed to extract bundle zip file:', error);
-        throw error;
-      }
     }
   }
 
@@ -343,6 +407,11 @@ class DesktopApiAppBundleUpdate {
     if (!signature) {
       throw new OneKeyLocalError('Invalid parameters');
     }
+    store.setUpdateBundleData({
+      appVersion,
+      bundleVersion,
+      signature,
+    });
   }
 
   async verifyBundleASC(params: IUpdateDownloadedEvent) {
@@ -368,9 +437,21 @@ class DesktopApiAppBundleUpdate {
       appVersion,
       bundleVersion,
     });
-    const metaDataJsonPath = path.join(extractDir, 'metadata.json');
-    logger.info('bundle-verifyBundleASC', metaDataJsonPath);
-    // await this.verifySha256(metaDataJsonPath, sha256);
+
+    try {
+      const zip = new AdmZip(downloadedFile);
+      zip.extractAllTo(extractDir, true);
+    } catch (error) {
+      logger.error('Failed to extract bundle zip file:', error);
+      throw error;
+    }
+
+    const metadataFilePath = this.getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+    logger.info('bundle-verifyBundleASC', metadataFilePath);
+    await verifyMetadataFileSha256();
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {
@@ -391,11 +472,6 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
-    store.setUpdateBundleData({
-      appVersion,
-      bundleVersion,
-      signature,
-    });
     setTimeout(() => {
       if (!process.mas) {
         app.relaunch();
