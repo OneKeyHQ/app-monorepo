@@ -194,7 +194,7 @@ function getDisplayPriceScaleDecimals(marketPrice: string | number): number {
 }
 
 function calculateDisplayPriceScale(marketPrice: string | number): number {
-  const validDecimals = getPriceScaleDecimals(marketPrice);
+  const validDecimals = getDisplayPriceScaleDecimals(marketPrice);
   return new BigNumber(10).pow(validDecimals).toNumber();
 }
 
