@@ -9,6 +9,9 @@ export type IWsUserFills = HL.WsUserFills;
 export type IWsBbo = HL.WsBbo;
 export type IWsNotification = HL.WsNotification;
 export type IWsTrade = HL.WsTrade;
+export type IApiRequestError = HL.ApiRequestError;
+export type IApiRequestResult = HL.SuccessResponse;
+export type IApiErrorResponse = HL.ErrorResponse;
 
 // Core trading types
 export type IPerpsUniverse = HL.PerpsUniverse;
