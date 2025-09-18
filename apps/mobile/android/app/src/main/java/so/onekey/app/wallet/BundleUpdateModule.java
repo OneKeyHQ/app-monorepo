@@ -23,14 +23,11 @@ import com.facebook.react.modules.core.DeviceEventManagerModule;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.StringReader;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -52,7 +49,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     private static final String PREFS_NAME = "BundleUpdatePrefs";
     private static final String CURRENT_BUNDLE_VERSION_KEY = "currentBundleVersion";
     private static FileLoggerModule staticFileLogger;
-    private static ReactApplicationContext staticReactContext;
     private ReactApplicationContext reactContext;
     private FileLoggerModule fileLogger;
     private OkHttpClient httpClient;
@@ -62,7 +58,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public BundleUpdateModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
-        staticReactContext = getReactApplicationContext();
         this.fileLogger = new FileLoggerModule(reactContext);
         staticFileLogger = this.fileLogger;
         this.httpClient = new OkHttpClient();
@@ -131,6 +126,57 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             return null;
         }
         return new File(getBundleDir(context), version).getAbsolutePath();
+    }
+
+    public static String getMetadataFilePath(Context context) {
+        String version = getCurrentBundleVersion(context);
+        if (version == null) {
+            return null;
+        }
+        File metadataFile = new File(new File(getBundleDir(context), version), "metadata.json");
+        if (!metadataFile.exists()) {
+            return null;
+        }
+        return metadataFile.getAbsolutePath();
+    }
+
+    public static String getMetadataFileContent(Context context) throws IOException {
+        String metadataFilePath = getMetadataFilePath(context);
+        if (metadataFilePath == null) {
+            return null;
+        }
+        return readFileContent(new File(metadataFilePath));
+    }
+
+    public static Map<String, String> parseMetadataJson(String jsonContent) {
+        Map<String, String> metadata = new HashMap<>();
+        try {
+            JSONObject jsonObject = new JSONObject(jsonContent);
+            Iterator<String> keys = jsonObject.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                String value = jsonObject.getString(key);
+                metadata.put(key, value);
+            }
+        } catch (Exception e) {
+            staticLog(TAG, "Error parsing JSON: " + e.getMessage());
+        }
+        return metadata;
+    }
+
+    public static boolean validateMetadataFileSha256(Context context) throws IOException {
+        String metadataFilePath = getMetadataFilePath(context);
+        if (metadataFilePath == null) {
+            staticLog(TAG, "metadataFilePath is null");
+            return false;
+        }
+        String metadataFileContent = readFileContent(new File(metadataFilePath));
+        staticLog(TAG, "metadataFileContent: " + metadataFileContent);
+        String extractedSha256 = readMetadataFileSha256(context, metadataFileContent);
+        if (extractedSha256 == null || extractedSha256.isEmpty()) {
+            return false;
+        }
+        return calculateSHA256(metadataFilePath).equals(extractedSha256);
     }
 
     public static String getCurrentBundleMainJSBundle(Context context) {
@@ -203,28 +249,24 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return validateFilesRecursive(dir, metadata, jsBundleDir);
     }
 
-    public static String readMetadataFileSha256(String signature) {
+    public static String readMetadataFileSha256(Context context, String signature) {
         String ascFileContentString = signature;
         String extractedSha256 = "";
-        if (staticReactContext != null) {
-            String cacheFilePath = staticReactContext.getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
-            File cacheFile = new File(cacheFilePath);
-            if (cacheFile.exists()) {
-                cacheFile.delete();
+        String cacheFilePath = context.getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+        File cacheFile = new File(cacheFilePath);
+        if (cacheFile.exists()) {
+            cacheFile.delete();
+        }
+        try {
+            String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
+            if (content == null || content.isEmpty()) {
+                return null;
             }
-            try {
-                String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
-                if (content == null || content.isEmpty()) {
-                    return null;
-                }
-                JSONObject jsonObject = new JSONObject(content);
-                extractedSha256 = jsonObject.getString("sha256");
-                staticLog("extractedSha256", extractedSha256);
-            } catch (Exception e) {
-                staticLog("readMetadataFileSha256", "Error extracting SHA256: " + e.getMessage());
-            }
-        } else {
-            staticLog("readMetadataFileSha256", "staticReactContext is null");
+            JSONObject jsonObject = new JSONObject(content);
+            extractedSha256 = jsonObject.getString("sha256");
+            staticLog("extractedSha256", extractedSha256);
+        } catch (Exception e) {
+            staticLog("readMetadataFileSha256", "Error extracting SHA256: " + e.getMessage());
         }
         return extractedSha256;
     }
@@ -346,19 +388,10 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return;
             }
 
-            // Read and parse metadata.json
-            String metadataContent = readFileContent(metadataFile);
-            String extractedSha256 = readMetadataFileSha256(metadataContent);
-            if (extractedSha256 == null || extractedSha256.isEmpty()) {
-                promise.reject("INVALID_PARAMS", "Failed to read metadata.json SHA256");
-                return;
-            }
-
-            if (!calculateSHA256(metadataFile.getAbsolutePath()).equals(extractedSha256)) {
+            if (!validateMetadataFileSha256(reactContext)) {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
-
             promise.resolve(null);
         } catch (Exception e) {
             log("verifyBundle", "Error: " + e.getMessage());
@@ -604,7 +637,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
-    private String readFileContent(File file) throws IOException {
+    private static String readFileContent(File file) throws IOException {
         StringBuilder content = new StringBuilder();
         try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
             byte[] buffer = new byte[1024];
@@ -614,22 +647,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             }
         }
         return content.toString();
-    }
-
-    private Map<String, String> parseMetadataJson(String jsonContent) {
-        Map<String, String> metadata = new HashMap<>();
-        try {
-            JSONObject jsonObject = new JSONObject(jsonContent);
-            Iterator<String> keys = jsonObject.keys();
-            while (keys.hasNext()) {
-                String key = keys.next();
-                String value = jsonObject.getString(key);
-                metadata.put(key, value);
-            }
-        } catch (Exception e) {
-            log("parseMetadataJson", "Error parsing JSON: " + e.getMessage());
-        }
-        return metadata;
     }
 
     private void deleteDirectory(File directory) {
