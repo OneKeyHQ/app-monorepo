@@ -302,11 +302,18 @@ class DesktopApiAppBundleUpdate {
       sha256,
       latestVersion: appVersion,
       bundleVersion,
+      signature,
     } = params || {};
-    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
+    if (
+      !downloadedFile ||
+      !sha256 ||
+      !appVersion ||
+      !bundleVersion ||
+      !signature
+    ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    await verifyMetadataFileSha256();
+    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
   }
 
   /**
@@ -331,11 +338,6 @@ class DesktopApiAppBundleUpdate {
     if (!signature) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    store.setUpdateBundleData({
-      appVersion,
-      bundleVersion,
-      signature,
-    });
   }
 
   async verifyBundleASC(params: IUpdateDownloadedEvent) {
@@ -377,11 +379,24 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
     });
     logger.info('bundle-verifyBundleASC', metadataFilePath);
-    await verifyMetadataFileSha256();
+    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
   }
 
-  async installBundle() {
+  async installBundle({
+    latestVersion: appVersion,
+    bundleVersion,
+    signature,
+  }: {
+    latestVersion: string;
+    bundleVersion: string;
+    signature: string;
+  }) {
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
+    store.setUpdateBundleData({
+      appVersion,
+      bundleVersion,
+      signature,
+    });
     setTimeout(() => {
       if (!process.mas) {
         app.relaunch();
