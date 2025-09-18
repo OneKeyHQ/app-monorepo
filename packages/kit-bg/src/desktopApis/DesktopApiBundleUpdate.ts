@@ -374,15 +374,7 @@ class DesktopApiAppBundleUpdate {
     if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    const bundleDir = this.getBundleDirName();
-    if (verifySha256(downloadedFile, sha256)) {
-      // Extract zip file to the same directory
-      const extractDir = this.getBundleExtractDir({
-        bundleDir,
-        appVersion,
-        bundleVersion,
-      });
-    }
+    await verifyMetadataFileSha256();
   }
 
   /**
@@ -432,6 +424,10 @@ class DesktopApiAppBundleUpdate {
       throw new OneKeyLocalError('Invalid parameters');
     }
     const bundleDir = this.getBundleDirName();
+    const isBundleVerified = verifySha256(downloadedFile, sha256);
+    if (!isBundleVerified) {
+      throw new OneKeyLocalError('Invalid bundle file');
+    }
     const extractDir = this.getBundleExtractDir({
       bundleDir,
       appVersion,
@@ -454,23 +450,7 @@ class DesktopApiAppBundleUpdate {
     await verifyMetadataFileSha256();
   }
 
-  async installBundle(params: IUpdateDownloadedEvent) {
-    const {
-      downloadedFile,
-      sha256,
-      latestVersion: appVersion,
-      bundleVersion,
-      signature,
-    } = params || {};
-    if (
-      !downloadedFile ||
-      !sha256 ||
-      !appVersion ||
-      !bundleVersion ||
-      !signature
-    ) {
-      throw new OneKeyLocalError('Invalid parameters');
-    }
+  async installBundle() {
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
     setTimeout(() => {
       if (!process.mas) {
