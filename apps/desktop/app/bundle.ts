@@ -11,7 +11,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ETranslations } from './i18n';
-import * as store from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -91,14 +90,19 @@ export const getBundleExtractDir = ({
   return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
 };
 
-export const getBundleIndexHtmlPath = () => {
-  const bundleData = store.getUpdateBundleData();
-  if (platformEnv.version !== bundleData.appVersion) {
+export const getBundleIndexHtmlPath = ({
+  appVersion,
+  bundleVersion,
+}: {
+  appVersion: string;
+  bundleVersion: string;
+}) => {
+  if (platformEnv.version !== appVersion) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({
     appVersion: platformEnv.version || '1.0.0',
-    bundleVersion: bundleData.bundleVersion || '1',
+    bundleVersion: bundleVersion || '1',
   });
   if (!fs.existsSync(extractDir)) {
     return undefined;
@@ -114,18 +118,33 @@ export const checkFileSha512 = (filePath: string, sha512: string) => {
   return hash === sha512;
 };
 
-const getMetadataFilePath = () => {
-  const bundleData = store.getUpdateBundleData();
+const getMetadataFilePath = ({
+  appVersion,
+  bundleVersion,
+}: {
+  appVersion: string;
+  bundleVersion: string;
+}) => {
   const bundleDir = getBundleExtractDir({
-    appVersion: bundleData.appVersion || '1.0.0',
-    bundleVersion: bundleData.bundleVersion || '1',
+    appVersion: appVersion || '1.0.0',
+    bundleVersion: bundleVersion || '1',
   });
   return path.join(bundleDir, 'metadata.json');
 };
 
-export const verifyMetadataFileSha256 = async () => {
-  const metadataFilePath = getMetadataFilePath();
-  const { signature } = store.getUpdateBundleData();
+export const verifyMetadataFileSha256 = async ({
+  appVersion,
+  bundleVersion,
+  signature,
+}: {
+  appVersion: string;
+  bundleVersion: string;
+  signature: string;
+}) => {
+  const metadataFilePath = getMetadataFilePath({
+    appVersion,
+    bundleVersion,
+  });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
   const metadataFilesSha256 = await readMetadataFileSha256(signature);
   const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
@@ -135,11 +154,22 @@ export const verifyMetadataFileSha256 = async () => {
   return true;
 };
 
-export const getMetadata = async (bundleDir: string) => {
+export const getMetadata = async ({
+  bundleDir,
+  appVersion,
+  bundleVersion,
+  signature,
+}: {
+  bundleDir: string;
+  appVersion: string;
+  bundleVersion: string;
+  signature: string;
+}) => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
-  await verifyMetadataFileSha256();
-  return JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
+  await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
     string,
     string
   >;
+  return metadata;
 };

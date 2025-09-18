@@ -57,8 +57,20 @@ initSentry();
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 
 globalThis.$desktopMainAppFunctions = {
-  getBundleIndexHtmlPath: () => getBundleIndexHtmlPath(),
-  useJsBundle: () => !!getBundleIndexHtmlPath(),
+  getBundleIndexHtmlPath: () => {
+    const bundleData = store.getUpdateBundleData();
+    return getBundleIndexHtmlPath({
+      appVersion: bundleData.appVersion,
+      bundleVersion: bundleData.bundleVersion,
+    });
+  },
+  useJsBundle: () => {
+    const bundleData = store.getUpdateBundleData();
+    return !!getBundleIndexHtmlPath({
+      appVersion: bundleData.appVersion,
+      bundleVersion: bundleData.bundleVersion,
+    });
+  },
 } as typeof globalThis.$desktopMainAppFunctions;
 
 // WARNING: This name cannot be changed as it affects Electron data storage.
@@ -487,7 +499,8 @@ async function createMainWindow() {
     return undefined;
   };
 
-  const bundleIndexHtmlPath = getBundleIndexHtmlPath();
+  const bundleData = store.getUpdateBundleData();
+  const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
   globalThis.$desktopMainAppFunctions = {
@@ -731,7 +744,14 @@ async function createMainWindow() {
     const bundleDirPath = indexHtmlPath
       ? path.dirname(indexHtmlPath)
       : undefined;
-    const metadata = bundleDirPath ? await getMetadata(bundleDirPath) : {};
+    const metadata = bundleDirPath
+      ? await getMetadata({
+          bundleDir: bundleDirPath,
+          appVersion: bundleData.appVersion,
+          bundleVersion: bundleData.bundleVersion,
+          signature: bundleData.signature,
+        })
+      : {};
     const checkFileHash = (url: string) => {
       if (!bundleDirPath) {
         throw new OneKeyLocalError('Bundle directory path not found');
