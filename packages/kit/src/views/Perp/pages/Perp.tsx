@@ -9,6 +9,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
+import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -27,6 +28,19 @@ function PerpContent() {
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Perp}
+        customHeaderRightItems={
+          <AccountSelectorProviderMirror
+            config={{
+              sceneName: EAccountSelectorSceneName.home,
+              sceneUrl: '',
+            }}
+            enabledNum={[0]}
+          >
+            <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+              <PerpAccountPanel ifOnHeader />
+            </PerpsProviderMirror>
+          </AccountSelectorProviderMirror>
+        }
       />
       <Page.Body>
         <PerpLayout />
