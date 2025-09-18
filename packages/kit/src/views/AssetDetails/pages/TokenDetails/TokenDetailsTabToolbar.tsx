@@ -3,11 +3,13 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   LinearGradient,
   Popover,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -33,6 +35,7 @@ function TokenDetailsTabToolbar(props: IProps) {
   const intl = useIntl();
   const { tokenDetails } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
+
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
       return (
@@ -80,32 +83,54 @@ function TokenDetailsTabToolbar(props: IProps) {
                 >
                   {token.networkName}
                 </SizableText>
-                <ListItem.Text
-                  align="right"
-                  primary={
-                    <NumberSizeableTextWrapper
-                      hideValue
-                      size="$bodyLg"
-                      $gtMd={{
-                        size: '$bodyMd',
-                      }}
-                      color="$textSubdued"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                    >
-                      {tokenDetail?.fiatValue ?? '-'}
-                    </NumberSizeableTextWrapper>
-                  }
-                />
+                {tokenDetail?.fiatValue ? (
+                  <ListItem.Text
+                    align="right"
+                    primary={
+                      <NumberSizeableTextWrapper
+                        hideValue
+                        size="$bodyLg"
+                        $gtMd={{
+                          size: '$bodyMd',
+                        }}
+                        color="$textSubdued"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                        }}
+                      >
+                        {tokenDetail?.fiatValue}
+                      </NumberSizeableTextWrapper>
+                    }
+                  />
+                ) : (
+                  <Tooltip
+                    renderTrigger={
+                      <Icon
+                        name="RefreshCcwOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    }
+                    renderContent={intl.formatMessage({
+                      id: ETranslations.network_enable_or_create_address,
+                    })}
+                  />
+                )}
               </ListItem>
             );
           })}
         </Stack>
       );
     },
-    [tokens, tokenDetails, gtMd, settings.currencyInfo.symbol, onSelected],
+    [
+      tokens,
+      tokenDetails,
+      gtMd,
+      settings.currencyInfo.symbol,
+      intl,
+      onSelected,
+    ],
   );
 
   if (tokens.length <= 1) {
