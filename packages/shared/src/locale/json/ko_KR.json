@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "롱 포지션이 숏 포지션에게 지불하는 시간당 요율입니다(음수일 경우, 숏 포지션이 롱 포지션에게 지불합니다).",
   "perp.leverage": "레버리지",
   "perp.leverage_desc": "{token} 포지션에 사용되는 레버리지를 설정하세요. 최대 레버리지는 {leverage}입니다.",
+  "perp.leverage_desc_warning": "{token} 포지션에 사용할 레버리지를 제어하세요. 최대 레버리지는 {leverage}입니다. 레버리지를 높게 설정할수록 청산 위험이 증가한다는 점에 유의하세요.",
   "perp.leverage_maximum_desc": "레버리지를 높게 설정하면 청산 위험이 증가한다는 점에 유의하세요.",
   "perp.open_interest_tooltip": "양방향 미결제약정: 이 계약의 롱 포지션과 숏 포지션의 합계입니다.",
   "perp.open_order_empty": "미체결 주문 없음",

@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "多头向空头支付的小时费率（如果为负数，则空头向多头支付）。",
   "perp.leverage": "杠杆",
   "perp.leverage_desc": "调整 {token} 仓位使用的杠杆，最大杠杆为 {leverage}",
+  "perp.leverage_desc_warning": "控制{token}仓位使用的杠杆。最大杠杆为{leverage}。请注意，设置更高的杠杆会增加清算风险。",
   "perp.leverage_maximum_desc": "请注意，设置更高的杠杆会增加清算风险。",
   "perp.open_interest_tooltip": "双边未平仓合约：该合约多头和空头仓位的总和。",
   "perp.open_order_empty": "暂无挂单",

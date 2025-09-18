@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "Tarif per jam di mana posisi long membayar posisi short (jika negatif, posisi short membayar posisi long).",
   "perp.leverage": "Leverage",
   "perp.leverage_desc": "Kendalikan leverage yang digunakan untuk posisi {token}. Leverage maksimum adalah {leverage}.",
+  "perp.leverage_desc_warning": "Kendalikan leverage yang digunakan untuk posisi {token}. Leverage maksimum adalah {leverage}. Perhatikan bahwa menetapkan leverage yang lebih tinggi meningkatkan risiko likuidasi.",
   "perp.leverage_maximum_desc": "Perlu diketahui bahwa menetapkan leverage yang lebih tinggi meningkatkan risiko likuidasi.",
   "perp.open_interest_tooltip": "Open interest dua sisi: jumlah posisi long dan short pada kontrak ini.",
   "perp.open_order_empty": "Tidak ada pesanan terbuka",

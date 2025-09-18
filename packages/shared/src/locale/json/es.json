@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "La tasa por hora a la que los largos pagan a los cortos (si es negativa, los cortos pagan a los largos).",
   "perp.leverage": "Apalancamiento",
   "perp.leverage_desc": "Controla el apalancamiento utilizado para las posiciones de {token}. El apalancamiento máximo es de {leverage}.",
+  "perp.leverage_desc_warning": "Controla el apalancamiento utilizado para las posiciones de {token}. El apalancamiento máximo es de {leverage}. Ten en cuenta que establecer un apalancamiento más alto aumenta el riesgo de liquidación.",
   "perp.leverage_maximum_desc": "Ten en cuenta que establecer un apalancamiento más alto aumenta el riesgo de liquidación.",
   "perp.open_interest_tooltip": "Interés abierto de dos lados: la suma de las posiciones largas y cortas en este contrato.",
   "perp.open_order_empty": "No hay órdenes abiertas",

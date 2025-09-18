@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "The hourly rate at which longs pay shorts (if negative, shorts pay longs).",
   "perp.leverage": "Leverage",
   "perp.leverage_desc": "Control the leverage used for {token} positions. The maximum leverage is {leverage}.",
+  "perp.leverage_desc_warning": "Control the leverage used for {token} positions. The maximum leverage is {leverage}. Note that setting a higher leverage increases the risk of liquidation.",
   "perp.leverage_maximum_desc": "Note that setting a higher leverage increases the risk of liquidation.",
   "perp.open_interest_tooltip": "Two sided-open interest: the sum of long and short positions on this\ncontract.",
   "perp.open_order_empty": "No open orders",

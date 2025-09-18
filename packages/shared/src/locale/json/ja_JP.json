@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "ロングがショートに支払う時間ごとのレート（マイナスの場合はショートがロングに支払います）。",
   "perp.leverage": "レバレッジ",
   "perp.leverage_desc": "{token}のポジションで使用するレバレッジを制御します。最大レバレッジは{leverage}です。",
+  "perp.leverage_desc_warning": "{token} のポジションで使用するレバレッジを管理します。最大レバレッジは {leverage} です。レバレッジを高く設定すると、清算リスクが高まる点にご注意ください。",
   "perp.leverage_maximum_desc": "レバレッジを高く設定すると、清算リスクが高まる点にご注意ください。",
   "perp.open_interest_tooltip": "両建て建玉：この契約におけるロングポジションとショートポジションの合計です。",
   "perp.open_order_empty": "未約定の注文はありません",

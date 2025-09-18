@@ -2065,6 +2065,7 @@
   perp_funding_tooltip = 'perp.funding_tooltip',
   perp_leverage = 'perp.leverage',
   perp_leverage_desc = 'perp.leverage_desc',
+  perp_leverage_desc_warning = 'perp.leverage_desc_warning',
   perp_leverage_maximum_desc = 'perp.leverage_maximum_desc',
   perp_open_interest_tooltip = 'perp.open_interest_tooltip',
   perp_open_order_empty = 'perp.open_order_empty',

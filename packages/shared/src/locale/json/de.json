@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "Der Stundensatz, zu dem Long-Positionen Short-Positionen bezahlen (bei negativem Wert bezahlen Short-Positionen die Long-Positionen).",
   "perp.leverage": "Hebel",
   "perp.leverage_desc": "Steuern Sie den für {token}-Positionen verwendeten Hebel. Der maximale Hebel beträgt {leverage}.",
+  "perp.leverage_desc_warning": "Steuern Sie den für {token}-Positionen verwendeten Hebel. Der maximale Hebel beträgt {leverage}. Beachten Sie, dass die Einstellung eines höheren Hebels das Liquidationsrisiko erhöht.",
   "perp.leverage_maximum_desc": "Beachte, dass eine höhere Hebelwirkung das Risiko einer Liquidation erhöht.",
   "perp.open_interest_tooltip": "Zweiseitiges Open Interest: die Summe der Long- und Short-Positionen auf diesem\nKontrakt.",
   "perp.open_order_empty": "Keine offenen Aufträge",

@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "La tariffa oraria con cui le posizioni long pagano le posizioni short (se negativa, sono gli short a pagare i long).",
   "perp.leverage": "Leva",
   "perp.leverage_desc": "Controlla la leva utilizzata per le posizioni su {token}. La leva massima è {leverage}.",
+  "perp.leverage_desc_warning": "Controlla la leva utilizzata per le posizioni su {token}. La leva massima è {leverage}. Nota che impostare una leva più alta aumenta il rischio di liquidazione.",
   "perp.leverage_maximum_desc": "Nota che impostare una leva più alta aumenta il rischio di liquidazione.",
   "perp.open_interest_tooltip": "Interesse aperto su entrambi i lati: la somma delle posizioni long e short su questo\ncontratto.",
   "perp.open_order_empty": "Nessun ordine aperto",

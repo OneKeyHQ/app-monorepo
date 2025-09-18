@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "Le taux horaire auquel les positions longues paient les positions courtes (si négatif, les positions courtes paient les positions longues).",
   "perp.leverage": "Effet de levier",
   "perp.leverage_desc": "Contrôlez l'effet de levier utilisé pour les positions {token}. L'effet de levier maximum est {leverage}.",
+  "perp.leverage_desc_warning": "Contrôlez l'effet de levier utilisé pour les positions {token}. L'effet de levier maximum est {leverage}. Notez que définir un effet de levier plus élevé augmente le risque de liquidation.",
   "perp.leverage_maximum_desc": "Notez que définir un effet de levier plus élevé augmente le risque de liquidation.",
   "perp.open_interest_tooltip": "Intérêt ouvert bilatéral : la somme des positions longues et courtes sur ce\ncontrat.",
   "perp.open_order_empty": "Aucun ordre ouvert",

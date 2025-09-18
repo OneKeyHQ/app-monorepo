@@ -1,5 +1,6 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,6 +20,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { sortTokensByOrder } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
@@ -36,6 +38,45 @@ function TokenDetailsTabToolbar(props: IProps) {
   const { tokenDetails } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
 
+  const sortedTokensByFiatValue = useMemo(() => {
+    let sortedTokens = tokens?.sort((a, b) => {
+      const aKey = `${a.accountId ?? ''}_${a.networkId ?? ''}`;
+      const bKey = `${b.accountId ?? ''}_${b.networkId ?? ''}`;
+      const aFiat = new BigNumber(tokenDetails[aKey]?.data?.fiatValue ?? -1);
+      const bFiat = new BigNumber(tokenDetails[bKey]?.data?.fiatValue ?? -1);
+
+      return new BigNumber(bFiat.isNaN() ? -1 : bFiat).comparedTo(
+        new BigNumber(aFiat.isNaN() ? -1 : aFiat),
+      );
+    });
+    let index = sortedTokens.findIndex((t) => {
+      const key = `${t.accountId ?? ''}_${t.networkId ?? ''}`;
+      return new BigNumber(
+        tokenDetails[key]?.data?.fiatValue ?? -1,
+      ).isNegative();
+    });
+
+    if (index === -1) {
+      index = sortedTokens.findIndex((t) => {
+        const key = `${t.accountId ?? ''}_${t.networkId ?? ''}`;
+        return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
+      });
+    }
+
+    if (index > -1) {
+      const tokensWithBalance = sortedTokens.slice(0, index);
+      let tokensWithZeroBalance = sortedTokens.slice(index);
+
+      tokensWithZeroBalance = sortTokensByOrder({
+        tokens: tokensWithZeroBalance,
+      });
+
+      sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+    }
+
+    return sortedTokens;
+  }, [tokens, tokenDetails]);
+
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
       return (
@@ -46,7 +87,7 @@ function TokenDetailsTabToolbar(props: IProps) {
             py: '$1.5',
           }}
         >
-          {tokens.map((token) => {
+          {sortedTokensByFiatValue?.map((token) => {
             const tokenDetailKey = `${token.accountId ?? ''}_${
               token.networkId ?? ''
             }`;
@@ -124,12 +165,12 @@ function TokenDetailsTabToolbar(props: IProps) {
       );
     },
     [
-      tokens,
       tokenDetails,
       gtMd,
       settings.currencyInfo.symbol,
-      intl,
       onSelected,
+      sortedTokensByFiatValue,
+      intl,
     ],
   );
 

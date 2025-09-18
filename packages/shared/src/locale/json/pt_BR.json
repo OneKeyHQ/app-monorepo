@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "A taxa horária na qual posições compradas pagam posições vendidas (se negativa, posições vendidas pagam posições compradas).",
   "perp.leverage": "Alavancagem",
   "perp.leverage_desc": "Controle a alavancagem usada para posições de {token}. A alavancagem máxima é {leverage}.",
+  "perp.leverage_desc_warning": "Controle a alavancagem usada para posições de {token}. A alavancagem máxima é {leverage}. Note que definir uma alavancagem maior aumenta o risco de liquidação.",
   "perp.leverage_maximum_desc": "Observe que definir uma alavancagem mais alta aumenta o risco de liquidação.",
   "perp.open_interest_tooltip": "Interesse aberto bilateral: a soma das posições compradas e vendidas neste\ncontrato.",
   "perp.open_order_empty": "Nenhuma ordem em aberto",

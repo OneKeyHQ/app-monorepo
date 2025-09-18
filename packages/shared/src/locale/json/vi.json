@@ -2060,6 +2060,7 @@
   "perp.funding_tooltip": "Tỷ lệ phí theo giờ mà vị thế mua trả cho vị thế bán (nếu âm, vị thế bán trả cho vị thế mua).",
   "perp.leverage": "Đòn bẩy",
   "perp.leverage_desc": "Kiểm soát đòn bẩy được sử dụng cho các vị thế {token}. Mức đòn bẩy tối đa là {leverage}.",
+  "perp.leverage_desc_warning": "Kiểm soát đòn bẩy được sử dụng cho vị thế {token}. Đòn bẩy tối đa là {leverage}. Lưu ý rằng đặt đòn bẩy cao hơn sẽ làm tăng rủi ro bị thanh lý.",
   "perp.leverage_maximum_desc": "Lưu ý rằng thiết lập đòn bẩy cao hơn sẽ làm tăng rủi ro bị thanh lý.",
   "perp.open_interest_tooltip": "Lãi suất mở hai chiều: tổng số vị thế mua và bán trên hợp đồng này.",
   "perp.open_order_empty": "Không có lệnh mở",
