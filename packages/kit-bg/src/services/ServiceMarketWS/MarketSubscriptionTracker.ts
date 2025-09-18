@@ -15,6 +15,8 @@ export type ISubscription = {
 export class MarketSubscriptionTracker {
   private subscriptions: ISubscription[] = [];
 
+  private static readonly DATA_COUNT_THRESHOLD = 10;
+
   addSubscription({
     address,
     type,
@@ -173,6 +175,20 @@ export class MarketSubscriptionTracker {
       (sub) => sub.address === address && sub.type === type,
     );
     return existing ? existing.dataCount >= threshold : false;
+  }
+
+  shouldUnsubscribeWithDefaultThreshold({
+    address,
+    type,
+  }: {
+    address: string;
+    type: ISubscriptionType;
+  }): boolean {
+    return this.shouldUnsubscribe({
+      address,
+      type,
+      threshold: MarketSubscriptionTracker.DATA_COUNT_THRESHOLD,
+    });
   }
 
   clear() {

@@ -394,12 +394,10 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     // Check if subscription should be auto-unsubscribed due to data accumulation
-    const DATA_COUNT_THRESHOLD = 20;
     if (
-      this.subscriptionTracker.shouldUnsubscribe({
+      this.subscriptionTracker.shouldUnsubscribeWithDefaultThreshold({
         address: tokenAddress,
         type: channel as any,
-        threshold: DATA_COUNT_THRESHOLD,
       })
     ) {
       const subscription = this.subscriptionTracker.getSubscription({
