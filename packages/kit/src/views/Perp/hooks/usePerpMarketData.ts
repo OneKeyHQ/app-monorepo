@@ -47,6 +47,7 @@ export interface ICurrentTokenData {
     value: number;
   };
   maxLeverage?: number;
+  mode?: 'isolated' | 'cross';
   maxTradeSzs?: number[];
 }
 
@@ -145,6 +146,7 @@ export function useCurrentTokenData(): ICurrentTokenData | null {
     assetId,
     szDecimals: tokenFromUniverse?.szDecimals ?? 2,
     maxLeverage: tokenFromUniverse?.maxLeverage,
+    mode: activeAssetData?.leverage?.type,
     maxTradeSzs: activeAssetData?.maxTradeSzs
       ? [
           Number(activeAssetData.maxTradeSzs[0]),
