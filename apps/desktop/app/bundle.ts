@@ -76,30 +76,27 @@ export const getBundleDirName = () => {
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
   }
-  logger.info('bundle-download-getBundleDirName', tempDir);
+  logger.info('getBundleDirName', tempDir);
   return tempDir;
 };
 
 export const getBundleExtractDir = ({
-  bundleDir,
   appVersion,
   bundleVersion,
 }: {
-  bundleDir: string;
   appVersion: string;
   bundleVersion: string;
 }) => {
+  const bundleDir = getBundleDirName();
   return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
 };
 
 export const getBundleIndexHtmlPath = () => {
-  const bundleDir = getBundleDirName();
   const bundleData = store.getUpdateBundleData();
   if (platformEnv.version !== bundleData.appVersion) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({
-    bundleDir,
     appVersion: platformEnv.version || '1.0.0',
     bundleVersion: bundleData.bundleVersion || '1',
   });
@@ -120,7 +117,6 @@ export const checkFileSha512 = (filePath: string, sha512: string) => {
 const getMetadataFilePath = () => {
   const bundleData = store.getUpdateBundleData();
   const bundleDir = getBundleExtractDir({
-    bundleDir: getBundleDirName(),
     appVersion: bundleData.appVersion || '1.0.0',
     bundleVersion: bundleData.bundleVersion || '1',
   });
