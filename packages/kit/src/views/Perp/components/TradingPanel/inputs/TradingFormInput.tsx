@@ -32,7 +32,7 @@ interface ITradingFormInputProps {
   validator?: (value: string) => boolean;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   readonly?: boolean;
-  ifDialog?: boolean;
+  ifOnDialog?: boolean;
 }
 
 export const TradingFormInput = memo(
@@ -48,7 +48,7 @@ export const TradingFormInput = memo(
     helper,
     validator,
     keyboardType = 'decimal-pad',
-    ifDialog = false,
+    ifOnDialog = false,
   }: ITradingFormInputProps) => {
     const handleInputChange = useCallback(
       (text: string) => {
@@ -97,10 +97,10 @@ export const TradingFormInput = memo(
 
     return (
       <YStack
-        bg={ifDialog ? '$bgApp' : '$bgSubdued'}
+        bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
         borderRadius="$3"
-        borderWidth={ifDialog ? '$px' : 0}
-        borderColor={ifDialog ? '$borderSubdued' : undefined}
+        borderWidth={ifOnDialog ? '$px' : 0}
+        borderColor={ifOnDialog ? '$borderSubdued' : undefined}
         p="$3"
         pb="$2"
       >
