@@ -8,6 +8,7 @@ import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import com.betomorrow.rnfilelogger.FileLoggerModule;
 import com.facebook.react.bridge.Arguments;
@@ -19,17 +20,22 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import org.json.JSONObject;
+
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -45,7 +51,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     private static final String TAG = "BundleUpdateModule";
     private static final String PREFS_NAME = "BundleUpdatePrefs";
     private static final String CURRENT_BUNDLE_VERSION_KEY = "currentBundleVersion";
-    
+    private static FileLoggerModule staticFileLogger;
+    private static ReactApplicationContext staticReactContext;
     private ReactApplicationContext reactContext;
     private FileLoggerModule fileLogger;
     private OkHttpClient httpClient;
@@ -55,7 +62,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public BundleUpdateModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
+        staticReactContext = getReactApplicationContext();
         this.fileLogger = new FileLoggerModule(reactContext);
+        staticFileLogger = this.fileLogger;
         this.httpClient = new OkHttpClient();
     }
 
@@ -79,6 +88,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String currentTime = sdf.format(new Date());
         fileLogger.write(1, currentTime + " | INFO : app => native => BundleUpdate:" + method + ": " + message);
         Log.d(TAG, method + ": " + message);
+    }
+
+    public static void staticLog(String method, String message) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+        String currentTime = sdf.format(new Date());
+        if (staticFileLogger != null) {
+            staticFileLogger.write(1, currentTime + " | INFO : app => native => BundleUpdate:" + method + ": " + message);
+        }
     }
 
     // Static utility methods equivalent to iOS
@@ -122,7 +139,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String currentAppVersion = packageInfo.versionName;
             String currentBundleVersion = getCurrentBundleVersion(context);
             
-            Log.d(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
+            staticLog(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
             
             if (currentBundleVersion == null) {
                 return null;
@@ -143,7 +160,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String mainJSBundle = new File(bundleDir, "main.jsbundle.hbc").getAbsolutePath();
             return new File(mainJSBundle).exists() ? mainJSBundle : null;
         } catch (PackageManager.NameNotFoundException e) {
-            Log.e(TAG, "Error getting package info", e);
+            staticLog(TAG, "Error getting package info", e);
             return null;
         }
     }
@@ -160,7 +177,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             }
             return bytesToHex(digest.digest());
         } catch (Exception e) {
-            Log.e(TAG, "Error calculating SHA256", e);
+            staticLog(TAG, "Error calculating SHA256", e);
             return null;
         }
     }
@@ -186,6 +203,24 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return validateFilesRecursive(dir, metadata, jsBundleDir);
     }
 
+    public static String readMetadataFileSha256(String signature) {
+        String ascFileContentString = signature;
+        String extractedSha256 = "";
+        if (staticReactContext == null) {
+        String cacheFilePath = staticReactContext.getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+        File cacheFile = new File(cacheFilePath);
+        if (cacheFile.exists()) {
+            cacheFile.delete();
+        }
+        try {
+            extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
+            staticLog("extractedSha256", extractedSha256);
+        } catch (Exception e) {
+            staticLog("AutoUpdateModule", "Error extracting SHA256: " + e.getMessage());
+        }
+        return extractedSha256;
+    }
+
     private static boolean validateFilesRecursive(File dir, Map<String, String> metadata, String jsBundleDir) {
         File[] files = dir.listFiles();
         if (files == null) {
@@ -204,22 +239,22 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 }
 
                 String relativePath = file.getAbsolutePath().replace(jsBundleDir, "");
-                Log.d(TAG, "relativePath: " + relativePath);
+                staticLog(TAG, "relativePath: " + relativePath);
 
                 String expectedSHA256 = metadata.get(relativePath);
                 if (expectedSHA256 == null) {
-                    Log.e(TAG, "File " + relativePath + " not found in metadata");
+                    staticLog(TAG, "File " + relativePath + " not found in metadata");
                     return false;
                 }
 
                 String actualSHA256 = calculateSHA256(file.getAbsolutePath());
                 if (actualSHA256 == null) {
-                    Log.e(TAG, "Failed to calculate SHA256 for file " + relativePath);
+                    staticLog(TAG, "Failed to calculate SHA256 for file " + relativePath);
                     return false;
                 }
 
                 if (!expectedSHA256.equals(actualSHA256)) {
-                    Log.e(TAG, "SHA256 mismatch for file " + relativePath + ". Expected: " + expectedSHA256 + ", Actual: " + actualSHA256);
+                    staticLog(TAG, "SHA256 mismatch for file " + relativePath + ". Expected: " + expectedSHA256 + ", Actual: " + actualSHA256);
                     return false;
                 }
             }
@@ -270,8 +305,57 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void verifyBundleASC(ReadableMap params, Promise promise) {
-        // Placeholder implementation - equivalent to iOS
-        promise.resolve(null);
+        String filePath = params.getString("downloadedFile");
+        String sha256 = params.getString("sha256");
+        String appVersion = params.getString("latestVersion");
+        int bundleVersion = params.getInt("bundleVersion");
+
+        if (filePath == null || sha256 == null) {
+            promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
+            return;
+        }
+
+        if (!verifyBundleSHA256(filePath, sha256)) {
+            promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
+            return;
+        }
+
+        String folderName = appVersion + "-" + bundleVersion;
+        String destination = new File(getBundleDir(reactContext), folderName).getAbsolutePath();
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                unzipFile(filePath, destination);
+            } else {
+                promise.reject("INVALID_PARAMS", "android version not supported, minimum version is 8.0");
+                return;
+            }
+
+            String metadataJsonPath = new File(destination, "metadata.json").getAbsolutePath();
+            File metadataFile = new File(metadataJsonPath);
+            if (!metadataFile.exists()) {
+                promise.reject("INVALID_PARAMS", "Failed to read metadata.json");
+                return;
+            }
+
+            // Read and parse metadata.json
+            String metadataContent = readFileContent(metadataFile);
+            String extractedSha256 = readMetadataFileSha256(metadataContent);
+            if (extractedSha256 == null || extractedSha256.isEmpty()) {
+                promise.reject("INVALID_PARAMS", "Failed to read metadata.json SHA256");
+                return;
+            }
+
+            if (!calculateSHA256(metadataFile.getAbsolutePath()).equals(extractedSha256)) {
+                promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
+                return;
+            }
+
+            promise.resolve(null);
+        } catch (Exception e) {
+            log("verifyBundle", "Error: " + e.getMessage());
+            promise.reject("INVALID_PARAMS", "Error processing bundle: " + e.getMessage());
+        }
     }
 
     @ReactMethod
@@ -290,13 +374,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
             return;
         }
-
         String folderName = appVersion + "-" + bundleVersion;
         String destination = new File(getBundleDir(reactContext), folderName).getAbsolutePath();
-        
         try {
-            unzipFile(filePath, destination);
-            
             String metadataJsonPath = new File(destination, "metadata.json").getAbsolutePath();
             File metadataFile = new File(metadataJsonPath);
             if (!metadataFile.exists()) {
@@ -307,12 +387,11 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             // Read and parse metadata.json
             String metadataContent = readFileContent(metadataFile);
             Map<String, String> metadata = parseMetadataJson(metadataContent);
-            
+
             if (!validateAllFilesInDir(reactContext, destination, metadata, appVersion, String.valueOf(bundleVersion))) {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
-            
             promise.resolve(null);
         } catch (Exception e) {
             log("verifyBundle", "Error: " + e.getMessage());
@@ -469,6 +548,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     // Helper methods
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void unzipFile(String zipFilePath, String destDirectory) throws IOException {
         File destDir = new File(destDirectory);
         if (!destDir.exists()) {
@@ -531,24 +611,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     private Map<String, String> parseMetadataJson(String jsonContent) {
         Map<String, String> metadata = new HashMap<>();
         try {
-            // Simple JSON parsing for metadata - in production, use a proper JSON library like Gson
-            // This is a simplified implementation that handles basic JSON format
-            jsonContent = jsonContent.trim();
-            if (jsonContent.startsWith("{") && jsonContent.endsWith("}")) {
-                jsonContent = jsonContent.substring(1, jsonContent.length() - 1);
-            }
-            
-            String[] lines = jsonContent.split(",");
-            for (String line : lines) {
-                line = line.trim();
-                if (line.contains("\"") && line.contains(":")) {
-                    String[] parts = line.split(":", 2);
-                    if (parts.length >= 2) {
-                        String key = parts[0].trim().replaceAll("\"", "").replaceAll(",", "");
-                        String value = parts[1].trim().replaceAll("\"", "").replaceAll(",", "");
-                        metadata.put(key, value);
-                    }
-                }
+            JSONObject jsonObject = new JSONObject(jsonContent);
+            Iterator<String> keys = jsonObject.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                String value = jsonObject.getString(key);
+                metadata.put(key, value);
             }
         } catch (Exception e) {
             log("parseMetadataJson", "Error parsing JSON: " + e.getMessage());
