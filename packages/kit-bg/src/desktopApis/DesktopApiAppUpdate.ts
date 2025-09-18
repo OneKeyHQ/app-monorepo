@@ -189,6 +189,7 @@ class DesktopApiAppUpdate {
         ? 'Network exception, please check your internet connection.'
         : err.message;
 
+      this.isDownloading = false;
       if (mainWindow.isDestroyed()) {
         void dialog
           .showMessageBox({
@@ -251,6 +252,7 @@ class DesktopApiAppUpdate {
             downloadUrl,
           },
         );
+        this.isDownloading = false;
       },
     );
   }
@@ -349,16 +351,17 @@ class DesktopApiAppUpdate {
     this.updateCancellationToken = new CancellationToken();
 
     try {
+      logger.info('auto-updater', 'Download update');
       await autoUpdater.downloadUpdate(this.updateCancellationToken);
+      logger.info('auto-updater', 'Download update success');
     } catch (e) {
+      this.isDownloading = false;
       logger.info('auto-updater', 'Update cancelled', e);
       // CancellationError
       // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
       if ((e as Error).message !== 'cancelled') {
         throw e;
       }
-    } finally {
-      this.isDownloading = false;
     }
   }
 
