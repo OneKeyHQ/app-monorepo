@@ -115,9 +115,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return prefs.getString(CURRENT_BUNDLE_VERSION_KEY, null);
     }
 
-    public static void setCurrentBundleVersion(Context context, String version) {
+    public static void setCurrentBundleVersionAndSignature(Context context, String version, String signature) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).apply();
+        prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).putString(version, signature).apply();
     }
 
     public static String getCurrentBundleDir(Context context, String currentBundleVersion) {
@@ -585,6 +585,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String appVersion = params.getString("latestVersion");
         int bundleVersion = params.getInt("bundleVersion");
         String filePath = params.getString("downloadedFile");
+        String signature = params.getString("signature");
         
         if (filePath == null || appVersion == null || bundleVersion == 0) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
@@ -592,7 +593,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String folderName = appVersion + "-" + bundleVersion;
-        setCurrentBundleVersion(reactContext, folderName);
+        setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         promise.resolve(null);
     }
 
