@@ -61,7 +61,7 @@ export function useLiquidationPrice() {
     if (positionSize.isZero()) return null;
 
     // Use unified function - it will automatically choose the optimal calculation path
-    return calculateLiquidationPrice({
+    const _liquidationPrice = calculateLiquidationPrice({
       totalValue,
       referencePrice,
       markPrice: tokenInfo?.markPx
@@ -86,6 +86,7 @@ export function useLiquidationPrice() {
         : undefined,
       newOrderSide: formData.side,
     });
+    return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
   }, [
     leverage,
     tokenInfo?.mode,
