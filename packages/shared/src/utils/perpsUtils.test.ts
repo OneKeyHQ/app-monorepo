@@ -10,6 +10,7 @@ import {
   calculatePriceScale,
   countDecimalPlaces,
   formatWithPrecision,
+  getDisplayPriceScaleDecimals,
   getMostFrequentDecimalPlaces,
   getValidPriceDecimals,
 } from './perpsUtils';
@@ -62,6 +63,19 @@ describe('countDecimalPlaces', () => {
     expect(countDecimalPlaces('123.45')).toBe(2);
     expect(countDecimalPlaces('0.123456')).toBe(6);
     expect(countDecimalPlaces('0')).toBe(0);
+  });
+});
+
+describe('getDisplayPriceScaleDecimals', () => {
+  test('returns correct display price scale decimals', () => {
+    expect(getDisplayPriceScaleDecimals('123')).toBe(2);
+    expect(getDisplayPriceScaleDecimals('123.4')).toBe(2);
+    expect(getDisplayPriceScaleDecimals('123.45')).toBe(2);
+    expect(getDisplayPriceScaleDecimals('0.123456')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.0123456')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.0012345')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.0001230')).toBe(6);
+    expect(getDisplayPriceScaleDecimals('0.000123456')).toBe(6);
   });
 });
 
