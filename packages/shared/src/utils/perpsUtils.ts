@@ -5,8 +5,46 @@
 
 import BigNumber from 'bignumber.js';
 
-const MAX_DECIMALS_PERP = 6;
-const MAX_SIGNIFICANT_FIGURES = 5;
+import {
+  MAX_DECIMALS_PERP,
+  MAX_SIGNIFICANT_FIGURES,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+
+// Types for liquidation price calculation
+interface IMarginTier {
+  lowerBound: string;
+  maxLeverage: number;
+}
+
+interface ILiquidationPriceParams {
+  totalValue: BigNumber;
+  referencePrice: BigNumber;
+  markPrice?: BigNumber;
+  positionSize: BigNumber;
+  side: 'long' | 'short';
+  leverage: number;
+  mode: string;
+  marginTiers: IMarginTier[] | undefined;
+  maxLeverage: number;
+  // For cross mode
+  crossMarginUsed?: BigNumber;
+  crossMaintenanceMarginUsed?: BigNumber;
+}
+
+interface ICombinePositionParams {
+  existingPositionSize: BigNumber; // currentCoinCrossPosition.szi (signed)
+  existingEntryPrice: BigNumber; // currentCoinCrossPosition.entryPx
+  newOrderSize: BigNumber; // formData.size (absolute value)
+  newOrderSide: 'long' | 'short'; // formData.side
+  newOrderPrice: BigNumber; // execution/reference price
+}
+
+interface ICombinePositionResult {
+  finalSize: BigNumber; // final position size (absolute value)
+  finalSide: 'long' | 'short'; // final position side
+  finalEntryPrice: BigNumber; // final entry price
+  isEmpty: boolean; // whether completely closed
+}
 
 /**
  * Count significant figures in a BigNumber
@@ -412,6 +450,237 @@ function formatPriceToSignificantDigits(
   return result.replace(/\.?0+$/, '');
 }
 
+/**
+ * Find the margin tier based on total value
+ */
+function findMarginTier(
+  totalValue: BigNumber,
+  marginTiers: IMarginTier[],
+): IMarginTier | null {
+  if (!marginTiers.length) return null;
+
+  const sortedTiers = [...marginTiers].reverse();
+  for (const tier of sortedTiers) {
+    if (totalValue.gte(new BigNumber(tier.lowerBound))) {
+      return tier;
+    }
+  }
+  return null;
+}
+
+// Inline simple calculations to reduce function call overhead
+
+/**
+ * Core liquidation price calculation formula
+ * Formula: Price - side * Margin_Available / Position_Size / (1 - mmr * side)
+ */
+function calculateLiquidationPriceCore(
+  entryPrice: BigNumber,
+  marginAvailable: BigNumber,
+  positionSize: BigNumber,
+  mmr: number,
+  side: 'long' | 'short',
+): BigNumber {
+  const sideMultiplier = side === 'long' ? 1 : -1;
+  return entryPrice.minus(
+    new BigNumber(sideMultiplier)
+      .multipliedBy(marginAvailable)
+      .dividedBy(positionSize)
+      .dividedBy(1 - mmr * sideMultiplier),
+  );
+}
+
+/**
+ * Combine existing position with new order
+ */
+function combinePositionWithOrder(
+  params: ICombinePositionParams,
+): ICombinePositionResult {
+  const {
+    existingPositionSize,
+    existingEntryPrice,
+    newOrderSize,
+    newOrderSide,
+    newOrderPrice,
+  } = params;
+
+  const newOrderSideMultiplier = newOrderSide === 'long' ? 1 : -1;
+  const signedNewOrderSize = newOrderSize.multipliedBy(newOrderSideMultiplier);
+  const resultingSignedSize = existingPositionSize.plus(signedNewOrderSize);
+
+  // Complete closure
+  if (resultingSignedSize.isZero()) {
+    return {
+      finalSize: new BigNumber(0),
+      finalSide: 'long',
+      finalEntryPrice: newOrderPrice,
+      isEmpty: true,
+    };
+  }
+
+  const resultingSide = resultingSignedSize.gt(0) ? 'long' : 'short';
+  const resultingSize = resultingSignedSize.abs();
+  const existingSide = existingPositionSize.gt(0) ? 'long' : 'short';
+  const existingSize = existingPositionSize.abs();
+
+  // Same direction: weighted average
+  if (existingSide === newOrderSide) {
+    const existingValue = existingSize.multipliedBy(existingEntryPrice);
+    const newOrderValue = newOrderSize.multipliedBy(newOrderPrice);
+    const combinedValue = existingValue.plus(newOrderValue);
+    const weightedAvgPrice = combinedValue.dividedBy(
+      existingSize.plus(newOrderSize),
+    );
+
+    return {
+      finalSize: resultingSize,
+      finalSide: resultingSide,
+      finalEntryPrice: weightedAvgPrice,
+      isEmpty: false,
+    };
+  }
+
+  // Opposite direction: partial close or flip
+  if (newOrderSize.lt(existingSize)) {
+    // Partial close: entry price unchanged
+    return {
+      finalSize: resultingSize,
+      finalSide: resultingSide,
+      finalEntryPrice: existingEntryPrice,
+      isEmpty: false,
+    };
+  }
+
+  // Flip: new direction entry price
+  return {
+    finalSize: resultingSize,
+    finalSide: resultingSide,
+    finalEntryPrice: newOrderPrice,
+    isEmpty: false,
+  };
+}
+
+/**
+ * Unified liquidation price calculation with optional existing position
+ * Automatically chooses optimal calculation path based on position existence
+ */
+function calculateLiquidationPrice(
+  params: ILiquidationPriceParams & {
+    // Optional existing position parameters
+    existingPositionSize?: BigNumber;
+    existingEntryPrice?: BigNumber;
+    newOrderSide?: 'long' | 'short';
+  },
+): BigNumber | null {
+  const {
+    totalValue,
+    referencePrice,
+    markPrice,
+    positionSize,
+    side,
+    leverage,
+    maxLeverage,
+    mode,
+    marginTiers,
+    crossMarginUsed = new BigNumber(0),
+    crossMaintenanceMarginUsed = new BigNumber(0),
+    existingPositionSize,
+    existingEntryPrice,
+    newOrderSide,
+  } = params;
+
+  if (positionSize.isZero()) return null;
+
+  const effectivePrice =
+    markPrice && referencePrice.gt(markPrice) ? markPrice : referencePrice;
+
+  // Check if we need to consider existing position
+  const hasExistingPosition =
+    existingPositionSize &&
+    existingEntryPrice &&
+    newOrderSide &&
+    !existingPositionSize.isZero();
+
+  if (hasExistingPosition) {
+    // Calculate existing position metrics
+    const existingPositionValue = existingPositionSize
+      .abs()
+      .multipliedBy(existingEntryPrice);
+    const existingMarginTier = findMarginTier(
+      existingPositionValue,
+      marginTiers || [],
+    );
+    const existingMMR =
+      1 / (existingMarginTier?.maxLeverage || maxLeverage) / 2;
+    const existingMaintenanceMarginRequired =
+      existingPositionValue.multipliedBy(existingMMR);
+
+    // Combine positions
+    const combinedPosition = combinePositionWithOrder({
+      existingPositionSize,
+      existingEntryPrice,
+      newOrderSize: positionSize,
+      newOrderSide,
+      newOrderPrice: effectivePrice,
+    });
+
+    // Complete closure means no liquidation price
+    if (combinedPosition.isEmpty) return null;
+
+    // Calculate combined position metrics
+    const combinedPositionValue = combinedPosition.finalSize.multipliedBy(
+      combinedPosition.finalEntryPrice,
+    );
+    const combinedMarginTier = findMarginTier(
+      combinedPositionValue,
+      marginTiers || [],
+    );
+    const combinedMMR =
+      1 / (combinedMarginTier?.maxLeverage || maxLeverage) / 2;
+    const combinedMaintenanceMarginRequired =
+      combinedPositionValue.multipliedBy(combinedMMR);
+
+    // Calculate margin available based on mode
+    const marginAvailable =
+      mode === 'isolated'
+        ? combinedPositionValue
+            .dividedBy(leverage)
+            .minus(combinedMaintenanceMarginRequired)
+        : crossMarginUsed
+            .plus(existingMaintenanceMarginRequired)
+            .minus(combinedMaintenanceMarginRequired)
+            .minus(crossMaintenanceMarginUsed);
+
+    return calculateLiquidationPriceCore(
+      combinedPosition.finalEntryPrice,
+      marginAvailable,
+      combinedPosition.finalSize,
+      combinedMMR,
+      combinedPosition.finalSide,
+    );
+  }
+
+  // Simple case without existing position
+  const marginTier = findMarginTier(totalValue, marginTiers || []);
+  const mmr = 1 / (marginTier?.maxLeverage || maxLeverage) / 2;
+  const maintenanceMarginRequired = totalValue.multipliedBy(mmr);
+
+  const marginAvailable =
+    mode === 'isolated'
+      ? totalValue.dividedBy(leverage).minus(maintenanceMarginRequired)
+      : crossMarginUsed
+          .minus(maintenanceMarginRequired)
+          .minus(crossMaintenanceMarginUsed);
+
+  return calculateLiquidationPriceCore(
+    effectivePrice,
+    marginAvailable,
+    positionSize,
+    mmr,
+    side,
+  );
+}
+
 export {
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
@@ -427,6 +696,10 @@ export {
   formatPercentage,
   validatePriceInput,
   formatPriceToSignificantDigits,
+  findMarginTier,
+  calculateLiquidationPrice,
+  calculateLiquidationPriceCore,
+  combinePositionWithOrder,
 };
 
 export default {
@@ -444,4 +717,8 @@ export default {
   formatPercentage,
   validatePriceInput,
   formatPriceToSignificantDigits,
+  findMarginTier,
+  calculateLiquidationPrice,
+  calculateLiquidationPriceCore,
+  combinePositionWithOrder,
 };

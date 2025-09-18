@@ -16,6 +16,7 @@ export {
 } from './useHyperliquid';
 
 export { useFundingCountdown } from './useFundingCountdown';
+export { useLiquidationPrice } from './useLiquidationPrice';
 
 export type { IPerpTokenSelectorReturn } from './usePerpTokenSelector';
 export type { IPerpSessionReturn } from './usePerpSession';

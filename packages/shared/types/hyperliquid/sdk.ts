@@ -12,6 +12,8 @@ export type IWsTrade = HL.WsTrade;
 
 // Core trading types
 export type IPerpsUniverse = HL.PerpsUniverse;
+export type IMarginTables = HL.MarginTables;
+export type IMarginTable = HL.MarginTable;
 export type IOrder = HL.Order;
 export type IFrontendOrder = HL.FrontendOrder;
 export type IOrderParams = HL.OrderParams;

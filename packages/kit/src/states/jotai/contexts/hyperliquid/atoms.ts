@@ -325,11 +325,14 @@ export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =
     accountSummary: {
       accountValue: string | undefined;
       totalMarginUsed: string | undefined;
+      crossAccountValue: string | undefined;
+      crossMaintenanceMarginUsed: string | undefined;
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
     };
     positions: HL.IAssetPosition[];
+    totalPositionValue: number;
     orders: HL.IFrontendOrder[];
     activeAssetData: HL.IActiveAssetData | null;
     hasUserData: boolean;
@@ -358,11 +361,14 @@ export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =
         accountSummary: {
           accountValue: undefined,
           totalMarginUsed: undefined,
+          crossAccountValue: undefined,
+          crossMaintenanceMarginUsed: undefined,
           totalNtlPos: undefined,
           totalRawUsd: undefined,
           withdrawable: undefined,
         },
         positions: [],
+        totalPositionValue: 0,
         orders: [],
         activeAssetData: null,
         hasUserData: false,
@@ -377,6 +383,10 @@ export const { atom: accountPanelDataAtom, use: useAccountPanelDataAtom } =
       accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
       totalMarginUsed:
         webData2.clearinghouseState?.marginSummary?.totalMarginUsed,
+      crossAccountValue:
+        webData2.clearinghouseState?.crossMarginSummary.accountValue,
+      crossMaintenanceMarginUsed:
+        webData2.clearinghouseState?.crossMaintenanceMarginUsed,
       totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
       totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
       withdrawable: webData2.clearinghouseState?.withdrawable,
