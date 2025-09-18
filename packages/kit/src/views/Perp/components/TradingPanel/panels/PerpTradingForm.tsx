@@ -18,11 +18,14 @@ import {
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsAccountLoadingInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsSelectedSymbolAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useCurrentTokenData } from '../../../hooks';
-import { useHyperliquidAccount } from '../../../hooks/useHyperliquid';
+import { useCurrentTokenData, useHyperliquidAccount } from '../../../hooks';
+import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpslInput } from '../inputs/TpslInput';
@@ -38,25 +41,14 @@ interface IPerpTradingFormProps {
 }
 
 function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
-  const { userWebData2, accountSummary } = useHyperliquidAccount();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [formData] = useTradingFormAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const tokenInfo = useCurrentTokenData();
-  const accountDataInfo = useMemo(() => {
-    const availableBalance = accountSummary.withdrawable;
-    let currentPositionValue = new BigNumber(0);
-    if (userWebData2) {
-      currentPositionValue =
-        userWebData2.clearinghouseState.assetPositions.reduce(
-          (acc, curr) =>
-            acc.plus(new BigNumber(curr.position.positionValue || 0)),
-          new BigNumber(0),
-        );
-    }
-    return { availableBalance, currentPositionValue };
-  }, [accountSummary.withdrawable, userWebData2]);
+  const { accountSummary, totalPositionValue } = useHyperliquidAccount();
+  const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
+  const { universe } = perpsSelectedSymbol;
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
       actions.current.updateTradingForm(updates);
@@ -104,7 +96,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
 
   const leverage = useMemo(() => {
     return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage;
-  }, [tokenInfo]);
+  }, [tokenInfo?.leverage?.value, tokenInfo?.maxLeverage]);
 
   const referencePrice = useMemo(() => {
     if (formData.type === 'limit' && formData.price) {
@@ -121,11 +113,12 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
     return size.multipliedBy(referencePrice);
   }, [formData.size, referencePrice]);
 
-  const marginRequired = useMemo(() => {
-    if (!leverage || leverage === 0) return new BigNumber(0);
-    return totalValue.dividedBy(leverage);
-  }, [totalValue, leverage]);
-
+  const handleTpslCheckboxChange = useCallback(
+    (checked: ICheckedState) => {
+      updateForm({ hasTpsl: !!checked });
+    },
+    [updateForm],
+  );
   const handleTpslChange = useCallback(
     (data: { tpPrice: string; slPrice: string }) => {
       updateForm({
@@ -175,7 +168,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                 id: ETranslations.perp_trade_account_overview_available,
               })}
             </SizableText>
-            {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
+            {perpsAccountLoading?.selectAccountLoading ? (
               <Skeleton width={70} height={16} />
             ) : (
               <NumberSizeableText
@@ -183,7 +176,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
               >
-                {accountDataInfo.availableBalance}
+                {accountSummary.withdrawable}
               </NumberSizeableText>
             )}
           </XStack>
@@ -193,7 +186,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                 id: ETranslations.perp_trade_current_position,
               })}
             </SizableText>
-            {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
+            {perpsAccountLoading?.selectAccountLoading ? (
               <Skeleton width={60} height={16} />
             ) : (
               <NumberSizeableText
@@ -201,7 +194,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
               >
-                {accountDataInfo.currentPositionValue.toFixed()}
+                {totalPositionValue}
               </NumberSizeableText>
             )}
           </XStack>
@@ -215,7 +208,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
             }}
             value={formData.price}
             onChange={(value) => updateForm({ price: value })}
-            szDecimals={tokenInfo?.szDecimals ?? 2}
+            szDecimals={universe?.szDecimals ?? 2}
           />
         ) : null}
 
@@ -232,9 +225,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
               id: ETranslations.perp_position_tp_sl,
             })}
             value={formData.hasTpsl}
-            onChange={(checked: ICheckedState) =>
-              updateForm({ hasTpsl: !!checked })
-            }
+            onChange={handleTpslCheckboxChange}
             disabled={isSubmitting}
             labelProps={{
               fontSize: getFontSize('$bodyMd'),
@@ -279,21 +270,9 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_margin_required,
-            })}
+            Liq. Price
           </SizableText>
-          {leverage ? (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {marginRequired.toNumber()}
-            </NumberSizeableText>
-          ) : (
-            <Skeleton width={80} height={18} />
-          )}
+          <LiquidationPriceDisplay />
         </XStack>
       </YStack>
     </>

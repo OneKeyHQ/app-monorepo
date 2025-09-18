@@ -373,7 +373,7 @@ const ClosePositionForm = memo(
             onUseMarketPrice={handleUseMid}
             disabled={!markPrice}
             szDecimals={szDecimals}
-            ifDialog
+            ifOnDialog
           />
         ) : null}
 
@@ -390,7 +390,7 @@ const ClosePositionForm = memo(
             const processedValue = value.replace(/。/g, '.');
             return validateSizeInput(processedValue, szDecimals);
           }}
-          ifDialog
+          ifOnDialog
         />
 
         <YStack gap="$2" p="$2">
