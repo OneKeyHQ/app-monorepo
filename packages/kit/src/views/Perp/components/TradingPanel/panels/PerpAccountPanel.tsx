@@ -10,6 +10,7 @@ import {
   SizableText,
   Skeleton,
   Spinner,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -47,18 +48,20 @@ function PerpAccountPanel() {
   const userAccountId = selectedAccount.accountId;
 
   const accountDataInfo = useMemo(() => {
-    const availableBalance = accountSummary.withdrawable;
-    let currentPositionValue = new BigNumber(0);
+    const withdrawableBalance = accountSummary.withdrawable;
+    const accountValue = accountSummary.accountValue;
     if (userWebData2) {
-      currentPositionValue =
-        userWebData2.clearinghouseState.assetPositions.reduce(
-          (acc, curr) =>
-            acc.plus(new BigNumber(curr.position.positionValue || 0)),
-          new BigNumber(0),
-        );
+      const maintenanceMargin =
+        userWebData2.clearinghouseState.crossMaintenanceMarginUsed || '0';
     }
-    return { availableBalance, currentPositionValue };
-  }, [accountSummary.withdrawable, userWebData2]);
+    return {
+      withdrawableBalance,
+      accountValue,
+      maintenanceMargin: userWebData2
+        ? userWebData2.clearinghouseState.crossMaintenanceMarginUsed || '0'
+        : '0',
+    };
+  }, [accountSummary.withdrawable, userWebData2, accountSummary.accountValue]);
   const intl = useIntl();
   const handleDepositOrWithdraw = useCallback(
     async (actionType: 'deposit' | 'withdraw') => {
@@ -89,12 +92,20 @@ function PerpAccountPanel() {
       <YStack flex={1} px="$4" gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
+          <Tooltip
+            placement="top"
+            renderContent={intl.formatMessage({
+              id: ETranslations.perp_account_panel_account_value_tooltip,
             })}
-          </SizableText>
-          {perpsAccountLoading || !userWebData2 ? (
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+                {intl.formatMessage({
+                  id: ETranslations.perp_account_panel_account_value,
+                })}
+              </SizableText>
+            }
+          />
+          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
             <Skeleton width={70} height={16} />
           ) : (
             <NumberSizeableText
@@ -102,17 +113,17 @@ function PerpAccountPanel() {
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
-              {accountDataInfo.availableBalance}
+              {accountDataInfo.accountValue}
             </NumberSizeableText>
           )}
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
             {intl.formatMessage({
-              id: ETranslations.perp_trade_current_position,
+              id: ETranslations.perp_account_panel_withrawable_value,
             })}
           </SizableText>
-          {perpsAccountLoading || !userWebData2 ? (
+          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
             <Skeleton width={60} height={16} />
           ) : (
             <NumberSizeableText
@@ -120,7 +131,33 @@ function PerpAccountPanel() {
               formatter="value"
               formatterOptions={{ currency: '$' }}
             >
-              {accountDataInfo.currentPositionValue.toFixed()}
+              {accountDataInfo.withdrawableBalance}
+            </NumberSizeableText>
+          )}
+        </XStack>
+        <XStack justifyContent="space-between">
+          <Tooltip
+            placement="top"
+            renderContent={intl.formatMessage({
+              id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
+            })}
+            renderTrigger={
+              <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+                {intl.formatMessage({
+                  id: ETranslations.perp_account_panel_account_maintenance_margin,
+                })}
+              </SizableText>
+            }
+          />
+          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
+            <Skeleton width={60} height={16} />
+          ) : (
+            <NumberSizeableText
+              size="$bodySmMedium"
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {accountDataInfo.maintenanceMargin}
             </NumberSizeableText>
           )}
         </XStack>
@@ -129,6 +166,7 @@ function PerpAccountPanel() {
       {userAddress ? (
         <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
           <Button
+            borderRadius="$3"
             flex={1}
             size="medium"
             variant="secondary"
@@ -141,6 +179,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
           <Button
+            borderRadius="$3"
             flex={1}
             size="medium"
             variant="secondary"
@@ -153,23 +192,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
         </XStack>
-      ) : (
-        <XStack
-          flex={1}
-          justifyContent="flex-start"
-          alignItems="center"
-          mt="$3"
-          px="$4"
-          gap="$1.5"
-        >
-          <Icon name="InfoCircleOutline" size="$3.5" color="$icon" />
-          <SizableText size="$bodySm" color="$text">
-            {intl.formatMessage({
-              id: ETranslations.perp_account_create,
-            })}
-          </SizableText>
-        </XStack>
-      )}
+      ) : null}
     </YStack>
   );
 }
