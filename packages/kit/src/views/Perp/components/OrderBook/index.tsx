@@ -635,7 +635,11 @@ export function OrderBook({
                     onPress={onPress}
                   >
                     <Text style={[styles.bodySm, { color: textColor.text }]}>
-                      {selectedTickOption?.label}
+                      {selectedTickOption?.label
+                        ? new BigNumber(selectedTickOption.label).toFixed(
+                            priceDecimals,
+                          )
+                        : '-'}
                     </Text>
                     <Icon
                       name="ChevronDownSmallOutline"
