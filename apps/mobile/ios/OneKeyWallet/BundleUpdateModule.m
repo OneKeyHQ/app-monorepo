@@ -318,7 +318,7 @@ RCT_EXPORT_MODULE();
     }
     
     NSString *extractedSha256 = jsonObject[@"sha256"];
-    if (!sha256Value) {
+    if (!extractedSha256) {
         DDLogDebug(@"SHA256 field not found in extracted JSON content");
         return nil;
     }
