@@ -160,7 +160,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String mainJSBundle = new File(bundleDir, "main.jsbundle.hbc").getAbsolutePath();
             return new File(mainJSBundle).exists() ? mainJSBundle : null;
         } catch (PackageManager.NameNotFoundException e) {
-            staticLog(TAG, "Error getting package info", e);
+            staticLog(TAG, "Error getting package info: " + e.getMessage());
             return null;
         }
     }
@@ -177,7 +177,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             }
             return bytesToHex(digest.digest());
         } catch (Exception e) {
-            staticLog(TAG, "Error calculating SHA256", e);
+            staticLog(TAG, "Error calculating SHA256: " + e.getMessage());
             return null;
         }
     }
@@ -206,22 +206,25 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public static String readMetadataFileSha256(String signature) {
         String ascFileContentString = signature;
         String extractedSha256 = "";
-        if (staticReactContext == null) {
-        String cacheFilePath = staticReactContext.getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
-        File cacheFile = new File(cacheFilePath);
-        if (cacheFile.exists()) {
-            cacheFile.delete();
-        }
-        try {
-            String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
-            if (content == null || content.isEmpty()) {
-                return null;
+        if (staticReactContext != null) {
+            String cacheFilePath = staticReactContext.getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+            File cacheFile = new File(cacheFilePath);
+            if (cacheFile.exists()) {
+                cacheFile.delete();
             }
-            JSONObject jsonObject = new JSONObject(content);
-            extractedSha256 = jsonObject.getString("sha256");
-            staticLog("extractedSha256", extractedSha256);
-        } catch (Exception e) {
-            staticLog("AutoUpdateModule", "Error extracting SHA256: " + e.getMessage());
+            try {
+                String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
+                if (content == null || content.isEmpty()) {
+                    return null;
+                }
+                JSONObject jsonObject = new JSONObject(content);
+                extractedSha256 = jsonObject.getString("sha256");
+                staticLog("extractedSha256", extractedSha256);
+            } catch (Exception e) {
+                staticLog("readMetadataFileSha256", "Error extracting SHA256: " + e.getMessage());
+            }
+        } else {
+            staticLog("readMetadataFileSha256", "staticReactContext is null");
         }
         return extractedSha256;
     }
