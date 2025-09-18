@@ -69,7 +69,7 @@ jobs:
       - name: Modify build.gradle
         uses: OneKeyHQ/actions/build-gradle-edit@main
         with:
-          versionCode: '20250930800'
+          versionCode: 20250930800
           versionName: '9999.1.4'
           packageName: 'so.onekey.app.wallet'
           android_dir: ./apps/mobile
