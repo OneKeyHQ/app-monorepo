@@ -39,20 +39,26 @@ class FileHashMetadataPlugin {
         const destStaticPath = path.join(outputPath, 'static');
         const srcStaticPath = path.join(outputPath, '..', 'public', 'static');
 
-        copyRecursiveSync(
-          path.join(srcStaticPath, 'js-sdk'),
-          path.join(destStaticPath, 'js-sdk'),
-        );
+        if (!fs.existsSync(path.join(destStaticPath, 'js-sdk'))) {
+          copyRecursiveSync(
+            path.join(srcStaticPath, 'js-sdk'),
+            path.join(destStaticPath, 'js-sdk'),
+          );
+        }
 
-        copyRecursiveSync(
-          path.join(srcStaticPath, 'images'),
-          path.join(destStaticPath, 'images'),
-        );
+        if (!fs.existsSync(path.join(destStaticPath, 'images'))) {
+          copyRecursiveSync(
+            path.join(srcStaticPath, 'images'),
+            path.join(destStaticPath, 'images'),
+          );
+        }
 
-        fs.copyFileSync(
-          path.join(srcStaticPath, 'preload.js'),
-          path.join(destStaticPath, 'preload.js'),
-        );
+        if (!fs.existsSync(path.join(destStaticPath, 'preload.js'))) {
+          fs.copyFileSync(
+            path.join(srcStaticPath, 'preload.js'),
+            path.join(destStaticPath, 'preload.js'),
+          );
+        }
 
         const metadata = {};
 

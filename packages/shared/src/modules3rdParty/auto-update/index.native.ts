@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -10,6 +11,7 @@ import RNFS from '../react-native-fs';
 
 import type {
   IAppUpdate,
+  IBundleUpdate,
   IClearPackage,
   IDownloadASC,
   IDownloadPackage,
@@ -19,6 +21,7 @@ import type {
   IVerifyASC,
   IVerifyPackage,
 } from './type';
+import type { NativeEventSubscription } from 'react-native';
 
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
@@ -133,7 +136,27 @@ const installPackage: IInstallPackage = async ({
   });
 };
 
-const eventEmitter = new NativeEventEmitter(NativeModules.AutoUpdateModule);
+let AutoUpdateEventEmitter: NativeEventEmitter | null = null;
+if (NativeModules.AutoUpdateModule) {
+  AutoUpdateEventEmitter = new NativeEventEmitter(
+    NativeModules.AutoUpdateModule,
+  );
+}
+
+let BundleUpdateEventEmitter: NativeEventEmitter | null = null;
+if (NativeModules.BundleUpdateModule) {
+  BundleUpdateEventEmitter = new NativeEventEmitter(
+    NativeModules.BundleUpdateModule,
+  );
+}
+
+const DOWNLOAD_EVENT_TYPE = {
+  start: 'update/start',
+  downloading: 'update/downloading',
+  complete: 'update/complete',
+  error: 'update/error',
+};
+
 export const useDownloadProgress: IUseDownloadProgress = () => {
   const [percent, setPercent] = useState(0);
 
@@ -141,28 +164,42 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     ({ progress }: { progress: number }) => {
       console.log('update/downloading', progress);
       defaultLogger.update.app.log('downloading', progress);
-      setPercent(progress);
+      setPercent(parseInt(progress.toString(), 10));
     },
     10,
   );
 
+  const startDownload = useCallback(() => {
+    defaultLogger.update.app.log('start');
+    setPercent(0);
+  }, []);
+
   useEffect(() => {
-    const onStartEventListener = eventEmitter.addListener(
-      'update/start',
-      () => {
-        defaultLogger.update.app.log('start');
-        setPercent(0);
-      },
+    const onStartEventListener = AutoUpdateEventEmitter?.addListener(
+      DOWNLOAD_EVENT_TYPE.start,
+      startDownload,
     );
-    const onDownloadingEventListener = eventEmitter.addListener(
-      'update/downloading',
+    const onDownloadingEventListener = AutoUpdateEventEmitter?.addListener(
+      DOWNLOAD_EVENT_TYPE.downloading,
       updatePercent,
     );
+
+    const onBundleStartEventListener = BundleUpdateEventEmitter?.addListener(
+      DOWNLOAD_EVENT_TYPE.start,
+      startDownload,
+    );
+    const onBundleDownloadingEventListener =
+      BundleUpdateEventEmitter?.addListener(
+        DOWNLOAD_EVENT_TYPE.downloading,
+        updatePercent,
+      );
     return () => {
-      onStartEventListener.remove();
-      onDownloadingEventListener.remove();
+      onStartEventListener?.remove();
+      onDownloadingEventListener?.remove();
+      onBundleStartEventListener?.remove();
+      onBundleDownloadingEventListener?.remove();
     };
-  }, [updatePercent]);
+  }, [startDownload, updatePercent]);
   return percent;
 };
 
@@ -176,4 +213,53 @@ export const AppUpdate: IAppUpdate = {
   installPackage,
   manualInstallPackage,
   clearPackage,
+};
+
+const { BundleUpdateModule } = NativeModules as {
+  BundleUpdateModule: IBundleUpdate;
+};
+
+export const BundleUpdate: IBundleUpdate = {
+  downloadBundle: (params) => {
+    return new Promise((resolve, reject) => {
+      BundleUpdateModule.downloadBundle(params)
+        .then((result) => {
+          // eslint-disable-next-line prefer-const
+          let onSuccessSubscription: NativeEventSubscription | undefined;
+          // eslint-disable-next-line prefer-const
+          let onErrorSubscription: NativeEventSubscription | undefined;
+          const removeSubscriptions = () => {
+            onSuccessSubscription?.remove();
+            onErrorSubscription?.remove();
+          };
+          const onSuccess = () => {
+            resolve(result);
+            removeSubscriptions();
+          };
+          const onError = (error: string) => {
+            reject(error);
+            removeSubscriptions();
+          };
+          onSuccessSubscription = BundleUpdateEventEmitter?.addListener(
+            DOWNLOAD_EVENT_TYPE.error,
+            onError,
+          );
+          onErrorSubscription = BundleUpdateEventEmitter?.addListener(
+            DOWNLOAD_EVENT_TYPE.complete,
+            onSuccess,
+          );
+        })
+        .catch(reject);
+    });
+  },
+  verifyBundle: (params) => BundleUpdateModule.verifyBundle(params),
+  verifyBundleASC: (params) => BundleUpdateModule.verifyBundleASC(params),
+  downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
+  installBundle: async (params) => {
+    await BundleUpdateModule.installBundle(params);
+    setTimeout(() => {
+      RNRestart.restart();
+    }, 2500);
+  },
+  clearBundle: () => BundleUpdateModule.clearBundle(),
 };

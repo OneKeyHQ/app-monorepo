@@ -1,4 +1,4 @@
-name: release-desktop-bundle
+name: release-native-bundle
 
 on:
   workflow_run:
@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  release-desktop-bundle:
+  release-native-bundle:
     runs-on: macos-latest
     strategy:
       matrix:
@@ -84,77 +84,35 @@ jobs:
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: 'cd apps/desktop && yarn build:JsBundle'
-
-      - name: bundle folder
-        run: |
-          echo "current dir: $(pwd)"
-          mkdir -p apps/desktop/bundle
-          mv apps/desktop/web-build/metadata.json apps/desktop/bundle/metadata.json
-          mv apps/desktop/web-build apps/desktop/bundle/build
-          cd apps/desktop/bundle
-          echo "current dir: $(pwd)"
-          zip -r bundle.zip .
-          cd ../../../
-          echo "current dir: $(pwd)"
-          mkdir -p apps/desktop/bundle-zip
-          mv apps/desktop/bundle/bundle.zip apps/desktop/bundle-zip/electron-bundle.zip
-          cp apps/desktop/bundle/metadata.json apps/desktop/bundle-zip/metadata.json
-
-      - name: Generate bundle info
-        run: |
-          echo "current dir: $(pwd)"
-          cd apps/desktop/bundle-zip
-          echo "current dir: $(pwd)"
-          BUNDLE_FILE="electron-bundle.zip"
-          BUNDLE_SHA256=$(shasum -a 256 "$BUNDLE_FILE" | cut -d ' ' -f 1)
-          BUNDLE_SIZE=$(stat -f%z "$BUNDLE_FILE" 2>/dev/null || stat -c%s "$BUNDLE_FILE")
-          GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-          
-          cat > electron-bundle.json.info << EOF
-          {
-            "fileName": "$BUNDLE_FILE",
-            "sha256": "$BUNDLE_SHA256",
-            "size": $BUNDLE_SIZE,
-            "generatedAt": "$GENERATED_AT"
-          }
-          EOF
+        run: 'yarn app:build-bundle'
       
-      - name: Generate metadata.json.info
-        run: |
-          echo "current dir: $(pwd)"
-          cd apps/desktop/bundle-zip
-          echo "current dir: $(pwd)"
-          METADATA_FILE="metadata.json"
-          METADATA_SHA256=$(shasum -a 256 "$METADATA_FILE" | cut -d ' ' -f 1)
-          METADATA_SIZE=$(stat -f%z "$METADATA_FILE" 2>/dev/null || stat -c%s "$METADATA_FILE")
-          GENERATED_AT=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-
-          cat > electron.metadata.json.info << EOF
-          {
-            "fileName": "$METADATA_FILE",
-            "sha256": "$METADATA_SHA256",
-            "size": $METADATA_SIZE,
-            "generatedAt": "$GENERATED_AT"
-          }
-          EOF
-      
-      - name: upload bundle
+      - name: upload zips
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
-          name: onekey-desktop-bundle
+          name: release-native-bundle
           path: |
-            ./apps/desktop/bundle-zip/*
+            ./apps/mobile/out-dir-bundle-zip
+            !**/.DS_Store
+      
+      - name: upload bundles
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-native-bundle
+          path: |
+            ./apps/mobile/out-dir-bundle
             !**/.DS_Store
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
+        continue-on-error: true
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Electron-Bundle
-          artifact-name: OneKey-Desktop-Bundle
+          artifact-type: React-Native-Bundle
+          artifact-name: OneKey-Native-Bundle
           artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
