@@ -107,6 +107,7 @@ function TokenNameView(props: IProps) {
       {isAllNetworks &&
       !isAggregateToken &&
       !showNetworkName &&
+      !isNative &&
       hasSameSymbolToken ? (
         <Tooltip
           placement="top"

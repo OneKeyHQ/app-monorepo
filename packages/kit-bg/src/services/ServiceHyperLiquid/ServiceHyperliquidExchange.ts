@@ -10,7 +10,11 @@ import {
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
 } from '@onekeyhq/shared/src/consts/perp';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  WatchedAccountTradeError,
+} from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
@@ -37,6 +41,7 @@ import type {
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { perpsSelectedAccountAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type {
@@ -167,13 +172,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async setReferrerCode(params: ISetReferrerRequest) {
     this._ensureSetup();
+    await this.checkAccountCanTrade();
     return this._exchangeClient!.setReferrer(params);
   }
 
   @backgroundMethod()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     this._ensureSetup();
-
+    await this.checkAccountCanTrade();
     try {
       await this._exchangeClient!.updateLeverage(params);
     } catch (error) {
@@ -184,7 +190,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async approveBuilderFee(params: IBuilderFeeRequest) {
     this._ensureSetup();
-
+    await this.checkAccountCanTrade();
     try {
       return await this._exchangeClient!.approveBuilderFee(params);
     } catch (error) {
@@ -197,20 +203,17 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async approveAgent(params: IAgentApprovalRequest) {
     this._ensureSetup();
-
-    try {
-      return await this._exchangeClient!.approveAgent({
-        agentAddress: params.agent,
-        agentName: params.agentName || null,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to approve agent: ${String(error)}`);
-    }
+    await this.checkAccountCanTrade();
+    return this._exchangeClient!.approveAgent({
+      agentAddress: params.agent,
+      agentName: params.agentName || null,
+    });
   }
 
   @backgroundMethod()
   async removeAgent(params: { agentName: EHyperLiquidAgentName | undefined }) {
     this._ensureSetup();
+    await this.checkAccountCanTrade();
     return this.approveAgent({
       agent: PERPS_EMPTY_ADDRESS,
       agentName: params.agentName,
@@ -226,6 +229,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async placeOrderRaw(params: IOrderRequest): Promise<IOrderResponse> {
     this._ensureSetup();
+    await this.checkAccountCanTrade();
     try {
       return await this._exchangeClient!.order({
         orders: params.action.orders,
@@ -246,8 +250,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._exchangeClient = null;
   }
 
+  async checkAccountCanTrade() {
+    const selectedAccount = await perpsSelectedAccountAtom.get();
+    if (selectedAccount.accountAddress && selectedAccount.accountId) {
+      if (
+        accountUtils.isWatchingAccount({ accountId: selectedAccount.accountId })
+      ) {
+        throw new WatchedAccountTradeError();
+      }
+    }
+  }
+
   @backgroundMethod()
   async placeOrder(params: IPlaceOrderParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     try {
       const price = params.limitPx || '0';
 
@@ -287,6 +303,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async orderOpen(params: IOrderOpenParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     try {
       const isMarket = params.type === 'market';
       const midPx = params.midPx;
@@ -385,6 +402,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async orderClose(params: IOrderCloseParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     const midPx = params.midPx;
     const price = this._calculateSlippagePrice({
       markPrice: midPx,
@@ -415,6 +433,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
+    await this.checkAccountCanTrade();
     try {
       const cancelParams = cancels.map((cancel) => ({
         a: cancel.assetId,
@@ -431,6 +450,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async multiOrder(params: IMultiOrderParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     try {
       const orderParams = params.orders.map((order) => {
         const orderParam: IOrderParams = {
@@ -460,6 +480,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setPositionTpsl(
     params: IPositionTpslOrderParams,
   ): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     try {
       const {
         assetId,
@@ -540,6 +561,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async withdraw(params: IWithdrawParams): Promise<void> {
+    await this.checkAccountCanTrade();
     const wallet =
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
