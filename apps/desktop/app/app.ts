@@ -420,7 +420,7 @@ const ratio = 16 / 9;
 const defaultSize = 1200;
 const minWidth = 1024;
 const minHeight = 800;
-function createMainWindow() {
+async function createMainWindow() {
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -731,7 +731,7 @@ function createMainWindow() {
     const bundleDirPath = indexHtmlPath
       ? path.dirname(indexHtmlPath)
       : undefined;
-    const metadata = bundleDirPath ? getMetadata(bundleDirPath) : {};
+    const metadata = bundleDirPath ? await getMetadata(bundleDirPath) : {};
     const checkFileHash = (url: string) => {
       if (!bundleDirPath) {
         throw new OneKeyLocalError('Bundle directory path not found');
@@ -864,7 +864,7 @@ if (!singleInstance && !process.mas) {
     startServices();
 
     if (!mainWindow) {
-      mainWindow = createMainWindow();
+      mainWindow = await createMainWindow();
       initMenu();
     }
     void initChildProcess();
@@ -877,7 +877,7 @@ if (!singleInstance && !process.mas) {
 app.on('activate', async () => {
   await app.whenReady();
   if (!mainWindow) {
-    mainWindow = createMainWindow();
+    mainWindow = await createMainWindow();
   }
   showMainWindow();
 });
