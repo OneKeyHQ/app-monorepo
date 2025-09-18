@@ -5,6 +5,7 @@ import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -48,11 +49,12 @@ import {
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
+  isLoading?: boolean;
 };
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
-  const { tableLayout, hideZeroBalanceTokens } = props;
+  const { tableLayout, hideZeroBalanceTokens, isLoading } = props;
   const navigation = useAppNavigation();
   const {
     activeAccount: {
@@ -104,7 +106,7 @@ function TokenListFooter(props: IProps) {
   );
 
   const filteredSmallBalanceTokens = useMemo(() => {
-    if (hideZeroBalanceTokens && network?.isAllNetworks) {
+    if (hideZeroBalanceTokens) {
       return smallBalanceTokens.filter((token) => {
         const tokenBalance = new BigNumber(
           smallBalanceTokenListMap[token.$key]?.balance ??
@@ -123,13 +125,12 @@ function TokenListFooter(props: IProps) {
   }, [
     smallBalanceTokens,
     hideZeroBalanceTokens,
-    network?.isAllNetworks,
     smallBalanceTokenListMap,
     aggregateTokensMap,
   ]);
 
   const filteredRiskyTokens = useMemo(() => {
-    if (hideZeroBalanceTokens && network?.isAllNetworks) {
+    if (hideZeroBalanceTokens) {
       return riskyTokens.filter((token) => {
         const tokenBalance = new BigNumber(
           riskyTokenListMap[token.$key]?.balance ??
@@ -148,7 +149,6 @@ function TokenListFooter(props: IProps) {
   }, [
     riskyTokens,
     hideZeroBalanceTokens,
-    network?.isAllNetworks,
     riskyTokenListMap,
     aggregateTokensMap,
   ]);
@@ -228,6 +228,21 @@ function TokenListFooter(props: IProps) {
     deriveInfo,
     hideValue,
   ]);
+
+  const handleOnPressManageTokens = useCallback(() => {
+    if (!account || !network || !wallet) return;
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalAssetListRoutes.TokenManagerModal,
+      params: {
+        accountId: account.id,
+        networkId: network.id,
+        walletId: wallet.id,
+        indexedAccountId: indexedAccount?.id,
+        deriveType,
+        isAllNetworks: network.isAllNetworks,
+      },
+    });
+  }, [account, network, wallet, navigation, indexedAccount?.id, deriveType]);
 
   const { result: blockedTokensLength, run } = usePromiseResult(
     async () => {
@@ -375,6 +390,18 @@ function TokenListFooter(props: IProps) {
             />
           </XStack>
         </ListItem>
+      ) : null}
+      {!isLoading ? (
+        <Button
+          mt="$5"
+          alignSelf="center"
+          $gtMd={{
+            size: 'small',
+          }}
+          onPress={handleOnPressManageTokens}
+        >
+          {intl.formatMessage({ id: ETranslations.manage_token_title })}
+        </Button>
       ) : null}
     </Stack>
   );

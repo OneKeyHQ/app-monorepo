@@ -13,6 +13,8 @@ import {
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   formatWithPrecision,
   validateSizeInput,
@@ -229,45 +231,43 @@ const SetTpslForm = memo(
 
     return (
       <YStack gap="$4">
-        <SizableText size="$bodyLg">
-          Set a price to trigger a Take Profit or Stop Loss order.
-        </SizableText>
-
         <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Coin
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_token_selector_asset,
+              })}
             </SizableText>
-            <SizableText size="$bodyMd" fontWeight="600">
-              {position.coin}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">{position.coin}</SizableText>
           </XStack>
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Position Size
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_position_size,
+              })}
             </SizableText>
-            <SizableText size="$bodyMd" fontWeight="600">
+            <SizableText size="$bodyMdMedium">
               {positionSize.toNumber()} {position.coin}
             </SizableText>
           </XStack>
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Entry Price
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_entry_price,
+              })}
             </SizableText>
-            <SizableText size="$bodyMd" fontWeight="600">
-              {entryPrice}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">{entryPrice}</SizableText>
           </XStack>
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Mark Price
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_mark_price,
+              })}
             </SizableText>
-            <SizableText size="$bodyMd" fontWeight="600">
-              {markPrice}
-            </SizableText>
+            <SizableText size="$bodyMdMedium">{markPrice}</SizableText>
           </XStack>
         </YStack>
 
@@ -278,10 +278,13 @@ const SetTpslForm = memo(
           leverage={leverage}
           tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
           onChange={handleTpslChange}
+          ifDialog
         />
 
         <TradingFormInput
-          label="Amount"
+          label={appLocale.intl.formatMessage({
+            id: ETranslations.dexmarket_details_history_amount,
+          })}
           value={
             formData.amount || (formData.percentage > 0 ? calculatedAmount : '')
           }
@@ -291,10 +294,7 @@ const SetTpslForm = memo(
             const processedValue = value.replace(/。/g, '.');
             return validateSizeInput(processedValue, szDecimals);
           }}
-          helper={{
-            text: `Max: ${positionSize.toNumber()}`,
-            align: 'right',
-          }}
+          ifDialog
         />
 
         <YStack gap="$2" p="$2">
@@ -314,7 +314,9 @@ const SetTpslForm = memo(
           disabled={isSubmitting}
           loading={isSubmitting}
         >
-          Confirm TP/SL
+          {appLocale.intl.formatMessage({
+            id: ETranslations.perp_confirm_order,
+          })}
         </Button>
       </YStack>
     );
@@ -330,7 +332,12 @@ export function showSetTpslDialog({
   hyperliquidActions,
 }: ISetTpslParams) {
   const dialogInstance = Dialog.show({
-    title: 'TP/SL for Position',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_tp_sl_position,
+    }),
+    description: appLocale.intl.formatMessage({
+      id: ETranslations.perp_tp_sl_position_desc,
+    }),
     renderContent: (
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <SetTpslForm

@@ -17,6 +17,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
   type EHyperLiquidAgentName,
   HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
@@ -550,6 +551,10 @@ function isAccountCompatibleWithNetwork({
     throw new OneKeyLocalError(
       'isAccountCompatibleWithNetwork ERROR: networkId is not defined',
     );
+  }
+
+  if (networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID) {
+    return true;
   }
 
   const impl = networkUtils.getNetworkImpl({ networkId });

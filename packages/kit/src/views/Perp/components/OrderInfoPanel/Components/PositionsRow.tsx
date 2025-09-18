@@ -6,6 +6,7 @@ import {
   Button,
   IconButton,
   SizableText,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -128,6 +129,15 @@ const PositionRow = memo(
           currency: '$',
         },
       });
+      const fundingFormattedSinceChange = numberFormat(
+        pos.cumFunding.sinceChange,
+        {
+          formatter: 'value',
+          formatterOptions: {
+            currency: '$',
+          },
+        },
+      );
       const roiPercent = marginUsedBN.gt(0)
         ? pnlBn.div(marginUsedBN).times(100).abs().toFixed(2)
         : '0';
@@ -135,6 +145,7 @@ const PositionRow = memo(
         unrealizedPnl: pnlFormatted,
         marginUsedFormatted,
         fundingFormatted,
+        fundingFormattedSinceChange,
         roiPercent,
         pnlColor,
         pnlPlusOrMinus,
@@ -253,9 +264,18 @@ const PositionRow = memo(
               <SizableText size="$bodySm" color="$textSubdued">
                 Funding
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${otherInfo.fundingFormatted as string}`}
-              </SizableText>
+              <Tooltip
+                renderTrigger={
+                  <SizableText size="$bodySm" color="$textCritical">
+                    {`-${otherInfo.fundingFormatted as string}`}
+                  </SizableText>
+                }
+                renderContent={`allTime: -${
+                  otherInfo.fundingFormatted as string
+                } sinceChange: -${
+                  otherInfo.fundingFormattedSinceChange as string
+                }`}
+              />
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -426,11 +446,19 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[7].align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${otherInfo.fundingFormatted as string}`}</SizableText>
+          <Tooltip
+            renderTrigger={
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySm"
+                color="$textCritical"
+              >{`-${otherInfo.fundingFormatted as string}`}</SizableText>
+            }
+            renderContent={`allTime: -${
+              otherInfo.fundingFormatted as string
+            } sinceChange: -${otherInfo.fundingFormattedSinceChange as string}`}
+          />
         </XStack>
 
         {/* TPSL */}
