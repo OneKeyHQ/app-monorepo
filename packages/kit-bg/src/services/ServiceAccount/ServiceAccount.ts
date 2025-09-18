@@ -1362,9 +1362,8 @@ class ServiceAccount extends ServiceBase {
       accountId?: string;
     },
   ): Promise<boolean> {
-    // If address record doesn't exist, all associated accounts are deleted
     if (!addressRecord) {
-      return true;
+      return false;
     }
 
     // Check if the deleted wallet is in the address record's wallets

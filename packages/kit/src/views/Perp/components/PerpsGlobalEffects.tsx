@@ -6,6 +6,7 @@ import { useUpdateEffect } from '@onekeyhq/components';
 import {
   useAccountIsAutoCreatingAtom,
   useIndexedAccountAddressCreationStateAtom,
+  usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   perpsSelectedSymbolAtom,
@@ -298,11 +299,43 @@ function useHyperliquidSymbolSelect() {
   }, [actions]);
 }
 
+function useHyperliquidScreenLockHandler() {
+  const [{ unLock }] = usePasswordAtom();
+  const prevUnLockRef = useRef<boolean | null>(null);
+  const isFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+  const checkPerpsAccountStatus = useCallback(async () => {
+    await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+  }, []);
+
+  useEffect(() => {
+    if (prevUnLockRef.current === null) {
+      prevUnLockRef.current = unLock;
+      return;
+    }
+
+    if (prevUnLockRef.current !== unLock) {
+      if (unLock) {
+        // Screen unlocked - restore status
+        if (isFocusedRef.current) {
+          void checkPerpsAccountStatus();
+        }
+      } else {
+        // Screen locked - dispose clients
+        void backgroundApiProxy.serviceHyperliquid.disposeExchangeClients();
+      }
+      prevUnLockRef.current = unLock;
+    }
+  }, [unLock, checkPerpsAccountStatus]);
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   useHyperliquidSymbolSelect();
+  useHyperliquidScreenLockHandler();
 
   return null;
 }

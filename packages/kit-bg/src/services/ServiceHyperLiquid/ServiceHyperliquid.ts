@@ -637,4 +637,19 @@ export default class ServiceHyperliquid extends ServiceBase {
   async dispose(): Promise<void> {
     // Cleanup resources if needed
   }
+
+  @backgroundMethod()
+  async disposeExchangeClients() {
+    await this.exchangeService.dispose();
+    await perpsSelectedAccountStatusAtom.set({
+      accountAddress: null,
+      canTrade: false,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        builderFeeOk: false,
+        referralCodeOk: false,
+      },
+    });
+  }
 }
