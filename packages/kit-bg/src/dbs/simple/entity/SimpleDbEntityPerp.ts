@@ -1,5 +1,8 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IMarginTables,
+  IPerpsUniverse,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -24,6 +27,7 @@ export interface ISimpleDbPerpData {
   >;
   hyperliquidCurrentToken?: string;
   tradingUniverse: IPerpsUniverse[] | undefined;
+  marginTables: IMarginTables | undefined;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -38,10 +42,23 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
-  async setTradingUniverse(universe: IPerpsUniverse[]) {
+  async getMarginTables(): Promise<IMarginTables | undefined> {
+    const config = await this.getPerpData();
+    return config.marginTables;
+  }
+
+  @backgroundMethod()
+  async setTradingUniverse({
+    universe,
+    marginTables,
+  }: {
+    universe: IPerpsUniverse[];
+    marginTables: IMarginTables;
+  }) {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
+        marginTables,
         tradingUniverse: universe,
       }),
     );
@@ -53,6 +70,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     return (
       config || {
         tradingUniverse: [],
+        marginTables: [],
       }
     );
   }
@@ -90,6 +108,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         tradingUniverse: prevConfig?.tradingUniverse,
+        marginTables: prevConfig?.marginTables,
         hyperliquidCurrentToken: token,
       }),
     );
