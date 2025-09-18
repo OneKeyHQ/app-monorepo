@@ -72,53 +72,30 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
     @try {
         // Parse the public key
         NSData *publicKeyData = [PUBLIC_KEY dataUsingEncoding:NSUTF8StringEncoding];
-        NSArray<PGPKey *> *publicKeys = [ObjectivePGP readKeysFromData:publicKeyData];
-        
-        if (publicKeys.count == 0) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"VerificationError" code:1003 userInfo:@{NSLocalizedDescriptionKey: @"Failed to parse public key"}];
-            }
+      
+        NSError *publicKeyError = nil;
+        NSArray<PGPKey *> *publicKeys = [ObjectivePGP readKeysFromData:publicKeyData error:&publicKeyError];
+
+        if (publicKeyError) {
+            DDLogError(@"Failed to parse public key: %@", publicKeyError.localizedDescription);
             return nil;
         }
-        
-        PGPKey *publicKey = publicKeys.firstObject;
         
         // Parse the signed message
         NSData *signedMessageData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
         
         // Verify the signature and extract clear text
         NSError *verifyError = nil;
-        NSData *verifiedData = [ObjectivePGP verify:signedMessageData withKeys:@[publicKey] error:&verifyError];
+        BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:keys passphraseForKey:nil error:&error];
         
-        if (verifyError || !verifiedData) {
+        if (!verified || verifyError) {
             DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
-            if (error) {
-                *error = [NSError errorWithDomain:@"VerificationError" code:1004 userInfo:@{NSLocalizedDescriptionKey: @"PGP signature verification failed"}];
-            }
             return nil;
         }
         
-        // Convert verified data to string
-        NSString *verifiedContent = [[NSString alloc] initWithData:verifiedData encoding:NSUTF8StringEncoding];
-        
-        if (!verifiedContent) {
-            if (error) {
-                *error = [NSError errorWithDomain:@"VerificationError" code:1005 userInfo:@{NSLocalizedDescriptionKey: @"Failed to convert verified data to string"}];
-            }
-            return nil;
-        }
-        
-        // Remove trailing whitespace and newlines, similar to Java implementation
-        NSString *trimmedContent = [verifiedContent stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        
-        DDLogDebug(@"extractedTextContentFromVerifyAscFile: %@", trimmedContent);
-        return trimmedContent;
-        
+        return @"";
     } @catch (NSException *exception) {
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
-        if (error) {
-            *error = [NSError errorWithDomain:@"VerificationError" code:1006 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Exception: %@", exception.reason]}];
-        }
         return nil;
     }
 }
