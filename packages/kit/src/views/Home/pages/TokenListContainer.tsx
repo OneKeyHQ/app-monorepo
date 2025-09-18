@@ -1635,12 +1635,14 @@ function TokenListContainer({
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
           tokenInfo: token,
+          aggregateTokens: aggregateTokenListMapAtom[token.$key]?.tokens ?? [],
           tokenMap: tokenListMapAtom,
         },
       });
     },
     [
       account?.id,
+      aggregateTokenListMapAtom,
       deriveInfo,
       deriveType,
       indexedAccount?.id,
