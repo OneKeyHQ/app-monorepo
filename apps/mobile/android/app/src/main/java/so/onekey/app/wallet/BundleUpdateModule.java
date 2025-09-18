@@ -213,7 +213,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             cacheFile.delete();
         }
         try {
-            extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
+            String content = Verification.extractedTextContentFromVerifyAscFile(ascFileContentString, cacheFilePath);
+            if (content == null || content.isEmpty()) {
+                return null;
+            }
+            JSONObject jsonObject = new JSONObject(content);
+            extractedSha256 = jsonObject.getString("sha256");
             staticLog("extractedSha256", extractedSha256);
         } catch (Exception e) {
             staticLog("AutoUpdateModule", "Error extracting SHA256: " + e.getMessage());
