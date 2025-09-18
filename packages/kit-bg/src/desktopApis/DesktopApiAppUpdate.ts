@@ -346,7 +346,6 @@ class DesktopApiAppUpdate {
     if (this.updateCancellationToken) {
       this.updateCancellationToken.cancel();
     }
-    store.clearUpdateBuildNumber();
     await clearUpdateCache();
     this.updateCancellationToken = new CancellationToken();
 
