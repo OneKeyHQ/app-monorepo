@@ -50,11 +50,13 @@ type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
   hasTokens?: boolean;
+  manageTokenEnabled?: boolean;
 };
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
-  const { tableLayout, hideZeroBalanceTokens, hasTokens } = props;
+  const { tableLayout, hideZeroBalanceTokens, hasTokens, manageTokenEnabled } =
+    props;
   const navigation = useAppNavigation();
   const {
     activeAccount: {
@@ -391,7 +393,7 @@ function TokenListFooter(props: IProps) {
           </XStack>
         </ListItem>
       ) : null}
-      {hasTokens ? (
+      {hasTokens && manageTokenEnabled ? (
         <XStack py="$10" justifyContent="center" gap="$1">
           <SizableText size="$bodyMd" color="$textDisabled">
             {intl.formatMessage({ id: ETranslations.add_token_instruction })}

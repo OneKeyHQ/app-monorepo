@@ -488,6 +488,7 @@ function TokenListViewCmp(props: IProps) {
               tableLayout={tableLayout}
               hideZeroBalanceTokens={hideZeroBalanceTokens}
               hasTokens={filteredTokens.length > 0}
+              manageTokenEnabled={manageTokenEnabled}
             />
           ) : null}
           {footerTipText ? (
