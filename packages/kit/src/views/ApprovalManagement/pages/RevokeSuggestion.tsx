@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalApprovalManagementParamList } from '@onekeyhq/shared/src/routes/approvalManagement';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -63,7 +64,10 @@ function RevokeSuggestion() {
       if (item.isRiskContract) risky += 1;
       if (item.isInactiveApproval) inactive += 1;
     });
-    return { riskyNumber: risky, inactiveNumber: inactive };
+    return {
+      riskyNumber: risky,
+      inactiveNumber: inactive,
+    };
   }, [approvals]);
   const { isSelectAllTokens, selectedCount } = useMemo(() => {
     return approvalUtils.checkIsSelectAllTokens({
@@ -71,6 +75,13 @@ function RevokeSuggestion() {
       selectedTokens,
     });
   }, [approvals, selectedTokens]);
+
+  useEffect(() => {
+    defaultLogger.approval.revokeSuggestion.revokeSuggestionShow({
+      inactiveCount: inactiveNumber,
+      riskyCount: riskyNumber,
+    });
+  }, [inactiveNumber, riskyNumber]);
 
   useEffect(() => {
     // select all tokens by default
@@ -211,13 +222,35 @@ function RevokeSuggestion() {
   }, [approvals, isSelectAllTokens, updateSelectedTokens]);
 
   const handleOnConfirm = useCallback(() => {
+    defaultLogger.approval.revokeSuggestion.revokeSuggestionClick({
+      type: 'revoke',
+      inactiveCount: inactiveNumber,
+      riskyCount: riskyNumber,
+      selectedTokenCount: selectedCount,
+    });
     void navigationToBulkRevokeProcess({
       selectedTokens,
       tokenMap,
       contractMap,
     });
-  }, [navigationToBulkRevokeProcess, selectedTokens, tokenMap, contractMap]);
+  }, [
+    navigationToBulkRevokeProcess,
+    selectedTokens,
+    tokenMap,
+    contractMap,
+    inactiveNumber,
+    riskyNumber,
+    selectedCount,
+  ]);
   const handleOnCancel = useCallback(async () => {
+    if (autoShow) {
+      defaultLogger.approval.revokeSuggestion.revokeSuggestionClick({
+        type: 'skip',
+        inactiveCount: inactiveNumber,
+        riskyCount: riskyNumber,
+      });
+    }
+
     if (autoShow) {
       const tasks: Promise<unknown>[] = [];
       if (riskyNumber > 0) {
