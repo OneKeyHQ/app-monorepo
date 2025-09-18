@@ -38,6 +38,7 @@ import type {
   IHyperliquidCustomSettings,
   ISimpleDbPerpData,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
+import type { ISettingsPersistAtom } from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -201,17 +202,20 @@ class ServiceWebviewPerp extends ServiceBase {
     bannerConfig,
   }: IPerpConfigResponse) {
     let shouldNotifyToDapp = false;
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      perpConfigCommon: {
-        ...prev.perpConfigCommon,
-        usePerpWeb: commonConfig?.usePerpWeb,
-        disablePerp: commonConfig?.disablePerp,
-        disablePerpActionButton: commonConfig?.disablePerpActionButton,
-        perpBannerConfig: bannerConfig,
-        ipDisablePerp: commonConfig?.ipDisablePerp,
-      },
-    }));
+    await settingsPersistAtom.set(
+      (prev): ISettingsPersistAtom => ({
+        ...prev,
+        perpConfigCommon: {
+          ...prev.perpConfigCommon,
+          // usePerpWeb: true,
+          usePerpWeb: commonConfig?.usePerpWeb,
+          disablePerp: commonConfig?.disablePerp,
+          disablePerpActionButton: commonConfig?.disablePerpActionButton,
+          perpBannerConfig: bannerConfig,
+          ipDisablePerp: commonConfig?.ipDisablePerp,
+        },
+      }),
+    );
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {

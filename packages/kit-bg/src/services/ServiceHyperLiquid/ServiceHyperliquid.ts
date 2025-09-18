@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
+import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
@@ -11,6 +12,7 @@ import {
   EHyperLiquidAgentName,
   FALLBACK_BUILDER_ADDRESS,
   FALLBACK_MAX_BUILDER_FEE,
+  HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
   PERPS_CHAIN_ID,
 } from '@onekeyhq/shared/src/consts/perp';
@@ -18,6 +20,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
+  IApiRequestError,
+  IApiRequestResult,
   IFill,
   IHex,
   IPerpsUniverse,
@@ -298,11 +302,16 @@ export default class ServiceHyperliquid extends ServiceBase {
               userAddress: accountAddress,
               agentCredential,
             });
-            // referrer code can be approved by agent
-            void this.exchangeService.setReferrerCode({
-              // TODO use server config
-              code: HYPERLIQUID_REFERRAL_CODE,
-            });
+
+            void (async () => {
+              const { referralCode } =
+                await this.backgroundApi.simpleDb.perp.getPerpData();
+              // referrer code can be approved by agent
+              void this.exchangeService.setReferrerCode({
+                code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+              });
+            })();
+
             // referral code is optional, so we set it to true by default
             statusDetails.referralCodeOk = true;
           }
@@ -364,7 +373,11 @@ export default class ServiceHyperliquid extends ServiceBase {
             });
             if (
               agent.address &&
-              agent.validUntil > now && // TODO more than 1 day
+              agent.validUntil >
+                now +
+                  timerUtils.getTimeDurationMs({
+                    day: 1,
+                  }) &&
               credential?.agentAddress?.toLowerCase() ===
                 agent.address.toLowerCase()
             ) {
@@ -405,7 +418,40 @@ export default class ServiceHyperliquid extends ServiceBase {
               agentName: agentNameToRemove,
             });
             console.log('approveAgentResult::', approveAgentResult);
-            await timerUtils.wait(1000); // wait tx confirmed
+            await timerUtils.wait(4000);
+
+            // Poll to verify agent removal instead of fixed delay
+            const pollStartTime = Date.now();
+            const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
+            const requestTimeoutMs = 3000; // 3 seconds per request timeout
+
+            while (Date.now() - pollStartTime < pollTimeoutMs) {
+              try {
+                const currentExtraAgents = await pTimeout(
+                  infoClient.extraAgents({
+                    user: accountAddress,
+                  }),
+                  {
+                    milliseconds: requestTimeoutMs,
+                  },
+                );
+
+                // Check if the agent was successfully removed
+                if (
+                  !currentExtraAgents.some(
+                    (agent) => agent.name === agentNameToRemove,
+                  )
+                ) {
+                  console.log('Agent removal confirmed:', agentNameToRemove);
+                  break;
+                }
+              } catch (error) {
+                console.log('Polling request failed:', error);
+              }
+
+              // Wait 500ms before next poll attempt
+              await timerUtils.wait(500);
+            }
           }
         }
       }
@@ -421,21 +467,53 @@ export default class ServiceHyperliquid extends ServiceBase {
         agentNameToApprove = EHyperLiquidAgentName.OneKeyAgent1;
       }
 
-      const validUntil =
-        Date.now() +
-        timerUtils.getTimeDurationMs({
-          month: 1,
+      const { agentTTL = HYPERLIQUID_AGENT_TTL_DEFAULT } =
+        await this.backgroundApi.simpleDb.perp.getPerpData();
+
+      const validUntil = Date.now() + agentTTL;
+      // {name} valid_until 1765710491688
+      const agentNameToApproveWithValidUntil = `${agentNameToApprove} valid_until ${validUntil}`;
+      const approveAgentFn = () =>
+        this.exchangeService.approveAgent({
+          agent: agentAddress,
+          agentName: agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
+          // agentName: EHyperLiquidAgentName.Official,
+          authorize: true,
         });
-      const approveAgentResult = await this.exchangeService.approveAgent({
-        agent: agentAddress,
-        agentName: agentNameToApprove,
-        // agentName: EHyperLiquidAgentName.Official,
-        authorize: true,
-        // TODO add validUntil here
-      });
+      let retryTimes = 5;
+      let approveAgentResult: IApiRequestResult | undefined;
+      while (retryTimes >= 0) {
+        try {
+          retryTimes -= 1;
+          approveAgentResult = await approveAgentFn();
+          if (
+            approveAgentResult &&
+            approveAgentResult.status === 'ok' &&
+            approveAgentResult.response.type === 'default'
+          ) {
+            break;
+          }
+        } catch (error) {
+          const requestError = error as IApiRequestError | undefined;
+          console.log('approveAgentError::', requestError);
+          if (
+            requestError?.response &&
+            requestError?.response.status === 'err' &&
+            requestError?.response.response === 'User has pending agent removal'
+          ) {
+            if (retryTimes <= 0) {
+              throw error;
+            }
+          } else {
+            throw error;
+          }
+        }
+        await timerUtils.wait(500);
+      }
 
       console.log('approveAgentResult::', approveAgentResult);
       if (
+        approveAgentResult &&
         approveAgentResult.status === 'ok' &&
         approveAgentResult.response.type === 'default'
       ) {
@@ -445,7 +523,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           });
 
         const { credentialId } =
-          await this.backgroundApi.serviceAccount.addHyperLiquidAgentCredential(
+          await this.backgroundApi.serviceAccount.addOrUpdateHyperLiquidAgentCredential(
             {
               userAddress: accountAddress,
               agentAddress,

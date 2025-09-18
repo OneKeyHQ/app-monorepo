@@ -1,9 +1,12 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import {
+  HYPERLIQUID_AGENT_TTL_DEFAULT,
+  HYPERLIQUID_REFERRAL_CODE,
+} from '@onekeyhq/shared/src/consts/perp';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
-
-import type { IPerpBannerConfig } from '../../../services/ServiceWebviewPerp/ServiceWebviewPerp';
 
 export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
@@ -24,12 +27,34 @@ export interface ISimpleDbPerpData {
   >;
   hyperliquidCurrentToken?: string;
   tradingUniverse: IPerpsUniverse[] | undefined;
+  agentTTL?: number; // in milliseconds
+  referralCode?: string;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   entityName = 'perp';
 
   override enableCache = true;
+
+  @backgroundMethod()
+  async getPerpData(): Promise<ISimpleDbPerpData> {
+    const config = await this.getRawData();
+    const result = config || {
+      tradingUniverse: [],
+    };
+    result.agentTTL = result.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
+    result.referralCode = result.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
+    return result;
+  }
+
+  @backgroundMethod()
+  async setPerpData(
+    setFn: (
+      prevConfig: ISimpleDbPerpData | null | undefined,
+    ) => ISimpleDbPerpData,
+  ) {
+    await this.setRawData(setFn);
+  }
 
   @backgroundMethod()
   async getTradingUniverse(): Promise<IPerpsUniverse[] | undefined> {
@@ -45,25 +70,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         tradingUniverse: universe,
       }),
     );
-  }
-
-  @backgroundMethod()
-  async getPerpData(): Promise<ISimpleDbPerpData> {
-    const config = await this.getRawData();
-    return (
-      config || {
-        tradingUniverse: [],
-      }
-    );
-  }
-
-  @backgroundMethod()
-  async setPerpData(
-    setFn: (
-      prevConfig: ISimpleDbPerpData | null | undefined,
-    ) => ISimpleDbPerpData,
-  ) {
-    await this.setRawData(setFn);
   }
 
   @backgroundMethod()
