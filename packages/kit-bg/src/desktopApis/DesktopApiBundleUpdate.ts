@@ -63,7 +63,7 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
-  getDownloadFileName() {
+  getDownloadDir() {
     const tempDir = path.join(
       app.getPath('userData'),
       'onekey-bundle-download',
@@ -71,7 +71,7 @@ class DesktopApiAppBundleUpdate {
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
-    logger.info('bundle-download-getDownloadFileName', tempDir);
+    logger.info('bundle-download-getDownloadDir', tempDir);
     return tempDir;
   }
 
@@ -101,7 +101,7 @@ class DesktopApiAppBundleUpdate {
     this.isDownloading = true;
     return new Promise<IUpdateDownloadedEvent>((resolve, reject) => {
       setTimeout(async () => {
-        const tempDir = this.getDownloadFileName();
+        const tempDir = this.getDownloadDir();
         logger.info('bundle-download', {
           tempDir,
         });
@@ -408,7 +408,7 @@ class DesktopApiAppBundleUpdate {
     return new Promise<void>((resolve) => {
       setTimeout(() => {
         this.cancelCurrentDownload?.();
-        const downloadDir = this.getDownloadFileName();
+        const downloadDir = this.getDownloadDir();
         fs.rmSync(downloadDir, { recursive: true });
         resolve();
       }, 100);
@@ -422,7 +422,6 @@ class DesktopApiAppBundleUpdate {
 
   async clearBundle() {
     await this.clearDownload();
-    await this.clearBundleExtract();
     return new Promise<void>((resolve) => {
       setTimeout(() => {
         resolve();
