@@ -1,6 +1,7 @@
 #import "Verification.h"
 #import <CommonCrypto/CommonDigest.h>
 #import <CocoaLumberjack/CocoaLumberjack.h>
+#import <ObjectivePGP/ObjectivePGP.h>
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
@@ -68,40 +69,77 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
         return nil;
     }
     
-    // For iOS, we'll implement a simplified GPG verification
-    // In a production environment, you would use a proper GPG library like ObjectivePGP
-    
-    // First, let's try to extract the clear text content from the armored signature
-    NSArray *lines = [ascFileContent componentsSeparatedByString:@"\n"];
-    NSMutableString *clearTextContent = [NSMutableString string];
-    BOOL inClearText = NO;
-    
-    for (NSString *line in lines) {
-        if ([line hasPrefix:@"-----BEGIN PGP SIGNED MESSAGE-----"]) {
-            inClearText = YES;
-            continue;
+    @try {
+        // Parse the public key
+        NSData *publicKeyData = [PUBLIC_KEY dataUsingEncoding:NSUTF8StringEncoding];
+        NSArray<PGPKey *> *publicKeys = [ObjectivePGP readKeysFromData:publicKeyData];
+        
+        if (publicKeys.count == 0) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1003 userInfo:@{NSLocalizedDescriptionKey: @"Failed to parse public key"}];
+            }
+            return nil;
         }
-        if ([line hasPrefix:@"-----BEGIN PGP SIGNATURE-----"]) {
-            break;
+        
+        PGPKey *publicKey = publicKeys.firstObject;
+        
+        // Parse the signed message
+        NSData *signedMessageData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
+        
+        // Verify the signature and extract clear text
+        NSError *verifyError = nil;
+        NSData *verifiedData = [ObjectivePGP verify:signedMessageData withKeys:@[publicKey] error:&verifyError];
+        
+        if (verifyError || !verifiedData) {
+            DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1004 userInfo:@{NSLocalizedDescriptionKey: @"PGP signature verification failed"}];
+            }
+            return nil;
         }
-        if (inClearText && ![line hasPrefix:@"Hash:"] && ![line hasPrefix:@"-----"]) {
-            [clearTextContent appendString:line];
-            [clearTextContent appendString:@"\n"];
+        
+        // Convert verified data to string
+        NSString *verifiedContent = [[NSString alloc] initWithData:verifiedData encoding:NSUTF8StringEncoding];
+        
+        if (!verifiedContent) {
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1005 userInfo:@{NSLocalizedDescriptionKey: @"Failed to convert verified data to string"}];
+            }
+            return nil;
         }
-    }
-    
-    // Remove trailing whitespace and newlines
-    NSString *trimmedContent = [clearTextContent stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    
-    if (trimmedContent.length == 0) {
+        
+        // Remove trailing whitespace and newlines, similar to Java implementation
+        NSString *trimmedContent = [verifiedContent stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        
+        DDLogDebug(@"extractedTextContentFromVerifyAscFile: %@", trimmedContent);
+        return trimmedContent;
+        
+    } @catch (NSException *exception) {
+        DDLogError(@"Exception during PGP verification: %@", exception.reason);
         if (error) {
-            *error = [NSError errorWithDomain:@"VerificationError" code:1002 userInfo:@{NSLocalizedDescriptionKey: @"No clear text content found"}];
+            *error = [NSError errorWithDomain:@"VerificationError" code:1006 userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Exception: %@", exception.reason]}];
         }
         return nil;
     }
+}
+
++ (NSString *)extractedSha256FromVerifyAscFile:(NSString *)ascFileContent cacheFilePath:(NSString *)cacheFilePath error:(NSError **)error {
+    NSString *extractedTextContent = [self extractedTextContentFromVerifyAscFile:ascFileContent cacheFilePath:cacheFilePath error:error];
     
-    DDLogDebug(@"extractedTextContentFromVerifyAscFile: %@", trimmedContent);
-    return trimmedContent;
+    if (!extractedTextContent) {
+        return nil;
+    }
+    
+    // Extract SHA256 from the first part of the content (similar to Java implementation)
+    NSArray *components = [extractedTextContent componentsSeparatedByString:@" "];
+    if (components.count > 0) {
+        return components.firstObject;
+    }
+    
+    if (error) {
+        *error = [NSError errorWithDomain:@"VerificationError" code:1007 userInfo:@{NSLocalizedDescriptionKey: @"Failed to extract SHA256 from verified content"}];
+    }
+    return nil;
 }
 
 @end
