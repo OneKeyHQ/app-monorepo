@@ -31,6 +31,7 @@ public class AppDelegate: ExpoAppDelegate {
 #endif
     // Save launch options to LaunchOptionsManager
     LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
+    UIApplication.shared.registerForRemoteNotifications()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
