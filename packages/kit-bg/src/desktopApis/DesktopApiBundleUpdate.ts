@@ -9,6 +9,8 @@ import logger from 'electron-log/main';
 import { readCleartextMessage, readKey } from 'openpgp';
 
 import {
+  getBundleDirName,
+  getBundleExtractDir,
   verifyMetadataFileSha256,
   verifySha256,
 } from '@onekeyhq/desktop/app/bundle';
@@ -69,15 +71,6 @@ class DesktopApiAppBundleUpdate {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     logger.info('bundle-download-getDownloadDir', tempDir);
-    return tempDir;
-  }
-
-  getBundleDirName() {
-    const tempDir = path.join(app.getPath('userData'), 'onekey-bundle');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    logger.info('bundle-download-getBundleDirName', tempDir);
     return tempDir;
   }
 
@@ -277,18 +270,6 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
-  getBundleExtractDir({
-    appVersion,
-    bundleVersion,
-  }: {
-    bundleDir: string;
-    appVersion: string;
-    bundleVersion: string;
-  }) {
-    const bundleDir = this.getBundleDirName();
-    return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
-  }
-
   getBundleBuildPath({
     appVersion,
     bundleVersion,
@@ -296,7 +277,7 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
-    const bundleDir = this.getBundleDirName();
+    const bundleDir = getBundleDirName();
     return path.join(bundleDir, `${appVersion}-${bundleVersion}`, 'build');
   }
 
@@ -307,7 +288,7 @@ class DesktopApiAppBundleUpdate {
     appVersion: string;
     bundleVersion: string;
   }) {
-    const bundleDir = this.getBundleDirName();
+    const bundleDir = getBundleDirName();
     return path.join(
       bundleDir,
       `${appVersion}-${bundleVersion}`,
@@ -423,13 +404,11 @@ class DesktopApiAppBundleUpdate {
     ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    const bundleDir = this.getBundleDirName();
     const isBundleVerified = verifySha256(downloadedFile, sha256);
     if (!isBundleVerified) {
       throw new OneKeyLocalError('Invalid bundle file');
     }
-    const extractDir = this.getBundleExtractDir({
-      bundleDir,
+    const extractDir = getBundleExtractDir({
       appVersion,
       bundleVersion,
     });
@@ -472,7 +451,7 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearBundleExtract() {
-    const bundleDir = this.getBundleDirName();
+    const bundleDir = getBundleDirName();
     fs.rmSync(bundleDir, { recursive: true });
   }
 
