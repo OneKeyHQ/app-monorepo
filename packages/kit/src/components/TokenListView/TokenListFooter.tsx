@@ -106,7 +106,7 @@ function TokenListFooter(props: IProps) {
   );
 
   const filteredSmallBalanceTokens = useMemo(() => {
-    if (hideZeroBalanceTokens && network?.isAllNetworks) {
+    if (hideZeroBalanceTokens) {
       return smallBalanceTokens.filter((token) => {
         const tokenBalance = new BigNumber(
           smallBalanceTokenListMap[token.$key]?.balance ??
@@ -125,13 +125,12 @@ function TokenListFooter(props: IProps) {
   }, [
     smallBalanceTokens,
     hideZeroBalanceTokens,
-    network?.isAllNetworks,
     smallBalanceTokenListMap,
     aggregateTokensMap,
   ]);
 
   const filteredRiskyTokens = useMemo(() => {
-    if (hideZeroBalanceTokens && network?.isAllNetworks) {
+    if (hideZeroBalanceTokens) {
       return riskyTokens.filter((token) => {
         const tokenBalance = new BigNumber(
           riskyTokenListMap[token.$key]?.balance ??
@@ -150,7 +149,6 @@ function TokenListFooter(props: IProps) {
   }, [
     riskyTokens,
     hideZeroBalanceTokens,
-    network?.isAllNetworks,
     riskyTokenListMap,
     aggregateTokensMap,
   ]);

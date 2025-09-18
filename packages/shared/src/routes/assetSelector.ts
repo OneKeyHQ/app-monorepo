@@ -83,6 +83,7 @@ export type IAggregateTokenSelectorParams = {
   onSelect: (token: IAccountToken) => void | Promise<void>;
   closeAfterSelect?: boolean;
   enableNetworkAfterSelect?: boolean;
+  hideZeroBalanceTokens?: boolean;
 };
 
 export type IAssetSelectorParamList = {
