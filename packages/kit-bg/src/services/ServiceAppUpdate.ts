@@ -2,9 +2,8 @@ import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
   EUpdateStrategy,
+  gtVersion,
   isFirstLaunchAfterUpdated,
-  isNeedUpdate,
-  isVersionEqual,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundClass,
@@ -338,7 +337,7 @@ class ServiceAppUpdate extends ServiceBase {
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
-      const shouldUpdate = isVersionEqual(
+      const shouldUpdate = gtVersion(
         releaseInfo.version,
         releaseInfo.jsBundleVersion,
       );
