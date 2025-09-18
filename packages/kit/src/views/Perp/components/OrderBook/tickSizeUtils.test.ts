@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 
-import { getPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { getDisplayPriceScaleDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { buildTickOptions } from './tickSizeUtils';
 
@@ -66,12 +66,29 @@ const fixtures = {
       { targetTick: 0.1, nSigFigs: 2, mantissa: null },
     ],
   },
+  MEME: {
+    price: 0.002_699,
+    decimals: 6,
+    options: [
+      { targetTick: 0.000_001, nSigFigs: 4, mantissa: null },
+      { targetTick: 0.000_01, nSigFigs: 3, mantissa: null },
+      { targetTick: 0.0001, nSigFigs: 2, mantissa: null },
+    ],
+  },
+  HMSTR: {
+    price: 0.000_749,
+    decimals: 6,
+    options: [
+      { targetTick: 0.000_001, nSigFigs: 3, mantissa: null },
+      { targetTick: 0.000_01, nSigFigs: 2, mantissa: null },
+    ],
+  },
 };
 
 describe('fixtures map', () => {
   Object.entries(fixtures).forEach(([symbol, cfg]) => {
     it(`${symbol} options should match fixtures`, () => {
-      const priceDecimals = getPriceScaleDecimals(cfg.price);
+      const priceDecimals = getDisplayPriceScaleDecimals(cfg.price);
       expect(cfg.decimals).toBe(priceDecimals);
       const decimalsArg =
         priceDecimals === 0

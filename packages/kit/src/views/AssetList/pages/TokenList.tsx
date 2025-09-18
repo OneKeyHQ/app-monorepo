@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce, isString, uniqBy } from 'lodash';
+import { debounce, isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -23,7 +23,6 @@ import type {
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
-import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
@@ -120,11 +119,13 @@ function TokenList() {
         isAllNetworks,
         indexedAccountId: indexedAccountId ?? '',
         tokenInfo: token,
+        aggregateTokens: aggregateTokensListMap?.[token.$key]?.tokens ?? [],
         tokenMap,
       });
     },
     [
       accountId,
+      aggregateTokensListMap,
       deriveInfo,
       deriveType,
       indexedAccountId,

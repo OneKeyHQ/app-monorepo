@@ -102,29 +102,27 @@ function TokenDetailsViews(props: IProps) {
 
   if (!currentAccountId) {
     return (
-      <Stack height="100%" flex={1} justifyContent="center">
-        <Empty
-          testID="TokenDetailsViews__Wallet-No-Address-Empty"
-          title={intl.formatMessage({ id: ETranslations.wallet_no_address })}
-          description={intl.formatMessage({
-            id: ETranslations.wallet_no_address_desc,
-          })}
-          button={
-            <AccountSelectorCreateAddressButton
-              num={num}
-              selectAfterCreate
-              account={{
-                walletId,
-                networkId,
-                indexedAccountId,
-                deriveType,
-              }}
-              buttonRender={Empty.Button}
-              onCreateDone={handleCreateAccount}
-            />
-          }
-        />
-      </Stack>
+      <Empty
+        mt={160}
+        testID="TokenDetailsViews__Wallet-No-Address-Empty"
+        description={intl.formatMessage({
+          id: ETranslations.wallet_no_address_desc,
+        })}
+        button={
+          <AccountSelectorCreateAddressButton
+            num={num}
+            selectAfterCreate
+            account={{
+              walletId,
+              networkId,
+              indexedAccountId,
+              deriveType,
+            }}
+            buttonRender={Empty.Button}
+            onCreateDone={handleCreateAccount}
+          />
+        }
+      />
     );
   }
   return (

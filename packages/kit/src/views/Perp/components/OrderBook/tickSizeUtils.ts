@@ -39,12 +39,29 @@ function allowedPairs(price: number) {
   const e = floorLog10(price);
 
   return [
-    { n: 2 as const, step: 10 ** (e - (2 - 1)) }, // 10^(e-1)
-    { n: 3 as const, step: 10 ** (e - (3 - 1)) }, // 10^(e-2)
-    { n: 4 as const, step: 10 ** (e - (4 - 1)) }, // 10^(e-3)
-    { n: 5 as const, step: 1 * 10 ** (e - 4) }, // Changed: removed mantissa: 1, use null instead
-    { n: 5 as const, m: 2 as IMantissa, step: 2 * 10 ** (e - 4) },
-    { n: 5 as const, m: 5 as IMantissa, step: 5 * 10 ** (e - 4) },
+    { n: 2 as const, step: new BigNumber(10).pow(e - 1).toNumber() }, // 10^(e-1)
+    { n: 3 as const, step: new BigNumber(10).pow(e - 2).toNumber() }, // 10^(e-2)
+    { n: 4 as const, step: new BigNumber(10).pow(e - 3).toNumber() }, // 10^(e-3)
+    {
+      n: 5 as const,
+      step: new BigNumber(1)
+        .multipliedBy(new BigNumber(10).pow(e - 4))
+        .toNumber(),
+    }, // 1 * 10^(e-4)
+    {
+      n: 5 as const,
+      m: 2 as IMantissa,
+      step: new BigNumber(2)
+        .multipliedBy(new BigNumber(10).pow(e - 4))
+        .toNumber(),
+    }, // 2 * 10^(e-4)
+    {
+      n: 5 as const,
+      m: 5 as IMantissa,
+      step: new BigNumber(5)
+        .multipliedBy(new BigNumber(10).pow(e - 4))
+        .toNumber(),
+    }, // 5 * 10^(e-4)
   ];
 }
 
@@ -67,14 +84,14 @@ function mapTickToParams(
 
   if (exact) {
     return {
-      targetTick: tickSize,
+      targetTick: exact.step,
       nSigFigs: exact.n,
       mantissa: 'm' in exact ? exact.m : undefined,
       apiTick: exact.step,
       exact: true,
       multiplier: NaN, // Will be set by caller
-      label: tickSize.toString(),
-      value: tickSize.toString(),
+      label: exact.step.toString(),
+      value: exact.step.toString(),
     };
   }
 
@@ -86,14 +103,14 @@ function mapTickToParams(
   const nearest = nearestResult!.p;
 
   return {
-    targetTick: tickSize,
+    targetTick: nearest.step,
     nSigFigs: nearest.n,
     mantissa: 'm' in nearest ? nearest.m : undefined,
     apiTick: nearest.step,
     exact: false,
     multiplier: NaN, // Will be set by caller
-    label: tickSize.toString(),
-    value: tickSize.toString(),
+    label: nearest.step.toString(),
+    value: nearest.step.toString(),
   };
 }
 
@@ -118,11 +135,11 @@ export function buildTickOptions(
   const defaultMultipliers =
     decimals === 0
       ? [1, 10, 20, 50, 100, 1000, 10_000] // For integer-only tokens
-      : [1, 2, 5, 10, 100, 1000]; // For decimal tokens
+      : [0.1, 1, 2, 5, 10, 100, 1000]; // For decimal tokens
 
   const actualMultipliers = multipliers ?? defaultMultipliers;
 
-  return actualMultipliers.map((mul) => {
+  const results = actualMultipliers.map((mul) => {
     let target: number;
 
     if (decimals === 0) {
@@ -154,6 +171,27 @@ export function buildTickOptions(
     mapped.multiplier = mul;
     return mapped;
   });
+
+  // Remove duplicates based on apiTick values
+  const uniqueResults: ITickParam[] = [];
+  const seenApiTicks = new Set<number>();
+
+  for (const result of results) {
+    // Use precise comparison for apiTick deduplication
+    const roundedApiTick = new BigNumber(result.apiTick).toFixed(15);
+    const apiTickKey = parseFloat(roundedApiTick);
+
+    if (!seenApiTicks.has(apiTickKey)) {
+      seenApiTicks.add(apiTickKey);
+      uniqueResults.push(result);
+    }
+  }
+
+  const sanitizedResults = uniqueResults.filter(
+    (result) => result.targetTick >= 1e-6,
+  );
+
+  return sanitizedResults;
 }
 
 /**

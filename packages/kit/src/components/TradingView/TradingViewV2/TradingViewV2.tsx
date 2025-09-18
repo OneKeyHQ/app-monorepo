@@ -4,6 +4,7 @@ import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
 import { useTradingViewUrl } from '../hooks';
@@ -44,6 +45,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
+  const isVisible = useRouteIsFocused();
 
   const {
     onLoadEnd,
@@ -81,14 +83,14 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isNative,
+    enabled: isVisible && isNative,
   });
 
   useAutoTokenDetailUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: true,
+    enabled: isVisible,
   });
 
   // Enhanced WebSocket connection for real-time market data
@@ -96,8 +98,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
-    enabled: !isNative,
-    enableOHLCV: true,
+    enabled: isVisible && !isNative,
     chartType: '1m',
     currency: 'usd',
   });

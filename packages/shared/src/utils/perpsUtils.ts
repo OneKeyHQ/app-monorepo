@@ -163,6 +163,42 @@ function getPriceScaleDecimals(marketPrice: string | number): number {
 }
 
 /**
+ * Determine decimal precision for UI display.
+ *
+ * Keeps the strict HyperLiquid baseline but, when prices are below 1, preserves
+ * the natural decimal length (capped by MAX_DECIMALS_PERP) so that tiny price
+ * increments are visible in the UI even if they exceed the trading constraint.
+ */
+function getDisplayPriceScaleDecimals(marketPrice: string | number): number {
+  const baseline = getPriceScaleDecimals(marketPrice);
+  const price = new BigNumber(marketPrice);
+
+  if (!price.isFinite() || price.isLessThanOrEqualTo(0)) {
+    return baseline;
+  }
+
+  if (price.isGreaterThanOrEqualTo(1)) {
+    return baseline;
+  }
+
+  const priceStr = price.toFixed();
+  const decimalIndex = priceStr.indexOf('.');
+  if (decimalIndex === -1) {
+    return baseline;
+  }
+
+  const actualDecimals = priceStr.length - decimalIndex - 1;
+  const clampedActual = Math.min(actualDecimals, MAX_DECIMALS_PERP);
+
+  return Math.max(baseline, clampedActual);
+}
+
+function calculateDisplayPriceScale(marketPrice: string | number): number {
+  const validDecimals = getDisplayPriceScaleDecimals(marketPrice);
+  return new BigNumber(10).pow(validDecimals).toNumber();
+}
+
+/**
  * Calculate price scale (10^decimals) for TradingView based on valid decimals
  *
  * @param marketPrice - The market price to analyze
@@ -685,7 +721,9 @@ export {
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
+  getDisplayPriceScaleDecimals,
   calculatePriceScale,
+  calculateDisplayPriceScale,
   formatPriceToValid,
   analyzeOrderBookPrecision,
   formatWithPrecision,
@@ -706,7 +744,9 @@ export default {
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
+  getDisplayPriceScaleDecimals,
   calculatePriceScale,
+  calculateDisplayPriceScale,
   formatPriceToValid,
   analyzeOrderBookPrecision,
   formatWithPrecision,
