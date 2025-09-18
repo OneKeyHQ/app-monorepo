@@ -69,15 +69,15 @@ jobs:
       - name: Modify build.gradle
         uses: OneKeyHQ/actions/build-gradle-edit@main
         with:
-          versionCode: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ env.BUILD_APP_VERSION }}
+          versionCode: '20250930800'
+          versionName: '9999.1.4'
           packageName: 'so.onekey.app.wallet'
           android_dir: ./apps/mobile
 
       - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server
-          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+          echo "BUILD_NUMBER=20250930800" >> .env.version
 
       - name: Write .sentry.properties
         run: |
