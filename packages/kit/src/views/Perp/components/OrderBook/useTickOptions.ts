@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   analyzeOrderBookPrecision,
-  getPriceScaleDecimals,
+  getDisplayPriceScaleDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -52,7 +52,7 @@ export function useTickOptions({
     const marketPrice = topBidPrice || topAskPrice || '0';
     if (marketPrice === '0') return null;
 
-    const priceDecimals = getPriceScaleDecimals(marketPrice);
+    const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
 
     // Handle edge case: when priceDecimals = 0, use 1 as base decimal
     const decimalsArg =

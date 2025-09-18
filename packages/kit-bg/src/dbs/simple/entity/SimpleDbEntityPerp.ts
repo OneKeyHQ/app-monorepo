@@ -3,8 +3,10 @@ import {
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IMarginTables,
+  IPerpsUniverse,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -27,6 +29,7 @@ export interface ISimpleDbPerpData {
   >;
   hyperliquidCurrentToken?: string;
   tradingUniverse: IPerpsUniverse[] | undefined;
+  marginTables: IMarginTables | undefined;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
 }
@@ -41,6 +44,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     const config = await this.getRawData();
     const result = config || {
       tradingUniverse: [],
+      marginTables: [],
     };
     result.agentTTL = result.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
     result.referralCode = result.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
@@ -63,10 +67,23 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
-  async setTradingUniverse(universe: IPerpsUniverse[]) {
+  async getMarginTables(): Promise<IMarginTables | undefined> {
+    const config = await this.getPerpData();
+    return config.marginTables;
+  }
+
+  @backgroundMethod()
+  async setTradingUniverse({
+    universe,
+    marginTables,
+  }: {
+    universe: IPerpsUniverse[];
+    marginTables: IMarginTables;
+  }) {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
+        marginTables,
         tradingUniverse: universe,
       }),
     );
@@ -96,6 +113,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
         tradingUniverse: prevConfig?.tradingUniverse,
+        marginTables: prevConfig?.marginTables,
         hyperliquidCurrentToken: token,
       }),
     );

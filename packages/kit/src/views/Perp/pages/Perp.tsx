@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 
-import { Page, useMedia } from '@onekeyhq/components';
+import { Image, Page, XStack, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -23,6 +23,7 @@ function PerpLayout() {
 }
 
 function PerpContent() {
+  const { gtSm } = useMedia();
   return (
     <Page>
       <TabPageHeader
@@ -45,6 +46,25 @@ function PerpContent() {
       <Page.Body>
         <PerpLayout />
       </Page.Body>
+      {gtSm ? (
+        <Page.Footer>
+          <XStack
+            borderTopWidth="$px"
+            borderTopColor="$borderSubdued"
+            bg="$bgApp"
+            h={40}
+            alignItems="center"
+            p="$4"
+            justifyContent="flex-end"
+          >
+            <Image
+              source={require('../../../../assets/PoweredByHyperliquid.svg')}
+              size={170}
+              resizeMode="contain"
+            />
+          </XStack>
+        </Page.Footer>
+      ) : null}
     </Page>
   );
 }

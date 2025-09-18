@@ -1,16 +1,15 @@
-name: release-desktop
+name: release-native-bundle
 
 on:
   workflow_run:
     workflows:
       - daily-build
-      - daily-build-dev
     types:
       - completed
   workflow_dispatch:
 
 jobs:
-  release-desktop:
+  release-native-bundle:
     runs-on: macos-latest
     strategy:
       matrix:
@@ -27,11 +26,11 @@ jobs:
         with:
           lfs: true
 
-      - name: Run Shared Env Setup  
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
-          env_file_name: ".env"
-          sentry_project: 'desktop'
+          env_file_name: '.env'
+          sentry_project: 'desktop-mas'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
           sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -42,13 +41,11 @@ jobs:
           sentry_dsn_winms: ${{ secrets.SENTRY_DSN_WINMS }}
           sentry_dsn_ext: ${{ secrets.SENTRY_DSN_EXT }}
 
-
       - name: 'Setup ENV'
         run: |
           eval "$(node -e 'const v=require("./apps/desktop/package.json").version; console.log("pkg_version="+v)')"
           echo '$pkg_version='$pkg_version
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
-
           artifacts_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           echo "ARTIFACTS_URL=$artifacts_url" >> $GITHUB_ENV
 
@@ -80,91 +77,43 @@ jobs:
         run: |
           yarn
 
-      - name: Setup Code Signing file
-        run: |
-          echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
-
-      # - name: Publish and Sign Static Linux / Macos
-      #   if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
-      #   env:
-      #     NODE_OPTIONS: '--max_old_space_size=8192'
-      #     APPLEID: ${{ secrets.APPLEID }}
-      #     APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-      #     ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
-      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      #     CSC_LINK: './sign.p12'
-      #   run: 'cd apps/desktop && yarn publish:all'
-
-      - name: Build and Sign Static Linux / Macos
+      - name: Build Bundle
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_LINK: './sign.p12'
-        run: 'cd apps/desktop && yarn build'
-       
-      - name: Upload Artifacts latest.yml
+        run: 'yarn app:build-bundle'
+      
+      - name: upload zips
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
-          name: onekey-desktop-yml
+          name: release-native-bundle
           path: |
-            ./apps/desktop/build-electron/*.yml
-
-      - name: Upload universal Mac DMG
+            ./apps/mobile/out-dir-bundle-zip
+            !**/.DS_Store
+      
+      - name: upload bundles
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
-          name: onekey-desktop-mac-universal-dmg
+          name: release-native-bundle
           path: |
-            ./apps/desktop/build-electron/*-universal.dmg
-
-      - name: Upload x64 Mac DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-mac-x64-dmg
-          path: |
-            ./apps/desktop/build-electron/*-x64.dmg
-
-      - name: Upload arm64 Mac DMG
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-mac-arm64-dmg
-          path: |
-            ./apps/desktop/build-electron/*-arm64.dmg
-
-      - name: Upload Linux x86_64 AppImage
-        uses: actions/upload-artifact@v4
-        with:
-          name: onekey-desktop-linux-x86_64-appimage
-          path: |
-            ./apps/desktop/build-electron/*-x86_64.AppImage
-
-      - name: Upload Artifacts Release
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-desktop-mac-and-linux
-          path: |
-            ./apps/desktop/build-electron/*
-            !./apps/desktop/build-electron/win-unpacked
-            !./apps/desktop/build-electron/win-arm64-unpacked
-            !./apps/desktop/build-electron/mac-arm64
-            !./apps/desktop/build-electron/mac
-            !./apps/desktop/build-electron/linux-unpacked
-            !./apps/desktop/build-electron/linux-arm64-unpacked
-            !./apps/desktop/build-electron/builder-debug.yml
+            ./apps/mobile/out-dir-bundle
+            !**/.DS_Store
 
       - name: 'Notify to Slack'
         if: ${{ github.event.workflow_run }}
         uses: onekeyhq/actions/slack-notify-webhook@main
+        continue-on-error: true
         with:
           web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
           secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-RN
-          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-type: React-Native-Bundle
+          artifact-name: OneKey-Native-Bundle
+          artifact-bundle-id: 'so.onekey.wallet'
           artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'

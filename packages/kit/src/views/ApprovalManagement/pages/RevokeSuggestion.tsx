@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -57,6 +57,9 @@ function RevokeSuggestion() {
     useBulkRevoke();
 
   const [{ selectedTokens }] = useSelectedTokensAtom();
+
+  const navToRevokeRef = useRef(false);
+
   const { riskyNumber, inactiveNumber } = useMemo(() => {
     let risky = 0;
     let inactive = 0;
@@ -222,6 +225,7 @@ function RevokeSuggestion() {
   }, [approvals, isSelectAllTokens, updateSelectedTokens]);
 
   const handleOnConfirm = useCallback(() => {
+    navToRevokeRef.current = true;
     defaultLogger.approval.revokeSuggestion.revokeSuggestionClick({
       type: 'revoke',
       inactiveCount: inactiveNumber,
@@ -243,15 +247,36 @@ function RevokeSuggestion() {
     selectedCount,
   ]);
   const handleOnCancel = useCallback(async () => {
-    if (autoShow) {
+    navigation.popStack();
+  }, [navigation]);
+
+  const renderBulkRevokeActions = () => {
+    return (
+      <ApprovalActions
+        isSelectAll={isSelectAllTokens}
+        setIsSelectAll={handleSelectAll}
+        onConfirm={handleOnConfirm}
+        onCancel={handleOnCancel}
+        onCancelText={intl.formatMessage({
+          id: autoShow
+            ? ETranslations.global_skip_for_now
+            : ETranslations.global_cancel,
+        })}
+        isBulkRevokeMode
+        selectedCount={selectedCount}
+        isBuildingRevokeTxs={isBuildingRevokeTxs}
+      />
+    );
+  };
+
+  const handleOnClose = useCallback(async () => {
+    if (autoShow && !navToRevokeRef.current) {
       defaultLogger.approval.revokeSuggestion.revokeSuggestionClick({
         type: 'skip',
         inactiveCount: inactiveNumber,
         riskyCount: riskyNumber,
       });
-    }
 
-    if (autoShow) {
       const tasks: Promise<unknown>[] = [];
       if (riskyNumber > 0) {
         tasks.push(
@@ -277,30 +302,10 @@ function RevokeSuggestion() {
         await Promise.all(tasks);
       }
     }
-    navigation.popStack();
-  }, [autoShow, navigation, networkId, accountId, riskyNumber, inactiveNumber]);
-
-  const renderBulkRevokeActions = () => {
-    return (
-      <ApprovalActions
-        isSelectAll={isSelectAllTokens}
-        setIsSelectAll={handleSelectAll}
-        onConfirm={handleOnConfirm}
-        onCancel={handleOnCancel}
-        onCancelText={intl.formatMessage({
-          id: autoShow
-            ? ETranslations.global_skip_for_now
-            : ETranslations.global_cancel,
-        })}
-        isBulkRevokeMode
-        selectedCount={selectedCount}
-        isBuildingRevokeTxs={isBuildingRevokeTxs}
-      />
-    );
-  };
+  }, [autoShow, networkId, accountId, riskyNumber, inactiveNumber]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled onClose={handleOnClose}>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.wallet_revoke_suggestion,

@@ -47,7 +47,6 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
 
   const handleChange = useCallback(
     async (newMode: IMarginMode) => {
-      console.log('newMode', newMode, tokenInfo?.assetId);
       if (!tokenInfo?.assetId) return;
 
       const currentLeverage = activeAssetData?.leverage?.value || 1;
