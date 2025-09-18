@@ -296,55 +296,6 @@ class DesktopApiAppBundleUpdate {
     );
   }
 
-  async readMetadataFileSha256(signature: string) {
-    try {
-      const ascFileMessage = signature;
-      if (!ascFileMessage) {
-        return '';
-      }
-      logger.info('auto-updater', `signatureFileContent: ${ascFileMessage}`);
-
-      const signedMessage = await readCleartextMessage({
-        cleartextMessage: ascFileMessage,
-      });
-      const publicKey = await readKey({ armoredKey: PUBLIC_KEY });
-      const result = await signedMessage.verify([publicKey]);
-      // Get result (validity of the signature)
-      const valid = await result[0].verified;
-      logger.info('auto-updater', `file valid: ${String(valid)}`);
-      if (valid) {
-        const texts = signedMessage.getText();
-        const json = JSON.parse(texts) as {
-          sha256: string;
-        };
-        const sha256 = json.sha256;
-        logger.info('auto-updater', `getSha256 from asc file: ${sha256}`);
-        return sha256;
-      }
-      throw new OneKeyLocalError(
-        ETranslations.update_signature_verification_failed_alert_text,
-      );
-    } catch (error) {
-      logger.error(
-        'auto-updater',
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-        `getSha256 Error: ${(error as any).toString()}`,
-      );
-      const { message } = error as { message: string };
-
-      const lowerCaseMessage = message.toLowerCase();
-      const isInValid =
-        lowerCaseMessage.includes('signed digest did not match') ||
-        lowerCaseMessage.includes('misformed armored text') ||
-        lowerCaseMessage.includes('ascii armor integrity check failed');
-      throw new OneKeyLocalError(
-        isInValid
-          ? ETranslations.update_signature_verification_failed_alert_text
-          : ETranslations.update_installation_package_possibly_compromised,
-      );
-    }
-  }
-
   async verifyBundle(params: IUpdateDownloadedEvent) {
     const {
       downloadedFile,
