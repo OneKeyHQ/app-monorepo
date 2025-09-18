@@ -110,24 +110,6 @@ function TokenList() {
 
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
-      let sortedTokens = [token];
-
-      if (token.isAggregateToken && aggregateTokensListMap) {
-        const aggregateTokens = aggregateTokensListMap[token.$key]?.tokens;
-
-        sortedTokens = uniqBy(
-          sortTokensCommon({
-            tokens: aggregateTokens,
-            tokenListMap: tokenMap,
-          }),
-          (item) => item.$key,
-        );
-      }
-
-      if (sortedTokens.length === 0) {
-        return;
-      }
-
       navigation.push(EModalAssetDetailRoutes.TokenDetails, {
         accountId: token.accountId ?? accountId,
         networkId: token.networkId ?? networkId,
@@ -137,14 +119,12 @@ function TokenList() {
         deriveType,
         isAllNetworks,
         indexedAccountId: indexedAccountId ?? '',
-        tokens: sortedTokens,
-        isAggregateToken: token.isAggregateToken,
+        tokenInfo: token,
         tokenMap,
       });
     },
     [
       accountId,
-      aggregateTokensListMap,
       deriveInfo,
       deriveType,
       indexedAccountId,
