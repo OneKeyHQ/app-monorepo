@@ -148,27 +148,29 @@ export enum EPerpDefaultTabType {
   Native = 'native',
   Web = 'web',
 }
-export interface IPerpBannerConfig {
+export interface IPerpServerBannerConfig {
   id: string;
   title: string;
   description: string;
   canClose?: boolean;
 }
 
-export interface IPerReferrerConfig {
+export interface IPerpServerReferrerConfig {
   referrerAddress?: string;
   referrerRate?: number;
+  agentTTL?: number;
+  referralCode?: string;
 }
 
-export interface IPerpCommonConfig {
+export interface IPerpServerCommonConfig {
   usePerpWeb?: boolean;
   disablePerp?: boolean;
   disablePerpActionButton?: boolean;
   ipDisablePerp?: boolean;
 }
 
-export interface IPerpConfigResponse {
-  referrerConfig: IPerReferrerConfig;
+export interface IPerpServerConfigResponse {
+  referrerConfig: IPerpServerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
   customLocalStorage?: Record<string, any>;
   customLocalStorageV2?: Record<
@@ -178,8 +180,8 @@ export interface IPerpConfigResponse {
       skipIfExists?: boolean;
     }
   >;
-  commonConfig?: IPerpCommonConfig;
-  bannerConfig?: IPerpBannerConfig;
+  commonConfig?: IPerpServerCommonConfig;
+  bannerConfig?: IPerpServerBannerConfig;
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -200,7 +202,7 @@ class ServiceWebviewPerp extends ServiceBase {
     customLocalStorageV2,
     commonConfig,
     bannerConfig,
-  }: IPerpConfigResponse) {
+  }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
     await settingsPersistAtom.set(
       (prev): ISettingsPersistAtom => ({
@@ -227,6 +229,8 @@ class ServiceWebviewPerp extends ServiceBase {
           hyperliquidMaxBuilderFee: isNil(referrerConfig?.referrerRate)
             ? prev?.hyperliquidMaxBuilderFee
             : referrerConfig?.referrerRate,
+          agentTTL: referrerConfig.agentTTL ?? prev?.agentTTL,
+          referralCode: referrerConfig.referralCode || prev?.referralCode,
           hyperliquidCustomSettings:
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
@@ -655,7 +659,7 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async updateBuilderFeeConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const resp = await client.get<IApiClientResponse<IPerpConfigResponse>>(
+    const resp = await client.get<IApiClientResponse<IPerpServerConfigResponse>>(
       '/utility/v1/perp-config',
     );
     const resData = resp.data;
