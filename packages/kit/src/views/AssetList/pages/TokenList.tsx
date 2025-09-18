@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect } from 'react';
 
 import { useRoute } from '@react-navigation/core';
-import { debounce, isString } from 'lodash';
+import { debounce, isString, uniqBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -24,7 +24,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken, IToken } from '@onekeyhq/shared/types/token';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { TokenListView } from '../../../components/TokenListView';
 import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';
@@ -115,10 +115,13 @@ function TokenList() {
       if (token.isAggregateToken && aggregateTokensListMap) {
         const aggregateTokens = aggregateTokensListMap[token.$key]?.tokens;
 
-        sortedTokens = sortTokensCommon({
-          tokens: aggregateTokens,
-          tokenListMap: tokenMap,
-        });
+        sortedTokens = uniqBy(
+          sortTokensCommon({
+            tokens: aggregateTokens,
+            tokenListMap: tokenMap,
+          }),
+          (item) => item.$key,
+        );
       }
 
       if (sortedTokens.length === 0) {

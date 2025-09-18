@@ -371,7 +371,7 @@ function BulkCopyAddresses({
       fromIndex,
       toIndex,
       saveToDb: false,
-      hideCheckingDeviceLoading: false,
+      hideCheckingDeviceLoading: true,
       showUIProgress: true,
       excludedIndexes,
       createAllDeriveTypes,
@@ -439,7 +439,7 @@ function BulkCopyAddresses({
       errorMessage: intl.formatMessage({
         id: ETranslations.global_bulk_copy_addresses_loading_error,
       }),
-      hideCheckingDeviceLoading: false,
+      hideCheckingDeviceLoading: true,
       progressTotalCount: addressCount,
     };
 

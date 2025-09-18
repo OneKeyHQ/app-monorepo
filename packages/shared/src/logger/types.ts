@@ -14,6 +14,7 @@ export type ILogLevel = 'debug' | 'info' | 'warn' | 'error';
 export enum EScopeName {
   notification = 'notification',
   app = 'app',
+  approval = 'approval',
   account = 'account',
   cloudBackup = 'cloudBackup',
   demo = 'demo',

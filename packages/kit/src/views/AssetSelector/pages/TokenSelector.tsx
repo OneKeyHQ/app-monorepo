@@ -110,6 +110,7 @@ function TokenSelector() {
               onSelect,
               allAggregateTokenList,
               enableNetworkAfterSelect,
+              hideZeroBalanceTokens,
             },
           );
           return;
@@ -252,6 +253,7 @@ function TokenSelector() {
       account,
       updateCreateAccountState,
       createAddress,
+      hideZeroBalanceTokens,
     ],
   );
 

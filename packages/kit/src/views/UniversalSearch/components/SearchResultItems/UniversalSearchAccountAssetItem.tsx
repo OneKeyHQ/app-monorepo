@@ -8,10 +8,7 @@ import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeab
 import { Token, TokenName } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import {
   useSettingsPersistAtom,
@@ -23,10 +20,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import {
-  getTokenPriceChangeStyle,
-  sortTokensCommon,
-} from '@onekeyhq/shared/src/utils/tokenUtils';
+import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
 
 interface IUniversalSearchAccountAssetItemProps {
@@ -43,7 +37,6 @@ export function UniversalSearchAccountAssetItem({
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const { token, tokenFiat } = item.payload;
   const priceChange = tokenFiat?.price24h ?? 0;
-  const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
   const [allTokenListMapAtom] = useAllTokenListMapAtom();
   const { changeColor, showPlusMinusSigns } = getTokenPriceChangeStyle({
     priceChange,
@@ -63,30 +56,18 @@ export function UniversalSearchAccountAssetItem({
     )
       return;
 
-    let sortedTokens = [token];
-
-    if (token.isAggregateToken) {
-      const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
-
-      sortedTokens = sortTokensCommon({
-        tokens,
-        tokenListMap: allTokenListMapAtom,
-      });
-    }
-
     // wait for the modal animation is finished
     await timerUtils.wait(300);
     navigation.pushModal(EModalRoutes.MainModal, {
       screen: EModalAssetDetailRoutes.TokenDetails,
       params: {
-        accountId:
-          sortedTokens[0]?.accountId ?? activeAccount.account?.id ?? '',
-        networkId: sortedTokens[0]?.networkId ?? activeAccount.network?.id,
+        accountId: token.accountId ?? activeAccount.account?.id ?? '',
+        networkId: token.networkId ?? activeAccount.network?.id,
         walletId: activeAccount.wallet?.id,
-        tokens: sortedTokens,
+        tokenInfo: token,
         isAllNetworks: activeAccount.network?.isAllNetworks,
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
-        isAggregateToken: token.isAggregateToken,
+        tokenMap: allTokenListMapAtom,
       },
     });
 
@@ -108,12 +89,11 @@ export function UniversalSearchAccountAssetItem({
     });
   }, [
     activeAccount,
+    allTokenListMapAtom,
     item.type,
     navigation,
     token,
     universalSearchActions,
-    aggregateTokenListMapAtom,
-    allTokenListMapAtom,
   ]);
 
   return (
