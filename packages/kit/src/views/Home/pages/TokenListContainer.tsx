@@ -36,7 +36,6 @@ import {
   EModalAssetDetailRoutes,
   EModalReceiveRoutes,
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -45,15 +44,17 @@ import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import {
+  buildAggregateTokenListData,
+  buildLocalAggregateTokenMapKey,
   getEmptyTokenData,
   getMergedDeriveTokenData,
+  getMergedTokenData,
   mergeAggregateTokenListMap,
   mergeAggregateTokenMap,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
   sortTokensByOrder,
-  sortTokensCommon,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 import type {
@@ -546,7 +547,6 @@ function TokenListContainer({
         flag: 'home-token-list',
         isAllNetworks: true,
         isManualRefresh: isAllNetworkManualRefresh.current,
-        mergeTokens: true,
         allNetworksAccountId: account?.id,
         allNetworksNetworkId: network?.id,
         saveToLocal: true,
@@ -554,13 +554,108 @@ function TokenListContainer({
         blockedTokensRawData: riskTokenManagementRawData.current.blockedTokens,
         unblockedTokensRawData:
           riskTokenManagementRawData.current.unblockedTokens,
-        aggregateTokenConfigMapRawData:
-          aggregateTokenRawData.current?.aggregateTokenConfigMap,
       });
+
+      const aggregateTokenConfigMapRawData =
+        aggregateTokenRawData.current?.aggregateTokenConfigMap;
+
+      let aggregateTokenListMap: Record<
+        string,
+        {
+          commonToken: IAccountToken;
+          tokens: IAccountToken[];
+        }
+      > = {};
+      let aggregateTokenMap: Record<string, ITokenFiat> = {};
+
+      const [tokenNetwork, tokenVaultSettings] = await Promise.all([
+        backgroundApiProxy.serviceNetwork.getNetwork({
+          networkId,
+        }),
+        backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId,
+        }),
+      ]);
+
+      if (aggregateTokenConfigMapRawData) {
+        r.tokens.data = r.tokens.data
+          .map((token) => {
+            const data = buildAggregateTokenListData({
+              networkId,
+              accountId,
+              token,
+              tokenMap: r.tokens.map,
+              aggregateTokenListMap,
+              aggregateTokenMap,
+              aggregateTokenConfigMapRawData,
+              networkName: tokenNetwork?.name ?? '',
+            });
+
+            if (data.isAggregateToken) {
+              aggregateTokenListMap = data.aggregateTokenListMap;
+              aggregateTokenMap = data.aggregateTokenMap;
+              return null;
+            }
+
+            return token;
+          })
+          .filter(Boolean);
+
+        r.smallBalanceTokens.data = r.smallBalanceTokens.data
+          .map((token) => {
+            const data = buildAggregateTokenListData({
+              networkId,
+              accountId,
+              token,
+              tokenMap: r.smallBalanceTokens.map,
+              aggregateTokenListMap,
+              aggregateTokenMap,
+              aggregateTokenConfigMapRawData,
+              networkName: tokenNetwork?.name ?? '',
+            });
+
+            if (data.isAggregateToken) {
+              aggregateTokenListMap = data.aggregateTokenListMap;
+              aggregateTokenMap = data.aggregateTokenMap;
+              return null;
+            }
+
+            return token;
+          })
+          .filter(Boolean);
+
+        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+          (item) => item.commonToken,
+        );
+
+        r.tokens.data = [...r.tokens.data, ...aggregateTokenList];
+        r.aggregateTokenListMap = aggregateTokenListMap;
+        r.aggregateTokenMap = aggregateTokenMap;
+      }
+
+      const { tokens, riskTokens, smallBalanceTokens } = r;
+
+      const { allTokens } = getMergedTokenData({
+        tokens,
+        riskTokens,
+        smallBalanceTokens,
+      });
+
+      if (allTokens) {
+        allTokens.data = allTokens.data.map((token) => ({
+          ...token,
+          accountId,
+          networkId,
+          networkName: tokenNetwork?.name,
+          mergeAssets: tokenVaultSettings.mergeDeriveAssetsEnabled,
+        }));
+      }
+      r.allTokens = allTokens;
 
       if (!allNetworkDataInit && r.isSameAllNetworksAccountData) {
         let accountWorth = new BigNumber(0);
         let createAtNetworkWorth = new BigNumber(0);
+
         accountWorth = accountWorth
           .plus(r.tokens.fiatValue ?? '0')
           .plus(r.smallBalanceTokens.fiatValue ?? '0');
@@ -900,24 +995,38 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
-      const [localAggregateTokenMap, localAggregateTokenListMap] =
-        await Promise.all([
-          backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
-            accountId,
-            networkId,
-          }),
-          backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
-            accountId,
-            networkId,
-          }),
-        ]);
+      aggregateTokenRawData.current =
+        (await backgroundApiProxy.simpleDb.aggregateToken.getRawData()) ??
+        undefined;
 
-      const tokenList: IAccountToken[] = [];
+      const key = buildLocalAggregateTokenMapKey({
+        networkId,
+        accountId,
+      });
+
+      const localAggregateTokenMap =
+        aggregateTokenRawData.current?.aggregateTokenMap?.[key] ?? {};
+      const localAggregateTokenListMap =
+        aggregateTokenRawData.current?.aggregateTokenListMap?.[key] ?? {};
+      const aggregateTokenConfigMap =
+        aggregateTokenRawData.current?.aggregateTokenConfigMap ?? {};
+
+      let tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
       let tokenListMap: {
         [key: string]: ITokenFiat;
       } = {};
       let tokenListValue: Record<string, string> = {};
+      let aggregateTokenListMap: Record<
+        string,
+        {
+          commonToken: IAccountToken;
+          tokens: IAccountToken[];
+        }
+      > = {};
+      let aggregateTokenMap: {
+        [key: string]: ITokenFiat;
+      } = {};
       data.forEach((item) => {
         tokenList.push(...item.tokenList, ...item.smallBalanceTokenList);
         riskyTokenList.push(...item.riskyTokenList);
@@ -933,6 +1042,37 @@ function TokenListContainer({
           })]: item.tokenListValue,
         };
       });
+
+      if (aggregateTokenConfigMap) {
+        tokenList = tokenList
+          .map((token) => {
+            const aggregateTokenData = buildAggregateTokenListData({
+              networkId: token.networkId ?? '',
+              accountId: token.accountId ?? '',
+              token,
+              tokenMap: tokenListMap,
+              aggregateTokenListMap,
+              aggregateTokenMap,
+              aggregateTokenConfigMapRawData: aggregateTokenConfigMap,
+              networkName: '',
+            });
+
+            if (aggregateTokenData.isAggregateToken) {
+              aggregateTokenListMap = aggregateTokenData.aggregateTokenListMap;
+              aggregateTokenMap = aggregateTokenData.aggregateTokenMap;
+              return null;
+            }
+
+            return token;
+          })
+          .filter(Boolean);
+
+        const aggregateTokenList = Object.values(aggregateTokenListMap).map(
+          (item) => item.commonToken,
+        );
+
+        tokenList = [...tokenList, ...aggregateTokenList];
+      }
 
       refreshAggregateTokensMap({
         tokens: localAggregateTokenMap,
