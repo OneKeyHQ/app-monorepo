@@ -4,11 +4,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   LinearGradient,
   Popover,
   SizableText,
   Stack,
+  Tooltip,
   XStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -122,25 +124,40 @@ function TokenDetailsTabToolbar(props: IProps) {
                 >
                   {token.networkName}
                 </SizableText>
-                <ListItem.Text
-                  align="right"
-                  primary={
-                    <NumberSizeableTextWrapper
-                      hideValue
-                      size="$bodyLg"
-                      $gtMd={{
-                        size: '$bodyMd',
-                      }}
-                      color="$textSubdued"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settings.currencyInfo.symbol,
-                      }}
-                    >
-                      {tokenDetail?.fiatValue ?? '-'}
-                    </NumberSizeableTextWrapper>
-                  }
-                />
+                {tokenDetail?.fiatValue ? (
+                  <ListItem.Text
+                    align="right"
+                    primary={
+                      <NumberSizeableTextWrapper
+                        hideValue
+                        size="$bodyLg"
+                        $gtMd={{
+                          size: '$bodyMd',
+                        }}
+                        color="$textSubdued"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settings.currencyInfo.symbol,
+                        }}
+                      >
+                        {tokenDetail?.fiatValue}
+                      </NumberSizeableTextWrapper>
+                    }
+                  />
+                ) : (
+                  <Tooltip
+                    renderTrigger={
+                      <Icon
+                        name="RefreshCcwOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    }
+                    renderContent={intl.formatMessage({
+                      id: ETranslations.network_enable_or_create_address,
+                    })}
+                  />
+                )}
               </ListItem>
             );
           })}
@@ -153,6 +170,7 @@ function TokenDetailsTabToolbar(props: IProps) {
       settings.currencyInfo.symbol,
       onSelected,
       sortedTokensByFiatValue,
+      intl,
     ],
   );
 
