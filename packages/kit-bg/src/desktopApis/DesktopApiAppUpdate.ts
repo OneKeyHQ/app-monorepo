@@ -77,11 +77,9 @@ export interface IUpdateProgressUpdate {
   transferred: number;
 }
 
-if (isMas) {
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.logger = logger;
-}
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.logger = logger;
 
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
@@ -252,7 +250,9 @@ class DesktopApiAppUpdate {
             downloadUrl,
           },
         );
-        this.isDownloading = false;
+        setTimeout(() => {
+          this.isDownloading = false;
+        }, 2500);
       },
     );
   }
