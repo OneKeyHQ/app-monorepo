@@ -120,28 +120,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).apply();
     }
 
-    public static String getCurrentBundleDir(Context context) {
-        String version = getCurrentBundleVersion(context);
-        if (version == null) {
+    public static String getCurrentBundleDir(Context context, String currentBundleVersion) {
+        if (currentBundleVersion == null) {
             return null;
         }
-        return new File(getBundleDir(context), version).getAbsolutePath();
+        return new File(getBundleDir(context), currentBundleVersion).getAbsolutePath();
     }
 
-    public static String getMetadataFilePath(Context context) {
-        String version = getCurrentBundleVersion(context);
-        if (version == null) {
+    public static String getMetadataFilePath(Context context, String currentBundleVersion) {
+        if (currentBundleVersion == null) {
             return null;
         }
-        File metadataFile = new File(new File(getBundleDir(context), version), "metadata.json");
+        File metadataFile = new File(new File(getBundleDir(context), currentBundleVersion), "metadata.json");
         if (!metadataFile.exists()) {
             return null;
         }
         return metadataFile.getAbsolutePath();
     }
 
-    public static String getMetadataFileContent(Context context) throws IOException {
-        String metadataFilePath = getMetadataFilePath(context);
+    public static String getMetadataFileContent(Context context, String currentBundleVersion) throws IOException {
+        String metadataFilePath = getMetadataFilePath(context, currentBundleVersion);
         if (metadataFilePath == null) {
             return null;
         }
@@ -164,21 +162,13 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return metadata;
     }
 
-    public static boolean validateMetadataFileSha256(Context context) throws IOException {
-        String metadataFilePath = getMetadataFilePath(context);
+    public static boolean validateMetadataFileSha256(Context context, String currentBundleVersion, String signature) throws IOException {
+        String metadataFilePath = getMetadataFilePath(context, currentBundleVersion);
         if (metadataFilePath == null) {
             staticLog(TAG, "metadataFilePath is null");
             return false;
         }
-        String metadataFileContent = readFileContent(new File(metadataFilePath));
-        String currentBundleVersion = getCurrentBundleVersion(context);
-        if (currentBundleVersion != null) {
-            SharedPreferences prefs = context.getSharedPreferences("BundleUpdateModule", Context.MODE_PRIVATE);
-            String signature = prefs.getString(currentBundleVersion, null);
-            staticLog(TAG, "Retrieved signature for key: " + currentBundleVersion + ", signature: " + signature);
-        }
-        staticLog(TAG, "metadataFileContent: " + metadataFileContent);
-        String extractedSha256 = readMetadataFileSha256(context, metadataFileContent);
+        String extractedSha256 = readMetadataFileSha256(context, signature);
         if (extractedSha256 == null || extractedSha256.isEmpty()) {
             return false;
         }
@@ -204,14 +194,20 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 }
             }
             
-            String bundleDir = getCurrentBundleDir(context);
+            String bundleDir = getCurrentBundleDir(context, currentBundleVersion);
             if (bundleDir == null || !new File(bundleDir).exists()) {
                 return null;
             }
-            if (!validateMetadataFileSha256(context)) {
+            String signature = null;
+            if (currentBundleVersion != null) {
+                SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                signature = prefs.getString(currentBundleVersion, null);
+                staticLog(TAG, "Retrieved signature for key: " + currentBundleVersion + ", signature: " + signature);
+            }
+            if (!validateMetadataFileSha256(context, currentBundleVersion, signature)) {
                 return null;
             }
-            Map<String, String> metadata = parseMetadataJson(getMetadataFileContent(context));
+            Map<String, String> metadata = parseMetadataJson(getMetadataFileContent(context, currentBundleVersion));
             String bundleName = "main.jsbundle.hbc";
             File mainJSBundleFile = new File(bundleDir, bundleName);
             String mainJSBundlePath = mainJSBundleFile.getAbsolutePath();
@@ -388,6 +384,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
         int bundleVersion = params.getInt("bundleVersion");
+        String signature = params.getString("signature");
 
         if (filePath == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
@@ -417,7 +414,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return;
             }
 
-            if (!validateMetadataFileSha256(reactContext)) {
+            String currentBundleVersion = appVersion + "-" + bundleVersion;
+            if (!validateMetadataFileSha256(reactContext, currentBundleVersion, signature)) {
                 promise.reject("INVALID_PARAMS", "Bundle signature verification failed");
                 return;
             }
