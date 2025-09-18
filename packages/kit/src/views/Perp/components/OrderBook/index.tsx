@@ -622,12 +622,14 @@ export function OrderBook({
                 renderTrigger={({ onPress }) => (
                   <TouchableOpacity
                     style={{
-                      width: 56,
+                      minWidth: 56,
+                      maxWidth: 110,
                       height: 24,
                       borderRadius: 4,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      paddingHorizontal: 8,
                       gap: 4,
                     }}
                     onPress={onPress}
