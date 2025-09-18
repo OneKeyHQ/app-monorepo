@@ -310,7 +310,7 @@ class ServiceMarketWS extends ServiceBase {
 
     // Handle different message formats from the WebSocket
     // Support both direct channel format and nested data format
-    let channel: string;
+    let channel: ISubscriptionType;
     let tokenAddress = '';
     let messageType: string | undefined;
     let processedData: any;
@@ -397,12 +397,12 @@ class ServiceMarketWS extends ServiceBase {
     if (
       this.subscriptionTracker.shouldUnsubscribeWithDefaultThreshold({
         address: tokenAddress,
-        type: channel as any,
+        type: channel,
       })
     ) {
       const subscription = this.subscriptionTracker.getSubscription({
         address: tokenAddress,
-        type: channel as any,
+        type: channel,
       });
       if (subscription) {
         console.warn(

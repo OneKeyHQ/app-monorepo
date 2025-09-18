@@ -117,10 +117,10 @@ export function useTransactionsWebSocket({
             },
           };
 
-          // void backgroundApiProxy.serviceMarketWS.clearDataCount({
-          //   address: tokenAddress,
-          //   type: 'tokenTxs',
-          // });
+          void backgroundApiProxy.serviceMarketWS.clearDataCount({
+            address: tokenAddress,
+            type: 'tokenTxs',
+          });
 
           onNewTransaction(transaction);
         }
