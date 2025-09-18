@@ -277,7 +277,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     public static String readMetadataFileSha256(Context context, String signature) {
         String ascFileContentString = signature;
         String extractedSha256 = "";
-        String cacheFilePath = context.getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+        String cacheFilePath = context.getCacheDir().getAbsolutePath() + "/bundle-gpg-verification-temp";
         File cacheFile = new File(cacheFilePath);
         if (cacheFile.exists()) {
             cacheFile.delete();
