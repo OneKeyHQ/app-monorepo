@@ -281,20 +281,10 @@ RCT_EXPORT_MODULE();
         return nil;
     }
     
-    // Use the Verification class to extract SHA256 from the signature
-    // This matches the Android implementation using Verification.extractedSha256FromVerifyAscFile
-    NSString *cacheFilePath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"bundle-gpg-verification-temp"];
-    
-    // Clean up any existing cache file
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    if ([fileManager fileExistsAtPath:cacheFilePath]) {
-        [fileManager removeItemAtPath:cacheFilePath error:nil];
-    }
-    
     NSError *error;
-    NSString *textContent = [Verification extractedTextContentFromVerifyAscFile:signature cacheFilePath:cacheFilePath error:&error];
+    NSString *textContent = [Verification extractedTextContentFromVerifyAscFile:signature error:&error];
     
-    if (error) {
+    if (error || textContent == nil) {
         DDLogDebug(@"Error extracting SHA256 from signature: %@", error.localizedDescription);
         return nil;
     }

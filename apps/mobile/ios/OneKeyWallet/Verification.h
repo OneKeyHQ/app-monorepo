@@ -4,7 +4,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface Verification : NSObject
 
-+ (NSString *)extractedTextContentFromVerifyAscFile:(NSString *)ascFileContent cacheFilePath:(NSString *)cacheFilePath error:(NSError **)error;
++ (NSString *)extractedTextContentFromVerifyAscFile:(NSString *)ascFileContent error:(NSError **)error;
 
 @end
 

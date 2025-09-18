@@ -61,8 +61,8 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
 
 @implementation Verification
 
-+ (NSString *)extractedTextContentFromVerifyAscFile:(NSString *)ascFileContent cacheFilePath:(NSString *)cacheFilePath error:(NSError **)error {
-    if (!ascFileContent || !cacheFilePath) {
++ (NSString *)extractedTextContentFromVerifyAscFile:(NSString *)ascFileContent error:(NSError **)error {
+    if (!ascFileContent) {
         if (error) {
             *error = [NSError errorWithDomain:@"VerificationError" code:1001 userInfo:@{NSLocalizedDescriptionKey: @"Invalid parameters"}];
         }
@@ -82,11 +82,11 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
         }
         
         // Parse the signed message
-        NSData *signedMessageData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
+        NSData *signatureData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
         
         // Verify the signature and extract clear text
         NSError *verifyError = nil;
-        BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:keys passphraseForKey:nil error:&error];
+        BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:publicKeys passphraseForKey:nil error:&verifyError];
         
         if (!verified || verifyError) {
             DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
@@ -98,25 +98,6 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
         return nil;
     }
-}
-
-+ (NSString *)extractedSha256FromVerifyAscFile:(NSString *)ascFileContent cacheFilePath:(NSString *)cacheFilePath error:(NSError **)error {
-    NSString *extractedTextContent = [self extractedTextContentFromVerifyAscFile:ascFileContent cacheFilePath:cacheFilePath error:error];
-    
-    if (!extractedTextContent) {
-        return nil;
-    }
-    
-    // Extract SHA256 from the first part of the content (similar to Java implementation)
-    NSArray *components = [extractedTextContent componentsSeparatedByString:@" "];
-    if (components.count > 0) {
-        return components.firstObject;
-    }
-    
-    if (error) {
-        *error = [NSError errorWithDomain:@"VerificationError" code:1007 userInfo:@{NSLocalizedDescriptionKey: @"Failed to extract SHA256 from verified content"}];
-    }
-    return nil;
 }
 
 @end
