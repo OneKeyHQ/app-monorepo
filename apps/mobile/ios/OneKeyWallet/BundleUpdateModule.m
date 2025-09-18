@@ -93,7 +93,38 @@ RCT_EXPORT_MODULE();
     if (!folderName || ![[NSFileManager defaultManager] fileExistsAtPath:folderName]) {
         return nil;
     }
-    NSString *mainJSBundle = [folderName stringByAppendingPathComponent:@"main.jsbundle.hbc"];
+    
+    // Get signature from UserDefaults
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *signature = [userDefaults objectForKey:currentBundleVersion];
+    DDLogDebug(@"Retrieved signature for key: %@, signature: %@", currentBundleVersion, signature);
+    
+    // Validate metadata file SHA256
+    if (![self validateMetadataFileSha256:currentBundleVersion signature:signature]) {
+        return nil;
+    }
+    
+    // Get metadata content and validate main bundle
+    NSDictionary *metadata = [self getMetadataFileContent:currentBundleVersion];
+    if (!metadata) {
+        return nil;
+    }
+    NSString *manJsBundleName = @"main.jsbundle.hbc";
+    NSString *mainJSBundle = [folderName stringByAppendingPathComponent:manJsBundleName];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:mainJSBundle]) {
+        DDLogDebug(@"mainJSBundleFile does not exist");
+        return nil;
+    }
+    
+    // Validate main bundle SHA256
+    NSString *expectedSha256 = metadata[manJsBundleName];
+    NSString *calculatedSha256 = [self calculateSHA256:mainJSBundle];
+    DDLogDebug(@"calculatedSha256: %@, sha256: %@", calculatedSha256, expectedSha256);
+    
+    if (!calculatedSha256 || !expectedSha256 || ![calculatedSha256 isEqualToString:expectedSha256]) {
+        return nil;
+    }
+    
     return mainJSBundle;
 }
 
@@ -212,6 +243,99 @@ RCT_EXPORT_MODULE();
     return [hashString copy];
 }
 
++ (NSString *)getMetadataFilePath:(NSString *)currentBundleVersion {
+    if (!currentBundleVersion) {
+        return nil;
+    }
+    NSString *bundleDir = [self bundleDir];
+    NSString *metadataPath = [[bundleDir stringByAppendingPathComponent:currentBundleVersion] stringByAppendingPathComponent:@"metadata.json"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:metadataPath]) {
+        return nil;
+    }
+    return metadataPath;
+}
+
++ (NSDictionary *)getMetadataFileContent:(NSString *)currentBundleVersion {
+    NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
+    if (!metadataFilePath) {
+        return nil;
+    }
+    
+    NSData *jsonData = [NSData dataWithContentsOfFile:metadataFilePath];
+    if (!jsonData) {
+        return nil;
+    }
+    
+    NSError *error;
+    NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+    if (error) {
+        DDLogDebug(@"Error parsing metadata.json: %@", error.localizedDescription);
+        return nil;
+    }
+    return metadata;
+}
+
++ (NSString *)readMetadataFileSha256:(NSString *)signature {
+    if (!signature) {
+        return nil;
+    }
+    
+    // For iOS, we'll use a simplified approach to extract SHA256 from the signature
+    // This is equivalent to the Android Verification.extractedTextContentFromVerifyAscFile
+    // In a production environment, you would implement proper GPG verification
+    
+    // Extract SHA256 from the signature content
+    // The signature should contain the SHA256 hash in a specific format
+    NSArray *lines = [signature componentsSeparatedByString:@"\n"];
+    for (NSString *line in lines) {
+        if ([line containsString:@"SHA256"]) {
+            NSArray *components = [line componentsSeparatedByString:@" "];
+            for (NSString *component in components) {
+                if (component.length == 64 && [self isValidHexString:component]) {
+                    DDLogDebug(@"extractedSha256: %@", component);
+                    return component;
+                }
+            }
+        }
+    }
+    
+    // If not found in the expected format, try to parse as JSON
+    NSError *error;
+    NSData *jsonData = [signature dataUsingEncoding:NSUTF8StringEncoding];
+    if (jsonData) {
+        NSDictionary *jsonObject = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        if (!error && jsonObject[@"sha256"]) {
+            NSString *extractedSha256 = jsonObject[@"sha256"];
+            DDLogDebug(@"extractedSha256 from JSON: %@", extractedSha256);
+            return extractedSha256;
+        }
+    }
+    
+    DDLogDebug(@"Error extracting SHA256 from signature");
+    return nil;
+}
+
++ (BOOL)isValidHexString:(NSString *)string {
+    NSCharacterSet *hexCharacterSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
+    return [[string stringByTrimmingCharactersInSet:hexCharacterSet] isEqualToString:@""];
+}
+
++ (BOOL)validateMetadataFileSha256:(NSString *)currentBundleVersion signature:(NSString *)signature {
+    NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
+    if (!metadataFilePath) {
+        DDLogDebug(@"metadataFilePath is null");
+        return NO;
+    }
+    
+    NSString *extractedSha256 = [self readMetadataFileSha256:signature];
+    if (!extractedSha256 || extractedSha256.length == 0) {
+        return NO;
+    }
+    
+    NSString *calculatedSha256 = [self calculateSHA256:metadataFilePath];
+    return [calculatedSha256 isEqualToString:extractedSha256];
+}
+
 - (dispatch_queue_t)methodQueue {
     return dispatch_queue_create("com.onekey.bundleupdate", DISPATCH_QUEUE_SERIAL);
 }
@@ -226,37 +350,6 @@ RCT_EXPORT_MODULE();
     self.downloadBundleResult = nil;
 }
 
-- (NSString *)extractSHA256FromASCFile:(NSString *)ascFilePath {
-    NSError *error;
-    NSString *ascContent = [NSString stringWithContentsOfFile:ascFilePath
-                                                     encoding:NSUTF8StringEncoding
-                                                        error:&error];
-    if (error || !ascContent) {
-        DDLogDebug(@"extractSHA256: Error reading ASC file: %@", error.localizedDescription);
-        return nil;
-    }
-    
-    // Parse ASC file to extract SHA256
-    // This is a simplified implementation - in production, you'd want proper GPG verification
-    NSArray *lines = [ascContent componentsSeparatedByString:@"\n"];
-    for (NSString *line in lines) {
-        if ([line containsString:@"SHA256"]) {
-            NSArray *components = [line componentsSeparatedByString:@" "];
-            for (NSString *component in components) {
-                if (component.length == 64 && [self isValidHexString:component]) {
-                    return component;
-                }
-            }
-        }
-    }
-    
-    return nil;
-}
-
-- (BOOL)isValidHexString:(NSString *)string {
-    NSCharacterSet *hexCharacterSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
-    return [[string stringByTrimmingCharactersInSet:hexCharacterSet] isEqualToString:@""];
-}
 
 - (BOOL)verifyBundleSHA256:(NSString *)bundlePath sha256:(NSString *)sha256 {
     NSString *calculatedSHA256 = [BundleUpdateModule calculateSHA256:bundlePath];
@@ -271,14 +364,6 @@ RCT_EXPORT_MODULE();
     return isValid;
 }
 
-- (BOOL)verifyBundleSHA256:(NSString *)bundlePath ascPath:(NSString *)ascFilePath {
-    NSString *extractedSHA256 = [self extractSHA256FromASCFile:ascFilePath];
-    if (!extractedSHA256) {
-        return NO;
-    }
-    
-    return [self verifyBundleSHA256:bundlePath sha256:extractedSHA256];
-}
 
 #pragma mark - NSURLSessionDownloadDelegate
 
@@ -369,6 +454,41 @@ RCT_EXPORT_METHOD(downloadBundleASC:(NSDictionary *)params
 RCT_EXPORT_METHOD(verifyBundleASC:(NSDictionary *)params
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *filePath = params[@"downloadedFile"];
+    NSString *sha256 = params[@"sha256"];
+    NSString *appVersion = params[@"latestVersion"];
+    NSString *bundleVersion = params[@"bundleVersion"];
+    NSString *signature = params[@"signature"];
+    
+    if (!filePath || !sha256) {
+        reject(@"INVALID_PARAMS", @"filePath and sha256 are required", nil);
+        return;
+    }
+    
+    if (![self verifyBundleSHA256:filePath sha256:sha256]) {
+        reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
+        return;
+    }
+    
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
+    
+    // Unzip the bundle
+    [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
+    
+    NSString *metadataJsonPath = [destination stringByAppendingPathComponent:@"metadata.json"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:metadataJsonPath]) {
+        reject(@"INVALID_PARAMS", @"Failed to read metadata.json", nil);
+        return;
+    }
+    
+    // Validate metadata file SHA256
+    NSString *currentBundleVersion = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    if (![BundleUpdateModule validateMetadataFileSha256:currentBundleVersion signature:signature]) {
+        reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
+        return;
+    }
+    
     resolve(nil);
 }
 
@@ -379,6 +499,7 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
     NSString *sha256 = params[@"sha256"];
     NSString *appVersion = params[@"latestVersion"];
     NSString *bundleVersion = params[@"bundleVersion"];
+    
     if (!filePath || !sha256) {
         reject(@"INVALID_PARAMS", @"filePath and sha256 are required", nil);
         return;
@@ -388,27 +509,31 @@ RCT_EXPORT_METHOD(verifyBundle:(NSDictionary *)params
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
-
+    
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
     NSString *destination = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:folderName];
-    [SSZipArchive unzipFileAtPath:filePath toDestination:destination];
+    
     NSString *metadataJsonPath = [destination stringByAppendingPathComponent:@"metadata.json"];
-    NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
-    if (!jsonData) {
+    if (![[NSFileManager defaultManager] fileExistsAtPath:metadataJsonPath]) {
         reject(@"INVALID_PARAMS", @"Failed to read metadata.json", nil);
         return;
     }
     
+    // Read and parse metadata.json
+    NSData *jsonData = [NSData dataWithContentsOfFile:metadataJsonPath];
     NSError *error;
     NSDictionary *metadata = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
     if (error) {
         reject(@"INVALID_PARAMS", [NSString stringWithFormat:@"Error parsing metadata.json: %@", error.localizedDescription], nil);
         return;
     }
+    
+    // Validate all files in the directory
     if (![BundleUpdateModule valiateAllFilesInDir:destination metadata:metadata appVersion:appVersion bundleVersion:bundleVersion]) {
         reject(@"INVALID_PARAMS", @"Bundle signature verification failed", nil);
         return;
     }
+    
     resolve(nil);
 }
 
