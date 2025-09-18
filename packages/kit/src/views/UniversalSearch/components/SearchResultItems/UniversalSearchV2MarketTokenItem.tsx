@@ -19,6 +19,7 @@ import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contex
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  ECopyFrom,
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -57,7 +58,13 @@ function ContractAddress({ address }: { address: string }) {
         size="small"
         iconSize="$4"
         icon="Copy3Outline"
-        onPress={() => copyText(address)}
+        onPress={() => {
+          defaultLogger.dex.actions.dexCopyCA({
+            copyFrom: ECopyFrom.Search,
+            copiedContent: address,
+          });
+          copyText(address);
+        }}
       />
     </XStack>
   );

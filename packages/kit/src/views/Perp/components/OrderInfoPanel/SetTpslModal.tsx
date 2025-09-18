@@ -278,7 +278,7 @@ const SetTpslForm = memo(
           leverage={leverage}
           tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
           onChange={handleTpslChange}
-          ifDialog
+          ifOnDialog
         />
 
         <TradingFormInput
@@ -294,7 +294,7 @@ const SetTpslForm = memo(
             const processedValue = value.replace(/。/g, '.');
             return validateSizeInput(processedValue, szDecimals);
           }}
-          ifDialog
+          ifOnDialog
         />
 
         <YStack gap="$2" p="$2">

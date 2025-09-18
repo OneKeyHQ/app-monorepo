@@ -220,6 +220,7 @@ class ServiceWebviewPerp extends ServiceBase {
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
           tradingUniverse: prev?.tradingUniverse,
+          marginTables: prev?.marginTables,
           ...prev,
           hyperliquidBuilderAddress:
             referrerConfig?.referrerAddress || prev?.hyperliquidBuilderAddress,
@@ -234,7 +235,9 @@ class ServiceWebviewPerp extends ServiceBase {
             customLocalStorageV2 || prev?.hyperliquidCustomLocalStorageV2,
         };
         if (isEqual(newConfig, prev)) {
-          return prev || { tradingUniverse: undefined };
+          return (
+            prev || { tradingUniverse: undefined, marginTables: undefined }
+          );
         }
         shouldNotifyToDapp = true;
         return newConfig;

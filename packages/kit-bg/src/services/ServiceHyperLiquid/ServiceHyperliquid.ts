@@ -108,9 +108,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       // dex: dexList?.[0]?.name || '',
     });
     if (meta?.universe?.length) {
-      await this.backgroundApi.simpleDb.perp.setTradingUniverse(
-        meta?.universe || [],
-      );
+      await this.backgroundApi.simpleDb.perp.setTradingUniverse({
+        universe: meta?.universe || [],
+        marginTables: meta?.marginTables || [],
+      });
     }
     const selectedSymbol = await perpsSelectedSymbolAtom.get();
     const { universeItems } = await this.changeSelectedSymbol({
@@ -130,12 +131,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     selectedUniverse: IPerpsUniverse;
   }> {
     const universeItems = await this.getTradingUniverse();
+    const marginTables =
+      await this.backgroundApi.simpleDb.perp.getMarginTables();
     const selectedUniverse: IPerpsUniverse | undefined =
       universeItems.find((item) => item.name === params.coin) ||
       universeItems?.[0];
+    const selectedMargin = marginTables?.find(
+      (item) => item[0] === selectedUniverse?.marginTableId,
+    )?.[1];
     await perpsSelectedSymbolAtom.set({
       coin: selectedUniverse?.name || '',
       universe: selectedUniverse,
+      margin: selectedMargin,
     });
     return {
       universeItems,

@@ -11,7 +11,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { calculatePriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IFill,
   IHex,
@@ -169,7 +169,7 @@ export function usePerpsMessageHandler({
 
       if (midValue && Number(midValue) > 0) {
         // Use HyperLiquid precision rules to calculate price scale
-        calculatedPriceScale = calculatePriceScale(midValue);
+        calculatedPriceScale = calculateDisplayPriceScale(midValue);
       }
 
       const response = {

@@ -1,5 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { IHex, IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IHex,
+  IMarginTable,
+  IPerpsUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -67,6 +71,7 @@ export const {
 export interface IPerpsSelectedSymbol {
   coin: string;
   universe: IPerpsUniverse | undefined;
+  margin: IMarginTable | undefined;
 }
 export const {
   target: perpsSelectedSymbolAtom,
@@ -77,5 +82,6 @@ export const {
   initialValue: {
     coin: 'ETH',
     universe: undefined,
+    margin: undefined,
   },
 });
