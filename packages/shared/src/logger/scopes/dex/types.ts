@@ -23,6 +23,7 @@ export enum ESortWay {
 export enum ECopyFrom {
   Homepage = 'Homepage',
   Detail = 'Detail',
+  Search = 'Search',
   Others = 'Others',
 }
 

@@ -22,7 +22,7 @@ interface ITpslInputProps {
   };
   onChange: (data: { tpPrice: string; slPrice: string }) => void;
   disabled?: boolean;
-  ifDialog?: boolean;
+  ifOnDialog?: boolean;
 }
 
 export const TpslInput = memo(
@@ -34,7 +34,7 @@ export const TpslInput = memo(
     tpsl,
     onChange,
     disabled = false,
-    ifDialog = false,
+    ifOnDialog = false,
   }: ITpslInputProps) => {
     const [internalState, setInternalState] = useState({
       tpTriggerPx: tpsl.tpPrice,
@@ -223,9 +223,9 @@ export const TpslInput = memo(
               keyboardType="decimal-pad"
               size="small"
               containerProps={{
-                borderWidth: ifDialog ? '$px' : 0,
-                borderColor: ifDialog ? '$borderSubdued' : undefined,
-                bg: ifDialog ? '$bgApp' : '$bgSubdued',
+                borderWidth: ifOnDialog ? '$px' : 0,
+                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
                 borderRadius: '$2',
               }}
             />
@@ -244,9 +244,9 @@ export const TpslInput = memo(
               textAlign="right"
               leftIconName="PlusSmallOutline"
               containerProps={{
-                borderWidth: ifDialog ? '$px' : 0,
-                borderColor: ifDialog ? '$borderSubdued' : undefined,
-                bg: ifDialog ? '$bgApp' : '$bgSubdued',
+                borderWidth: ifOnDialog ? '$px' : 0,
+                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
                 borderRadius: '$2',
               }}
               addOns={[
@@ -276,9 +276,9 @@ export const TpslInput = memo(
               keyboardType="decimal-pad"
               size="small"
               containerProps={{
-                borderWidth: ifDialog ? '$px' : 0,
-                borderColor: ifDialog ? '$borderSubdued' : undefined,
-                bg: ifDialog ? '$bgApp' : '$bgSubdued',
+                borderWidth: ifOnDialog ? '$px' : 0,
+                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
                 borderRadius: '$2',
               }}
             />
@@ -297,9 +297,9 @@ export const TpslInput = memo(
               keyboardType="decimal-pad"
               size="small"
               containerProps={{
-                borderWidth: ifDialog ? '$px' : 0,
-                borderColor: ifDialog ? '$borderSubdued' : undefined,
-                bg: ifDialog ? '$bgApp' : '$bgSubdued',
+                borderWidth: ifOnDialog ? '$px' : 0,
+                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
                 borderRadius: '$2',
               }}
               addOns={[

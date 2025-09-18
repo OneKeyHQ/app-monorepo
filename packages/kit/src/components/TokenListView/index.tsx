@@ -468,6 +468,8 @@ function TokenListViewCmp(props: IProps) {
               !!tokenList.tokens.find(
                 (token) =>
                   token.$key !== item.$key &&
+                  token.symbol &&
+                  item.symbol &&
                   token.symbol.toLowerCase() === item.symbol.toLowerCase(),
               )
             }
