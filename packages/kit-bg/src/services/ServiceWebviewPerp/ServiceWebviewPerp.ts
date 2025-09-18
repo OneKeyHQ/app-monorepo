@@ -19,6 +19,7 @@ import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLoc
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -204,8 +205,8 @@ class ServiceWebviewPerp extends ServiceBase {
     bannerConfig,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
-    await settingsPersistAtom.set(
-      (prev): ISettingsPersistAtom => ({
+    await settingsPersistAtom.set((prev): ISettingsPersistAtom => {
+      const newVal = perfUtils.buildNewValueIfChanged(prev, {
         ...prev,
         perpConfigCommon: {
           ...prev.perpConfigCommon,
@@ -216,8 +217,9 @@ class ServiceWebviewPerp extends ServiceBase {
           perpBannerConfig: bannerConfig,
           ipDisablePerp: commonConfig?.ipDisablePerp,
         },
-      }),
-    );
+      });
+      return newVal;
+    });
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -659,9 +661,9 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async updateBuilderFeeConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const resp = await client.get<IApiClientResponse<IPerpServerConfigResponse>>(
-      '/utility/v1/perp-config',
-    );
+    const resp = await client.get<
+      IApiClientResponse<IPerpServerConfigResponse>
+    >('/utility/v1/perp-config');
     const resData = resp.data;
 
     if (process.env.NODE_ENV !== 'production') {

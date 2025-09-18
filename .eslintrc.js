@@ -31,7 +31,8 @@ const jsRules = {
   'react-hooks/exhaustive-deps': [
     'error',
     {
-      'additionalHooks': '(usePromiseResult|useAsyncCall|useUpdateEffect)',
+      'additionalHooks':
+        '(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)',
     },
   ],
   'global-require': 'off',

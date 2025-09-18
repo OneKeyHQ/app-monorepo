@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { noop } from 'lodash';
-import { useThrottledCallback } from 'use-debounce';
 
 import { useUpdateEffect } from '@onekeyhq/components';
 import {
@@ -11,7 +10,6 @@ import {
 import {
   perpsSelectedSymbolAtom,
   usePerpsSelectedAccountAtom,
-  usePerpsSelectedAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   EAppEventBusNames,
@@ -39,6 +37,7 @@ import {
   useCurrentUserAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -277,6 +276,8 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   useHyperliquidSymbolSelect();
+
+
 
   return null;
 }

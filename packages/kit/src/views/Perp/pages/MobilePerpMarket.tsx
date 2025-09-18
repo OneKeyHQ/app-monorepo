@@ -18,6 +18,7 @@ import {
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
+import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
@@ -114,17 +115,11 @@ function MobilePerpMarket() {
 
 function MobilePerpMarketWithProvider() {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
+    <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <MobilePerpMarket />
       </PerpsProviderMirror>
-    </AccountSelectorProviderMirror>
+    </PerpsAccountSelectorProviderMirror>
   );
 }
 
