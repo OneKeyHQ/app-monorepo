@@ -29,6 +29,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import {
@@ -182,12 +183,19 @@ function useHyperliquidAccountSelect() {
   const isFirstMountRef = useRef(true);
   const [, setCurrentUser] = useCurrentUserAtom();
   const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
+  const isFocused = useRouteIsFocused();
   const [indexedAccountAddressCreationState] =
     useIndexedAccountAddressCreationStateAtom();
 
   // const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
   // const perpsAccountStatusRef = useRef(perpsAccountStatus);
   // perpsAccountStatusRef.current = perpsAccountStatus;
+
+  const checkPerpsAccountStatus = useCallback(async () => {
+    const checkResult =
+      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+    console.log('checkPerpsAccountStatus::', checkResult);
+  }, []);
 
   const selectPerpsAccount = useCallback(async () => {
     noop(activeAccount.account?.address);
@@ -198,16 +206,16 @@ function useHyperliquidAccountSelect() {
         deriveType: activeAccount?.deriveType ?? 'default',
       });
     setCurrentUser(account.accountAddress);
-    const checkResult =
-      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
-    console.log('checkPerpsAccountStatus::', checkResult);
+    await checkPerpsAccountStatus();
   }, [
     activeAccount.account?.address,
+    activeAccount.account?.id,
     activeAccount?.indexedAccount?.id,
-    activeAccount?.account?.id,
     activeAccount?.deriveType,
     setCurrentUser,
+    checkPerpsAccountStatus,
   ]);
+
   const selectPerpsAccountRef = useRef(selectPerpsAccount);
   selectPerpsAccountRef.current = selectPerpsAccount;
 
@@ -216,10 +224,19 @@ function useHyperliquidAccountSelect() {
   }, [selectPerpsAccount]);
 
   useUpdateEffect(() => {
-    if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
-      void selectPerpsAccountRef.current();
+    if (isFocused) {
+      if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
+        void selectPerpsAccountRef.current();
+      } else {
+        void checkPerpsAccountStatus();
+      }
     }
-  }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
+  }, [
+    accountIsAutoCreating,
+    indexedAccountAddressCreationState,
+    isFocused,
+    checkPerpsAccountStatus,
+  ]);
 
   useEffect(() => {
     noop(currentPerpsAccount?.accountAddress);
