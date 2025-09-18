@@ -11,6 +11,7 @@
 #import <CommonCrypto/CommonDigest.h>
 #import <React/RCTUtils.h>
 #import "SSZipArchive.h"
+#import "Verification.h"
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
@@ -280,45 +281,52 @@ RCT_EXPORT_MODULE();
         return nil;
     }
     
-    // For iOS, we'll use a simplified approach to extract SHA256 from the signature
-    // This is equivalent to the Android Verification.extractedTextContentFromVerifyAscFile
-    // In a production environment, you would implement proper GPG verification
+    // Use the Verification class to extract SHA256 from the signature
+    // This matches the Android implementation using Verification.extractedSha256FromVerifyAscFile
+    NSString *cacheFilePath = [NSTemporaryDirectory() stringByAppendingPathComponent:@"bundle-gpg-verification-temp"];
     
-    // Extract SHA256 from the signature content
-    // The signature should contain the SHA256 hash in a specific format
-    NSArray *lines = [signature componentsSeparatedByString:@"\n"];
-    for (NSString *line in lines) {
-        if ([line containsString:@"SHA256"]) {
-            NSArray *components = [line componentsSeparatedByString:@" "];
-            for (NSString *component in components) {
-                if (component.length == 64 && [self isValidHexString:component]) {
-                    DDLogDebug(@"extractedSha256: %@", component);
-                    return component;
-                }
-            }
-        }
+    // Clean up any existing cache file
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:cacheFilePath]) {
+        [fileManager removeItemAtPath:cacheFilePath error:nil];
     }
     
-    // If not found in the expected format, try to parse as JSON
     NSError *error;
-    NSData *jsonData = [signature dataUsingEncoding:NSUTF8StringEncoding];
-    if (jsonData) {
-        NSDictionary *jsonObject = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
-        if (!error && jsonObject[@"sha256"]) {
-            NSString *extractedSha256 = jsonObject[@"sha256"];
-            DDLogDebug(@"extractedSha256 from JSON: %@", extractedSha256);
-            return extractedSha256;
-        }
+    NSString *textContent = [Verification extractedTextContentFromVerifyAscFile:signature cacheFilePath:cacheFilePath error:&error];
+    
+    if (error) {
+        DDLogDebug(@"Error extracting SHA256 from signature: %@", error.localizedDescription);
+        return nil;
+    }
+
+    // Parse the extracted content as JSON to get the SHA256
+    if (!textContent || textContent.length == 0) {
+        return nil;
     }
     
-    DDLogDebug(@"Error extracting SHA256 from signature");
-    return nil;
+    NSData *jsonData = [textContent dataUsingEncoding:NSUTF8StringEncoding];
+    if (!jsonData) {
+        DDLogDebug(@"Failed to convert extracted content to JSON data");
+        return nil;
+    }
+    
+    NSError *jsonError;
+    NSDictionary *jsonObject = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&jsonError];
+    if (jsonError) {
+        DDLogDebug(@"Error parsing extracted content as JSON: %@", jsonError.localizedDescription);
+        return nil;
+    }
+    
+    NSString *extractedSha256 = jsonObject[@"sha256"];
+    if (!sha256Value) {
+        DDLogDebug(@"SHA256 field not found in extracted JSON content");
+        return nil;
+    }
+
+    DDLogDebug(@"extractedSha256: %@", extractedSha256);
+    return extractedSha256;
 }
 
-+ (BOOL)isValidHexString:(NSString *)string {
-    NSCharacterSet *hexCharacterSet = [NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdefABCDEF"];
-    return [[string stringByTrimmingCharactersInSet:hexCharacterSet] isEqualToString:@""];
-}
 
 + (BOOL)validateMetadataFileSha256:(NSString *)currentBundleVersion signature:(NSString *)signature {
     NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
