@@ -171,6 +171,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             return false;
         }
         String metadataFileContent = readFileContent(new File(metadataFilePath));
+        String currentBundleVersion = getCurrentBundleVersion(context);
+        if (currentBundleVersion != null) {
+            SharedPreferences prefs = context.getSharedPreferences("BundleUpdateModule", Context.MODE_PRIVATE);
+            String signature = prefs.getString(currentBundleVersion, null);
+            staticLog(TAG, "Retrieved signature for key: " + currentBundleVersion + ", signature: " + signature);
+        }
         staticLog(TAG, "metadataFileContent: " + metadataFileContent);
         String extractedSha256 = readMetadataFileSha256(context, metadataFileContent);
         if (extractedSha256 == null || extractedSha256.isEmpty()) {
