@@ -1269,6 +1269,20 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
+  async addOrUpdateHyperLiquidAgentCredential(
+    params: ICoreHyperLiquidAgentCredential,
+  ): Promise<{
+    credentialId: string;
+  }> {
+    try {
+      return await this.addHyperLiquidAgentCredential(params);
+    } catch (error) {
+      return this.updateHyperLiquidAgentCredential(params);
+    }
+  }
+
+  @backgroundMethod()
+  @toastIfError()
   async addHyperLiquidAgentCredential(
     params: ICoreHyperLiquidAgentCredential,
   ): Promise<{
