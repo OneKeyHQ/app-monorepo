@@ -252,7 +252,7 @@ function BulkRevoke() {
             [uuid]: {
               status: ERevokeTxStatus.Skipped,
               skippedReason: intl.formatMessage({
-                id: ETranslations.fee_alert_dialog_description,
+                id: ETranslations.wallet_approval_bulk_revoke_status_paused_reason_excessive_gas,
               }),
             },
           }));

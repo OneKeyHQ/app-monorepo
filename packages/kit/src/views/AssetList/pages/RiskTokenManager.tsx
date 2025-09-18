@@ -309,16 +309,18 @@ function RiskTokenManager() {
         deriveInfo,
         deriveType,
         isAllNetworks,
+        tokenMap,
       });
     },
     [
-      accountId,
-      deriveInfo,
-      deriveType,
       navigation,
+      accountId,
       networkId,
       walletId,
+      deriveInfo,
+      deriveType,
       isAllNetworks,
+      tokenMap,
     ],
   );
 
