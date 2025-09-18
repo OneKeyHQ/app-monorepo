@@ -174,7 +174,7 @@ function TokenListViewCmp(props: IProps) {
       );
     }
 
-    if (isAllNetworks && hideZeroBalanceTokens) {
+    if (hideZeroBalanceTokens) {
       resultTokens = resultTokens.filter((item) => {
         const tokenBalance = new BigNumber(
           tokenListMap[item.$key]?.balance ??
@@ -450,20 +450,34 @@ function TokenListViewCmp(props: IProps) {
         ) : null
       }
       ListEmptyComponent={EmptyComponentElement}
-      renderItem={({ item }) => (
-        <TokenListItem
-          hideValue={hideValue}
-          token={item}
-          key={item.$key}
-          onPress={onPressToken}
-          tableLayout={tableLayout}
-          withPrice={withPrice}
-          isAllNetworks={isAllNetworks}
-          withNetwork={withNetwork}
-          isTokenSelector={isTokenSelector}
-          withSwapAction={withSwapAction}
-          showNetworkIcon={showNetworkIcon}
-        />
+      renderItem={({ item, index }) => (
+        <>
+          <TokenListItem
+            hideValue={hideValue}
+            token={item}
+            key={item.$key}
+            onPress={onPressToken}
+            tableLayout={tableLayout}
+            withPrice={withPrice}
+            isAllNetworks={isAllNetworks}
+            withNetwork={withNetwork}
+            isTokenSelector={isTokenSelector}
+            withSwapAction={withSwapAction}
+            showNetworkIcon={showNetworkIcon}
+            hasSameSymbolToken={
+              !!tokenList.tokens.find(
+                (token) =>
+                  token.$key !== item.$key &&
+                  token.symbol.toLowerCase() === item.symbol.toLowerCase(),
+              )
+            }
+          />
+          {isTokenSelector &&
+          tokenSelectorSearchTokenState.isSearching &&
+          index === filteredTokens.length - 1 ? (
+            <ListLoading isTokenSelectorView={!tableLayout} />
+          ) : null}
+        </>
       )}
       ListFooterComponent={
         <Stack pb="$5">

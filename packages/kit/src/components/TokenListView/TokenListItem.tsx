@@ -25,6 +25,7 @@ export type ITokenListItemProps = {
   hideValue?: boolean;
   withSwapAction?: boolean;
   showNetworkIcon?: boolean;
+  hasSameSymbolToken?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -39,6 +40,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     hideValue,
     withSwapAction,
     showNetworkIcon,
+    hasSameSymbolToken,
     ...rest
   } = props;
 
@@ -55,15 +57,13 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           <YStack flex={1}>
             <TokenNameView
               $key={token.$key}
+              hasSameSymbolToken={hasSameSymbolToken}
               name={
                 token.isAggregateToken
                   ? token.commonSymbol ?? token.symbol
                   : token.symbol
               }
               isAggregateToken={token.isAggregateToken}
-              isSameSymbolWithAggregateToken={
-                token.isSameSymbolWithAggregateToken
-              }
               isNative={token.isNative}
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
@@ -108,13 +108,11 @@ function BasicTokenListItem(props: ITokenListItemProps) {
                 : token.symbol
             }
             isAggregateToken={token.isAggregateToken}
-            isSameSymbolWithAggregateToken={
-              token.isSameSymbolWithAggregateToken
-            }
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}
             withNetwork={withNetwork}
+            hasSameSymbolToken={hasSameSymbolToken}
             textProps={{
               size: '$bodyMdMedium',
               flexShrink: 0,
@@ -125,6 +123,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             name={token.name}
             // name={token.accountId || ''}
             networkId={token.networkId}
+            hasSameSymbolToken={hasSameSymbolToken}
             textProps={{
               size: '$bodyMd',
               color: '$textSubdued',
@@ -132,9 +131,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             isAggregateToken={token.isAggregateToken}
-            isSameSymbolWithAggregateToken={
-              token.isSameSymbolWithAggregateToken
-            }
             showNetworkName
           />
         </YStack>
@@ -147,6 +143,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     tableLayout,
     isTokenSelector,
     showNetworkIcon,
+    hasSameSymbolToken,
   ]);
 
   const renderSecondColumn = useCallback(() => {
@@ -251,7 +248,10 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       key={token.name}
       userSelect="none"
       onPress={() => {
-        onPress?.(token);
+        onPress?.({
+          ...token,
+          hasSameSymbolToken,
+        });
       }}
       gap={tableLayout ? '$3' : '$1'}
       {...rest}
