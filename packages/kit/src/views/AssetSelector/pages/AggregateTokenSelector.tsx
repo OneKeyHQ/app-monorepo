@@ -411,7 +411,7 @@ function AggregateTokenSelector() {
   ]);
 
   return (
-    <Page scrollEnabled>
+    <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={
           title ||
@@ -428,7 +428,13 @@ function AggregateTokenSelector() {
             }),
         }}
       />
-      <Page.Body>{renderAggregateTokensList()}</Page.Body>
+      <Page.Body
+        $platform-web={{
+          pb: '$3',
+        }}
+      >
+        {renderAggregateTokensList()}
+      </Page.Body>
     </Page>
   );
 }

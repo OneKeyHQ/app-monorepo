@@ -49,12 +49,14 @@ import {
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
-  isLoading?: boolean;
+  hasTokens?: boolean;
+  manageTokenEnabled?: boolean;
 };
 
 function TokenListFooter(props: IProps) {
   const intl = useIntl();
-  const { tableLayout, hideZeroBalanceTokens, isLoading } = props;
+  const { tableLayout, hideZeroBalanceTokens, hasTokens, manageTokenEnabled } =
+    props;
   const navigation = useAppNavigation();
   const {
     activeAccount: {
@@ -391,17 +393,24 @@ function TokenListFooter(props: IProps) {
           </XStack>
         </ListItem>
       ) : null}
-      {!isLoading ? (
-        <Button
-          mt="$5"
-          alignSelf="center"
-          $gtMd={{
-            size: 'small',
-          }}
-          onPress={handleOnPressManageTokens}
-        >
-          {intl.formatMessage({ id: ETranslations.manage_token_title })}
-        </Button>
+      {hasTokens && manageTokenEnabled ? (
+        <XStack py="$10" justifyContent="center" gap="$1">
+          <SizableText size="$bodyMd" color="$textDisabled">
+            {intl.formatMessage({ id: ETranslations.add_token_instruction })}
+          </SizableText>
+          <Button
+            size="small"
+            variant="tertiary"
+            onPress={handleOnPressManageTokens}
+          >
+            <XStack alignItems="center" gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.add_token_label })}
+              </SizableText>
+              <Icon name="ArrowRightOutline" size="$4" color="$iconSubdued" />
+            </XStack>
+          </Button>
+        </XStack>
       ) : null}
     </Stack>
   );
