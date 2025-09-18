@@ -93,7 +93,31 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
             return nil;
         }
         
-        return @"";
+        // Extract the clear text between PGP message markers
+        NSString *beginMarker = @"-----BEGIN PGP SIGNED MESSAGE-----";
+        NSString *endMarker = @"-----BEGIN PGP SIGNATURE-----";
+        
+        NSRange beginRange = [ascFileContent rangeOfString:beginMarker];
+        NSRange endRange = [ascFileContent rangeOfString:endMarker];
+        
+        if (beginRange.location == NSNotFound || endRange.location == NSNotFound) {
+            DDLogError(@"PGP message markers not found");
+            return nil;
+        }
+        
+        // Find the start of the actual content (after the hash line)
+        NSUInteger contentStart = beginRange.location + beginRange.length;
+        // Extract content up to the signature marker
+        NSUInteger contentEnd = endRange.location;
+        if (contentStart >= contentEnd) {
+            DDLogError(@"Invalid PGP message format");
+            return nil;
+        }
+        
+        NSString *clearText = [ascFileContent substringWithRange:NSMakeRange(contentStart, contentEnd - contentStart)];
+        // Trim whitespace and newlines
+        clearText = [clearText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        return clearText;
     } @catch (NSException *exception) {
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
         return nil;
