@@ -87,7 +87,7 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
         // Verify the signature and extract clear text
         NSError *verifyError = nil;
         BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:publicKeys passphraseForKey:nil error:&verifyError];
-        
+
         if (!verified || verifyError) {
             DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
             return nil;
