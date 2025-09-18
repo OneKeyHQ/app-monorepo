@@ -92,43 +92,52 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
-  const { result: tokenDetailsResult } = usePromiseResult(
-    async () => {
-      const tokensDetails =
-        await backgroundApiProxy.serviceToken.fetchTokensDetails({
+  const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
+    usePromiseResult(
+      async () => {
+        const tokensDetails =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [tokenInfo.address],
+          });
+        updateTokenMetadata({
+          price: tokensDetails[0]?.price ?? 0,
+          priceChange24h: tokensDetails[0]?.price24h ?? 0,
+          coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
+        });
+        updateTokenDetails({
           accountId,
           networkId,
-          contractList: [tokenInfo.address],
+          isInit: true,
+          data: tokensDetails[0],
         });
-      updateTokenMetadata({
-        price: tokensDetails[0]?.price ?? 0,
-        priceChange24h: tokensDetails[0]?.price24h ?? 0,
-        coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
-      });
-      updateTokenDetails({
+        return tokensDetails[0];
+      },
+      [
         accountId,
         networkId,
-        isInit: true,
-        data: tokensDetails[0],
-      });
-      return tokensDetails[0];
-    },
-    [
-      accountId,
-      networkId,
-      tokenInfo.address,
-      updateTokenMetadata,
-      updateTokenDetails,
-    ],
-    {
-      overrideIsFocused: (isPageFocused) =>
-        isPageFocused && (isTabView ? isFocused : true),
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-    },
-  );
+        tokenInfo.address,
+        updateTokenMetadata,
+        updateTokenDetails,
+      ],
+      {
+        watchLoading: true,
+        overrideIsFocused: (isPageFocused) =>
+          isPageFocused && (isTabView ? isFocused : true),
+        debounced: POLLING_DEBOUNCE_INTERVAL,
+      },
+    );
 
   const tokenDetails =
     tokenDetailsResult ?? tokenDetailsContext[tokenDetailsKey]?.data;
+
+  const showLoadingState = useMemo(() => {
+    if (tokenDetailsContext[tokenDetailsKey]?.init) {
+      return false;
+    }
+    return isLoadingTokenDetails;
+  }, [tokenDetailsContext, tokenDetailsKey, isLoadingTokenDetails]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
@@ -235,7 +244,7 @@ function TokenDetailsHeader(props: IProps) {
       <>
         {isAllNetworks &&
         !tokenInfo.isAggregateToken &&
-        tokenInfo.isSameSymbolWithAggregateToken ? (
+        tokenInfo.hasSameSymbolToken ? (
           <Alert
             icon="InfoCircleOutline"
             type="critical"
@@ -250,25 +259,34 @@ function TokenDetailsHeader(props: IProps) {
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             <Stack flex={1}>
-              <NumberSizeableTextWrapper
-                hideValue
-                size="$heading4xl"
-                formatter="balance"
-                fontWeight="bold"
-              >
-                {tokenDetails?.balanceParsed ?? '0'}
-              </NumberSizeableTextWrapper>
-              <NumberSizeableTextWrapper
-                hideValue
-                formatter="value"
-                formatterOptions={{
-                  currency: settings.currencyInfo.symbol,
-                }}
-                color="$textSubdued"
-                size="$bodyLg"
-              >
-                {tokenDetails?.fiatValue ?? '0'}
-              </NumberSizeableTextWrapper>
+              {showLoadingState ? (
+                <Skeleton.Group show>
+                  <Skeleton.Heading4Xl />
+                  <Skeleton.BodyLg />
+                </Skeleton.Group>
+              ) : (
+                <>
+                  <NumberSizeableTextWrapper
+                    hideValue
+                    size="$heading4xl"
+                    formatter="balance"
+                    fontWeight="bold"
+                  >
+                    {tokenDetails?.balanceParsed ?? '0'}
+                  </NumberSizeableTextWrapper>
+                  <NumberSizeableTextWrapper
+                    hideValue
+                    formatter="value"
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
+                    color="$textSubdued"
+                    size="$bodyLg"
+                  >
+                    {tokenDetails?.fiatValue ?? '0'}
+                  </NumberSizeableTextWrapper>
+                </>
+              )}
             </Stack>
           </XStack>
           {/* Actions */}

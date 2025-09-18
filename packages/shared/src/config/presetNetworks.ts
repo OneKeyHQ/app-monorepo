@@ -1,11 +1,34 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable spellcheck/spell-checker */
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
 
 import platformEnv from '../platformEnv';
+
+export const dangerAggregateTokenNetworkRepresent: IServerNetwork = {
+  'chainId': '0',
+  'code': 'aggregate',
+  'decimals': 0,
+  'id': AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+  'impl': 'aggregate',
+  'isTestnet': false,
+  'isAllNetworks': false,
+  'name': 'Aggregate Token Network',
+  'logoURI': '',
+  'shortcode': 'aggregate',
+  'shortname': 'aggregate',
+  'symbol': 'AGGREGATE',
+  'feeMeta': {
+    'decimals': 0,
+    'symbol': '0',
+  },
+  'defaultEnabled': false,
+  'isAggregateNetwork': true,
+  'status': ENetworkStatus.LISTED,
+};
 
 // dangerNetwork represents a virtual network
 export const dangerAllNetworkRepresent: IServerNetwork = {

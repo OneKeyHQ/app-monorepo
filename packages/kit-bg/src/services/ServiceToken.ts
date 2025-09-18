@@ -121,7 +121,6 @@ class ServiceToken extends ServiceBase {
       blockedTokensRawData,
       unblockedTokensRawData,
       aggregateTokenConfigMapRawData,
-      aggregateTokenSymbolMapRawData,
       ...rest
     } = params;
     const { networkId } = rest;
@@ -281,12 +280,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.tokens.data = resp.data.data.tokens.data
       .map((token) => {
-        let isSameSymbolWithAggregateToken = false;
-        if (
-          isAllNetworks &&
-          aggregateTokenConfigMapRawData &&
-          aggregateTokenSymbolMapRawData
-        ) {
+        if (isAllNetworks && aggregateTokenConfigMapRawData) {
           const data = buildAggregateTokenListData({
             networkId,
             accountId,
@@ -295,11 +289,8 @@ class ServiceToken extends ServiceBase {
             aggregateTokenListMap,
             aggregateTokenMap,
             aggregateTokenConfigMapRawData,
-            aggregateTokenSymbolMapRawData,
             networkName: network?.name ?? '',
           });
-
-          isSameSymbolWithAggregateToken = data.isSameSymbolWithAggregateToken;
 
           if (data.isAggregateToken) {
             aggregateTokenListMap = data.aggregateTokenListMap;
@@ -318,7 +309,6 @@ class ServiceToken extends ServiceBase {
           networkId,
           networkName: network?.name,
           mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-          isSameSymbolWithAggregateToken,
         };
       })
       .filter(Boolean);
@@ -340,12 +330,7 @@ class ServiceToken extends ServiceBase {
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data
         .map((token) => {
-          let isSameSymbolWithAggregateToken = false;
-          if (
-            isAllNetworks &&
-            aggregateTokenConfigMapRawData &&
-            aggregateTokenSymbolMapRawData
-          ) {
+          if (isAllNetworks && aggregateTokenConfigMapRawData) {
             const data = buildAggregateTokenListData({
               accountId,
               networkName: network?.name ?? '',
@@ -355,11 +340,7 @@ class ServiceToken extends ServiceBase {
               aggregateTokenListMap,
               aggregateTokenMap,
               aggregateTokenConfigMapRawData,
-              aggregateTokenSymbolMapRawData,
             });
-
-            isSameSymbolWithAggregateToken =
-              data.isSameSymbolWithAggregateToken;
 
             if (data.isAggregateToken) {
               aggregateTokenListMap = data.aggregateTokenListMap;
@@ -377,7 +358,6 @@ class ServiceToken extends ServiceBase {
             networkId,
             networkName: network?.name,
             mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
-            isSameSymbolWithAggregateToken,
           };
         })
         .filter(Boolean);
@@ -1067,9 +1047,9 @@ class ServiceToken extends ServiceBase {
           (token) => token.networkId,
         );
 
-        aggregateTokenSymbolMap[commonSymbol] = true;
-
         if (filteredData.length > 1) {
+          aggregateTokenSymbolMap[commonSymbol] = true;
+
           filteredData.forEach((token) => {
             const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList(
               {

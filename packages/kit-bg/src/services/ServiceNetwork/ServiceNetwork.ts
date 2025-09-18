@@ -11,7 +11,11 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import {
+  dangerAggregateTokenNetworkRepresent,
+  getPresetNetworks,
+} from '@onekeyhq/shared/src/config/presetNetworks';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -211,6 +215,10 @@ class ServiceNetwork extends ServiceBase {
     networkId?: string;
     code?: string;
   }): Promise<IServerNetwork> {
+    if (networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID) {
+      return dangerAggregateTokenNetworkRepresent;
+    }
+
     const { networks } = await this.getAllNetworks();
     let network: IServerNetwork | undefined;
     if (!network && networkId) {

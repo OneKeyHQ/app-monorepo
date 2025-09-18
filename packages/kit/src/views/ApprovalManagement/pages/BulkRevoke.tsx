@@ -25,6 +25,7 @@ import type {
   IOneKeyError,
   IOneKeyRpcError,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareInterruptErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -315,6 +316,25 @@ function BulkRevoke() {
         }));
       } catch (error: unknown) {
         let passphraseEnabled;
+        let deviceCommunicationError;
+
+        if (
+          isHardwareInterruptErrorByCode({
+            error: error as IOneKeyError,
+          })
+        ) {
+          i -= 1;
+          deviceCommunicationError = true;
+          setProgressState(ERevokeProgressState.Paused);
+          progressStateRef.current = ERevokeProgressState.Paused;
+          setRevokeTxsStatusMap((prev) => ({
+            ...prev,
+            [uuid]: {
+              status: ERevokeTxStatus.Paused,
+            },
+          }));
+        }
+
         if (
           errorUtils.isErrorByClassName({
             error,
@@ -362,7 +382,7 @@ function BulkRevoke() {
           });
         }
 
-        if (!passphraseEnabled) {
+        if (!passphraseEnabled && !deviceCommunicationError) {
           setRevokeTxsStatusMap((prev) => ({
             ...prev,
             [uuid]: {
@@ -422,7 +442,10 @@ function BulkRevoke() {
 
   useEffect(() => {
     const handleVisibilityStateChange = (visible: boolean) => {
-      if (visible === false) {
+      if (
+        visible === false &&
+        progressState === ERevokeProgressState.InProgress
+      ) {
         setProgressState(ERevokeProgressState.Paused);
         setRevokeTxsStatusMap((prev) => ({
           ...prev,
@@ -437,7 +460,7 @@ function BulkRevoke() {
       handleVisibilityStateChange,
     );
     return removeSubscription;
-  }, [currentProcessIndex, unsignedTxs]);
+  }, [currentProcessIndex, unsignedTxs, progressState]);
 
   const handleOnConfirm = useCallback(() => {
     if (progressState === ERevokeProgressState.Finished) {

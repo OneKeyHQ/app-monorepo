@@ -22,13 +22,13 @@ type IProps = {
   name: string;
   isNative?: boolean;
   isAggregateToken?: boolean;
-  isSameSymbolWithAggregateToken?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
   textProps?: ISizableTextProps;
   withAggregateBadge?: boolean;
   showNetworkName?: boolean;
+  hasSameSymbolToken?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
@@ -37,13 +37,13 @@ function TokenNameView(props: IProps) {
     name,
     isNative,
     isAggregateToken,
-    isSameSymbolWithAggregateToken,
     isAllNetworks,
     withNetwork,
     networkId,
     textProps,
     withAggregateBadge,
     showNetworkName,
+    hasSameSymbolToken,
     ...rest
   } = props;
   const intl = useIntl();
@@ -76,14 +76,16 @@ function TokenNameView(props: IProps) {
         </Badge>
       ) : null}
       {withNetwork &&
-      (network ||
+      ((network && !network.isAggregateNetwork && !isAggregateToken) ||
         (firstAggregateTokenNetwork &&
           aggregateTokenList?.length === 1 &&
           allAggregateTokenList.length === 0)) &&
       !isNative ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>
-            {network?.name || firstAggregateTokenNetwork?.name}
+            {network?.isAggregateNetwork
+              ? firstAggregateTokenNetwork?.name
+              : network?.name || firstAggregateTokenNetwork?.name}
           </Badge.Text>
         </Badge>
       ) : null}
@@ -105,7 +107,7 @@ function TokenNameView(props: IProps) {
       {isAllNetworks &&
       !isAggregateToken &&
       !showNetworkName &&
-      isSameSymbolWithAggregateToken ? (
+      hasSameSymbolToken ? (
         <Tooltip
           placement="top"
           renderTrigger={
