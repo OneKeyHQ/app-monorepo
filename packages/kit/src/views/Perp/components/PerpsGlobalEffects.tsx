@@ -261,17 +261,20 @@ function useHyperliquidAccountSelect() {
   }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
 
   useUpdateEffect(() => {
-    if (
-      isFocused &&
-      lastCheckTimeRef.current +
-        timerUtils.getTimeDurationMs({
-          // seconds: 10,
-          hour: 1,
-        }) <
-        Date.now()
-    ) {
-      void checkPerpsAccountStatus();
-    }
+    void (async () => {
+      if (
+        isFocused &&
+        lastCheckTimeRef.current +
+          timerUtils.getTimeDurationMs({
+            // seconds: 10,
+            hour: 1,
+          }) <
+          Date.now()
+      ) {
+        await timerUtils.wait(600);
+        await checkPerpsAccountStatus();
+      }
+    })();
   }, [isFocused, checkPerpsAccountStatus]);
 
   useEffect(() => {
