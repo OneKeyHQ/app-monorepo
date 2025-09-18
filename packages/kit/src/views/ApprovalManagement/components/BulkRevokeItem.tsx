@@ -67,6 +67,10 @@ function getRevokeStatusLabel({
       return intl.formatMessage({
         id: ETranslations.wallet_approval_bulk_revoke_status_skipped,
       });
+    case ERevokeTxStatus.Failed:
+      return intl.formatMessage({
+        id: ETranslations.wallet_approval_bulk_revoke_status_failed,
+      });
     default:
       return '';
   }
@@ -90,6 +94,8 @@ function RevokeStatusIcon(props: { status: IRevokeTxStatus }) {
     iconColor = '$iconCaution';
   } else if (status.status === ERevokeTxStatus.Skipped) {
     iconColor = '$iconInfo';
+  } else if (status.status === ERevokeTxStatus.Failed) {
+    iconColor = '$iconCritical';
   }
 
   return <Stack width="$2" height="$2" bg={iconColor} borderRadius="$full" />;
@@ -135,6 +141,7 @@ function BulkRevokeItem(props: IProps) {
               formatterOptions={{
                 tokenSymbol: status.feeSymbol,
               }}
+              numberOfLines={1}
             >
               {status.feeBalance ?? '-'}
             </NumberSizeableText>
@@ -146,6 +153,7 @@ function BulkRevokeItem(props: IProps) {
                 formatterOptions={{
                   currency: settings.currencyInfo.symbol,
                 }}
+                numberOfLines={1}
               >
                 {status.feeFiat ?? '-'}
               </NumberSizeableText>
@@ -164,7 +172,10 @@ function BulkRevokeItem(props: IProps) {
           {status.skippedReason ? (
             <Popover
               title={intl.formatMessage({
-                id: ETranslations.approval_bulk_revoke_status_paused_reason_description,
+                id:
+                  status.status === ERevokeTxStatus.Failed
+                    ? ETranslations.wallet_approval_bulk_revoke_status_failed_reason_description
+                    : ETranslations.approval_bulk_revoke_status_paused_reason_description,
               })}
               renderTrigger={
                 <IconButton
@@ -264,11 +275,17 @@ function BulkRevokeItem(props: IProps) {
           backgroundColor="$bgSubdued"
           padding="$0"
         >
-          <YStack gap="$4" px="$5" py="$5">
+          <YStack
+            gap="$4"
+            px="$5"
+            py="$5"
+            borderBottomWidth={1}
+            borderColor="$neutral3"
+          >
             <XStack alignItems="flex-start" justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.wallet_approval_bulk_revoke_approved_spender,
+                  id: ETranslations.global_contract_address,
                 })}
               </SizableText>
               <XStack alignItems="center" gap="$2">

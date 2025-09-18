@@ -241,43 +241,40 @@ class ServiceMarketV2 extends ServiceBase {
     return data;
   }
 
-  // Market Watch List V2 Methods (using chainId + contractAddress)
-  // TODO: Implement cloud sync for V2 when CloudSyncFlowManagerMarketWatchListV2 is ready
   async buildMarketWatchListV2SyncItems({
-    watchList: _watchList,
-    isDeleted: _isDeleted,
+    watchList,
+    isDeleted,
   }: {
     watchList: IMarketWatchListItemV2[];
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem[]> {
-    // Temporarily return empty array until cloud sync manager is implemented
-    return [];
-    // const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    // const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
-    // const syncCredential =
-    //   await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
-    // const syncItems = (
-    //   await Promise.all(
-    //     watchList.map(async (watchListItem) => {
-    //       return syncManagers.marketWatchListV2?.buildSyncItemByDBQuery({
-    //         syncCredential,
-    //         dbRecord: watchListItem,
-    //         dataTime: now,
-    //         isDeleted,
-    //       });
-    //     }),
-    //   )
-    // ).filter(Boolean);
-    // return syncItems;
+    const syncItems = (
+      await Promise.all(
+        watchList.map(async (watchListItem) => {
+          return syncManagers.marketWatchList.buildSyncItemByDBQuery({
+            syncCredential,
+            dbRecord: watchListItem,
+            dataTime: now,
+            isDeleted,
+          });
+        }),
+      )
+    ).filter(Boolean);
+    return syncItems;
   }
 
   async withMarketWatchListV2CloudSync({
     fn,
-    watchList: _watchList,
-    isDeleted: _isDeleted,
-    skipSaveLocalSyncItem: _skipSaveLocalSyncItem,
-    skipEventEmit: _skipEventEmit,
+    watchList,
+    isDeleted,
+    skipSaveLocalSyncItem,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    skipEventEmit,
   }: {
     fn: () => Promise<void>;
     watchList: IMarketWatchListItemV2[];
@@ -285,19 +282,17 @@ class ServiceMarketV2 extends ServiceBase {
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
   }) {
-    // Temporarily skip cloud sync until manager is implemented
-    await fn();
-    // let syncItems: IDBCloudSyncItem[] = [];
-    // if (!skipSaveLocalSyncItem) {
-    //   syncItems = await this.buildMarketWatchListV2SyncItems({
-    //     watchList,
-    //     isDeleted,
-    //   });
-    // }
-    // await this.backgroundApi.localDb.addAndUpdateSyncItems({
-    //   items: syncItems,
-    //   fn,
-    // });
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      syncItems = await this.buildMarketWatchListV2SyncItems({
+        watchList,
+        isDeleted,
+      });
+    }
+    await this.backgroundApi.localDb.addAndUpdateSyncItems({
+      items: syncItems,
+      fn,
+    });
   }
 
   @backgroundMethod()
@@ -312,19 +307,18 @@ class ServiceMarketV2 extends ServiceBase {
   }) {
     const currentData =
       await this.backgroundApi.simpleDb.marketWatchListV2.getRawData();
-    // eslint-disable-next-line no-param-reassign
-    watchList = sortUtils.fillingSaveItemsSortIndex({
+    const newWatchList = sortUtils.fillingSaveItemsSortIndex({
       oldList: currentData?.data ?? [],
       saveItems: watchList,
     });
     return this.withMarketWatchListV2CloudSync({
-      watchList,
+      watchList: newWatchList,
       isDeleted: false,
       skipSaveLocalSyncItem,
       skipEventEmit,
       fn: () =>
         this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
-          watchList,
+          watchList: newWatchList,
         }),
     });
   }
@@ -339,13 +333,8 @@ class ServiceMarketV2 extends ServiceBase {
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
   }) {
-    const watchList: IMarketWatchListItemV2[] = items.map((item) => ({
-      chainId: item.chainId,
-      contractAddress: item.contractAddress,
-      sortIndex: undefined,
-    }));
     return this.withMarketWatchListV2CloudSync({
-      watchList,
+      watchList: items,
       isDeleted: true,
       skipSaveLocalSyncItem,
       skipEventEmit,
@@ -361,7 +350,7 @@ class ServiceMarketV2 extends ServiceBase {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
   }
 
-  async getMarketWatchListV2WithFillingSortIndex() {
+  async getMarketWatchListWithFillingSortIndexV2() {
     const items = await this.getMarketWatchListV2();
     const hasMissingSortIndex = items.data.some((item) =>
       isNil(item.sortIndex),
@@ -376,54 +365,47 @@ class ServiceMarketV2 extends ServiceBase {
   }
 
   @backgroundMethod()
-  async clearAllMarketWatchListV2({
-    skipSaveLocalSyncItem,
-    skipEventEmit,
-  }: {
-    skipSaveLocalSyncItem?: boolean;
-    skipEventEmit?: boolean;
-  } = {}) {
-    return this.withMarketWatchListV2CloudSync({
-      watchList: [],
-      isDeleted: true,
-      skipSaveLocalSyncItem,
-      skipEventEmit,
-      fn: () =>
-        this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2(),
-    });
+  async clearAllMarketWatchListV2() {
+    return this.backgroundApi.simpleDb.marketWatchListV2.clearAllMarketWatchListV2();
   }
 
-  /**
-   * Fetch token security information for multiple tokens using batch API
-   * @param tokenAddressList - Array of token addresses with their chain IDs
-   * @returns Promise<IMarketTokenSecurityBatchResponse> - Token security analysis data for all requested tokens
-   *
-   * @example
-   * ```typescript
-   * const securityBatch = await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity([
-   *   { contractAddress: '0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce', chainId: 'evm--1' },
-   *   { contractAddress: 'mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', chainId: 'sol--101' }
-   * ]);
-   * const shibSecurity = securityBatch['0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce'];
-   * console.log('Is honeypot:', shibSecurity.is_honeypot?.value);
-   * console.log('Buy tax:', shibSecurity.buy_tax?.value);
-   * ```
-   */
-  @backgroundMethod()
-  async fetchMarketTokenSecurity(
-    tokenAddressList: Array<{ contractAddress: string; chainId: string }>,
-  ) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.post<{
-      code: number;
-      message: string;
-      data: IMarketTokenSecurityBatchResponse;
-    }>('/utility/v2/market/token/security/batch', {
-      tokenAddressList,
-    });
-    const { data } = response.data;
+  private _fetchMarketTokenSecurityCached = memoizee(
+    async (
+      contractAddress: string,
+      chainId: string,
+    ): Promise<IMarketTokenSecurityBatchResponse> => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.post<{
+        code: number;
+        message: string;
+        data: IMarketTokenSecurityBatchResponse;
+      }>('/utility/v2/market/token/security/batch', {
+        tokenAddressList: [
+          {
+            contractAddress,
+            chainId,
+          },
+        ],
+      });
+      const { data } = response.data;
 
-    return data;
+      return data;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      promise: true,
+    },
+  );
+
+  @backgroundMethod()
+  async fetchMarketTokenSecurity(item: {
+    contractAddress: string;
+    chainId: string;
+  }) {
+    return this._fetchMarketTokenSecurityCached(
+      item.contractAddress,
+      item.chainId,
+    );
   }
 }
 

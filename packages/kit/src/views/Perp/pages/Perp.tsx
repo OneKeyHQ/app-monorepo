@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 
 import { Page, useMedia } from '@onekeyhq/components';
-import { ProviderJotaiContextHyperliquid } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -9,9 +9,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
-import { useHyperliquidSession } from '../hooks';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
+import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -22,8 +22,6 @@ function PerpLayout() {
 }
 
 function PerpContent() {
-  useHyperliquidSession();
-
   return (
     <Page>
       <TabPageHeader
@@ -38,7 +36,6 @@ function PerpContent() {
 }
 
 export default function Perp() {
-  // useDebugComponentRemountLog({ name: 'Perp' });
   useFocusEffect(() => {
     void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
   });
@@ -50,10 +47,10 @@ export default function Perp() {
       }}
       enabledNum={[0]}
     >
-      <ProviderJotaiContextHyperliquid>
+      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <PerpsGlobalEffects />
         <PerpContent />
-      </ProviderJotaiContextHyperliquid>
+      </PerpsProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

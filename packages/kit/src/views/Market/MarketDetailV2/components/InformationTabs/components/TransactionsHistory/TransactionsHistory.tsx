@@ -14,12 +14,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
-import { useMarketTransactions } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketTransactions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
 import { TransactionsSkeleton } from './components/TransactionsSkeleton';
+import { useMarketTransactions } from './hooks/useMarketTransactions';
+import { useTransactionsWebSocket } from './hooks/useTransactionsWebSocket';
 import { TransactionItemNormal } from './layout/TransactionItemNormal/TransactionItemNormal';
 import { TransactionItemSmall } from './layout/TransactionItemSmall/TransactionItemSmall';
 
@@ -58,11 +59,26 @@ export function TransactionsHistory({
 }: ITransactionsHistoryProps) {
   const intl = useIntl();
   const { gtXl } = useMedia();
-  const { transactions, isRefreshing, isLoadingMore, hasMore, loadMore } =
-    useMarketTransactions({
-      tokenAddress,
-      networkId,
-    });
+  const {
+    transactions,
+    isRefreshing,
+    isLoadingMore,
+    hasMore,
+    loadMore,
+    addNewTransaction,
+  } = useMarketTransactions({
+    tokenAddress,
+    networkId,
+  });
+
+  // Subscribe to real-time transaction updates
+  useTransactionsWebSocket({
+    networkId,
+    tokenAddress,
+    enabled: !platformEnv.isNative,
+    onNewTransaction: addNewTransaction,
+  });
+
   const { scrollTop } = useTabsScrollContext() as {
     scrollTop: number;
   };
@@ -107,7 +123,7 @@ export function TransactionsHistory({
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
       key={listKey}
-      onEndReached={handleEndReached}
+      onEndReached={platformEnv.isNative ? undefined : handleEndReached}
       onEndReachedThreshold={0.2}
       data={transactions}
       renderItem={renderItem}

@@ -28,6 +28,7 @@ type IProps = {
   textProps?: ISizableTextProps;
   withAggregateBadge?: boolean;
   showNetworkName?: boolean;
+  hasSameSymbolToken?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
@@ -42,6 +43,7 @@ function TokenNameView(props: IProps) {
     textProps,
     withAggregateBadge,
     showNetworkName,
+    hasSameSymbolToken,
     ...rest
   } = props;
   const intl = useIntl();
@@ -74,14 +76,16 @@ function TokenNameView(props: IProps) {
         </Badge>
       ) : null}
       {withNetwork &&
-      (network ||
+      ((network && !network.isAggregateNetwork && !isAggregateToken) ||
         (firstAggregateTokenNetwork &&
           aggregateTokenList?.length === 1 &&
           allAggregateTokenList.length === 0)) &&
       !isNative ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>
-            {network?.name || firstAggregateTokenNetwork?.name}
+            {network?.isAggregateNetwork
+              ? firstAggregateTokenNetwork?.name
+              : network?.name || firstAggregateTokenNetwork?.name}
           </Badge.Text>
         </Badge>
       ) : null}
@@ -98,6 +102,26 @@ function TokenNameView(props: IProps) {
               size="$5"
             />
           }
+        />
+      ) : null}
+      {isAllNetworks &&
+      !isAggregateToken &&
+      !showNetworkName &&
+      !isNative &&
+      hasSameSymbolToken ? (
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <Icon
+              flexShrink={0}
+              name="InfoCircleOutline"
+              color="$iconCritical"
+              size="$4"
+            />
+          }
+          renderContent={intl.formatMessage({
+            id: ETranslations.identical_name_asset_alert,
+          })}
         />
       ) : null}
     </XStack>

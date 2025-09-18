@@ -34,7 +34,6 @@ export const ipcMessageKeys = {
   // Updater
   UPDATE_CHECK: 'update/check',
   UPDATE_SETTINGS: 'update/settings',
-  UPDATE_CLEAR_SETTINGS: 'update/clearSettings',
   UPDATE_DOWNLOAD: 'update/download',
   UPDATE_VERIFY: 'update/verify',
   UPDATE_VERIFIED: 'update/verified',

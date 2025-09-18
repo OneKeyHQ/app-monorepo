@@ -49,7 +49,6 @@ import {
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
   DesktopBluetoothPermissionContent,
-  EnterHiddenWalletPinOnDevice,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
@@ -228,26 +227,27 @@ function HardwareSingletonDialogCmp(
         title = intl.formatMessage({
           id: ETranslations.global_enter_hidden_wallet_pin_on_device,
         });
-        content = (
-          <EnterHiddenWalletPinOnDevice
-            deviceType={state?.payload?.deviceType}
-          />
-        );
       } else {
         title = intl.formatMessage({
           id: ETranslations.enter_pin_enter_on_device,
         });
-        content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
       }
+      content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
     }
 
     // EnterPin on App
     if (action === EHardwareUiStateAction.REQUEST_PIN) {
-      title = intl.formatMessage({
-        id: ETranslations.enter_pin_title,
-      });
+      const isAttachPin = state?.payload?.requestPinType === 'AttachPin';
+      title = isAttachPin
+        ? intl.formatMessage({
+            id: ETranslations.global_enter_hidden_wallet_pin,
+          })
+        : intl.formatMessage({
+            id: ETranslations.enter_pin_title,
+          });
       content = (
         <EnterPin
+          title={title}
           onConfirm={async (value) => {
             await serviceHardwareUI.sendPinToDevice({
               pin: value,

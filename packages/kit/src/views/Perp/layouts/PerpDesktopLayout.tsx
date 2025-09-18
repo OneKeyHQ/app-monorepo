@@ -3,8 +3,12 @@ import { ScrollView, XStack, YStack, useMedia } from '@onekeyhq/components';
 import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
-import { PerpAccountPanel } from '../components/TradingPanel/PerpAccountPanel';
+import {
+  PerpAccountDebugInfo,
+  PerpAccountPanel,
+} from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 
 function PerpDesktopLayout() {
@@ -12,6 +16,7 @@ function PerpDesktopLayout() {
   return (
     <ScrollView flex={1}>
       <YStack bg="$bgApp">
+        <PerpTips />
         <PerpTickerBar />
         <XStack flex={1}>
           <YStack
@@ -25,7 +30,7 @@ function PerpDesktopLayout() {
               borderBottomWidth="$px"
               borderBottomColor="$borderSubdued"
             >
-              <YStack flex={1}>
+              <YStack flex={1} minHeight={600}>
                 <PerpCandles />
               </YStack>
 
@@ -33,20 +38,22 @@ function PerpDesktopLayout() {
                 <YStack
                   borderLeftWidth="$px"
                   borderLeftColor="$borderSubdued"
-                  w={320}
+                  w={300}
                 >
                   <PerpOrderBook />
                 </YStack>
               ) : null}
             </XStack>
             {/* Positions Section */}
-            <PerpOrderInfoPanel />
+            <YStack flex={1} overflow="hidden">
+              <PerpOrderInfoPanel />
+            </YStack>
           </YStack>
-
           <YStack w={360}>
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
               <PerpAccountPanel />
+              <PerpAccountDebugInfo />
             </YStack>
           </YStack>
         </XStack>

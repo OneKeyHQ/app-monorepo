@@ -3,3 +3,4 @@
 //
 
 #import "LaunchOptionsManager.h"
+#import "BundleUpdateModule.h"

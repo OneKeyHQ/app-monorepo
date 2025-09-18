@@ -165,4 +165,46 @@ if (platformEnv.isNativeIOS) {
   Error.captureStackTrace = () => {};
 }
 
+if (platformEnv.isNative) {
+  shimsInjectedLog('event-target-polyfill');
+  try {
+    require('event-target-polyfill');
+  } catch (error) {
+    console.warn('event-target-polyfill load failed', error);
+  }
+
+  if (typeof global.CustomEvent !== 'function' && typeof Event === 'function') {
+    global.CustomEvent = function CustomEvent(type, params = {}) {
+      const event = new Event(type, params);
+      event.detail = params.detail || null;
+      return event;
+    };
+  }
+
+  if (
+    typeof AbortSignal !== 'undefined' &&
+    typeof AbortSignal.timeout !== 'function' &&
+    typeof AbortController !== 'undefined'
+  ) {
+    AbortSignal.timeout = function timeout(delay) {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(), delay);
+      return controller.signal;
+    };
+  }
+
+  if (!ArrayBuffer.prototype.transfer) {
+    // eslint-disable-next-line no-extend-native
+    ArrayBuffer.prototype.transfer = function (newByteLength) {
+      const length = newByteLength ?? this.byteLength;
+      const newBuffer = new ArrayBuffer(length);
+      const oldView = new Uint8Array(this);
+      const newView = new Uint8Array(newBuffer);
+      newView.set(oldView.subarray(0, Math.min(oldView.length, length)));
+      Object.defineProperty(this, 'byteLength', { value: 0 });
+      return newBuffer;
+    };
+  }
+}
+
 console.log('polyfillsPlatform.native shim loaded');

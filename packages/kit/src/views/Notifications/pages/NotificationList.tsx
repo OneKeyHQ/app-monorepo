@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 
+import type { ISectionListRef } from '@onekeyhq/components';
 import {
   Alert,
   Dialog,
@@ -297,7 +298,7 @@ function BaseNotificationList() {
     useNotificationsAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
-
+  const listRef = useRef<ISectionListRef<unknown>>(null);
   const { activeAccount } = useActiveAccount({ num: 0 });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
@@ -345,21 +346,36 @@ function BaseNotificationList() {
     return tabs.map((tab) => tab.name);
   }, [tabs]);
   const focusedTab = useSharedValue<string>(tabs[0].name);
+  const [
+    shouldShowMaxAccountLimitWarning,
+    setShouldShowMaxAccountLimitWarning,
+  ] = useState(false);
   const [unreadMap, setUnreadMap] = useState<{
     [key: string]: number;
   }>({
     [ENotificationPushTopicTypes.accountActivity]: 0,
     [ENotificationPushTopicTypes.system]: 0,
   });
-  const {
-    result = [],
-    isLoading,
-    run: reFetchList,
-  } = usePromiseResult(
+  const [result, setResult] = useState<INotificationPushMessageListItem[]>([]);
+  const cacheListRef = useRef<
+    Record<ENotificationPushTopicTypes, INotificationPushMessageListItem[]>
+  >({
+    [ENotificationPushTopicTypes.all]: [],
+    [ENotificationPushTopicTypes.accountActivity]: [],
+    [ENotificationPushTopicTypes.coinPriceAlert]: [],
+    [ENotificationPushTopicTypes.system]: [],
+  });
+  const { isLoading, run: reFetchList } = usePromiseResult(
     async () => {
       noop(lastReceivedTime);
-      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const topicType = tabs.find((tab) => tab.name === focusedTab.value)?.id;
+      if (!topicType) return;
+      const cacheList = cacheListRef.current[topicType];
+      setShouldShowMaxAccountLimitWarning(
+        topicType !== ENotificationPushTopicTypes.system,
+      );
+      setResult(cacheList);
+      void backgroundApiProxy.serviceNotification.refreshBadgeFromServer();
       const r = await backgroundApiProxy.serviceNotification.fetchMessageList(
         !topicType || topicType === ENotificationPushTopicTypes.all
           ? undefined
@@ -388,6 +404,13 @@ function BaseNotificationList() {
         );
         setUnreadMap(hasUnreadMap);
       }
+      if (
+        (cacheListRef.current[topicType]?.length || 0) === 0 &&
+        r?.length > 0
+      ) {
+        setResult(r);
+      }
+      cacheListRef.current[topicType] = r;
       return r;
     },
     [focusedTab.value, lastReceivedTime, tabs],
@@ -419,8 +442,9 @@ function BaseNotificationList() {
   );
 
   useEffect(() => {
-    const fn = () => {
-      void reFetchList();
+    const fn = async () => {
+      const r = await reFetchList();
+      setResult(r ?? []);
     };
     appEventBus.on(EAppEventBusNames.UpdateNotificationBadge, fn);
     return () => {
@@ -432,12 +456,13 @@ function BaseNotificationList() {
     return (
       <SectionList
         useFlashList
+        ref={listRef}
         contentContainerStyle={{
           pb: bottom || '$5',
         }}
         sections={sectionsData}
         renderSectionHeader={
-          ({ section: { title } }) => null // <SectionList.SectionHeader title={title} />
+          (_) => null // <SectionList.SectionHeader title={title} />
         }
         renderItem={({
           item,
@@ -541,6 +566,12 @@ function BaseNotificationList() {
       if (tab) {
         focusedTab.value = tab.name;
         void reFetchList();
+        setTimeout(() => {
+          listRef.current?.scrollToIndex({
+            index: 0,
+            animated: false,
+          });
+        }, 10);
       }
     },
     [focusedTab, reFetchList, tabs],
@@ -594,7 +625,7 @@ function BaseNotificationList() {
           }}
         />
         <YStack pt="$2" flex={1}>
-          <MaxAccountLimitWarning />
+          {shouldShowMaxAccountLimitWarning ? <MaxAccountLimitWarning /> : null}
           {contentView}
         </YStack>
       </Page.Body>

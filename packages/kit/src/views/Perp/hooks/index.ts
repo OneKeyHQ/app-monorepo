@@ -9,13 +9,13 @@ export {
 
 // HyperLiquid hooks
 export {
-  useHyperliquidEventBusListener,
-  useHyperliquidSession,
   useHyperliquidMarket,
   useHyperliquidAccount,
   useHyperliquidTrading,
   useHyperliquidConnectionStatus,
 } from './useHyperliquid';
+
+export { useFundingCountdown } from './useFundingCountdown';
 
 export type { IPerpTokenSelectorReturn } from './usePerpTokenSelector';
 export type { IPerpSessionReturn } from './usePerpSession';

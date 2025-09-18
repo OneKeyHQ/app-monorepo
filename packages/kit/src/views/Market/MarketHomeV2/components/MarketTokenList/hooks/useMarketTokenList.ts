@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { useNetworkLoadingAnalytics } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/hooks/useNetworkLoadingAnalytics';
 
 import {
   getNetworkLogoUri,
@@ -27,6 +27,7 @@ export function useMarketTokenList({
 }: IUseMarketTokenListParams) {
   // Get minLiquidity from market config
   const { minLiquidity } = useMarketBasicConfig();
+  const { trackNetworkLoading } = useNetworkLoadingAnalytics();
   const [transformedData, setTransformedData] = useState<IMarketToken[]>([]);
   const [sortBy, setSortBy] = useState<string | undefined>(initialSortBy);
   const [sortType, setSortType] = useState<'asc' | 'desc' | undefined>(
@@ -91,9 +92,12 @@ export function useMarketTokenList({
     // Update data only after successful fetch (preserve existing data during loading)
     setTransformedData(transformed);
 
+    // Track network loading analytics
+    trackNetworkLoading(networkId, apiResult.list.length);
+
     // Reset network switching state when new data arrives
     setIsNetworkSwitching(false);
-  }, [apiResult, networkId, networkLogoUri]);
+  }, [apiResult, networkId, networkLogoUri, trackNetworkLoading]);
 
   // Reset pagination when networkId, sortBy, or sortType changes
   useEffect(() => {
@@ -160,6 +164,9 @@ export function useMarketTokenList({
           }),
         );
 
+        // Track network loading analytics for load more
+        trackNetworkLoading(networkId, response.list.length);
+
         // Append new data to existing data
         setTransformedData((prev) => [...prev, ...newTransformed]);
         setCurrentPage(nextPage);
@@ -184,16 +191,16 @@ export function useMarketTokenList({
   }, [
     isLoadingMore,
     currentPage,
-    maxPages,
     isLoading,
     hasReachedEnd,
-    consecutiveEmptyResponses,
-    pageSize,
     networkId,
     sortBy,
     sortType,
+    pageSize,
     minLiquidity,
+    trackNetworkLoading,
     networkLogoUri,
+    consecutiveEmptyResponses,
   ]);
 
   const canLoadMore =

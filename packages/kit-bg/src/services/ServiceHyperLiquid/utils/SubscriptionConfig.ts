@@ -1,4 +1,4 @@
-import { ZERO_ADDRESS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import type {
   IActiveAssetData,
   IBook,
@@ -9,6 +9,7 @@ import type {
   IEventNotificationParameters,
   IEventTradesParameters,
   IEventUserEventsParameters,
+  IEventUserFillsParameters,
   IEventWebData2Parameters,
   IHex,
   ISubscriptionClient,
@@ -17,8 +18,10 @@ import type {
   IWsBbo,
   IWsNotification,
   IWsUserEvent,
+  IWsUserFills,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 export const SUBSCRIPTION_TYPE_INFO = {
@@ -54,11 +57,34 @@ export const SUBSCRIPTION_TYPE_INFO = {
       handleData: (data: IWsWebData2) => void,
     ) => client.webData2(params, handleData),
   },
+  [ESubscriptionType.USER_FILLS]: {
+    eventType: 'account',
+    priority: 2,
+    keyGenerator: (params: IEventUserFillsParameters) =>
+      `account:userFills:${params.user}`,
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: IEventUserFillsParameters,
+      handleData: (data: IWsUserFills) => void,
+    ) => client.userFills(params, handleData),
+  },
   [ESubscriptionType.L2_BOOK]: {
     eventType: 'market',
     priority: 3,
-    keyGenerator: (params: IEventL2BookParameters) =>
-      `market:l2Book:${params.coin}`,
+    keyGenerator: (params: IEventL2BookParameters) => {
+      // Always include all parameters in the key for consistency
+      // Use 'null' for null/undefined values to be explicit
+      const nSigFigs =
+        params.nSigFigs !== undefined && params.nSigFigs !== null
+          ? params.nSigFigs.toString()
+          : 'null';
+      const mantissa =
+        params.mantissa !== undefined && params.mantissa !== null
+          ? params.mantissa.toString()
+          : 'null';
+
+      return `market:l2Book:${params.coin}:nSigFigs-${nSigFigs}:mantissa-${mantissa}`;
+    },
     createSubscription: (
       client: ISubscriptionClient,
       params: IEventL2BookParameters,
@@ -132,6 +158,7 @@ export interface ISubscriptionState {
   currentUser: IHex | null;
   currentSymbol: string;
   isConnected: boolean;
+  l2BookOptions?: IL2BookOptions;
 }
 
 export interface ISubscriptionDiff {
@@ -183,11 +210,22 @@ export function validateSubscriptionParams(
     case ESubscriptionType.ALL_MIDS:
       return typeof params === 'object';
     case ESubscriptionType.ACTIVE_ASSET_CTX:
-    case ESubscriptionType.L2_BOOK:
     case ESubscriptionType.TRADES:
     case ESubscriptionType.BBO:
       return 'coin' in obj && typeof obj.coin === 'string';
+    case ESubscriptionType.L2_BOOK:
+      return (
+        'coin' in obj &&
+        typeof obj.coin === 'string' &&
+        (obj.nSigFigs === undefined ||
+          obj.nSigFigs === null ||
+          [2, 3, 4, 5].includes(obj.nSigFigs as number)) &&
+        (obj.mantissa === undefined ||
+          obj.mantissa === null ||
+          (obj.nSigFigs === 5 && [1, 2, 5].includes(obj.mantissa as number)))
+      );
     case ESubscriptionType.WEB_DATA2:
+    case ESubscriptionType.USER_FILLS:
     case ESubscriptionType.USER_EVENTS:
     case ESubscriptionType.USER_NOTIFICATIONS:
       return (
@@ -230,17 +268,24 @@ export function calculateRequiredSubscriptions(
       priority: getSubscriptionPriority(ESubscriptionType.ACTIVE_ASSET_CTX),
     });
 
+    // Create L2_BOOK subscription with default parameters if no custom params are provided
+    const l2BookParams = {
+      coin: state.currentSymbol,
+      ...(state.l2BookOptions || {}),
+    };
+    const l2BookKey = generateSubscriptionKey(
+      ESubscriptionType.L2_BOOK,
+      l2BookParams,
+    );
     specs.push({
       type: ESubscriptionType.L2_BOOK,
-      key: generateSubscriptionKey(ESubscriptionType.L2_BOOK, {
-        coin: state.currentSymbol,
-      }),
-      params: { coin: state.currentSymbol },
+      key: l2BookKey,
+      params: l2BookParams,
       priority: getSubscriptionPriority(ESubscriptionType.L2_BOOK),
     });
   }
 
-  const effectiveUser = state.currentUser || ZERO_ADDRESS;
+  const effectiveUser = state.currentUser || PERPS_EMPTY_ADDRESS;
 
   specs.push({
     type: ESubscriptionType.WEB_DATA2,
@@ -251,7 +296,16 @@ export function calculateRequiredSubscriptions(
     priority: getSubscriptionPriority(ESubscriptionType.WEB_DATA2),
   });
 
-  if (state.currentUser && state.currentUser !== ZERO_ADDRESS) {
+  specs.push({
+    type: ESubscriptionType.USER_FILLS,
+    key: generateSubscriptionKey(ESubscriptionType.USER_FILLS, {
+      user: effectiveUser,
+    }),
+    params: { user: effectiveUser },
+    priority: getSubscriptionPriority(ESubscriptionType.USER_FILLS),
+  });
+
+  if (state.currentUser && state.currentUser !== PERPS_EMPTY_ADDRESS) {
     if (state.currentSymbol) {
       specs.push({
         type: ESubscriptionType.ACTIVE_ASSET_DATA,
@@ -281,10 +335,13 @@ export function calculateSubscriptionDiff(
   const currentKeys = new Set(currentSpecs.map((spec) => spec.key));
   const newKeys = new Set(newSpecs.map((spec) => spec.key));
 
+  const toUnsubscribe = currentSpecs.filter((spec) => !newKeys.has(spec.key));
+  const toSubscribe = sortSubscriptionsByPriority(
+    newSpecs.filter((spec) => !currentKeys.has(spec.key)),
+  );
+
   return {
-    toUnsubscribe: currentSpecs.filter((spec) => !newKeys.has(spec.key)),
-    toSubscribe: sortSubscriptionsByPriority(
-      newSpecs.filter((spec) => !currentKeys.has(spec.key)),
-    ),
+    toUnsubscribe,
+    toSubscribe,
   };
 }

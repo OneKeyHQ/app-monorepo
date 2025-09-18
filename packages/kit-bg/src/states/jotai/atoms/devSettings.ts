@@ -29,6 +29,7 @@ export interface IDevSettings {
   showDevExportPrivateKey?: boolean;
   // disable Solana priority fee
   disableSolanaPriorityFee?: boolean;
+  enableMockHighTxFee?: boolean;
   disableAllShortcuts?: boolean;
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
@@ -71,6 +72,7 @@ export const {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
       showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       disableSolanaPriorityFee: false,
+      enableMockHighTxFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,

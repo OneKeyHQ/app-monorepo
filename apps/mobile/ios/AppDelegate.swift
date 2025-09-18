@@ -55,17 +55,22 @@ public class AppDelegate: ExpoAppDelegate {
   
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    LaunchOptionsManager.sharedInstance().log("didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
+    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0)}.joined()
+    LaunchOptionsManager.sharedInstance().saveDeviceToken(tokenString)
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
-    return super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+    LaunchOptionsManager.sharedInstance().log("didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    return super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+    LaunchOptionsManager.sharedInstance().log("didReceiveRemoteNotification")
   }
 }
 
@@ -81,6 +86,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
+    // Check for updated bundle in Documents directory first
+    let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
+
+    if bundlePath != nil {
+      return URL(string: bundlePath!)
+    }
+
+    // Fallback to main bundle
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }

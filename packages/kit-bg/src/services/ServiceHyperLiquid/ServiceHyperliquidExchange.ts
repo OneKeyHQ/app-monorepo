@@ -1,13 +1,27 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
 import { BigNumber } from 'bignumber.js';
 
+import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  type EHyperLiquidAgentName,
+  PERPS_EMPTY_ADDRESS,
+} from '@onekeyhq/shared/src/consts/perp';
+import {
+  OneKeyLocalError,
+  WatchedAccountTradeError,
+} from '@onekeyhq/shared/src/errors';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  MAX_DECIMALS_PERP,
+  formatPriceToSignificantDigits,
+  getValidPriceDecimals,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
+  ICancelResponse,
   IHex,
   IOrderParams,
   IOrderRequest,
@@ -18,12 +32,16 @@ import type {
   IBuilderFeeRequest,
   ICancelOrderParams,
   ILeverageUpdateRequest,
-  IMarketOrderCloseParams,
-  IMarketOrderOpenParams,
   IMultiOrderParams,
+  IOrderCloseParams,
+  IOrderOpenParams,
   IPlaceOrderParams,
+  IPositionTpslOrderParams,
+  ISetReferrerRequest,
+  IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { perpsSelectedAccountAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type {
@@ -31,9 +49,6 @@ import type {
   WalletHyperliquidProxy,
 } from './ServiceHyperliquidWallet';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
-
-// TODO: Dynamic set agent name based on client type
-const AGENT_NAME = 'OneKey_Desktop';
 
 @backgroundClass()
 export default class ServiceHyperliquidExchange extends ServiceBase {
@@ -47,12 +62,44 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   public slippage = 0.08;
 
+  private get exchangeClient(): ExchangeClient {
+    if (!this._exchangeClient) {
+      throw new OneKeyLocalError(
+        'Exchange client not setup. Call setup() first.',
+      );
+    }
+    return this._exchangeClient;
+  }
+
+  private _calculateSlippagePrice(params: {
+    markPrice: string;
+    isBuy: boolean;
+    slippage: number;
+  }): string {
+    const price = new BigNumber(params.markPrice);
+    const validDecimals = getValidPriceDecimals(params.markPrice);
+    const slippageMultiplier = params.isBuy
+      ? new BigNumber(1).plus(params.slippage)
+      : new BigNumber(1).minus(params.slippage);
+    const adjustedPrice = price.multipliedBy(slippageMultiplier);
+    return formatPriceToSignificantDigits(
+      +adjustedPrice.toFixed(validDecimals),
+      MAX_DECIMALS_PERP - validDecimals,
+    );
+  }
+
   @backgroundMethod()
   async setup(params: {
     userAddress: IHex;
     userAccountId?: string;
+    agentCredential?: ICoreHyperLiquidAgentCredential;
   }): Promise<void> {
     try {
+      if (!params.userAddress) {
+        throw new OneKeyLocalError(
+          'ServiceHyperliquidExchange.setup Error: User address is required',
+        );
+      }
       const transport = new HttpTransport();
 
       let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
@@ -67,7 +114,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       } else {
         const proxyWallet =
           await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
-            userAddress: params.userAddress,
+            agentCredential: params.agentCredential,
           });
         wallet = proxyWallet.wallet;
         account = proxyWallet.address;
@@ -86,33 +133,33 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async getOnekeyWalletClient(params: {
-    userAddress: IHex;
-    userAccountId?: string;
-  }): Promise<ExchangeClient> {
-    const transport = new HttpTransport();
+  // @backgroundMethod()
+  // async getOnekeyWalletClient(params: {
+  //   userAddress: IHex;
+  //   userAccountId?: string;
+  // }): Promise<ExchangeClient> {
+  //   const transport = new HttpTransport();
 
-    let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
+  //   let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
 
-    if (params.userAccountId) {
-      wallet =
-        await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
-          userAccountId: params.userAccountId,
-        });
-    } else {
-      const proxyWallet =
-        await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
-          userAddress: params.userAddress,
-        });
-      wallet = proxyWallet.wallet;
-    }
+  //   if (params.userAccountId) {
+  //     wallet =
+  //       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
+  //         userAccountId: params.userAccountId,
+  //       });
+  //   } else {
+  //     const proxyWallet =
+  //       await this.backgroundApi.serviceHyperliquidWallet.getProxyWallet({
+  //         userAddress: params.userAddress,
+  //       });
+  //     wallet = proxyWallet.wallet;
+  //   }
 
-    return new ExchangeClient({
-      transport,
-      wallet,
-    });
-  }
+  //   return new ExchangeClient({
+  //     transport,
+  //     wallet,
+  //   });
+  // }
 
   private _ensureSetup(): void {
     if (!this._account || !this._exchangeClient) {
@@ -123,9 +170,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  async setReferrerCode(params: ISetReferrerRequest) {
+    this._ensureSetup();
+    await this.checkAccountCanTrade();
+    return this._exchangeClient!.setReferrer(params);
+  }
+
+  @backgroundMethod()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     this._ensureSetup();
-
+    await this.checkAccountCanTrade();
     try {
       await this._exchangeClient!.updateLeverage(params);
     } catch (error) {
@@ -134,11 +188,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async approveBuilderFee(params: IBuilderFeeRequest): Promise<void> {
+  async approveBuilderFee(params: IBuilderFeeRequest) {
     this._ensureSetup();
-
+    await this.checkAccountCanTrade();
     try {
-      await this._exchangeClient!.approveBuilderFee(params);
+      return await this._exchangeClient!.approveBuilderFee(params);
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to approve builder fee: ${String(error)}`,
@@ -147,17 +201,24 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async approveAgent(params: IAgentApprovalRequest): Promise<void> {
+  async approveAgent(params: IAgentApprovalRequest) {
     this._ensureSetup();
+    await this.checkAccountCanTrade();
+    return this._exchangeClient!.approveAgent({
+      agentAddress: params.agent,
+      agentName: params.agentName || null,
+    });
+  }
 
-    try {
-      await this._exchangeClient!.approveAgent({
-        agentAddress: params.agent,
-        agentName: AGENT_NAME,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to approve agent: ${String(error)}`);
-    }
+  @backgroundMethod()
+  async removeAgent(params: { agentName: EHyperLiquidAgentName | undefined }) {
+    this._ensureSetup();
+    await this.checkAccountCanTrade();
+    return this.approveAgent({
+      agent: PERPS_EMPTY_ADDRESS,
+      agentName: params.agentName,
+      authorize: true,
+    });
   }
 
   @backgroundMethod()
@@ -168,6 +229,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async placeOrderRaw(params: IOrderRequest): Promise<IOrderResponse> {
     this._ensureSetup();
+    await this.checkAccountCanTrade();
     try {
       return await this._exchangeClient!.order({
         orders: params.action.orders,
@@ -188,23 +250,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._exchangeClient = null;
   }
 
-  private _calculateSlippagePrice(params: {
-    markPrice: string;
-    isBuy: boolean;
-    slippage: number;
-  }): string {
-    const price = new BigNumber(params.markPrice);
-    const slippageMultiplier = params.isBuy
-      ? new BigNumber(1).plus(params.slippage)
-      : new BigNumber(1).minus(params.slippage);
-    const adjustedPrice = price.multipliedBy(slippageMultiplier);
-    return formatPriceToSignificantDigits(adjustedPrice.toNumber(), 5);
+  async checkAccountCanTrade() {
+    const selectedAccount = await perpsSelectedAccountAtom.get();
+    if (selectedAccount.accountAddress && selectedAccount.accountId) {
+      if (
+        accountUtils.isWatchingAccount({ accountId: selectedAccount.accountId })
+      ) {
+        throw new WatchedAccountTradeError();
+      }
+    }
   }
 
   @backgroundMethod()
   async placeOrder(params: IPlaceOrderParams): Promise<IOrderResponse> {
-    this._ensureSetup();
-
+    await this.checkAccountCanTrade();
     try {
       const price = params.limitPx || '0';
 
@@ -222,7 +281,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         b: params.isBuy,
         p: price,
         s: params.sz,
-        r: false,
+        r: params.reduceOnly || false,
         t:
           'limit' in params.orderType
             ? {
@@ -233,7 +292,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
               },
       };
 
-      return await this._exchangeClient!.order({
+      return await this.exchangeClient.order({
         orders: [orderParams],
         grouping: 'na',
       });
@@ -243,11 +302,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async marketOrderOpen(
-    params: IMarketOrderOpenParams,
-  ): Promise<IOrderResponse> {
-    this._ensureSetup();
-
+  async orderOpen(params: IOrderOpenParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     try {
       const isMarket = params.type === 'market';
       const midPx = params.midPx;
@@ -276,23 +332,27 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       orders.push(mainOrder);
 
       if (params.tpTriggerPx) {
+        const originalTpPrice = params.tpTriggerPx;
+        let executionPrice = originalTpPrice;
+
         if (isMarket) {
-          params.tpTriggerPx = this._calculateSlippagePrice({
-            markPrice: params.tpTriggerPx,
-            isBuy: true,
+          executionPrice = this._calculateSlippagePrice({
+            markPrice: originalTpPrice,
+            isBuy: !params.isBuy,
             slippage: params.slippage || this.slippage,
           });
         }
+
         const tpOrder: IOrderParams = {
           a: params.assetId,
           b: !params.isBuy,
-          p: params.tpTriggerPx,
+          p: executionPrice,
           s: params.size,
           r: true,
           t: {
             trigger: {
               isMarket,
-              triggerPx: params.tpTriggerPx,
+              triggerPx: originalTpPrice,
               tpsl: 'tp',
             },
           },
@@ -301,23 +361,27 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       }
 
       if (params.slTriggerPx) {
+        const originalSlPrice = params.slTriggerPx;
+        let executionPrice = originalSlPrice;
+
         if (isMarket) {
-          params.slTriggerPx = this._calculateSlippagePrice({
-            markPrice: params.slTriggerPx,
-            isBuy: false,
+          executionPrice = this._calculateSlippagePrice({
+            markPrice: originalSlPrice,
+            isBuy: !params.isBuy,
             slippage: params.slippage || this.slippage,
           });
         }
+
         const slOrder: IOrderParams = {
           a: params.assetId,
           b: !params.isBuy,
-          p: params.slTriggerPx,
+          p: executionPrice,
           s: params.size,
           r: true,
           t: {
             trigger: {
               isMarket,
-              triggerPx: params.slTriggerPx,
+              triggerPx: originalSlPrice,
               tpsl: 'sl',
             },
           },
@@ -325,7 +389,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         orders.push(slOrder);
       }
 
-      return await this._exchangeClient!.order({
+      return await this.exchangeClient.order({
         orders,
         grouping: orders.length > 1 ? 'normalTpsl' : 'na',
       });
@@ -337,10 +401,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async marketOrderClose(
-    params: IMarketOrderCloseParams,
-  ): Promise<IOrderResponse> {
-    this._ensureSetup();
+  async orderClose(params: IOrderCloseParams): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
     const midPx = params.midPx;
     const price = this._calculateSlippagePrice({
       markPrice: midPx,
@@ -358,7 +420,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
 
     try {
-      return await this._exchangeClient!.order({
+      return await this.exchangeClient.order({
         orders: [orderParams],
         grouping: 'na',
       });
@@ -370,16 +432,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cancelOrder(cancels: ICancelOrderParams[]): Promise<any> {
-    this._ensureSetup();
-
+  async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
+    await this.checkAccountCanTrade();
     try {
       const cancelParams = cancels.map((cancel) => ({
         a: cancel.assetId,
         o: cancel.oid,
       }));
 
-      return await this._exchangeClient!.cancel({
+      return await this.exchangeClient.cancel({
         cancels: cancelParams,
       });
     } catch (error) {
@@ -389,8 +450,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async multiOrder(params: IMultiOrderParams): Promise<IOrderResponse> {
-    this._ensureSetup();
-
+    await this.checkAccountCanTrade();
     try {
       const orderParams = params.orders.map((order) => {
         const orderParam: IOrderParams = {
@@ -405,7 +465,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         return orderParam;
       });
 
-      return await this._exchangeClient!.order({
+      return await this.exchangeClient.order({
         orders: orderParams,
         grouping: 'na',
       });
@@ -413,6 +473,107 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       throw new OneKeyLocalError(
         `Failed to place multi orders: ${String(error)}`,
       );
+    }
+  }
+
+  @backgroundMethod()
+  async setPositionTpsl(
+    params: IPositionTpslOrderParams,
+  ): Promise<IOrderResponse> {
+    await this.checkAccountCanTrade();
+    try {
+      const {
+        assetId,
+        positionSize,
+        isBuy,
+        tpTriggerPx,
+        slTriggerPx,
+        slippage,
+      } = params;
+      const orders: IOrderParams[] = [];
+
+      // Take Profit order
+      if (tpTriggerPx) {
+        const tpExecutionPrice = this._calculateSlippagePrice({
+          markPrice: tpTriggerPx,
+          isBuy: !isBuy,
+          slippage: slippage || this.slippage,
+        });
+
+        const tpOrder: IOrderParams = {
+          a: assetId,
+          b: !isBuy,
+          p: tpExecutionPrice,
+          s: positionSize,
+          r: true,
+          t: {
+            trigger: {
+              isMarket: true,
+              triggerPx: tpTriggerPx,
+              tpsl: 'tp',
+            },
+          },
+        };
+        orders.push(tpOrder);
+      }
+
+      // Stop Loss order
+      if (slTriggerPx) {
+        const slExecutionPrice = this._calculateSlippagePrice({
+          markPrice: slTriggerPx,
+          isBuy: !isBuy,
+          slippage: slippage || this.slippage,
+        });
+
+        const slOrder: IOrderParams = {
+          a: assetId,
+          b: !isBuy,
+          p: slExecutionPrice,
+          s: positionSize,
+          r: true,
+          t: {
+            trigger: {
+              isMarket: true,
+              triggerPx: slTriggerPx,
+              tpsl: 'sl',
+            },
+          },
+        };
+        orders.push(slOrder);
+      }
+
+      if (orders.length === 0) {
+        throw new OneKeyLocalError(
+          'At least one TP or SL price must be provided',
+        );
+      }
+
+      return await this.exchangeClient.order({
+        orders,
+        grouping: 'positionTpsl',
+      });
+    } catch (error) {
+      throw new OneKeyLocalError(
+        `Failed to set position TP/SL: ${String(error)}`,
+      );
+    }
+  }
+
+  @backgroundMethod()
+  async withdraw(params: IWithdrawParams): Promise<void> {
+    await this.checkAccountCanTrade();
+    const wallet =
+      await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
+        userAccountId: params.userAccountId,
+      });
+    const exchangeClient = new ExchangeClient({
+      transport: new HttpTransport(),
+      wallet,
+    });
+    try {
+      await exchangeClient.withdraw3(params);
+    } catch (error) {
+      throw new OneKeyLocalError(`Failed to withdraw: ${String(error)}`);
     }
   }
 }

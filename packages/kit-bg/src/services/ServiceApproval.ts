@@ -111,7 +111,6 @@ class ServiceApproval extends ServiceBase {
     const contractApprovals = resp.data.data.contractApprovals ?? [];
 
     const riskApprovals: IContractApproval[] = [];
-    const inactiveApprovals: IContractApproval[] = [];
     const normalApprovals: IContractApproval[] = [];
 
     // 90 days
@@ -171,6 +170,7 @@ class ServiceApproval extends ServiceBase {
           accountId,
         },
       );
+
     if (config && config.lastShowTime) {
       const interval = Date.now() - config.lastShowTime;
       if (interval > timerUtils.getTimeDurationMs({ day: 14 })) {

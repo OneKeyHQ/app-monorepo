@@ -1,53 +1,79 @@
-import { ceilToTick, floorToTick } from './utils';
+import BigNumber from 'bignumber.js';
+
+import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { type ITickParam } from './tickSizeUtils';
+import { ceilToTickFast, floorToTickFast } from './utils';
 
 import type { IOBLevel } from './types';
 
-// Aggregates in 1 iteration.
+// Aggregates in 1 iteration using BigNumber for precision
 export function aggregateLevels(
   levels: IOBLevel[],
   maxLevelsPerSide: number,
-  tickSize: number,
-  roundFn: (n: number, tickSize: number) => number,
+  tickSize: string | number,
+  roundingMode: 'floor' | 'ceil',
+  sizeDecimals: number,
+  priceDecimals: number,
 ) {
   if (!levels.length) {
     return {
       aggregatedLevels: levels,
-      maxSize: 0,
+      maxSize: '0',
     };
   }
 
-  let cumSize = 0;
-  let maxSize = 0;
+  let cumSizeBN = new BigNumber(0);
+  let maxSizeBN = new BigNumber(0);
   let currLevel: IOBLevel = {
-    price: 0,
-    size: 0,
-    cumSize: 0,
+    price: '0',
+    size: '0',
+    cumSize: '0',
   };
   const aggregatedLevels: IOBLevel[] = [currLevel];
 
+  // Pre-compute BigNumber tick factors for fast path rounding
+  const tickSizeBN = new BigNumber(tickSize);
+  const invTickSizeBN = new BigNumber(1).dividedBy(tickSizeBN);
+
   for (let i = 0; i < levels.length; i += 1) {
     const level = levels[i];
-    cumSize += level.size;
-    const roundedPrice = roundFn(level.price, tickSize);
+    const levelSizeBN = new BigNumber(level.size);
+    cumSizeBN = cumSizeBN.plus(levelSizeBN);
+    // Fast path: avoid validation and duplicate toFixed
+    const roundedPrice =
+      roundingMode === 'floor'
+        ? floorToTickFast(
+            new BigNumber(level.price),
+            invTickSizeBN,
+            priceDecimals,
+          )
+        : ceilToTickFast(
+            new BigNumber(level.price),
+            invTickSizeBN,
+            priceDecimals,
+          );
 
-    if (currLevel.price === 0 || roundedPrice === currLevel.price) {
+    if (currLevel.price === '0' || roundedPrice === currLevel.price) {
       // Add to current level.
       currLevel.price = roundedPrice;
-      currLevel.size += level.size;
-      currLevel.cumSize = cumSize;
+      const currLevelSizeBN = new BigNumber(currLevel.size).plus(levelSizeBN);
+      currLevel.size = formatWithPrecision(currLevelSizeBN, sizeDecimals);
+      currLevel.cumSize = formatWithPrecision(cumSizeBN, sizeDecimals);
     } else {
       // Create and push new level.
       currLevel = {
         price: roundedPrice,
         size: level.size,
-        cumSize,
+        cumSize: formatWithPrecision(cumSizeBN, sizeDecimals),
       };
       aggregatedLevels.push(currLevel);
     }
 
-    // Update largest level size.
-    if (maxSize < level.size) {
-      maxSize = level.size;
+    // Update largest level size using BigNumber comparison.
+    if (maxSizeBN.isLessThan(levelSizeBN)) {
+      maxSizeBN = levelSizeBN;
     }
 
     // Exit if reached max levels.
@@ -58,23 +84,42 @@ export function aggregateLevels(
 
   return {
     aggregatedLevels,
-    maxSize,
+    maxSize: formatWithPrecision(maxSizeBN, sizeDecimals),
   };
 }
 
-function getMaxSize(levels: IOBLevel[]) {
-  return levels.reduce((max, level) => Math.max(level.size, max), 0);
+function getMaxSizeFromPrefix(
+  prefixMaxSizes: string[],
+  count: number,
+  sizeDecimals: number,
+) {
+  const idx = Math.min(
+    Math.max(count - 1, 0),
+    Math.max(prefixMaxSizes.length - 1, 0),
+  );
+  return prefixMaxSizes[idx] ?? formatWithPrecision(0, sizeDecimals);
 }
 
 function sumAndSlice(
   bids: IOBLevel[],
   asks: IOBLevel[],
   maxLevelsPerSide: number,
+  sizeDecimals: number,
+  bidsPrefixMaxSizes: string[],
+  asksPrefixMaxSizes: string[],
 ) {
   const slicedBids = bids.slice(0, maxLevelsPerSide);
   const slicedAsks = asks.slice(0, maxLevelsPerSide);
-  const maxBidSize = getMaxSize(slicedBids);
-  const maxAskSize = getMaxSize(slicedAsks);
+  const maxBidSize = getMaxSizeFromPrefix(
+    bidsPrefixMaxSizes,
+    slicedBids.length,
+    sizeDecimals,
+  );
+  const maxAskSize = getMaxSizeFromPrefix(
+    asksPrefixMaxSizes,
+    slicedAsks.length,
+    sizeDecimals,
+  );
 
   return {
     bids: slicedBids,
@@ -84,22 +129,88 @@ function sumAndSlice(
   };
 }
 
+// Convert HL.IBookLevel to IOBLevel format using BigNumber for precision
+function convertHLBookLevelsToIOBLevels(
+  levels: IBookLevel[],
+  priceDecimals: number,
+  sizeDecimals: number,
+): { levels: IOBLevel[]; prefixMaxSizes: string[] } {
+  let cumSizeBN = new BigNumber(0);
+  let runningMaxSizeBN = new BigNumber(0);
+  const prefixMaxSizes: string[] = [];
+  const converted: IOBLevel[] = levels.map((level) => {
+    const priceBN = new BigNumber(level.px);
+    const sizeBN = new BigNumber(level.sz);
+    cumSizeBN = cumSizeBN.plus(sizeBN);
+    runningMaxSizeBN = BigNumber.maximum(sizeBN, runningMaxSizeBN);
+    prefixMaxSizes.push(runningMaxSizeBN.toFixed(sizeDecimals));
+    return {
+      price: formatWithPrecision(priceBN, priceDecimals),
+      size: formatWithPrecision(sizeBN, sizeDecimals),
+      cumSize: formatWithPrecision(cumSizeBN, sizeDecimals),
+    };
+  });
+  return { levels: converted, prefixMaxSizes };
+}
+
 export function useAggregatedBook(
-  bids: IOBLevel[],
-  asks: IOBLevel[],
-  baseTickSize: number,
-  tickSize: number,
+  bids: IBookLevel[],
+  asks: IBookLevel[],
   maxLevelsPerSide: number,
+  activeTickOption: ITickParam | undefined,
+  priceDecimals: number,
+  sizeDecimals: number,
 ) {
-  if (baseTickSize === tickSize) {
-    return sumAndSlice(bids, asks, maxLevelsPerSide);
+  // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
+  const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
+    convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
+  const { levels: convertedAsks, prefixMaxSizes: asksPrefixMaxSizes } =
+    convertHLBookLevelsToIOBLevels(asks, priceDecimals, sizeDecimals);
+
+  if (!activeTickOption) {
+    return {
+      bids: convertedBids,
+      asks: convertedAsks,
+      maxBidSize: '0',
+      maxAskSize: '0',
+    };
+  }
+
+  // Check if aggregation is needed
+  const needsAggregation =
+    activeTickOption.exact === false ||
+    activeTickOption.targetTick !== activeTickOption.apiTick;
+
+  if (!needsAggregation) {
+    return sumAndSlice(
+      convertedBids,
+      convertedAsks,
+      maxLevelsPerSide,
+      sizeDecimals,
+      bidsPrefixMaxSizes,
+      asksPrefixMaxSizes,
+    );
   }
 
   const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
-    aggregateLevels(bids, maxLevelsPerSide, tickSize, floorToTick);
+    aggregateLevels(
+      convertedBids,
+      maxLevelsPerSide,
+      activeTickOption.apiTick,
+      'floor',
+      sizeDecimals,
+      priceDecimals,
+    );
 
   const { aggregatedLevels: aggregatedAsks, maxSize: maxAskSize } =
-    aggregateLevels(bids, maxLevelsPerSide, tickSize, ceilToTick);
+    aggregateLevels(
+      convertedAsks,
+      maxLevelsPerSide,
+      activeTickOption.apiTick,
+      'ceil',
+      sizeDecimals,
+      priceDecimals,
+    );
 
   return {
     bids: aggregatedBids,

@@ -16,7 +16,7 @@ interface IOpenOrdersRowProps {
   order: FrontendOrder;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
-  handleCancelAll: () => void;
+  handleCancelOrder: () => void;
   isMobile?: boolean;
   index: number;
 }
@@ -25,7 +25,7 @@ const OpenOrdersRow = memo(
   ({
     order,
     cellMinWidth,
-    handleCancelAll,
+    handleCancelOrder,
     columnConfigs,
     isMobile,
     index,
@@ -53,12 +53,16 @@ const OpenOrdersRow = memo(
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
       const executePrice = order.triggerPx;
+      const executePriceLimit = order.limitPx;
       const origSize = order.origSz;
       const triggerCondition = order.triggerCondition;
       const origSizeFormatted = numberFormat(origSize, {
         formatter: 'balance',
       });
       const executePriceFormatted = numberFormat(executePrice, {
+        formatter: 'price',
+      });
+      const executePriceLimitFormatted = numberFormat(executePriceLimit, {
         formatter: 'price',
       });
       const priceFormatted = numberFormat(price, {
@@ -78,6 +82,7 @@ const OpenOrdersRow = memo(
         triggerCondition,
         origSizeFormatted,
         executePriceFormatted,
+        executePriceLimitFormatted,
         priceFormatted,
         sizeFormatted,
         valueFormatted,
@@ -132,19 +137,37 @@ const OpenOrdersRow = memo(
             alignItems="center"
           >
             <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodyMdMedium"
+              >
                 {assetInfo.assetSymbol}
               </SizableText>
               <XStack gap="$2">
-                <SizableText size="$bodySm" color={assetInfo.typeColor}>
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color={assetInfo.typeColor}
+                >
                   {`${assetInfo.orderType} / ${assetInfo.type}`}
                 </SizableText>
-                <SizableText size="$bodySm" color="$textSubdued">
+                <SizableText
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  size="$bodySm"
+                  color="$textSubdued"
+                >
                   {`${dateInfo.date} ${dateInfo.time}`}
                 </SizableText>
               </XStack>
             </YStack>
-            <Button size="small" variant="secondary" onPress={handleCancelAll}>
+            <Button
+              size="small"
+              variant="secondary"
+              onPress={handleCancelOrder}
+            >
               <SizableText size="$bodyMd">Cancel</SizableText>
             </Button>
           </XStack>
@@ -166,7 +189,7 @@ const OpenOrdersRow = memo(
             justifyContent="space-between"
           >
             <SizableText size="$bodySm">Price</SizableText>
-            <SizableText size="$bodySm">
+            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
               {`${orderBaseInfo.priceFormatted as string}`}
             </SizableText>
           </XStack>
@@ -176,7 +199,7 @@ const OpenOrdersRow = memo(
             justifyContent="space-between"
           >
             <SizableText size="$bodySm">Trigger Condition</SizableText>
-            <SizableText size="$bodySm">
+            <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
               {`${orderBaseInfo.triggerCondition}`}
             </SizableText>
           </XStack>
@@ -186,7 +209,11 @@ const OpenOrdersRow = memo(
             justifyContent="space-between"
           >
             <SizableText size="$bodySm">TP/SL</SizableText>
-            <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+            >{`${tpslInfo.tpsl}`}</SizableText>
           </XStack>
         </ListItem>
       );
@@ -204,12 +231,30 @@ const OpenOrdersRow = memo(
           backgroundColor: '$bgSubdued',
         })}
       >
-        {/* Asset symbol */}
+        {/* Time */}
         <YStack
           {...getColumnStyle(columnConfigs[0])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[0].align)}
           pl="$2"
+        >
+          <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+            {dateInfo.date}
+          </SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            {dateInfo.time}
+          </SizableText>
+        </YStack>
+        {/* Asset symbol */}
+        <YStack
+          {...getColumnStyle(columnConfigs[1])}
+          justifyContent="center"
+          alignItems={calcCellAlign(columnConfigs[1].align)}
         >
           <SizableText size="$bodySm" numberOfLines={1} ellipsizeMode="tail">
             {assetInfo.assetSymbol}
@@ -221,18 +266,6 @@ const OpenOrdersRow = memo(
             ellipsizeMode="tail"
           >
             {assetInfo.type}
-          </SizableText>
-        </YStack>
-
-        {/* Time */}
-        <YStack
-          {...getColumnStyle(columnConfigs[1])}
-          justifyContent="center"
-          alignItems={calcCellAlign(columnConfigs[1].align)}
-        >
-          <SizableText size="$bodySm">{dateInfo.date}</SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {dateInfo.time}
           </SizableText>
         </YStack>
 
@@ -297,7 +330,9 @@ const OpenOrdersRow = memo(
           alignItems="center"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {orderBaseInfo.executePriceFormatted as string}
+            {order.orderType.includes('Market')
+              ? 'Market'
+              : orderBaseInfo.executePriceLimitFormatted}
           </SizableText>
         </XStack>
         {/* Trigger Condition */}
@@ -327,11 +362,11 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
-          <XStack cursor="pointer" onPress={handleCancelAll}>
-            <SizableText color="$textSuccess" size="$bodySm">
+          <Button size="small" variant="tertiary" onPress={handleCancelOrder}>
+            <SizableText size="$bodyMdMedium" color="$green11">
               Cancel
             </SizableText>
-          </XStack>
+          </Button>
         </XStack>
       </XStack>
     );

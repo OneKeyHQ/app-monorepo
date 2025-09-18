@@ -13,6 +13,7 @@ interface IMarketToken {
   tokenAddress: string;
   networkId: string;
   symbol: string;
+  isNative?: boolean;
 }
 
 export function useToDetailPage() {
@@ -28,6 +29,7 @@ export function useToDetailPage() {
         tokenAddress: item.tokenAddress,
         networkId: item.networkId,
         symbol: item.symbol,
+        isNative: item.isNative,
       });
     },
     [navigation, tokenDetailActions],

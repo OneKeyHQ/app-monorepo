@@ -13,6 +13,8 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -59,6 +61,10 @@ interface ITokenIdentityItemProps {
    * Volume value to display when showVolume is true.
    */
   volume?: number;
+  /**
+   * Where the copy action is triggered from.
+   */
+  copyFrom?: ECopyFrom;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -70,6 +76,7 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   showCopyButton = false,
   showVolume = false,
   volume,
+  copyFrom = ECopyFrom.Homepage,
 }) => {
   const { gtMd } = useMedia();
   const { copyText } = useClipboard();
@@ -95,6 +102,11 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     e.stopPropagation();
     copyText(address);
     onCopied?.(address);
+    // Dex analytics
+    defaultLogger.dex.actions.dexCopyCA({
+      copyFrom,
+      copiedContent: address,
+    });
   };
 
   const getTokenImageUri = () => {

@@ -23,7 +23,7 @@ function TokenValueView(props: IProps) {
   const [aggregateTokensMap] = useAggregateTokensMapAtom();
   const token = tokenListMap[$key] ?? aggregateTokensMap[$key];
 
-  const fiatValue = new BigNumber(token?.fiatValue ?? 0);
+  const fiatValue = new BigNumber(token?.fiatValue || 0);
 
   if (!token) {
     return null;

@@ -43,6 +43,7 @@ export type IPlatformEnv = {
 
   appFullName: string;
   version: string | undefined;
+  bundleVersion: string | undefined;
   buildNumber: string | undefined;
   buildTime: number | undefined;
   githubSHA: string | undefined;
@@ -163,16 +164,17 @@ const {
   isE2E: boolean;
 } = require('./buildTimeEnv.js');
 
-const isDesktopMac = isDesktop && globalThis?.desktopApi?.platform === 'darwin';
-const isDesktopMacArm64 =
-  isDesktopMac && globalThis?.desktopApi?.arch === 'arm64';
-const isDesktopWin = isDesktop && globalThis?.desktopApi?.platform === 'win32';
-const isDesktopWinMsStore =
-  isDesktopWin && process.env.DESK_CHANNEL === 'ms-store';
-const isDesktopLinux =
-  isDesktop && globalThis?.desktopApi?.platform === 'linux';
-const isDesktopLinuxSnap =
-  isDesktopLinux && globalThis?.desktopApi?.channel === 'snap';
+const desktopDeskChannel = globalThis?.desktopApi?.deskChannel || '';
+const desktopArch = globalThis?.desktopApi?.arch || '';
+const desktopPlatform = globalThis?.desktopApi?.platform || '';
+const desktopChannel = globalThis?.desktopApi?.channel || '';
+
+const isDesktopMac = isDesktop && desktopPlatform === 'darwin';
+const isDesktopMacArm64 = isDesktopMac && desktopArch === 'arm64';
+const isDesktopWin = isDesktop && desktopPlatform === 'win32';
+const isDesktopWinMsStore = isDesktopWin && desktopDeskChannel === 'ms-store';
+const isDesktopLinux = isDesktop && desktopPlatform === 'linux';
+const isDesktopLinuxSnap = isDesktopLinux && desktopChannel === 'snap';
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -457,6 +459,7 @@ const platformEnv: IPlatformEnv = {
 
   appFullName: '',
   version: process.env.VERSION,
+  bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,
   buildTime: Number(process.env.BUILD_TIME) || undefined,
   githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,

@@ -1,5 +1,5 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq } from 'lodash';
+import { debounce, isNil, uniq, uniqBy } from 'lodash';
 
 import {
   backgroundClass,
@@ -1015,8 +1015,12 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async syncAggregateTokenConfigMap() {
     await this.abortFetchAggregateTokenMap();
-    const { tokens = {}, meta: { homeDefaults = [] } = {} } =
-      await this.fetchAggregateTokenConfigMap();
+    const resp = await this.fetchAggregateTokenConfigMap();
+
+    if (!resp) {
+      return;
+    }
+    const { tokens = {}, meta: { homeDefaults = [] } = {} } = resp;
     const allAggregateTokenMap: Record<
       string,
       {
@@ -1026,6 +1030,7 @@ class ServiceToken extends ServiceBase {
 
     const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
     const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
+    const aggregateTokenSymbolMap: Record<string, boolean> = {};
     const listedNetworkMap = getListedNetworkMap();
     homeDefaults.forEach((homeDefault) => {
       homeDefaultTokenMap[
@@ -1037,11 +1042,14 @@ class ServiceToken extends ServiceBase {
     });
     Object.entries(tokens).forEach(
       ([commonSymbol, { data, logoURI, name }]) => {
-        const filteredData = data.filter(
-          (token) => !!listedNetworkMap[token.networkId],
+        const filteredData = uniqBy(
+          data.filter((token) => !!listedNetworkMap[token.networkId]),
+          (token) => token.networkId,
         );
 
         if (filteredData.length > 1) {
+          aggregateTokenSymbolMap[commonSymbol] = true;
+
           filteredData.forEach((token) => {
             const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList(
               {
@@ -1122,9 +1130,20 @@ class ServiceToken extends ServiceBase {
       aggregateTokenConfigMap,
       homeDefaultTokenMap,
       allAggregateTokenMap,
+      aggregateTokenSymbolMap,
     });
 
     return aggregateTokenConfigMap;
+  }
+
+  @backgroundMethod()
+  public async getHomeDefaultTokenMap() {
+    return this.backgroundApi.simpleDb.aggregateToken.getHomeDefaultTokenMap();
+  }
+
+  @backgroundMethod()
+  public async getAggregateTokenSymbolMap() {
+    return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenSymbolMap();
   }
 
   @backgroundMethod()
@@ -1143,12 +1162,7 @@ class ServiceToken extends ServiceBase {
       );
       return resp.data.data;
     } catch (e) {
-      return {
-        tokens: {},
-        meta: {
-          homeDefaults: [],
-        },
-      };
+      return null;
     }
   }
 

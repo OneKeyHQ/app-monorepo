@@ -156,24 +156,6 @@ const PreSwapConfirmResult = ({
         </YStack>
       </YStack>
 
-      {lastStep.status === ESwapStepStatus.PENDING ? (
-        <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_review_tx_pending,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
-      {lastStep.status === ESwapStepStatus.SUCCESS ? (
-        <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.swap_review_tx_success,
-            })}
-          </SizableText>
-        </XStack>
-      ) : null}
       <XStack alignItems="center" justifyContent="center" gap="$2" w="100%">
         {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
           <Button
@@ -229,6 +211,25 @@ const PreSwapConfirmResult = ({
           >
             {intl.formatMessage({
               id: ETranslations.settings_submit_request,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
+      {lastStep.status === ESwapStepStatus.PENDING ? (
+        <XStack alignItems="center" justifyContent="center" mt="$3">
+          <SizableText size="$bodySm" textAlign="center" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_review_tx_pending,
+            })}
+          </SizableText>
+        </XStack>
+      ) : null}
+
+      {lastStep.status === ESwapStepStatus.SUCCESS ? (
+        <XStack alignItems="center" justifyContent="center" mt="$3">
+          <SizableText size="$bodySm" textAlign="center" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.swap_review_tx_success,
             })}
           </SizableText>
         </XStack>

@@ -2,9 +2,14 @@ import memoizee from 'memoizee';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import {
+  EAmountEnterType,
+  ESlippageSetting,
+} from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import type { IMarketWatchListDataV2 } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -37,9 +42,6 @@ export const { atom: tokenAddressAtom, use: useTokenAddressAtom } =
 export const { atom: networkIdAtom, use: useNetworkIdAtom } =
   contextAtom<string>('');
 
-export const { atom: leftColumnWidthAtom, use: useLeftColumnWidthAtom } =
-  contextAtom<number>(0);
-
 export const { atom: showWatchlistOnlyAtom, use: useShowWatchlistOnlyAtom } =
   contextAtom<boolean>(false);
 
@@ -48,6 +50,20 @@ export const { atom: selectedNetworkIdAtom, use: useSelectedNetworkIdAtom } =
 
 export const { atom: selectedMarketTabAtom, use: useSelectedMarketTabAtom } =
   contextAtom<string>('trending');
+
+// SwapPanel Analytics Atoms
+export interface ISwapAnalyticsState {
+  amountEnterType: EAmountEnterType;
+  slippageSetting: ESlippageSetting;
+}
+
+const initialSwapAnalyticsState: ISwapAnalyticsState = {
+  amountEnterType: EAmountEnterType.Manual,
+  slippageSetting: ESlippageSetting.Auto,
+};
+
+export const { atom: swapAnalyticsAtom, use: useSwapAnalyticsAtom } =
+  contextAtom<ISwapAnalyticsState>(initialSwapAnalyticsState);
 
 const INIT = Symbol('INIT');
 export const marketWatchListV2Atom = memoizee(() =>

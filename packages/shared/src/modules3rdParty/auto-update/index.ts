@@ -1,4 +1,6 @@
 import type {
+  IAppUpdate,
+  IBundleUpdate,
   IClearPackage,
   IDownloadASC,
   IDownloadPackage,
@@ -10,22 +12,39 @@ import type {
   IVerifyPackage,
 } from './type';
 
-export const downloadPackage: IDownloadPackage = async () =>
+const downloadPackage: IDownloadPackage = async () =>
   ({} as IUpdateDownloadedEvent);
 
-export const downloadASC: IDownloadASC = async () => Promise.resolve();
+const downloadASC: IDownloadASC = async () => Promise.resolve();
 
-export const verifyASC: IVerifyASC = async () => Promise.resolve();
+const verifyASC: IVerifyASC = async () => Promise.resolve();
 
-export const verifyPackage: IVerifyPackage = async () => Promise.resolve();
+const verifyPackage: IVerifyPackage = async () => Promise.resolve();
 
-export const installPackage: IInstallPackage = async () => Promise.resolve();
+const installPackage: IInstallPackage = async () => Promise.resolve();
 
-export type * from './type';
+const clearPackage: IClearPackage = () => Promise.resolve();
+
+const manualInstallPackage: IManualInstallPackage = () => Promise.resolve();
+
+export const AppUpdate: IAppUpdate = {
+  downloadPackage,
+  verifyPackage,
+  verifyASC,
+  downloadASC,
+  installPackage,
+  manualInstallPackage,
+  clearPackage,
+};
+
+export const BundleUpdate: IBundleUpdate = {
+  downloadBundle: () => Promise.resolve({} as IUpdateDownloadedEvent),
+  verifyBundle: () => Promise.resolve(),
+  verifyBundleASC: () => Promise.resolve(),
+  downloadBundleASC: () => Promise.resolve(),
+  installBundle: () => Promise.resolve(),
+  clearBundle: () => Promise.resolve(),
+};
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;
-
-export const clearPackage: IClearPackage = () => Promise.resolve();
-
-export const manualInstallPackage: IManualInstallPackage = () =>
-  Promise.resolve();
+export type * from './type';

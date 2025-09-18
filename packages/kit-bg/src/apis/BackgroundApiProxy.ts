@@ -40,7 +40,6 @@ import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
 import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
-import type ServiceHyperliquidInfo from '../services/ServiceHyperLiquid/ServiceHyperliquidInfo';
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
@@ -338,10 +337,6 @@ class BackgroundApiProxy
   serviceHyperliquid = this._createProxyService(
     'serviceHyperliquid',
   ) as ServiceHyperliquid;
-
-  serviceHyperliquidInfo = this._createProxyService(
-    'serviceHyperliquidInfo',
-  ) as ServiceHyperliquidInfo;
 
   serviceHyperliquidExchange = this._createProxyService(
     'serviceHyperliquidExchange',

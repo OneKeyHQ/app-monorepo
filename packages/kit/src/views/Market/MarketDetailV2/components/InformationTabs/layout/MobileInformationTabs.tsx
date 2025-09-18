@@ -9,6 +9,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
+import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 
 import { StickyHeader } from './StickyHeader';
 
@@ -39,6 +40,7 @@ export function MobileInformationTabs({
 }) {
   const intl = useIntl();
   const { tokenAddress, networkId } = useTokenDetail();
+  const { handleTabChange } = useBottomTabAnalytics();
 
   const shouldShowHolders = useMemo(() => {
     return networkId === getNetworkIdsMap().sol;
@@ -91,6 +93,7 @@ export function MobileInformationTabs({
       }}
       renderHeader={renderHeader}
       renderTabBar={renderTabBar}
+      onTabChange={handleTabChange}
     >
       {tabs}
     </Tabs.Container>

@@ -17,4 +17,5 @@ export interface IMarketToken {
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
   chainId?: string;
   sortIndex?: number;
+  isNative?: boolean;
 }

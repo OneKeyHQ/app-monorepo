@@ -9,6 +9,7 @@ interface ITradingViewWithVersionProps extends ITradingViewProps {
   symbol?: string;
   decimal?: number;
   onPanesCountChange?: (count: number) => void;
+  isNative?: boolean;
 }
 
 export function TradingView({
@@ -16,15 +17,17 @@ export function TradingView({
   symbol,
   decimal,
   onPanesCountChange,
+  isNative = false,
   ...props
 }: ITradingViewWithVersionProps & WebViewProps) {
   if (version === 'v2') {
     return (
       <TradingViewV2
         {...props}
-        decimal={decimal || 2}
+        decimal={decimal ?? 2}
         symbol={symbol ?? ''}
         onPanesCountChange={onPanesCountChange}
+        isNative={isNative}
       />
     );
   }

@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import {
   Divider,
   ScrollView,
@@ -7,7 +5,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import {
   MarketTradingView,
@@ -18,29 +15,18 @@ import {
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-import type { LayoutChangeEvent } from 'react-native';
-
-export function DesktopLayout() {
+export function DesktopLayout({ isNative = false }: { isNative?: boolean }) {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
-  const [, setLeftColumnWidth] = useLeftColumnWidthAtom();
-
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const { width } = event.nativeEvent.layout;
-      setLeftColumnWidth(width);
-    },
-    [setLeftColumnWidth],
-  );
 
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader />
+      <TokenDetailHeader isNative={isNative} />
 
       {/* Main Content */}
       <XStack flex={1}>
         {/* Left column */}
-        <YStack flex={1} onLayout={handleLayout}>
+        <YStack flex={1}>
           {/* Trading view */}
           <Stack flex={1} minHeight={300}>
             {networkId && tokenDetail?.symbol ? (
@@ -48,12 +34,13 @@ export function DesktopLayout() {
                 tokenAddress={tokenAddress}
                 networkId={networkId}
                 tokenSymbol={tokenDetail?.symbol}
+                isNative={isNative}
               />
             ) : null}
           </Stack>
 
           {/* Info tabs */}
-          {tokenDetail?.address ? (
+          {!isNative ? (
             <Stack h="30vh">
               <DesktopInformationTabs />
             </Stack>
@@ -61,7 +48,7 @@ export function DesktopLayout() {
         </YStack>
 
         {/* Right column */}
-        {tokenDetail?.address ? (
+        {!isNative ? (
           <Stack w={320}>
             <ScrollView>
               <Stack w={320}>

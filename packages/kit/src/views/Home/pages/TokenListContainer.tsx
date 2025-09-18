@@ -77,8 +77,8 @@ import {
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
   useAggregateTokensListMapAtom,
-  useAllTokenListMapAtom,
   useTokenListActions,
+  useTokenListMapAtom,
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
@@ -225,12 +225,17 @@ function TokenListContainer({
   } = useTokenListActions().current;
 
   const [aggregateTokenListMapAtom] = useAggregateTokensListMapAtom();
-  const [allTokenListMapAtom] = useAllTokenListMapAtom();
+  const [tokenListMapAtom] = useTokenListMapAtom();
   const {
     updateAccountWorth,
     updateAccountOverviewState,
     updateAllNetworksState,
   } = useAccountOverviewActions().current;
+
+  const { result: homeDefaultTokenMap } = usePromiseResult(async () => {
+    const r = await backgroundApiProxy.serviceToken.getHomeDefaultTokenMap();
+    return r;
+  }, []);
 
   const { run } = usePromiseResult(
     async () => {
@@ -895,17 +900,17 @@ function TokenListContainer({
     }) => {
       perfTokenListView.markStart('handleAllNetworkCacheData');
 
-      const localAggregateTokenMap =
-        await backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
-          accountId,
-          networkId,
-        });
-
-      const localAggregateTokenListMap =
-        await backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
-          accountId,
-          networkId,
-        });
+      const [localAggregateTokenMap, localAggregateTokenListMap] =
+        await Promise.all([
+          backgroundApiProxy.serviceToken.getLocalAggregateTokenMap({
+            accountId,
+            networkId,
+          }),
+          backgroundApiProxy.serviceToken.getLocalAggregateTokenListMap({
+            accountId,
+            networkId,
+          }),
+        ]);
 
       const tokenList: IAccountToken[] = [];
       const riskyTokenList: IAccountToken[] = [];
@@ -1364,16 +1369,6 @@ function TokenListContainer({
   ]);
 
   useEffect(() => {
-    void updateAllNetworksTokenList();
-  }, [updateAllNetworksTokenList]);
-
-  useEffect(() => {
-    if (isHeaderRefreshing) {
-      void run();
-    }
-  }, [isHeaderRefreshing, run]);
-
-  useEffect(() => {
     const initTokenListData = async ({
       accountId,
       networkId,
@@ -1401,6 +1396,7 @@ function TokenListContainer({
           initialized: false,
           isRefreshing: true,
         });
+        handleClearAllNetworkData();
         return;
       }
 
@@ -1616,48 +1612,42 @@ function TokenListContainer({
     wallet?.id,
   ]);
 
+  useEffect(() => {
+    void updateAllNetworksTokenList();
+  }, [updateAllNetworksTokenList]);
+
+  useEffect(() => {
+    if (isHeaderRefreshing) {
+      void run();
+    }
+  }, [isHeaderRefreshing, run]);
+
   const handleOnPressToken = useCallback(
     (token: IAccountToken) => {
       if (!network || !wallet || !deriveInfo || !deriveType) return;
 
-      let sortedTokens = [token];
-
-      if (token.isAggregateToken) {
-        const tokens = aggregateTokenListMapAtom[token.$key]?.tokens;
-
-        sortedTokens = sortTokensCommon({
-          tokens,
-          tokenListMap: allTokenListMapAtom,
-        });
-      }
-
-      if (sortedTokens.length === 0) {
-        return;
-      }
-
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
-          accountId: sortedTokens[0]?.accountId ?? account?.id ?? '',
-          networkId: sortedTokens[0]?.networkId ?? network.id,
+          accountId: token.accountId ?? account?.id ?? '',
+          networkId: token.networkId ?? network.id,
           walletId: wallet.id,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
-          tokens: sortedTokens,
-          isAggregateToken: token.isAggregateToken,
+          tokenInfo: token,
+          tokenMap: tokenListMapAtom,
         },
       });
     },
     [
-      account,
+      account?.id,
       deriveInfo,
       deriveType,
       indexedAccount?.id,
       navigation,
       network,
+      tokenListMapAtom,
       wallet,
-      aggregateTokenListMapAtom,
-      allTokenListMapAtom,
     ],
   );
 
@@ -1811,6 +1801,7 @@ function TokenListContainer({
       inTabList
       hideValue
       withSwapAction
+      hideZeroBalanceTokens={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
       withBuyAndReceive={isBuyAndReceiveEnabled}
       isBuyTokenSupported={isSupported}
@@ -1822,6 +1813,7 @@ function TokenListContainer({
       onManageToken={handleOnManageToken}
       onPressToken={handleOnPressToken}
       isAllNetworks={network?.isAllNetworks}
+      homeDefaultTokenMap={homeDefaultTokenMap}
       {...(media.gtLg && {
         tableLayout: true,
       })}

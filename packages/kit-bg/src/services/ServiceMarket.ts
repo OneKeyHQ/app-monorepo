@@ -4,6 +4,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
@@ -213,31 +214,31 @@ class ServiceMarket extends ServiceBase {
     return [];
   }
 
-  async buildMarketWatchListSyncItems({
-    watchList,
-    isDeleted,
-  }: {
+  async buildMarketWatchListSyncItems(_: {
     watchList: IMarketWatchListItem[];
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem[]> {
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
-    const syncCredential =
-      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+    throw new OneKeyLocalError(
+      'MarketWatchList is deprecated, use ServiceMarketV2 instead',
+    );
+    // const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    // const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    // const syncCredential =
+    //   await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
-    const syncItems = (
-      await Promise.all(
-        watchList.map(async (watchListItem) => {
-          return syncManagers.marketWatchList.buildSyncItemByDBQuery({
-            syncCredential,
-            dbRecord: watchListItem,
-            dataTime: now,
-            isDeleted,
-          });
-        }),
-      )
-    ).filter(Boolean);
-    return syncItems;
+    // const syncItems = (
+    //   await Promise.all(
+    //     watchList.map(async (watchListItem) => {
+    //       return syncManagers.marketWatchList.buildSyncItemByDBQuery({
+    //         syncCredential,
+    //         dbRecord: watchListItem,
+    //         dataTime: now,
+    //         isDeleted,
+    //       });
+    //     }),
+    //   )
+    // ).filter(Boolean);
+    // return syncItems;
   }
 
   async withMarketWatchListCloudSync({

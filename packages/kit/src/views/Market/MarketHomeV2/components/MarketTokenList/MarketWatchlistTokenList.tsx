@@ -1,8 +1,15 @@
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
-import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import {
+  useMarketWatchListV2Atom,
+  useWatchListV2Actions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketRecommendList } from '../MarketRecommendList';
@@ -26,6 +33,18 @@ function MarketWatchlistTokenList({
   const [watchlistState] = useMarketWatchListV2Atom();
   const { recommendedTokens } = useMarketBasicConfig();
 
+  const actions = useWatchListV2Actions();
+
+  useEffect(() => {
+    const fn = async () => {
+      await actions.current.refreshWatchListV2();
+    };
+    appEventBus.on(EAppEventBusNames.RefreshMarketWatchList, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, fn);
+    };
+  }, [actions]);
+
   const internalWatchlist = useMemo(
     () => watchlistState.data || [],
     [watchlistState.data],
@@ -38,6 +57,11 @@ function MarketWatchlistTokenList({
     watchlist,
     pageSize: 999,
   });
+
+  // console.log('MarketWatchlistTokenList___watchlistResult', {
+  //   watchlist,
+  //   watchlistResult,
+  // });
 
   // Show recommend list when watchlist is empty
   if (watchlist.length === 0) {

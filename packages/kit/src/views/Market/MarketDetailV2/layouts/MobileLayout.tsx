@@ -26,7 +26,7 @@ import {
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-export function MobileLayout() {
+export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const intl = useIntl();
   const tabNames = useMemo(
@@ -82,6 +82,7 @@ export function MobileLayout() {
                       tokenAddress={tokenAddress}
                       networkId={networkId}
                       tokenSymbol={tokenDetail?.symbol}
+                      isNative={isNative}
                     />
                   </Stack>
                 </YStack>
@@ -100,7 +101,7 @@ export function MobileLayout() {
         </YStack>
       );
     },
-    [height, networkId, tokenAddress, tokenDetail?.symbol],
+    [height, networkId, tokenAddress, tokenDetail?.symbol, isNative],
   );
 
   return (

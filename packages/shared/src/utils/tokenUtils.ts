@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { forEach, isNil, uniqBy } from 'lodash';
 
 import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
+import { getNetworkIdsMap } from '../config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
@@ -166,17 +167,17 @@ export function sortTokensByFiatValue({
   sortDirection?: 'desc' | 'asc';
 }) {
   return tokens?.sort((a, b) => {
-    const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
-    const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
+    const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? -1);
+    const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? -1);
 
     if (sortDirection === 'desc') {
-      return new BigNumber(bFiat.isNaN() ? 0 : bFiat).comparedTo(
-        new BigNumber(aFiat.isNaN() ? 0 : aFiat),
+      return new BigNumber(bFiat.isNaN() ? -1 : bFiat).comparedTo(
+        new BigNumber(aFiat.isNaN() ? -1 : aFiat),
       );
     }
 
-    return new BigNumber(aFiat.isNaN() ? 0 : aFiat).comparedTo(
-      new BigNumber(bFiat.isNaN() ? 0 : bFiat),
+    return new BigNumber(aFiat.isNaN() ? -1 : aFiat).comparedTo(
+      new BigNumber(bFiat.isNaN() ? -1 : bFiat),
     );
   });
 }
@@ -706,18 +707,13 @@ export function getTokenPriceChangeStyle({
   };
 }
 
-export function formatPriceToSignificantDigits(
-  price: number,
-  maxDigits = 5,
-): string {
-  if (!price || Number.isNaN(price)) return '0';
-  const precision = price.toPrecision(maxDigits);
-  const num = Number(precision);
-  let result = num.toString();
-  if (result.includes('.')) {
-    result = result.replace(/\.?0+$/, '');
-  }
-  return result;
+export function buildTokenListMapKey(params: {
+  networkId: string;
+  accountAddress: string;
+  tokenAddress: string;
+}) {
+  const { networkId, accountAddress, tokenAddress } = params;
+  return `${networkId}_${accountAddress}_${tokenAddress}`;
 }
 
 export function buildAggregateTokenMapKeyForAggregateConfig(params: {
@@ -839,7 +835,12 @@ export function buildHomeDefaultTokenMapKey({
   networkId: string;
   symbol: string;
 }) {
-  return `${networkId}_${symbol}`;
+  const networkIdKey =
+    networkId === getNetworkIdsMap().onekeyall
+      ? AGGREGATE_TOKEN_MOCK_NETWORK_ID
+      : networkId;
+
+  return `${networkIdKey}_${symbol}`;
 }
 
 export function sortTokensCommon({
@@ -857,9 +858,15 @@ export function sortTokensCommon({
     map: tokenListMap,
   });
 
-  const index = sortedTokens.findIndex((t) =>
-    new BigNumber(tokenListMap[t.$key]?.fiatValue ?? 0).isZero(),
+  let index = sortedTokens.findIndex((t) =>
+    new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isNegative(),
   );
+
+  if (index === -1) {
+    index = sortedTokens.findIndex((t) =>
+      new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isZero(),
+    );
+  }
 
   // sort zero fiat value tokens by order
   if (index > -1) {

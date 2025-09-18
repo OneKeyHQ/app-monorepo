@@ -154,16 +154,294 @@ function formatPriceToValid(marketPrice: string | number): string {
   return price.toFixed(validDecimals).replace(/\.?0+$/, '');
 }
 
+/**
+ * Count decimal places in a string number
+ */
+function countDecimalPlaces(value: string): number {
+  const decimalIndex = value.indexOf('.');
+  if (decimalIndex === -1) return 0;
+  return value.length - decimalIndex - 1;
+}
+
+/**
+ * Get the most frequent decimal place count from an array of values
+ */
+function getMostFrequentDecimalPlaces(values: string[]): number {
+  if (values.length === 0) return 2; // Default fallback
+
+  const decimalCounts = values.map(countDecimalPlaces);
+  const frequency: { [key: number]: number } = {};
+
+  // Count frequency of each decimal place count
+  decimalCounts.forEach((count) => {
+    frequency[count] = (frequency[count] || 0) + 1;
+  });
+
+  // Find the decimal place count with highest frequency
+  let maxFrequency = 0;
+  let mostFrequentDecimals = 2; // Default
+
+  Object.entries(frequency).forEach(([decimals, freq]) => {
+    if (freq > maxFrequency) {
+      maxFrequency = freq;
+      mostFrequentDecimals = parseInt(decimals, 10);
+    }
+  });
+
+  // If no clear winner (all have same frequency), use the first decimal count encountered
+  if (maxFrequency === 1 && Object.keys(frequency).length > 1) {
+    mostFrequentDecimals = decimalCounts[0];
+  }
+
+  return mostFrequentDecimals;
+}
+
+/**
+ * Analyze decimal places requirements from order book data
+ *
+ * Takes the first 2 levels from bids and asks (up to 4 total levels) and analyzes:
+ * - Price decimal places from px values
+ * - Size decimal places from sz values (applies to both size and cumSize)
+ *
+ * @param bids - Array of bid levels
+ * @param asks - Array of ask levels
+ * @returns Object containing price and size decimal places
+ */
+function analyzeOrderBookPrecision(
+  bids: Array<{ px: string; sz: string }>,
+  asks: Array<{ px: string; sz: string }>,
+): {
+  priceDecimals: number;
+  sizeDecimals: number;
+} {
+  // Take first 2 levels from each side (up to 4 total)
+  const bidSample = bids.slice(0, 2);
+  const askSample = asks.slice(0, 2);
+  const allSamples = [...bidSample, ...askSample];
+
+  if (allSamples.length === 0) {
+    return { priceDecimals: 2, sizeDecimals: 4 }; // Default fallback
+  }
+
+  // Extract px and sz values
+  const priceValues = allSamples.map((level) => level.px);
+  const sizeValues = allSamples.map((level) => level.sz);
+
+  // Analyze decimal places for each type
+  const priceDecimals = getMostFrequentDecimalPlaces(priceValues);
+  const sizeDecimals = getMostFrequentDecimalPlaces(sizeValues);
+
+  return {
+    priceDecimals,
+    sizeDecimals,
+  };
+}
+
+/**
+ * Calculate bid-ask spread percentage
+ *
+ * Formula: ((bestAsk - bestBid) / midPrice) * 100
+ *
+ * @param bestBid - Best bid price
+ * @param bestAsk - Best ask price
+ * @returns Formatted spread percentage string (e.g., "0.025%")
+ */
+function calculateSpreadPercentage(
+  bestBid: string | number,
+  bestAsk: string | number,
+): string {
+  const bestBidBN = new BigNumber(bestBid);
+  const bestAskBN = new BigNumber(bestAsk);
+
+  if (
+    bestBidBN.isZero() ||
+    bestAskBN.isZero() ||
+    !bestBidBN.isFinite() ||
+    !bestAskBN.isFinite()
+  ) {
+    return '0.000%';
+  }
+
+  // Ensure ask >= bid to avoid negative spreads
+  if (bestAskBN.isLessThan(bestBidBN)) {
+    return '0.000%';
+  }
+
+  const spread = bestAskBN.minus(bestBidBN);
+  const midPrice = bestBidBN.plus(bestAskBN).dividedBy(2);
+
+  if (midPrice.isZero()) {
+    return '0.000%';
+  }
+
+  const spreadPercentage = spread.dividedBy(midPrice).multipliedBy(100);
+
+  return `${spreadPercentage.toFixed(3)}%`;
+}
+
+/**
+ * Format value to specified decimal places using BigNumber precision
+ */
+function formatWithPrecision(
+  value: string | number | BigNumber,
+  decimals: number,
+  removeTrailingZeros = false,
+): string {
+  const bn = value instanceof BigNumber ? value : new BigNumber(value);
+  if (!bn.isFinite()) return '0';
+  if (removeTrailingZeros) {
+    return bn.isInteger()
+      ? bn.toFixed(0)
+      : bn
+          .toFixed(decimals)
+          .replace(/(\.\d*?)0+$/, '$1')
+          .replace(/\.$/, '');
+  }
+  return bn.toFixed(decimals);
+}
+
+/**
+ * Validate size input based on szDecimals constraint
+ *
+ * Validates that the input string represents a valid number with appropriate
+ * decimal precision based on the szDecimals parameter.
+ *
+ * @param input - The input string to validate
+ * @param szDecimals - Maximum decimal places allowed for this asset
+ * @returns True if input is valid, false otherwise
+ */
+function validateSizeInput(input: string, szDecimals: number): boolean {
+  if (!input) return true;
+  if (szDecimals === 0) return /^[0-9]*$/.test(input);
+  if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
+
+  const [, dec = ''] = input.split('.');
+  return dec.length <= szDecimals;
+}
+
+/**
+ * Format percentage value with appropriate precision
+ *
+ * Rounds percentage to 2 decimal places and removes trailing zeros
+ * to provide clean percentage display.
+ *
+ * @param percent - The percentage value to format
+ * @returns Formatted percentage string without trailing zeros
+ */
+function formatPercentage(percent: number): string {
+  if (!percent || Number.isNaN(percent)) return '0';
+
+  const rounded = Math.round(percent * 100) / 100;
+  return Number.isInteger(rounded)
+    ? rounded.toString()
+    : rounded.toFixed(2).replace(/\.?0+$/, '');
+}
+
+/**
+ * Validate price input with significant digits and precision constraints
+ *
+ * Validates price input according to HyperLiquid rules:
+ * 1. Maximum 5 significant digits
+ * 2. Decimal places limited by (MAX_DECIMALS_PERP - szDecimals)
+ * 3. If integer part >= 5 digits, no decimals allowed
+ *
+ * @param input - The price input string to validate
+ * @param szDecimals - Asset's szDecimals value (default: 2)
+ * @returns True if input is valid according to trading rules
+ */
+function validatePriceInput(input: string, szDecimals = 2): boolean {
+  if (!input) return true;
+
+  const text = input.replace(/。/g, '.');
+  const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
+
+  if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
+    return false;
+  if (maxDecimals === 0) return !/\./.test(text);
+
+  const [int = '0', dec = ''] = text.split('.');
+  const hasDecimal = text.includes('.');
+
+  if (dec.length > Math.min(maxDecimals, 6)) return false;
+
+  const intLen = int.replace(/^0+/, '').length;
+  const isZeroInt = intLen === 0;
+
+  if (intLen >= MAX_SIGNIFICANT_FIGURES) return !hasDecimal;
+
+  if (isZeroInt) {
+    const leadingZeros = dec.match(/^0*/)?.[0].length || 0;
+    return dec.length - leadingZeros <= MAX_SIGNIFICANT_FIGURES;
+  }
+
+  return intLen + dec.length <= MAX_SIGNIFICANT_FIGURES;
+}
+
+/**
+ * Format price to display with significant digits and precision constraints
+ *
+ * Formats price according to HyperLiquid display rules:
+ * 1. Apply 5 significant digits first
+ * 2. Apply precision limit based on szDecimals if provided
+ * 3. Remove trailing zeros for clean display
+ *
+ * @param price - The numeric price to format
+ * @param szDecimals - Optional asset's szDecimals for precision limiting
+ * @returns Formatted price string suitable for display
+ */
+function formatPriceToSignificantDigits(
+  price: number,
+  szDecimals?: number,
+): string {
+  if (!price || Number.isNaN(price)) return '0';
+
+  let result = Number(price.toPrecision(MAX_SIGNIFICANT_FIGURES)).toString();
+
+  if (szDecimals !== undefined && szDecimals >= 0) {
+    const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
+    const dotIndex = result.indexOf('.');
+
+    if (dotIndex !== -1 && result.length > dotIndex + 1 + maxDecimals) {
+      result =
+        maxDecimals === 0
+          ? result.substring(0, dotIndex)
+          : result.substring(0, dotIndex + 1 + maxDecimals);
+    }
+  }
+
+  return result.replace(/\.?0+$/, '');
+}
+
 export {
+  MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
   calculatePriceScale,
   formatPriceToValid,
+  analyzeOrderBookPrecision,
+  formatWithPrecision,
+  countDecimalPlaces,
+  getMostFrequentDecimalPlaces,
+  calculateSpreadPercentage,
+  validateSizeInput,
+  formatPercentage,
+  validatePriceInput,
+  formatPriceToSignificantDigits,
 };
 
 export default {
+  MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
   calculatePriceScale,
   formatPriceToValid,
+  analyzeOrderBookPrecision,
+  formatWithPrecision,
+  countDecimalPlaces,
+  getMostFrequentDecimalPlaces,
+  calculateSpreadPercentage,
+  validateSizeInput,
+  formatPercentage,
+  validatePriceInput,
+  formatPriceToSignificantDigits,
 };

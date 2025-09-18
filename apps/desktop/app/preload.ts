@@ -26,11 +26,17 @@ export interface IInstallUpdateParams extends IVerifyUpdateParams {
   buildNumber: string;
 }
 
+export type IDesktopEventUnSubscribe = () => void;
+
 type IDesktopAPILegacy = {
-  on: (channel: string, func: (...args: any[]) => any) => void;
+  on: (
+    channel: string,
+    func: (...args: any[]) => any,
+  ) => IDesktopEventUnSubscribe | undefined;
   arch: string;
   platform: string;
   systemVersion: string;
+  deskChannel: string;
   isMas: boolean;
   isDev: boolean;
   channel?: string;
@@ -47,25 +53,12 @@ type IDesktopAPILegacy = {
     event: string,
     listener: (...args: any[]) => void,
   ) => void;
-
-  // Updater
-  checkForUpdates: (isManual?: boolean) => void;
-  downloadUpdate: () => void;
-  downloadASC: (event: IVerifyUpdateParams) => void;
-  verifyASC: (event: IVerifyUpdateParams) => void;
-  verifyUpdate: (event: IVerifyUpdateParams) => void;
-  installUpdate: (event: IInstallUpdateParams) => void;
-  manualInstallPackage: (event: IInstallUpdateParams) => void;
-  getPreviousUpdateBuildNumber: () => string;
-  clearUpdate: () => void;
-  setAutoUpdateSettings: (settings: IDesktopStoreUpdateSettings) => void;
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;
     buttonLabel: string;
   }) => void;
   openPrivacyPanel: () => void;
-  clearAutoUpdateSettings: () => void;
   // startServer: (port: number) => Promise<{ success: boolean; error?: string }>;
   startServer: (
     port: number,
@@ -130,20 +123,10 @@ ipcRenderer.on(ipcMessageKeys.OPEN_DEEP_LINK_URL, (event, data) => {
 });
 
 const validChannels = [
-  // Update events
-  ipcMessageKeys.UPDATE_CHECKING,
-  ipcMessageKeys.UPDATE_AVAILABLE,
   ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
-  ipcMessageKeys.UPDATE_NOT_AVAILABLE,
-  ipcMessageKeys.UPDATE_VERIFIED,
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
-  ipcMessageKeys.UPDATE_DOWNLOAD_ASC,
-  ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE,
-  ipcMessageKeys.UPDATE_VERIFY_ASC_DONE,
-  ipcMessageKeys.UPDATE_VERIFY_ASC,
-  ipcMessageKeys.UPDATE_MANUAL_INSTALLATION,
   ipcMessageKeys.CHECK_FOR_UPDATES,
   ipcMessageKeys.APP_OPEN_SETTINGS,
   ipcMessageKeys.APP_LOCK_NOW,
@@ -203,11 +186,16 @@ const updateGlobalTitleBarBackgroundColor = () => {
 const desktopApi: IDesktopAPILegacy = Object.freeze({
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.includes(channel)) {
-      ipcRenderer.on(channel, (_, ...args) => func(...args));
+      const callback = (_: any, ...args: any[]) => func(...args);
+      ipcRenderer.on(channel, callback);
+      return () => {
+        ipcRenderer.removeListener(channel, callback);
+      };
     }
   },
   arch: process.arch,
   platform: process.platform,
+  deskChannel: process.env.DESK_CHANNEL || '',
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   isDev,
@@ -235,31 +223,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-
-  // Updater
-  checkForUpdates: (isManual?: boolean) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
-  downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
-  downloadASC: (params: IVerifyUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC, params),
-  verifyUpdate: (params: IVerifyUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
-  verifyASC: (params: IVerifyUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY_ASC, params),
-  installUpdate: (params: IInstallUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
-  manualInstallPackage: (params: IInstallUpdateParams) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_MANUAL_INSTALLATION, params),
-  getPreviousUpdateBuildNumber: () =>
-    ipcRenderer.sendSync(
-      ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
-    ),
-  clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
-  setAutoUpdateSettings: (settings: IDesktopStoreUpdateSettings) =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),
-  clearAutoUpdateSettings: () =>
-    ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR_SETTINGS),
-
   touchUpdateResource: (params: {
     resourceUrl: string;
     dialogTitle: string;

@@ -1,5 +1,5 @@
 /* eslint-disable spellcheck/spell-checker */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -65,6 +65,15 @@ export function PrimeTransferHome({
     autoConnect ? ENTER_LINK : QR_CODE,
   );
 
+  const qrcodeViewRef = useRef<React.ReactNode | null>(null);
+  const [refreshQrcodeView, setRefreshQrcodeView] = useState(0);
+  useEffect(() => {
+    if (value === QR_CODE && !qrcodeViewRef.current) {
+      qrcodeViewRef.current = <PrimeTransferHomeQrCode />;
+      setRefreshQrcodeView(refreshQrcodeView + 1);
+    }
+  }, [refreshQrcodeView, value]);
+
   return (
     <>
       <Page.Header
@@ -86,7 +95,7 @@ export function PrimeTransferHome({
         />
 
         <Stack display={value === QR_CODE ? 'flex' : 'none'}>
-          <PrimeTransferHomeQrCode />
+          {qrcodeViewRef.current}
         </Stack>
         <Stack display={value === ENTER_LINK ? 'flex' : 'none'}>
           <PrimeTransferHomeEnterLink

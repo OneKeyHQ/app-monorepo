@@ -69,6 +69,9 @@ function TokenSelector() {
     aggregateTokenSelectorScreen,
     allAggregateTokenMap,
     allAggregateTokens,
+    hideZeroBalanceTokens,
+    keepDefaultZeroBalanceTokens,
+    enableNetworkAfterSelect,
   } = route.params;
 
   const { network, account } = useAccountData({ networkId, accountId });
@@ -105,8 +108,9 @@ function TokenSelector() {
               indexedAccountId,
               aggregateToken: token,
               onSelect,
-              closeAfterSelect,
               allAggregateTokenList,
+              enableNetworkAfterSelect,
+              hideZeroBalanceTokens,
             },
           );
           return;
@@ -245,9 +249,11 @@ function TokenSelector() {
       aggregateTokenSelectorScreen,
       accountId,
       indexedAccountId,
+      enableNetworkAfterSelect,
       account,
       updateCreateAccountState,
       createAddress,
+      hideZeroBalanceTokens,
     ],
   );
 
@@ -383,6 +389,8 @@ function TokenSelector() {
           tokenSelectorSearchTokenList={searchTokenList}
           allAggregateTokenMap={allAggregateTokenMap}
           allAggregateTokens={allAggregateTokens}
+          hideZeroBalanceTokens={hideZeroBalanceTokens}
+          keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
         />
       </Page.Body>
     </Page>

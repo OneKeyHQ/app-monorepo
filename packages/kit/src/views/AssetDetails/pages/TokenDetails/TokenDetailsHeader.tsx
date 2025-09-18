@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { type IProps } from '.';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   DebugRenderTracker,
   Divider,
   Icon,
@@ -91,41 +92,42 @@ function TokenDetailsHeader(props: IProps) {
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
-  const { result: tokenDetailsResult, isLoading } = usePromiseResult(
-    async () => {
-      const tokensDetails =
-        await backgroundApiProxy.serviceToken.fetchTokensDetails({
+  const { result: tokenDetailsResult, isLoading: isLoadingTokenDetails } =
+    usePromiseResult(
+      async () => {
+        const tokensDetails =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [tokenInfo.address],
+          });
+        updateTokenMetadata({
+          price: tokensDetails[0]?.price ?? 0,
+          priceChange24h: tokensDetails[0]?.price24h ?? 0,
+          coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
+        });
+        updateTokenDetails({
           accountId,
           networkId,
-          contractList: [tokenInfo.address],
+          isInit: true,
+          data: tokensDetails[0],
         });
-      updateTokenMetadata({
-        price: tokensDetails[0]?.price ?? 0,
-        priceChange24h: tokensDetails[0]?.price24h ?? 0,
-        coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
-      });
-      updateTokenDetails({
+        return tokensDetails[0];
+      },
+      [
         accountId,
         networkId,
-        isInit: true,
-        data: tokensDetails[0],
-      });
-      return tokensDetails[0];
-    },
-    [
-      accountId,
-      networkId,
-      tokenInfo.address,
-      updateTokenMetadata,
-      updateTokenDetails,
-    ],
-    {
-      watchLoading: true,
-      overrideIsFocused: (isPageFocused) =>
-        isPageFocused && (isTabView ? isFocused : true),
-      debounced: POLLING_DEBOUNCE_INTERVAL,
-    },
-  );
+        tokenInfo.address,
+        updateTokenMetadata,
+        updateTokenDetails,
+      ],
+      {
+        watchLoading: true,
+        overrideIsFocused: (isPageFocused) =>
+          isPageFocused && (isTabView ? isFocused : true),
+        debounced: POLLING_DEBOUNCE_INTERVAL,
+      },
+    );
 
   const tokenDetails =
     tokenDetailsResult ?? tokenDetailsContext[tokenDetailsKey]?.data;
@@ -134,8 +136,8 @@ function TokenDetailsHeader(props: IProps) {
     if (tokenDetailsContext[tokenDetailsKey]?.init) {
       return false;
     }
-    return isLoading;
-  }, [tokenDetailsContext, tokenDetailsKey, isLoading]);
+    return isLoadingTokenDetails;
+  }, [tokenDetailsContext, tokenDetailsKey, isLoadingTokenDetails]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
@@ -240,8 +242,21 @@ function TokenDetailsHeader(props: IProps) {
   return (
     <DebugRenderTracker timesBadgePosition="top-right">
       <>
+        {isAllNetworks &&
+        !tokenInfo.isAggregateToken &&
+        !tokenInfo.isNative &&
+        tokenInfo.hasSameSymbolToken ? (
+          <Alert
+            icon="InfoCircleOutline"
+            type="critical"
+            title={intl.formatMessage({
+              id: ETranslations.identical_name_asset_alert,
+            })}
+            fullBleed
+          />
+        ) : null}
         {/* Overview */}
-        <Stack px="$5" pb="$5" pt={isTabView ? '$5' : '$0'}>
+        <Stack px="$5" py="$5">
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             <Stack flex={1}>
@@ -370,33 +385,36 @@ function TokenDetailsHeader(props: IProps) {
               }
               px="$5"
               py="$3"
+              gap="$1"
               {...listItemPressStyle}
             >
-              <XStack
-                alignItems="center"
-                justifyContent="space-between"
-                gap="$4"
-              >
-                <YStack gap="$1" flex={1}>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.global_my_address,
-                    })}
-                  </SizableText>
-                  {showLoadingState ? (
-                    <Skeleton.BodyMd />
-                  ) : (
-                    <SizableText size="$bodyMd" color="$text" flexWrap="wrap">
-                      {accountUtils.isHwWallet({ walletId }) ||
-                      accountUtils.isQrWallet({ walletId })
-                        ? accountUtils.shortenAddress({
-                            address: account?.address ?? '',
-                          })
-                        : account?.address}
-                    </SizableText>
-                  )}
-                </YStack>
-                <Icon name="Copy3Outline" color="$iconSubdued" size="$5" />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.global_my_address,
+                })}
+              </SizableText>
+              <XStack gap="$4">
+                <SizableText
+                  size="$bodyMd"
+                  color="$text"
+                  $platform-web={{
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {accountUtils.isHwWallet({ walletId }) ||
+                  accountUtils.isQrWallet({ walletId })
+                    ? accountUtils.shortenAddress({
+                        address: account?.address ?? '',
+                      })
+                    : account?.address}
+                </SizableText>
+                <Icon
+                  name="Copy3Outline"
+                  color="$iconSubdued"
+                  size="$5"
+                  flexShrink={0}
+                  marginLeft="auto"
+                />
               </XStack>
             </YStack>
           </>

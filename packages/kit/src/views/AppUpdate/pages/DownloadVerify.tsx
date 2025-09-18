@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
-import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
@@ -18,7 +17,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  installPackage,
+  AppUpdate,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -100,6 +99,7 @@ function DownloadVerify({
     verifyASC,
     verifyPackage,
     showUpdateInCompleteDialog,
+    installPackage,
   } = useDownloadPackage();
 
   const showInCompleteDialog = useCallback(() => {
@@ -113,26 +113,24 @@ function DownloadVerify({
   const [installing, setIsInstalling] = useState(false);
 
   const handleToUpdate = useCallback(async () => {
-    try {
-      setIsInstalling(true);
-      const timer = setTimeout(() => {
-        setIsInstalling(false);
-      }, 3500);
-      await installPackage(data);
-      return () => clearTimeout(timer);
-    } catch (e: unknown) {
+    setIsInstalling(true);
+    const timer = setTimeout(() => {
       setIsInstalling(false);
-      if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+    }, 3500);
+    await installPackage(
+      () => {
+        setIsInstalling(false);
+        clearTimeout(timer);
+      },
+      () => {
         showInCompleteDialog();
-      } else {
-        Toast.error({ title: (e as Error).message });
-      }
-    }
-  }, [data, showInCompleteDialog]);
+      },
+    );
+  }, [installPackage, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const hasError = checkIsError(data.status);
 
-  const percent = useDownloadProgress(noop, noop);
+  const percent = useDownloadProgress();
 
   const renderDownloadError = useCallback(
     () => (

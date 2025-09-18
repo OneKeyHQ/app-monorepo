@@ -9,15 +9,19 @@ import {
   ESwitchSize,
   Input,
   Switch,
+  TextAreaInput,
   Toast,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
 import type { IDialogButtonProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
@@ -53,16 +57,20 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
+import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
+import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
@@ -122,7 +130,7 @@ export function showDevOnlyPasswordDialog({
   });
 }
 
-export const DevSettingsSection = () => {
+const BaseDevSettingsSection = () => {
   const [settings] = useSettingsPersistAtom();
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -154,6 +162,64 @@ export const DevSettingsSection = () => {
     I18nManager.forceRTL(!I18nManager.isRTL);
     void backgroundApiProxy.serviceApp.restartApp();
   }, []);
+
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const { navigationToMessageConfirmAsync } = useSignatureConfirm({
+    accountId: activeAccount.account?.id ?? '',
+    networkId: activeAccount.network?.id ?? '',
+  });
+  const handleSignMessage = useCallback(() => {
+    Dialog.show({
+      title: 'Sign Message',
+      description: 'Sign Message',
+      renderContent: (
+        <Dialog.Form formProps={{ values: { message: '123' } }}>
+          <Dialog.FormField
+            name="message"
+            rules={{
+              required: { value: true, message: 'message is required.' },
+            }}
+          >
+            <TextAreaInput placeholder="message" />
+          </Dialog.FormField>
+        </Dialog.Form>
+      ),
+      onConfirm: async ({ getForm, close }) => {
+        const form = getForm();
+        const unsignedMessage = form?.getValues()?.message;
+        await close();
+        const signedMessage = await navigationToMessageConfirmAsync({
+          accountId: activeAccount.account?.id ?? '',
+          networkId: activeAccount.network?.id ?? '',
+          unsignedMessage: {
+            type: EMessageTypesBtc.ECDSA,
+            message: unsignedMessage,
+            sigOptions: {
+              noScriptType: true,
+            },
+            payload: {
+              isFromDApp: false,
+            },
+          },
+          walletInternalSign: true,
+          sameModal: false,
+          skipBackupCheck: true,
+        });
+        copyText(signedMessage);
+        console.log(signedMessage);
+        Dialog.show({
+          title: 'Signed Message',
+          description: signedMessage,
+        });
+      },
+    });
+  }, [
+    activeAccount.account?.id,
+    activeAccount.network?.id,
+    copyText,
+    navigationToMessageConfirmAsync,
+  ]);
 
   if (!devSettings.enabled) {
     return null;
@@ -193,7 +259,12 @@ export const DevSettingsSection = () => {
           />
         </>
       ) : null}
-
+      <SectionPressItem
+        icon="SignatureOutline"
+        title="Sign Message"
+        subtitle="Sign Message"
+        onPress={handleSignMessage}
+      />
       <SectionPressItem
         icon="InfoCircleOutline"
         copyable
@@ -208,6 +279,25 @@ export const DevSettingsSection = () => {
           subtitle="BuildHash"
         />
       ) : null}
+      <SectionPressItem
+        icon="CodeOutline"
+        title="Envs"
+        onPress={() => {
+          Dialog.debugMessage({
+            debugMessage: {
+              deskChannel: globalThis?.desktopApi?.deskChannel,
+              arch: globalThis?.desktopApi?.arch,
+              platform: globalThis?.desktopApi?.platform,
+              channel: globalThis?.desktopApi?.channel,
+              isMas: globalThis?.desktopApi?.isMas,
+              systemVersion: globalThis?.desktopApi?.systemVersion,
+              ...platformEnv,
+            },
+          });
+        }}
+      />
+      <RegistrationID />
+      <DeviceToken />
       <SectionFieldItem
         icon="ServerOutline"
         name="enableTestEndpoint"
@@ -224,11 +314,11 @@ export const DevSettingsSection = () => {
             console.error(error);
           }
         }}
-        onValueChange={(enabled: boolean) => {
+        onValueChange={async (enabled: boolean) => {
           if (platformEnv.isDesktop) {
-            globalThis.desktopApi?.setAutoUpdateSettings?.({
-              useTestFeedUrl: enabled,
-            });
+            await globalThis.desktopApiProxy?.appUpdate?.useTestUpdateFeedUrl?.(
+              enabled,
+            );
           }
           setTimeout(() => {
             void backgroundApiProxy.serviceApp.restartApp();
@@ -321,6 +411,23 @@ export const DevSettingsSection = () => {
             );
           }}
           value={devSettings.settings?.disableSolanaPriorityFee}
+        />
+      </SectionFieldItem>
+      <SectionFieldItem
+        icon="GasIllus"
+        name="enableMockHighTxFee"
+        title="模拟交易费过高"
+        subtitle="强制交易费用检测判定为过高"
+      >
+        <Switch
+          size={ESwitchSize.small}
+          onChange={() => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'enableMockHighTxFee',
+              !devSettings.settings?.enableMockHighTxFee,
+            );
+          }}
+          value={devSettings.settings?.enableMockHighTxFee}
         />
       </SectionFieldItem>
       <SectionPressItem
@@ -947,5 +1054,16 @@ export const DevSettingsSection = () => {
         />
       ) : null}
     </Section>
+  );
+};
+
+export const DevSettingsSection = () => {
+  return (
+    <AccountSelectorProviderMirror
+      config={{ sceneName: EAccountSelectorSceneName.home }}
+      enabledNum={[0]}
+    >
+      <BaseDevSettingsSection />
+    </AccountSelectorProviderMirror>
   );
 };

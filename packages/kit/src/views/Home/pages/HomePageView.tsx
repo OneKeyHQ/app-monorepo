@@ -23,10 +23,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EContractApprovalAlertType } from '@onekeyhq/shared/types/approval';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -121,31 +120,47 @@ export function HomePageView({
           accountAddress: account.address,
         });
 
+      const riskApprovals = resp.contractApprovals.filter(
+        (item) => item.isRiskContract,
+      );
+      const inactiveApprovals = resp.contractApprovals.filter(
+        (item) => item.isInactiveApproval,
+      );
+
       if (
-        approvalUtils.checkIsExistRiskApprovals({
-          contractApprovals: resp.contractApprovals,
-        })
+        !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
+        (riskApprovals.length > 0 || inactiveApprovals.length > 0)
       ) {
-        updateApprovalsInfo({ hasRiskApprovals: true });
-        const shouldShowRiskApprovalsRevokeSuggestion =
-          await backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
+        if (riskApprovals.length > 0) {
+          updateApprovalsInfo({ hasRiskApprovals: true });
+        }
+        const [
+          shouldShowRiskApprovalsRevokeSuggestion,
+          shouldShowInactiveApprovalsAlert,
+        ] = await Promise.all([
+          backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
             {
               networkId: network.id,
               accountId: account.id,
             },
-          );
-
-        if (shouldShowRiskApprovalsRevokeSuggestion) {
+          ),
+          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
+            networkId: network.id,
+            accountId: account.id,
+          }),
+        ]);
+        if (
+          (shouldShowRiskApprovalsRevokeSuggestion &&
+            riskApprovals.length > 0) ||
+          (shouldShowInactiveApprovalsAlert && inactiveApprovals.length > 0)
+        ) {
           await timerUtils.wait(2000);
           navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
             screen: EModalApprovalManagementRoutes.RevokeSuggestion,
             params: {
-              approvals: resp.contractApprovals.filter(
-                (item) => item.isRiskContract,
-              ),
+              approvals: [...riskApprovals, ...inactiveApprovals],
               contractMap: resp.contractMap,
               tokenMap: resp.tokenMap,
-              alertType: EContractApprovalAlertType.Risk,
               accountId: account.id,
               networkId: network.id,
               autoShow: true,
@@ -160,6 +175,7 @@ export function HomePageView({
     navigation,
     account,
     updateApprovalsInfo,
+    wallet?.id,
   ]);
 
   const { vaultSettings, networkAccounts } = result.result ?? {};
@@ -168,10 +184,27 @@ export function HomePageView({
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
 
-  const isBulkRevokeApprovalEnabled =
-    (network?.isAllNetworks ||
-      networksSupportBulkRevokeApproval[network?.id ?? '']) ??
-    false;
+  const isBulkRevokeApprovalEnabled = useMemo(() => {
+    if (network?.isAllNetworks) {
+      if (
+        accountUtils.isOthersAccount({
+          accountId: account?.id ?? '',
+        })
+      ) {
+        return networkUtils.isEvmNetwork({
+          networkId: account?.createAtNetwork ?? '',
+        });
+      }
+      return true;
+    }
+
+    return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    account?.id,
+    account?.createAtNetwork,
+  ]);
 
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;

@@ -4,7 +4,10 @@
 @interface LaunchOptionsManager : NSObject <RCTBridgeModule>
 
 + (instancetype)sharedInstance;
+- (void)log:(NSString *)msg;
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions;
 - (NSDictionary *)getLaunchOptions;
+- (void)saveDeviceToken:(NSString *)deviceToken;
+- (NSString *)getDeviceToken;
 
 @end
