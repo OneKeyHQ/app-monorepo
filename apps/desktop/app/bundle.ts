@@ -135,8 +135,9 @@ export const verifyMetadataFileSha256 = async () => {
   return true;
 };
 
-export const getMetadata = (bundleDir: string) => {
+export const getMetadata = async (bundleDir: string) => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
+  await verifyMetadataFileSha256();
   return JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
     string,
     string
