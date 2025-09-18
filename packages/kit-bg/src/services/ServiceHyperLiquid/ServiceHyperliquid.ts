@@ -164,6 +164,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       indexedAccountId: indexedAccountId || null,
       accountId: null,
       accountAddress: null,
+      deriveType: deriveType || 'default',
     };
 
     try {

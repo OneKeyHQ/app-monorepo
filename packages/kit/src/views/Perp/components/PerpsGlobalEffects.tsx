@@ -11,6 +11,7 @@ import {
   perpsSelectedSymbolAtom,
   usePerpsSelectedAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,6 +30,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
@@ -37,7 +39,6 @@ import {
   useCurrentUserAtom,
   useSubscriptionActiveAtom,
 } from '../../../states/jotai/contexts/hyperliquid/atoms';
-import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -200,13 +201,38 @@ function useHyperliquidAccountSelect() {
     console.log('checkPerpsAccountStatus::', checkResult);
   }, []);
 
+  const { result: globalDeriveType, run: refreshGlobalDeriveType } =
+    usePromiseResult(
+      () =>
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_CHAIN_ID,
+        }),
+      [],
+    );
+
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      refreshGlobalDeriveType,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        refreshGlobalDeriveType,
+      );
+    };
+  }, [refreshGlobalDeriveType]);
+
   const selectPerpsAccount = useCallback(async () => {
+    if (!globalDeriveType) {
+      return;
+    }
     noop(activeAccount.account?.address);
     const account =
       await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
         indexedAccountId: activeAccount?.indexedAccount?.id || null,
         accountId: activeAccount?.account?.id || null,
-        deriveType: activeAccount?.deriveType ?? 'default',
+        deriveType: globalDeriveType,
       });
     setCurrentUser(account.accountAddress);
     await checkPerpsAccountStatus();
@@ -214,9 +240,9 @@ function useHyperliquidAccountSelect() {
     activeAccount.account?.address,
     activeAccount.account?.id,
     activeAccount?.indexedAccount?.id,
-    activeAccount?.deriveType,
     setCurrentUser,
     checkPerpsAccountStatus,
+    globalDeriveType,
   ]);
 
   const selectPerpsAccountRef = useRef(selectPerpsAccount);
@@ -276,8 +302,6 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   useHyperliquidSymbolSelect();
-
-
 
   return null;
 }
