@@ -257,6 +257,14 @@ class DesktopApiAppUpdate {
 
   initBundleAutoUpdateEvents(): void {}
 
+  async isDownloadingPackage(): Promise<boolean> {
+    return this.isDownloading;
+  }
+
+  async checkDownloadedFileExists(downloadedFile: string): Promise<boolean> {
+    return fs.existsSync(downloadedFile);
+  }
+
   async clearUpdateCache(): Promise<void> {
     if (this.updateCancellationToken) {
       this.updateCancellationToken.cancel();
