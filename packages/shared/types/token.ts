@@ -85,7 +85,6 @@ export type IFetchAccountTokensParams = {
   customTokensRawData?: ICustomTokenDBStruct;
   blockedTokensRawData?: IRiskTokenManagementDBStruct['blockedTokens'];
   unblockedTokensRawData?: IRiskTokenManagementDBStruct['unblockedTokens'];
-  aggregateTokenConfigMapRawData?: Record<string, IAggregateToken>;
 };
 
 export type ITokenData = {

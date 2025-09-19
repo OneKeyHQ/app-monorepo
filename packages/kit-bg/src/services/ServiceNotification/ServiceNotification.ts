@@ -268,8 +268,6 @@ export default class ServiceNotification extends ServiceBase {
         params?.remotePushMessageInfo?.extras?.params?.accountId,
       mode: params?.remotePushMessageInfo?.extras?.mode,
       payload: params?.remotePushMessageInfo?.extras?.payload,
-      getEarnAccount: (props) =>
-        this.backgroundApi.serviceStaking.getEarnAccount(props),
     });
 
     void this.removeNotification({

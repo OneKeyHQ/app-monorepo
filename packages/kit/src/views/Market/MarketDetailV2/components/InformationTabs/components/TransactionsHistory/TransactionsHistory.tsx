@@ -14,6 +14,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
@@ -57,6 +58,8 @@ export function TransactionsHistory({
   networkId,
   onScrollEnd,
 }: ITransactionsHistoryProps) {
+  const isVisible = useRouteIsFocused();
+
   const intl = useIntl();
   const { gtXl } = useMedia();
   const {
@@ -75,7 +78,7 @@ export function TransactionsHistory({
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled: !platformEnv.isNative,
+    enabled: !platformEnv.isNative && isVisible,
     onNewTransaction: addNewTransaction,
   });
 

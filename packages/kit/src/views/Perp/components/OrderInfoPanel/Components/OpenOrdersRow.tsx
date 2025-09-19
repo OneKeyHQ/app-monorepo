@@ -1,9 +1,11 @@
 import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -33,6 +35,7 @@ const OpenOrdersRow = memo(
     index,
   }: IOpenOrdersRowProps) => {
     const { selectToken } = usePerpTokenSelector();
+    const intl = useIntl();
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
       const orderType = order.orderType;
@@ -368,7 +371,9 @@ const OpenOrdersRow = memo(
         >
           <Button size="small" variant="tertiary" onPress={handleCancelOrder}>
             <SizableText size="$bodyMdMedium" color="$green11">
-              Cancel
+              {intl.formatMessage({
+                id: ETranslations.perp_open_orders_cancel,
+              })}
             </SizableText>
           </Button>
         </XStack>

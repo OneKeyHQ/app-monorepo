@@ -52,7 +52,7 @@ function PerpDesktopLayout() {
           <YStack w={360}>
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
-              <PerpAccountPanel />
+              <PerpAccountPanel ifOnHeader={false} />
               <PerpAccountDebugInfo />
             </YStack>
           </YStack>

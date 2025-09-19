@@ -8,18 +8,12 @@ import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import ServiceBase from '../ServiceBase';
 
+import { EChannel, EOperation } from './const';
+import { MarketSubscriptionTracker } from './MarketSubscriptionTracker';
+
+import type { ISubscriptionType } from './MarketSubscriptionTracker';
 import type { IWsPriceData, IWsTxsData } from './types';
 import type { Socket } from 'socket.io-client';
-
-const EOperation = {
-  subscribe: 'subscribe',
-  unsubscribe: 'unsubscribe',
-};
-
-export const EChannel = {
-  tokenTxs: 'tokenTxs',
-  ohlcv: 'ohlcv',
-};
 
 type IMarketSubscription = {
   channel: string;
@@ -39,11 +33,17 @@ class ServiceMarketWS extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private subscriptions = new Set<string>();
-
   private socket: Socket | null = null;
 
   private isMarketListenerRegistered = false;
+
+  subscriptionTracker: MarketSubscriptionTracker =
+    new MarketSubscriptionTracker();
+
+  @backgroundMethod()
+  async clearDataCount(params: { address: string; type: ISubscriptionType }) {
+    this.subscriptionTracker.clearDataCount(params);
+  }
 
   @backgroundMethod()
   async connect(): Promise<void> {
@@ -82,7 +82,7 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket = null;
-    this.subscriptions.clear();
+    this.subscriptionTracker.clear();
   }
 
   @backgroundMethod()
@@ -93,9 +93,18 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    const subscriptionKey = `${EChannel.tokenTxs}-${networkId}-${tokenAddress}`;
-
-    if (this.subscriptions.has(subscriptionKey)) {
+    // Check if already subscribed
+    if (
+      this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.tokenTxs,
+      })
+    ) {
+      this.subscriptionTracker.addSubscription({
+        address: tokenAddress,
+        type: EChannel.tokenTxs,
+        networkId,
+      });
       return;
     }
 
@@ -116,7 +125,11 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptions.add(subscriptionKey);
+    this.subscriptionTracker.addSubscription({
+      address: tokenAddress,
+      type: EChannel.tokenTxs,
+      networkId,
+    });
   }
 
   @backgroundMethod()
@@ -131,9 +144,20 @@ class ServiceMarketWS extends ServiceBase {
     chartType?: string;
     currency?: string;
   }) {
-    const subscriptionKey = `${EChannel.ohlcv}-${networkId}-${tokenAddress}-${chartType}-${currency}`;
-
-    if (this.subscriptions.has(subscriptionKey)) {
+    // Check if already subscribed
+    if (
+      this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.ohlcv,
+      })
+    ) {
+      this.subscriptionTracker.addSubscription({
+        address: tokenAddress,
+        type: EChannel.ohlcv,
+        networkId,
+        chartType,
+        currency,
+      });
       return;
     }
 
@@ -162,11 +186,16 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptions.add(subscriptionKey);
+    this.subscriptionTracker.addSubscription({
+      address: tokenAddress,
+      type: EChannel.ohlcv,
+      networkId,
+      chartType,
+      currency,
+    });
   }
 
-  @backgroundMethod()
-  async unsubscribe({
+  private async unsubscribe({
     channel,
     networkId,
     tokenAddress,
@@ -179,21 +208,6 @@ class ServiceMarketWS extends ServiceBase {
     chartType?: string;
     currency?: string;
   }) {
-    // Generate the same subscription key as used in subscribe methods
-    let subscriptionKey: string;
-    if (channel === EChannel.ohlcv && chartType && currency) {
-      subscriptionKey = `${channel}-${networkId}-${tokenAddress}-${chartType}-${currency}`;
-    } else {
-      subscriptionKey = `${channel}-${networkId}-${tokenAddress}`;
-    }
-
-    console.log('unsubscribe', subscriptionKey);
-
-    if (!this.subscriptions.has(subscriptionKey)) {
-      console.log('Subscription not found:', subscriptionKey);
-      return;
-    }
-
     const subscriptionArgs: IMarketSubscription = {
       channel,
       networkId,
@@ -218,7 +232,6 @@ class ServiceMarketWS extends ServiceBase {
     }
 
     this.socket.emit(EAppSocketEventNames.market, message);
-    this.subscriptions.delete(subscriptionKey);
   }
 
   @backgroundMethod()
@@ -229,11 +242,25 @@ class ServiceMarketWS extends ServiceBase {
     networkId: string;
     tokenAddress: string;
   }) {
-    await this.unsubscribe({
-      channel: EChannel.tokenTxs,
+    this.subscriptionTracker.removeSubscription({
+      address: tokenAddress,
+      type: EChannel.tokenTxs,
       networkId,
-      tokenAddress,
     });
+
+    // Only unsubscribe from WebSocket if no more connections
+    if (
+      !this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.tokenTxs,
+      })
+    ) {
+      await this.unsubscribe({
+        channel: EChannel.tokenTxs,
+        networkId,
+        tokenAddress,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -241,25 +268,39 @@ class ServiceMarketWS extends ServiceBase {
     networkId,
     tokenAddress,
     chartType = '1m',
-    currency = 'pair',
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
     chartType?: string;
     currency?: string;
   }) {
-    await this.unsubscribe({
-      channel: EChannel.ohlcv,
+    this.subscriptionTracker.removeSubscription({
+      address: tokenAddress,
+      type: EChannel.ohlcv,
       networkId,
-      tokenAddress,
       chartType,
       currency,
     });
+
+    // Only unsubscribe from WebSocket if no more connections
+    if (
+      !this.subscriptionTracker.hasSubscription({
+        address: tokenAddress,
+        type: EChannel.ohlcv,
+      })
+    ) {
+      await this.unsubscribe({
+        channel: EChannel.ohlcv,
+        networkId,
+        tokenAddress,
+        chartType,
+        currency,
+      });
+    }
   }
 
   private handleMarketMessage(data: unknown) {
-    console.log('Market data received:', data);
-
     // Basic type validation
     if (typeof data !== 'object' || data === null) {
       return;
@@ -267,11 +308,9 @@ class ServiceMarketWS extends ServiceBase {
 
     const messageData = data as Record<string, any>;
 
-    console.log('messageData', messageData);
-
     // Handle different message formats from the WebSocket
     // Support both direct channel format and nested data format
-    let channel: string;
+    let channel: ISubscriptionType;
     let tokenAddress = '';
     let messageType: string | undefined;
     let processedData: any;
@@ -285,12 +324,66 @@ class ServiceMarketWS extends ServiceBase {
 
     if (messageType === 'TXS_DATA') {
       channel = EChannel.tokenTxs;
+      const txsData = processedData as IWsTxsData;
+
+      // Check both from and to addresses for TXS_DATA
+      const fromAddress = txsData.from?.address;
+      const toAddress = txsData.to?.address;
+
+      // Try to find which address has subscription and increment its data count
+      let hasSubscription = false;
+      if (
+        fromAddress &&
+        this.subscriptionTracker.hasSubscription({
+          address: fromAddress,
+          type: EChannel.tokenTxs,
+        })
+      ) {
+        this.subscriptionTracker.incrementDataCount({
+          address: fromAddress,
+          type: EChannel.tokenTxs,
+        });
+        tokenAddress = fromAddress;
+        hasSubscription = true;
+      } else if (
+        toAddress &&
+        this.subscriptionTracker.hasSubscription({
+          address: toAddress,
+          type: EChannel.tokenTxs,
+        })
+      ) {
+        this.subscriptionTracker.incrementDataCount({
+          address: toAddress,
+          type: EChannel.tokenTxs,
+        });
+        tokenAddress = toAddress;
+        hasSubscription = true;
+      }
+
+      // If no subscription found, skip this message
+      if (!hasSubscription) {
+        return;
+      }
     } else if (messageType === 'PRICE_DATA') {
       channel = EChannel.ohlcv;
-
       const priceData = processedData as IWsPriceData;
-
       tokenAddress = priceData.address;
+
+      // Increment data count for PRICE_DATA
+      if (
+        this.subscriptionTracker.hasSubscription({
+          address: tokenAddress,
+          type: EChannel.ohlcv,
+        })
+      ) {
+        this.subscriptionTracker.incrementDataCount({
+          address: tokenAddress,
+          type: EChannel.ohlcv,
+        });
+      } else {
+        // If no subscription found, skip this message
+        return;
+      }
     } else {
       console.warn('Invalid market data: missing required fields', {
         tokenAddress,
@@ -298,6 +391,39 @@ class ServiceMarketWS extends ServiceBase {
       });
 
       return;
+    }
+
+    // Check if subscription should be auto-unsubscribed due to data accumulation
+    if (
+      this.subscriptionTracker.shouldUnsubscribeWithDefaultThreshold({
+        address: tokenAddress,
+        type: channel,
+      })
+    ) {
+      const subscription = this.subscriptionTracker.getSubscription({
+        address: tokenAddress,
+        type: channel,
+      });
+      if (subscription) {
+        console.warn(
+          `Auto-unsubscribing due to data accumulation: ${tokenAddress}, channel: ${channel}, dataCount: ${subscription.dataCount}`,
+        );
+
+        // Auto-unsubscribe based on channel type
+        if (channel === EChannel.tokenTxs) {
+          void this.unsubscribeTokenTxs({
+            networkId: subscription.networkId,
+            tokenAddress: subscription.address,
+          });
+        } else if (channel === EChannel.ohlcv) {
+          void this.unsubscribeOHLCV({
+            networkId: subscription.networkId,
+            tokenAddress: subscription.address,
+            chartType: subscription.chartType,
+            currency: subscription.currency,
+          });
+        }
+      }
     }
 
     // Emit event to app event bus with standardized format

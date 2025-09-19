@@ -123,6 +123,7 @@ function TokenDetailsView() {
     isAllNetworks,
     indexedAccountId,
     tokenMap,
+    aggregateTokens: aggregateTokensParam,
   } = route.params;
 
   const { gtMd } = useMedia();
@@ -171,16 +172,29 @@ function TokenDetailsView() {
             // pass
           }
 
-          aggregateTokens.push({
-            ...aggregateToken,
-            accountId: tokenAccountId ?? '',
-            networkName: tokenNetwork?.name ?? '',
-            $key: buildTokenListMapKey({
-              networkId: aggregateToken.networkId ?? '',
-              accountAddress: tokenAccountAddress ?? '',
-              tokenAddress: aggregateToken.address ?? '',
-            }),
-          });
+          const originalToken = aggregateTokensParam?.find(
+            (t) =>
+              t.address === aggregateToken.address &&
+              t.networkId === aggregateToken.networkId,
+          );
+
+          if (originalToken) {
+            aggregateTokens.push({
+              ...originalToken,
+              accountId: originalToken.accountId ?? tokenAccountId ?? '',
+            });
+          } else {
+            aggregateTokens.push({
+              ...aggregateToken,
+              accountId: tokenAccountId ?? '',
+              networkName: tokenNetwork?.name ?? '',
+              $key: buildTokenListMapKey({
+                networkId: aggregateToken.networkId ?? '',
+                accountAddress: tokenAccountAddress ?? '',
+                tokenAddress: aggregateToken.address ?? '',
+              }),
+            });
+          }
         }
 
         return uniqBy(
@@ -194,7 +208,7 @@ function TokenDetailsView() {
 
       return [tokenInfo];
     },
-    [tokenInfo, indexedAccountId, tokenMap],
+    [tokenInfo, indexedAccountId, tokenMap, aggregateTokensParam],
     {
       watchLoading: true,
       initResult: [],

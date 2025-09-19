@@ -18,7 +18,6 @@ interface IUseTradingViewV2WebSocketProps {
   tokenAddress: string;
   webRef: RefObject<IWebViewRef | null>;
   enabled?: boolean;
-  enableOHLCV?: boolean;
   chartType?: string;
   currency?: string;
 }
@@ -28,7 +27,6 @@ export function useTradingViewV2WebSocket({
   tokenAddress,
   webRef,
   enabled = true,
-  enableOHLCV = true,
   chartType = '1m',
   currency = 'usd',
 }: IUseTradingViewV2WebSocketProps) {
@@ -37,7 +35,7 @@ export function useTradingViewV2WebSocket({
   const [tokenDetail] = useTokenDetailAtom();
   // Initialize and manage WebSocket connection
   useEffect(() => {
-    if (!enabled || !networkId || !tokenAddress) {
+    if (!networkId || !tokenAddress) {
       return;
     }
 
@@ -46,33 +44,31 @@ export function useTradingViewV2WebSocket({
         await backgroundApiProxy.serviceMarketWS.connect();
 
         // Subscribe to OHLCV data if enabled
-        if (enableOHLCV) {
-          await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
-            networkId,
-            tokenAddress,
-            chartType,
-            currency,
-          });
-        }
+        await backgroundApiProxy.serviceMarketWS.subscribeOHLCV({
+          networkId,
+          tokenAddress,
+          chartType,
+          currency,
+        });
       } catch (error) {
         console.error('Failed to initialize market WebSocket:', error);
       }
     };
 
-    void initWebSocket();
+    if (enabled) {
+      void initWebSocket();
+    }
 
     return () => {
       // Clean up specific subscriptions instead of disconnecting everything
       const cleanup = async () => {
         try {
-          if (enableOHLCV) {
-            await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
-              networkId,
-              tokenAddress,
-              chartType,
-              currency,
-            });
-          }
+          await backgroundApiProxy.serviceMarketWS.unsubscribeOHLCV({
+            networkId,
+            tokenAddress,
+            chartType,
+            currency,
+          });
         } catch (error) {
           console.error('Failed to unsubscribe from market data:', error);
         }
@@ -80,7 +76,7 @@ export function useTradingViewV2WebSocket({
 
       void cleanup();
     };
-  }, [networkId, tokenAddress, enabled, enableOHLCV, chartType, currency]);
+  }, [networkId, tokenAddress, enabled, chartType, currency]);
 
   // Listen for market data updates via the app event bus
   useEffect(() => {
@@ -95,11 +91,8 @@ export function useTradingViewV2WebSocket({
       data: any;
       originalData?: any;
     }) => {
-      console.log('handleMarketDataUpdate', payload);
       // Only process messages for our specific token and network
       if (payload.tokenAddress === tokenAddress) {
-        console.log('Processing market data for TradingView:', payload);
-
         if (payload.channel === 'ohlcv') {
           const now = Math.floor(Date.now() / 1000);
 
@@ -122,6 +115,7 @@ export function useTradingViewV2WebSocket({
                     points: [
                       {
                         ...receivedData,
+                        // eslint-disable-next-line spellcheck/spell-checker
                         t: receivedData.unixTime, // Convert timestamp to t
                       },
                     ],
@@ -135,6 +129,11 @@ export function useTradingViewV2WebSocket({
                 kLineData: dataForWebView,
                 timestamp: now,
               },
+            });
+
+            void backgroundApiProxy.serviceMarketWS.clearDataCount({
+              address: tokenAddress,
+              type: 'ohlcv',
             });
 
             // Update token detail if we have valid price data

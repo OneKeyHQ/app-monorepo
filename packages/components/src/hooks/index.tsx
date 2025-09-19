@@ -1,6 +1,7 @@
 export * from './useBackHandler';
 export * from './useClipboard';
 export * from './useColor';
+export * from './useDeepCompareEffect';
 export * from './useDeferredPromise';
 export * from './useForm';
 export * from './useKeyboard';

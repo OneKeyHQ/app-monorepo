@@ -5,11 +5,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Divider,
   Icon,
   NumberSizeableText,
   SizableText,
   Skeleton,
-  Spinner,
   Tooltip,
   XStack,
   YStack,
@@ -23,6 +23,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHyperliquidAccount } from '../../../hooks';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+
+import type { FontSizeTokens } from 'tamagui';
 
 export function PerpAccountDebugInfo() {
   const { currentUser } = useHyperliquidAccount();
@@ -40,7 +42,7 @@ export function PerpAccountDebugInfo() {
   );
 }
 
-function PerpAccountPanel() {
+function PerpAccountPanel({ ifOnHeader }: { ifOnHeader: boolean }) {
   const { userWebData2, accountSummary } = useHyperliquidAccount();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [selectedAccount] = usePerpsSelectedAccountAtom();
@@ -63,6 +65,36 @@ function PerpAccountPanel() {
     };
   }, [accountSummary.withdrawable, userWebData2, accountSummary.accountValue]);
   const intl = useIntl();
+  const renderAccountValue = useCallback(
+    (
+      value: string,
+      skeletonWidth = 60,
+      textSize = '$bodySmMedium' as FontSizeTokens,
+    ) => {
+      if (perpsAccountLoading?.selectAccountLoading) {
+        return <Skeleton width={skeletonWidth} height={16} />;
+      }
+
+      if (!userWebData2) {
+        return (
+          <SizableText size={textSize} color="$textSubdued">
+            N/A
+          </SizableText>
+        );
+      }
+
+      return (
+        <NumberSizeableText
+          size={textSize}
+          formatter="value"
+          formatterOptions={{ currency: '$' }}
+        >
+          {value}
+        </NumberSizeableText>
+      );
+    },
+    [perpsAccountLoading?.selectAccountLoading, userWebData2],
+  );
   const handleDepositOrWithdraw = useCallback(
     async (actionType: 'deposit' | 'withdraw') => {
       if (!userAccountId || !userAddress) {
@@ -78,7 +110,36 @@ function PerpAccountPanel() {
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
-
+  if (ifOnHeader) {
+    return (
+      <Button
+        borderRadius="$full"
+        size="medium"
+        variant="secondary"
+        onPress={() => handleDepositOrWithdraw('deposit')}
+        alignItems="center"
+        justifyContent="center"
+        h={32}
+      >
+        <XStack gap="$3" alignItems="center" justifyContent="center">
+          <Icon name="WalletOutline" size="$4.5" />
+          {renderAccountValue(
+            accountDataInfo.accountValue ?? '',
+            60,
+            '$bodyMdMedium',
+          )}
+          <Divider
+            borderWidth={0.33}
+            borderBottomWidth={12}
+            borderColor="$borderSubdued"
+          />
+          <SizableText size="$bodyMdMedium" color="$text">
+            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          </SizableText>
+        </XStack>
+      </Button>
+    );
+  }
   return (
     <YStack flex={1} gap="$1.5">
       {/* Header */}
@@ -105,17 +166,7 @@ function PerpAccountPanel() {
               </SizableText>
             }
           />
-          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
-            <Skeleton width={70} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {accountDataInfo.accountValue}
-            </NumberSizeableText>
-          )}
+          {renderAccountValue(accountDataInfo.accountValue ?? '', 70)}
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
@@ -123,17 +174,7 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_panel_withrawable_value,
             })}
           </SizableText>
-          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
-            <Skeleton width={60} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {accountDataInfo.withdrawableBalance}
-            </NumberSizeableText>
-          )}
+          {renderAccountValue(accountDataInfo.withdrawableBalance ?? '', 60)}
         </XStack>
         <XStack justifyContent="space-between">
           <Tooltip
@@ -149,17 +190,7 @@ function PerpAccountPanel() {
               </SizableText>
             }
           />
-          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
-            <Skeleton width={60} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {accountDataInfo.maintenanceMargin}
-            </NumberSizeableText>
-          )}
+          {renderAccountValue(accountDataInfo.maintenanceMargin, 70)}
         </XStack>
       </YStack>
       {/* Action Buttons */}

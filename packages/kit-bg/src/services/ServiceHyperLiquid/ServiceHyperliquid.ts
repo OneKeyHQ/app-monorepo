@@ -108,9 +108,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       // dex: dexList?.[0]?.name || '',
     });
     if (meta?.universe?.length) {
-      await this.backgroundApi.simpleDb.perp.setTradingUniverse(
-        meta?.universe || [],
-      );
+      await this.backgroundApi.simpleDb.perp.setTradingUniverse({
+        universe: meta?.universe || [],
+        marginTables: meta?.marginTables || [],
+      });
     }
     const selectedSymbol = await perpsSelectedSymbolAtom.get();
     const { universeItems } = await this.changeSelectedSymbol({
@@ -130,12 +131,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     selectedUniverse: IPerpsUniverse;
   }> {
     const universeItems = await this.getTradingUniverse();
+    const marginTables =
+      await this.backgroundApi.simpleDb.perp.getMarginTables();
     const selectedUniverse: IPerpsUniverse | undefined =
       universeItems.find((item) => item.name === params.coin) ||
       universeItems?.[0];
+    const selectedMargin = marginTables?.find(
+      (item) => item[0] === selectedUniverse?.marginTableId,
+    )?.[1];
     await perpsSelectedSymbolAtom.set({
       coin: selectedUniverse?.name || '',
       universe: selectedUniverse,
+      margin: selectedMargin,
     });
     return {
       universeItems,
@@ -157,6 +164,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       indexedAccountId: indexedAccountId || null,
       accountId: null,
       accountAddress: null,
+      deriveType: deriveType || 'default',
     };
 
     try {
@@ -181,6 +189,10 @@ export default class ServiceHyperliquid extends ServiceBase {
         console.log('selectPerpsAccount______222', account);
         perpsAccount.accountId = account.id || null;
         perpsAccount.accountAddress = (account.address as IHex) || null;
+        void this.backgroundApi.serviceAccount.saveAccountAddresses({
+          account,
+          networkId: ethNetworkId,
+        });
       }
     } catch (error) {
       console.error(error);
@@ -624,5 +636,54 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async dispose(): Promise<void> {
     // Cleanup resources if needed
+  }
+
+  @backgroundMethod()
+  async disposeExchangeClients() {
+    await this.exchangeService.dispose();
+    await perpsSelectedAccountStatusAtom.set({
+      accountAddress: null,
+      canTrade: false,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        builderFeeOk: false,
+        referralCodeOk: false,
+      },
+    });
+  }
+
+  @backgroundMethod()
+  async getTradingviewDisplayPriceScale(
+    symbol: string,
+  ): Promise<number | undefined> {
+    return this.backgroundApi.simpleDb.perp.getTradingviewDisplayPriceScale(
+      symbol,
+    );
+  }
+
+  @backgroundMethod()
+  async setTradingviewDisplayPriceScale({
+    symbol,
+    priceScale,
+  }: {
+    symbol: string;
+    priceScale: number;
+  }) {
+    if (!symbol || priceScale === undefined || priceScale === null) {
+      return;
+    }
+    const priceScaleBN = new BigNumber(priceScale);
+    if (
+      priceScaleBN.isNaN() ||
+      priceScaleBN.isNegative() ||
+      !priceScaleBN.isInteger()
+    ) {
+      return;
+    }
+    await this.backgroundApi.simpleDb.perp.updateTradingviewDisplayPriceScale({
+      symbol,
+      priceScale,
+    });
   }
 }

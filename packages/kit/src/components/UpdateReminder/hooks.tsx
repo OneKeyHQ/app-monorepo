@@ -136,7 +136,10 @@ export const useDownloadPackage = () => {
       console.log('downloadPackage-getUpdateInfo', params);
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
+      const updateEvent =
+        await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       const downloadParams: IDownloadPackageParams = {
+        ...updateEvent,
         signature: isJsBundle ? jsBundle?.signature : undefined,
         latestVersion,
         bundleVersion: jsBundleVersion,

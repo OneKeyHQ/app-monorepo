@@ -77,11 +77,9 @@ export interface IUpdateProgressUpdate {
   transferred: number;
 }
 
-if (isMas) {
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.logger = logger;
-}
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.logger = logger;
 
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
@@ -189,6 +187,7 @@ class DesktopApiAppUpdate {
         ? 'Network exception, please check your internet connection.'
         : err.message;
 
+      this.isDownloading = false;
       if (mainWindow.isDestroyed()) {
         void dialog
           .showMessageBox({
@@ -251,11 +250,22 @@ class DesktopApiAppUpdate {
             downloadUrl,
           },
         );
+        setTimeout(() => {
+          this.isDownloading = false;
+        }, 2500);
       },
     );
   }
 
   initBundleAutoUpdateEvents(): void {}
+
+  async isDownloadingPackage(): Promise<boolean> {
+    return this.isDownloading;
+  }
+
+  async checkDownloadedFileExists(downloadedFile: string): Promise<boolean> {
+    return fs.existsSync(downloadedFile);
+  }
 
   async clearUpdateCache(): Promise<void> {
     if (this.updateCancellationToken) {
@@ -336,21 +346,21 @@ class DesktopApiAppUpdate {
     if (this.updateCancellationToken) {
       this.updateCancellationToken.cancel();
     }
-    store.clearUpdateBuildNumber();
     await clearUpdateCache();
     this.updateCancellationToken = new CancellationToken();
 
     try {
+      logger.info('auto-updater', 'Download update');
       await autoUpdater.downloadUpdate(this.updateCancellationToken);
+      logger.info('auto-updater', 'Download update success');
     } catch (e) {
+      this.isDownloading = false;
       logger.info('auto-updater', 'Update cancelled', e);
       // CancellationError
       // node_modules/electron-updater/node_modules/builder-util-runtime/out/CancellationToken.js 104L
       if ((e as Error).message !== 'cancelled') {
         throw e;
       }
-    } finally {
-      this.isDownloading = false;
     }
   }
 
