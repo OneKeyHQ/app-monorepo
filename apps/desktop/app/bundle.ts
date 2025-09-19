@@ -31,13 +31,7 @@ const readMetadataFileSha256 = async (signature: string) => {
     logger.info('auto-updater', `file valid: ${String(valid)}`);
     if (valid) {
       const texts = signedMessage.getText();
-      // Remove the Hash: SHA256 line if present
-      const lines = texts.split('\n');
-      const filteredLines = lines.filter(
-        (line) => !line.trim().startsWith('Hash:'),
-      );
-      const cleanedTexts = filteredLines.join('\n').trim();
-      const json = JSON.parse(cleanedTexts) as {
+      const json = JSON.parse(texts) as {
         sha256: string;
       };
       const sha256 = json.sha256;
