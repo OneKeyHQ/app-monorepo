@@ -386,7 +386,7 @@ const buildWebEmbed = async () => {
   log('build web embed done');
 };
 
-cleanBundleOutput();
-buildWebEmbed();
+// cleanBundleOutput();
+// buildWebEmbed();
 buildIOSBundle();
-buildAndroidBundle();
+// buildAndroidBundle();
