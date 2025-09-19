@@ -80,34 +80,18 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
             return nil;
         }
         
-        // Extract the signature part between PGP signature markers
-        NSString *signatureBeginMarker = @"-----BEGIN PGP SIGNATURE-----";
-        NSString *signatureEndMarker = @"-----END PGP SIGNATURE-----";
-        
-        NSRange signatureBeginRange = [ascFileContent rangeOfString:signatureBeginMarker];
-        NSRange signatureEndRange = [ascFileContent rangeOfString:signatureEndMarker];
-        
-        if (signatureBeginRange.location == NSNotFound || signatureEndRange.location == NSNotFound) {
-            DDLogError(@"PGP signature markers not found");
-            return nil;
-        }
-        
-        // Extract content between markers, excluding the markers themselves
-        NSUInteger signatureContentStart = signatureBeginRange.location + signatureBeginRange.length;
-        NSUInteger signatureContentEnd = signatureEndRange.location;
-        
-        if (signatureContentStart >= signatureContentEnd) {
-            DDLogError(@"Invalid PGP signature format");
-            return nil;
-        }
-        
-        NSString *signaturePart = [ascFileContent substringWithRange:NSMakeRange(signatureContentStart, signatureContentEnd - signatureContentStart)];
-        NSData *signatureData = [signaturePart dataUsingEncoding:NSUTF8StringEncoding];
+        // Parse the signed message
+        NSData *signatureData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
         
         // Verify the signature and extract clear text
         NSError *verifyError = nil;
+        BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:publicKeys passphraseForKey:nil error:&verifyError];
 
-         // Extract the clear text between PGP message markers
+        if (!verified || verifyError) {
+            DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
+            return nil;
+        }
+        // Extract the clear text between PGP message markers
         NSString *beginMarker = @"-----BEGIN PGP SIGNED MESSAGE-----";
         NSString *endMarker = @"-----BEGIN PGP SIGNATURE-----";
         
@@ -152,14 +136,6 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
         NSString *clearText = [ascFileContent substringWithRange:NSMakeRange(contentStart, contentEnd - contentStart)];
         // Trim whitespace and newlines
         clearText = [clearText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-
-        NSData *messageData = [clearText dataUsingEncoding:NSUTF8StringEncoding];
-      BOOL verified = [ObjectivePGP verify:messageData withSignature:signatureData usingKeys:publicKeys passphraseForKey:nil error:&verifyError];
-
-        if (!verified || verifyError) {
-            DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
-            return nil;
-        }
         return clearText;
     } @catch (NSException *exception) {
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
