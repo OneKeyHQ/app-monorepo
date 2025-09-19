@@ -7,6 +7,7 @@ import BigNumber from 'bignumber.js';
 
 import {
   MAX_DECIMALS_PERP,
+  MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
@@ -245,7 +246,6 @@ function getMostFrequentDecimalPlaces(values: string[]): number {
 
   const decimalCounts = values.map(countDecimalPlaces);
   const frequency: { [key: number]: number } = {};
-
   // Count frequency of each decimal place count
   decimalCounts.forEach((count) => {
     frequency[count] = (frequency[count] || 0) + 1;
@@ -386,6 +386,7 @@ function formatWithPrecision(
  */
 function validateSizeInput(input: string, szDecimals: number): boolean {
   if (!input) return true;
+  if (input === '00') return false;
   if (szDecimals === 0) return /^[0-9]*$/.test(input);
   if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
 
@@ -427,6 +428,7 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
   if (!input) return true;
 
   const text = input.replace(/。/g, '.');
+  if (text === '00') return false;
   const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
 
   if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
@@ -434,6 +436,7 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
   if (maxDecimals === 0) return !/\./.test(text);
 
   const [int = '0', dec = ''] = text.split('.');
+  if (int.length > MAX_PRICE_INTEGER_DIGITS) return false;
   const hasDecimal = text.includes('.');
 
   if (dec.length > Math.min(maxDecimals, 6)) return false;
@@ -464,26 +467,75 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
  * @returns Formatted price string suitable for display
  */
 function formatPriceToSignificantDigits(
-  price: number,
+  price: number | string,
   szDecimals?: number,
 ): string {
-  if (!price || Number.isNaN(price)) return '0';
+  if (!price) return '0';
 
-  let result = Number(price.toPrecision(MAX_SIGNIFICANT_FIGURES)).toString();
+  const numPrice = Number(price);
+  if (Number.isNaN(numPrice)) return '0';
 
-  if (szDecimals !== undefined && szDecimals >= 0) {
-    const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
-    const dotIndex = result.indexOf('.');
+  const priceStr =
+    numPrice < 1e-6 || numPrice > 1e12
+      ? numPrice.toFixed(20).replace(/\.?0+$/, '')
+      : numPrice.toString();
 
-    if (dotIndex !== -1 && result.length > dotIndex + 1 + maxDecimals) {
-      result =
-        maxDecimals === 0
-          ? result.substring(0, dotIndex)
-          : result.substring(0, dotIndex + 1 + maxDecimals);
+  const dotIndex = priceStr.indexOf('.');
+
+  if (dotIndex === -1) {
+    return priceStr;
+  }
+
+  // if decimal part, consider significant digits limit
+  const integerPart = priceStr.substring(0, dotIndex);
+  const decimalPart = priceStr.substring(dotIndex + 1);
+
+  // calculate significant digits of integer part (remove leading zeros)
+  const integerDigits = integerPart === '0' ? 0 : integerPart.length;
+
+  let result = priceStr;
+
+  // if integer part already reached or exceeded maximum significant digits, remove decimal part
+  if (integerDigits >= MAX_SIGNIFICANT_FIGURES) {
+    result = integerPart;
+  } else {
+    // calculate allowed decimal digits, keep total significant digits within limit
+    const allowedDecimalDigits = MAX_SIGNIFICANT_FIGURES - integerDigits;
+
+    // for decimal part, remove leading zeros and calculate significant digits
+    const trimmedDecimal = decimalPart.replace(/^0+/, '');
+
+    if (trimmedDecimal.length > allowedDecimalDigits) {
+      // calculate leading zeros
+      const leadingZeros = decimalPart.length - trimmedDecimal.length;
+      const maxDecimalLength = leadingZeros + allowedDecimalDigits;
+      result = `${integerPart}.${decimalPart.substring(0, maxDecimalLength)}`;
     }
   }
 
-  return result.replace(/\.?0+$/, '');
+  // apply maximum decimal digits limit
+  const maxDecimals =
+    szDecimals !== undefined && szDecimals >= 0
+      ? MAX_DECIMALS_PERP - szDecimals
+      : MAX_DECIMALS_PERP;
+
+  const currentDotIndex = result.indexOf('.');
+  if (
+    currentDotIndex !== -1 &&
+    result.length > currentDotIndex + 1 + maxDecimals
+  ) {
+    result =
+      maxDecimals === 0
+        ? result.substring(0, currentDotIndex)
+        : result.substring(0, currentDotIndex + 1 + maxDecimals);
+  }
+
+  // remove trailing zeros
+  if (result.indexOf('.') !== -1) {
+    result = result.replace(/\.?0+$/, '');
+  }
+
+  return result;
 }
 
 /**
@@ -739,7 +791,6 @@ export {
   calculateLiquidationPriceCore,
   combinePositionWithOrder,
 };
-
 export default {
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,

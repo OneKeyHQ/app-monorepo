@@ -23,6 +23,7 @@ import {
   usePerpsSelectedSymbolAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { useCurrentTokenData, useHyperliquidAccount } from '../../../hooks';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
@@ -63,13 +64,8 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (
-      prevType !== 'limit' &&
-      currentType === 'limit' &&
-      !formData.price &&
-      tokenInfo?.markPx
-    ) {
-      updateForm({ price: tokenInfo.markPx });
+    if (prevType !== 'limit' && currentType === 'limit' && tokenInfo?.markPx) {
+      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
     }
 
     prevTypeRef.current = currentType;
@@ -86,7 +82,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
       formData.type === 'limit' &&
       tokenInfo?.markPx
     ) {
-      updateForm({ price: tokenInfo.markPx });
+      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
     }
 
     if (currentTokenName) {
@@ -203,7 +199,9 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
           <PriceInput
             onUseMarketPrice={() => {
               if (tokenInfo?.markPx) {
-                updateForm({ price: tokenInfo.markPx });
+                updateForm({
+                  price: formatPriceToSignificantDigits(tokenInfo.markPx),
+                });
               }
             }}
             value={formData.price}
@@ -272,7 +270,9 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
           <SizableText size="$bodySm" color="$textSubdued">
             Liq. Price
           </SizableText>
-          <LiquidationPriceDisplay />
+          <SizableText size="$bodySm" color="$textSubdued">
+            <LiquidationPriceDisplay />
+          </SizableText>
         </XStack>
       </YStack>
     </>

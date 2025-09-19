@@ -9,8 +9,8 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
-  useCurrentTokenAtom,
   useOpenOrdersListAtom,
+  usePerpsCurrentTokenAtom,
   usePositionListAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
 
@@ -26,7 +26,7 @@ export function usePerpOrders() {
 
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsSelectedAccountAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [newTradesHistory, setNewTradesHistory] = useState<IFill[]>([]);
   useEffect(() => {
     if (!currentAccount?.accountAddress) return;

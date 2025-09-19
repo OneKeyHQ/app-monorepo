@@ -4,6 +4,8 @@ import BigNumber from 'bignumber.js';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -364,7 +366,9 @@ const OpenOrdersRow = memo(
         >
           <Button size="small" variant="tertiary" onPress={handleCancelOrder}>
             <SizableText size="$bodyMdMedium" color="$green11">
-              Cancel
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_open_orders_cancel,
+              })}
             </SizableText>
           </Button>
         </XStack>

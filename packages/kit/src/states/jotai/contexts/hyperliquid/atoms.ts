@@ -53,7 +53,7 @@ export const {
   use: useHyperliquidStorageReadyAtom,
 } = contextAtom<boolean>(false);
 
-const INIT = Symbol('INIT');
+const CURRTOKEN_INIT = Symbol('CURRTOKEN_INIT');
 export const currentTokenAtom = memoizee(() =>
   atom(
     (get) => {
@@ -61,7 +61,7 @@ export const currentTokenAtom = memoizee(() =>
       return basicToken;
     },
     (get, set, arg: any) => {
-      if (arg === INIT) {
+      if (arg === CURRTOKEN_INIT) {
         void backgroundApiProxy.simpleDb.perp
           .getCurrentToken()
           .then((token: string) => {
@@ -78,11 +78,7 @@ export const currentTokenAtom = memoizee(() =>
   ),
 );
 
-currentTokenAtom().onMount = (setAtom) => {
-  setAtom(INIT);
-};
-
-export const useCurrentTokenAtom = () =>
+export const usePerpsCurrentTokenAtom = () =>
   useCurrentTokenContextAtom(currentTokenAtom());
 
 export const { atom: currentUserAtom, use: useCurrentUserAtom } =

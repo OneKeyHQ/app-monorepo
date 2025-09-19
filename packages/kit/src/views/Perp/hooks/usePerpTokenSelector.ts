@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import {
-  useCurrentTokenAtom,
   useHyperliquidActions,
+  usePerpsCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -39,7 +39,7 @@ export interface IPerpTokenSelectorReturn {
 }
 
 export function usePerpTokenSelector() {
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const actions = useHyperliquidActions();
@@ -48,7 +48,7 @@ export function usePerpTokenSelector() {
 
   const enhancedTokens = useMemo(() => {
     return tokenList.map((token) => {
-      const priceDecimals = getValidPriceDecimals(token.szDecimals);
+      const priceDecimals = getValidPriceDecimals(token.markPrice);
       return {
         ...token,
         change24h: (

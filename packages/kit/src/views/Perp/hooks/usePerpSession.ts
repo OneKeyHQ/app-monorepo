@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import {
   useConnectionStateAtom,
-  useCurrentTokenAtom,
+  usePerpsCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -30,7 +30,7 @@ export interface IPerpSessionReturn {
 
 export function usePerpSession(): IPerpSessionReturn {
   const [connectionState] = useConnectionStateAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [currentAccount] = usePerpsSelectedAccountAtom();
   const currentUser = currentAccount?.accountAddress;
 

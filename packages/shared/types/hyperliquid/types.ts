@@ -75,7 +75,7 @@ export interface IOrderOpenParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  price: string;
   type: 'market' | 'limit';
   tpTriggerPx?: string;
   slTriggerPx?: string;

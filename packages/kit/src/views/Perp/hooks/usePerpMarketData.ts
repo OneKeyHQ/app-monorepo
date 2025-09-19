@@ -4,9 +4,9 @@ import {
   useActiveAssetCtxAtom,
   useActiveAssetDataAtom,
   useAllMidsAtom,
-  useCurrentTokenAtom,
   useHyperliquidActions,
   useL2BookAtom,
+  usePerpsCurrentTokenAtom,
   useTradingPanelDataAtom,
   useWebData2Atom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -54,7 +54,7 @@ export interface ICurrentTokenData {
 export function usePerpMarketData(): IPerpMarketDataReturn {
   const [allMids] = useAllMidsAtom();
   const [activeAsset] = useActiveAssetCtxAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
 
   const currentTokenData = useMemo(() => {
     if (!currentToken) return null;
@@ -129,7 +129,7 @@ export function usePerpMarketData(): IPerpMarketDataReturn {
 
 export function useCurrentTokenData(): ICurrentTokenData | null {
   const [tradingData] = useTradingPanelDataAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [webData2] = useWebData2Atom();
   const [activeAssetData] = useActiveAssetDataAtom();
 
@@ -198,7 +198,7 @@ export function useL2Book(options?: IL2BookOptions): {
   getTotalAskVolume: (levels?: number) => number;
 } {
   const [l2BookData] = useL2BookAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const actions = useHyperliquidActions();
   const prevOptionsRef = useRef<typeof options>(undefined);
 

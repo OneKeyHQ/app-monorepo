@@ -9,14 +9,14 @@ import {
   useActiveAssetCtxAtom,
   useAllMidsAtom,
   useConnectionStateAtom,
-  useCurrentTokenAtom,
+  usePerpsCurrentTokenAtom,
   useSubscriptionActiveAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 export function useHyperliquidMarket() {
   const [allMids] = useAllMidsAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [activeAssetCtx] = useActiveAssetCtxAtom();
   const [connectionState] = useConnectionStateAtom();
 

@@ -10,7 +10,7 @@ import { useHyperliquidAccount } from './useHyperliquid';
 import { useCurrentTokenData } from './usePerpMarketData';
 import { usePerpPositions } from './usePerpOrderInfoPanel';
 
-export function useLiquidationPrice() {
+export function useLiquidationPrice(): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const tokenInfo = useCurrentTokenData();
   const { accountSummary } = useHyperliquidAccount();

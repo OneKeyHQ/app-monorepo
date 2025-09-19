@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
@@ -166,7 +166,7 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 function BasePerpTokenSelector() {
   const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [isLoading, setIsLoading] = useState(false);
   return useMemo(
     () => (

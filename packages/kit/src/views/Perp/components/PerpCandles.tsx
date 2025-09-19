@@ -2,10 +2,10 @@ import { Stack } from '@onekeyhq/components';
 import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewPerpsV2/TradingViewPerpsV2';
 import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useCurrentTokenAtom } from '../../../states/jotai/contexts/hyperliquid';
+import { usePerpsCurrentTokenAtom } from '../../../states/jotai/contexts/hyperliquid';
 
 export function PerpCandles() {
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const [currentAccount] = usePerpsSelectedAccountAtom();
 
   return (

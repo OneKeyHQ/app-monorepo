@@ -1,21 +1,17 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
-import {
-  useHyperliquidActions,
-  useTradingFormAtom,
-  useTradingLoadingAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { YStack } from '@onekeyhq/components';
+import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsSelectedAccountAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   useCurrentTokenData,
   useHyperliquidAccount,
   useHyperliquidTrading,
+  useOrderConfirm,
 } from '../../hooks';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
@@ -23,14 +19,14 @@ import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 
 function PerpTradingPanel() {
-  const { canTrade, loading, currentUser } = useHyperliquidTrading();
+  const { loading } = useHyperliquidTrading();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const hlAccount = useHyperliquidAccount();
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
-  const [isSubmitting] = useTradingLoadingAtom();
+  const { isSubmitting, handleConfirm } = useOrderConfirm();
 
-  const [selectedAccount] = usePerpsSelectedAccountAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
   const universalLoading = useMemo(() => {
     return perpsAccountLoading?.selectAccountLoading || loading;
@@ -62,7 +58,6 @@ function PerpTradingPanel() {
     leverage,
   ]);
 
-  const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
     if (!tokenInfo) {
       console.error(
@@ -70,39 +65,12 @@ function PerpTradingPanel() {
       );
       return;
     }
-    const liquidationPrice = '';
-
-    showOrderConfirmDialog({
-      formData,
-      tokenName: tokenInfo.name,
-      liquidationPrice,
-      onConfirm: async () => {
-        try {
-          if (formData.type === 'market') {
-            await actions.current.orderOpen({
-              assetId: tokenInfo.assetId,
-              formData,
-              midPx: tokenInfo.markPx || '0',
-            });
-          } else {
-            await actions.current.placeOrder({
-              assetId: tokenInfo.assetId,
-              formData,
-            });
-          }
-
-          // Reset form after successful order
-          actions.current.resetTradingForm();
-        } catch (error) {
-          console.error(
-            '[PerpTradingPanel.handleConfirm] Failed to place order:',
-            error,
-          );
-          throw error;
-        }
-      },
-    });
-  }, [tokenInfo, formData, actions]);
+    if (perpsCustomSettings.skipOrderConfirm) {
+      void handleConfirm();
+      return;
+    }
+    showOrderConfirmDialog();
+  }, [tokenInfo, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   return (
     <YStack gap="$4" p="$4">

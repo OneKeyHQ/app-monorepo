@@ -16,7 +16,7 @@ import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useActiveAssetDataAtom,
-  useCurrentTokenAtom,
+  usePerpsCurrentTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -155,7 +155,7 @@ export const LeverageAdjustModal = memo(() => {
   const [selectedAccount] = usePerpsSelectedAccountAtom();
   const userAddress = selectedAccount.accountAddress;
 
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const { getTokenInfo } = useTokenList();
   const [activeAssetData] = useActiveAssetDataAtom();
 

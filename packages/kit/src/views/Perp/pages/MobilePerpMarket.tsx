@@ -12,8 +12,8 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { Token } from '../../../components/Token';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import {
-  useCurrentTokenAtom,
   useHyperliquidActions,
+  usePerpsCurrentTokenAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
@@ -24,7 +24,7 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const actionsRef = useHyperliquidActions();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsCurrentTokenAtom();
   const themeVariant = useThemeVariant();
   const longButtonStyle = getTradingButtonStyleProps('long');
   const shortButtonStyle = getTradingButtonStyleProps('short');
