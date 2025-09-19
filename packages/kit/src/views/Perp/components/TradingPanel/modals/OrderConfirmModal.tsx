@@ -158,7 +158,7 @@ export function showOrderConfirmDialog() {
       id: ETranslations.perp_confirm_order,
     }),
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <OrderConfirmContent
           onClose={() => {
             void dialogInstance.close();
