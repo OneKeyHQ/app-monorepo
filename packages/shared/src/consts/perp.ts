@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { presetNetworksMap } from '../config/presetNetworks';
@@ -37,9 +38,13 @@ export const FALLBACK_MAX_BUILDER_FEE = 40;
 export const PERPS_EMPTY_ADDRESS =
   '0x0000000000000000000000000000000000000000' as IHex;
 
-export const PERPS_NETWORK_ID = presetNetworksMap.arbitrum.id; // 'id': 'evm--42161',
-export const PERPS_EVM_CHAIN_ID_NUM = presetNetworksMap.arbitrum.chainId; // 'chainId': '42161',
-export const PERPS_EVM_CHAIN_ID_HEX = numberUtils.numberToHex(
+// 'id': 'evm--42161',
+export const PERPS_NETWORK_ID: string = presetNetworksMap.arbitrum.id;
+// 'chainId': '42161',
+export const PERPS_EVM_CHAIN_ID_NUM: string =
+  presetNetworksMap.arbitrum.chainId;
+// '0xa4b1'
+export const PERPS_EVM_CHAIN_ID_HEX: `0x${string}` = numberUtils.numberToHex(
   PERPS_EVM_CHAIN_ID_NUM,
   {
     prefix0x: true,
