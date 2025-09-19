@@ -1,8 +1,14 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Select,
+  SizableText,
+  Spinner,
+  XStack,
+} from '@onekeyhq/components';
 import type { ISelectItem } from '@onekeyhq/components';
 import {
   useActiveAssetDataAtom,
@@ -23,6 +29,8 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
   const [activeAssetData] = useActiveAssetDataAtom();
   const tokenInfo = useCurrentTokenData();
   const actions = useHyperliquidActions();
+
+  const [isLoading, setIsLoading] = useState(false);
 
   const marginModeOptions = useMemo(
     (): ISelectItem[] => [
@@ -47,12 +55,13 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
 
   const handleChange = useCallback(
     async (newMode: IMarginMode) => {
-      if (!tokenInfo?.assetId) return;
+      if (tokenInfo?.assetId === undefined) return;
 
       const currentLeverage = activeAssetData?.leverage?.value || 1;
       const isCross = newMode === 'cross';
 
       try {
+        setIsLoading(true);
         await actions.current.updateLeverage({
           asset: tokenInfo.assetId,
           leverage: currentLeverage,
@@ -63,6 +72,8 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
           '[MarginModeSelector.handleChange] Failed to update margin mode:',
           error,
         );
+      } finally {
+        setIsLoading(false);
       }
     },
     [tokenInfo?.assetId, activeAssetData?.leverage?.value, actions],
@@ -88,11 +99,16 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
           px="$3"
         >
           <SizableText size="$bodyMdMedium">{label}</SizableText>
-          <Icon
-            name="ChevronTriangleDownSmallOutline"
-            color="$icon"
-            size="$5"
-          />
+
+          {isLoading ? (
+            <Spinner size="small" />
+          ) : (
+            <Icon
+              name="ChevronTriangleDownSmallOutline"
+              color="$icon"
+              size="$5"
+            />
+          )}
         </XStack>
       )}
       placement="bottom-start"

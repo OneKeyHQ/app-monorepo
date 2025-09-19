@@ -23,6 +23,29 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
 
+  const handleCancelAll = useCallback(() => {
+    const ordersToCancel = orders
+      .map((order) => {
+        const tokenInfo = getTokenInfo(order.coin);
+        if (!tokenInfo) {
+          console.warn(`Token info not found for coin: ${order.coin}`);
+          return null;
+        }
+        return {
+          assetId: tokenInfo.assetId,
+          oid: order.oid,
+        };
+      })
+      .filter(Boolean);
+
+    if (ordersToCancel.length === 0) {
+      console.warn('No valid orders to cancel or token info unavailable');
+      return;
+    }
+
+    void actions.current.cancelOrder({ orders: ordersToCancel });
+  }, [orders, getTokenInfo, actions]);
+
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
@@ -105,9 +128,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         minWidth: 100,
         align: 'right',
         flex: 1,
+        onPress: handleCancelAll,
       },
     ],
-    [intl],
+    [intl, handleCancelAll],
   );
 
   const handleCancelOrder = useCallback(
@@ -128,29 +152,6 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     },
     [getTokenInfo, actions],
   );
-
-  const handleCancelAll = useCallback(() => {
-    const ordersToCancel = orders
-      .map((order) => {
-        const tokenInfo = getTokenInfo(order.coin);
-        if (!tokenInfo) {
-          console.warn(`Token info not found for coin: ${order.coin}`);
-          return null;
-        }
-        return {
-          assetId: tokenInfo.assetId,
-          oid: order.oid,
-        };
-      })
-      .filter(Boolean);
-
-    if (ordersToCancel.length === 0) {
-      console.warn('No valid orders to cancel or token info unavailable');
-      return;
-    }
-
-    void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, getTokenInfo, actions]);
 
   const totalMinWidth = useMemo(
     () =>

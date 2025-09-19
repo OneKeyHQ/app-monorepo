@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  useAccountPanelDataAtom,
   useHyperliquidActions,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -23,8 +24,9 @@ import {
   usePerpsSelectedSymbolAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useCurrentTokenData, useHyperliquidAccount } from '../../../hooks';
+import { useCurrentTokenData } from '../../../hooks';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
@@ -46,7 +48,8 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const tokenInfo = useCurrentTokenData();
-  const { accountSummary, totalPositionValue } = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { accountSummary, totalPositionValue } = accountPanelData;
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
   const { universe } = perpsSelectedSymbol;
   const updateForm = useCallback(
@@ -63,13 +66,8 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (
-      prevType !== 'limit' &&
-      currentType === 'limit' &&
-      !formData.price &&
-      tokenInfo?.markPx
-    ) {
-      updateForm({ price: tokenInfo.markPx });
+    if (prevType !== 'limit' && currentType === 'limit' && tokenInfo?.markPx) {
+      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
     }
 
     prevTypeRef.current = currentType;
@@ -86,7 +84,7 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
       formData.type === 'limit' &&
       tokenInfo?.markPx
     ) {
-      updateForm({ price: tokenInfo.markPx });
+      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
     }
 
     if (currentTokenName) {
@@ -203,7 +201,9 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
           <PriceInput
             onUseMarketPrice={() => {
               if (tokenInfo?.markPx) {
-                updateForm({ price: tokenInfo.markPx });
+                updateForm({
+                  price: formatPriceToSignificantDigits(tokenInfo.markPx),
+                });
               }
             }}
             value={formData.price}
@@ -274,7 +274,9 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
               id: ETranslations.perp_position_liq_price,
             })}
           </SizableText>
-          <LiquidationPriceDisplay />
+          <SizableText size="$bodySm" color="$textSubdued">
+            <LiquidationPriceDisplay />
+          </SizableText>
         </XStack>
       </YStack>
     </>

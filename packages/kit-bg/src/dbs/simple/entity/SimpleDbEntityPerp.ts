@@ -14,6 +14,7 @@ export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
   hideNavBarConnectButton?: boolean;
   hideNotOneKeyWalletConnectButton?: boolean;
+  skipOrderConfirm?: boolean;
 };
 export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
@@ -28,8 +29,8 @@ export interface ISimpleDbPerpData {
     }
   >;
   hyperliquidCurrentToken?: string;
-  tradingUniverse: IPerpsUniverse[] | undefined;
-  marginTables: IMarginTables | undefined;
+  tradingUniverse?: IPerpsUniverse[] | undefined;
+  marginTables?: IMarginTables | undefined;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
@@ -49,6 +50,9 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     };
     result.agentTTL = result.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
     result.referralCode = result.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
+    result.hyperliquidCustomSettings = result.hyperliquidCustomSettings ?? {
+      skipOrderConfirm: false,
+    };
     return result;
   }
 
@@ -113,14 +117,30 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     await this.setPerpData(
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
-        tradingUniverse: prevConfig?.tradingUniverse,
-        marginTables: prevConfig?.marginTables,
         hyperliquidCurrentToken: token,
       }),
     );
   }
 
   @backgroundMethod()
+  async getPerpCustomSettings(): Promise<IHyperliquidCustomSettings> {
+    const config = await this.getPerpData();
+    return config.hyperliquidCustomSettings ?? {};
+  }
+
+  @backgroundMethod()
+  async setPerpCustomSettings(settings: IHyperliquidCustomSettings) {
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        hyperliquidCustomSettings: {
+          ...(prevConfig?.hyperliquidCustomSettings ?? {}),
+          ...settings,
+        },
+      }),
+    );
+  }
+
   async updateTradingviewDisplayPriceScale({
     symbol,
     priceScale,

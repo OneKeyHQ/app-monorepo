@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -14,6 +13,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useAccountPanelDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsSelectedAccountAtom,
@@ -21,13 +21,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useHyperliquidAccount } from '../../../hooks';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 import type { FontSizeTokens } from 'tamagui';
 
 export function PerpAccountDebugInfo() {
-  const { currentUser } = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { currentUser } = accountPanelData;
   const [perpsSelectedAccount] = usePerpsSelectedAccountAtom();
 
   if (!platformEnv.isDev) {
@@ -43,7 +43,8 @@ export function PerpAccountDebugInfo() {
 }
 
 function PerpAccountPanel({ ifOnHeader }: { ifOnHeader: boolean }) {
-  const { userWebData2, accountSummary } = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { userWebData2, accountSummary } = accountPanelData;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [selectedAccount] = usePerpsSelectedAccountAtom();
   const userAddress = selectedAccount.accountAddress;

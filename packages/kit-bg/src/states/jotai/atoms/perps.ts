@@ -121,3 +121,17 @@ export const {
     margin: undefined,
   },
 });
+
+export interface IPerpsCustomSettings {
+  skipOrderConfirm: boolean;
+}
+export const {
+  target: perpsCustomSettingsAtom,
+  use: usePerpsCustomSettingsAtom,
+} = globalAtom<IPerpsCustomSettings>({
+  name: EAtomNames.perpsCustomSettingsAtom,
+  persist: true,
+  initialValue: {
+    skipOrderConfirm: false,
+  },
+});

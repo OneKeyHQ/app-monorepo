@@ -24,6 +24,8 @@ import type {
   IApiRequestResult,
   IFill,
   IHex,
+  IMarginTables,
+  IOrderRequest,
   IPerpsUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
@@ -32,6 +34,7 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   perpsAccountLoadingInfoAtom,
+  perpsCustomSettingsAtom,
   perpsSelectedAccountAtom,
   perpsSelectedAccountStatusAtom,
   perpsSelectedSymbolAtom,
@@ -44,6 +47,7 @@ import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
 import type {
   IPerpsAccountLoadingInfo,
+  IPerpsCustomSettings,
   IPerpsSelectedAccount,
   IPerpsSelectedAccountStatus,
   IPerpsSelectedAccountStatusDetails,
@@ -126,13 +130,19 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getMarginTables(): Promise<IMarginTables> {
+    return (await this.backgroundApi.simpleDb.perp.getMarginTables()) || [];
+  }
+
+  @backgroundMethod()
   async changeSelectedSymbol(params: { coin: string }): Promise<{
     universeItems: IPerpsUniverse[];
     selectedUniverse: IPerpsUniverse;
   }> {
-    const universeItems = await this.getTradingUniverse();
-    const marginTables =
-      await this.backgroundApi.simpleDb.perp.getMarginTables();
+    const [universeItems, marginTables] = await Promise.all([
+      this.getTradingUniverse(),
+      this.getMarginTables(),
+    ]);
     const selectedUniverse: IPerpsUniverse | undefined =
       universeItems.find((item) => item.name === params.coin) ||
       universeItems?.[0];
@@ -210,6 +220,11 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsSelectedAccountAtom.set(perpsAccount);
     return perpsAccount;
+  }
+
+  @backgroundMethod()
+  async setPerpsCustomSettings(settings: IPerpsCustomSettings) {
+    await perpsCustomSettingsAtom.set(settings);
   }
 
   @backgroundMethod()

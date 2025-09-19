@@ -1,9 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import {
-  useCurrentTokenAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -39,15 +37,15 @@ export interface IPerpTokenSelectorReturn {
 }
 
 export function usePerpTokenSelector() {
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
   const [searchQuery, setSearchQuery] = useState('');
   const actions = useHyperliquidActions();
-
+  const { coin } = currentToken;
   const { data: tokenList } = useTokenList();
 
   const enhancedTokens = useMemo(() => {
     return tokenList.map((token) => {
-      const priceDecimals = getValidPriceDecimals(token.szDecimals);
+      const priceDecimals = getValidPriceDecimals(token.markPrice);
       return {
         ...token,
         change24h: (
@@ -74,7 +72,8 @@ export function usePerpTokenSelector() {
 
   const selectToken = useCallback(
     async (symbol: string) => {
-      if (symbol === currentToken) return;
+      if (symbol === coin) return;
+
       try {
         await backgroundApiProxy.serviceHyperliquid.changeSelectedSymbol({
           coin: symbol,
@@ -84,7 +83,7 @@ export function usePerpTokenSelector() {
         console.error('[PerpTokenSelector] Failed to select token:', error);
       }
     },
-    [currentToken, actions],
+    [coin, actions],
   );
 
   const clearSearch = useCallback(() => {
@@ -93,7 +92,7 @@ export function usePerpTokenSelector() {
 
   return {
     tokens: enhancedTokens,
-    currentToken,
+    currentToken: coin,
     searchQuery,
     filteredTokens,
     setSearchQuery,

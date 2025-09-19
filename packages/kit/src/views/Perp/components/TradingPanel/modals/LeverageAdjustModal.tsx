@@ -14,11 +14,11 @@ import {
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useActiveAssetDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useActiveAssetDataAtom,
-  useCurrentTokenAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  usePerpsSelectedAccountAtom,
+  usePerpsSelectedSymbolAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
@@ -165,11 +165,11 @@ export const LeverageAdjustModal = memo(() => {
   const [selectedAccount] = usePerpsSelectedAccountAtom();
   const userAddress = selectedAccount.accountAddress;
 
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
   const { getTokenInfo } = useTokenList();
   const [activeAssetData] = useActiveAssetDataAtom();
 
-  const tokenInfo = getTokenInfo(currentToken);
+  const tokenInfo = getTokenInfo(currentToken.coin);
   const intl = useIntl();
   const showLeverageDialog = useCallback(() => {
     if (!userAddress || !tokenInfo || !activeAssetData) return;

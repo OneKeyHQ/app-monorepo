@@ -7,6 +7,7 @@ export type IWsActiveAssetCtx = HL.WsActiveAssetCtx;
 export type IWsUserEvent = HL.WsUserEvent;
 export type IWsUserFills = HL.WsUserFills;
 export type IWsBbo = HL.WsBbo;
+
 export type IWsNotification = HL.WsNotification;
 export type IWsTrade = HL.WsTrade;
 export type IApiRequestError = HL.ApiRequestError;
@@ -61,7 +62,7 @@ export type IUserFillsByTimeParameters = HL.UserFillsByTimeParameters;
 export type IUserFillsParameters = HL.UserFillsParameters;
 export type ICandleSnapshotParameters = HL.CandleSnapshotParameters;
 export type IWithdraw3Request = HL.Withdraw3Parameters;
-
+export type IOrderRequest = HL.OrderParameters;
 // Subscription parameter types
 export type IWsAllMidsParameters = HL.WsAllMidsParameters;
 export type IEventActiveAssetCtxParameters = HL.EventActiveAssetCtxParameters;
@@ -73,17 +74,6 @@ export type IEventTradesParameters = HL.EventTradesParameters;
 export type IEventUserEventsParameters = HL.EventUserEventsParameters;
 export type IEventWebData2Parameters = HL.EventWebData2Parameters;
 export type IEventUserFillsParameters = HL.EventUserFillsParameters;
-
-// Request types (define manually as SDK may not export these)
-export interface IOrderRequest {
-  action: {
-    type: 'order';
-    orders: IOrderParams[];
-    grouping: 'na' | 'normalTpsl' | 'positionTpsl';
-  };
-  nonce: number;
-  signature: ISignature;
-}
 
 // Response types
 export type ISuccessResponse = HL.SuccessResponse;

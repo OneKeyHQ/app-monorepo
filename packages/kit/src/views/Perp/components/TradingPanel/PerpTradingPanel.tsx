@@ -1,40 +1,34 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import {
-  useHyperliquidActions,
+  useAccountPanelDataAtom,
   useTradingFormAtom,
-  useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsSelectedAccountAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  useCurrentTokenData,
-  useHyperliquidAccount,
-  useHyperliquidTrading,
-} from '../../hooks';
+import { useCurrentTokenData, useOrderConfirm } from '../../hooks';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 
 function PerpTradingPanel() {
-  const { canTrade, loading, currentUser } = useHyperliquidTrading();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const hlAccount = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { accountSummary } = accountPanelData;
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
-  const [isSubmitting] = useTradingLoadingAtom();
+  const { isSubmitting, handleConfirm } = useOrderConfirm();
 
-  const [selectedAccount] = usePerpsSelectedAccountAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
   const universalLoading = useMemo(() => {
-    return perpsAccountLoading?.selectAccountLoading || loading;
-  }, [perpsAccountLoading?.selectAccountLoading, loading]);
+    return perpsAccountLoading?.selectAccountLoading;
+  }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
     return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
@@ -49,12 +43,12 @@ function PerpTradingPanel() {
     if (formData.type === 'limit') {
       return (
         (+formData.price * +formData.size) / leverage >
-        +(hlAccount?.accountSummary?.withdrawable || 0)
+        +(accountSummary?.withdrawable || 0)
       );
     }
     return +formData.size > maxTradeSz;
   }, [
-    hlAccount?.accountSummary?.withdrawable,
+    accountSummary?.withdrawable,
     formData.size,
     maxTradeSz,
     formData.type,
@@ -62,7 +56,6 @@ function PerpTradingPanel() {
     leverage,
   ]);
 
-  const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
     if (!tokenInfo) {
       console.error(
@@ -70,39 +63,12 @@ function PerpTradingPanel() {
       );
       return;
     }
-    const liquidationPrice = '';
-
-    showOrderConfirmDialog({
-      formData,
-      tokenName: tokenInfo.name,
-      liquidationPrice,
-      onConfirm: async () => {
-        try {
-          if (formData.type === 'market') {
-            await actions.current.orderOpen({
-              assetId: tokenInfo.assetId,
-              formData,
-              midPx: tokenInfo.markPx || '0',
-            });
-          } else {
-            await actions.current.placeOrder({
-              assetId: tokenInfo.assetId,
-              formData,
-            });
-          }
-
-          // Reset form after successful order
-          actions.current.resetTradingForm();
-        } catch (error) {
-          console.error(
-            '[PerpTradingPanel.handleConfirm] Failed to place order:',
-            error,
-          );
-          throw error;
-        }
-      },
-    });
-  }, [tokenInfo, formData, actions]);
+    if (perpsCustomSettings.skipOrderConfirm) {
+      void handleConfirm();
+      return;
+    }
+    showOrderConfirmDialog();
+  }, [tokenInfo, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   return (
     <YStack gap="$4" p="$4">

@@ -58,8 +58,12 @@ export const Slider = ({
       min={min}
       opacity={disabled ? 0.5 : 1}
       disabled={disabled}
-      value={value ? [value] : undefined}
-      defaultValue={defaultValue ? [defaultValue] : undefined}
+      value={value !== undefined && value !== null ? [value] : undefined}
+      defaultValue={
+        defaultValue !== undefined && defaultValue !== null
+          ? [defaultValue]
+          : undefined
+      }
       onValueChange={handleValueChange}
       // "onSlideStart does not work on the Web Platform"
       // onSlideStart={handleSlideStart}
