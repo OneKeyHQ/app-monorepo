@@ -114,7 +114,6 @@ export interface INavigateToNotificationDetailParams {
   navigation?: IAppNavigation;
   mode?: ENotificationPushMessageMode;
   payload?: string;
-  localParams?: Record<string, string | undefined> | undefined;
 }
 async function navigateToNotificationDetail({
   notificationId,
@@ -124,7 +123,6 @@ async function navigateToNotificationDetail({
   navigation,
   mode,
   payload,
-  localParams,
 }: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
@@ -211,7 +209,6 @@ async function navigateToNotificationDetail({
           const payloadObj = JSON.parse(payload || '');
           appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
             payload: payloadObj,
-            localParams: localParams || {},
           });
         } catch (error) {
           showFallbackUpdateDialog();

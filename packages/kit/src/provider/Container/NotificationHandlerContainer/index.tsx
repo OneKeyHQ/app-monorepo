@@ -21,7 +21,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
-import { NotificationHandlerContainer as NativeNotificationHandlerContainer } from './NotificationHandlerContainer';
+import { useInitialNotification } from './hooks';
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -131,7 +131,8 @@ function BaseNotificationHandlerContainer() {
       );
     };
   }, [getLocalParams, showFallbackUpdateDialog]);
-  return <NativeNotificationHandlerContainer />;
+  useInitialNotification();
+  return null;
 }
 
 export function NotificationHandlerContainer() {
