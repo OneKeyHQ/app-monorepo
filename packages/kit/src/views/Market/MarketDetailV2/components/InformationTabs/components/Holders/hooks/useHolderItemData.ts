@@ -12,6 +12,10 @@ export function useHolderItemData({ item, index }: IUseHolderItemDataProps) {
 
   const displayPercentage = useMemo(() => {
     if (item.percentage) {
+      if (item.percentage === '0.00') {
+        return '<0.01%';
+      }
+
       return `${item.percentage}%`;
     }
     return '-';

@@ -107,6 +107,7 @@ import { EIndexedDBBucketNames } from './types';
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import type {
   IDBAccount,
+  IDBAddress,
   IDBApiGetContextOptions,
   IDBCloudSyncItem,
   IDBContext,
@@ -3555,7 +3556,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     networkId: string;
     address: string;
-  }) {
+  }): Promise<IDBAddress | null> {
     try {
       const id = `${networkId}--${address}`;
       return await this.getRecordById({
@@ -3573,7 +3574,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     networkId: string;
     normalizedAddress: string;
-  }) {
+  }): Promise<IDBAddress | null> {
     try {
       const impl = networkUtils.getNetworkImpl({ networkId });
       const id = `${impl}--${normalizedAddress}`;
@@ -5533,6 +5534,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
 
     return ctx;
+  }
+
+  async getAllHyperLiquidAgentCredentials(): Promise<IDBCredentialBase[]> {
+    const { records: allCredentials } = await this.getAllRecords({
+      name: ELocalDBStoreNames.Credential,
+    });
+
+    // Filter credentials that start with HYPERLIQUID_AGENT_CREDENTIAL_PREFIX
+    return allCredentials.filter((credential) =>
+      credential.id.startsWith(
+        accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+      ),
+    );
   }
 
   // #endregion
