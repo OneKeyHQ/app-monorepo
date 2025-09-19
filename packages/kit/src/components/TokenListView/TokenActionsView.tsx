@@ -7,7 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
-import { sortTokensByFiatValue } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { sortTokensCommon } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapSource,
   ESwapTabSwitchType,
@@ -47,9 +47,9 @@ function TokenActionsView(props: IProps) {
       if (token.isAggregateToken) {
         const aggregateTokens = aggregateTokenListMapAtom[token.$key]?.tokens;
         if (aggregateTokens) {
-          const sortedAggregateTokens = sortTokensByFiatValue({
+          const sortedAggregateTokens = sortTokensCommon({
             tokens: aggregateTokens,
-            map: tokenListMap,
+            tokenListMap,
           });
           if (sortedAggregateTokens[0]) {
             setActiveToken(sortedAggregateTokens[0]);
