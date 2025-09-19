@@ -123,6 +123,8 @@ class ServiceToken extends ServiceBase {
     } = params;
     const { networkId } = rest;
 
+    return getEmptyTokenData();
+
     const isUrlAccount = accountUtils.isUrlAccountFn({ accountId });
 
     const currentNetworkId = isUrlAccount
