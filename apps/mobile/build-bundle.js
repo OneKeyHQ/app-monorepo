@@ -14,6 +14,10 @@ const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
 const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
+const HERMES_COMMAND = path.join(
+  projectRootPath,
+  'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
+);
 
 const webEmbedOutputPath = path.join(
   projectRootPath,
@@ -142,12 +146,6 @@ const generateFileInfo = async (filePath, outputFilePath) => {
 
 const buildIOSBundle = async () => {
   log('build ios bundle start');
-  log('install ios pods');
-  execSync(
-    `cd ${path.join(projectRootPath, 'apps/mobile/ios')} && npx pod-install`,
-    { stdio: 'inherit' },
-  );
-  log('install ios pods done');
   ensureBundleOutputPath();
   ensureZipOutputPath();
   execSync(
@@ -174,10 +172,7 @@ const buildIOSBundle = async () => {
 
   log('build ios bundle hbc');
   execSync(
-    `${path.join(
-      mobileDirPath,
-      'ios/Pods/hermes-engine/destroot/bin/hermesc',
-    )} -O -emit-binary -output-source-map -out=${buildIOSOutputAssetPath(
+    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${buildIOSOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildIOSOutputAssetPath('main.jsbundle')}`,
     { stdio: 'inherit' },
@@ -311,10 +306,7 @@ const buildAndroidBundle = async () => {
 
   log('build android bundle compress to hbc');
   execSync(
-    `${path.join(
-      projectRootPath,
-      'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
-    )} -emit-binary -out ${buildAndroidOutputAssetPath(
+    `${HERMES_COMMAND} -emit-binary -out ${buildAndroidOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildAndroidOutputAssetPath('main.jsbundle')}`,
     {
