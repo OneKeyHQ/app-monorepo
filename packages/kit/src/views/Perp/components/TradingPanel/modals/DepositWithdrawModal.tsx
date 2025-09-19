@@ -25,7 +25,7 @@ import {
   perpsSelectedAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -64,7 +64,7 @@ function DepositWithdrawContent({
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
-    networkId: PERPS_CHAIN_ID,
+    networkId: PERPS_NETWORK_ID,
   });
 
   const hyperliquidActions = useHyperliquidActions();
@@ -79,7 +79,7 @@ function DepositWithdrawContent({
       try {
         const tokenDetails =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: PERPS_CHAIN_ID,
+            networkId: PERPS_NETWORK_ID,
             contractAddress: USDC_TOKEN_INFO.address,
             accountId: selectedAccount.accountId,
             accountAddress: selectedAccount.accountAddress,
@@ -429,7 +429,7 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
 
   const dialogInstance = Dialog.show({
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <DepositWithdrawContent
           params={params}
           selectedAccount={selectedAccount}

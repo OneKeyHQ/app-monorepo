@@ -43,7 +43,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
@@ -1408,7 +1408,7 @@ class ServiceAccount extends ServiceBase {
 
           // Use existing address lookup table to check if address still exists
           const addressRecord = await localDb.getAddressByNetworkImpl({
-            networkId: PERPS_CHAIN_ID,
+            networkId: PERPS_NETWORK_ID,
             normalizedAddress: userAddress.toLowerCase(),
           });
 

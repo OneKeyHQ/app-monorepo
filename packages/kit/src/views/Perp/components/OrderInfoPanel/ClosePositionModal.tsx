@@ -463,7 +463,7 @@ export function showClosePositionDialog({
             id: ETranslations.perp_close_position_button_limit,
           }),
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <ClosePositionForm
           position={position}
           type={type}
