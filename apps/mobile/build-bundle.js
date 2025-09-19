@@ -334,7 +334,10 @@ const buildAndroidBundle = async () => {
     'build android bundle compose source maps command',
     composeSourceMapsCommand,
   );
+  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
+  log('build android bundle compose source maps done');
 
+  log('build android bundle compose source maps: copy debugid');
   execSync(
     `${nodeExecutablePath} ${path.join(
       projectRootPath,
@@ -344,11 +347,11 @@ const buildAndroidBundle = async () => {
     )} ${buildAndroidOutputAssetPath('main.jsbundle.map')}`,
     { stdio: 'inherit' },
   );
-  fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.packager.map'));
-  log('build android bundle compose source maps done');
+  log('build android bundle compose source maps: copy debugid done');
 
-  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
-  log('build android bundle compose source maps done');
+  log('build android bundle compose source maps: remove packager map');
+  fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.packager.map'));
+  log('build android bundle compose source maps: remove packager map done');
 
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
     log('build android bundle upload source maps');
