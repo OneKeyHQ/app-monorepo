@@ -14,6 +14,7 @@ const zipOutputPath = path.join(mobileDirPath, 'out-dir-bundle-zip');
 const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
+
 const HERMES_COMMAND = path.join(
   projectRootPath,
   'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
@@ -230,23 +231,16 @@ const buildIOSBundle = async () => {
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
     log('build ios bundle upload source maps');
     execSync(
-      `${path.join(
-        projectRootPath,
-        'node_modules/@sentry/cli/bin/sentry-cli',
-      )} sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildIOSOutputAssetPath(
+      `${nodeExecutablePath} node_modules/@sentry/cli/bin/sentry-cli sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildIOSOutputAssetPath(
         'main.jsbundle',
-      )} ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
+      )} ${buildIOSOutputAssetPath(
+        'main.jsbundle.map',
+      )} --org=${SENTRY_ORG} --project=${SENTRY_PROJECT} --auth-token=${SENTRY_AUTH_TOKEN}`,
       {
         stdio: 'inherit',
         cwd: projectRootPath,
-        env: {
-          SENTRY_AUTH_TOKEN,
-          SENTRY_ORG,
-          SENTRY_PROJECT,
-        },
       },
     );
-
     log('build ios bundle upload source maps done');
   }
   const distPath = buildIOSOutputAssetPath('dist');
@@ -363,16 +357,13 @@ const buildAndroidBundle = async () => {
       'node_modules/@sentry/cli/bin/sentry-cli',
     )} sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildAndroidOutputAssetPath(
       'main.jsbundle.hbc',
-    )} ${buildAndroidOutputAssetPath('main.jsbundle.map')}`;
+    )} ${buildAndroidOutputAssetPath(
+      'main.jsbundle.map',
+    )} --org=${SENTRY_ORG} --project=${SENTRY_PROJECT} --auth-token=${SENTRY_AUTH_TOKEN}`;
     console.log(uploadSourceMapsCommand);
     execSync(uploadSourceMapsCommand, {
       stdio: 'inherit',
       cwd: projectRootPath,
-      env: {
-        SENTRY_AUTH_TOKEN,
-        SENTRY_ORG,
-        SENTRY_PROJECT,
-      },
     });
     log('build android bundle upload source maps done');
   }
