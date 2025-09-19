@@ -215,6 +215,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
+    this.getAccountNameFromAddressMemo.clear();
     localDb.clearStoreCachedData();
   }
 
