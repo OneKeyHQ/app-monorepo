@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IWsTxsData } from '@onekeyhq/kit-bg/src/services/ServiceMarketWS/types';
 import {
@@ -88,6 +90,9 @@ export function useTransactionsWebSocket({
         }
 
         if (transactionData && typeof transactionData === 'object') {
+          const fromData = transactionData.from;
+          const toData = transactionData.to;
+
           // Map the received data to the expected transaction format
           const transaction: IMarketTokenTransaction = {
             pairAddress: transactionData.poolId || '',
@@ -95,25 +100,31 @@ export function useTransactionsWebSocket({
             owner: transactionData.owner || '',
             type: (() => {
               if (transactionData.side === 'swap') {
-                return transactionData.from?.address === tokenAddress
-                  ? 'sell'
-                  : 'buy';
+                return fromData?.address === tokenAddress ? 'sell' : 'buy';
               }
               return 'buy';
             })(),
             timestamp: transactionData.blockUnixTime || Date.now() / 1000,
             url: '', // URL not provided in data, could be constructed from txHash
             from: {
-              symbol: transactionData.from?.symbol || '',
-              amount: String(transactionData.from?.amount || '0'),
-              address: transactionData.from?.address || '',
-              price: String(transactionData.from?.price || '0'),
+              symbol: fromData?.symbol || '',
+              amount: BigNumber(fromData?.amount || '0')
+                .div(BigNumber(10).pow(fromData?.decimals || 0))
+                .toFixed(),
+              address: fromData?.address || '',
+              price: BigNumber(
+                fromData?.price || fromData?.nearestPrice || '0',
+              ).toFixed(),
             },
             to: {
-              symbol: transactionData.to?.symbol || '',
-              amount: String(transactionData.to?.amount || '0'),
-              address: transactionData.to?.address || '',
-              price: String(transactionData.to?.price || '0'),
+              symbol: toData?.symbol || '',
+              amount: BigNumber(toData?.amount || '0')
+                .div(BigNumber(10).pow(toData?.decimals || 0))
+                .toFixed(),
+              address: toData?.address || '',
+              price: BigNumber(
+                toData?.price || toData?.nearestPrice || '0',
+              ).toFixed(),
             },
           };
 

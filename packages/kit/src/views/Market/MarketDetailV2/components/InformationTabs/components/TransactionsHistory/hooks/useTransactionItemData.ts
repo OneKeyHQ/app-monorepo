@@ -37,7 +37,9 @@ export function useTransactionItemData({ item }: IUseTransactionItemDataProps) {
   );
 
   const price = isBuy ? item.to.price : item.from.price;
-  const value = BigNumber(item.from.amount).times(item.from.price).toNumber();
+  const value = BigNumber(item.from.amount)
+    .times(BigNumber(item.from.price))
+    .toNumber();
 
   return {
     isBuy,
