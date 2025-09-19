@@ -92,11 +92,6 @@ export interface IMarketTokenDetail {
   [key: string]: unknown;
 }
 
-export interface IMarketTokenDetailAttribute {
-  labelKey: string;
-  value: string;
-}
-
 export interface IMarketChain {
   networkId: string;
   name: string;
