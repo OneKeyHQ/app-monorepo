@@ -20,6 +20,10 @@ const webEmbedOutputPath = path.join(
   'apps/web-embed/web-build',
 );
 
+const log = (message) => {
+  console.log(`>>>> ${message}`);
+};
+
 const buildZipOutputAssetPath = (zipName) => {
   return path.join(zipOutputPath, zipName);
 };
@@ -98,8 +102,8 @@ const generateMetadataJson = async (dirPath) => {
     // Write metadata.json
     const metadataPath = path.join(dirPath, 'metadata.json');
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-    console.log(`Generated metadata.json at: ${metadataPath}`);
-    console.log(`Total files processed: ${Object.keys(metadata).length}`);
+    log(`Generated metadata.json at: ${metadataPath}`);
+    log(`Total files processed: ${Object.keys(metadata).length}`);
   } else {
     console.warn(`Directory not found: ${dirPath}`);
   }
@@ -128,15 +132,18 @@ const generateFileInfo = async (filePath, outputFilePath) => {
   };
 
   fs.writeFileSync(infoFilePath, JSON.stringify(fileInfo, null, 2));
-  console.log(`Generated info file: ${infoFilePath}`);
-  console.log(`SHA256: ${sha256}`);
-  console.log(`Size: ${size} bytes`);
+  log(`Generated info file: ${infoFilePath}`);
+  log(`SHA256: ${sha256}`);
+  log(`Size: ${size} bytes`);
 };
 
 const buildIOSBundle = async () => {
+  log('build ios bundle start');
+  log('install ios pods');
+  execSync('cd apps/mobile/ios && npx pod-install', { stdio: 'inherit' });
+  log('install ios pods done');
   ensureBundleOutputPath();
   ensureZipOutputPath();
-  console.log('build ios bundle');
   execSync(
     `npx react-native bundle \
     --dev false \
@@ -157,9 +164,9 @@ const buildIOSBundle = async () => {
       },
     },
   );
-  console.log('build ios bundle done');
+  log('build ios bundle done');
 
-  console.log('build ios bundle hbc');
+  log('build ios bundle hbc');
   execSync(
     `${path.join(
       mobileDirPath,
@@ -169,16 +176,16 @@ const buildIOSBundle = async () => {
     )} ${buildIOSOutputAssetPath('main.jsbundle')}`,
     { stdio: 'inherit' },
   );
-  console.log('build ios bundle hbc done');
+  log('build ios bundle hbc done');
 
-  console.log('build ios bundle packager map');
+  log('build ios bundle packager map');
   fs.moveSync(
     buildIOSOutputAssetPath('main.jsbundle.map'),
     buildIOSOutputAssetPath('main.jsbundle.packager.map'),
   );
-  console.log('build ios bundle packager map done');
+  log('build ios bundle packager map done');
 
-  console.log('build ios bundle compose source maps');
+  log('build ios bundle compose source maps');
   execSync(
     `node \
   ${path.join(
@@ -190,9 +197,9 @@ const buildIOSBundle = async () => {
   -o ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
     { stdio: 'inherit' },
   );
-  console.log('build ios bundle compose source maps done');
+  log('build ios bundle compose source maps done');
 
-  console.log('build ios bundle compose source maps');
+  log('build ios bundle compose source maps');
   execSync(
     `node \
   ${path.join(
@@ -204,14 +211,14 @@ const buildIOSBundle = async () => {
   )} ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
     { stdio: 'inherit' },
   );
-  console.log('build ios bundle compose source maps done');
+  log('build ios bundle compose source maps done');
 
-  console.log('build ios bundle remove packager map');
+  log('build ios bundle remove packager map');
   fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
-  console.log('build ios bundle remove packager map done');
+  log('build ios bundle remove packager map done');
 
   if (SENTRY_AUTH_TOKEN) {
-    console.log('build ios bundle upload source maps');
+    log('build ios bundle upload source maps');
     execSync(
       `${path.join(
         projectRootPath,
@@ -231,7 +238,7 @@ const buildIOSBundle = async () => {
         },
       },
     );
-    console.log('build ios bundle upload source maps done');
+    log('build ios bundle upload source maps done');
   }
   const distPath = buildIOSOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
@@ -245,7 +252,7 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('main.jsbundle.hbc'),
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
-  console.log('build ios bundle compress dist to zip');
+  log('build ios bundle compress dist to zip');
 
   const webEmbedIOSPath = path.join(distPath, 'web-embed');
   if (!fs.existsSync(webEmbedIOSPath)) {
@@ -266,11 +273,12 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('ios.metadata.json.info'),
   );
-  console.log('build ios bundle compress dist to zip done');
-  console.log('build ios bundle done');
+  log('build ios bundle compress dist to zip done');
+  log('build ios bundle done');
 };
 
 const buildAndroidBundle = async () => {
+  log('build android bundle start');
   ensureBundleOutputPath();
   ensureZipOutputPath();
   execSync(
@@ -293,9 +301,9 @@ const buildAndroidBundle = async () => {
       },
     },
   );
-  console.log('build android bundle done');
+  log('build android bundle done');
 
-  console.log('build android bundle compress to hbc');
+  log('build android bundle compress to hbc');
   execSync(
     `${path.join(
       projectRootPath,
@@ -307,10 +315,10 @@ const buildAndroidBundle = async () => {
       stdio: 'inherit',
     },
   );
-  console.log('build android bundle compress to hbc done');
+  log('build android bundle compress to hbc done');
 
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
-    console.log('build android bundle upload source maps');
+    log('build android bundle upload source maps');
     execSync(
       `${path.join(
         projectRootPath,
@@ -330,7 +338,7 @@ const buildAndroidBundle = async () => {
         },
       },
     );
-    console.log('build android bundle upload source maps done');
+    log('build android bundle upload source maps done');
   }
   const distPath = buildAndroidOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
@@ -353,7 +361,7 @@ const buildAndroidBundle = async () => {
     stdio: 'inherit',
   });
 
-  console.log('build android bundle compress dist to zip');
+  log('build android bundle compress dist to zip');
   generateMetadataJson(distPath);
   execSync(`cd ${distPath} && zip -r dist.zip .`, {
     stdio: 'inherit',
@@ -366,12 +374,12 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('android.metadata.json.info'),
   );
-  console.log('build android bundle compress dist to zip done');
-  console.log('build android bundle done');
+  log('build android bundle compress dist to zip done');
+  log('build android bundle done');
 };
 
 const buildWebEmbed = async () => {
-  console.log('build web embed');
+  log('build web embed');
   execSync(
     `cd ${path.join(projectRootPath, 'apps/web-embed')} &&  webpack build`,
     {
@@ -383,7 +391,7 @@ const buildWebEmbed = async () => {
       },
     },
   );
-  console.log('build web embed done');
+  log('build web embed done');
 };
 
 cleanBundleOutput();
