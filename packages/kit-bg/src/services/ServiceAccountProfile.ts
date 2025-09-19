@@ -310,6 +310,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAllowListValidation,
     skipValidateAddress,
     enableAddressDeriveInfo,
+    walletAccountItem,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -401,15 +402,25 @@ class ServiceAccountProfile extends ServiceBase {
         accountName: string;
         accountId: string;
       }[] = [];
-      try {
-        // handleWalletAccountName
-        walletAccountItems =
-          await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
-            networkId,
-            address: resolveAddress,
-          });
-      } catch (e) {
-        console.error(e);
+
+      if (
+        walletAccountItem &&
+        walletAccountItem.accountId &&
+        walletAccountItem.walletName &&
+        walletAccountItem.accountName
+      ) {
+        walletAccountItems = [walletAccountItem];
+      } else {
+        try {
+          // handleWalletAccountName
+          walletAccountItems =
+            await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+              networkId,
+              address: resolveAddress,
+            });
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       if (walletAccountItems.length > 0) {

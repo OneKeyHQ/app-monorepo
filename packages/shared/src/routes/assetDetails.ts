@@ -23,6 +23,7 @@ export type IModalAssetDetailsParamList = {
     tokenInfo: IAccountToken;
     aggregateTokens?: IAccountToken[];
     tokenMap?: Record<string, ITokenFiat>;
+    accountAddress?: string;
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;

@@ -1180,7 +1180,7 @@
   "global.crop_image": "Potong gambar",
   "global.crypto": "Kripto",
   "global.current": "Saat ini",
-  "global.current_of_total_confirmations": "{current} dari {total} Konfirmasi",
+  "global.current_of_total_confirmations": "Konfirmasi Transaksi ke-{current} dari {total}",
   "global.customize_home_screen": "Sesuaikan Layar Beranda",
   "global.customize_nonce": "Sesuaikan nonce",
   "global.customize_nonce_desc": "Aktifkan ini untuk mengubah nonce (nomor transaksi) dan mengontrol urutan transaksi Anda pada konfirmasi > pengaturan lanjutan. Ini adalah fitur lanjutan, gunakan dengan hati-hati.",

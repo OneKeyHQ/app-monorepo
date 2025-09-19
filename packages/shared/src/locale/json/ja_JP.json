@@ -1180,7 +1180,7 @@
   "global.crop_image": "画像を切り取る",
   "global.crypto": "暗号通貨",
   "global.current": "現在",
-  "global.current_of_total_confirmations": "{current} / {total} 件の確認",
+  "global.current_of_total_confirmations": "{current} / {total} 件目の取引確認",
   "global.customize_home_screen": "ホーム画面をカスタマイズ",
   "global.customize_nonce": "nonce をカスタマイズする",
   "global.customize_nonce_desc": "これをオンにすると、nonce (トランザクション番号) を変更し、確認時にトランザクションの順序を制御できます>詳細設定。これは高度な機能なので、慎重に使用してください。",

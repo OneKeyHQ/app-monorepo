@@ -1180,7 +1180,7 @@
   "global.crop_image": "이미지 자르기",
   "global.crypto": "자산명",
   "global.current": "현재",
-  "global.current_of_total_confirmations": "{total}개 중 {current}개 확인됨",
+  "global.current_of_total_confirmations": "총 {total}건 중 {current}번째 거래 확인",
   "global.customize_home_screen": "홈 화면 맞춤 설정",
   "global.customize_nonce": "nonce를 사용자 정의하세요",
   "global.customize_nonce_desc": "이것을 켜서 nonce(거래 번호)를 변경하고 확인 > 고급 설정에서 거래 순서를 제어합니다. 이것은 고급 기능이므로 신중하게 사용하세요.",

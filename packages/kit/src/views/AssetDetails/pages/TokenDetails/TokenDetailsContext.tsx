@@ -46,6 +46,10 @@ export interface ITokenDetailsContextValue {
       data: IFetchTokenDetailItem;
     }[],
   ) => void;
+  tokenAccountMap: Record<string, string>;
+  setTokenAccountMap: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
 }
 
 export const TokenDetailsContext = createContext<ITokenDetailsContextValue>({
@@ -56,6 +60,8 @@ export const TokenDetailsContext = createContext<ITokenDetailsContextValue>({
   tokenDetails: {},
   updateTokenDetails: () => {},
   batchUpdateTokenDetails: () => {},
+  tokenAccountMap: {},
+  setTokenAccountMap: () => {},
 });
 
 export const useTokenDetailsContext = () => useContext(TokenDetailsContext);
