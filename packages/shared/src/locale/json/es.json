@@ -2126,6 +2126,7 @@
   "perp.trade_order_type": "Tipo de pedido",
   "perp.trade_order_value": "Valor de la orden",
   "perp.trade_sell_amount": "Cantidad a vender",
+  "perp.trade_set_tp_sl": "Establecer TP/SL",
   "perp.trade_short": "Corto",
   "perp.trade_sl_price": "Precio SL",
   "perp.trade_sl_price_loss": "Pérdida",

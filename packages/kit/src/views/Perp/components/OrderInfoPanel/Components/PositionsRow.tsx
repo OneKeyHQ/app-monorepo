@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
@@ -11,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -46,6 +48,7 @@ const PositionRow = memo(
     setTpsl,
     index,
   }: IPositionRowProps) => {
+    const intl = useIntl();
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
     }, [pos.szi]);
@@ -218,7 +221,9 @@ const PositionRow = memo(
           >
             <YStack gap="$1">
               <SizableText size="$bodySm" color="$textSubdued">
-                PNL
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_pnl,
+                })}
               </SizableText>
               <SizableText size="$bodySm" color={otherInfo.pnlColor}>
                 {`${otherInfo.unrealizedPnl as string}`}
@@ -236,7 +241,9 @@ const PositionRow = memo(
           <XStack width="100%" flex={1} alignItems="center">
             <YStack gap="$1" width={120}>
               <SizableText size="$bodySm" color="$textSubdued">
-                Positon Size
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${sizeInfo.sizeAbsFormatted as string}`}
@@ -244,7 +251,9 @@ const PositionRow = memo(
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                Margin
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_margin,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${otherInfo.marginUsedFormatted as string}`}
@@ -252,7 +261,9 @@ const PositionRow = memo(
             </YStack>
             <YStack gap="$1" width={120} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
-                Entry Price
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_entry_price,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${priceInfo.entryPriceFormatted as string}`}
@@ -262,7 +273,9 @@ const PositionRow = memo(
           <XStack width="100%" flex={1} alignItems="center">
             <YStack gap="$1" width={120}>
               <SizableText size="$bodySm" color="$textSubdued">
-                Funding
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_funding,
+                })}
               </SizableText>
               <Tooltip
                 renderTrigger={
@@ -279,13 +292,17 @@ const PositionRow = memo(
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                TPSL
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
               </SizableText>
               <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
             </YStack>
             <YStack gap="$1" width={120} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
-                Liq. Price
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_liq_price,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${priceInfo.liquidationPriceFormatted as string}`}
@@ -299,7 +316,9 @@ const PositionRow = memo(
               variant="secondary"
               onPress={setTpsl}
             >
-              Set TP/SL
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_set_tp_sl,
+              })}
             </Button>
             <Button
               width={160}
@@ -307,7 +326,9 @@ const PositionRow = memo(
               variant="secondary"
               onPress={onAllClose}
             >
-              Close
+              {intl.formatMessage({
+                id: ETranslations.perp_position_close,
+              })}
             </Button>
           </XStack>
         </ListItem>

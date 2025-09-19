@@ -2126,6 +2126,7 @@
   "perp.trade_order_type": "Тип заказа",
   "perp.trade_order_value": "Стоимость ордера",
   "perp.trade_sell_amount": "Сумма продажи",
+  "perp.trade_set_tp_sl": "Установить TP/SL",
   "perp.trade_short": "Шорт",
   "perp.trade_sl_price": "Цена SL",
   "perp.trade_sl_price_loss": "Убыток",
