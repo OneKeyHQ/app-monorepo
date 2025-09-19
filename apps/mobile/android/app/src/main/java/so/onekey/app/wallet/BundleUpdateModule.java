@@ -654,7 +654,13 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void testVerification(Promise promise) {
-        boolean result = Verification.testExtractedSha256FromVerifyAscFile();
+        String cacheFilePath = reactContext.getCacheDir().getAbsolutePath() + "/bundle-gpg-test-verification-temp";
+        boolean result = false;
+        try {
+            result = Verification.testExtractedSha256FromVerifyAscFile(cacheFilePath);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         promise.resolve(result);
     }
 
