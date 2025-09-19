@@ -321,8 +321,8 @@ public class Verification {
         return isLineEnding(b) || b == '\t' || b == ' ';
     }
 
-    public static String extractedSha256FromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
-        InputStream        keyIn = PGPUtil.getDecoderStream(new ByteArrayInputStream(PUBLIC_KEY.getBytes()));
+    public static String extractedTextContentFromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
+        InputStream  keyIn = PGPUtil.getDecoderStream(new ByteArrayInputStream(PUBLIC_KEY.getBytes()));
         InputStream in = new ByteArrayInputStream(ascFileContent.getBytes());
         boolean isVerified = verifyFile(in, keyIn, cacheFilePath);
         if (!isVerified) {
@@ -337,7 +337,12 @@ public class Verification {
             bOut.write((byte)ch);
         }
         ascFileContentIn.close();
-        String extractedSha256 = bOut.toString().split(" ")[0];
+        return bOut.toString();
+    }
+
+    public static String extractedSha256FromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
+        String extractedTextContent = extractedTextContentFromVerifyAscFile(ascFileContent, cacheFilePath);
+        String extractedSha256 = extractedTextContent.split(" ")[0];
         return extractedSha256;
     }
 }

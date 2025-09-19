@@ -11,6 +11,7 @@
 		07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */; };
 		07A167A92E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
 		07A167AA2E576AF7006A3117 /* OneKeyLogo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 07A167A82E576AF7006A3117 /* OneKeyLogo.icon */; };
+		07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */ = {isa = PBXBuildFile; fileRef = 07BBD7EB2E7C85FA00A3654D /* Verification.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAB62C802804CA1BF90BB10 /* noop-file.swift */; };
 		35EE15B12B9A2ACD004C86AC /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 35EE15B32B9A2ACD004C86AC /* InfoPlist.strings */; };
@@ -58,6 +59,8 @@
 		07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = BundleUpdateModule.h; path = OneKeyWallet/BundleUpdateModule.h; sourceTree = "<group>"; };
 		07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = BundleUpdateModule.m; path = OneKeyWallet/BundleUpdateModule.m; sourceTree = "<group>"; };
 		07A167A82E576AF7006A3117 /* OneKeyLogo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = OneKeyLogo.icon; sourceTree = "<group>"; };
+		07BBD7EA2E7C85FA00A3654D /* Verification.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Verification.h; path = OneKeyWallet/Verification.h; sourceTree = "<group>"; };
+		07BBD7EB2E7C85FA00A3654D /* Verification.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = Verification.m; path = OneKeyWallet/Verification.m; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* OneKeyWallet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OneKeyWallet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = OneKeyWallet/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = OneKeyWallet/Info.plist; sourceTree = "<group>"; };
@@ -143,6 +146,8 @@
 				0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */,
 				C28C89F72C85D3A700D9A657 /* JPushManager.h */,
 				C28C89F62C85D3A600D9A657 /* JPushManager.m */,
+				07BBD7EA2E7C85FA00A3654D /* Verification.h */,
+				07BBD7EB2E7C85FA00A3654D /* Verification.m */,
 				07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */,
 				07A0D9DC2E7997C6005A1AA2 /* BundleUpdateModule.m */,
 				LAUNCH0012E85D3A700D9A658 /* LaunchOptionsManager.h */,
@@ -373,11 +378,13 @@
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-OneKeyWallet/Pods-OneKeyWallet-frameworks.sh",
 				"${PODS_ROOT}/../../../../node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.framework",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ObjectivePGP/ObjectivePGP.framework/ObjectivePGP",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/GPChannelSDKCore.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ObjectivePGP.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -542,6 +549,7 @@
 				LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
+				07BBD7EC2E7C85FA00A3654D /* Verification.m in Sources */,
 				EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */,
 				07A0D9DD2E7997C6005A1AA2 /* BundleUpdateModule.m in Sources */,
 				4B0291071DB1A9856B2D4C1B /* ExpoModulesProvider.swift in Sources */,
@@ -748,7 +756,10 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -821,7 +832,10 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = "$(inherited)  ";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					" ",
+				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;

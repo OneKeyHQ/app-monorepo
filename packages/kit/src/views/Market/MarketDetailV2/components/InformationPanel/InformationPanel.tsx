@@ -11,6 +11,16 @@ import { useTokenSecurity } from '../TokenSecurityAlert/hooks';
 
 import { InformationPanelSkeleton } from './InformationPanelSkeleton';
 
+function getPriceSizeByValue(price: string) {
+  if (price.startsWith('0.0000')) {
+    return '$headingLg';
+  }
+  if (price.startsWith('0.000')) {
+    return '$headingXl';
+  }
+  return '$heading3xl';
+}
+
 export function InformationPanel() {
   const intl = useIntl();
   const { tokenDetail, networkId, tokenAddress } = useTokenDetail();
@@ -41,7 +51,7 @@ export function InformationPanel() {
     <XStack px="$5" py="$4" gap="$4" jc="space-between" width="100%">
       <YStack pointerEvents="none">
         <MarketTokenPrice
-          size="$heading3xl"
+          size={getPriceSizeByValue(currentPrice)}
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}

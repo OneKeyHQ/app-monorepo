@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { RefObject } from 'react';
 
 import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import type { INavigateToNotificationDetailParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
@@ -14,11 +13,7 @@ import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { ColdStartByNotification } from '../ColdStartByNotification';
 
-import type { IAccountSelectorActiveAccountInfo } from '../../../states/jotai/contexts/accountSelector';
-
-export const useInitialNotification = (
-  activeAccountRef: RefObject<IAccountSelectorActiveAccountInfo>,
-) => {
+export const useInitialNotification = () => {
   const coldStartRef = useRef(true);
   const { isVersionCompatible } = useVersionCompatible();
   const handleShowNotificationDetail = useCallback(
@@ -32,23 +27,9 @@ export const useInitialNotification = (
         return;
       }
       await whenAppUnlocked();
-      const localParams = {
-        accountId: activeAccountRef.current?.account?.id,
-        indexedAccountId: activeAccountRef.current?.indexedAccount?.id,
-        networkId: activeAccountRef.current?.network?.id,
-        walletId: activeAccountRef.current?.wallet?.id,
-        accountName: activeAccountRef.current?.account?.name,
-        deriveType: activeAccountRef.current?.deriveType,
-        avatarUrl: activeAccountRef.current?.wallet?.avatar,
-      };
-      void notificationsUtils.navigateToNotificationDetail({
-        ...params,
-        localParams,
-        getEarnAccount: (props) =>
-          backgroundApiProxy.serviceStaking.getEarnAccount(props),
-      });
+      void notificationsUtils.navigateToNotificationDetail(params);
     },
-    [activeAccountRef, isVersionCompatible],
+    [isVersionCompatible],
   );
   useEffect(() => {
     setTimeout(async () => {
@@ -116,5 +97,5 @@ export const useInitialNotification = (
         }
       }
     }, 350);
-  }, [activeAccountRef, handleShowNotificationDetail]);
+  }, [handleShowNotificationDetail]);
 };

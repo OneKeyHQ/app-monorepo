@@ -6,17 +6,19 @@ import { useUpdateEffect } from '@onekeyhq/components';
 import {
   useAccountIsAutoCreatingAtom,
   useIndexedAccountAddressCreationStateAtom,
+  usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   perpsSelectedSymbolAtom,
   usePerpsSelectedAccountAtom,
-  usePerpsSelectedAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IActiveAssetData,
   IBook,
@@ -29,6 +31,8 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import {
@@ -182,6 +186,7 @@ function useHyperliquidAccountSelect() {
   const isFirstMountRef = useRef(true);
   const [, setCurrentUser] = useCurrentUserAtom();
   const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
+  const isFocused = useRouteIsFocused();
   const [indexedAccountAddressCreationState] =
     useIndexedAccountAddressCreationStateAtom();
 
@@ -189,25 +194,59 @@ function useHyperliquidAccountSelect() {
   // const perpsAccountStatusRef = useRef(perpsAccountStatus);
   // perpsAccountStatusRef.current = perpsAccountStatus;
 
+  const lastCheckTimeRef = useRef(0);
+  const checkPerpsAccountStatus = useCallback(async () => {
+    lastCheckTimeRef.current = Date.now();
+    const checkResult =
+      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+    console.log('checkPerpsAccountStatus::', checkResult);
+  }, []);
+
+  const { result: globalDeriveType, run: refreshGlobalDeriveType } =
+    usePromiseResult(
+      () =>
+        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: PERPS_CHAIN_ID,
+        }),
+      [],
+    );
+
+  useEffect(() => {
+    appEventBus.on(
+      EAppEventBusNames.GlobalDeriveTypeUpdate,
+      refreshGlobalDeriveType,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.GlobalDeriveTypeUpdate,
+        refreshGlobalDeriveType,
+      );
+    };
+  }, [refreshGlobalDeriveType]);
+
   const selectPerpsAccount = useCallback(async () => {
+    if (!globalDeriveType) {
+      return;
+    }
     noop(activeAccount.account?.address);
     const account =
       await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
         indexedAccountId: activeAccount?.indexedAccount?.id || null,
         accountId: activeAccount?.account?.id || null,
-        deriveType: activeAccount?.deriveType ?? 'default',
+        deriveType: globalDeriveType,
       });
     setCurrentUser(account.accountAddress);
-    const checkResult =
-      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
-    console.log('checkPerpsAccountStatus::', checkResult);
+
+    await checkPerpsAccountStatus();
   }, [
     activeAccount.account?.address,
+    activeAccount.account?.id,
     activeAccount?.indexedAccount?.id,
-    activeAccount?.account?.id,
-    activeAccount?.deriveType,
     setCurrentUser,
+    checkPerpsAccountStatus,
+    globalDeriveType,
   ]);
+
   const selectPerpsAccountRef = useRef(selectPerpsAccount);
   selectPerpsAccountRef.current = selectPerpsAccount;
 
@@ -220,6 +259,23 @@ function useHyperliquidAccountSelect() {
       void selectPerpsAccountRef.current();
     }
   }, [accountIsAutoCreating, indexedAccountAddressCreationState]);
+
+  useUpdateEffect(() => {
+    void (async () => {
+      if (
+        isFocused &&
+        lastCheckTimeRef.current +
+          timerUtils.getTimeDurationMs({
+            // seconds: 10,
+            hour: 1,
+          }) <
+          Date.now()
+      ) {
+        await timerUtils.wait(600);
+        await checkPerpsAccountStatus();
+      }
+    })();
+  }, [isFocused, checkPerpsAccountStatus]);
 
   useEffect(() => {
     noop(currentPerpsAccount?.accountAddress);
@@ -246,11 +302,43 @@ function useHyperliquidSymbolSelect() {
   }, [actions]);
 }
 
+function useHyperliquidScreenLockHandler() {
+  const [{ unLock }] = usePasswordAtom();
+  const prevUnLockRef = useRef<boolean | null>(null);
+  const isFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+  const checkPerpsAccountStatus = useCallback(async () => {
+    await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
+  }, []);
+
+  useEffect(() => {
+    if (prevUnLockRef.current === null) {
+      prevUnLockRef.current = unLock;
+      return;
+    }
+
+    if (prevUnLockRef.current !== unLock) {
+      if (unLock) {
+        // Screen unlocked - restore status
+        if (isFocusedRef.current) {
+          void checkPerpsAccountStatus();
+        }
+      } else {
+        // Screen locked - dispose clients
+        void backgroundApiProxy.serviceHyperliquid.disposeExchangeClients();
+      }
+      prevUnLockRef.current = unLock;
+    }
+  }, [unLock, checkPerpsAccountStatus]);
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   useHyperliquidSymbolSelect();
+  useHyperliquidScreenLockHandler();
 
   return null;
 }
