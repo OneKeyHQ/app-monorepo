@@ -201,7 +201,6 @@ async function navigateToNotificationDetail({
           const payloadObj = JSON.parse(payload || '');
           appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
             payload: payloadObj,
-            localParams: localParams || {},
           });
         } catch (error) {
           showFallbackUpdateDialog();
