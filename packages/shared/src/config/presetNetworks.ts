@@ -82,7 +82,7 @@ const eth: IServerNetwork = {
 };
 const bsc: IServerNetwork = {
   'impl': 'evm',
-  'chainId': '56',
+  'chainId': '56', // 0x38
   'id': 'evm--56',
   'name': 'BNB Chain',
   'symbol': 'BNB',

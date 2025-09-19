@@ -12,7 +12,7 @@ import {
   perpsSelectedSymbolAtom,
   usePerpsSelectedAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -206,7 +206,7 @@ function useHyperliquidAccountSelect() {
     usePromiseResult(
       () =>
         backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_CHAIN_ID,
+          networkId: PERPS_NETWORK_ID,
         }),
       [],
     );

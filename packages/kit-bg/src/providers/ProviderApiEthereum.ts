@@ -846,6 +846,28 @@ class ProviderApiEthereum extends ProviderApiBase {
     }
   }
 
+  /*
+    {
+      'method': 'wallet_addEthereumChain',
+      'params': [
+        {
+          'chainId': '0x64',
+          'chainName': 'Gnosis',
+          'nativeCurrency': {
+            'name': 'xDAI',
+            'symbol': 'XDAI',
+            'decimals': 18,
+          },
+          'rpcUrls': [
+            'https://rpc.gnosischain.com',
+            'wss://gnosis-rpc.publicnode.com',
+          ],
+          'blockExplorerUrls': ['https://gnosisscan.io'],
+        },
+        '0xca11fb665aba190ea0410c26b2729c2f4e116a6b',
+      ],
+    }
+  */
   @providerApiMethod()
   async wallet_addEthereumChain(
     request: IJsBridgeMessagePayload,

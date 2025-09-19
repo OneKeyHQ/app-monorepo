@@ -18,7 +18,7 @@ import {
   usePerpsSelectedAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
@@ -157,7 +157,7 @@ export function PerpTradingButton({
         deriveType: perpsAccount.deriveType,
         indexedAccountId:
           perpsAccount.indexedAccountId || selectedAccount.indexedAccountId,
-        // networkId: PERPS_CHAIN_ID,
+        // networkId: PERPS_NETWORK_ID,
         networkId: getNetworkIdsMap().onekeyall,
       };
       return (
