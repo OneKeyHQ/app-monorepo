@@ -6,12 +6,12 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
+import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 function PerpLayout() {
@@ -23,6 +23,10 @@ function PerpLayout() {
 }
 
 function PerpContent() {
+  useFocusEffect(() => {
+    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
+  });
+
   const { gtSm } = useMedia();
   return (
     <Page>
@@ -70,21 +74,12 @@ function PerpContent() {
 }
 
 export default function Perp() {
-  useFocusEffect(() => {
-    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
-  });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
+    <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
         <PerpsGlobalEffects />
         <PerpContent />
       </PerpsProviderMirror>
-    </AccountSelectorProviderMirror>
+    </PerpsAccountSelectorProviderMirror>
   );
 }

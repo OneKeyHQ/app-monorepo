@@ -17,6 +17,8 @@ import {
   usePerpsSelectedAccountStatusAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
@@ -150,12 +152,21 @@ export function PerpTradingButton({
   }
 
   if (!perpsAccount?.accountAddress) {
-    if (activeAccount.canCreateAddress) {
+    const canCreateAddress = !!perpsAccount.indexedAccountId;
+    if (canCreateAddress) {
+      const createAddressAccount = {
+        ...selectedAccount,
+        deriveType: perpsAccount.deriveType,
+        indexedAccountId:
+          perpsAccount.indexedAccountId || selectedAccount.indexedAccountId,
+        // networkId: PERPS_CHAIN_ID,
+        networkId: getNetworkIdsMap().onekeyall,
+      };
       return (
         <AccountSelectorCreateAddressButton
           autoCreateAddress={false}
           num={0}
-          account={selectedAccount}
+          account={createAddressAccount}
           buttonRender={createAddressButtonRender}
         />
       );

@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import fs from 'fs';
 import http from 'http';
 import https from 'https';
@@ -7,8 +6,17 @@ import path from 'path';
 import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
+import { readCleartextMessage, readKey } from 'openpgp';
 
+import {
+  getBundleDirName,
+  getBundleExtractDir,
+  verifyMetadataFileSha256,
+  verifySha256,
+} from '@onekeyhq/desktop/app/bundle';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
+import { ETranslations } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
@@ -42,19 +50,10 @@ class DesktopApiAppBundleUpdate {
     return globalThis.$desktopMainAppFunctions?.getSafelyMainWindow?.();
   }
 
-  verifySha256(filePath: string, sha256: string) {
-    const hashSum = crypto.createHash('sha256');
-    const fileBuffer = fs.readFileSync(filePath);
-    hashSum.update(fileBuffer);
-    const fileSha256 = hashSum.digest('hex');
-    logger.info('bundle-download-verifySha256', sha256, fileSha256);
-    return fileSha256 === sha256;
-  }
-
   async verifyAndResolve(filePath: string, sha256: string) {
     return new Promise<boolean>((resolve, reject) => {
       setTimeout(async () => {
-        const verified = this.verifySha256(filePath, sha256);
+        const verified = verifySha256(filePath, sha256);
         if (!verified) {
           reject(new OneKeyLocalError('Downloaded file is not valid'));
         }
@@ -72,15 +71,6 @@ class DesktopApiAppBundleUpdate {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     logger.info('bundle-download-getDownloadDir', tempDir);
-    return tempDir;
-  }
-
-  getBundleDirName() {
-    const tempDir = path.join(app.getPath('userData'), 'onekey-bundle');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    logger.info('bundle-download-getBundleDirName', tempDir);
     return tempDir;
   }
 
@@ -280,16 +270,30 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
-  getBundleExtractDir({
-    bundleDir,
+  getBundleBuildPath({
     appVersion,
     bundleVersion,
   }: {
-    bundleDir: string;
     appVersion: string;
     bundleVersion: string;
   }) {
-    return path.join(bundleDir, `${appVersion}-${bundleVersion}`);
+    const bundleDir = getBundleDirName();
+    return path.join(bundleDir, `${appVersion}-${bundleVersion}`, 'build');
+  }
+
+  getMetadataFilePath({
+    appVersion,
+    bundleVersion,
+  }: {
+    appVersion: string;
+    bundleVersion: string;
+  }) {
+    const bundleDir = getBundleDirName();
+    return path.join(
+      bundleDir,
+      `${appVersion}-${bundleVersion}`,
+      'metadata.json',
+    );
   }
 
   async verifyBundle(params: IUpdateDownloadedEvent) {
@@ -298,27 +302,18 @@ class DesktopApiAppBundleUpdate {
       sha256,
       latestVersion: appVersion,
       bundleVersion,
+      signature,
     } = params || {};
-    if (!downloadedFile || !sha256 || !appVersion || !bundleVersion) {
+    if (
+      !downloadedFile ||
+      !sha256 ||
+      !appVersion ||
+      !bundleVersion ||
+      !signature
+    ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    const bundleDir = this.getBundleDirName();
-    if (this.verifySha256(downloadedFile, sha256)) {
-      // Extract zip file to the same directory
-      const extractDir = this.getBundleExtractDir({
-        bundleDir,
-        appVersion,
-        bundleVersion,
-      });
-
-      try {
-        const zip = new AdmZip(downloadedFile);
-        zip.extractAllTo(extractDir, true);
-      } catch (error) {
-        logger.error('Failed to extract bundle zip file:', error);
-        throw error;
-      }
-    }
+    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
   }
 
   /**
@@ -362,32 +357,38 @@ class DesktopApiAppBundleUpdate {
     ) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    const bundleDir = this.getBundleDirName();
-    const extractDir = this.getBundleExtractDir({
-      bundleDir,
+    const isBundleVerified = verifySha256(downloadedFile, sha256);
+    if (!isBundleVerified) {
+      throw new OneKeyLocalError('Invalid bundle file');
+    }
+    const extractDir = getBundleExtractDir({
       appVersion,
       bundleVersion,
     });
-    const metaDataJsonPath = path.join(extractDir, 'metadata.json');
-    logger.info('bundle-verifyBundleASC', metaDataJsonPath);
-    // await this.verifySha256(metaDataJsonPath, sha256);
+
+    try {
+      const zip = new AdmZip(downloadedFile);
+      zip.extractAllTo(extractDir, true);
+    } catch (error) {
+      logger.error('Failed to extract bundle zip file:', error);
+      throw error;
+    }
+
+    const metadataFilePath = this.getMetadataFilePath({
+      appVersion,
+      bundleVersion,
+    });
+    logger.info('bundle-verifyBundleASC', metadataFilePath);
+    await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
   }
 
   async installBundle(params: IUpdateDownloadedEvent) {
     const {
-      downloadedFile,
-      sha256,
       latestVersion: appVersion,
       bundleVersion,
       signature,
     } = params || {};
-    if (
-      !downloadedFile ||
-      !sha256 ||
-      !appVersion ||
-      !bundleVersion ||
-      !signature
-    ) {
+    if (!appVersion || !bundleVersion || !signature) {
       throw new OneKeyLocalError('Invalid parameters');
     }
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
@@ -416,8 +417,12 @@ class DesktopApiAppBundleUpdate {
   }
 
   async clearBundleExtract() {
-    const bundleDir = this.getBundleDirName();
-    fs.rmSync(bundleDir, { recursive: true });
+    const bundleDir = getBundleDirName();
+    try {
+      fs.rmSync(bundleDir, { recursive: true, force: true });
+    } catch (error) {
+      logger.error('Failed to clear bundle extract:', error);
+    }
   }
 
   async clearBundle() {
