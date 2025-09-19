@@ -153,7 +153,6 @@ const ClosePositionForm = memo(
     const handleAmountChange = useCallback(
       (value: string) => {
         const processedValue = value.replace(/。/g, '.');
-        console.log('processedValue', processedValue);
         if (processedValue === '') {
           setFormData((prev) => ({
             ...prev,
@@ -319,7 +318,7 @@ const ClosePositionForm = memo(
       if (formData.type === 'market') {
         return Boolean(markPrice);
       }
-      if (limitPrice.isZero()) return false;
+      if (!limitPrice.isFinite() || limitPrice.isZero()) return false;
       if (liquidationPrice) {
         if (
           (!isLongPosition && limitPrice.gt(liquidationPrice)) ||

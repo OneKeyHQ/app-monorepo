@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsSelectedAccountAtom,
+  usePerpsSelectedSymbolAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
@@ -10,7 +13,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useOpenOrdersListAtom,
-  usePerpsCurrentTokenAtom,
   usePositionListAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
 
@@ -26,7 +28,8 @@ export function usePerpOrders() {
 
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsSelectedAccountAtom();
-  const [currentToken] = usePerpsCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
+  const { coin } = currentToken;
   const [newTradesHistory, setNewTradesHistory] = useState<IFill[]>([]);
   useEffect(() => {
     if (!currentAccount?.accountAddress) return;
@@ -53,7 +56,7 @@ export function usePerpTradesHistory() {
       if (data.isSnapshot) return;
 
       const relevantFills = data.fills.filter(
-        (fill: IFill) => fill.coin === currentToken,
+        (fill: IFill) => fill.coin === coin,
       );
 
       if (relevantFills.length === 0) return;
@@ -72,7 +75,7 @@ export function usePerpTradesHistory() {
         handleUserFillsListUpdate,
       );
     };
-  }, [currentAccount?.accountAddress, currentToken]);
+  }, [currentAccount?.accountAddress, coin]);
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {

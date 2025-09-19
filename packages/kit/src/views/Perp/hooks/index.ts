@@ -7,14 +7,6 @@ export {
   useTokenList,
 } from './usePerpMarketData';
 
-// HyperLiquid hooks
-export {
-  useHyperliquidMarket,
-  useHyperliquidAccount,
-  useHyperliquidTrading,
-  useHyperliquidConnectionStatus,
-} from './useHyperliquid';
-
 export { useFundingCountdown } from './useFundingCountdown';
 export { useOrderConfirm } from './useOrderConfirm';
 

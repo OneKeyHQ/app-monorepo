@@ -472,66 +472,73 @@ function formatPriceToSignificantDigits(
 ): string {
   if (!price) return '0';
 
-  const numPrice = Number(price);
-  if (Number.isNaN(numPrice)) return '0';
-
-  const priceStr =
-    numPrice < 1e-6 || numPrice > 1e12
-      ? numPrice.toFixed(20).replace(/\.?0+$/, '')
-      : numPrice.toString();
-
-  const dotIndex = priceStr.indexOf('.');
-
-  if (dotIndex === -1) {
-    return priceStr;
+  let priceBN: BigNumber;
+  try {
+    priceBN = new BigNumber(price);
+  } catch {
+    return '0';
   }
 
-  // if decimal part, consider significant digits limit
-  const integerPart = priceStr.substring(0, dotIndex);
-  const decimalPart = priceStr.substring(dotIndex + 1);
+  if (!priceBN.isFinite()) return '0';
 
-  // calculate significant digits of integer part (remove leading zeros)
+  if (priceBN.isInteger()) {
+    return priceBN.toFixed();
+  }
+
+  // Get string representation for precise digit handling
+  const priceStr = priceBN.toFixed(); // Full precision without scientific notation
+  const [integerPart, decimalPart = ''] = priceStr.split('.');
+
+  // Calculate integer digits (0 doesn't count as significant)
   const integerDigits = integerPart === '0' ? 0 : integerPart.length;
 
   let result = priceStr;
 
-  // if integer part already reached or exceeded maximum significant digits, remove decimal part
-  if (integerDigits >= MAX_SIGNIFICANT_FIGURES) {
-    result = integerPart;
-  } else {
-    // calculate allowed decimal digits, keep total significant digits within limit
-    const allowedDecimalDigits = MAX_SIGNIFICANT_FIGURES - integerDigits;
+  // Apply significant figures rule if there are decimal digits
+  if (decimalPart) {
+    if (integerDigits >= MAX_SIGNIFICANT_FIGURES) {
+      // If integer part already uses all significant figures, remove decimals
+      result = integerPart;
+    } else {
+      // Calculate how many decimal digits we can have for significant figures
+      const allowedSigFigDecimals = MAX_SIGNIFICANT_FIGURES - integerDigits;
 
-    // for decimal part, remove leading zeros and calculate significant digits
-    const trimmedDecimal = decimalPart.replace(/^0+/, '');
+      // For numbers like 0.0012345, count leading zeros separately
+      const leadingZeroMatch = decimalPart.match(/^(0*)/);
+      const leadingZeros = leadingZeroMatch ? leadingZeroMatch[1].length : 0;
+      const significantDecimalDigits = decimalPart.substring(leadingZeros);
 
-    if (trimmedDecimal.length > allowedDecimalDigits) {
-      // calculate leading zeros
-      const leadingZeros = decimalPart.length - trimmedDecimal.length;
-      const maxDecimalLength = leadingZeros + allowedDecimalDigits;
-      result = `${integerPart}.${decimalPart.substring(0, maxDecimalLength)}`;
+      if (significantDecimalDigits.length > allowedSigFigDecimals) {
+        const truncatedSignificant = significantDecimalDigits.substring(
+          0,
+          allowedSigFigDecimals,
+        );
+        result = `${integerPart}.${
+          leadingZeros > 0 ? '0'.repeat(leadingZeros) : ''
+        }${truncatedSignificant}`;
+      }
     }
   }
 
-  // apply maximum decimal digits limit
-  const maxDecimals =
+  // Apply szDecimals limit
+  const maxAllowedDecimals =
     szDecimals !== undefined && szDecimals >= 0
       ? MAX_DECIMALS_PERP - szDecimals
       : MAX_DECIMALS_PERP;
 
-  const currentDotIndex = result.indexOf('.');
-  if (
-    currentDotIndex !== -1 &&
-    result.length > currentDotIndex + 1 + maxDecimals
-  ) {
-    result =
-      maxDecimals === 0
-        ? result.substring(0, currentDotIndex)
-        : result.substring(0, currentDotIndex + 1 + maxDecimals);
+  const dotIndex = result.indexOf('.');
+  if (dotIndex !== -1) {
+    const currentDecimalLength = result.length - dotIndex - 1;
+    if (currentDecimalLength > maxAllowedDecimals) {
+      result =
+        maxAllowedDecimals === 0
+          ? result.substring(0, dotIndex)
+          : result.substring(0, dotIndex + 1 + maxAllowedDecimals);
+    }
   }
 
-  // remove trailing zeros
-  if (result.indexOf('.') !== -1) {
+  // Remove trailing zeros
+  if (result.includes('.')) {
     result = result.replace(/\.?0+$/, '');
   }
 

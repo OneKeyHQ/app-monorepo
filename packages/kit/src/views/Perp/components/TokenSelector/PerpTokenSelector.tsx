@@ -16,7 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { usePerpsCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
@@ -166,7 +166,8 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 function BasePerpTokenSelector() {
   const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentToken] = usePerpsCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
+  const { coin } = currentToken;
   const [isLoading, setIsLoading] = useState(false);
   return useMemo(
     () => (
@@ -198,12 +199,12 @@ function BasePerpTokenSelector() {
               size="md"
               borderRadius="$full"
               bg={themeVariant === 'light' ? null : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
+              tokenImageUri={`https://app.hyperliquid.xyz/coins/${coin}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
 
             {/* Token Name */}
-            <SizableText size="$heading2xl">{currentToken}</SizableText>
+            <SizableText size="$heading2xl">{coin}</SizableText>
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
@@ -216,7 +217,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, currentToken, isLoading, themeVariant],
+    [isOpen, coin, isLoading, themeVariant],
   );
 }
 

@@ -117,8 +117,6 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     await this.setPerpData(
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
-        tradingUniverse: prevConfig?.tradingUniverse,
-        marginTables: prevConfig?.marginTables,
         hyperliquidCurrentToken: token,
       }),
     );

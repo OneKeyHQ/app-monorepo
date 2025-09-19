@@ -1,9 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import {
-  useHyperliquidActions,
-  usePerpsCurrentTokenAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -39,11 +37,11 @@ export interface IPerpTokenSelectorReturn {
 }
 
 export function usePerpTokenSelector() {
-  const [currentToken] = usePerpsCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const actions = useHyperliquidActions();
-
+  const { coin } = currentToken;
   const { data: tokenList } = useTokenList();
 
   const enhancedTokens = useMemo(() => {
@@ -75,7 +73,7 @@ export function usePerpTokenSelector() {
 
   const selectToken = useCallback(
     async (symbol: string) => {
-      if (symbol === currentToken) return;
+      if (symbol === coin) return;
 
       setIsLoading(true);
       try {
@@ -89,7 +87,7 @@ export function usePerpTokenSelector() {
         setIsLoading(false);
       }
     },
-    [currentToken, actions],
+    [coin, actions],
   );
 
   const clearSearch = useCallback(() => {
@@ -98,7 +96,7 @@ export function usePerpTokenSelector() {
 
   return {
     tokens: enhancedTokens,
-    currentToken,
+    currentToken: coin,
     searchQuery,
     filteredTokens,
     setSearchQuery,

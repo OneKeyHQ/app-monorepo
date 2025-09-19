@@ -78,9 +78,6 @@ export const currentTokenAtom = memoizee(() =>
   ),
 );
 
-export const usePerpsCurrentTokenAtom = () =>
-  useCurrentTokenContextAtom(currentTokenAtom());
-
 export const { atom: currentUserAtom, use: useCurrentUserAtom } =
   contextAtom<HL.IHex | null>(null);
 

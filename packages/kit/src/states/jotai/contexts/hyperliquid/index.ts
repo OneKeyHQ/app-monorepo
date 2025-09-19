@@ -9,7 +9,7 @@ export {
   useConnectionStateAtom,
 } from './atoms';
 
-export { usePerpsCurrentTokenAtom, useSubscriptionActiveAtom } from './atoms';
+export { useSubscriptionActiveAtom } from './atoms';
 
 export {
   useTokenListAtom,

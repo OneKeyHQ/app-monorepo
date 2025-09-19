@@ -6,11 +6,9 @@ import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-
+import { useAccountPanelDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useCurrentTokenData,
-  useHyperliquidAccount,
-  useHyperliquidTrading,
   useOrderConfirm,
 } from '../../hooks';
 
@@ -19,9 +17,9 @@ import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 
 function PerpTradingPanel() {
-  const { loading } = useHyperliquidTrading();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const hlAccount = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { accountSummary } = accountPanelData;
   const tokenInfo = useCurrentTokenData();
   const [formData] = useTradingFormAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
@@ -29,8 +27,8 @@ function PerpTradingPanel() {
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
   const universalLoading = useMemo(() => {
-    return perpsAccountLoading?.selectAccountLoading || loading;
-  }, [perpsAccountLoading?.selectAccountLoading, loading]);
+    return perpsAccountLoading?.selectAccountLoading;
+  }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
     return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
@@ -45,12 +43,12 @@ function PerpTradingPanel() {
     if (formData.type === 'limit') {
       return (
         (+formData.price * +formData.size) / leverage >
-        +(hlAccount?.accountSummary?.withdrawable || 0)
+        +(accountSummary?.withdrawable || 0)
       );
     }
     return +formData.size > maxTradeSz;
   }, [
-    hlAccount?.accountSummary?.withdrawable,
+    accountSummary?.withdrawable,
     formData.size,
     maxTradeSz,
     formData.type,

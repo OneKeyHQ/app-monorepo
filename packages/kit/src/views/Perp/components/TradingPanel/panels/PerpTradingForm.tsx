@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  useAccountPanelDataAtom,
   useHyperliquidActions,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -25,7 +26,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useCurrentTokenData, useHyperliquidAccount } from '../../../hooks';
+import { useCurrentTokenData } from '../../../hooks';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
@@ -47,7 +48,8 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const tokenInfo = useCurrentTokenData();
-  const { accountSummary, totalPositionValue } = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { accountSummary, totalPositionValue } = accountPanelData;
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
   const { universe } = perpsSelectedSymbol;
   const updateForm = useCallback(
