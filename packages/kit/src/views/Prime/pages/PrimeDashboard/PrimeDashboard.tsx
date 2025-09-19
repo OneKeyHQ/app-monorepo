@@ -354,13 +354,11 @@ export default function PrimeDashboard({
             ) : null}
 
             {isReady ? (
-              <>
-                <PrimeBenefitsList
-                  selectedSubscriptionPeriod={selectedSubscriptionPeriod}
-                  networkId={route.params?.networkId}
-                  serverUserInfo={serverUserInfo}
-                />
-              </>
+              <PrimeBenefitsList
+                selectedSubscriptionPeriod={selectedSubscriptionPeriod}
+                networkId={route.params?.networkId}
+                serverUserInfo={serverUserInfo}
+              />
             ) : (
               <Spinner my="$10" />
             )}

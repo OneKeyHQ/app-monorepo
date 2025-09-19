@@ -4,6 +4,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
@@ -28,13 +29,8 @@ const PerpTradersHistoryListModalWithProvider = () => {
 
 export default function PerpTradersHistoryModal() {
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-      }}
-      enabledNum={[0]}
-    >
+    <PerpsAccountSelectorProviderMirror>
       <PerpTradersHistoryListModalWithProvider />
-    </AccountSelectorProviderMirror>
+    </PerpsAccountSelectorProviderMirror>
   );
 }

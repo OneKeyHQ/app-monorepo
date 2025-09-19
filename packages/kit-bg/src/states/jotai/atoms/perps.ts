@@ -8,9 +8,12 @@ import type {
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
+import type { IAccountDeriveTypes } from '../../../vaults/types';
+
 export interface IPerpsSelectedAccount {
   accountId: string | null;
   indexedAccountId: string | null;
+  deriveType: IAccountDeriveTypes;
   accountAddress: IHex | null;
 }
 export const {
@@ -22,6 +25,7 @@ export const {
     indexedAccountId: null,
     accountId: null,
     accountAddress: null,
+    deriveType: 'default',
   },
 });
 
