@@ -1015,7 +1015,8 @@ const BaseDevSettingsSection = () => {
                         renderContent: (
                           <YStack p="$4">
                             <SizableText>
-                              Error: {error?.message || 'Unknown error'}
+                              Error:{' '}
+                              {(error as Error)?.message || 'Unknown error'}
                             </SizableText>
                           </YStack>
                         ),
