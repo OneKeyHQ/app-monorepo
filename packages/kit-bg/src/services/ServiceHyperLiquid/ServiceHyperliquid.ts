@@ -652,4 +652,38 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     });
   }
+
+  @backgroundMethod()
+  async getTradingviewDisplayPriceScale(
+    symbol: string,
+  ): Promise<number | undefined> {
+    return this.backgroundApi.simpleDb.perp.getTradingviewDisplayPriceScale(
+      symbol,
+    );
+  }
+
+  @backgroundMethod()
+  async setTradingviewDisplayPriceScale({
+    symbol,
+    priceScale,
+  }: {
+    symbol: string;
+    priceScale: number;
+  }) {
+    if (!symbol || priceScale === undefined || priceScale === null) {
+      return;
+    }
+    const priceScaleBN = new BigNumber(priceScale);
+    if (
+      priceScaleBN.isNaN() ||
+      priceScaleBN.isNegative() ||
+      !priceScaleBN.isInteger()
+    ) {
+      return;
+    }
+    await this.backgroundApi.simpleDb.perp.updateTradingviewDisplayPriceScale({
+      symbol,
+      priceScale,
+    });
+  }
 }
