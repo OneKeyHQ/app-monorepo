@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Empty, Stack, Toast } from '@onekeyhq/components';
+import { Empty, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -14,6 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import debugUtils from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
+import { useTokenDetailsContext } from './TokenDetailsContext';
 import TokenDetailsHeader from './TokenDetailsHeader';
 import TokenDetailsHistory from './TokenDetailsHistory';
 
@@ -32,10 +33,13 @@ function TokenDetailsViews(props: IProps) {
     isAllNetworks,
     refreshAllNetworkState,
     allNetworksState,
+    tokenInfo,
   } = props;
 
   const [deriveInfo, setDeriveInfo] = useState(deriveInfoProp);
   const [deriveType, setDeriveType] = useState(deriveTypeProp);
+
+  const { setTokenAccountMap } = useTokenDetailsContext();
 
   const depsChecker =
     debugUtils.useDebugHooksDepsChangedChecker('TokenDetailsViews');
@@ -73,6 +77,10 @@ function TokenDetailsViews(props: IProps) {
     async (params: { accounts: IDBAccount[] } | undefined) => {
       if (params && params.accounts && params.accounts.length > 0) {
         setCurrentAccountId(params.accounts[0].id);
+        setTokenAccountMap((prev) => ({
+          ...prev,
+          [`${networkId}_${tokenInfo.address}`]: params.accounts[0].id,
+        }));
 
         if (
           isAllNetworks &&
@@ -97,7 +105,15 @@ function TokenDetailsViews(props: IProps) {
         }
       }
     },
-    [allNetworksState, isAllNetworks, networkId, refreshAllNetworkState, intl],
+    [
+      allNetworksState,
+      isAllNetworks,
+      networkId,
+      refreshAllNetworkState,
+      intl,
+      setTokenAccountMap,
+      tokenInfo.address,
+    ],
   );
 
   if (!currentAccountId) {

@@ -41,6 +41,7 @@ export type IModalAssetListParamList = {
       }
     >;
     aggregateTokensMap?: Record<string, ITokenFiat>;
+    accountAddress?: string;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
     walletId: string;
@@ -65,5 +66,6 @@ export type IModalAssetListParamList = {
     hideValue?: boolean;
     deriveType?: IAccountDeriveTypes;
     deriveInfo?: IAccountDeriveInfo;
+    accountAddress?: string;
   };
 };

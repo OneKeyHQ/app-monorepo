@@ -1180,7 +1180,7 @@
   "global.crop_image": "ครอบตัดรูปภาพ",
   "global.crypto": "คริปโต",
   "global.current": "ปัจจุบัน",
-  "global.current_of_total_confirmations": "ยืนยันแล้ว {current} จาก {total} รายการ",
+  "global.current_of_total_confirmations": "ยืนยันธุรกรรม: {current} / {total}",
   "global.customize_home_screen": "ปรับแต่งหน้าจอหลัก",
   "global.customize_nonce": "ปรับแต่ง nonce",
   "global.customize_nonce_desc": "เปิดสิ่งนี้เพื่อเปลี่ยน nonce (หมายเลขธุรกรรม) และควบคุมลำดับธุรกรรมของคุณบนการยืนยัน > การตั้งค่าล่วงหน้า นี่เป็นฟีเจอร์ขั้นสูง โปรดใช้ด้วยความระมัดระวัง",

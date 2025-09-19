@@ -1180,7 +1180,7 @@
   "global.crop_image": "Обрізати зображення",
   "global.crypto": "Крипто",
   "global.current": "Поточний",
-  "global.current_of_total_confirmations": "{current} з {total} підтверджень",
+  "global.current_of_total_confirmations": "Підтвердження {current} з {total}",
   "global.customize_home_screen": "Налаштувати головний екран",
   "global.customize_nonce": "Налаштувати nonce",
   "global.customize_nonce_desc": "Увімкніть це, щоб змінити nonce (номер транзакції) і контролювати своє замовлення транзакції після підтвердження > попередні налаштування. Це розширена функція, використовуйте її обережно.",

@@ -1180,7 +1180,7 @@
   "global.crop_image": "裁剪图片",
   "global.crypto": "币种",
   "global.current": "当前",
-  "global.current_of_total_confirmations": "{current} / {total} 次确认",
+  "global.current_of_total_confirmations": "第 {current} / {total} 笔交易确认",
   "global.customize_home_screen": "自定义主屏幕",
   "global.customize_nonce": "自定义随机数",
   "global.customize_nonce_desc": "启用此功能可更改 nonce（随机数，又为交易编号）并在交易确认 > 高级设置时控制交易顺序。这是一项高级功能，请谨慎使用。",

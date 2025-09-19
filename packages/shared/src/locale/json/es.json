@@ -1180,7 +1180,7 @@
   "global.crop_image": "Recortar imagen",
   "global.crypto": "Cripto",
   "global.current": "Actual",
-  "global.current_of_total_confirmations": "{current} de {total} confirmaciones",
+  "global.current_of_total_confirmations": "Confirmación {current} de {total}",
   "global.customize_home_screen": "Personalizar la pantalla de inicio",
   "global.customize_nonce": "Personalizar nonce",
   "global.customize_nonce_desc": "Active esta opción para cambiar el nonce (número de transacción) y controlar el orden de sus transacciones en la confirmación > configuración avanzada. Esta es una función avanzada, utilícela con precaución.",

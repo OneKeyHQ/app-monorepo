@@ -1180,7 +1180,7 @@
   "global.crop_image": "छवि को काटें",
   "global.crypto": "क्रिप्टो",
   "global.current": "वर्तमान",
-  "global.current_of_total_confirmations": "{total} में से {current} पुष्टियाँ",
+  "global.current_of_total_confirmations": "कुल {total} में से {current}वीं लेन-देन पुष्टि",
   "global.customize_home_screen": "होम स्क्रीन को अनुकूलित करें",
   "global.customize_nonce": "नॉन्स को अनुकूलित करें",
   "global.customize_nonce_desc": "नॉन्स (लेनदेन संख्या) बदलने और कन्फर्मेशन > एडवांस सेटिंग पर अपने लेनदेन क्रम को नियंत्रित करने के लिए इसे चालू करें। यह एक उन्नत सुविधा है, सावधानी से उपयोग करें।",

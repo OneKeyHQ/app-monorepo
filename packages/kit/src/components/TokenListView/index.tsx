@@ -447,15 +447,6 @@ function TokenListViewCmp(props: IProps) {
             isTokenSelector={isTokenSelector}
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
-            hasSameSymbolToken={
-              !!tokenList.tokens.find(
-                (token) =>
-                  token.$key !== item.$key &&
-                  token.symbol &&
-                  item.symbol &&
-                  token.symbol.toLowerCase() === item.symbol.toLowerCase(),
-              )
-            }
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&
