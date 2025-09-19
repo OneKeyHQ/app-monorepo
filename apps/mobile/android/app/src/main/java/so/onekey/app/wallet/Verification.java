@@ -367,7 +367,7 @@ public class Verification {
                 "\n" +
                 "{\n" +
                 "  \"fileName\": \"metadata.json\",\n" +
-                "  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faads18e9abd587e8bb85be0a003eba\",\n" +
+                "  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba\",\n" +
                 "  \"size\": 158590,\n" +
                 "  \"generatedAt\": \"2025-09-19T07:49:13.000Z\"\n" +
                 "}\n" +
@@ -422,7 +422,7 @@ public class Verification {
             // Parse the JSON content to extract sha256
             org.json.JSONObject jsonObject = new org.json.JSONObject(content);
             String expectedSha256 = jsonObject.getString("sha256");
-            return expectedSha256.equals("2ada9c871104fc40649fa3de67a7d8e33faads18e9abd587e8bb85be0a003eba") && extractedSha256.equals("df3249b2ffb84bc66530c6f93c6fbe8ed2bcdbc0576ed1657800c4a697316267");
+            return expectedSha256.equals("2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba") && extractedSha256.equals("df3249b2ffb84bc66530c6f93c6fbe8ed2bcdbc0576ed1657800c4a697316267");
         } catch (Exception e) {
             return false;
         }

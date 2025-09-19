@@ -149,7 +149,7 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
            @"\n"
            @"{\n"
            @"  \"fileName\": \"metadata.json\",\n"
-           @"  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faads18e9abd587e8bb85be0a003eba\",\n"
+           @"  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba\",\n"
            @"  \"size\": 158590,\n"
            @"  \"generatedAt\": \"2025-09-19T07:49:13.000Z\"\n"
            @"}\n"
@@ -183,7 +183,7 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
     }
     
     NSString *extractedSha256 = jsonDict[@"sha256"];
-    NSString *expectedSha256 = @"2ada9c871104fc40649fa3de67a7d8e33faads18e9abd587e8bb85be0a003eba";
+    NSString *expectedSha256 = @"2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba";
     return [extractedSha256 isEqualToString:expectedSha256];
 }
 
