@@ -40,10 +40,6 @@ const buildAndroidOutputAssetPath = (assetName) => {
   return path.join(bundleOutputPath, 'android', assetName);
 };
 
-const buildAndroidOutputBundlePath = (bundleName) => {
-  return path.join(bundleOutputPath, 'android', bundleName);
-};
-
 const cleanBundleOutput = async () => {
   fs.rmSync(webEmbedOutputPath, { recursive: true, force: true });
   fs.rmSync(bundleOutputPath, { recursive: true, force: true });
@@ -237,14 +233,12 @@ const buildIOSBundle = async () => {
       `${path.join(
         projectRootPath,
         'node_modules/@sentry/cli/bin/sentry-cli',
-      )}  sourcemaps upload \
-  --debug-id-reference \
-  --strip-prefix ${projectRootPath} \
-  ${buildIOSOutputAssetPath('main.jsbundle.hbc')} ${buildIOSOutputAssetPath(
-        'main.jsbundle.map',
-      )}`,
+      )} sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildIOSOutputAssetPath(
+        'main.jsbundle',
+      )} ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
       {
         stdio: 'inherit',
+        cwd: projectRootPath,
         env: {
           SENTRY_AUTH_TOKEN,
           SENTRY_ORG,
@@ -252,6 +246,7 @@ const buildIOSBundle = async () => {
         },
       },
     );
+
     log('build ios bundle upload source maps done');
   }
   const distPath = buildIOSOutputAssetPath('dist');
@@ -366,12 +361,13 @@ const buildAndroidBundle = async () => {
     const uploadSourceMapsCommand = `${path.join(
       projectRootPath,
       'node_modules/@sentry/cli/bin/sentry-cli',
-    )}  sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildAndroidOutputAssetPath(
+    )} sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildAndroidOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildAndroidOutputAssetPath('main.jsbundle.map')}`;
     console.log(uploadSourceMapsCommand);
     execSync(uploadSourceMapsCommand, {
       stdio: 'inherit',
+      cwd: projectRootPath,
       env: {
         SENTRY_AUTH_TOKEN,
         SENTRY_ORG,
