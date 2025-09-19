@@ -331,6 +331,7 @@ const buildAndroidBundle = async () => {
 ${buildAndroidOutputAssetPath('main.jsbundle')} ${buildAndroidOutputAssetPath(
       'main.jsbundle.map',
     )}`;
+    console.log(uploadSourceMapsCommand);
     execSync(uploadSourceMapsCommand, {
       stdio: 'inherit',
       env: {
