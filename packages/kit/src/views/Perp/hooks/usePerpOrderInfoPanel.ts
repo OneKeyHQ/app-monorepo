@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   usePerpsSelectedAccountAtom,
@@ -26,11 +26,34 @@ export function usePerpOrders() {
   return orders;
 }
 
+interface INewTradesHistory {
+  fill: IFill;
+  userId: string | null;
+  coinId: string;
+}
+
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsSelectedAccountAtom();
   const [currentToken] = usePerpsSelectedSymbolAtom();
   const { coin } = currentToken;
-  const [newTradesHistory, setNewTradesHistory] = useState<IFill[]>([]);
+  const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
+    [],
+  );
+  const newTradesHistoryRef = useRef<INewTradesHistory[]>([]);
+  useEffect(() => {
+    if (
+      !currentAccount?.accountAddress ||
+      newTradesHistoryRef.current.length === 0
+    ) {
+      return;
+    }
+    const filterNewTradesHistory = newTradesHistoryRef.current.filter(
+      (trade) =>
+        trade.coinId === coin &&
+        trade.userId === currentAccount?.accountAddress,
+    );
+    setNewTradesHistory(filterNewTradesHistory);
+  }, [currentAccount?.accountAddress, coin]);
   useEffect(() => {
     if (!currentAccount?.accountAddress) return;
 
@@ -61,7 +84,14 @@ export function usePerpTradesHistory() {
 
       if (relevantFills.length === 0) return;
 
-      setNewTradesHistory(relevantFills);
+      setNewTradesHistory((prev) => [
+        ...prev,
+        ...relevantFills.map((fill) => ({
+          fill,
+          userId: currentAccount?.accountAddress,
+          coinId: coin,
+        })),
+      ]);
     };
 
     appEventBus.on(
@@ -100,16 +130,23 @@ export function usePerpTradesHistory() {
     }
 
     const existingOrderIds = new Set(result.map((trade) => trade.oid));
-    const newUniqueTrades = newTradesHistory.filter(
-      (trade) => !existingOrderIds.has(trade.oid),
-    );
+    const newUniqueTrades = newTradesHistory
+      .filter(
+        (trade) =>
+          !existingOrderIds.has(trade.fill.oid) &&
+          trade.coinId === coin &&
+          trade.userId === currentAccount?.accountAddress,
+      )
+      .map((trade) => trade.fill);
 
     if (newUniqueTrades.length === 0) {
       return result;
     }
 
-    return [...result, ...newUniqueTrades].sort((a, b) => b.time - a.time);
-  }, [newTradesHistory, result]);
+    return [...result, ...newUniqueTrades]
+      .filter((t) => !t.coin.startsWith('@'))
+      ?.sort((a, b) => b.time - a.time);
+  }, [currentAccount?.accountAddress, coin, newTradesHistory, result]);
 
   return {
     trades: mergeTradesHistory,

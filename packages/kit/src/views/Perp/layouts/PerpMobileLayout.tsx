@@ -20,7 +20,7 @@ export function PerpMobileLayout() {
           </YStack>
         </XStack>
 
-        <YStack mt="$5">
+        <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
           <PerpOrderInfoPanel isMobile />
         </YStack>
       </YStack>

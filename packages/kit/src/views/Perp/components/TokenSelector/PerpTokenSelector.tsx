@@ -30,24 +30,18 @@ function BasePerpTokenSelectorContent({
 }) {
   const intl = useIntl();
   const { closePopover } = usePopoverContext();
-  const {
-    searchQuery,
-    setSearchQuery,
-    filteredTokens,
-    selectToken,
-    isLoading,
-  } = usePerpTokenSelector();
-
-  useEffect(() => {
-    onLoadingChange(isLoading);
-  }, [isLoading, onLoadingChange]);
+  const { searchQuery, setSearchQuery, filteredTokens, selectToken } =
+    usePerpTokenSelector();
 
   const handleSelectToken = async (symbol: string) => {
     try {
+      onLoadingChange(true);
       void closePopover?.();
       await selectToken(symbol);
     } catch (error) {
       console.error('Failed to switch token:', error);
+    } finally {
+      onLoadingChange(false);
     }
   };
 

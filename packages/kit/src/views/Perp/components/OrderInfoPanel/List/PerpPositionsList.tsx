@@ -228,6 +228,7 @@ function PerpPositionsList({
       />
     );
   };
+
   return (
     <CommonTableListView
       columns={columnsConfig}
