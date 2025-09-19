@@ -231,10 +231,6 @@ const buildIOSBundle = async () => {
     'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid done',
   );
 
-  log('build ios bundle remove packager map');
-  fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
-  log('build ios bundle remove packager map done');
-
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
     log('build ios bundle upload source maps');
     execSync(
