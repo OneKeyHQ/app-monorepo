@@ -22,7 +22,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
-  usePerpsConfigPersistAtom,
+  usePerpsCommonConfigPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -133,7 +133,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = usePrimeAuthV2();
-  const [{ perpConfigCommon }] = usePerpsConfigPersistAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [

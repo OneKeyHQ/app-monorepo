@@ -13,7 +13,7 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsConfigPersistAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsSelectedAccountAtom,
   usePerpsSelectedAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -39,7 +39,7 @@ export function PerpTradingButton({
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const [{ perpConfigCommon }] = usePerpsConfigPersistAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsSelectedAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();

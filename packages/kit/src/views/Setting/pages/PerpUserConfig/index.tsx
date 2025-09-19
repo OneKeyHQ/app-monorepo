@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 
 import { Page, Radio, XStack, startViewTransition } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePerpsConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsUserConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 function PerpUserConfig() {
-  const [{ perpUserConfig }] = usePerpsConfigPersistAtom();
+  const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();
   const setPerpUserConfig = useCallback(async (type: EPerpUserType) => {
     startViewTransition(() => {
       void backgroundApiProxy.serviceWebviewPerp.setPerpUserConfig(type);

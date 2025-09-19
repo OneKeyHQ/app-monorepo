@@ -1,9 +1,9 @@
 import { Alert } from '@onekeyhq/components';
-import { usePerpsConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export function PerpTips() {
-  const [{ perpConfigCommon }, settingsPersistAtom] =
-    usePerpsConfigPersistAtom();
+  const [{ perpConfigCommon }, setPerpsCommonConfigPersistAtom] =
+    usePerpsCommonConfigPersistAtom();
   if (
     !perpConfigCommon?.perpBannerConfig ||
     perpConfigCommon?.perpBannerClosedIds?.includes(
@@ -22,7 +22,7 @@ export function PerpTips() {
       closable={!!perpConfigCommon?.perpBannerConfig?.canClose}
       onClose={() => {
         if (perpConfigCommon?.perpBannerConfig?.id) {
-          void settingsPersistAtom((prev) => ({
+          void setPerpsCommonConfigPersistAtom((prev) => ({
             ...prev,
             perpConfigCommon: {
               ...prev.perpConfigCommon,

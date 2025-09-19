@@ -33,7 +33,8 @@ import type {
 import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
-  perpsConfigPersistAtom,
+  perpsCommonConfigPersistAtom,
+  perpsUserConfigPersistAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -42,7 +43,7 @@ import type {
   IHyperliquidCustomSettings,
   ISimpleDbPerpData,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type { IPerpsConfigPersistAtom } from '../../states/jotai/atoms';
+import type { IPerpsCommonConfigPersistAtom } from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -208,21 +209,23 @@ class ServiceWebviewPerp extends ServiceBase {
     bannerConfig,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
-    await perpsConfigPersistAtom.set((prev): IPerpsConfigPersistAtom => {
-      const newVal = perfUtils.buildNewValueIfChanged(prev, {
-        ...prev,
-        perpConfigCommon: {
-          ...prev.perpConfigCommon,
-          // usePerpWeb: true,
-          usePerpWeb: commonConfig?.usePerpWeb,
-          disablePerp: commonConfig?.disablePerp,
-          disablePerpActionPerp: commonConfig?.disablePerpActionPerp,
-          perpBannerConfig: bannerConfig,
-          ipDisablePerp: commonConfig?.ipDisablePerp,
-        },
-      });
-      return newVal;
-    });
+    await perpsCommonConfigPersistAtom.set(
+      (prev): IPerpsCommonConfigPersistAtom => {
+        const newVal = perfUtils.buildNewValueIfChanged(prev, {
+          ...prev,
+          perpConfigCommon: {
+            ...prev.perpConfigCommon,
+            // usePerpWeb: true,
+            usePerpWeb: commonConfig?.usePerpWeb,
+            disablePerp: commonConfig?.disablePerp,
+            disablePerpActionPerp: commonConfig?.disablePerpActionPerp,
+            perpBannerConfig: bannerConfig,
+            ipDisablePerp: commonConfig?.ipDisablePerp,
+          },
+        });
+        return newVal;
+      },
+    );
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -843,7 +846,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
-    await perpsConfigPersistAtom.set((prev) => ({
+    await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
     }));

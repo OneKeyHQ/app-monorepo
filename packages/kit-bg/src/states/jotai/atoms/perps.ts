@@ -32,18 +32,29 @@ export const {
   },
 });
 
-export interface IPerpsConfigPersistAtom {
+export interface IPerpsCommonConfigPersistAtom {
   perpConfigCommon: IPerpCommonConfig;
-  perpUserConfig: IPerpUserConfig;
 }
 export const {
-  target: perpsConfigPersistAtom,
-  use: usePerpsConfigPersistAtom,
-} = globalAtom<IPerpsConfigPersistAtom>({
-  name: EAtomNames.perpsConfigPersistAtom,
+  target: perpsCommonConfigPersistAtom,
+  use: usePerpsCommonConfigPersistAtom,
+} = globalAtom<IPerpsCommonConfigPersistAtom>({
+  name: EAtomNames.perpsCommonConfigPersistAtom,
   persist: true,
   initialValue: {
     perpConfigCommon: {},
+  },
+});
+export interface IPerpsUserConfigPersistAtom {
+  perpUserConfig: IPerpUserConfig;
+}
+export const {
+  target: perpsUserConfigPersistAtom,
+  use: usePerpsUserConfigPersistAtom,
+} = globalAtom<IPerpsUserConfigPersistAtom>({
+  name: EAtomNames.perpsUserConfigPersistAtom,
+  persist: true,
+  initialValue: {
     perpUserConfig: {
       currentUserType: EPerpUserType.PERP_NATIVE,
     },
