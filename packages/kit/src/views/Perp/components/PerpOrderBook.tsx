@@ -12,7 +12,9 @@ import {
 import {
   useCurrentTokenPriceAtom,
   useHyperliquidActions,
+  useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
@@ -85,6 +87,7 @@ export function PerpOrderBook({
 }) {
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
+  const [formData] = useTradingFormAtom();
   const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
   const prevSymbolRef = useRef<string | undefined>(undefined);
   const { l2Book, hasOrderBook } = useL2Book({
@@ -115,10 +118,17 @@ export function PerpOrderBook({
 
   const handleLevelSelect = useCallback(
     (selection: IOrderBookSelection) => {
-      console.log('OrderBook level selected: =>>>: ', selection);
-      actionsRef.current.updateTradingForm({ price: selection.price });
+      const updates: Partial<ITradingFormData> = {
+        price: selection.price,
+      };
+
+      if (formData.type !== 'limit') {
+        updates.type = 'limit';
+      }
+
+      actionsRef.current.updateTradingForm(updates);
     },
-    [actionsRef],
+    [actionsRef, formData.type],
   );
 
   const mobileOrderBook = useMemo(() => {
