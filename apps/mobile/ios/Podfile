@@ -122,4 +122,5 @@ target 'OneKeyWallet' do
     end
   end
 
+  pod 'ObjectivePGP', "1.0"
 end

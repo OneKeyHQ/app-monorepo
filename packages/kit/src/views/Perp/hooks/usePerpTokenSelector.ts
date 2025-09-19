@@ -41,7 +41,6 @@ export interface IPerpTokenSelectorReturn {
 export function usePerpTokenSelector() {
   const [currentToken] = useCurrentTokenAtom();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const actions = useHyperliquidActions();
 
   const { data: tokenList } = useTokenList();
@@ -76,8 +75,6 @@ export function usePerpTokenSelector() {
   const selectToken = useCallback(
     async (symbol: string) => {
       if (symbol === currentToken) return;
-
-      setIsLoading(true);
       try {
         await backgroundApiProxy.serviceHyperliquid.changeSelectedSymbol({
           coin: symbol,
@@ -85,8 +82,6 @@ export function usePerpTokenSelector() {
         await actions.current.setCurrentToken(symbol);
       } catch (error) {
         console.error('[PerpTokenSelector] Failed to select token:', error);
-      } finally {
-        setIsLoading(false);
       }
     },
     [currentToken, actions],
@@ -104,6 +99,5 @@ export function usePerpTokenSelector() {
     setSearchQuery,
     selectToken,
     clearSearch,
-    isLoading,
   };
 }

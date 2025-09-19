@@ -1,16 +1,22 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type {
-  IHex,
-  IMarginTable,
-  IPerpsUniverse,
+import {
+  EPerpUserType,
+  type IHex,
+  type IMarginTable,
+  type IPerpCommonConfig,
+  type IPerpUserConfig,
+  type IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
 
+import type { IAccountDeriveTypes } from '../../../vaults/types';
+
 export interface IPerpsSelectedAccount {
   accountId: string | null;
   indexedAccountId: string | null;
+  deriveType: IAccountDeriveTypes;
   accountAddress: IHex | null;
 }
 export const {
@@ -22,6 +28,36 @@ export const {
     indexedAccountId: null,
     accountId: null,
     accountAddress: null,
+    deriveType: 'default',
+  },
+});
+
+export interface IPerpsCommonConfigPersistAtom {
+  perpConfigCommon: IPerpCommonConfig;
+}
+export const {
+  target: perpsCommonConfigPersistAtom,
+  use: usePerpsCommonConfigPersistAtom,
+} = globalAtom<IPerpsCommonConfigPersistAtom>({
+  name: EAtomNames.perpsCommonConfigPersistAtom,
+  persist: true,
+  initialValue: {
+    perpConfigCommon: {},
+  },
+});
+export interface IPerpsUserConfigPersistAtom {
+  perpUserConfig: IPerpUserConfig;
+}
+export const {
+  target: perpsUserConfigPersistAtom,
+  use: usePerpsUserConfigPersistAtom,
+} = globalAtom<IPerpsUserConfigPersistAtom>({
+  name: EAtomNames.perpsUserConfigPersistAtom,
+  persist: true,
+  initialValue: {
+    perpUserConfig: {
+      currentUserType: EPerpUserType.PERP_NATIVE,
+    },
   },
 });
 

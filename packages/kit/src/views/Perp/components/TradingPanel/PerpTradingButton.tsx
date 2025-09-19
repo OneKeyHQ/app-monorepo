@@ -13,10 +13,12 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsSelectedAccountAtom,
   usePerpsSelectedAccountStatusAtom,
-  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
@@ -37,8 +39,7 @@ export function PerpTradingButton({
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const [{ perpConfigCommon }] = useSettingsPersistAtom();
-
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [perpsAccount] = usePerpsSelectedAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
@@ -75,7 +76,7 @@ export function PerpTradingButton({
       isNoEnoughMargin ||
       isAccountLoading ||
       (perpsAccountStatus.canTrade &&
-        (perpConfigCommon?.disablePerpActionButton ||
+        (perpConfigCommon?.disablePerpActionPerp ||
           perpConfigCommon?.ipDisablePerp))
     );
   }, [
@@ -84,10 +85,9 @@ export function PerpTradingButton({
     isSubmitting,
     isNoEnoughMargin,
     isAccountLoading,
-    perpConfigCommon?.disablePerpActionButton,
+    perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
   ]);
-
   const buttonText = useMemo(() => {
     if (isSubmitting)
       return intl.formatMessage({
@@ -150,12 +150,21 @@ export function PerpTradingButton({
   }
 
   if (!perpsAccount?.accountAddress) {
-    if (activeAccount.canCreateAddress) {
+    const canCreateAddress = !!perpsAccount.indexedAccountId;
+    if (canCreateAddress) {
+      const createAddressAccount = {
+        ...selectedAccount,
+        deriveType: perpsAccount.deriveType,
+        indexedAccountId:
+          perpsAccount.indexedAccountId || selectedAccount.indexedAccountId,
+        // networkId: PERPS_NETWORK_ID,
+        networkId: getNetworkIdsMap().onekeyall,
+      };
       return (
         <AccountSelectorCreateAddressButton
           autoCreateAddress={false}
           num={0}
-          account={selectedAccount}
+          account={createAddressAccount}
           buttonRender={createAddressButtonRender}
         />
       );

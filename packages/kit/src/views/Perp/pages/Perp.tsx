@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useFocusEffect } from '@react-navigation/native';
 
 import { Image, Page, XStack, useMedia } from '@onekeyhq/components';
@@ -6,11 +8,13 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
+import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
+import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
 function PerpLayout() {
@@ -21,36 +25,54 @@ function PerpLayout() {
   return <PerpMobileLayout />;
 }
 
-function PerpContent() {
+function PerpContentFooter() {
   const { gtSm } = useMedia();
+  const themeVariant = useThemeVariant();
+  return gtSm ? (
+    <Page.Footer>
+      <XStack
+        borderTopWidth="$px"
+        borderTopColor="$borderSubdued"
+        bg="$bgApp"
+        h={40}
+        alignItems="center"
+        p="$4"
+        justifyContent="flex-end"
+      >
+        <Image
+          source={
+            themeVariant === 'light'
+              ? require('../../../../assets/PoweredByHyperliquidLight.svg')
+              : require('../../../../assets/PoweredByHyperliquidDark.svg')
+          }
+          size={170}
+          resizeMode="contain"
+        />
+      </XStack>
+    </Page.Footer>
+  ) : null;
+}
+
+function PerpContent() {
+  console.log('PerpContent render');
+
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Perp}
+        customHeaderRightItems={
+          <PerpsAccountSelectorProviderMirror>
+            <PerpsProviderMirror>
+              <PerpAccountPanel ifOnHeader />
+            </PerpsProviderMirror>
+          </PerpsAccountSelectorProviderMirror>
+        }
       />
       <Page.Body>
         <PerpLayout />
       </Page.Body>
-      {gtSm ? (
-        <Page.Footer>
-          <XStack
-            borderTopWidth="$px"
-            borderTopColor="$borderSubdued"
-            bg="$bgApp"
-            h={40}
-            alignItems="center"
-            p="$4"
-            justifyContent="flex-end"
-          >
-            <Image
-              source={require('../../../../assets/PoweredByHyperliquid.svg')}
-              size={170}
-              resizeMode="contain"
-            />
-          </XStack>
-        </Page.Footer>
-      ) : null}
+      <PerpContentFooter />
     </Page>
   );
 }
@@ -60,17 +82,11 @@ export default function Perp() {
     void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
   });
   return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+    <PerpsAccountSelectorProviderMirror>
+      <PerpsProviderMirror>
         <PerpsGlobalEffects />
         <PerpContent />
       </PerpsProviderMirror>
-    </AccountSelectorProviderMirror>
+    </PerpsAccountSelectorProviderMirror>
   );
 }

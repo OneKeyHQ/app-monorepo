@@ -107,13 +107,17 @@ const LeverageContent = memo(
             <Input
               containerProps={{
                 borderRadius: '$3',
+                p: 0,
+              }}
+              InputComponentStyle={{
+                p: 0,
               }}
               size="medium"
               alignItems="center"
               value={value ? value.toString() : ''}
               onChangeText={handleInputChange}
               keyboardType="numeric"
-              width={40}
+              width={30}
               textAlign="right"
               disabled={loading}
               addOns={[
@@ -128,10 +132,16 @@ const LeverageContent = memo(
             />
           </XStack>
         </YStack>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_leverage_maximum_desc,
-          })}
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {intl.formatMessage(
+            {
+              id: ETranslations.perp_leverage_desc_warning,
+            },
+            {
+              token: tokenInfo.name,
+              leverage: maxLeverage,
+            },
+          )}
         </SizableText>
 
         <Dialog.Footer
@@ -172,15 +182,7 @@ export const LeverageAdjustModal = memo(() => {
       title: intl.formatMessage({
         id: ETranslations.perp_trading_adjust_leverage,
       }),
-      description: intl.formatMessage(
-        {
-          id: ETranslations.perp_leverage_desc,
-        },
-        {
-          token: tokenInfo.name,
-          leverage: maxLeverage,
-        },
-      ),
+
       renderContent: (
         <LeverageContent
           initialValue={initialValue}

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -15,7 +15,10 @@ import {
   useIsShowMyOneKeyOnTabbar,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsCommonConfigPersistAtom,
+  usePerpsUserConfigPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -70,7 +73,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
-  const [{ perpConfigCommon, perpUserConfig }] = useSettingsPersistAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();
   const isShowMDDiscover = useMemo(
     () =>
       !isShowDesktopDiscover &&

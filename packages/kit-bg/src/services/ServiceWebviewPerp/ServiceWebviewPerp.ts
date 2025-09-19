@@ -19,6 +19,7 @@ import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLoc
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
+import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -31,14 +32,18 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  perpsCommonConfigPersistAtom,
+  perpsUserConfigPersistAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type {
   IHyperliquidCustomSettings,
   ISimpleDbPerpData,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type { ISettingsPersistAtom } from '../../states/jotai/atoms';
+import type { IPerpsCommonConfigPersistAtom } from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -148,27 +153,29 @@ export enum EPerpDefaultTabType {
   Native = 'native',
   Web = 'web',
 }
-export interface IPerpBannerConfig {
+export interface IPerpServerBannerConfig {
   id: string;
   title: string;
   description: string;
   canClose?: boolean;
 }
 
-export interface IPerReferrerConfig {
+export interface IPerpServerReferrerConfig {
   referrerAddress?: string;
   referrerRate?: number;
+  agentTTL?: number;
+  referralCode?: string;
 }
 
-export interface IPerpCommonConfig {
+export interface IPerpServerCommonConfig {
   usePerpWeb?: boolean;
   disablePerp?: boolean;
-  disablePerpActionButton?: boolean;
+  disablePerpActionPerp?: boolean;
   ipDisablePerp?: boolean;
 }
 
-export interface IPerpConfigResponse {
-  referrerConfig: IPerReferrerConfig;
+export interface IPerpServerConfigResponse {
+  referrerConfig: IPerpServerReferrerConfig;
   customSettings?: IHyperliquidCustomSettings;
   customLocalStorage?: Record<string, any>;
   customLocalStorageV2?: Record<
@@ -178,8 +185,8 @@ export interface IPerpConfigResponse {
       skipIfExists?: boolean;
     }
   >;
-  commonConfig?: IPerpCommonConfig;
-  bannerConfig?: IPerpBannerConfig;
+  commonConfig?: IPerpServerCommonConfig;
+  bannerConfig?: IPerpServerBannerConfig;
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
@@ -200,21 +207,24 @@ class ServiceWebviewPerp extends ServiceBase {
     customLocalStorageV2,
     commonConfig,
     bannerConfig,
-  }: IPerpConfigResponse) {
+  }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
-    await settingsPersistAtom.set(
-      (prev): ISettingsPersistAtom => ({
-        ...prev,
-        perpConfigCommon: {
-          ...prev.perpConfigCommon,
-          // usePerpWeb: true,
-          usePerpWeb: commonConfig?.usePerpWeb,
-          disablePerp: commonConfig?.disablePerp,
-          disablePerpActionButton: commonConfig?.disablePerpActionButton,
-          perpBannerConfig: bannerConfig,
-          ipDisablePerp: commonConfig?.ipDisablePerp,
-        },
-      }),
+    await perpsCommonConfigPersistAtom.set(
+      (prev): IPerpsCommonConfigPersistAtom => {
+        const newVal = perfUtils.buildNewValueIfChanged(prev, {
+          ...prev,
+          perpConfigCommon: {
+            ...prev.perpConfigCommon,
+            // usePerpWeb: true,
+            usePerpWeb: commonConfig?.usePerpWeb,
+            disablePerp: commonConfig?.disablePerp,
+            disablePerpActionPerp: commonConfig?.disablePerpActionPerp,
+            perpBannerConfig: bannerConfig,
+            ipDisablePerp: commonConfig?.ipDisablePerp,
+          },
+        });
+        return newVal;
+      },
     );
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
@@ -227,6 +237,8 @@ class ServiceWebviewPerp extends ServiceBase {
           hyperliquidMaxBuilderFee: isNil(referrerConfig?.referrerRate)
             ? prev?.hyperliquidMaxBuilderFee
             : referrerConfig?.referrerRate,
+          agentTTL: referrerConfig.agentTTL ?? prev?.agentTTL,
+          referralCode: referrerConfig.referralCode || prev?.referralCode,
           hyperliquidCustomSettings:
             customSettings || prev?.hyperliquidCustomSettings,
           hyperliquidCustomLocalStorage:
@@ -655,9 +667,9 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async updateBuilderFeeConfigByServer() {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const resp = await client.get<IApiClientResponse<IPerpConfigResponse>>(
-      '/utility/v1/perp-config',
-    );
+    const resp = await client.get<
+      IApiClientResponse<IPerpServerConfigResponse>
+    >('/utility/v1/perp-config');
     const resData = resp.data;
 
     if (process.env.NODE_ENV !== 'production') {
@@ -834,7 +846,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
-    await settingsPersistAtom.set((prev) => ({
+    await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
     }));
