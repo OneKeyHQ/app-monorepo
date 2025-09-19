@@ -9,14 +9,23 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useCurrentTokenPriceAtom,
+  useHyperliquidActions,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
 import { useL2Book } from '../hooks/usePerpMarketData';
 import { usePerpSession } from '../hooks/usePerpSession';
 
-import { OrderBook, OrderBookMobile, OrderPairBook } from './OrderBook';
+import {
+  type IOrderBookSelection,
+  OrderBook,
+  OrderBookMobile,
+} from './OrderBook';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
@@ -77,6 +86,8 @@ export function PerpOrderBook({
   entry?: 'perpTab' | 'perpMobileMarket';
 }) {
   const { gtMd } = useMedia();
+  const actionsRef = useHyperliquidActions();
+  const [formData] = useTradingFormAtom();
   const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
   const prevSymbolRef = useRef<string | undefined>(undefined);
   const { l2Book, hasOrderBook } = useL2Book({
@@ -105,6 +116,21 @@ export function PerpOrderBook({
     setSelectedTickOption(option);
   }, []);
 
+  const handleLevelSelect = useCallback(
+    (selection: IOrderBookSelection) => {
+      const updates: Partial<ITradingFormData> = {
+        price: selection.price,
+      };
+
+      if (formData.type !== 'limit') {
+        updates.type = 'limit';
+      }
+
+      actionsRef.current.updateTradingForm(updates);
+    },
+    [actionsRef, formData.type],
+  );
+
   const mobileOrderBook = useMemo(() => {
     if (!hasOrderBook || !l2Book) return null;
     if (gtMd) return null;
@@ -122,6 +148,7 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={tickOptionsData.priceDecimals}
           sizeDecimals={tickOptionsData.sizeDecimals}
+          onSelectLevel={handleLevelSelect}
         />
       );
     }
@@ -139,6 +166,7 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={tickOptionsData.priceDecimals}
           sizeDecimals={tickOptionsData.sizeDecimals}
+          onSelectLevel={handleLevelSelect}
         />
       </>
     );
@@ -147,6 +175,7 @@ export function PerpOrderBook({
     gtMd,
     handleTickOptionChange,
     l2Book,
+    handleLevelSelect,
     selectedTickOption,
     tickOptionsData,
     hasOrderBook,
@@ -177,6 +206,7 @@ export function PerpOrderBook({
           showTickSelector
           priceDecimals={tickOptionsData.priceDecimals}
           sizeDecimals={tickOptionsData.sizeDecimals}
+          onSelectLevel={handleLevelSelect}
         />
       ) : (
         mobileOrderBook
