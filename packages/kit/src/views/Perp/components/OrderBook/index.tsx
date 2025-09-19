@@ -1,12 +1,22 @@
+/* eslint-disable spellcheck/spell-checker */
+
 import { useCallback, useMemo } from 'react';
 
 import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -18,9 +28,23 @@ import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
 import type { IOBLevel } from './types';
-import type { DimensionValue, StyleProp, ViewStyle } from 'react-native';
+import type {
+  DimensionValue,
+  PressableStateCallbackType,
+  StyleProp,
+  ViewStyle,
+} from 'react-native';
 
 export const rowHeight = 24;
+
+type IWebPointerStyle = ViewStyle & { cursor?: string };
+
+const getPressableHoverState = (state: PressableStateCallbackType): boolean => {
+  if (!platformEnv.isNative) {
+    return Boolean((state as { hovered?: boolean }).hovered);
+  }
+  return state.pressed;
+};
 
 export const defaultMidPriceNode = (midPrice: string) => (
   <Text>{midPrice}</Text>
@@ -63,6 +87,8 @@ interface IOrderBookProps {
   priceDecimals?: number;
   /** Size decimal places */
   sizeDecimals?: number;
+  /** Callback when a price level is selected */
+  onSelectLevel?: (payload: IOrderBookSelection) => void;
 }
 
 const styles = StyleSheet.create({
@@ -104,6 +130,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
+  },
+  monospaceTextBold: {
+    fontWeight: '600',
+  },
+  interactiveRow: {
+    height: rowHeight,
+    marginTop: 1,
+    position: 'relative',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  interactiveRowContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    alignItems: 'center',
   },
   colorBlock: {
     position: 'relative',
@@ -202,6 +245,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  pointer: {
+    cursor: 'pointer',
+  } as IWebPointerStyle,
 });
 
 type IColorBlockProps = {
@@ -210,6 +256,14 @@ type IColorBlockProps = {
   left?: number;
   right?: number;
   height?: number;
+};
+
+export type IOrderBookSelection = {
+  price: string;
+  size: string;
+  cumSize: string;
+  side: 'bid' | 'ask';
+  index: number;
 };
 
 function ColorBlock({ color, width, left, right, height }: IColorBlockProps) {
@@ -233,16 +287,19 @@ function OrderBookVerticalRow({
   item,
   priceColor,
   sizeColor,
+  isHovered = false,
 }: {
   item: IOBLevel;
   priceColor: string;
   sizeColor: string;
+  isHovered?: boolean;
 }) {
+  const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
   return (
     <View style={styles.verticalRowContainer}>
       <View style={styles.verticalRowCellPrice}>
         <Text
-          style={[styles.monospaceText, { color: priceColor }]}
+          style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
           numberOfLines={1}
         >
           {item.price}
@@ -251,7 +308,7 @@ function OrderBookVerticalRow({
       <View style={styles.verticalRowCellSize}>
         <Text
           numberOfLines={1}
-          style={[styles.monospaceText, { color: sizeColor }]}
+          style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
         >
           {item.size}
         </Text>
@@ -259,7 +316,7 @@ function OrderBookVerticalRow({
       <View style={styles.verticalRowCellTotal}>
         <Text
           numberOfLines={1}
-          style={[styles.monospaceText, { color: sizeColor }]}
+          style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
         >
           {item.cumSize}
         </Text>
@@ -326,6 +383,7 @@ export function OrderBook({
   showTickSelector = true,
   priceDecimals = 2,
   sizeDecimals = 4,
+  onSelectLevel,
 }: IOrderBookProps) {
   // Handle tick option change
   const handleTickOptionChange = useCallback(
@@ -355,6 +413,7 @@ export function OrderBook({
   const blockColors = useBlockColors();
   const textColor = useTextColor();
   const spreadColor = useSpreadColor();
+  const isInteractive = Boolean(onSelectLevel);
 
   // Calculate spread percentage from best bid/ask
   const spreadPercentage = useMemo(() => {
@@ -368,6 +427,23 @@ export function OrderBook({
     return calculateSpreadPercentage(bestBid, bestAsk);
   }, [aggregatedData.bids, aggregatedData.asks]);
   const intl = useIntl();
+
+  const handleSelectLevel = useCallback(
+    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+      if (!onSelectLevel) {
+        return;
+      }
+      onSelectLevel({
+        price: item.price,
+        size: item.size,
+        cumSize: item.cumSize,
+        side,
+        index,
+      });
+    },
+    [onSelectLevel],
+  );
+
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
@@ -441,82 +517,84 @@ export function OrderBook({
               <View style={styles.levelListContainer}>
                 <View style={styles.levelList}>
                   {aggregatedData.bids.map((item, index) => (
-                    <View
+                    <Pressable
                       key={index}
-                      style={{
-                        height: 24,
-                        alignItems: 'center',
-                        marginTop: 1,
-                        position: 'relative',
-                      }}
+                      onPress={() => handleSelectLevel('bid', item, index)}
+                      disabled={!isInteractive}
+                      style={() => [
+                        styles.interactiveRow,
+                        isInteractive && !platformEnv.isNative
+                          ? styles.pointer
+                          : null,
+                      ]}
                     >
-                      <View
-                        style={{
-                          flex: 1,
-                          flexDirection: 'row',
-                          justifyContent: 'space-between',
-                          width: '100%',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.monospaceText,
-                            { color: textColor.textSubdued },
-                          ]}
-                        >
-                          {item.size}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monospaceText,
-                            { color: textColor.green },
-                          ]}
-                        >
-                          {item.price}
-                        </Text>
-                      </View>
-                    </View>
+                      {(state) => {
+                        const isHovered = getPressableHoverState(state);
+                        return (
+                          <View style={styles.interactiveRowContent}>
+                            <Text
+                              style={[
+                                styles.monospaceText,
+                                { color: textColor.textSubdued },
+                                isHovered ? styles.monospaceTextBold : null,
+                              ]}
+                            >
+                              {item.size}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.monospaceText,
+                                { color: textColor.green },
+                                isHovered ? styles.monospaceTextBold : null,
+                              ]}
+                            >
+                              {item.price}
+                            </Text>
+                          </View>
+                        );
+                      }}
+                    </Pressable>
                   ))}
                 </View>
                 <View style={styles.levelList}>
                   {aggregatedData.asks.map((item, index) => (
-                    <View
+                    <Pressable
                       key={index}
-                      style={{
-                        height: 24,
-                        alignItems: 'center',
-                        marginTop: 1,
-                        position: 'relative',
-                      }}
+                      onPress={() => handleSelectLevel('ask', item, index)}
+                      disabled={!isInteractive}
+                      style={() => [
+                        styles.interactiveRow,
+                        isInteractive && !platformEnv.isNative
+                          ? styles.pointer
+                          : null,
+                      ]}
                     >
-                      <View
-                        style={{
-                          flex: 1,
-                          alignItems: 'center',
-                          width: '100%',
-                          flexDirection: 'row',
-                          justifyContent: 'space-between',
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.monospaceText,
-                            { color: textColor.red },
-                          ]}
-                        >
-                          {item.price}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.monospaceText,
-                            { color: textColor.text },
-                          ]}
-                        >
-                          {item.size}
-                        </Text>
-                      </View>
-                    </View>
+                      {(state) => {
+                        const isHovered = getPressableHoverState(state);
+                        return (
+                          <View style={styles.interactiveRowContent}>
+                            <Text
+                              style={[
+                                styles.monospaceText,
+                                { color: textColor.red },
+                                isHovered ? styles.monospaceTextBold : null,
+                              ]}
+                            >
+                              {item.price}
+                            </Text>
+                            <Text
+                              style={[
+                                styles.monospaceText,
+                                { color: textColor.text },
+                                isHovered ? styles.monospaceTextBold : null,
+                              ]}
+                            >
+                              {item.size}
+                            </Text>
+                          </View>
+                        );
+                      }}
+                    </Pressable>
                   ))}
                 </View>
               </View>
@@ -589,15 +667,33 @@ export function OrderBook({
           ))}
         </View>
         <View style={styles.absoluteContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => (
-            <View key={index} style={styles.blockRow}>
-              <OrderBookVerticalRow
-                item={itemData}
-                priceColor={textColor.red}
-                sizeColor={textColor.textSubdued}
-              />
-            </View>
-          ))}
+          {aggregatedData.asks.toReversed().map((itemData, index) => {
+            const originalIndex = aggregatedData.asks.length - 1 - index;
+            return (
+              <Pressable
+                key={index}
+                disabled={!isInteractive}
+                onPress={() =>
+                  handleSelectLevel('ask', itemData, originalIndex)
+                }
+                style={() => [
+                  styles.blockRow,
+                  isInteractive && !platformEnv.isNative
+                    ? styles.pointer
+                    : null,
+                ]}
+              >
+                {(state) => (
+                  <OrderBookVerticalRow
+                    item={itemData}
+                    priceColor={textColor.red}
+                    sizeColor={textColor.textSubdued}
+                    isHovered={getPressableHoverState(state)}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
           <View
             key="mid"
             style={[
@@ -659,13 +755,24 @@ export function OrderBook({
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (
-            <View key={index} style={styles.blockRow}>
-              <OrderBookVerticalRow
-                item={itemData}
-                priceColor={textColor.green}
-                sizeColor={textColor.textSubdued}
-              />
-            </View>
+            <Pressable
+              key={index}
+              disabled={!isInteractive}
+              onPress={() => handleSelectLevel('bid', itemData, index)}
+              style={() => [
+                styles.blockRow,
+                isInteractive && !platformEnv.isNative ? styles.pointer : null,
+              ]}
+            >
+              {(state) => (
+                <OrderBookVerticalRow
+                  item={itemData}
+                  priceColor={textColor.green}
+                  sizeColor={textColor.textSubdued}
+                  isHovered={getPressableHoverState(state)}
+                />
+              )}
+            </Pressable>
           ))}
         </View>
       </View>
@@ -677,11 +784,14 @@ function OrderBookPairRow({
   item,
   priceColor,
   sizeColor,
+  isHovered = false,
 }: {
   item: IOBLevel;
   priceColor: string;
   sizeColor: string;
+  isHovered?: boolean;
 }) {
+  const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
   return (
     <View
       style={{
@@ -692,10 +802,14 @@ function OrderBookPairRow({
         alignItems: 'center',
       }}
     >
-      <Text style={[styles.monospaceText, { color: priceColor }]}>
+      <Text
+        style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
+      >
         {item.price}
       </Text>
-      <Text style={[styles.monospaceText, { color: sizeColor }]}>
+      <Text
+        style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
+      >
         {item.size}
       </Text>
     </View>
@@ -708,12 +822,14 @@ export function OrderPairBook({
   asks,
   maxLevelsPerSide = 30,
   selectedTickOption,
+  onSelectLevel,
 }: {
   symbol?: string;
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
   asks: IBookLevel[];
   selectedTickOption?: ITickParam;
+  onSelectLevel?: (payload: IOrderBookSelection) => void;
 }) {
   const intl = useIntl();
   const aggregatedData = useAggregatedBook(
@@ -736,6 +852,23 @@ export function OrderPairBook({
   );
   const textColor = useTextColor();
   const blockColors = useBlockColors();
+  const isInteractive = Boolean(onSelectLevel);
+
+  const handleSelectLevel = useCallback(
+    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+      if (!onSelectLevel) {
+        return;
+      }
+      onSelectLevel({
+        price: item.price,
+        size: item.size,
+        cumSize: item.cumSize,
+        side,
+        index,
+      });
+    },
+    [onSelectLevel],
+  );
 
   // Calculate spread percentage from best bid/ask
   const spreadPercentage = useMemo(() => {
@@ -782,13 +915,24 @@ export function OrderPairBook({
         </View>
         <View style={styles.absoluteContainer}>
           {aggregatedData.asks.map((itemData, index) => (
-            <View key={index} style={styles.pairBookRow}>
-              <OrderBookPairRow
-                item={itemData}
-                priceColor={textColor.red}
-                sizeColor={textColor.textSubdued}
-              />
-            </View>
+            <Pressable
+              key={index}
+              disabled={!isInteractive}
+              onPress={() => handleSelectLevel('ask', itemData, index)}
+              style={() => [
+                styles.pairBookRow,
+                isInteractive && !platformEnv.isNative ? styles.pointer : null,
+              ]}
+            >
+              {(state) => (
+                <OrderBookPairRow
+                  item={itemData}
+                  priceColor={textColor.red}
+                  sizeColor={textColor.textSubdued}
+                  isHovered={getPressableHoverState(state)}
+                />
+              )}
+            </Pressable>
           ))}
           <View style={styles.pairBookSpreadRow}>
             <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
@@ -802,13 +946,24 @@ export function OrderPairBook({
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (
-            <View key={index} style={styles.pairBookRow}>
-              <OrderBookPairRow
-                item={itemData}
-                priceColor={textColor.green}
-                sizeColor={textColor.textSubdued}
-              />
-            </View>
+            <Pressable
+              key={index}
+              disabled={!isInteractive}
+              onPress={() => handleSelectLevel('bid', itemData, index)}
+              style={() => [
+                styles.pairBookRow,
+                isInteractive && !platformEnv.isNative ? styles.pointer : null,
+              ]}
+            >
+              {(state) => (
+                <OrderBookPairRow
+                  item={itemData}
+                  priceColor={textColor.green}
+                  sizeColor={textColor.textSubdued}
+                  isHovered={getPressableHoverState(state)}
+                />
+              )}
+            </Pressable>
           ))}
         </View>
       </View>
@@ -824,10 +979,12 @@ const MobileRow = ({
   item,
   priceColor,
   sizeColor,
+  isHovered = false,
 }: {
   item: IOBLevel;
   priceColor: string;
   sizeColor: string;
+  isHovered?: boolean;
 }) => (
   <View
     style={{
@@ -842,7 +999,12 @@ const MobileRow = ({
       numberOfLines={1}
       style={[
         styles.monospaceText,
-        { color: priceColor, fontSize: 11, lineHeight: 14 },
+        {
+          color: priceColor,
+          fontSize: 11,
+          lineHeight: 14,
+        },
+        isHovered ? styles.monospaceTextBold : null,
       ]}
     >
       {item.price}
@@ -851,7 +1013,12 @@ const MobileRow = ({
       numberOfLines={1}
       style={[
         styles.monospaceText,
-        { color: sizeColor, fontSize: 11, lineHeight: 14 },
+        {
+          color: sizeColor,
+          fontSize: 11,
+          lineHeight: 14,
+        },
+        isHovered ? styles.monospaceTextBold : null,
       ]}
     >
       {item.size}
@@ -870,6 +1037,7 @@ export function OrderBookMobile({
   priceDecimals = 2,
   sizeDecimals = 3,
   style,
+  onSelectLevel,
 }: IOrderBookProps) {
   const intl = useIntl();
   const { markPrice, oraclePrice } = usePerpMarketData();
@@ -896,6 +1064,23 @@ export function OrderBookMobile({
 
   const textColor = useTextColor();
   const blockColors = useBlockColorsMobile();
+  const isInteractive = Boolean(onSelectLevel);
+
+  const handleSelectLevel = useCallback(
+    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+      if (!onSelectLevel) {
+        return;
+      }
+      onSelectLevel({
+        price: item.price,
+        size: item.size,
+        cumSize: item.cumSize,
+        side,
+        index,
+      });
+    },
+    [onSelectLevel],
+  );
 
   return (
     <View style={style}>
@@ -959,15 +1144,37 @@ export function OrderBookMobile({
 
         {/* foreground texts */}
         <View style={styles.absoluteContainer}>
-          {aggregatedData.asks.toReversed().map((itemData, index) => (
-            <View key={index} style={{ height: MOBILE_ROW_HEIGHT }}>
-              <MobileRow
-                item={itemData}
-                priceColor={textColor.red}
-                sizeColor={textColor.textSubdued}
-              />
-            </View>
-          ))}
+          {aggregatedData.asks.toReversed().map((itemData, index) => {
+            const originalIndex = aggregatedData.asks.length - 1 - index;
+            return (
+              <Pressable
+                key={index}
+                disabled={!isInteractive}
+                onPress={() =>
+                  handleSelectLevel('ask', itemData, originalIndex)
+                }
+                style={() => [
+                  {
+                    height: MOBILE_ROW_HEIGHT,
+                    justifyContent: 'center',
+                    paddingHorizontal: 4,
+                  },
+                  isInteractive && !platformEnv.isNative
+                    ? styles.pointer
+                    : null,
+                ]}
+              >
+                {(state) => (
+                  <MobileRow
+                    item={itemData}
+                    priceColor={textColor.red}
+                    sizeColor={textColor.textSubdued}
+                    isHovered={getPressableHoverState(state)}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
           <View
             style={{
               flexDirection: 'row',
@@ -1007,13 +1214,28 @@ export function OrderBookMobile({
             </Text>
           </View>
           {aggregatedData.bids.map((itemData, index) => (
-            <View key={index} style={{ height: MOBILE_ROW_HEIGHT }}>
-              <MobileRow
-                item={itemData}
-                priceColor={textColor.green}
-                sizeColor={textColor.textSubdued}
-              />
-            </View>
+            <Pressable
+              key={index}
+              disabled={!isInteractive}
+              onPress={() => handleSelectLevel('bid', itemData, index)}
+              style={() => [
+                {
+                  height: MOBILE_ROW_HEIGHT,
+                  justifyContent: 'center',
+                  paddingHorizontal: 4,
+                },
+                isInteractive && !platformEnv.isNative ? styles.pointer : null,
+              ]}
+            >
+              {(state) => (
+                <MobileRow
+                  item={itemData}
+                  priceColor={textColor.green}
+                  sizeColor={textColor.textSubdued}
+                  isHovered={getPressableHoverState(state)}
+                />
+              )}
+            </Pressable>
           ))}
         </View>
       </View>
