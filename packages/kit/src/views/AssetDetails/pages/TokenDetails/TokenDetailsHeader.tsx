@@ -242,19 +242,6 @@ function TokenDetailsHeader(props: IProps) {
   return (
     <DebugRenderTracker timesBadgePosition="top-right">
       <>
-        {isAllNetworks &&
-        !tokenInfo.isAggregateToken &&
-        !tokenInfo.isNative &&
-        tokenInfo.hasSameSymbolToken ? (
-          <Alert
-            icon="InfoCircleOutline"
-            type="critical"
-            title={intl.formatMessage({
-              id: ETranslations.identical_name_asset_alert,
-            })}
-            fullBleed
-          />
-        ) : null}
         {/* Overview */}
         <Stack px="$5" py="$5">
           {/* Balance */}
