@@ -14,7 +14,7 @@ import {
   FALLBACK_MAX_BUILDER_FEE,
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
-  PERPS_CHAIN_ID,
+  PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -178,7 +178,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       console.log('selectPerpsAccount______111', indexedAccountId, accountId);
       if (indexedAccountId || accountId) {
-        const ethNetworkId = PERPS_CHAIN_ID;
+        const ethNetworkId = PERPS_NETWORK_ID;
         const account =
           await this.backgroundApi.serviceAccount.getNetworkAccount({
             indexedAccountId: indexedAccountId ?? undefined,
@@ -650,6 +650,40 @@ export default class ServiceHyperliquid extends ServiceBase {
         builderFeeOk: false,
         referralCodeOk: false,
       },
+    });
+  }
+
+  @backgroundMethod()
+  async getTradingviewDisplayPriceScale(
+    symbol: string,
+  ): Promise<number | undefined> {
+    return this.backgroundApi.simpleDb.perp.getTradingviewDisplayPriceScale(
+      symbol,
+    );
+  }
+
+  @backgroundMethod()
+  async setTradingviewDisplayPriceScale({
+    symbol,
+    priceScale,
+  }: {
+    symbol: string;
+    priceScale: number;
+  }) {
+    if (!symbol || priceScale === undefined || priceScale === null) {
+      return;
+    }
+    const priceScaleBN = new BigNumber(priceScale);
+    if (
+      priceScaleBN.isNaN() ||
+      priceScaleBN.isNegative() ||
+      !priceScaleBN.isInteger()
+    ) {
+      return;
+    }
+    await this.backgroundApi.simpleDb.perp.updateTradingviewDisplayPriceScale({
+      symbol,
+      priceScale,
     });
   }
 }

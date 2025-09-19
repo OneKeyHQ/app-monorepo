@@ -26,7 +26,7 @@ import {
   perpsSelectedAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -65,7 +65,7 @@ function DepositWithdrawContent({
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
-    networkId: PERPS_CHAIN_ID,
+    networkId: PERPS_NETWORK_ID,
   });
 
   const hyperliquidActions = useHyperliquidActions();
@@ -80,7 +80,7 @@ function DepositWithdrawContent({
       try {
         const tokenDetails =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: PERPS_CHAIN_ID,
+            networkId: PERPS_NETWORK_ID,
             contractAddress: USDC_TOKEN_INFO.address,
             accountId: selectedAccount.accountId,
             accountAddress: selectedAccount.accountAddress,
@@ -229,17 +229,17 @@ function DepositWithdrawContent({
     const balanceBN = new BigNumber(availableBalance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
   }, [amount, availableBalance]);
-
-  const buttonText = useMemo(() => {
-    if (isSubmitting) {
-      return `${
-        selectedAction === 'deposit' ? 'Depositing' : 'Withdrawing'
-      }...`;
-    }
-    if (isInsufficientBalance) return 'Insufficient balance';
-    return selectedAction === 'deposit' ? 'Deposit' : 'Withdraw';
-  }, [isSubmitting, isInsufficientBalance, selectedAction]);
   const intl = useIntl();
+  const buttonText = useMemo(() => {
+    if (isInsufficientBalance)
+      return intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    return selectedAction === 'deposit'
+      ? intl.formatMessage({ id: ETranslations.perp_trade_deposit })
+      : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
+  }, [isInsufficientBalance, selectedAction, intl]);
+
   return (
     <YStack
       gap="$4"
@@ -350,6 +350,7 @@ function DepositWithdrawContent({
               justifyContent: 'flex-end',
             }}
             textAlign="right"
+            maxLength={12}
           />
           <XStack alignItems="center">
             <SizableText size="$bodyMd">USDC</SizableText>
@@ -432,7 +433,7 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
 
   const dialogInstance = Dialog.show({
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <DepositWithdrawContent
           params={params}
           selectedAccount={selectedAccount}

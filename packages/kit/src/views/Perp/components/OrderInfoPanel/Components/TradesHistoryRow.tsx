@@ -1,9 +1,11 @@
 import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -28,6 +30,7 @@ const TradesHistoryRow = memo(
     isMobile,
     index,
   }: ITradesHistoryRowProps) => {
+    const intl = useIntl();
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
@@ -129,7 +132,9 @@ const TradesHistoryRow = memo(
             </YStack>
             <YStack gap="$2" alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
-                Close PnL
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_close_pnl,
+                })}
               </SizableText>
               <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
                 {`${closePnlInfo.closePnlPlusOrMinus}${
@@ -149,7 +154,9 @@ const TradesHistoryRow = memo(
           >
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
-                Price
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_price,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${tradeBaseInfo.priceFormatted as string}`}
@@ -157,7 +164,9 @@ const TradesHistoryRow = memo(
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
-                Size
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${tradeBaseInfo.size}`}
@@ -165,7 +174,9 @@ const TradesHistoryRow = memo(
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
               <SizableText size="$bodySm" color="$textSubdued">
-                Value
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_trade_value,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${tradeBaseInfo.tradeValueFormatted as string}`}
@@ -173,7 +184,9 @@ const TradesHistoryRow = memo(
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
-                Fee
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_fee,
+                })}
               </SizableText>
               <SizableText size="$bodySm">
                 {`${tradeBaseInfo.feeFormatted as string}`}

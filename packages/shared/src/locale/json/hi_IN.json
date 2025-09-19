@@ -2126,6 +2126,7 @@
   "perp.trade_order_type": "ऑर्डर प्रकार",
   "perp.trade_order_value": "ऑर्डर मूल्य",
   "perp.trade_sell_amount": "बिक्री राशि",
+  "perp.trade_set_tp_sl": "TP/SL सेट करें",
   "perp.trade_short": "शॉर्ट",
   "perp.trade_sl_price": "एसएल मूल्य",
   "perp.trade_sl_price_loss": "नुकसान",

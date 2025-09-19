@@ -21,7 +21,7 @@ export function PerpTradersHistoryListModal() {
 
 const PerpTradersHistoryListModalWithProvider = () => {
   return (
-    <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+    <PerpsProviderMirror>
       <PerpTradersHistoryListModal />
     </PerpsProviderMirror>
   );

@@ -16,6 +16,7 @@ module.exports = [
   '0xxxxxxx',
   '100vw',
   '10xxxxxx',
+  'hardcode',
   'reown',
   'wui',
   'deeplinks',

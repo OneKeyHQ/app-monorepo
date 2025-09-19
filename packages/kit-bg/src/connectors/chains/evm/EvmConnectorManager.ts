@@ -1,6 +1,8 @@
 import { injected } from '@wagmi/core';
+import { isNil, isNumber } from 'lodash';
 import { createStore as createMipd } from 'mipd';
 
+import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { EventData } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
 import { createEmitter } from '@onekeyhq/shared/src/eventBus/WagmiEventEmitter';
@@ -13,10 +15,18 @@ import type {
   IExternalWalletProviderEvm,
 } from '@onekeyhq/shared/types/externalWallet.types';
 
+import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { ConnectorEventMap, CreateConnectorFn } from '@wagmi/core';
 import type { Store } from 'mipd';
+import type { Chain } from 'viem';
 
 export class EvmConnectorManager {
+  backgroundApi: IBackgroundApi;
+
+  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
+    this.backgroundApi = backgroundApi;
+  }
+
   _mipd: Store | undefined;
 
   private get mipdStore() {
@@ -86,12 +96,48 @@ export class EvmConnectorManager {
   ): Promise<IExternalConnectorEvm> {
     // Set up emitter with uid and add to connector so they are "linked" together.
     const emitter = createEmitter<ConnectorEventMap>(uidForWagmi());
+
+    const { networks: evmNetworks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByImpls({
+        impls: [IMPL_EVM],
+      });
+    const chains: Chain[] = evmNetworks.map((item) => {
+      const currencyDecimals = item.decimals;
+      // const currencyDecimals = NaN;
+      if (
+        isNil(currencyDecimals) ||
+        Number.isNaN(currencyDecimals) ||
+        !isNumber(currencyDecimals)
+      ) {
+        throw new OneKeyLocalError(
+          `network (${item.name}) invalid currency decimals: ${currencyDecimals}`,
+        );
+      }
+
+      return {
+        id: Number(item.chainId),
+        name: item.name,
+        nativeCurrency: {
+          name: item.symbol,
+          symbol: item.symbol,
+          decimals: currencyDecimals,
+        },
+        rpcUrls: {
+          default: {
+            http: [],
+          },
+        },
+        // blockExplorers: undefined,
+      };
+    });
+
     const innerConnector = connectorFn({
       // @ts-ignore
       emitter,
-      chains: [{ id: 1, name: 'Ethereum' }] as any,
+      chains: chains as unknown as readonly [Chain, ...Chain[]],
       // storage: {} as any,
     });
+
     const connector: IExternalConnectorEvm = {
       ...innerConnector,
       emitter,

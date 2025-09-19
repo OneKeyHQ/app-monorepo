@@ -1,5 +1,6 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
 import { BigNumber } from 'bignumber.js';
+import { isNumber } from 'lodash';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
@@ -9,6 +10,7 @@ import {
 import {
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
+  PERPS_EVM_CHAIN_ID_HEX,
 } from '@onekeyhq/shared/src/consts/perp';
 import {
   OneKeyLocalError,
@@ -60,6 +62,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _exchangeClient: ExchangeClient | null = null;
 
+  private _builderFeeInfo:
+    | {
+        b: `0x${string}`;
+        f: number;
+      }
+    | undefined = undefined;
+
   public slippage = 0.08;
 
   private get exchangeClient(): ExchangeClient {
@@ -95,6 +104,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     agentCredential?: ICoreHyperLiquidAgentCredential;
   }): Promise<void> {
     try {
+      const { hyperliquidBuilderAddress, hyperliquidMaxBuilderFee } =
+        await this.backgroundApi.simpleDb.perp.getPerpData();
+      if (
+        hyperliquidBuilderAddress &&
+        !Number.isNaN(hyperliquidMaxBuilderFee) &&
+        isNumber(hyperliquidMaxBuilderFee)
+      ) {
+        this._builderFeeInfo = {
+          b: hyperliquidBuilderAddress.toLowerCase() as `0x${string}`,
+          f: hyperliquidMaxBuilderFee,
+        };
+      }
       if (!params.userAddress) {
         throw new OneKeyLocalError(
           'ServiceHyperliquidExchange.setup Error: User address is required',
@@ -123,6 +144,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       this._exchangeClient = new ExchangeClient({
         transport,
         wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
       });
 
       this._account = account;
@@ -234,6 +256,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this._exchangeClient!.order({
         orders: params.action.orders,
         grouping: params.action.grouping,
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
@@ -248,6 +271,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async dispose(): Promise<void> {
     this._account = null;
     this._exchangeClient = null;
+    this._builderFeeInfo = undefined;
   }
 
   async checkAccountCanTrade() {
@@ -295,6 +319,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.exchangeClient.order({
         orders: [orderParams],
         grouping: 'na',
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
@@ -392,6 +417,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.exchangeClient.order({
         orders,
         grouping: orders.length > 1 ? 'normalTpsl' : 'na',
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
@@ -423,6 +449,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.exchangeClient.order({
         orders: [orderParams],
         grouping: 'na',
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
@@ -468,6 +495,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.exchangeClient.order({
         orders: orderParams,
         grouping: 'na',
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
@@ -551,6 +579,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.exchangeClient.order({
         orders,
         grouping: 'positionTpsl',
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
