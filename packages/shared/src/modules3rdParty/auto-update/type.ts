@@ -10,6 +10,7 @@ export interface IDownloadPackageParams {
   fileSize?: number;
   sha256?: string;
   signature?: string;
+  downloadedFile?: string;
 }
 
 export type IUpdateDownloadedEvent =

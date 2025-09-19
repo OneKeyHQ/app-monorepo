@@ -341,21 +341,28 @@ class ServiceAppUpdate extends ServiceBase {
         releaseInfo.version,
         releaseInfo.jsBundleVersion,
       );
-      await appUpdatePersistAtom.set((prev) => ({
-        ...prev,
-        ...releaseInfo,
-        jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
-        jsBundle: releaseInfo.jsBundle || undefined,
-        summary: releaseInfo?.summary || '',
-        latestVersion: releaseInfo.version || prev.latestVersion,
-        updateAt: Date.now(),
-        status: shouldUpdate ? EAppUpdateStatus.notify : prev.status,
-        isShowUpdateDialog:
-          releaseInfo.updateStrategy === EUpdateStrategy.force ||
-          releaseInfo.updateStrategy === EUpdateStrategy.manual
-            ? shouldUpdate
-            : false,
-      }));
+      await appUpdatePersistAtom.set((prev) => {
+        const isUpdating = releaseInfo.jsBundleVersion
+          ? prev.jsBundleVersion === releaseInfo.jsBundleVersion &&
+            prev.latestVersion === releaseInfo.version
+          : prev.latestVersion === releaseInfo.version;
+        return {
+          ...prev,
+          ...releaseInfo,
+          jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
+          jsBundle: releaseInfo.jsBundle || undefined,
+          summary: releaseInfo?.summary || '',
+          latestVersion: releaseInfo.version || prev.latestVersion,
+          updateAt: Date.now(),
+          status:
+            shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
+          isShowUpdateDialog:
+            releaseInfo.updateStrategy === EUpdateStrategy.force ||
+            releaseInfo.updateStrategy === EUpdateStrategy.manual
+              ? shouldUpdate
+              : false,
+        };
+      });
     } else {
       await this.reset();
     }

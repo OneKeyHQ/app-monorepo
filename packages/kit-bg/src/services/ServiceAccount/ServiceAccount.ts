@@ -43,6 +43,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
@@ -114,6 +115,7 @@ import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
   EIndexedDBBucketNames,
   type IDBAccount,
+  type IDBAddress,
   type IDBCreateHwWalletParams,
   type IDBCreateHwWalletParamsBase,
   type IDBCreateQRWalletParams,
@@ -1335,6 +1337,101 @@ class ServiceAccount extends ServiceBase {
       agentName,
       password,
     });
+  }
+
+  private extractUserAddressFromCredentialId(credentialId: string): string {
+    // Format: hyperliquid-agent--{userAddress}--{agentName}
+    const parts = credentialId.split('--');
+    if (
+      parts.length !== 3 ||
+      parts[0] !==
+        accountUtils.HYPERLIQUID_AGENT_CREDENTIAL_PREFIX.replace('--', '')
+    ) {
+      throw new OneKeyLocalError(
+        `Invalid HyperLiquid agent credential ID format: ${credentialId}`,
+      );
+    }
+    return parts[1]; // userAddress
+  }
+
+  private async shouldDeleteCredential(
+    addressRecord: IDBAddress | null,
+    deletedInfo: {
+      walletId?: string;
+      indexedAccountId?: string;
+      accountId?: string;
+    },
+  ): Promise<boolean> {
+    if (!addressRecord) {
+      return false;
+    }
+
+    // Check if the deleted wallet is in the address record's wallets
+    if (deletedInfo.walletId && addressRecord.wallets[deletedInfo.walletId]) {
+      return true;
+    }
+
+    // Check if any of the wallet values match deleted account/indexedAccount IDs
+    if (deletedInfo.accountId || deletedInfo.indexedAccountId) {
+      const walletValues = Object.values(addressRecord.wallets);
+      if (
+        (deletedInfo.accountId &&
+          walletValues.includes(deletedInfo.accountId)) ||
+        (deletedInfo.indexedAccountId &&
+          walletValues.includes(deletedInfo.indexedAccountId))
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  @backgroundMethod()
+  async cleanupOrphanedHyperLiquidAgentCredentials(deletedInfo: {
+    walletId?: string;
+    indexedAccountId?: string;
+    accountId?: string;
+  }): Promise<void> {
+    try {
+      // Get all HyperLiquid agent credentials
+      const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
+
+      const credentialsToDelete: IDBCredentialBase[] = [];
+      // Process each credential
+      for (const credential of allCredentials) {
+        try {
+          // Extract userAddress from credential ID
+          const userAddress = this.extractUserAddressFromCredentialId(
+            credential.id,
+          );
+
+          // Use existing address lookup table to check if address still exists
+          const addressRecord = await localDb.getAddressByNetworkImpl({
+            networkId: PERPS_CHAIN_ID,
+            normalizedAddress: userAddress.toLowerCase(),
+          });
+
+          // Check if this credential should be deleted
+          if (await this.shouldDeleteCredential(addressRecord, deletedInfo)) {
+            credentialsToDelete.push(credential);
+          }
+        } catch (error) {
+          // Log error but continue processing other credentials
+          console.warn(
+            `Failed to process HyperLiquid agent credential ${credential.id}:`,
+            error,
+          );
+        }
+      }
+
+      if (credentialsToDelete.length) {
+        await localDb.removeCredentials({ credentials: credentialsToDelete });
+      }
+    } catch (error) {
+      // Log error but don't throw to avoid breaking main deletion flow
+      console.error('Failed to cleanup HyperLiquid agent credentials:', error);
+    }
   }
 
   @backgroundMethod()
@@ -3059,6 +3156,13 @@ class ServiceAccount extends ServiceBase {
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     appEventBus.emit(EAppEventBusNames.AccountRemove, undefined);
 
+    // Cleanup orphaned HyperLiquid agent credentials
+    void this.cleanupOrphanedHyperLiquidAgentCredentials({
+      walletId,
+      accountId: account?.id,
+      indexedAccountId: indexedAccount?.id,
+    });
+
     if (
       account &&
       accountUtils.isExternalAccount({
@@ -3111,6 +3215,12 @@ class ServiceAccount extends ServiceBase {
     await this.backgroundApi.serviceDApp.removeDappConnectionAfterWalletRemove({
       walletId,
     });
+
+    // Cleanup orphaned HyperLiquid agent credentials
+    void this.cleanupOrphanedHyperLiquidAgentCredentials({
+      walletId,
+    });
+
     if (!skipBackupWalletRemove) {
       void this.backgroundApi.serviceDBBackup.removeBackupHDWallet({
         walletId,
