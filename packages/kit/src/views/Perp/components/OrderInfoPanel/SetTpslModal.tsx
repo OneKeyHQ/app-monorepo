@@ -339,7 +339,7 @@ export function showSetTpslDialog({
       id: ETranslations.perp_tp_sl_position_desc,
     }),
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <SetTpslForm
           position={position}
           szDecimals={szDecimals}

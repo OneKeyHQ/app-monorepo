@@ -5,20 +5,18 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 
 import { ProviderJotaiContextHyperliquid } from '../../states/jotai/contexts/hyperliquid';
 
-export function usePerpsContextStoreInitData(
-  storeName: EJotaiContextStoreNames,
-) {
+export function usePerpsContextStoreInitData() {
   const data = useMemo(
     () => ({
-      storeName,
+      storeName: EJotaiContextStoreNames.perps,
     }),
-    [storeName],
+    [],
   );
   return data;
 }
 
 export const PerpsRootProvider = memo(() => {
-  const data = usePerpsContextStoreInitData(EJotaiContextStoreNames.perps);
+  const data = usePerpsContextStoreInitData();
   const store = useJotaiContextRootStore(data);
   return <ProviderJotaiContextHyperliquid store={store} />;
 });
