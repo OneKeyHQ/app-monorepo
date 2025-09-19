@@ -382,7 +382,6 @@ export interface IAppEventBusPayload {
       screen: string;
       params: Record<string, any>;
     };
-    localParams: Record<string, string | undefined>;
   };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }
