@@ -39,7 +39,6 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
   const handleViewTradesHistory = () => {
-    console.log('perp___handleViewTradesHistory');
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.PerpTradersHistoryList,
     });

@@ -233,9 +233,6 @@ function PerpPositionsList({
       />
     );
   };
-  console.log('PerpPositionsList - isMobile:', isMobile);
-  console.log('PerpPositionsList - positionSort length:', positionSort.length);
-  console.log('PerpPositionsList - positions length:', positions.length);
 
   return (
     <CommonTableListView

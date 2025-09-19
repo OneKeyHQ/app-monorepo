@@ -88,7 +88,7 @@ const PositionRow = memo(
       });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
       const sizeValueFormatted = numberFormat(sizeValue, {
-        formatter: 'value',
+        formatter: 'balance',
         formatterOptions: {
           currency: '$',
         },
