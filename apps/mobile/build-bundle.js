@@ -319,7 +319,7 @@ const buildAndroidBundle = async () => {
 
   log('build android bundle compress to hbc');
   execSync(
-    `${HERMES_COMMAND} -O -emit-binary -output-source-map ${buildAndroidOutputAssetPath(
+    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${buildAndroidOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildAndroidOutputAssetPath('main.jsbundle')}`,
     {
