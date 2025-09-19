@@ -611,7 +611,7 @@ export function OrderBook({
             {showTickSelector ? (
               <Select
                 floatingPanelProps={{
-                  width: 110,
+                  width: 140,
                 }}
                 title={intl.formatMessage({
                   id: ETranslations.perp_orderbook_spread,
@@ -622,18 +622,28 @@ export function OrderBook({
                 renderTrigger={({ onPress }) => (
                   <TouchableOpacity
                     style={{
-                      width: 56,
+                      minWidth: 56,
+                      maxWidth: 140,
                       height: 24,
                       borderRadius: 4,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      paddingHorizontal: 8,
                       gap: 4,
                     }}
                     onPress={onPress}
                   >
-                    <Text style={[styles.bodySm, { color: textColor.text }]}>
-                      {selectedTickOption?.label}
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[styles.bodySm, { color: textColor.text }]}
+                    >
+                      {selectedTickOption?.label
+                        ? new BigNumber(selectedTickOption.label).toFixed(
+                            priceDecimals,
+                          )
+                        : '-'}
                     </Text>
                     <Icon
                       name="ChevronDownSmallOutline"

@@ -164,6 +164,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       indexedAccountId: indexedAccountId || null,
       accountId: null,
       accountAddress: null,
+      deriveType: deriveType || 'default',
     };
 
     try {
@@ -188,6 +189,10 @@ export default class ServiceHyperliquid extends ServiceBase {
         console.log('selectPerpsAccount______222', account);
         perpsAccount.accountId = account.id || null;
         perpsAccount.accountAddress = (account.address as IHex) || null;
+        void this.backgroundApi.serviceAccount.saveAccountAddresses({
+          account,
+          networkId: ethNetworkId,
+        });
       }
     } catch (error) {
       console.error(error);
@@ -631,5 +636,20 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   async dispose(): Promise<void> {
     // Cleanup resources if needed
+  }
+
+  @backgroundMethod()
+  async disposeExchangeClients() {
+    await this.exchangeService.dispose();
+    await perpsSelectedAccountStatusAtom.set({
+      accountAddress: null,
+      canTrade: false,
+      details: {
+        activatedOk: false,
+        agentOk: false,
+        builderFeeOk: false,
+        referralCodeOk: false,
+      },
+    });
   }
 }
