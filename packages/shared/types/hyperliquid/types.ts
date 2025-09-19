@@ -1,4 +1,4 @@
-import type { IPerpBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
+import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/ServiceWebviewPerp/ServiceWebviewPerp';
 
 import type { IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
@@ -154,7 +154,7 @@ export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
   disablePerpActionButton?: boolean;
-  perpBannerConfig?: IPerpBannerConfig;
+  perpBannerConfig?: IPerpServerBannerConfig;
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
 }

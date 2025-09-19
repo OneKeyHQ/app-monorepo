@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { debounce, noop } from 'lodash';
 
+import { useDeepCompareEffect } from '@onekeyhq/components';
 import {
   useSettingsPersistAtom,
   useSettingsValuePersistAtom,
@@ -38,12 +39,13 @@ export function NotificationRegisterDaily() {
     }
   }, [isFocused]);
 
-  useEffect(() => {
+  useDeepCompareEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
     noop(locale, currencyInfo, hideValue);
+    console.log('NotificationRegisterDaily:', locale, currencyInfo, hideValue);
     void backgroundApiProxy.serviceNotification.updateClientBasicAppInfo();
   }, [locale, currencyInfo, hideValue]);
 
