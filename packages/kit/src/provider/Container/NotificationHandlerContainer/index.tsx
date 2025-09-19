@@ -130,7 +130,7 @@ function BaseNotificationHandlerContainer() {
         handleShowNotificationPageNavigation,
       );
     };
-  }, [showFallbackUpdateDialog]);
+  }, [getLocalParams, showFallbackUpdateDialog]);
   return <NativeNotificationHandlerContainer />;
 }
 
