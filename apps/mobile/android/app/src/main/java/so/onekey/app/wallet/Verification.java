@@ -338,21 +338,7 @@ public class Verification {
         }
         ascFileContentIn.close();
         // Filter out lines that start with "Hash:" (similar to desktop implementation)
-        String content = bOut.toString();
-        String[] lines = content.split("\n");
-        StringBuilder filteredContent = new StringBuilder();
-        
-        for (String line : lines) {
-            String trimmedLine = line.trim();
-            if (!trimmedLine.startsWith("Hash:")) {
-                if (filteredContent.length() > 0) {
-                    filteredContent.append("\n");
-                }
-                filteredContent.append(line);
-            }
-        }
-        
-        return filteredContent.toString().trim();
+        return bOut.toString();
     }
 
     public static String extractedSha256FromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
