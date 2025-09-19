@@ -217,7 +217,7 @@ const buildIOSBundle = async () => {
   fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
   log('build ios bundle remove packager map done');
 
-  if (SENTRY_AUTH_TOKEN) {
+  if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
     log('build ios bundle upload source maps');
     execSync(
       `${path.join(
