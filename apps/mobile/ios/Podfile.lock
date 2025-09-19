@@ -257,6 +257,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - Yoga
   - MultiplatformBleAdapter (0.2.0)
+  - ObjectivePGP (1.0)
   - PurchasesHybridCommon (14.2.0):
     - RevenueCat (= 5.32.0)
   - RCT-Folly (2024.11.18.00):
@@ -2944,6 +2945,7 @@ DEPENDENCIES:
   - JCore (from `../../../node_modules/jcore-react-native`)
   - JPush (from `../../../node_modules/jpush-react-native`)
   - lottie-react-native (from `../../../node_modules/lottie-react-native`)
+  - ObjectivePGP (= 1.0)
   - RCT-Folly (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCT-Folly/Fabric (from `../../../node_modules/react-native/third-party-podspecs/RCT-Folly.podspec`)
   - RCTDeprecation (from `../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -3054,6 +3056,7 @@ SPEC REPOS:
     - libwebp
     - lottie-ios
     - MultiplatformBleAdapter
+    - ObjectivePGP
     - PurchasesHybridCommon
     - RevenueCat
     - SDWebImage
@@ -3410,6 +3413,7 @@ SPEC CHECKSUMS:
   lottie-ios: a881093fab623c467d3bce374367755c272bdd59
   lottie-react-native: 825856a41d05a933539ea4fdf384d67c10590547
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
+  ObjectivePGP: 45de572a2e19a91c12e25c42324f05c71783104c
   PurchasesHybridCommon: f1650b33e9a1dd04d5e8a40dfe757f39e63f935c
   RCT-Folly: e78785aa9ba2ed998ea4151e314036f6c49e6d82
   RCTDeprecation: 5f638f65935e273753b1f31a365db6a8d6dc53b5
@@ -3522,6 +3526,6 @@ SPEC CHECKSUMS:
   Yoga: bfcce202dba74007f8974ee9c5f903a9a286c445
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: dbb97fd1307cb3311941b683086de3e62a15d54a
+PODFILE CHECKSUM: 335dc960ed22abf9cdf0ab045e7dcb312fabee48
 
 COCOAPODS: 1.16.2
