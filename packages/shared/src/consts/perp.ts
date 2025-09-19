@@ -1,6 +1,8 @@
+/* eslint-disable spellcheck/spell-checker */
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { getNetworkIdsMap } from '../config/networkIds';
+import { presetNetworksMap } from '../config/presetNetworks';
+import numberUtils from '../utils/numberUtils';
 import timerUtils from '../utils/timerUtils';
 
 export const HYPER_LIQUID_ORIGIN = 'https://app.hyperliquid.xyz';
@@ -36,4 +38,15 @@ export const FALLBACK_MAX_BUILDER_FEE = 40;
 export const PERPS_EMPTY_ADDRESS =
   '0x0000000000000000000000000000000000000000' as IHex;
 
-export const PERPS_CHAIN_ID = getNetworkIdsMap().arbitrum;
+// 'id': 'evm--42161',
+export const PERPS_NETWORK_ID: string = presetNetworksMap.arbitrum.id;
+// 'chainId': '42161',
+export const PERPS_EVM_CHAIN_ID_NUM: string =
+  presetNetworksMap.arbitrum.chainId;
+// '0xa4b1'
+export const PERPS_EVM_CHAIN_ID_HEX: `0x${string}` = numberUtils.numberToHex(
+  PERPS_EVM_CHAIN_ID_NUM,
+  {
+    prefix0x: true,
+  },
+) as `0x${string}`;

@@ -14,7 +14,7 @@ import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/A
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -135,7 +135,7 @@ export function HeaderLeft({
       tabRoute === ETabRoutes.WebviewPerpTrade ||
       tabRoute === ETabRoutes.Perp
     ) {
-      linkNetworkId = PERPS_CHAIN_ID;
+      linkNetworkId = PERPS_NETWORK_ID;
       hideAddress = false;
     }
 
