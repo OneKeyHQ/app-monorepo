@@ -31,7 +31,7 @@ const readMetadataFileSha256 = async (signature: string) => {
     logger.info('auto-updater', `file valid: ${String(valid)}`);
     if (valid) {
       const text = signedMessage.getText();
-      logger.info('auto-updater', `texts: ${text}`);
+      logger.info('auto-updater', `text: ${text}`);
       const json = JSON.parse(text) as {
         sha256: string;
       };
