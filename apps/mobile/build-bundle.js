@@ -140,7 +140,10 @@ const generateFileInfo = async (filePath, outputFilePath) => {
 const buildIOSBundle = async () => {
   log('build ios bundle start');
   log('install ios pods');
-  execSync('cd apps/mobile/ios && npx pod-install', { stdio: 'inherit' });
+  execSync(
+    `cd ${path.join(projectRootPath, 'apps/mobile/ios')} && npx pod-install`,
+    { stdio: 'inherit' },
+  );
   log('install ios pods done');
   ensureBundleOutputPath();
   ensureZipOutputPath();
@@ -319,25 +322,23 @@ const buildAndroidBundle = async () => {
 
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
     log('build android bundle upload source maps');
-    execSync(
-      `${path.join(
-        projectRootPath,
-        'node_modules/@sentry/cli/bin/sentry-cli',
-      )}  sourcemaps upload \
-  --debug-id-reference \
-  --strip-prefix ${projectRootPath} \
-  ${buildAndroidOutputAssetPath('main.jsbundle')} ${buildAndroidOutputAssetPath(
-        'main.jsbundle.map',
-      )}`,
-      {
-        stdio: 'inherit',
-        env: {
-          SENTRY_AUTH_TOKEN,
-          SENTRY_ORG,
-          SENTRY_PROJECT,
-        },
+    const uploadSourceMapsCommand = `${path.join(
+      projectRootPath,
+      'node_modules/@sentry/cli/bin/sentry-cli',
+    )}  sourcemaps upload \
+--debug-id-reference \
+--strip-prefix ${projectRootPath} \
+${buildAndroidOutputAssetPath('main.jsbundle')} ${buildAndroidOutputAssetPath(
+      'main.jsbundle.map',
+    )}`;
+    execSync(uploadSourceMapsCommand, {
+      stdio: 'inherit',
+      env: {
+        SENTRY_AUTH_TOKEN,
+        SENTRY_ORG,
+        SENTRY_PROJECT,
       },
-    );
+    });
     log('build android bundle upload source maps done');
   }
   const distPath = buildAndroidOutputAssetPath('dist');
