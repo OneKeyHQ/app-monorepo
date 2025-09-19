@@ -507,8 +507,6 @@ function BaseNotificationList() {
                         deriveType: activeAccountRef.current?.deriveType,
                         avatarUrl: activeAccountRef.current?.wallet?.avatar,
                       },
-                      getEarnAccount: (props) =>
-                        backgroundApiProxy.serviceStaking.getEarnAccount(props),
                     });
                     setTimeout(() => {
                       if (!item.readed) {

@@ -377,6 +377,13 @@ export interface IAppEventBusPayload {
     payload: INotificationViewDialogPayload;
     localParams: Record<string, string | undefined>;
   };
+  [EAppEventBusNames.ShowNotificationPageNavigation]: {
+    payload: {
+      screen: string;
+      params: Record<string, any>;
+    };
+    localParams: Record<string, string | undefined>;
+  };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }
 

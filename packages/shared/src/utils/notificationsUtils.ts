@@ -115,7 +115,6 @@ export interface INavigateToNotificationDetailParams {
   mode?: ENotificationPushMessageMode;
   payload?: string;
   localParams?: Record<string, string | undefined> | undefined;
-  getEarnAccount: IGetEarnAccountFunc;
 }
 async function navigateToNotificationDetail({
   notificationId,
@@ -126,7 +125,6 @@ async function navigateToNotificationDetail({
   mode,
   payload,
   localParams,
-  getEarnAccount,
 }: INavigateToNotificationDetailParams) {
   let routes: string[] = [];
   let params: any = {};
@@ -201,10 +199,9 @@ async function navigateToNotificationDetail({
       case ENotificationPushMessageMode.page:
         try {
           const payloadObj = JSON.parse(payload || '');
-          await navigateToNotificationDetailByLocalParams({
+          appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
             payload: payloadObj,
             localParams: localParams || {},
-            getEarnAccount,
           });
         } catch (error) {
           showFallbackUpdateDialog();

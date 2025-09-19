@@ -44,8 +44,6 @@ export const useInitialNotification = (
       void notificationsUtils.navigateToNotificationDetail({
         ...params,
         localParams,
-        getEarnAccount: (props) =>
-          backgroundApiProxy.serviceStaking.getEarnAccount(props),
       });
     },
     [activeAccountRef, isVersionCompatible],
