@@ -116,7 +116,7 @@ function MobilePerpMarket() {
 function MobilePerpMarketWithProvider() {
   return (
     <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <MobilePerpMarket />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>

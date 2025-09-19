@@ -433,7 +433,7 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
 
   const dialogInstance = Dialog.show({
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <DepositWithdrawContent
           params={params}
           selectedAccount={selectedAccount}
