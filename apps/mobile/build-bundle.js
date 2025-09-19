@@ -24,8 +24,8 @@ const webEmbedOutputPath = path.join(
   'apps/web-embed/web-build',
 );
 
-const log = (message) => {
-  console.log(`>>>> ${message}`);
+const log = (...messages) => {
+  console.log(`>>>> ${messages.join(' ')}`);
 };
 
 const buildZipOutputAssetPath = (zipName) => {
