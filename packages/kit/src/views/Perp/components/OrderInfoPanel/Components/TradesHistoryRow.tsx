@@ -6,8 +6,10 @@ import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -28,6 +30,7 @@ const TradesHistoryRow = memo(
     isMobile,
     index,
   }: ITradesHistoryRowProps) => {
+    const { selectToken } = usePerpTokenSelector();
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(fill.time);
@@ -54,11 +57,10 @@ const TradesHistoryRow = memo(
       const price = fill.px;
       const size = fill.sz;
       const fee = fill.fee;
+      const decimals = getValidPriceDecimals(price);
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
-      const priceFormatted = numberFormat(price, {
-        formatter: 'price',
-      });
+      const priceFormatted = priceBN.toFixed(decimals);
       const feeFormatted = numberFormat(fee, {
         formatter: 'value',
         formatterOptions: {
@@ -114,7 +116,11 @@ const TradesHistoryRow = memo(
             width="100%"
           >
             <YStack gap="$2">
-              <XStack gap="$2">
+              <XStack
+                gap="$2"
+                cursor="pointer"
+                onPress={() => selectToken(assetSymbol)}
+              >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
                   size="$bodySm"
@@ -152,7 +158,7 @@ const TradesHistoryRow = memo(
                 Price
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.priceFormatted as string}`}
+                {`${tradeBaseInfo.priceFormatted}`}
               </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-start">
@@ -219,6 +225,8 @@ const TradesHistoryRow = memo(
           {...getColumnStyle(columnConfigs[1])}
           justifyContent={calcCellAlign(columnConfigs[1].align)}
           alignItems="center"
+          cursor="pointer"
+          onPress={() => selectToken(assetSymbol)}
         >
           <SizableText
             numberOfLines={1}
@@ -255,7 +263,7 @@ const TradesHistoryRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${tradeBaseInfo.priceFormatted as string}`}</SizableText>
+          >{`${tradeBaseInfo.priceFormatted}`}</SizableText>
         </XStack>
 
         {/* Position size */}

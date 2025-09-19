@@ -187,7 +187,7 @@ export function CommonTableListView({
 
   if (isMobile) {
     return (
-      <YStack flex={1}>
+      <YStack flex={1} height={200}>
         <ListView
           data={paginatedData}
           renderItem={({ item, index }) => {
@@ -213,6 +213,7 @@ export function CommonTableListView({
             </YStack>
           }
           contentContainerStyle={{
+            height: 200,
             paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
           }}
         />

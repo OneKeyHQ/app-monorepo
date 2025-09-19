@@ -6,7 +6,9 @@ import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -30,6 +32,7 @@ const OpenOrdersRow = memo(
     isMobile,
     index,
   }: IOpenOrdersRowProps) => {
+    const { selectToken } = usePerpTokenSelector();
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
       const orderType = order.orderType;
@@ -51,29 +54,28 @@ const OpenOrdersRow = memo(
       const price = order.limitPx;
       const size = order.sz;
       const priceBN = new BigNumber(price);
-      const sizeBN = new BigNumber(size);
       const executePrice = order.triggerPx;
       const executePriceLimit = order.limitPx;
       const origSize = order.origSz;
+      const decimals = getValidPriceDecimals(price);
       const triggerCondition = order.triggerCondition;
+      const origSizeBN = new BigNumber(origSize);
       const origSizeFormatted = numberFormat(origSize, {
         formatter: 'balance',
       });
-      const executePriceFormatted = numberFormat(executePrice, {
-        formatter: 'price',
-      });
-      const executePriceLimitFormatted = numberFormat(executePriceLimit, {
-        formatter: 'price',
-      });
-      const priceFormatted = numberFormat(price, {
-        formatter: 'price',
-      });
+      const executePriceFormatted = new BigNumber(executePrice).toFixed(
+        decimals,
+      );
+      const executePriceLimitFormatted = new BigNumber(
+        executePriceLimit,
+      ).toFixed(decimals);
+      const priceFormatted = new BigNumber(price).toFixed(decimals);
       const sizeFormatted = numberFormat(size, {
         formatter: 'balance',
       });
-      const value = priceBN.times(sizeBN).toFixed();
+      const value = priceBN.times(origSizeBN).toFixed();
       const valueFormatted = numberFormat(value, {
-        formatter: 'value',
+        formatter: 'balance',
         formatterOptions: {
           currency: '$',
         },
@@ -136,7 +138,11 @@ const OpenOrdersRow = memo(
             width="100%"
             alignItems="center"
           >
-            <YStack gap="$2">
+            <YStack
+              gap="$2"
+              cursor="pointer"
+              onPress={() => selectToken(assetInfo.assetSymbol)}
+            >
               <SizableText
                 numberOfLines={1}
                 ellipsizeMode="tail"
@@ -190,7 +196,7 @@ const OpenOrdersRow = memo(
           >
             <SizableText size="$bodySm">Price</SizableText>
             <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-              {`${orderBaseInfo.priceFormatted as string}`}
+              {`${orderBaseInfo.priceFormatted}`}
             </SizableText>
           </XStack>
           <XStack
@@ -255,6 +261,8 @@ const OpenOrdersRow = memo(
           {...getColumnStyle(columnConfigs[1])}
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
+          cursor="pointer"
+          onPress={() => selectToken(assetInfo.assetSymbol)}
         >
           <SizableText size="$bodySm" numberOfLines={1} ellipsizeMode="tail">
             {assetInfo.assetSymbol}
@@ -290,9 +298,7 @@ const OpenOrdersRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${orderBaseInfo.sizeFormatted as string} ${
-            assetInfo.assetSymbol
-          }`}</SizableText>
+          >{`${orderBaseInfo.sizeFormatted as string}`}</SizableText>
         </XStack>
 
         {/* Original size */}
@@ -305,9 +311,7 @@ const OpenOrdersRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${orderBaseInfo.origSizeFormatted as string} ${
-            assetInfo.assetSymbol
-          }`}</SizableText>
+          >{`${orderBaseInfo.origSizeFormatted as string}`}</SizableText>
         </XStack>
 
         {/* value */}

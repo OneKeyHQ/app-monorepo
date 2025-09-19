@@ -31,14 +31,17 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  perpsConfigPersistAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type {
   IHyperliquidCustomSettings,
   ISimpleDbPerpData,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type { ISettingsPersistAtom } from '../../states/jotai/atoms';
+import type { IPerpsConfigPersistAtom } from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -163,7 +166,7 @@ export interface IPerReferrerConfig {
 export interface IPerpCommonConfig {
   usePerpWeb?: boolean;
   disablePerp?: boolean;
-  disablePerpActionButton?: boolean;
+  disablePerpActionPerp?: boolean;
   ipDisablePerp?: boolean;
 }
 
@@ -202,15 +205,15 @@ class ServiceWebviewPerp extends ServiceBase {
     bannerConfig,
   }: IPerpConfigResponse) {
     let shouldNotifyToDapp = false;
-    await settingsPersistAtom.set(
-      (prev): ISettingsPersistAtom => ({
+    await perpsConfigPersistAtom.set(
+      (prev): IPerpsConfigPersistAtom => ({
         ...prev,
         perpConfigCommon: {
           ...prev.perpConfigCommon,
           // usePerpWeb: true,
           usePerpWeb: commonConfig?.usePerpWeb,
           disablePerp: commonConfig?.disablePerp,
-          disablePerpActionButton: commonConfig?.disablePerpActionButton,
+          disablePerpActionPerp: commonConfig?.disablePerpActionPerp,
           perpBannerConfig: bannerConfig,
           ipDisablePerp: commonConfig?.ipDisablePerp,
         },
@@ -831,7 +834,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
-    await settingsPersistAtom.set((prev) => ({
+    await perpsConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
     }));

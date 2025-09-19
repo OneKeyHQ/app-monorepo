@@ -1,5 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import type { IHex, IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import {
+  EPerpUserType,
+  type IHex,
+  type IPerpCommonConfig,
+  type IPerpUserConfig,
+  type IPerpsUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -18,6 +24,24 @@ export const {
     indexedAccountId: null,
     accountId: null,
     accountAddress: null,
+  },
+});
+
+export interface IPerpsConfigPersistAtom {
+  perpConfigCommon: IPerpCommonConfig;
+  perpUserConfig: IPerpUserConfig;
+}
+export const {
+  target: perpsConfigPersistAtom,
+  use: usePerpsConfigPersistAtom,
+} = globalAtom<IPerpsConfigPersistAtom>({
+  name: EAtomNames.perpsConfigPersistAtom,
+  persist: true,
+  initialValue: {
+    perpConfigCommon: {},
+    perpUserConfig: {
+      currentUserType: EPerpUserType.PERP_NATIVE,
+    },
   },
 });
 

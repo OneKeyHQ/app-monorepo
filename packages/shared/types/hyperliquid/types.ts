@@ -153,7 +153,7 @@ export interface IL2BookOptions {
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
-  disablePerpActionButton?: boolean;
+  disablePerpActionPerp?: boolean;
   perpBannerConfig?: IPerpBannerConfig;
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];

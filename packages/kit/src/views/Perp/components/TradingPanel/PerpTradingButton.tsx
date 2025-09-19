@@ -13,9 +13,9 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsConfigPersistAtom,
   usePerpsSelectedAccountAtom,
   usePerpsSelectedAccountStatusAtom,
-  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -37,8 +37,7 @@ export function PerpTradingButton({
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
-  const [{ perpConfigCommon }] = useSettingsPersistAtom();
-
+  const [{ perpConfigCommon }] = usePerpsConfigPersistAtom();
   const [perpsAccount] = usePerpsSelectedAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
@@ -75,7 +74,7 @@ export function PerpTradingButton({
       isNoEnoughMargin ||
       isAccountLoading ||
       (perpsAccountStatus.canTrade &&
-        (perpConfigCommon?.disablePerpActionButton ||
+        (perpConfigCommon?.disablePerpActionPerp ||
           perpConfigCommon?.ipDisablePerp))
     );
   }, [
@@ -84,10 +83,9 @@ export function PerpTradingButton({
     isSubmitting,
     isNoEnoughMargin,
     isAccountLoading,
-    perpConfigCommon?.disablePerpActionButton,
+    perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
   ]);
-
   const buttonText = useMemo(() => {
     if (isSubmitting)
       return intl.formatMessage({
