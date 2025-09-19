@@ -14,7 +14,7 @@ import {
   FALLBACK_MAX_BUILDER_FEE,
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
-  PERPS_CHAIN_ID,
+  PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -178,7 +178,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       console.log('selectPerpsAccount______111', indexedAccountId, accountId);
       if (indexedAccountId || accountId) {
-        const ethNetworkId = PERPS_CHAIN_ID;
+        const ethNetworkId = PERPS_NETWORK_ID;
         const account =
           await this.backgroundApi.serviceAccount.getNetworkAccount({
             indexedAccountId: indexedAccountId ?? undefined,

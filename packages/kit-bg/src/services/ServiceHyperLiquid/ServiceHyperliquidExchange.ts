@@ -9,6 +9,7 @@ import {
 import {
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
+  PERPS_EVM_CHAIN_ID_HEX,
 } from '@onekeyhq/shared/src/consts/perp';
 import {
   OneKeyLocalError,
@@ -123,6 +124,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       this._exchangeClient = new ExchangeClient({
         transport,
         wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
       });
 
       this._account = account;
