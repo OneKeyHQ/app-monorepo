@@ -58,6 +58,9 @@ const ensureZipOutputPath = async () => {
   }
 };
 
+// Get the Node.js executable path
+const nodeExecutablePath = process.execPath;
+
 const ignoreFiles = ['.DS_Store'];
 
 const shouldIgnoreFile = (fileName) => {
@@ -190,7 +193,7 @@ const buildIOSBundle = async () => {
 
   log('build ios bundle compose source maps');
   execSync(
-    `node \
+    `${nodeExecutablePath} \
   ${path.join(
     projectRootPath,
     'node_modules/react-native/scripts/compose-source-maps.js',
@@ -204,7 +207,7 @@ const buildIOSBundle = async () => {
 
   log('build ios bundle compose source maps');
   execSync(
-    `node \
+    `${nodeExecutablePath} \
   ${path.join(
     projectRootPath,
     'node_modules/react-native/scripts/compose-source-maps.js',
