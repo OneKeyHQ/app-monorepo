@@ -22,9 +22,13 @@ type IMarginMode = 'isolated' | 'cross';
 
 interface IMarginModeSelectorProps {
   disabled?: boolean;
+  isMobile?: boolean;
 }
 
-const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
+const MarginModeSelector = ({
+  disabled = false,
+  isMobile = false,
+}: IMarginModeSelectorProps) => {
   const intl = useIntl();
   const [activeAssetData] = useActiveAssetDataAtom();
   const tokenInfo = useCurrentTokenData();
@@ -91,7 +95,7 @@ const MarginModeSelector = ({ disabled = false }: IMarginModeSelectorProps) => {
           cursor="pointer"
           onPress={onPress}
           disabled={disabledTrigger}
-          height={30}
+          height={isMobile ? 32 : 30}
           bg="$bgSubdued"
           borderRadius="$2"
           alignItems="center"

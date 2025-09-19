@@ -10,11 +10,12 @@ interface IOrderTypeSelectorProps {
   value: 'market' | 'limit';
   onChange: (value: 'market' | 'limit') => void;
   disabled?: boolean;
+  isMobile?: boolean;
 }
 
 export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
   // eslint-disable-next-line react/prop-types
-  ({ value, onChange, disabled = false }) => {
+  ({ value, onChange, disabled = false, isMobile = false }) => {
     const intl = useIntl();
     const orderTypeOptions = useMemo(
       (): ISelectItem[] => [
@@ -45,7 +46,7 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
             cursor="pointer"
             onPress={onPress}
             disabled={disabledTrigger}
-            height={30}
+            height={isMobile ? 32 : 30}
             bg="$bgSubdued"
             borderRadius="$2"
             alignItems="center"
