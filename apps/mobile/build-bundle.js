@@ -180,14 +180,20 @@ const buildIOSBundle = async () => {
   );
   log('build ios bundle hbc done');
 
-  log('build ios bundle packager map');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: mv',
+  );
   fs.moveSync(
     buildIOSOutputAssetPath('main.jsbundle.map'),
     buildIOSOutputAssetPath('main.jsbundle.packager.map'),
   );
-  log('build ios bundle packager map done');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: done',
+  );
 
-  log('build ios bundle compose source maps');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map',
+  );
   const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
     projectRootPath,
     'node_modules/react-native/scripts/compose-source-maps.js',
@@ -196,21 +202,34 @@ const buildIOSBundle = async () => {
   )} ${buildIOSOutputAssetPath(
     'main.jsbundle.hbc.map',
   )} -o ${buildIOSOutputAssetPath('main.jsbundle.map')}`;
-  log('build ios bundle compose source maps command', composeSourceMapsCommand);
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: command',
+    composeSourceMapsCommand,
+  );
   execSync(composeSourceMapsCommand, { stdio: 'inherit' });
-  log('build ios bundle compose source maps done');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: done',
+  );
 
-  log('build ios bundle compose source maps');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid',
+  );
   execSync(
     `${nodeExecutablePath} ${path.join(
       projectRootPath,
-      'node_modules/react-native/scripts/compose-source-maps.js',
+      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
     )} ${buildIOSOutputAssetPath(
       'main.jsbundle.packager.map',
     )} ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
     { stdio: 'inherit' },
   );
-  log('build ios bundle compose source maps done');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid done',
+  );
+  fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid done',
+  );
 
   log('build ios bundle remove packager map');
   fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
@@ -312,6 +331,21 @@ const buildAndroidBundle = async () => {
     },
   );
   log('build android bundle compress to hbc done');
+
+  const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
+    projectRootPath,
+    'node_modules/react-native/scripts/compose-source-maps.js',
+  )} ${buildAndroidOutputAssetPath(
+    'main.jsbundle.packager.map',
+  )} ${buildAndroidOutputAssetPath(
+    'main.jsbundle.map',
+  )} -o ${buildAndroidOutputAssetPath('main.jsbundle.map')}`;
+  log(
+    'build android bundle compose source maps command',
+    composeSourceMapsCommand,
+  );
+  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
+  log('build android bundle compose source maps done');
 
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
     log('build android bundle upload source maps');
