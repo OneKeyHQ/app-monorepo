@@ -3,13 +3,7 @@ import { useCallback, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
-import {
-  IconButton,
-  SizableText,
-  Tabs,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { IconButton, SizableText, Tabs, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -67,70 +61,68 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   );
 
   return (
-    <YStack overflow="hidden">
-      <Tabs.Container
-        ref={tabsRef as any}
-        headerHeight={80}
-        initialTabName="Positions"
-        renderTabBar={(props) => (
-          <Tabs.TabBar
-            {...props}
-            renderToolbar={
-              isMobile
-                ? () => (
-                    <IconButton
-                      variant="tertiary"
-                      size="small"
-                      mr="$2"
-                      borderRadius="$full"
-                      icon="ClockTimeHistoryOutline"
-                      onPress={handleViewTradesHistory}
-                    />
-                  )
-                : undefined
-            }
-            renderItem={({ name, isFocused, onPress }) => (
-              <XStack
-                py="$3"
-                ml="$5"
-                mr="$2"
-                borderBottomWidth={isFocused ? '$0.5' : '$0'}
-                borderBottomColor="$borderActive"
-                onPress={() => onPress(name)}
-              >
-                <SizableText size="$headingXs">
-                  {`${intl.formatMessage({
-                    id: tabNameToTranslationKey[
-                      name as keyof typeof tabNameToTranslationKey
-                    ],
-                  })} ${tabCount(name)}`}
-                </SizableText>
-              </XStack>
-            )}
-            containerStyle={{
-              borderRadius: 0,
-              margin: 0,
-              padding: 0,
-            }}
-          />
-        )}
-      >
-        <Tabs.Tab name="Positions">
-          <PerpPositionsList
-            handleViewTpslOrders={handleViewTpslOrders}
-            isMobile={isMobile}
-          />
+    <Tabs.Container
+      ref={tabsRef as any}
+      headerHeight={80}
+      initialTabName="Positions"
+      renderTabBar={(props) => (
+        <Tabs.TabBar
+          {...props}
+          renderToolbar={
+            isMobile
+              ? () => (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    mr="$2"
+                    borderRadius="$full"
+                    icon="ClockTimeHistoryOutline"
+                    onPress={handleViewTradesHistory}
+                  />
+                )
+              : undefined
+          }
+          renderItem={({ name, isFocused, onPress }) => (
+            <XStack
+              py="$3"
+              ml="$5"
+              mr="$2"
+              borderBottomWidth={isFocused ? '$0.5' : '$0'}
+              borderBottomColor="$borderActive"
+              onPress={() => onPress(name)}
+            >
+              <SizableText size="$headingXs">
+                {`${intl.formatMessage({
+                  id: tabNameToTranslationKey[
+                    name as keyof typeof tabNameToTranslationKey
+                  ],
+                })} ${tabCount(name)}`}
+              </SizableText>
+            </XStack>
+          )}
+          containerStyle={{
+            borderRadius: 0,
+            margin: 0,
+            padding: 0,
+          }}
+        />
+      )}
+    >
+      <Tabs.Tab name="Positions">
+        <PerpPositionsList
+          handleViewTpslOrders={handleViewTpslOrders}
+          isMobile={isMobile}
+        />
+      </Tabs.Tab>
+      <Tabs.Tab name="Open Orders">
+        <PerpOpenOrdersList isMobile={isMobile} />
+      </Tabs.Tab>
+      {!isMobile ? (
+        <Tabs.Tab name="Trades History">
+          <PerpTradesHistoryList />
         </Tabs.Tab>
-        <Tabs.Tab name="Open Orders">
-          <PerpOpenOrdersList isMobile={isMobile} />
-        </Tabs.Tab>
-        {!isMobile ? (
-          <Tabs.Tab name="Trades History">
-            <PerpTradesHistoryList />
-          </Tabs.Tab>
-        ) : null}
-      </Tabs.Container>
-    </YStack>
+      ) : null}
+    </Tabs.Container>
   );
 }
 
