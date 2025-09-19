@@ -382,15 +382,15 @@ class DesktopApiAppBundleUpdate {
     await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
   }
 
-  async installBundle({
-    latestVersion: appVersion,
-    bundleVersion,
-    signature,
-  }: {
-    latestVersion: string;
-    bundleVersion: string;
-    signature: string;
-  }) {
+  async installBundle(params: IUpdateDownloadedEvent) {
+    const {
+      latestVersion: appVersion,
+      bundleVersion,
+      signature,
+    } = params || {};
+    if (!appVersion || !bundleVersion || !signature) {
+      throw new OneKeyLocalError('Invalid parameters');
+    }
     store.setFallbackUpdateBundleData(store.getUpdateBundleData());
     store.setUpdateBundleData({
       appVersion,
