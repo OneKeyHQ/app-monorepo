@@ -418,7 +418,11 @@ class DesktopApiAppBundleUpdate {
 
   async clearBundleExtract() {
     const bundleDir = getBundleDirName();
-    fs.rmSync(bundleDir, { recursive: true });
+    try {
+      fs.rmSync(bundleDir, { recursive: true, force: true });
+    } catch (error) {
+      logger.error('Failed to clear bundle extract:', error);
+    }
   }
 
   async clearBundle() {
