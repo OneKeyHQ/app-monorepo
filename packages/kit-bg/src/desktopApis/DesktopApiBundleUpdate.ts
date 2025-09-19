@@ -10,6 +10,7 @@ import logger from 'electron-log/main';
 import {
   getBundleDirName,
   getBundleExtractDir,
+  testExtractedSha256FromVerifyAscFile,
   verifyMetadataFileSha256,
   verifySha256,
 } from '@onekeyhq/desktop/app/bundle';
@@ -432,7 +433,7 @@ class DesktopApiAppBundleUpdate {
   }
 
   async testVerification() {
-    return true;
+    return testExtractedSha256FromVerifyAscFile();
   }
 }
 
