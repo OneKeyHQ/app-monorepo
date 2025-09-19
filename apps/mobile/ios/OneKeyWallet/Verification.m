@@ -1,5 +1,4 @@
 #import "Verification.h"
-#import <CommonCrypto/CommonDigest.h>
 #import <CocoaLumberjack/CocoaLumberjack.h>
 #import <ObjectivePGP/ObjectivePGP.h>
 
