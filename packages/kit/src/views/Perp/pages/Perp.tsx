@@ -7,7 +7,9 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
+import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -27,11 +29,19 @@ function PerpContent() {
   });
 
   const { gtSm } = useMedia();
+  const themeVariant = useThemeVariant();
   return (
     <Page>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Perp}
+        customHeaderRightItems={
+          <PerpsAccountSelectorProviderMirror>
+            <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+              <PerpAccountPanel ifOnHeader />
+            </PerpsProviderMirror>
+          </PerpsAccountSelectorProviderMirror>
+        }
       />
       <Page.Body>
         <PerpLayout />
@@ -48,7 +58,11 @@ function PerpContent() {
             justifyContent="flex-end"
           >
             <Image
-              source={require('../../../../assets/PoweredByHyperliquid.svg')}
+              source={
+                themeVariant === 'light'
+                  ? require('../../../../assets/PoweredByHyperliquidLight.svg')
+                  : require('../../../../assets/PoweredByHyperliquidDark.svg')
+              }
               size={170}
               resizeMode="contain"
             />

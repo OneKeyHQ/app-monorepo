@@ -33,6 +33,7 @@ export interface ISimpleDbPerpData {
   marginTables?: IMarginTables | undefined;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
+  tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -140,5 +141,33 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         },
       }),
     );
+  }
+
+  async updateTradingviewDisplayPriceScale({
+    symbol,
+    priceScale,
+  }: {
+    symbol: string;
+    priceScale: number;
+  }) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        tradingUniverse: prev?.tradingUniverse,
+        marginTables: prev?.marginTables,
+        tradingviewDisplayPriceScale: {
+          ...(prev?.tradingviewDisplayPriceScale || {}),
+          [symbol]: priceScale,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getTradingviewDisplayPriceScale(
+    symbol: string,
+  ): Promise<number | undefined> {
+    const config = await this.getPerpData();
+    return config.tradingviewDisplayPriceScale?.[symbol];
   }
 }

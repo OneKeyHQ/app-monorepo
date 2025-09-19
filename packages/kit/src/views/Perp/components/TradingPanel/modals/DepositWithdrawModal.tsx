@@ -228,17 +228,17 @@ function DepositWithdrawContent({
     const balanceBN = new BigNumber(availableBalance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
   }, [amount, availableBalance]);
-
-  const buttonText = useMemo(() => {
-    if (isSubmitting) {
-      return `${
-        selectedAction === 'deposit' ? 'Depositing' : 'Withdrawing'
-      }...`;
-    }
-    if (isInsufficientBalance) return 'Insufficient balance';
-    return selectedAction === 'deposit' ? 'Deposit' : 'Withdraw';
-  }, [isSubmitting, isInsufficientBalance, selectedAction]);
   const intl = useIntl();
+  const buttonText = useMemo(() => {
+    if (isInsufficientBalance)
+      return intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    return selectedAction === 'deposit'
+      ? intl.formatMessage({ id: ETranslations.perp_trade_deposit })
+      : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
+  }, [isInsufficientBalance, selectedAction, intl]);
+
   return (
     <YStack
       gap="$4"
@@ -349,6 +349,7 @@ function DepositWithdrawContent({
               justifyContent: 'flex-end',
             }}
             textAlign="right"
+            maxLength={12}
           />
           <XStack alignItems="center">
             <SizableText size="$bodyMd">USDC</SizableText>

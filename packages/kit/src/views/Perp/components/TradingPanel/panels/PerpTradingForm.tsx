@@ -268,7 +268,9 @@ function PerpTradingForm({ isSubmitting = false }: IPerpTradingFormProps) {
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
-            Liq. Price
+            {intl.formatMessage({
+              id: ETranslations.perp_position_liq_price,
+            })}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
             <LiquidationPriceDisplay />

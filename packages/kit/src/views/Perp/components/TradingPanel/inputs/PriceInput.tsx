@@ -51,6 +51,7 @@ export const PriceInput = memo(
       ? [
           {
             label: 'Mid',
+            labelColor: '$green11',
             onPress: onUseMarketPrice,
             disabled: false,
           },

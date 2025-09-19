@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 
 interface IInputAction {
+  labelColor: string;
   label: string;
   onPress: () => void;
   disabled?: boolean;
@@ -65,7 +66,7 @@ export const TradingFormInput = memo(
         addOns.push({
           renderContent: (
             <XStack alignItems="center">
-              <SizableText size="$bodyLg" color="$textSubdued">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {suffix}
               </SizableText>
             </XStack>
@@ -83,7 +84,7 @@ export const TradingFormInput = memo(
                 onPress={action.onPress}
                 opacity={action.disabled ? 0.5 : 1}
               >
-                <SizableText size="$bodyLg" color="$textSubdued">
+                <SizableText size="$bodyMdMedium" color={action.labelColor}>
                   {action.label}
                 </SizableText>
               </XStack>
