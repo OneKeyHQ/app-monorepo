@@ -91,7 +91,6 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
             DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
             return nil;
         }
-        
         // Extract the clear text between PGP message markers
         NSString *beginMarker = @"-----BEGIN PGP SIGNED MESSAGE-----";
         NSString *endMarker = @"-----BEGIN PGP SIGNATURE-----";
@@ -104,10 +103,31 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
             return nil;
         }
         
-        // Find the start of the actual content (after the hash line)
-        NSUInteger contentStart = beginRange.location + beginRange.length;
-        // Extract content up to the signature marker
+        // Find the start of the actual content (after the hash line and empty line)
+        NSUInteger searchStart = beginRange.location + beginRange.length;
+        NSString *remainingContent = [ascFileContent substringFromIndex:searchStart];
+        
+        // Look for the hash line pattern and skip it
+        NSString *hashPattern = @"Hash: SHA256";
+        NSRange hashRange = [remainingContent rangeOfString:hashPattern];
+        
+        if (hashRange.location != NSNotFound) {
+            // Find the end of the hash line
+            NSUInteger hashLineEnd = hashRange.location + hashRange.length;
+            NSString *afterHash = [remainingContent substringFromIndex:hashLineEnd];
+            
+            // Skip any newlines after the hash line to find the actual content
+            NSRange firstNonWhitespace = [afterHash rangeOfCharacterFromSet:[[NSCharacterSet whitespaceAndNewlineCharacterSet] invertedSet]];
+            if (firstNonWhitespace.location != NSNotFound) {
+                searchStart = searchStart + hashLineEnd + firstNonWhitespace.location;
+            } else {
+                searchStart = searchStart + hashLineEnd;
+            }
+        }
+        
+        NSUInteger contentStart = searchStart;
         NSUInteger contentEnd = endRange.location;
+        
         if (contentStart >= contentEnd) {
             DDLogError(@"Invalid PGP message format");
             return nil;
@@ -121,6 +141,50 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
         return nil;
     }
+}
+
++ (BOOL)testExtractedSha256FromVerifyAscFile {
+    NSString *ascFileContent = @"-----BEGIN PGP SIGNED MESSAGE-----\n"
+           @"Hash: SHA256\n"
+           @"\n"
+           @"{\n"
+           @"  \"fileName\": \"metadata.json\",\n"
+           @"  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faads18e9abd587e8bb85be0a003eba\",\n"
+           @"  \"size\": 158590,\n"
+           @"  \"generatedAt\": \"2025-09-19T07:49:13.000Z\"\n"
+           @"}\n"
+           @"-----BEGIN PGP SIGNATURE-----\n"
+           @"\n"
+           @"iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmjNJ1IOHGRldkBvbmVr\n"
+           @"ZXkuc28ACgkQs2mmepC/OHs6Rw/9FKHl5aNsE7V0IsFf/l+h16BYKFwVsL69alMk\n"
+           @"CFLna8oUn0+tyECF6wKBKw5pHo5YR27o2pJfYbAER6dygDF6WTZ1lZdf5QcBMjGA\n"
+           @"LCeXC0hzUBzSSOH4bKBTa3fHp//HdSV1F2OnkymbXqYN7WXvuQPLZ0nV6aU88hCk\n"
+           @"HgFifcvkXAnWKoosUtj0Bban/YBRyvmQ5C2akxUPEkr4Yck1QXwzJeNRd7wMXHjH\n"
+           @"JFK6lJcuABiB8wpJDXJkFzKs29pvHIK2B2vdOjU2rQzKOUwaKHofDi5C4+JitT2b\n"
+           @"2pSeYP3PAxXYw6XDOmKTOiC7fPnfLjtcPjNYNFCezVKZT6LKvZW9obnW8Q9LNJ4W\n"
+           @"okMPgHObkabv3OqUaTA9QNVfI/X9nvggzlPnaKDUrDWTf7n3vlrdexugkLtV/tJA\n"
+           @"uguPlI5hY7Ue5OW7ckWP46hfmq1+UaIdeUY7dEO+rPZDz6KcArpaRwBiLPBhneIr\n"
+           @"/X3KuMzS272YbPbavgCZGN9xJR5kZsEQE5HhPCbr6Nf0qDnh+X8mg0tAB/U6F+ZE\n"
+           @"o90sJL1ssIaYvST+VWVaGRr4V5nMDcgHzWSF9Q/wm22zxe4alDaBdvOlUseW0iaM\n"
+           @"n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ\n"
+           @"91Js0rQ=\n"
+           @"=A/Ii\n"
+           @"-----END PGP SIGNATURE-----";
+    NSString *result = [self extractedTextContentFromVerifyAscFile:ascFileContent error:nil];
+    
+    // Parse the result as JSON to extract sha256
+    NSError *jsonError;
+    NSData *jsonData = [result dataUsingEncoding:NSUTF8StringEncoding];
+    NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&jsonError];
+    
+    if (jsonError || !jsonDict) {
+        DDLogError(@"Failed to parse JSON: %@", jsonError.localizedDescription);
+        return NO;
+    }
+    
+    NSString *extractedSha256 = jsonDict[@"sha256"];
+    NSString *expectedSha256 = @"2ada9c871104fc40649fa3de67a7d8e33faads18e9abd587e8bb85be0a003eba";
+    return [extractedSha256 isEqualToString:expectedSha256];
 }
 
 @end

@@ -6,7 +6,6 @@ import path from 'path';
 import AdmZip from 'adm-zip';
 import { app } from 'electron';
 import logger from 'electron-log/main';
-import { readCleartextMessage, readKey } from 'openpgp';
 
 import {
   getBundleDirName,
@@ -15,8 +14,6 @@ import {
   verifySha256,
 } from '@onekeyhq/desktop/app/bundle';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
-import { ETranslations } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type {
@@ -432,6 +429,10 @@ class DesktopApiAppBundleUpdate {
         resolve();
       }, 300);
     });
+  }
+
+  async testVerification() {
+    return true;
   }
 }
 

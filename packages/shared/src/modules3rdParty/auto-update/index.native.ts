@@ -262,4 +262,5 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => BundleUpdateModule.clearBundle(),
+  testVerification: () => BundleUpdateModule.testVerification(),
 };

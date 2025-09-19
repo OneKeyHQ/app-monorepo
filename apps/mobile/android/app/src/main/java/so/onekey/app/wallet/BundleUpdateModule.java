@@ -652,6 +652,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
+    @ReactMethod
+    public void testVerification(Promise promise) {
+        boolean result = Verification.testExtractedSha256FromVerifyAscFile();
+        promise.resolve(result);
+    }
+
     private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
         File file = new File(filePath);
         file.getParentFile().mkdirs();
