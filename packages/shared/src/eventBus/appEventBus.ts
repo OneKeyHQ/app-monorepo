@@ -375,7 +375,6 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
-    localParams: Record<string, string | undefined>;
   };
   [EAppEventBusNames.ShowNotificationPageNavigation]: {
     payload: {
