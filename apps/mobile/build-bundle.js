@@ -244,7 +244,7 @@ const buildIOSBundle = async () => {
       )}  sourcemaps upload \
   --debug-id-reference \
   --strip-prefix ${projectRootPath} \
-  ${buildIOSOutputAssetPath('main.jsbundle')} ${buildIOSOutputAssetPath(
+  ${buildIOSOutputAssetPath('main.jsbundle.hbc')} ${buildIOSOutputAssetPath(
         'main.jsbundle.map',
       )}`,
       {
@@ -323,7 +323,7 @@ const buildAndroidBundle = async () => {
 
   log('build android bundle compress to hbc');
   execSync(
-    `${HERMES_COMMAND} -emit-binary -out ${buildAndroidOutputAssetPath(
+    `${HERMES_COMMAND} -O -emit-binary -output-source-map ${buildAndroidOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildAndroidOutputAssetPath('main.jsbundle')}`,
     {
@@ -332,18 +332,36 @@ const buildAndroidBundle = async () => {
   );
   log('build android bundle compress to hbc done');
 
+  fs.moveSync(
+    buildAndroidOutputAssetPath('main.jsbundle.map'),
+    buildAndroidOutputAssetPath('main.jsbundle.packager.map'),
+  );
+
   const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
     projectRootPath,
     'node_modules/react-native/scripts/compose-source-maps.js',
   )} ${buildAndroidOutputAssetPath(
     'main.jsbundle.packager.map',
   )} ${buildAndroidOutputAssetPath(
-    'main.jsbundle.map',
+    'main.jsbundle.hbc.map',
   )} -o ${buildAndroidOutputAssetPath('main.jsbundle.map')}`;
   log(
     'build android bundle compose source maps command',
     composeSourceMapsCommand,
   );
+
+  execSync(
+    `${nodeExecutablePath} ${path.join(
+      projectRootPath,
+      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
+    )} ${buildAndroidOutputAssetPath(
+      'main.jsbundle.packager.map',
+    )} ${buildAndroidOutputAssetPath('main.jsbundle.map')}`,
+    { stdio: 'inherit' },
+  );
+  fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.packager.map'));
+  log('build android bundle compose source maps done');
+
   execSync(composeSourceMapsCommand, { stdio: 'inherit' });
   log('build android bundle compose source maps done');
 
@@ -353,7 +371,7 @@ const buildAndroidBundle = async () => {
       projectRootPath,
       'node_modules/@sentry/cli/bin/sentry-cli',
     )}  sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildAndroidOutputAssetPath(
-      'main.jsbundle',
+      'main.jsbundle.hbc',
     )} ${buildAndroidOutputAssetPath('main.jsbundle.map')}`;
     console.log(uploadSourceMapsCommand);
     execSync(uploadSourceMapsCommand, {
