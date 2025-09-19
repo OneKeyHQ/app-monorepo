@@ -14,7 +14,9 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -48,6 +50,7 @@ const PositionRow = memo(
     setTpsl,
     index,
   }: IPositionRowProps) => {
+    const { selectToken } = usePerpTokenSelector();
     const intl = useIntl();
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
@@ -61,20 +64,15 @@ const PositionRow = memo(
     }, [pos.coin, side, pos.leverage?.value]);
 
     const priceInfo = useMemo(() => {
-      const entryPrice = new BigNumber(pos.entryPx || '0').toFixed();
-      const markPrice = new BigNumber(mid || '0').toFixed();
+      const decimals = getValidPriceDecimals(pos.entryPx || '0');
+      const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
+      const markPrice = new BigNumber(mid || '0').toFixed(decimals);
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
-      const entryPriceFormatted = numberFormat(entryPrice, {
-        formatter: 'price',
-      });
-      const markPriceFormatted = numberFormat(markPrice, {
-        formatter: 'price',
-      });
+      const entryPriceFormatted = entryPrice;
+      const markPriceFormatted = markPrice;
       const liquidationPriceFormatted = liquidationPrice.isZero()
         ? 'N/A'
-        : numberFormat(liquidationPrice.toFixed(), {
-            formatter: 'price',
-          });
+        : liquidationPrice.toFixed(decimals);
       return {
         entryPriceFormatted,
         markPriceFormatted,
@@ -93,7 +91,7 @@ const PositionRow = memo(
       });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
       const sizeValueFormatted = numberFormat(sizeValue, {
-        formatter: 'price',
+        formatter: 'balance',
         formatterOptions: {
           currency: '$',
         },
@@ -202,6 +200,8 @@ const PositionRow = memo(
               alignItems="center"
               borderRadius="$1"
               backgroundColor={assetInfo.assetColor}
+              cursor="pointer"
+              onPress={() => selectToken(assetInfo.assetSymbol)}
             >
               <SizableText size="$bodyMdMedium" color="$textOnColor">
                 {side === 'long' ? 'B' : 'S'}
@@ -266,7 +266,7 @@ const PositionRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${priceInfo.entryPriceFormatted as string}`}
+                {`${priceInfo.entryPriceFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
@@ -305,7 +305,7 @@ const PositionRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${priceInfo.liquidationPriceFormatted as string}`}
+                {`${priceInfo.liquidationPriceFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
@@ -354,6 +354,8 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[0].align)}
           gap="$2"
           pl="$2"
+          cursor="pointer"
+          onPress={() => selectToken(assetInfo.assetSymbol)}
         >
           <SizableText
             numberOfLines={1}
@@ -403,7 +405,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${priceInfo.entryPriceFormatted as string}`}</SizableText>
+          >{`${priceInfo.entryPriceFormatted}`}</SizableText>
         </XStack>
 
         {/* Mark Price */}
@@ -416,7 +418,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${priceInfo.markPriceFormatted as string}`}</SizableText>
+          >{`${priceInfo.markPriceFormatted}`}</SizableText>
         </XStack>
         {/* Liq. Price */}
         <XStack
@@ -428,7 +430,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${priceInfo.liquidationPriceFormatted as string}`}</SizableText>
+          >{`${priceInfo.liquidationPriceFormatted}`}</SizableText>
         </XStack>
         {/* Unrealized PnL */}
         <XStack
@@ -489,15 +491,24 @@ const PositionRow = memo(
           alignItems="center"
         >
           {tpslInfo.showOrder ? (
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={handleViewTpslOrders}
-            >
-              <SizableText color="$textSuccess" size="$bodySm">
-                View Order
-              </SizableText>
-            </Button>
+            <XStack alignItems="center" gap="$1">
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="HighlightOutline"
+                iconSize="$2.5"
+                onPress={setTpsl}
+              />
+              <Button
+                size="small"
+                variant="tertiary"
+                onPress={handleViewTpslOrders}
+              >
+                <SizableText color="$textSuccess" size="$bodySm">
+                  View Order
+                </SizableText>
+              </Button>
+            </XStack>
           ) : (
             <XStack alignItems="center" gap="$1">
               <IconButton
