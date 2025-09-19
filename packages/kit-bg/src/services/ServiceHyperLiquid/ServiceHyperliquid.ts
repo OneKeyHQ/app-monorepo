@@ -89,14 +89,6 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getBuilder(): Promise<IOrderRequest['builder']> {
-    return {
-      b: this.builderAddress,
-      f: this.maxBuilderFee,
-    };
-  }
-
-  @backgroundMethod()
   async getUserFillsByTime(
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {

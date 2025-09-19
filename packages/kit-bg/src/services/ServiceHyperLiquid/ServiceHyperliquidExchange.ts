@@ -258,12 +258,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }): Promise<IOrderResponse> {
     this._ensureSetup();
     await this.checkAccountCanTrade();
-    const builder = await this.backgroundApi.serviceHyperliquid.getBuilder();
     try {
       return await this.exchangeClient.order({
         orders,
         grouping,
-        builder,
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
@@ -326,7 +325,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.placeOrderRaw({
         orders: [orderParams],
         grouping: 'na',
-        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
@@ -420,7 +418,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.placeOrderRaw({
         orders,
         grouping: orders.length > 1 ? 'normalTpsl' : 'na',
-        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
@@ -452,7 +449,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.placeOrderRaw({
         orders: [orderParams],
         grouping: 'na',
-        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
@@ -498,7 +494,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.placeOrderRaw({
         orders: orderParams,
         grouping: 'na',
-        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
@@ -582,7 +577,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return await this.placeOrderRaw({
         orders,
         grouping: 'positionTpsl',
-        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(
