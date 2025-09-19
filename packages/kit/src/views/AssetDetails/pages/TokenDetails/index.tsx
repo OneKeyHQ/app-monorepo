@@ -124,6 +124,7 @@ function TokenDetailsView() {
     indexedAccountId,
     tokenMap,
     aggregateTokens: aggregateTokensParam,
+    accountAddress,
   } = route.params;
 
   const { gtMd } = useMedia();
@@ -148,6 +149,14 @@ function TokenDetailsView() {
             { accountId, walletId },
           );
 
+        let tokenAccountId;
+        let tokenAccountAddress;
+
+        if (accountUtils.isOthersWallet({ walletId })) {
+          tokenAccountId = accountId;
+          tokenAccountAddress = accountAddress;
+        }
+
         for (const aggregateToken of allAggregateTokenMap?.[tokenInfo.$key]
           ?.tokens ?? []) {
           if (
@@ -164,23 +173,22 @@ function TokenDetailsView() {
                 networkId: aggregateToken.networkId ?? '',
               }),
             ]);
-
-            let tokenAccountId;
-            let tokenAccountAddress;
-
-            try {
-              const { accounts } =
-                await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-                  {
-                    indexedAccountIds: [indexedAccountId ?? ''],
-                    networkId: aggregateToken.networkId ?? '',
-                    deriveType: deriveType ?? 'default',
-                  },
-                );
-              tokenAccountId = accounts[0]?.id ?? '';
-              tokenAccountAddress = accounts[0]?.address ?? '';
-            } catch {
-              // pass
+            if (!accountUtils.isOthersWallet({ walletId })) {
+              try {
+                const { accounts } =
+                  await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                    {
+                      indexedAccountIds: [indexedAccountId ?? ''],
+                      networkId: aggregateToken.networkId ?? '',
+                      deriveType: deriveType ?? 'default',
+                    },
+                  );
+                tokenAccountId = accounts[0]?.id ?? '';
+                tokenAccountAddress = accounts[0]?.address ?? '';
+              } catch {
+                tokenAccountId = undefined;
+                tokenAccountAddress = undefined;
+              }
             }
 
             const originalToken = aggregateTokensParam?.find(
@@ -227,6 +235,7 @@ function TokenDetailsView() {
       tokenMap,
       aggregateTokensParam,
       indexedAccountId,
+      accountAddress,
     ],
     {
       watchLoading: true,
@@ -743,6 +752,10 @@ export default function TokenDetailsModal() {
     ITokenDetailsContextValue['tokenDetails']
   >({});
 
+  const [tokenAccountMap, setTokenAccountMap] = useState<
+    Record<string, string>
+  >({});
+
   const [isLoadingTokenDetails, setIsLoadingTokenDetails] = useState<
     ITokenDetailsContextValue['isLoadingTokenDetails']
   >({});
@@ -825,6 +838,8 @@ export default function TokenDetailsModal() {
       tokenDetails,
       updateTokenDetails,
       batchUpdateTokenDetails,
+      tokenAccountMap,
+      setTokenAccountMap,
     }),
     [
       tokenMetadata,
@@ -834,6 +849,8 @@ export default function TokenDetailsModal() {
       tokenDetails,
       updateTokenDetails,
       batchUpdateTokenDetails,
+      tokenAccountMap,
+      setTokenAccountMap,
     ],
   );
   return (

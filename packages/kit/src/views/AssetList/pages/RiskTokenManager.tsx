@@ -75,6 +75,7 @@ function RiskTokenManager() {
     deriveType,
     deriveInfo,
     hideValue,
+    accountAddress,
   } = route.params;
 
   const { tokens, map: tokenMap } = tokenList;
@@ -310,6 +311,7 @@ function RiskTokenManager() {
         deriveType,
         isAllNetworks,
         tokenMap,
+        accountAddress,
       });
     },
     [
@@ -321,6 +323,7 @@ function RiskTokenManager() {
       deriveType,
       isAllNetworks,
       tokenMap,
+      accountAddress,
     ],
   );
 

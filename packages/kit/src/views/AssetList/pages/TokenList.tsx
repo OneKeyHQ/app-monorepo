@@ -64,6 +64,7 @@ function TokenList() {
     hideValue,
     aggregateTokensListMap,
     aggregateTokensMap,
+    accountAddress,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -121,6 +122,7 @@ function TokenList() {
         tokenInfo: token,
         aggregateTokens: aggregateTokensListMap?.[token.$key]?.tokens ?? [],
         tokenMap,
+        accountAddress,
       });
     },
     [
@@ -135,6 +137,7 @@ function TokenList() {
       networkId,
       tokenMap,
       walletId,
+      accountAddress,
     ],
   );
 
