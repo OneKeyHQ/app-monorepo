@@ -134,6 +134,7 @@ def download_and_compile_gopenpgp(version)
       puts "gopenpgp v#{version} downloaded, compiled and moved successfully"
     else
       puts "Error: Failed to compile gopenpgp library"
+      exit 1
     end
       FileUtils.rm_rf(download_dir) if Dir.exist?(download_dir)
       puts "Cleaned up download directory"
