@@ -45,7 +45,9 @@ function MobileTokenSelectorModal({
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.token_selector_title })}
         headerSearchBarOptions={{
-          placeholder: 'Search',
+          placeholder: intl.formatMessage({
+            id: ETranslations.global_search_asset,
+          }),
           onChangeText: ({ nativeEvent }) => {
             const afterTrim = nativeEvent.text.trim();
             setSearchQuery(afterTrim);
@@ -63,11 +65,19 @@ function MobileTokenSelectorModal({
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_token_selector_asset,
+          })}{' '}
+          /{' '}
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_volume,
           })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.perp_token_selector_last_price,
+          })}{' '}
+          /{' '}
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_24h_change,
           })}
         </SizableText>
       </XStack>
