@@ -132,7 +132,7 @@ const PerpTokenSelectorRow = memo(
             size="xs"
             borderRadius="$full"
             bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-            tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.png`}
+            tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$bodySmMedium">{token.name}</SizableText>
