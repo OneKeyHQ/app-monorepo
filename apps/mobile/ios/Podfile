@@ -65,19 +65,19 @@ end
 
 # Download and compile gopenpgp library
 def download_and_compile_gopenpgp(version)
-  # Check if Go is installed
-  installGo()
   if (version.nil? || version.empty?)
     puts "No version specified for gopenpgp, skipping download and compilation"
     return
   end
   # Check if the gopenpgp XCFramework already exists
   xcframeworks_dir = File.join(__dir__, "XCFrameworks")
-  destination_gopenpgp_dir = File.join(xcframeworks_dir, "gopenpgp-#{version}")
+  destination_gopenpgp_dir = File.join(xcframeworks_dir, "gopenpgp-#{version}.xcframework")
   if Dir.exist?(destination_gopenpgp_dir)
     puts "gopenpgp v#{version} XCFramework already exists, skipping download and compilation"
     return
   end
+  # Check if Go is installed
+  installGo()
   gopenpgp_url = "https://github.com/ProtonMail/gopenpgp/archive/refs/tags/v#{version}.zip"
   download_dir = File.join(__dir__, "tmp-oc-test")
   gopenpgp_dir = File.join(download_dir, "gopenpgp-#{version}")
@@ -107,10 +107,6 @@ def download_and_compile_gopenpgp(version)
       FileUtils.mkdir_p(xcframeworks_dir) unless Dir.exist?(xcframeworks_dir)
       
       puts "framework path: #{xcframeworks_dir}"
-      
-      # Create destination directory for gopenpgp
-      destination_gopenpgp_dir = File.join(xcframeworks_dir, "gopenpgp-#{version}")
-      
       puts "destination gopenpgp dir: #{destination_gopenpgp_dir}"
 
       # Remove existing directory if it exists
