@@ -205,7 +205,6 @@ n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ
 -----END PGP SIGNATURE-----`;
 export const testExtractedSha256FromVerifyAscFile = async () => {
   const result = await readMetadataFileSha256(TEST_SIGNATURE);
-  console.log('result', result);
   return (
     result ===
     '2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba'
