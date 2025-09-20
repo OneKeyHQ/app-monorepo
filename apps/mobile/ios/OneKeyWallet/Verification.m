@@ -198,7 +198,7 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
     NSString *result = [self extractedTextContentFromVerifyAscFile:ascFileContent error:nil];
   
     if (result == nil) {
-      return false;
+      return NO;
     }
     
     // Parse the result as JSON to extract sha256
