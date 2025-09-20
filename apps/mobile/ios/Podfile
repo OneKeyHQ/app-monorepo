@@ -25,12 +25,14 @@ def installGo()
     # Detect system architecture
     arch = `uname -m`.strip
     os = `uname -s`.strip.downcase
+
+    go_version = "1.22.0"
     
     if os == "darwin"
       if arch == "arm64"
-        go_url = "https://go.dev/dl/go1.21.5.darwin-arm64.tar.gz"
+        go_url = "https://go.dev/dl/go#{go_version}.darwin-arm64.tar.gz"
       else
-        go_url = "https://go.dev/dl/go1.21.5.darwin-amd64.tar.gz"
+        go_url = "https://go.dev/dl/go#{go_version}.darwin-amd64.tar.gz"
       end
     else
       puts "Unsupported operating system: #{os}"
@@ -38,7 +40,8 @@ def installGo()
     end
     
     # Download and install Go
-    go_tmp_dir = File.join(__dir__, "tmp-go-install")
+    go_tmp_dir = File.join(__dir__, "go-install")
+    puts "go_tmp_dir: #{go_tmp_dir}"
     FileUtils.mkdir_p(go_tmp_dir) unless Dir.exist?(go_tmp_dir)
     
     go_tar_path = File.join(go_tmp_dir, "go.tar.gz")
