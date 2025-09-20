@@ -14,11 +14,11 @@ import {
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useActiveAssetDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useActiveAssetDataAtom,
-  useCurrentTokenAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+  usePerpsSelectedAccountAtom,
+  usePerpsSelectedSymbolAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
@@ -28,6 +28,7 @@ interface ILeverageContentProps {
   maxLeverage: number;
   tokenInfo: { assetId: number; name: string };
   activeAssetData: { leverage?: { type: string } };
+  isMobile?: boolean;
 }
 
 const LeverageContent = memo(
@@ -161,63 +162,65 @@ const LeverageContent = memo(
 );
 LeverageContent.displayName = 'LeverageContent';
 
-export const LeverageAdjustModal = memo(() => {
-  const [selectedAccount] = usePerpsSelectedAccountAtom();
-  const userAddress = selectedAccount.accountAddress;
+export const LeverageAdjustModal = memo(
+  ({ isMobile = false }: { isMobile?: boolean }) => {
+    const [selectedAccount] = usePerpsSelectedAccountAtom();
+    const userAddress = selectedAccount.accountAddress;
 
-  const [currentToken] = useCurrentTokenAtom();
-  const { getTokenInfo } = useTokenList();
-  const [activeAssetData] = useActiveAssetDataAtom();
+    const [currentToken] = usePerpsSelectedSymbolAtom();
+    const { getTokenInfo } = useTokenList();
+    const [activeAssetData] = useActiveAssetDataAtom();
 
-  const tokenInfo = getTokenInfo(currentToken);
-  const intl = useIntl();
-  const showLeverageDialog = useCallback(() => {
-    if (!userAddress || !tokenInfo || !activeAssetData) return;
+    const tokenInfo = getTokenInfo(currentToken.coin);
+    const intl = useIntl();
+    const showLeverageDialog = useCallback(() => {
+      if (!userAddress || !tokenInfo || !activeAssetData) return;
 
-    const initialValue =
-      activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
-    const maxLeverage = tokenInfo.maxLeverage || 25;
+      const initialValue =
+        activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
+      const maxLeverage = tokenInfo.maxLeverage || 25;
 
-    Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.perp_trading_adjust_leverage,
-      }),
+      Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.perp_trading_adjust_leverage,
+        }),
 
-      renderContent: (
-        <LeverageContent
-          initialValue={initialValue}
-          maxLeverage={maxLeverage}
-          tokenInfo={tokenInfo}
-          activeAssetData={activeAssetData}
-        />
-      ),
-      showFooter: false,
-    });
-  }, [tokenInfo, userAddress, activeAssetData, intl]);
+        renderContent: (
+          <LeverageContent
+            initialValue={initialValue}
+            maxLeverage={maxLeverage}
+            tokenInfo={tokenInfo}
+            activeAssetData={activeAssetData}
+          />
+        ),
+        showFooter: false,
+      });
+    }, [tokenInfo, userAddress, activeAssetData, intl]);
 
-  if (!userAddress || !tokenInfo) return null;
+    if (!userAddress || !tokenInfo) return null;
 
-  return (
-    <Badge
-      borderRadius="$2"
-      bg="$bgSubdued"
-      onPress={showLeverageDialog}
-      px="$3.5"
-      h={30}
-      alignItems="center"
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
-      cursor="pointer"
-    >
-      <SizableText size="$bodyMdMedium">
-        {activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1}x
-      </SizableText>
-    </Badge>
-  );
-});
+    return (
+      <Badge
+        borderRadius="$2"
+        bg="$bgSubdued"
+        onPress={showLeverageDialog}
+        px="$3.5"
+        h={isMobile ? 32 : 30}
+        alignItems="center"
+        hoverStyle={{
+          bg: '$bgStrongHover',
+        }}
+        pressStyle={{
+          bg: '$bgStrongActive',
+        }}
+        cursor="pointer"
+      >
+        <SizableText size="$bodyMdMedium">
+          {activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1}x
+        </SizableText>
+      </Badge>
+    );
+  },
+);
 
 LeverageAdjustModal.displayName = 'LeverageAdjustModal';

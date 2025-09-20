@@ -18,6 +18,7 @@ interface ISizeInputProps {
   error?: string;
   disabled?: boolean;
   label?: string;
+  isMobile?: boolean;
 }
 
 export const SizeInput = memo(
@@ -29,6 +30,7 @@ export const SizeInput = memo(
     disabled = false,
     side,
     label,
+    isMobile = false,
   }: ISizeInputProps) => {
     const intl = useIntl();
     const szDecimals = tokenInfo?.szDecimals ?? 2;
@@ -60,6 +62,12 @@ export const SizeInput = memo(
         error={error}
         validator={validator}
         suffix={tokenInfo?.name || ''}
+        isMobile={isMobile}
+        placeholder={
+          isMobile
+            ? intl.formatMessage({ id: ETranslations.send_amount })
+            : '0.0'
+        }
       />
     );
   },

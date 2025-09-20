@@ -1,19 +1,22 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Divider,
   Icon,
+  IconButton,
   NumberSizeableText,
   SizableText,
   Skeleton,
   Tooltip,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import { useAccountPanelDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsSelectedAccountAtom,
@@ -21,13 +24,13 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useHyperliquidAccount } from '../../../hooks';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 import type { FontSizeTokens } from 'tamagui';
 
 export function PerpAccountDebugInfo() {
-  const { currentUser } = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { currentUser } = accountPanelData;
   const [perpsSelectedAccount] = usePerpsSelectedAccountAtom();
 
   if (!platformEnv.isDev) {
@@ -42,13 +45,20 @@ export function PerpAccountDebugInfo() {
   );
 }
 
-function PerpAccountPanel({ ifOnHeader }: { ifOnHeader: boolean }) {
-  const { userWebData2, accountSummary } = useHyperliquidAccount();
+function PerpAccountPanel({
+  ifOnHeader = false,
+  isTradingPanel = false,
+}: {
+  ifOnHeader?: boolean;
+  isTradingPanel?: boolean;
+}) {
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { userWebData2, accountSummary } = accountPanelData;
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [selectedAccount] = usePerpsSelectedAccountAtom();
   const userAddress = selectedAccount.accountAddress;
   const userAccountId = selectedAccount.accountId;
-
+  const { gtSm } = useMedia();
   const accountDataInfo = useMemo(() => {
     const withdrawableBalance = accountSummary.withdrawable;
     const accountValue = accountSummary.accountValue;
@@ -110,34 +120,58 @@ function PerpAccountPanel({ ifOnHeader }: { ifOnHeader: boolean }) {
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
+  if (isTradingPanel) {
+    return (
+      <IconButton
+        size="small"
+        variant="tertiary"
+        iconSize="$3.5"
+        icon="PlusCircleSolid"
+        onPress={() => handleDepositOrWithdraw('deposit')}
+        color="$iconSubdued"
+        cursor="pointer"
+      />
+    );
+  }
   if (ifOnHeader) {
     return (
-      <Button
+      <Badge
         borderRadius="$full"
         size="medium"
         variant="secondary"
         onPress={() => handleDepositOrWithdraw('deposit')}
         alignItems="center"
         justifyContent="center"
+        flexDirection="row"
+        gap="$2"
+        px="$3"
         h={32}
+        hoverStyle={{
+          bg: '$bgStrongHover',
+        }}
+        pressStyle={{
+          bg: '$bgStrongActive',
+        }}
+        cursor="pointer"
       >
-        <XStack gap="$3" alignItems="center" justifyContent="center">
-          <Icon name="WalletOutline" size="$4.5" />
-          {renderAccountValue(
-            accountDataInfo.accountValue ?? '',
-            60,
-            '$bodyMdMedium',
-          )}
-          <Divider
-            borderWidth={0.33}
-            borderBottomWidth={12}
-            borderColor="$borderSubdued"
-          />
-          <SizableText size="$bodyMdMedium" color="$text">
-            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-          </SizableText>
-        </XStack>
-      </Button>
+        <Icon name="WalletOutline" size="$4" />
+
+        {gtSm
+          ? renderAccountValue(
+              accountDataInfo.accountValue ?? '',
+              60,
+              '$bodySmMedium',
+            )
+          : null}
+        <Divider
+          borderWidth={0.33}
+          borderBottomWidth={12}
+          borderColor="$borderSubdued"
+        />
+        <SizableText size="$bodySmMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      </Badge>
     );
   }
   return (

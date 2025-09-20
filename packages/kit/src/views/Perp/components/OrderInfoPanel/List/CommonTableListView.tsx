@@ -120,6 +120,7 @@ export interface IColumnConfig {
   minWidth?: number;
   flex?: number;
   align?: 'left' | 'center' | 'right';
+  onPress?: () => void;
 }
 
 export interface ICommonTableListViewProps {
@@ -283,10 +284,12 @@ export function CommonTableListView({
                     {...(index === 0 && {
                       pl: '$2',
                     })}
+                    onPress={column.onPress}
+                    cursor={column.onPress ? 'pointer' : 'default'}
                   >
                     <SizableText
                       size="$bodySm"
-                      color={headerTextColor}
+                      color={column.onPress ? '$textSuccess' : headerTextColor}
                       fontWeight="600"
                       textAlign={column.align || 'left'}
                     >

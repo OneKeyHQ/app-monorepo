@@ -4,12 +4,12 @@ import {
   useActiveAssetCtxAtom,
   useActiveAssetDataAtom,
   useAllMidsAtom,
-  useCurrentTokenAtom,
   useHyperliquidActions,
   useL2BookAtom,
   useTradingPanelDataAtom,
   useWebData2Atom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -54,12 +54,12 @@ export interface ICurrentTokenData {
 export function usePerpMarketData(): IPerpMarketDataReturn {
   const [allMids] = useAllMidsAtom();
   const [activeAsset] = useActiveAssetCtxAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
 
   const currentTokenData = useMemo(() => {
-    if (!currentToken) return null;
+    if (!currentToken.coin) return null;
     return activeAsset?.ctx;
-  }, [activeAsset, currentToken]);
+  }, [activeAsset, currentToken.coin]);
 
   const marketPrices = useMemo(() => {
     const data = currentTokenData;
@@ -129,7 +129,7 @@ export function usePerpMarketData(): IPerpMarketDataReturn {
 
 export function useCurrentTokenData(): ICurrentTokenData | null {
   const [tradingData] = useTradingPanelDataAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
   const [webData2] = useWebData2Atom();
   const [activeAssetData] = useActiveAssetDataAtom();
 
@@ -138,11 +138,13 @@ export function useCurrentTokenData(): ICurrentTokenData | null {
   }
 
   const universe = webData2.meta?.universe || [];
-  const assetId = universe.findIndex((token) => token.name === currentToken);
+  const assetId = universe.findIndex(
+    (token) => token.name === currentToken.coin,
+  );
   const tokenFromUniverse: PerpsUniverse | undefined = universe[assetId];
   return {
     ...tradingData,
-    name: currentToken,
+    name: currentToken.coin,
     assetId,
     szDecimals: tokenFromUniverse?.szDecimals ?? 2,
     maxLeverage: tokenFromUniverse?.maxLeverage,
@@ -198,7 +200,7 @@ export function useL2Book(options?: IL2BookOptions): {
   getTotalAskVolume: (levels?: number) => number;
 } {
   const [l2BookData] = useL2BookAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
   const actions = useHyperliquidActions();
   const prevOptionsRef = useRef<typeof options>(undefined);
 
@@ -212,7 +214,7 @@ export function useL2Book(options?: IL2BookOptions): {
       currentOptions?.nSigFigs !== prevOptions?.nSigFigs ||
       currentOptions?.mantissa !== prevOptions?.mantissa;
 
-    if (hasChanged && currentToken) {
+    if (hasChanged && currentToken.coin) {
       // Cancel current subscription and establish new one with updated parameters
       const resubscribe = async () => {
         try {
@@ -231,10 +233,16 @@ export function useL2Book(options?: IL2BookOptions): {
     }
 
     prevOptionsRef.current = currentOptions;
-  }, [options?.nSigFigs, options?.mantissa, currentToken, actions, options]);
+  }, [
+    options?.nSigFigs,
+    options?.mantissa,
+    currentToken.coin,
+    actions,
+    options,
+  ]);
 
   const l2Book = useMemo((): IL2BookData | null => {
-    if (!l2BookData || !currentToken) return null;
+    if (!l2BookData || !currentToken.coin) return null;
 
     const [bids, asks] = l2BookData.levels || [[], []];
 
@@ -245,7 +253,7 @@ export function useL2Book(options?: IL2BookOptions): {
       bids: bids || [],
       asks: asks || [],
     };
-  }, [l2BookData, currentToken]);
+  }, [l2BookData, currentToken.coin]);
 
   const getBestBid = (): string | null => {
     if (!l2Book?.bids || l2Book.bids.length === 0) return null;

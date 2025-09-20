@@ -153,6 +153,11 @@ export type IQueryCheckAddressArgs = {
   enableAllowListValidation?: boolean;
   enableAddressDeriveInfo?: boolean;
   skipValidateAddress?: boolean;
+  walletAccountItem?: {
+    walletName: string;
+    accountName: string;
+    accountId: string;
+  };
 };
 
 export type IFetchServerAccountDetailsParams = IFetchAccountDetailsParams & {

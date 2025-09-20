@@ -146,10 +146,6 @@ function PerpPositionsList({
     );
   }, [positions]);
 
-  const onAllClose = useCallback(() => {
-    console.log('onAllClose');
-  }, []);
-
   const handleSetTpsl = useCallback(
     (position: AssetPosition['position']) => {
       const tokenInfo = getTokenInfo(position.coin);
@@ -227,7 +223,6 @@ function PerpPositionsList({
         columnConfigs={columnsConfig}
         handleClosePosition={(type) => handleClosePosition({ position, type })}
         handleViewTpslOrders={handleViewTpslOrders}
-        onAllClose={onAllClose}
         setTpsl={() => handleSetTpsl(position)}
         index={_index}
       />

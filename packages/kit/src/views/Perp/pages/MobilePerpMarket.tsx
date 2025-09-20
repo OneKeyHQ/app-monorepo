@@ -1,20 +1,18 @@
 import { useCallback, useEffect } from 'react';
 
 import { Page, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EJotaiContextStoreNames,
+  usePerpsSelectedSymbolAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { Token } from '../../../components/Token';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import {
-  useCurrentTokenAtom,
-  useHyperliquidActions,
-} from '../../../states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
@@ -24,13 +22,14 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const actionsRef = useHyperliquidActions();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
+  const { coin } = currentToken;
   const themeVariant = useThemeVariant();
   const longButtonStyle = getTradingButtonStyleProps('long');
   const shortButtonStyle = getTradingButtonStyleProps('short');
 
   const renderHeaderTitle = useCallback(() => {
-    const pairLabel = currentToken ? `${currentToken} - USD` : '--';
+    const pairLabel = coin ? `${coin} - USD` : '--';
     return (
       <XStack alignItems="center" gap="$2">
         <Token
@@ -38,16 +37,14 @@ function MobilePerpMarket() {
           borderRadius="$full"
           bg={themeVariant === 'light' ? undefined : '$bgInverse'}
           tokenImageUri={
-            currentToken
-              ? `https://app.hyperliquid.xyz/coins/${currentToken}.svg`
-              : undefined
+            coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
           }
           fallbackIcon="CryptoCoinOutline"
         />
         <SizableText size="$headingLg">{pairLabel}</SizableText>
       </XStack>
     );
-  }, [currentToken, themeVariant]);
+  }, [coin, themeVariant]);
 
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);

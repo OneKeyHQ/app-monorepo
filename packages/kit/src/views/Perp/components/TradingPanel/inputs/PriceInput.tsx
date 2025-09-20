@@ -17,6 +17,7 @@ interface IPriceInputProps {
   szDecimals?: number;
   label?: string;
   ifOnDialog?: boolean;
+  isMobile?: boolean;
 }
 
 export const PriceInput = memo(
@@ -29,6 +30,7 @@ export const PriceInput = memo(
     szDecimals,
     label,
     ifOnDialog = false,
+    isMobile = false,
   }: IPriceInputProps) => {
     const intl = useIntl();
     const handleInputChange = useCallback(
@@ -73,6 +75,12 @@ export const PriceInput = memo(
         validator={validator}
         actions={actions}
         ifOnDialog={ifOnDialog}
+        isMobile={isMobile}
+        placeholder={
+          isMobile
+            ? intl.formatMessage({ id: ETranslations.perp_trade_limit_pirce })
+            : '0.0'
+        }
       />
     );
   },

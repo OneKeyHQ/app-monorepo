@@ -30,12 +30,14 @@ import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import type {
-  EInputAddressChangeType,
   IAddressBadge,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
+} from '@onekeyhq/shared/types/address';
+import {
+  EAddressInteractionStatus,
+  EInputAddressChangeType,
 } from '@onekeyhq/shared/types/address';
 
 import { AddressBadge } from '../AddressBadge';
@@ -49,6 +51,7 @@ import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
 
 import type { IScanPluginProps } from './plugins/scan';
+import type { IAccountSelectorActiveAccountInfo } from '../../states/jotai/contexts/accountSelector';
 
 type IResolvedAddressProps = {
   value: string;
@@ -345,9 +348,41 @@ export function AddressInput(props: IAddressInputProps) {
   const [queryResult, setQueryResult] = useState<IAddressQueryResult>({});
   const [refreshNum, setRefreshNum] = useState(1);
 
+  const walletItemRef = useRef<
+    | {
+        walletName: string;
+        accountName: string;
+        accountId: string;
+      }
+    | undefined
+  >(undefined);
+
+  const inputTypeRef = useRef<EInputAddressChangeType | undefined>(undefined);
+
   const setResolveAddress = useCallback((text: string) => {
     setQueryResult((prev) => ({ ...prev, resolveAddress: text }));
   }, []);
+
+  const handleInputTypeChange = useCallback(
+    (type: EInputAddressChangeType) => {
+      inputTypeRef.current = type;
+      onInputTypeChange?.(type);
+    },
+    [onInputTypeChange],
+  );
+
+  const handleActiveAccountChange = useCallback(
+    (activeAccount: IAccountSelectorActiveAccountInfo) => {
+      if (activeAccount.wallet && activeAccount.account) {
+        walletItemRef.current = {
+          walletName: activeAccount.wallet.name,
+          accountName: activeAccount.account.name,
+          accountId: activeAccount.account.id,
+        };
+      }
+    },
+    [],
+  );
 
   const onChangeText = useCallback(
     (text: string) => {
@@ -376,6 +411,15 @@ export function AddressInput(props: IAddressInputProps) {
       }
       setLoading(true);
       try {
+        if (
+          walletItemRef.current &&
+          inputTypeRef.current === EInputAddressChangeType.AccountSelector
+        ) {
+          params.walletAccountItem = walletItemRef.current;
+          walletItemRef.current = undefined;
+          inputTypeRef.current = undefined;
+        }
+
         const result =
           await backgroundApiProxy.serviceAccountProfile.queryAddress(params);
         if (result.input === textRef.current) {
@@ -528,7 +572,7 @@ export function AddressInput(props: IAddressInputProps) {
         <XStack gap="$6">
           {clipboard ? (
             <ClipboardPlugin
-              onInputTypeChange={onInputTypeChange}
+              onInputTypeChange={handleInputTypeChange}
               onChange={onChangeText}
               disabled={disabled}
               testID={rest.testID ? `${rest.testID}-clip` : undefined}
@@ -537,7 +581,7 @@ export function AddressInput(props: IAddressInputProps) {
           {scan ? (
             <ScanPlugin
               networkId={networkId}
-              onInputTypeChange={onInputTypeChange}
+              onInputTypeChange={handleInputTypeChange}
               onScanResult={onScanResult}
               onChange={onChangeText}
               disabled={disabled}
@@ -547,8 +591,9 @@ export function AddressInput(props: IAddressInputProps) {
           {contacts || accountSelector ? (
             <SelectorPlugin
               disabled={disabled}
-              onInputTypeChange={onInputTypeChange}
+              onInputTypeChange={handleInputTypeChange}
               onChange={onChangeText}
+              onActiveAccountChange={handleActiveAccountChange}
               networkId={networkId}
               accountId={accountId}
               num={accountSelector?.num}
@@ -571,7 +616,7 @@ export function AddressInput(props: IAddressInputProps) {
       onRefresh,
       networkId,
       clipboard,
-      onInputTypeChange,
+      handleInputTypeChange,
       onChangeText,
       disabled,
       rest.testID,
@@ -579,6 +624,7 @@ export function AddressInput(props: IAddressInputProps) {
       onScanResult,
       contacts,
       accountSelector,
+      handleActiveAccountChange,
       accountId,
       inputText,
       onExtraDataChange,

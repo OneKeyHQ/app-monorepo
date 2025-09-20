@@ -60,6 +60,7 @@ export enum EAtomNames {
   perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',
   perpsSelectedAccountStatusAtom = 'perpsSelectedAccountStatusAtom',
   perpsSelectedSymbolAtom = 'perpsSelectedSymbolAtom',
+  perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',
 }

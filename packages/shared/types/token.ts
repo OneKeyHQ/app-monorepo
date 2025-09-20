@@ -29,7 +29,6 @@ export type IToken = {
 
   // for aggregate token
   isAggregateToken?: boolean;
-  hasSameSymbolToken?: boolean;
   commonSymbol?: string;
 };
 

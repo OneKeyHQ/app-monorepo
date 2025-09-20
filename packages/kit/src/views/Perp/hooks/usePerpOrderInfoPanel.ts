@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { usePerpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsSelectedAccountAtom,
+  usePerpsSelectedSymbolAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
@@ -9,7 +12,6 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
-  useCurrentTokenAtom,
   useOpenOrdersListAtom,
   usePositionListAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
@@ -32,7 +34,8 @@ interface INewTradesHistory {
 
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsSelectedAccountAtom();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsSelectedSymbolAtom();
+  const { coin } = currentToken;
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
     [],
   );
@@ -46,11 +49,11 @@ export function usePerpTradesHistory() {
     }
     const filterNewTradesHistory = newTradesHistoryRef.current.filter(
       (trade) =>
-        trade.coinId === currentToken &&
+        trade.coinId === coin &&
         trade.userId === currentAccount?.accountAddress,
     );
     setNewTradesHistory(filterNewTradesHistory);
-  }, [currentAccount?.accountAddress, currentToken]);
+  }, [currentAccount?.accountAddress, coin]);
   useEffect(() => {
     if (!currentAccount?.accountAddress) return;
 
@@ -76,7 +79,7 @@ export function usePerpTradesHistory() {
       if (data.isSnapshot) return;
 
       const relevantFills = data.fills.filter(
-        (fill: IFill) => fill.coin === currentToken,
+        (fill: IFill) => fill.coin === coin,
       );
 
       if (relevantFills.length === 0) return;
@@ -86,7 +89,7 @@ export function usePerpTradesHistory() {
         ...relevantFills.map((fill) => ({
           fill,
           userId: currentAccount?.accountAddress,
-          coinId: currentToken,
+          coinId: coin,
         })),
       ]);
     };
@@ -102,8 +105,7 @@ export function usePerpTradesHistory() {
         handleUserFillsListUpdate,
       );
     };
-  }, [currentAccount?.accountAddress, currentToken]);
-
+  }, [currentAccount?.accountAddress, coin]);
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {
@@ -132,7 +134,7 @@ export function usePerpTradesHistory() {
       .filter(
         (trade) =>
           !existingOrderIds.has(trade.fill.oid) &&
-          trade.coinId === currentToken &&
+          trade.coinId === coin &&
           trade.userId === currentAccount?.accountAddress,
       )
       .map((trade) => trade.fill);
@@ -144,7 +146,7 @@ export function usePerpTradesHistory() {
     return [...result, ...newUniqueTrades]
       .filter((t) => !t.coin.startsWith('@'))
       ?.sort((a, b) => b.time - a.time);
-  }, [currentAccount?.accountAddress, currentToken, newTradesHistory, result]);
+  }, [currentAccount?.accountAddress, coin, newTradesHistory, result]);
 
   return {
     trades: mergeTradesHistory,

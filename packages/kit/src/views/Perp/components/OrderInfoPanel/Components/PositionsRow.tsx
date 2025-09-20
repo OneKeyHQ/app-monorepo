@@ -30,7 +30,6 @@ interface IPositionRowProps {
   columnConfigs: IColumnConfig[];
   tpslOrders: FrontendOrder[];
   handleViewTpslOrders: () => void;
-  onAllClose: () => void;
   setTpsl: () => void;
   isMobile?: boolean;
   index: number;
@@ -46,7 +45,6 @@ const PositionRow = memo(
     isMobile,
     handleClosePosition,
     handleViewTpslOrders,
-    onAllClose,
     setTpsl,
     index,
   }: IPositionRowProps) => {
@@ -324,7 +322,7 @@ const PositionRow = memo(
               width={160}
               size="small"
               variant="secondary"
-              onPress={onAllClose}
+              onPress={handleClosePosition('market')}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_position_close,

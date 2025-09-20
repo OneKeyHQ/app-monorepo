@@ -1180,7 +1180,7 @@
   "global.crop_image": "Cắt ảnh",
   "global.crypto": "Tiền điện tử",
   "global.current": "Hiện tại",
-  "global.current_of_total_confirmations": "{current} trên {total} xác nhận",
+  "global.current_of_total_confirmations": "Xác nhận giao dịch thứ {current} / {total}",
   "global.customize_home_screen": "Tùy chỉnh màn hình chính",
   "global.customize_nonce": "Tùy chỉnh nonce",
   "global.customize_nonce_desc": "Bật tính năng này để thay đổi nonce (số giao dịch) và kiểm soát lệnh giao dịch của bạn khi xác nhận > cài đặt nâng cao. Đây là tính năng nâng cao, hãy sử dụng thận trọng.",

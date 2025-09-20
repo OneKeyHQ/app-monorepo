@@ -35,13 +35,21 @@ function TokenDetailsTabToolbar(props: IProps) {
   const { tokens, onSelected } = props;
   const themeVariant = useThemeVariant();
   const intl = useIntl();
-  const { tokenDetails } = useTokenDetailsContext();
+  const { tokenDetails, tokenAccountMap } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
 
   const sortedTokensByFiatValue = useMemo(() => {
     let sortedTokens = tokens?.sort((a, b) => {
-      const aKey = `${a.accountId ?? ''}_${a.networkId ?? ''}`;
-      const bKey = `${b.accountId ?? ''}_${b.networkId ?? ''}`;
+      const aKey = `${
+        a.accountId ||
+        tokenAccountMap[`${a.networkId || ''}_${a.address}`] ||
+        ''
+      }_${a.networkId || ''}`;
+      const bKey = `${
+        b.accountId ||
+        tokenAccountMap[`${b.networkId || ''}_${b.address}`] ||
+        ''
+      }_${b.networkId || ''}`;
       const aFiat = new BigNumber(tokenDetails[aKey]?.data?.fiatValue ?? -1);
       const bFiat = new BigNumber(tokenDetails[bKey]?.data?.fiatValue ?? -1);
 
@@ -50,7 +58,11 @@ function TokenDetailsTabToolbar(props: IProps) {
       );
     });
     let index = sortedTokens.findIndex((t) => {
-      const key = `${t.accountId ?? ''}_${t.networkId ?? ''}`;
+      const key = `${
+        t.accountId ||
+        tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
+        ''
+      }_${t.networkId || ''}`;
       return new BigNumber(
         tokenDetails[key]?.data?.fiatValue ?? -1,
       ).isNegative();
@@ -58,7 +70,11 @@ function TokenDetailsTabToolbar(props: IProps) {
 
     if (index === -1) {
       index = sortedTokens.findIndex((t) => {
-        const key = `${t.accountId ?? ''}_${t.networkId ?? ''}`;
+        const key = `${
+          t.accountId ||
+          tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
+          ''
+        }_${t.networkId || ''}`;
         return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
       });
     }
@@ -75,7 +91,7 @@ function TokenDetailsTabToolbar(props: IProps) {
     }
 
     return sortedTokens;
-  }, [tokens, tokenDetails]);
+  }, [tokens, tokenAccountMap, tokenDetails]);
 
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
@@ -88,9 +104,11 @@ function TokenDetailsTabToolbar(props: IProps) {
           }}
         >
           {sortedTokensByFiatValue?.map((token) => {
-            const tokenDetailKey = `${token.accountId ?? ''}_${
-              token.networkId ?? ''
-            }`;
+            const tokenDetailKey = `${
+              token.accountId ||
+              tokenAccountMap[`${token.networkId || ''}_${token.address}`] ||
+              ''
+            }_${token.networkId || ''}`;
             const tokenDetail = tokenDetails[tokenDetailKey]?.data;
 
             return (
@@ -165,12 +183,13 @@ function TokenDetailsTabToolbar(props: IProps) {
       );
     },
     [
+      sortedTokensByFiatValue,
+      tokenAccountMap,
       tokenDetails,
       gtMd,
       settings.currencyInfo.symbol,
-      onSelected,
-      sortedTokensByFiatValue,
       intl,
+      onSelected,
     ],
   );
 

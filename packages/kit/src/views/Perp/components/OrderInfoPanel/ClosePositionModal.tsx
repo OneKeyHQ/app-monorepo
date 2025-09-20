@@ -18,6 +18,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
+  formatPriceToSignificantDigits,
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -118,7 +119,7 @@ const ClosePositionForm = memo(
       if (!initPriceRef.current && !userSetPrice) {
         setFormData((prev) => ({
           ...prev,
-          limitPrice: markPrice,
+          limitPrice: formatPriceToSignificantDigits(markPrice),
         }));
         initPriceRef.current = true;
       }
@@ -143,7 +144,7 @@ const ClosePositionForm = memo(
         setFormData((prev) => ({
           ...prev,
           percentage,
-          amount,
+          amount: formatWithPrecision(amount, szDecimals, true),
         }));
       },
       [positionSize, szDecimals],
@@ -173,7 +174,14 @@ const ClosePositionForm = memo(
         if (numericValue.isNaN()) {
           return;
         }
-
+        if (numericValue.gt(positionSize)) {
+          setFormData((prev) => ({
+            ...prev,
+            amount: position.szi,
+            percentage: 100,
+          }));
+          return;
+        }
         const percentage = positionSize.gt(0)
           ? numericValue.dividedBy(positionSize).multipliedBy(100).toNumber()
           : 0;
@@ -184,7 +192,7 @@ const ClosePositionForm = memo(
           percentage: Math.min(100, Math.max(0, percentage)),
         }));
       },
-      [positionSize],
+      [positionSize, position.szi],
     );
 
     const handleLimitPriceChange = useCallback(
@@ -207,7 +215,7 @@ const ClosePositionForm = memo(
       if (latestMarkPrice) {
         setFormData((prev) => ({
           ...prev,
-          limitPrice: latestMarkPrice,
+          limitPrice: formatPriceToSignificantDigits(latestMarkPrice),
         }));
 
         setUserSetPrice(false);
@@ -300,7 +308,9 @@ const ClosePositionForm = memo(
 
     const isFormValid = useMemo(() => {
       const amount = formData.amount || calculatedAmount;
+      const limitPrice = new BigNumber(formData.limitPrice || '0');
       const amountBN = new BigNumber(amount || '0');
+      const liquidationPrice = position.liquidationPx;
 
       if (!amount || amountBN.lte(0)) return false;
       if (amountBN.gt(positionSize)) return false;
@@ -308,10 +318,25 @@ const ClosePositionForm = memo(
       if (formData.type === 'market') {
         return Boolean(markPrice);
       }
+      if (!limitPrice.isFinite() || limitPrice.isZero()) return false;
+      if (liquidationPrice) {
+        if (
+          (!isLongPosition && limitPrice.gt(liquidationPrice)) ||
+          (isLongPosition && limitPrice.lt(liquidationPrice))
+        ) {
+          return false;
+        }
+      }
 
-      const limitPriceBN = new BigNumber(formData.limitPrice || '0');
-      return Boolean(formData.limitPrice) && limitPriceBN.gt(0);
-    }, [formData, calculatedAmount, positionSize, markPrice]);
+      return limitPrice.gt(0);
+    }, [
+      formData,
+      calculatedAmount,
+      positionSize,
+      markPrice,
+      isLongPosition,
+      position.liquidationPx,
+    ]);
 
     return (
       <YStack gap="$4">

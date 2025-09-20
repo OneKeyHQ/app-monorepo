@@ -8,7 +8,6 @@ import {
   Button,
   Dialog,
   Input,
-  NumberSizeableText,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -96,9 +95,9 @@ function DepositWithdrawContent({
     }, [selectedAccount.accountId, selectedAccount.accountAddress]);
   const availableBalance = useMemo(() => {
     if (selectedAction === 'withdraw') {
-      return params.withdrawable;
+      return new BigNumber(params.withdrawable || '0').toFixed(2);
     }
-    return usdcBalance;
+    return new BigNumber(usdcBalance || '0').toFixed(2);
   }, [selectedAction, params.withdrawable, usdcBalance]);
   const isValidAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
@@ -379,17 +378,14 @@ function DepositWithdrawContent({
             {balanceLoading ? (
               <Skeleton w={80} h={14} />
             ) : (
-              <NumberSizeableText
+              <SizableText
+                cursor="pointer"
                 onPress={handleMaxPress}
                 color="$text"
                 size="$bodyMd"
-                formatter="balance"
-                formatterOptions={{
-                  tokenSymbol: selectedAction === 'withdraw' ? 'USD' : 'USDC',
-                }}
               >
-                {availableBalance || '0'}
-              </NumberSizeableText>
+                MAX: {availableBalance || '0.00'}
+              </SizableText>
             )}
           </XStack>
         </XStack>

@@ -355,7 +355,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: number;
         formData?: ITradingFormData;
         slippage?: number;
-        midPx: string;
+        price: string;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -369,7 +369,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             assetId: params.assetId,
             isBuy: formData.side === 'long',
             size: formData.size,
-            midPx: params.midPx,
+            price: params.price,
             type: formData.type,
             tpTriggerPx: formData.hasTpsl ? formData.tpTriggerPx : undefined,
             slTriggerPx: formData.hasTpsl ? formData.slTriggerPx : undefined,
@@ -508,8 +508,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       try {
-        set(tradingLoadingAtom(), true);
-
         const result =
           await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
             params.orders.map((order) => ({
@@ -547,8 +545,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
 
         throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
       }
     },
   );

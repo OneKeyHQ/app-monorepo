@@ -124,6 +124,7 @@ function TokenDetailsView() {
     indexedAccountId,
     tokenMap,
     aggregateTokens: aggregateTokensParam,
+    accountAddress,
   } = route.params;
 
   const { gtMd } = useMedia();
@@ -143,57 +144,76 @@ function TokenDetailsView() {
           await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
         const aggregateTokens: IAccountToken[] = [];
 
-        for (const aggregateToken of allAggregateTokenMap?.[tokenInfo.$key]
-          ?.tokens ?? []) {
-          const [deriveType, tokenNetwork] = await Promise.all([
-            backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-              networkId: aggregateToken.networkId ?? '',
-            }),
-            backgroundApiProxy.serviceNetwork.getNetworkSafe({
-              networkId: aggregateToken.networkId ?? '',
-            }),
-          ]);
-
-          let tokenAccountId;
-          let tokenAccountAddress;
-
-          try {
-            const { accounts } =
-              await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
-                {
-                  indexedAccountIds: [indexedAccountId ?? ''],
-                  networkId: aggregateToken.networkId ?? '',
-                  deriveType: deriveType ?? 'default',
-                },
-              );
-            tokenAccountId = accounts[0]?.id ?? '';
-            tokenAccountAddress = accounts[0]?.address ?? '';
-          } catch {
-            // pass
-          }
-
-          const originalToken = aggregateTokensParam?.find(
-            (t) =>
-              t.address === aggregateToken.address &&
-              t.networkId === aggregateToken.networkId,
+        const { unavailableItems } =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            { accountId, walletId },
           );
 
-          if (originalToken) {
-            aggregateTokens.push({
-              ...originalToken,
-              accountId: originalToken.accountId ?? tokenAccountId ?? '',
-            });
-          } else {
-            aggregateTokens.push({
-              ...aggregateToken,
-              accountId: tokenAccountId ?? '',
-              networkName: tokenNetwork?.name ?? '',
-              $key: buildTokenListMapKey({
+        let tokenAccountId;
+        let tokenAccountAddress;
+
+        if (accountUtils.isOthersWallet({ walletId })) {
+          tokenAccountId = accountId;
+          tokenAccountAddress = accountAddress;
+        }
+
+        for (const aggregateToken of allAggregateTokenMap?.[tokenInfo.$key]
+          ?.tokens ?? []) {
+          if (
+            aggregateToken.networkId &&
+            !unavailableItems.find(
+              (item) => item.id === aggregateToken.networkId,
+            )
+          ) {
+            const [deriveType, tokenNetwork] = await Promise.all([
+              backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
                 networkId: aggregateToken.networkId ?? '',
-                accountAddress: tokenAccountAddress ?? '',
-                tokenAddress: aggregateToken.address ?? '',
               }),
-            });
+              backgroundApiProxy.serviceNetwork.getNetworkSafe({
+                networkId: aggregateToken.networkId ?? '',
+              }),
+            ]);
+            if (!accountUtils.isOthersWallet({ walletId })) {
+              try {
+                const { accounts } =
+                  await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts(
+                    {
+                      indexedAccountIds: [indexedAccountId ?? ''],
+                      networkId: aggregateToken.networkId ?? '',
+                      deriveType: deriveType ?? 'default',
+                    },
+                  );
+                tokenAccountId = accounts[0]?.id ?? '';
+                tokenAccountAddress = accounts[0]?.address ?? '';
+              } catch {
+                tokenAccountId = undefined;
+                tokenAccountAddress = undefined;
+              }
+            }
+
+            const originalToken = aggregateTokensParam?.find(
+              (t) =>
+                t.address === aggregateToken.address &&
+                t.networkId === aggregateToken.networkId,
+            );
+
+            if (originalToken) {
+              aggregateTokens.push({
+                ...originalToken,
+                accountId: originalToken.accountId ?? tokenAccountId ?? '',
+              });
+            } else {
+              aggregateTokens.push({
+                ...aggregateToken,
+                accountId: tokenAccountId ?? '',
+                networkName: tokenNetwork?.name ?? '',
+                $key: buildTokenListMapKey({
+                  networkId: aggregateToken.networkId ?? '',
+                  accountAddress: tokenAccountAddress ?? '',
+                  tokenAddress: aggregateToken.address ?? '',
+                }),
+              });
+            }
           }
         }
 
@@ -208,7 +228,15 @@ function TokenDetailsView() {
 
       return [tokenInfo];
     },
-    [tokenInfo, indexedAccountId, tokenMap, aggregateTokensParam],
+    [
+      tokenInfo,
+      accountId,
+      walletId,
+      tokenMap,
+      aggregateTokensParam,
+      indexedAccountId,
+      accountAddress,
+    ],
     {
       watchLoading: true,
       initResult: [],
@@ -724,6 +752,10 @@ export default function TokenDetailsModal() {
     ITokenDetailsContextValue['tokenDetails']
   >({});
 
+  const [tokenAccountMap, setTokenAccountMap] = useState<
+    Record<string, string>
+  >({});
+
   const [isLoadingTokenDetails, setIsLoadingTokenDetails] = useState<
     ITokenDetailsContextValue['isLoadingTokenDetails']
   >({});
@@ -806,6 +838,8 @@ export default function TokenDetailsModal() {
       tokenDetails,
       updateTokenDetails,
       batchUpdateTokenDetails,
+      tokenAccountMap,
+      setTokenAccountMap,
     }),
     [
       tokenMetadata,
@@ -815,6 +849,8 @@ export default function TokenDetailsModal() {
       tokenDetails,
       updateTokenDetails,
       batchUpdateTokenDetails,
+      tokenAccountMap,
+      setTokenAccountMap,
     ],
   );
   return (
