@@ -1,6 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import {
+  Divider,
   Input,
   SizableText,
   XStack,
@@ -98,38 +99,44 @@ export const TradingFormInput = memo(
 
     return (
       <YStack
-        bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+        bg="$bgSubdued"
         borderRadius="$3"
-        borderWidth={ifOnDialog ? '$px' : 0}
-        borderColor={ifOnDialog ? '$borderSubdued' : undefined}
-        p="$3"
-        pb="$2"
+        py="$1"
+        pl="$1"
+        pr="$2.5"
+        hoverStyle={{
+          outlineWidth: '$px',
+          outlineColor: '$border',
+          outlineStyle: 'solid',
+        }}
       >
-        <SizableText size="$bodySm" color="$textSubdued" mb="$1">
-          {label}
-        </SizableText>
         <YStack>
           <Input
-            flex={1}
-            size="medium"
+            h={40}
+            placeholder="Price"
+            textAlign="right"
+            leftAddOnProps={{
+              renderContent: (
+                <XStack alignItems="center" justifyContent="center">
+                  <SizableText size="$bodyMd" color="$textSubdued" mr="$2">
+                    {label}
+                  </SizableText>
+                </XStack>
+              ),
+            }}
             value={value}
             onChangeText={handleInputChange}
-            placeholder={placeholder}
-            keyboardType={keyboardType}
             disabled={disabled}
-            fontSize={getFontSize('$headingMd')}
+            keyboardType="decimal-pad"
+            size="small"
             containerProps={{
-              flex: 1,
-              borderWidth: 0,
-              bg: 'transparent',
-              p: 0,
-            }}
-            InputComponentStyle={{
-              p: 0,
-              bg: 'transparent',
+              bg: '$bgSubdued',
+              borderRadius: '$2',
+              borderWidth: '$0',
             }}
             addOns={renderAddOns()}
           />
+
           {error ? (
             <SizableText size="$bodySm" color="$red10" mt="$1">
               {error}

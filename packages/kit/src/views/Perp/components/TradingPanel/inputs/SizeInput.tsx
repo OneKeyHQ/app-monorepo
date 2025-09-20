@@ -40,22 +40,27 @@ export const SizeInput = memo(
       [szDecimals],
     );
 
-    const formatLabel = useMemo(() => {
-      if (label) return label;
-      return side === 'long'
-        ? intl.formatMessage({
-            id: ETranslations.perp_trade_buy_amount,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_trade_sell_amount,
-          });
-    }, [side, label, intl]);
+    // const formatLabel = useMemo(() => {
+    //   if (label) return label;
+    //   return side === 'long'
+    //     ? intl.formatMessage({
+    //         id: ETranslations.perp_trade_buy_amount,
+    //       })
+    //     : intl.formatMessage({
+    //         id: ETranslations.perp_trade_sell_amount,
+    //       });
+    // }, [side, label, intl]);
 
     return (
       <TradingFormInput
         value={value}
         onChange={onChange}
-        label={formatLabel}
+        label={
+          label ??
+          intl.formatMessage({
+            id: ETranslations.dexmarket_details_history_amount,
+          })
+        }
         disabled={isDisabled}
         error={error}
         validator={validator}

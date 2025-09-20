@@ -65,7 +65,7 @@ export const PriceInput = memo(
         label={
           label ??
           intl.formatMessage({
-            id: ETranslations.perp_trade_limit_pirce,
+            id: ETranslations.perp_orderbook_price,
           })
         }
         disabled={disabled}
