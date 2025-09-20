@@ -26,7 +26,7 @@ def installGo()
     arch = `uname -m`.strip
     os = `uname -s`.strip.downcase
 
-    go_version = "1.22.0"
+    go_version = "1.24.0"
     
     if os == "darwin"
       if arch == "arm64"
