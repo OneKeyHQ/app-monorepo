@@ -1,6 +1,6 @@
 #import "Verification.h"
 #import <CocoaLumberjack/CocoaLumberjack.h>
-#import <ObjectivePGP/ObjectivePGP.h>
+#import <Gopenpgp/Gopenpgp.h>
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
@@ -61,7 +61,8 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
 @implementation Verification
 
 + (NSString *)extractedTextContentFromVerifyAscFile:(NSString *)ascFileContent error:(NSError **)error {
-    if (!ascFileContent) {
+    if (!ascFileContent || ascFileContent.length == 0) {
+        DDLogError(@"Invalid parameters");
         if (error) {
             *error = [NSError errorWithDomain:@"VerificationError" code:1001 userInfo:@{NSLocalizedDescriptionKey: @"Invalid parameters"}];
         }
@@ -69,76 +70,100 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
     }
     
     @try {
-        // Parse the public key
-        NSData *publicKeyData = [PUBLIC_KEY dataUsingEncoding:NSUTF8StringEncoding];
-      
-        NSError *publicKeyError = nil;
-        NSArray<PGPKey *> *publicKeys = [ObjectivePGP readKeysFromData:publicKeyData error:&publicKeyError];
-
-        if (publicKeyError) {
-            DDLogError(@"Failed to parse public key: %@", publicKeyError.localizedDescription);
-            return nil;
-        }
-        
-        // Parse the signed message
-        NSData *signatureData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
-        
-        // Verify the signature and extract clear text
-        NSError *verifyError = nil;
-        BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:publicKeys passphraseForKey:nil error:&verifyError];
-
-        if (!verified || verifyError) {
-            DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
-            return nil;
-        }
-        // Extract the clear text between PGP message markers
-        NSString *beginMarker = @"-----BEGIN PGP SIGNED MESSAGE-----";
-        NSString *endMarker = @"-----BEGIN PGP SIGNATURE-----";
-        
-        NSRange beginRange = [ascFileContent rangeOfString:beginMarker];
-        NSRange endRange = [ascFileContent rangeOfString:endMarker];
-        
-        if (beginRange.location == NSNotFound || endRange.location == NSNotFound) {
-            DDLogError(@"PGP message markers not found");
-            return nil;
-        }
-        
-        // Find the start of the actual content (after the hash line and empty line)
-        NSUInteger searchStart = beginRange.location + beginRange.length;
-        NSString *remainingContent = [ascFileContent substringFromIndex:searchStart];
-        
-        // Look for the hash line pattern and skip it
-        NSString *hashPattern = @"Hash: SHA256";
-        NSRange hashRange = [remainingContent rangeOfString:hashPattern];
-        
-        if (hashRange.location != NSNotFound) {
-            // Find the end of the hash line
-            NSUInteger hashLineEnd = hashRange.location + hashRange.length;
-            NSString *afterHash = [remainingContent substringFromIndex:hashLineEnd];
-            
-            // Skip any newlines after the hash line to find the actual content
-            NSRange firstNonWhitespace = [afterHash rangeOfCharacterFromSet:[[NSCharacterSet whitespaceAndNewlineCharacterSet] invertedSet]];
-            if (firstNonWhitespace.location != NSNotFound) {
-                searchStart = searchStart + hashLineEnd + firstNonWhitespace.location;
-            } else {
-                searchStart = searchStart + hashLineEnd;
+        // Create a key from the public key using gopenpgp
+        NSError *keyError = nil;
+        CryptoKey *key = CryptoNewKeyFromArmored(PUBLIC_KEY, &keyError);
+        if (!key || keyError) {
+            DDLogError(@"Failed to create key from armored string: %@", keyError.localizedDescription);
+            if (error) {
+                *error = keyError;
             }
-        }
-        
-        NSUInteger contentStart = searchStart;
-        NSUInteger contentEnd = endRange.location;
-        
-        if (contentStart >= contentEnd) {
-            DDLogError(@"Invalid PGP message format");
             return nil;
         }
         
-        NSString *clearText = [ascFileContent substringWithRange:NSMakeRange(contentStart, contentEnd - contentStart)];
-        // Trim whitespace and newlines
-        clearText = [clearText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        return clearText;
+        // Create a key ring from the key
+        CryptoKeyRing *keyRing = CryptoNewKeyRing(key, &keyError);
+        if (!keyRing || keyError) {
+            DDLogError(@"Failed to create key ring: %@", keyError.localizedDescription);
+            if (error) {
+                *error = keyError;
+            }
+            return nil;
+        }
+        
+        // Create PGP handle for verification
+        CryptoPGPHandle *pgpHandle = CryptoPGP();
+        if (!pgpHandle) {
+            DDLogError(@"Failed to create PGP handle");
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1003 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create PGP handle"}];
+            }
+            return nil;
+        }
+        
+        // Create verification handle builder
+        CryptoVerifyHandleBuilder *verifyBuilder = [pgpHandle verify];
+        if (!verifyBuilder) {
+            DDLogError(@"Failed to create verify builder");
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1004 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create verify builder"}];
+            }
+            return nil;
+        }
+        
+        // Configure verification with the key ring
+        NSError *verifyHandleError = nil;
+        id<CryptoPGPVerify> verifyHandle = [[verifyBuilder verificationKeys:keyRing] new: &verifyHandleError];
+        if (!verifyHandle || verifyHandleError != nil) {
+            DDLogError(@"Failed to create verify handle");
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1005 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create verify handle"}];
+            }
+            return nil;
+        }
+        
+        // Convert string to data for verification
+        NSData *ascData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
+        if (!ascData) {
+            ascData = [NSData data];
+        }
+        
+        // Verify the cleartext message
+        NSError *verifyError = nil;
+        CryptoVerifyCleartextResult *verifyResult = [verifyHandle verifyCleartext:ascData error:&verifyError];
+        if (!verifyResult || verifyError) {
+            DDLogError(@"Failed to verify cleartext: %@", verifyError.localizedDescription);
+            if (error) {
+                *error = verifyError;
+            }
+            return nil;
+        }
+      
+        CryptoSignatureVerificationError *signatureError = [verifyResult signatureErrorExplicit];
+
+        // Check for signature errors
+        if (signatureError) {
+            DDLogError(@"Error description: %@", signatureError.description);
+            DDLogError(@"Error message: %@", signatureError.message);
+            DDLogError(@"Error status: %ld", signatureError.status);
+            return nil;
+        } else {
+            DDLogInfo(@"No signature error");
+        }
+      
+        NSData *cleartextData = [verifyResult cleartext];
+        if (cleartextData) {
+            NSString *cleartextString = [[NSString alloc] initWithData:cleartextData encoding:NSUTF8StringEncoding];
+            DDLogInfo(@"cleartextData: %@", cleartextString);
+            return cleartextString;
+        }
+        return nil;
+        
     } @catch (NSException *exception) {
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
+        if (error) {
+            *error = [NSError errorWithDomain:@"VerificationError" code:1002 userInfo:@{NSLocalizedDescriptionKey: exception.reason}];
+        }
         return nil;
     }
 }
