@@ -48,13 +48,20 @@ export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
   );
 };
 
-export const isShowUpdateUIWhenDownloadingStrategy = (
-  updateStrategy: EUpdateStrategy,
-) => {
-  return (
+export const isShowUpdateUIWhenDownloadingStrategy = ({
+  updateStrategy,
+  updateStatus,
+}: {
+  updateStrategy: EUpdateStrategy;
+  updateStatus: EAppUpdateStatus;
+}) => {
+  if (
     updateStrategy === EUpdateStrategy.manual ||
     updateStrategy === EUpdateStrategy.force
-  );
+  ) {
+    return true;
+  }
+  return updateStatus === EAppUpdateStatus.done;
 };
 
 export const isForceUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
