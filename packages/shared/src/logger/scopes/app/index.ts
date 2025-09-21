@@ -11,6 +11,7 @@ import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
 import { WebembedScene } from './scenes/webembed';
+import { AppUpdateScene } from './scenes/appUpdate';
 
 export class AppScope extends BaseScope {
   protected override scopeName = EScopeName.app;
@@ -34,4 +35,6 @@ export class AppScope extends BaseScope {
   error = this.createScene('error', ErrorScene);
 
   webembed = this.createScene('webembed', WebembedScene);
+
+  appUpdate = this.createScene('appUpdate', AppUpdateScene);
 }

@@ -160,7 +160,10 @@ export const useDownloadPackage = () => {
     try {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
       const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      console.log('downloadPackage-getUpdateInfo', params);
+      defaultLogger.app.appUpdate.startCheckForUpdates(
+        fileType,
+        params.updateStrategy,
+      );
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
       const updateEvent =
@@ -174,10 +177,12 @@ export const useDownloadPackage = () => {
         fileSize: isJsBundle ? jsBundle?.fileSize : undefined,
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
       };
+      defaultLogger.app.appUpdate.endDownload(downloadParams);
       const result =
         fileType === EUpdateFileType.jsBundle
           ? await BundleUpdate.downloadBundle(downloadParams)
           : await AppUpdate.downloadPackage(downloadParams);
+      defaultLogger.app.appUpdate.endDownload(result);
       if (!result) {
         return;
       }
