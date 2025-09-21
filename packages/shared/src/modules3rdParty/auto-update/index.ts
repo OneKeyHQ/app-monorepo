@@ -44,6 +44,7 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
+  testVerification: () => Promise.resolve(false),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;

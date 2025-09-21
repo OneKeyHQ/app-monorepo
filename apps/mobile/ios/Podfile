@@ -17,6 +17,131 @@ install! 'cocoapods',
 
 prepare_react_native_project!
 
+def installGo()
+  go_version = `which go 2>/dev/null && go version 2>/dev/null`.strip
+  if go_version.empty?
+    puts "Go is not installed. Installing Go..."
+    
+    # Detect system architecture
+    arch = `uname -m`.strip
+    os = `uname -s`.strip.downcase
+
+    go_version = "1.24.0"
+    
+    if os == "darwin"
+      if arch == "arm64"
+        go_url = "https://go.dev/dl/go#{go_version}.darwin-arm64.tar.gz"
+      else
+        go_url = "https://go.dev/dl/go#{go_version}.darwin-amd64.tar.gz"
+      end
+    else
+      puts "Unsupported operating system: #{os}"
+      return
+    end
+    
+    # Download and install Go
+    go_tmp_dir = File.join(__dir__, "go-install")
+    puts "go_tmp_dir: #{go_tmp_dir}"
+    FileUtils.mkdir_p(go_tmp_dir) unless Dir.exist?(go_tmp_dir)
+    
+    go_tar_path = File.join(go_tmp_dir, "go.tar.gz")
+    puts "Downloading Go from #{go_url}..."
+    system("curl -L -o '#{go_tar_path}' '#{go_url}'")
+    
+    # Extract Go to /usr/local (requires sudo) or to local directory
+    go_install_dir = File.join(go_tmp_dir, "go")
+    system("cd '#{go_tmp_dir}' && tar -xzf go.tar.gz")
+    
+    # Set Go environment variables for this session
+    ENV['GOROOT'] = go_install_dir
+    ENV['PATH'] = "#{go_install_dir}/bin:#{ENV['PATH']}"
+    
+    puts "Go installed successfully to #{go_install_dir}"
+    puts "Note: You may need to add #{go_install_dir}/bin to your PATH permanently"
+  else
+    puts "Go is already installed: #{go_version}"
+  end
+end
+
+# Download and compile gopenpgp library
+def download_and_compile_gopenpgp(version)
+  if (version.nil? || version.empty?)
+    puts "No version specified for gopenpgp, skipping download and compilation"
+    return
+  end
+  # Check if the gopenpgp XCFramework already exists
+  xcframeworks_dir = File.join(__dir__, "XCFrameworks")
+  destination_gopenpgp_dir = File.join(xcframeworks_dir, "gopenpgp-#{version}.xcframework")
+  if Dir.exist?(destination_gopenpgp_dir)
+    puts "gopenpgp v#{version} XCFramework already exists, skipping download and compilation"
+    return
+  end
+  # Check if Go is installed
+  installGo()
+  gopenpgp_url = "https://github.com/ProtonMail/gopenpgp/archive/refs/tags/v#{version}.zip"
+  download_dir = File.join(__dir__, "tmp-oc-test")
+  gopenpgp_dir = File.join(download_dir, "gopenpgp-#{version}")
+  
+  # Create download directory if it doesn't exist
+  FileUtils.mkdir_p(download_dir) unless Dir.exist?(download_dir)
+  
+  # Download if not already downloaded
+  unless Dir.exist?(gopenpgp_dir)
+    puts "Downloading gopenpgp v#{version}..."
+    zip_path = File.join(download_dir, "gopenpgp-#{version}.zip")
+    
+    # Download the zip file
+    system("curl -L -o '#{zip_path}' '#{gopenpgp_url}'")
+    # Extract the zip file to tmp-oc-test directory
+    system("cd '#{download_dir}' && unzip -q 'gopenpgp-#{version}.zip'")
+
+    # Execute build.sh to compile the library
+    puts "Compiling gopenpgp library..."
+    compile_result = system("cd '#{gopenpgp_dir}' && ./build.sh apple")
+    
+    if compile_result
+      puts "gopenpgp library compiled successfully"
+      
+      # Move xcframeworks to XCFrameworks directory after compilation
+      xcframeworks_dir = File.join(__dir__, "XCFrameworks")
+      FileUtils.mkdir_p(xcframeworks_dir) unless Dir.exist?(xcframeworks_dir)
+      
+      puts "framework path: #{xcframeworks_dir}"
+      puts "destination gopenpgp dir: #{destination_gopenpgp_dir}"
+
+      # Remove existing directory if it exists
+      FileUtils.rm_rf(destination_gopenpgp_dir) if Dir.exist?(destination_gopenpgp_dir)
+      
+      # Create the destination directory
+      FileUtils.mkdir_p(destination_gopenpgp_dir)
+      
+      # Move gopenpgp.xcframework content to destination directory
+      xcframework_source = File.join(gopenpgp_dir, "dist", "apple", "gopenpgp.xcframework")
+      if Dir.exist?(xcframework_source)
+        FileUtils.cp_r(Dir.glob(File.join(xcframework_source, "*")), destination_gopenpgp_dir)
+        puts "Moved gopenpgp.xcframework content to XCFrameworks directory"
+      else
+        puts "Warning: gopenpgp.xcframework directory not found after compilation"
+      end
+      
+      # Clean up zip file
+      # File.delete(zip_path) if File.exist?(zip_path)
+      
+      puts "gopenpgp v#{version} downloaded, compiled and moved successfully"
+    else
+      puts "Error: Failed to compile gopenpgp library"
+      exit 1
+    end
+      FileUtils.rm_rf(download_dir) if Dir.exist?(download_dir)
+      puts "Cleaned up download directory"
+  else
+    puts "gopenpgp v#{version} already exists, skipping download"
+  end
+end
+
+# Execute the download and compile script
+download_and_compile_gopenpgp("3.3.0")
+
 # react-native-permissions
 setup_permissions([
   # 'AppTrackingTransparency',
@@ -121,6 +246,4 @@ target 'OneKeyWallet' do
       Pod::UI.warn e
     end
   end
-
-  pod 'ObjectivePGP', "1.0"
 end

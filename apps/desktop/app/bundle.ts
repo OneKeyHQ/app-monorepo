@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -29,8 +30,9 @@ const readMetadataFileSha256 = async (signature: string) => {
     const valid = await result[0].verified;
     logger.info('auto-updater', `file valid: ${String(valid)}`);
     if (valid) {
-      const texts = signedMessage.getText();
-      const json = JSON.parse(texts) as {
+      const text = signedMessage.getText();
+      logger.info('auto-updater', `text: ${text}`);
+      const json = JSON.parse(text) as {
         sha256: string;
       };
       const sha256 = json.sha256;
@@ -172,4 +174,39 @@ export const getMetadata = async ({
     string
   >;
   return metadata;
+};
+
+const TEST_SIGNATURE = `
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA256
+
+{
+  "fileName": "metadata.json",
+  "sha256": "2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba",
+  "size": 158590,
+  "generatedAt": "2025-09-19T07:49:13.000Z"
+}
+-----BEGIN PGP SIGNATURE-----
+
+iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmjNJ1IOHGRldkBvbmVr
+ZXkuc28ACgkQs2mmepC/OHs6Rw/9FKHl5aNsE7V0IsFf/l+h16BYKFwVsL69alMk
+CFLna8oUn0+tyECF6wKBKw5pHo5YR27o2pJfYbAER6dygDF6WTZ1lZdf5QcBMjGA
+LCeXC0hzUBzSSOH4bKBTa3fHp//HdSV1F2OnkymbXqYN7WXvuQPLZ0nV6aU88hCk
+HgFifcvkXAnWKoosUtj0Bban/YBRyvmQ5C2akxUPEkr4Yck1QXwzJeNRd7wMXHjH
+JFK6lJcuABiB8wpJDXJkFzKs29pvHIK2B2vdOjU2rQzKOUwaKHofDi5C4+JitT2b
+2pSeYP3PAxXYw6XDOmKTOiC7fPnfLjtcPjNYNFCezVKZT6LKvZW9obnW8Q9LNJ4W
+okMPgHObkabv3OqUaTA9QNVfI/X9nvggzlPnaKDUrDWTf7n3vlrdexugkLtV/tJA
+uguPlI5hY7Ue5OW7ckWP46hfmq1+UaIdeUY7dEO+rPZDz6KcArpaRwBiLPBhneIr
+/X3KuMzS272YbPbavgCZGN9xJR5kZsEQE5HhPCbr6Nf0qDnh+X8mg0tAB/U6F+ZE
+o90sJL1ssIaYvST+VWVaGRr4V5nMDcgHzWSF9Q/wm22zxe4alDaBdvOlUseW0iaM
+n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ
+91Js0rQ=
+=A/Ii
+-----END PGP SIGNATURE-----`;
+export const testExtractedSha256FromVerifyAscFile = async () => {
+  const result = await readMetadataFileSha256(TEST_SIGNATURE);
+  return (
+    result ===
+    '2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba'
+  );
 };
