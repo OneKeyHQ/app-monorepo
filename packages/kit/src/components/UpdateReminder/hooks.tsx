@@ -382,7 +382,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       jsBundleVersion: response?.jsBundleVersion,
       status: response?.status,
     });
-    const updateStrategy = response?.updateStrategy || EUpdateStrategy.manual;
+    const updateStrategy = response?.updateStrategy ?? EUpdateStrategy.manual;
     return {
       isForceUpdate: isForceUpdateStrategy(updateStrategy),
       isNeedUpdate: shouldUpdate,
@@ -478,7 +478,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           const updateStrategy =
-            response?.updateStrategy || EUpdateStrategy.manual;
+            response?.updateStrategy ?? EUpdateStrategy.manual;
           if (needUpdate) {
             if (isAutoUpdateStrategy(updateStrategy)) {
               void downloadPackage();
