@@ -479,7 +479,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           const updateStrategy =
             response?.updateStrategy || EUpdateStrategy.manual;
-          if (updateStrategy && needUpdate) {
+          if (needUpdate) {
             if (isAutoUpdateStrategy(updateStrategy)) {
               void downloadPackage();
             } else if (isForceUpdate) {
