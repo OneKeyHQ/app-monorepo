@@ -113,21 +113,22 @@ RCT_EXPORT_MODULE();
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     NSString *currentBundleVersion = [self currentBundleVersion];
-    NSLog(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
     DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
     if (currentBundleVersion == nil) {
         return nil;
     }
-    if (currentAppVersion != nil && ![currentAppVersion isEqualToString:bundleAppVersion]) {
+    if (currentAppVersion != nil && ![currentAppVersion isEqualToString: currentBundleVersion]) {
         NSString *bundleAppVersion = [currentBundleVersion componentsSeparatedByString:@"-"][0];
         // Compare versions using semantic versioning
         NSComparisonResult result = [self compareVersion:currentAppVersion withVersion:bundleAppVersion];
         if (result == NSOrderedAscending) {
+            DDLogDebug(@"currentAppVersion is less than currentBundleVersion");
             return nil;
         }
     }
     NSString *folderName = [self currentBundleDir];
     if (!folderName || ![[NSFileManager defaultManager] fileExistsAtPath:folderName]) {
+        DDLogDebug(@"currentBundleDir does not exist");
         return nil;
     }
     
