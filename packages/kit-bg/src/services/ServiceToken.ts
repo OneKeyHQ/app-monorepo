@@ -956,7 +956,14 @@ class ServiceToken extends ServiceBase {
     if (!resp) {
       return;
     }
-    const { tokens = {}, meta: { homeDefaults = [] } = {} } = resp;
+    const {
+      tokens = {},
+      meta: {
+        homeDefaults = [],
+        approvalAlertResurfaceDays = 30,
+        approvalResurfaceDays = 14,
+      } = {},
+    } = resp;
     const allAggregateTokenMap: Record<
       string,
       {
@@ -1061,13 +1068,19 @@ class ServiceToken extends ServiceBase {
       };
     });
 
-    await this.backgroundApi.simpleDb.aggregateToken.updateAllAggregateInfo({
-      allAggregateTokens,
-      aggregateTokenConfigMap,
-      homeDefaultTokenMap,
-      allAggregateTokenMap,
-      aggregateTokenSymbolMap,
-    });
+    await Promise.all([
+      this.backgroundApi.simpleDb.aggregateToken.updateAllAggregateInfo({
+        allAggregateTokens,
+        aggregateTokenConfigMap,
+        homeDefaultTokenMap,
+        allAggregateTokenMap,
+        aggregateTokenSymbolMap,
+      }),
+      this.backgroundApi.simpleDb.approval.updateApprovalResurfaceDaysConfig({
+        approvalResurfaceDays,
+        approvalAlertResurfaceDays,
+      }),
+    ]);
 
     return aggregateTokenConfigMap;
   }

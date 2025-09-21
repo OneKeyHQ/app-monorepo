@@ -224,6 +224,8 @@ export type IFetchAggregateTokenConfigMapResp = {
   data: {
     meta: {
       homeDefaults: IHomeDefaultToken[];
+      approvalResurfaceDays: number;
+      approvalAlertResurfaceDays: number;
     };
     tokens: Record<
       string,

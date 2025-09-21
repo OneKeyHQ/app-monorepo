@@ -3,13 +3,20 @@ import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDeco
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ISimpleDbApprovalConfig {
-  riskApprovalsRevokeSuggestionConfig: Record<string, { lastShowTime: number }>;
-  inactiveApprovalsRevokeSuggestionConfig: Record<
+  approvalResurfaceDaysConfig?: {
+    approvalResurfaceDays: number;
+    approvalAlertResurfaceDays: number;
+  };
+  riskApprovalsRevokeSuggestionConfig?: Record<
     string,
     { lastShowTime: number }
   >;
-  inactiveApprovalsAlertConfig: Record<string, { lastShowTime: number }>; // key: networkId_accountId
-  riskApprovalsAlertConfig: Record<string, { lastShowTime: number }>; // key: networkId_accountId
+  inactiveApprovalsRevokeSuggestionConfig?: Record<
+    string,
+    { lastShowTime: number }
+  >;
+  inactiveApprovalsAlertConfig?: Record<string, { lastShowTime: number }>; // key: networkId_accountId
+  riskApprovalsAlertConfig?: Record<string, { lastShowTime: number }>; // key: networkId_accountId
 }
 
 function buildConfigKey(networkId: string, accountId: string) {
@@ -61,6 +68,12 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
   }
 
   @backgroundMethod()
+  async getApprovalResurfaceDaysConfig() {
+    const config = await this.getRawData();
+    return config?.approvalResurfaceDaysConfig;
+  }
+
+  @backgroundMethod()
   async getRiskApprovalsAlertConfig({
     networkId,
     accountId,
@@ -74,6 +87,26 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
   }
 
   @backgroundMethod()
+  async updateApprovalResurfaceDaysConfig({
+    approvalResurfaceDays,
+    approvalAlertResurfaceDays,
+  }: {
+    approvalResurfaceDays: number;
+    approvalAlertResurfaceDays: number;
+  }) {
+    await this.setRawData((rawData) => {
+      return {
+        ...rawData,
+        approvalResurfaceDaysConfig: {
+          ...rawData?.approvalResurfaceDaysConfig,
+          approvalResurfaceDays,
+          approvalAlertResurfaceDays,
+        },
+      };
+    });
+  }
+
+  @backgroundMethod()
   async updateRiskApprovalsRevokeSuggestionConfig({
     networkId,
     accountId,
@@ -84,15 +117,10 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
     await this.setRawData((rawData) => {
       const key = buildConfigKey(networkId, accountId);
       return {
-        inactiveApprovalsAlertConfig:
-          rawData?.inactiveApprovalsAlertConfig ?? {},
-        riskApprovalsAlertConfig: rawData?.riskApprovalsAlertConfig ?? {},
-        inactiveApprovalsRevokeSuggestionConfig:
-          rawData?.inactiveApprovalsRevokeSuggestionConfig ?? {},
         riskApprovalsRevokeSuggestionConfig: {
           ...rawData?.riskApprovalsRevokeSuggestionConfig,
           [key]: {
-            ...rawData?.riskApprovalsRevokeSuggestionConfig[key],
+            ...rawData?.riskApprovalsRevokeSuggestionConfig?.[key],
             lastShowTime: Date.now(),
           },
         },
@@ -111,15 +139,11 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
     await this.setRawData((rawData) => {
       const key = buildConfigKey(networkId, accountId);
       return {
-        inactiveApprovalsAlertConfig:
-          rawData?.inactiveApprovalsAlertConfig ?? {},
-        riskApprovalsRevokeSuggestionConfig:
-          rawData?.riskApprovalsRevokeSuggestionConfig ?? {},
-        riskApprovalsAlertConfig: rawData?.riskApprovalsAlertConfig ?? {},
+        ...rawData,
         inactiveApprovalsRevokeSuggestionConfig: {
           ...rawData?.inactiveApprovalsRevokeSuggestionConfig,
           [key]: {
-            ...rawData?.inactiveApprovalsRevokeSuggestionConfig[key],
+            ...rawData?.inactiveApprovalsRevokeSuggestionConfig?.[key],
             lastShowTime: Date.now(),
           },
         },
@@ -138,16 +162,11 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
     await this.setRawData((rawData) => {
       const key = buildConfigKey(networkId, accountId);
       return {
-        riskApprovalsRevokeSuggestionConfig:
-          rawData?.riskApprovalsRevokeSuggestionConfig ?? {},
-        inactiveApprovalsRevokeSuggestionConfig:
-          rawData?.inactiveApprovalsRevokeSuggestionConfig ?? {},
-        inactiveApprovalsAlertConfig:
-          rawData?.inactiveApprovalsAlertConfig ?? {},
+        ...rawData,
         riskApprovalsAlertConfig: {
           ...rawData?.riskApprovalsAlertConfig,
           [key]: {
-            ...rawData?.riskApprovalsAlertConfig[key],
+            ...rawData?.riskApprovalsAlertConfig?.[key],
             lastShowTime: Date.now(),
           },
         },
@@ -166,15 +185,11 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
     await this.setRawData((rawData) => {
       const key = buildConfigKey(networkId, accountId);
       return {
-        riskApprovalsRevokeSuggestionConfig:
-          rawData?.riskApprovalsRevokeSuggestionConfig ?? {},
-        inactiveApprovalsRevokeSuggestionConfig:
-          rawData?.inactiveApprovalsRevokeSuggestionConfig ?? {},
-        riskApprovalsAlertConfig: rawData?.riskApprovalsAlertConfig ?? {},
+        ...rawData,
         inactiveApprovalsAlertConfig: {
           ...rawData?.inactiveApprovalsAlertConfig,
           [key]: {
-            ...rawData?.inactiveApprovalsAlertConfig[key],
+            ...rawData?.inactiveApprovalsAlertConfig?.[key],
             lastShowTime: Date.now(),
           },
         },
