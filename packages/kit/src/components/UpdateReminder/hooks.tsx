@@ -591,10 +591,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyASC();
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
-    } else {
+    } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
       if (appUpdateInfo.status === EAppUpdateStatus.ready) {
         void verifyPackage();
       }
+    } else {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
           const updateStrategy =
