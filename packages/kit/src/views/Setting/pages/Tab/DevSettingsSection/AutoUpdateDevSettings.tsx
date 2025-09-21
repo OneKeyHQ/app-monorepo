@@ -47,7 +47,9 @@ export function AutoUpdateDevSettings() {
                       <SizableText>
                         {typeof result === 'boolean'
                           ? `Result: ${String(result ? 'Success' : 'Failed')}`
-                          : `Success: ${String(result.success)}\nMessage: ${String(result.message)}`}
+                          : `Success: ${String(
+                              result.success,
+                            )}\nMessage: ${String(result.message)}`}
                       </SizableText>
                     </YStack>
                   ),
@@ -123,7 +125,7 @@ export function AutoUpdateDevSettings() {
       />
 
       <SectionPressItem
-        icon="TrashOutline"
+        icon="FolderDeleteOutline"
         title="Test Delete JsBundle"
         onPress={() => {
           showTestDialog('Test Delete JsBundle', () =>
