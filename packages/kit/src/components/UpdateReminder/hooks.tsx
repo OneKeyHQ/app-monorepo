@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { isEmpty, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
   Dialog,
@@ -132,7 +133,7 @@ export const useDownloadPackage = () => {
     [getFileTypeFromUpdateInfo],
   );
 
-  const showSilentUpdateDialog = useCallback(async () => {
+  const showSilentUpdateDialog = useThrottledCallback(async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
     Dialog.show({
@@ -194,7 +195,7 @@ export const useDownloadPackage = () => {
         });
       },
     });
-  }, [installPackage, intl, navigation, themeVariant]);
+  }, 5500);
 
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
