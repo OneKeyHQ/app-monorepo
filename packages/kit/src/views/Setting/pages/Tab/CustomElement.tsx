@@ -29,7 +29,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
@@ -394,7 +397,13 @@ export function ListVersionItem(props: ICustomElementProps) {
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
   }, [appUpdateInfo]);
-  return appUpdateInfo.isNeedUpdate ? (
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  return isShowAppUpdateUI && appUpdateInfo.isNeedUpdate ? (
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
