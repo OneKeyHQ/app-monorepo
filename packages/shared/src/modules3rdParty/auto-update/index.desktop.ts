@@ -166,11 +166,23 @@ export const BundleUpdate: IBundleUpdate = {
   testVerification: () =>
     globalThis.desktopApiProxy.bundleUpdate.testVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
-    globalThis.desktopApiProxy.bundleUpdate.testDeleteJsBundle(appVersion, bundleVersion),
+    globalThis.desktopApiProxy.bundleUpdate.testDeleteJsBundle(
+      appVersion,
+      bundleVersion,
+    ),
   testDeleteJsRuntimeDir: (appVersion, bundleVersion) =>
-    globalThis.desktopApiProxy.bundleUpdate.testDeleteJsRuntimeDir(appVersion, bundleVersion),
+    globalThis.desktopApiProxy.bundleUpdate.testDeleteJsRuntimeDir(
+      appVersion,
+      bundleVersion,
+    ),
   testDeleteMetadataJson: (appVersion, bundleVersion) =>
-    globalThis.desktopApiProxy.bundleUpdate.testDeleteMetadataJson(appVersion, bundleVersion),
+    globalThis.desktopApiProxy.bundleUpdate.testDeleteMetadataJson(
+      appVersion,
+      bundleVersion,
+    ),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
-    globalThis.desktopApiProxy.bundleUpdate.testWriteEmptyMetadataJson(appVersion, bundleVersion),
+    globalThis.desktopApiProxy.bundleUpdate.testWriteEmptyMetadataJson(
+      appVersion,
+      bundleVersion,
+    ),
 };

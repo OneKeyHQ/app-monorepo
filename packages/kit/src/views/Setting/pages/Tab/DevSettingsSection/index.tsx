@@ -66,6 +66,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
+import { AutoUpdateDevSettings } from './AutoUpdateDevSettings';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
@@ -77,7 +78,6 @@ import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
-import { AutoUpdateDevSettings } from './AutoUpdateDevSettings';
 
 let correctDevOnlyPwd = '';
 
