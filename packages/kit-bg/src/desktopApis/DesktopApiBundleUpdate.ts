@@ -435,6 +435,103 @@ class DesktopApiAppBundleUpdate {
   async testVerification() {
     return testExtractedSha256FromVerifyAscFile();
   }
+
+  /**
+   * Test function to delete jsBundle files
+   * @param appVersion - Application version
+   * @param bundleVersion - Bundle version
+   */
+  async testDeleteJsBundle(appVersion: string, bundleVersion: string) {
+    try {
+      const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
+      const mainJsBundlePath = path.join(bundleDir, 'main.jsbundle.hbc');
+      
+      if (fs.existsSync(mainJsBundlePath)) {
+        fs.unlinkSync(mainJsBundlePath);
+        logger.info('testDeleteJsBundle', `Deleted jsBundle: ${mainJsBundlePath}`);
+        return { success: true, message: `Deleted jsBundle: ${mainJsBundlePath}` };
+      } else {
+        logger.info('testDeleteJsBundle', `jsBundle not found: ${mainJsBundlePath}`);
+        return { success: false, message: `jsBundle not found: ${mainJsBundlePath}` };
+      }
+    } catch (error) {
+      logger.error('testDeleteJsBundle', `Error deleting jsBundle: ${error}`);
+      throw new OneKeyLocalError(`Failed to delete jsBundle: ${error}`);
+    }
+  }
+
+  /**
+   * Test function to delete js runtime directory
+   * @param appVersion - Application version
+   * @param bundleVersion - Bundle version
+   */
+  async testDeleteJsRuntimeDir(appVersion: string, bundleVersion: string) {
+    try {
+      const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
+      
+      if (fs.existsSync(bundleDir)) {
+        fs.rmSync(bundleDir, { recursive: true, force: true });
+        logger.info('testDeleteJsRuntimeDir', `Deleted js runtime directory: ${bundleDir}`);
+        return { success: true, message: `Deleted js runtime directory: ${bundleDir}` };
+      } else {
+        logger.info('testDeleteJsRuntimeDir', `js runtime directory not found: ${bundleDir}`);
+        return { success: false, message: `js runtime directory not found: ${bundleDir}` };
+      }
+    } catch (error) {
+      logger.error('testDeleteJsRuntimeDir', `Error deleting js runtime directory: ${error}`);
+      throw new OneKeyLocalError(`Failed to delete js runtime directory: ${error}`);
+    }
+  }
+
+  /**
+   * Test function to delete metadata.json file
+   * @param appVersion - Application version
+   * @param bundleVersion - Bundle version
+   */
+  async testDeleteMetadataJson(appVersion: string, bundleVersion: string) {
+    try {
+      const metadataFilePath = this.getMetadataFilePath({ appVersion, bundleVersion });
+      
+      if (fs.existsSync(metadataFilePath)) {
+        fs.unlinkSync(metadataFilePath);
+        logger.info('testDeleteMetadataJson', `Deleted metadata.json: ${metadataFilePath}`);
+        return { success: true, message: `Deleted metadata.json: ${metadataFilePath}` };
+      } else {
+        logger.info('testDeleteMetadataJson', `metadata.json not found: ${metadataFilePath}`);
+        return { success: false, message: `metadata.json not found: ${metadataFilePath}` };
+      }
+    } catch (error) {
+      logger.error('testDeleteMetadataJson', `Error deleting metadata.json: ${error}`);
+      throw new OneKeyLocalError(`Failed to delete metadata.json: ${error}`);
+    }
+  }
+
+  /**
+   * Test function to write empty metadata.json file
+   * @param appVersion - Application version
+   * @param bundleVersion - Bundle version
+   */
+  async testWriteEmptyMetadataJson(appVersion: string, bundleVersion: string) {
+    try {
+      const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
+      const metadataFilePath = path.join(bundleDir, 'metadata.json');
+      
+      // Ensure directory exists
+      if (!fs.existsSync(bundleDir)) {
+        fs.mkdirSync(bundleDir, { recursive: true });
+      }
+      
+      // Write empty metadata.json
+      const emptyMetadata = {};
+      fs.writeFileSync(metadataFilePath, JSON.stringify(emptyMetadata, null, 2));
+      
+      logger.info('testWriteEmptyMetadataJson', `Created empty metadata.json: ${metadataFilePath}`);
+      return { success: true, message: `Created empty metadata.json: ${metadataFilePath}` };
+    } catch (error) {
+      logger.error('testWriteEmptyMetadataJson', `Error writing empty metadata.json: ${error}`);
+      throw new OneKeyLocalError(`Failed to write empty metadata.json: ${error}`);
+    }
+  }
 }
 
 export default DesktopApiAppBundleUpdate;

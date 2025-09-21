@@ -646,4 +646,120 @@ RCT_EXPORT_METHOD(testVerification:(RCTPromiseResolveBlock)resolve
     resolve(@(result));
 }
 
+RCT_EXPORT_METHOD(testDeleteJsBundle:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *jsBundlePath = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"main.jsbundle.hbc"];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:jsBundlePath]) {
+        NSError *error;
+        BOOL success = [fileManager removeItemAtPath:jsBundlePath error:&error];
+        if (success) {
+            DDLogDebug(@"testDeleteJsBundle: Deleted jsBundle: %@", jsBundlePath);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Deleted jsBundle: %@", jsBundlePath]});
+        } else {
+            DDLogDebug(@"testDeleteJsBundle: Error deleting jsBundle: %@", error.localizedDescription);
+            reject(@"DELETE_ERROR", error.localizedDescription, error);
+        }
+    } else {
+        DDLogDebug(@"testDeleteJsBundle: jsBundle not found: %@", jsBundlePath);
+        resolve(@{@"success": @NO, @"message": [NSString stringWithFormat:@"jsBundle not found: %@", jsBundlePath]});
+    }
+}
+
+RCT_EXPORT_METHOD(testDeleteJsRuntimeDir:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *jsRuntimeDir = [bundleDir stringByAppendingPathComponent:folderName];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:jsRuntimeDir]) {
+        NSError *error;
+        BOOL success = [fileManager removeItemAtPath:jsRuntimeDir error:&error];
+        if (success) {
+            DDLogDebug(@"testDeleteJsRuntimeDir: Deleted js runtime directory: %@", jsRuntimeDir);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Deleted js runtime directory: %@", jsRuntimeDir]});
+        } else {
+            DDLogDebug(@"testDeleteJsRuntimeDir: Error deleting js runtime directory: %@", error.localizedDescription);
+            reject(@"DELETE_ERROR", error.localizedDescription, error);
+        }
+    } else {
+        DDLogDebug(@"testDeleteJsRuntimeDir: js runtime directory not found: %@", jsRuntimeDir);
+        resolve(@{@"success": @NO, @"message": [NSString stringWithFormat:@"js runtime directory not found: %@", jsRuntimeDir]});
+    }
+}
+
+RCT_EXPORT_METHOD(testDeleteMetadataJson:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *metadataPath = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"metadata.json"];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:metadataPath]) {
+        NSError *error;
+        BOOL success = [fileManager removeItemAtPath:metadataPath error:&error];
+        if (success) {
+            DDLogDebug(@"testDeleteMetadataJson: Deleted metadata.json: %@", metadataPath);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Deleted metadata.json: %@", metadataPath]});
+        } else {
+            DDLogDebug(@"testDeleteMetadataJson: Error deleting metadata.json: %@", error.localizedDescription);
+            reject(@"DELETE_ERROR", error.localizedDescription, error);
+        }
+    } else {
+        DDLogDebug(@"testDeleteMetadataJson: metadata.json not found: %@", metadataPath);
+        resolve(@{@"success": @NO, @"message": [NSString stringWithFormat:@"metadata.json not found: %@", metadataPath]});
+    }
+}
+
+RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *jsRuntimeDir = [bundleDir stringByAppendingPathComponent:folderName];
+    NSString *metadataPath = [jsRuntimeDir stringByAppendingPathComponent:@"metadata.json"];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    
+    // Ensure directory exists
+    if (![fileManager fileExistsAtPath:jsRuntimeDir]) {
+        NSError *error;
+        BOOL success = [fileManager createDirectoryAtPath:jsRuntimeDir withIntermediateDirectories:YES attributes:nil error:&error];
+        if (!success) {
+            DDLogDebug(@"testWriteEmptyMetadataJson: Error creating directory: %@", error.localizedDescription);
+            reject(@"CREATE_DIR_ERROR", error.localizedDescription, error);
+            return;
+        }
+    }
+    
+    // Write empty metadata.json
+    NSDictionary *emptyMetadata = @{};
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:emptyMetadata options:NSJSONWritingPrettyPrinted error:&error];
+    if (jsonData) {
+        BOOL success = [jsonData writeToFile:metadataPath atomically:YES];
+        if (success) {
+            DDLogDebug(@"testWriteEmptyMetadataJson: Created empty metadata.json: %@", metadataPath);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Created empty metadata.json: %@", metadataPath]});
+        } else {
+            DDLogDebug(@"testWriteEmptyMetadataJson: Error writing metadata.json");
+            reject(@"WRITE_ERROR", @"Failed to write metadata.json", nil);
+        }
+    } else {
+        DDLogDebug(@"testWriteEmptyMetadataJson: Error serializing metadata: %@", error.localizedDescription);
+        reject(@"SERIALIZE_ERROR", error.localizedDescription, error);
+    }
+}
+
 @end
