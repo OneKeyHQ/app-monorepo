@@ -175,6 +175,52 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return calculateSHA256(metadataFilePath).equals(extractedSha256);
     }
 
+    public static int compareVersion(String version1, String version2) {
+        if (version1 == null && version2 == null) {
+            return 0;
+        }
+        if (version1 == null) {
+            return -1;
+        }
+        if (version2 == null) {
+            return 1;
+        }
+        
+        String[] components1 = version1.split("\\.");
+        String[] components2 = version2.split("\\.");
+        
+        int maxCount = Math.max(components1.length, components2.length);
+        
+        for (int i = 0; i < maxCount; i++) {
+            int value1 = 0;
+            int value2 = 0;
+            
+            if (i < components1.length) {
+                try {
+                    value1 = Integer.parseInt(components1[i]);
+                } catch (NumberFormatException e) {
+                    value1 = 0;
+                }
+            }
+            
+            if (i < components2.length) {
+                try {
+                    value2 = Integer.parseInt(components2[i]);
+                } catch (NumberFormatException e) {
+                    value2 = 0;
+                }
+            }
+            
+            if (value1 < value2) {
+                return -1;
+            } else if (value1 > value2) {
+                return 1;
+            }
+        }
+        
+        return 0;
+    }
+
     public static String getCurrentBundleMainJSBundle(Context context) {
         try {
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
@@ -187,15 +233,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return null;
             }
             
-            if (currentAppVersion != null) {
+            if (currentAppVersion != null && !currentAppVersion.equals(currentBundleVersion)) {
                 String bundleAppVersion = currentBundleVersion.split("-")[0];
-                if (!currentAppVersion.equals(bundleAppVersion)) {
+                if (compareVersion(currentAppVersion, bundleAppVersion) == -1) {
+                    staticLog(TAG, "currentAppVersion is less than currentBundleVersion");
                     return null;
                 }
             }
             
             String bundleDir = getCurrentBundleDir(context, currentBundleVersion);
             if (bundleDir == null || !new File(bundleDir).exists()) {
+                staticLog(TAG, "currentBundleDir does not exist");
                 return null;
             }
             String signature = null;
