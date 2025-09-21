@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useAccountData } from '../../hooks/useAccountData';
 import { useUserWalletProfile } from '../../hooks/useUserWalletProfile';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
@@ -51,8 +52,22 @@ function TokenActionsView(props: IProps) {
             tokens: aggregateTokens,
             tokenListMap,
           });
-          if (sortedAggregateTokens[0]) {
-            setActiveToken(sortedAggregateTokens[0]);
+
+          let _activeToken = sortedAggregateTokens[0];
+
+          for (const _token of sortedAggregateTokens) {
+            const { isSupportSwap } =
+              await backgroundApiProxy.serviceSwap.checkSupportSwap({
+                networkId: _token.networkId ?? '',
+              });
+            if (isSupportSwap) {
+              _activeToken = _token;
+              break;
+            }
+          }
+
+          if (_activeToken) {
+            setActiveToken(_activeToken);
           }
         }
       }
