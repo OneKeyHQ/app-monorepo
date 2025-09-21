@@ -22,7 +22,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DownloadProgress } from './DownloadProgress';
 import {
-  isShowUpdateUIWhenDownloadingStrategy,
+  isShowAppUpdateUIWhenUpdating,
   useAppUpdateInfo,
 } from './hooks';
 
@@ -297,7 +297,7 @@ function BasicUpdateReminder() {
   }, [closePopover, onUpdateAction]);
 
   const showUpdateUI = useMemo(() => {
-    return isShowUpdateUIWhenDownloadingStrategy({
+    return isShowAppUpdateUIWhenUpdating({
       updateStrategy: appUpdateInfo.data.updateStrategy,
       updateStatus: data.status,
     });

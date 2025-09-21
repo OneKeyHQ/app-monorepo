@@ -48,7 +48,7 @@ export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
   );
 };
 
-export const isShowUpdateUIWhenDownloadingStrategy = ({
+export const isShowAppUpdateUIWhenUpdating = ({
   updateStrategy,
   updateStatus,
 }: {
