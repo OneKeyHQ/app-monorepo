@@ -16,7 +16,7 @@ import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 
-function PerpTradingPanel() {
+function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [accountPanelData] = useAccountPanelDataAtom();
   const { accountSummary } = accountPanelData;
@@ -72,7 +72,7 @@ function PerpTradingPanel() {
 
   return (
     <YStack gap="$4" p="$4">
-      <PerpTradingForm isSubmitting={isSubmitting} />
+      <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       <PerpTradingButton
         loading={universalLoading}
         handleShowConfirm={handleShowConfirm}

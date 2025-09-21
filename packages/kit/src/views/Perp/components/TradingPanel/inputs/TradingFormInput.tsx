@@ -34,6 +34,7 @@ interface ITradingFormInputProps {
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   readonly?: boolean;
   ifOnDialog?: boolean;
+  isMobile?: boolean;
 }
 
 export const TradingFormInput = memo(
@@ -41,7 +42,7 @@ export const TradingFormInput = memo(
     value,
     onChange,
     label,
-    placeholder = '0.0',
+    placeholder,
     disabled = false,
     error,
     suffix,
@@ -50,6 +51,7 @@ export const TradingFormInput = memo(
     validator,
     keyboardType = 'decimal-pad',
     ifOnDialog = false,
+    isMobile = false,
   }: ITradingFormInputProps) => {
     const handleInputChange = useCallback(
       (text: string) => {
@@ -95,7 +97,59 @@ export const TradingFormInput = memo(
 
       return addOns.length > 0 ? addOns : undefined;
     };
-
+    if (isMobile) {
+      return (
+        <YStack
+          gap="$3"
+          bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+          borderRadius="$2"
+          borderWidth={ifOnDialog ? '$px' : 0}
+          borderColor={ifOnDialog ? '$borderSubdued' : undefined}
+          px="$3"
+        >
+          <Input
+            flex={1}
+            h={32}
+            size="medium"
+            value={value}
+            onChangeText={handleInputChange}
+            placeholder={placeholder}
+            keyboardType={keyboardType}
+            disabled={disabled}
+            fontSize={getFontSize('$bodyMd')}
+            bg="$bgSubdued"
+            containerProps={{
+              flex: 1,
+              borderWidth: 0,
+              bg: 'transparent',
+              p: 0,
+            }}
+            InputComponentStyle={{
+              p: 0,
+              bg: 'transparent',
+            }}
+            addOns={renderAddOns()}
+          />
+          {error ? (
+            <SizableText size="$bodySm" color="$red10" mt="$1">
+              {error}
+            </SizableText>
+          ) : null}
+          {helper ? (
+            <XStack
+              alignItems="center"
+              alignSelf={helper.align === 'left' ? 'flex-start' : 'flex-end'}
+              mt="$1"
+              gap="$1"
+            >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {helper.text}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </YStack>
+      );
+    }
     return (
       <YStack
         bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}

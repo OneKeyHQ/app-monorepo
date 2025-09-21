@@ -22,22 +22,25 @@ interface ITradeSideToggleProps {
   value: ISide;
   onChange: (value: ISide) => void;
   disabled?: boolean;
+  isMobile?: boolean;
 }
 
-const commonButtonStyle: IButtonProps = {
-  height: '$8',
-  borderRadius: '$2',
-  borderWidth: 0,
-  hoverStyle: {
-    opacity: 0.9,
-  },
-  pressStyle: {
-    opacity: 0.7,
-  },
-};
+function getCommonButtonStyle(isMobile?: boolean): IButtonProps {
+  return {
+    height: isMobile ? '$7' : '$8',
+    borderRadius: '$2',
+    borderWidth: 0,
+    hoverStyle: {
+      opacity: 0.9,
+    },
+    pressStyle: {
+      opacity: 0.7,
+    },
+  };
+}
 
 export const TradeSideToggle = memo<ITradeSideToggleProps>(
-  ({ value, onChange, disabled = false }) => {
+  ({ value, onChange, disabled = false, isMobile = false }) => {
     const handleChange = useCallback(
       (newValue: string | number) => {
         const strValue = String(newValue);
@@ -59,14 +62,16 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value: 'long',
         label: (
           <Button
-            {...commonButtonStyle}
+            {...getCommonButtonStyle(isMobile)}
             bg={isLongActive ? longStyleProps.bg : '$transparent'}
             color={isLongActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('long')}
             disabled={disabled}
+            justifyContent="center"
+            alignItems="center"
           >
             <SizableText
-              size="$bodyMdMedium"
+              size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
               color={isLongActive ? '$textOnColor' : '$textDisabled'}
             >
               {intl.formatMessage({
@@ -80,14 +85,16 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         value: 'short',
         label: (
           <Button
-            {...commonButtonStyle}
+            {...getCommonButtonStyle(isMobile)}
             bg={isShortActive ? shortStyleProps.bg : '$transparent'}
             color={isShortActive ? '$textOnColor' : '$textSubdued'}
             onPress={() => onChange('short')}
             disabled={disabled}
+            justifyContent="center"
+            alignItems="center"
           >
             <SizableText
-              size="$bodyMdMedium"
+              size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
               color={isShortActive ? '$textOnColor' : '$textDisabled'}
             >
               {intl.formatMessage({
