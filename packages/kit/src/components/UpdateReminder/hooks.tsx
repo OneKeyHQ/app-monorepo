@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { isEmpty, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -85,6 +86,52 @@ export const useDownloadPackage = () => {
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
 
+  const showUpdateInCompleteDialogRef =
+    useRef<
+      ({
+        onConfirm,
+        onCancel,
+      }: {
+        onConfirm?: () => void;
+        onCancel?: () => void;
+      }) => void
+    >(noop);
+
+  const getFileTypeFromUpdateInfo = useCallback(async () => {
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    return getUpdateFileType(appUpdateInfo);
+  }, []);
+
+  const installPackage = useCallback(
+    async (onSuccess: () => void, onFail: () => void) => {
+      const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const fileType = await getFileTypeFromUpdateInfo();
+      try {
+        defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
+        if (fileType === EUpdateFileType.jsBundle) {
+          if (!data.downloadedEvent) {
+            onFail();
+            return;
+          }
+          await BundleUpdate.installBundle(data.downloadedEvent);
+        } else {
+          await AppUpdate.installPackage(data);
+        }
+        defaultLogger.app.appUpdate.endInstallPackage(true);
+        onSuccess();
+      } catch (e: unknown) {
+        defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
+        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+          onFail();
+        } else {
+          Toast.error({ title: (e as Error).message });
+        }
+      }
+    },
+    [getFileTypeFromUpdateInfo],
+  );
+
   const showSilentUpdateDialog = useCallback(async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
@@ -128,6 +175,14 @@ export const useDownloadPackage = () => {
         defaultLogger.app.component.closedInUpdateDialog();
       },
       onConfirm: () => {
+        if (isEmpty(appUpdateInfo.changeLog)) {
+          void installPackage(noop, () => {
+            showUpdateInCompleteDialogRef.current?.({
+              onConfirm: noop,
+              onCancel: noop,
+            });
+          });
+        }
         navigation.pushModal(EModalRoutes.AppUpdateModal, {
           screen: EAppUpdateRoutes.UpdatePreview,
           params: {
@@ -139,13 +194,7 @@ export const useDownloadPackage = () => {
         });
       },
     });
-  }, [intl, navigation, themeVariant]);
-
-  const getFileTypeFromUpdateInfo = useCallback(async () => {
-    const appUpdateInfo =
-      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    return getUpdateFileType(appUpdateInfo);
-  }, []);
+  }, [installPackage, intl, navigation, themeVariant]);
 
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
@@ -315,6 +364,7 @@ export const useDownloadPackage = () => {
     },
     [downloadPackage, intl, resetToInComplete],
   );
+  showUpdateInCompleteDialogRef.current = showUpdateInCompleteDialog;
 
   const manualInstallPackage = useCallback(async () => {
     const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -343,35 +393,6 @@ export const useDownloadPackage = () => {
       });
     }
   }, [intl, navigation, showUpdateInCompleteDialog]);
-
-  const installPackage = useCallback(
-    async (onSuccess: () => void, onFail: () => void) => {
-      const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      const fileType = await getFileTypeFromUpdateInfo();
-      try {
-        defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
-        if (fileType === EUpdateFileType.jsBundle) {
-          if (!data.downloadedEvent) {
-            onFail();
-            return;
-          }
-          await BundleUpdate.installBundle(data.downloadedEvent);
-        } else {
-          await AppUpdate.installPackage(data);
-        }
-        defaultLogger.app.appUpdate.endInstallPackage(true);
-        onSuccess();
-      } catch (e: unknown) {
-        defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
-        if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
-          onFail();
-        } else {
-          Toast.error({ title: (e as Error).message });
-        }
-      }
-    },
-    [getFileTypeFromUpdateInfo],
-  );
 
   return useMemo(
     () => ({
