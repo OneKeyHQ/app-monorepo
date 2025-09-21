@@ -76,6 +76,40 @@ RCT_EXPORT_MODULE();
     return [bundleDir stringByAppendingPathComponent:folderName];
 }
 
++ (NSComparisonResult)compareVersion:(NSString *)version1 withVersion:(NSString *)version2 {
+    if (!version1 || !version2) {
+        if (!version1 && !version2) return NSOrderedSame;
+        if (!version1) return NSOrderedAscending;
+        return NSOrderedDescending;
+    }
+    
+    NSArray *components1 = [version1 componentsSeparatedByString:@"."];
+    NSArray *components2 = [version2 componentsSeparatedByString:@"."];
+    
+    NSInteger maxCount = MAX(components1.count, components2.count);
+    
+    for (NSInteger i = 0; i < maxCount; i++) {
+        NSInteger value1 = 0;
+        NSInteger value2 = 0;
+        
+        if (i < components1.count) {
+            value1 = [components1[i] integerValue];
+        }
+        
+        if (i < components2.count) {
+            value2 = [components2[i] integerValue];
+        }
+        
+        if (value1 < value2) {
+            return NSOrderedAscending;
+        } else if (value1 > value2) {
+            return NSOrderedDescending;
+        }
+    }
+    
+    return NSOrderedSame;
+}
+
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     NSString *currentBundleVersion = [self currentBundleVersion];
@@ -84,9 +118,11 @@ RCT_EXPORT_MODULE();
     if (currentBundleVersion == nil) {
         return nil;
     }
-    if (currentAppVersion != nil) {
+    if (currentAppVersion != nil && ![currentAppVersion isEqualToString:bundleAppVersion]) {
         NSString *bundleAppVersion = [currentBundleVersion componentsSeparatedByString:@"-"][0];
-        if (![currentAppVersion isEqualToString:bundleAppVersion]) {
+        // Compare versions using semantic versioning
+        NSComparisonResult result = [self compareVersion:currentAppVersion withVersion:bundleAppVersion];
+        if (result == NSOrderedAscending) {
             return nil;
         }
     }
