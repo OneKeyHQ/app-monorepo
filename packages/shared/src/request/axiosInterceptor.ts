@@ -190,12 +190,12 @@ axios.interceptors.response.use(
       error.name === 'AxiosError'
     ) {
       refreshNetInfo();
-      let title = appLocale.intl.formatMessage({
+      const title = appLocale.intl.formatMessage({
         id: ETranslations.global_network_error,
       });
-      if (process.env.NODE_ENV !== 'production') {
-        title += error?.config?.url || '';
-      }
+      // if (process.env.NODE_ENV !== 'production') {
+      //   title += error?.config?.url || '';
+      // }
       throw new OneKeyError({
         name: error.name,
         message: title,
