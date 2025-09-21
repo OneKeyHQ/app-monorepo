@@ -62,7 +62,7 @@ export const isShowAppUpdateUIWhenUpdating = ({
   ) {
     return true;
   }
-  return updateStatus === EAppUpdateStatus.done;
+  return updateStatus === EAppUpdateStatus.ready;
 };
 
 export const isForceUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
@@ -83,6 +83,63 @@ export const useAppChangeLog = (version?: string) => {
 export const useDownloadPackage = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const themeVariant = useThemeVariant();
+
+  const showSilentUpdateDialog = useCallback(async () => {
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    Dialog.show({
+      dismissOnOverlayPress: false,
+      renderIcon: (
+        <YStack
+          borderRadius="$5"
+          borderCurve="continuous"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
+          overflow="hidden"
+        >
+          <LottieView
+            loop={false}
+            height={56}
+            width={56}
+            source={
+              themeVariant === 'light'
+                ? UpdateNotificationLight
+                : UpdateNotificationDark
+            }
+          />
+        </YStack>
+      ),
+      title: intl.formatMessage({
+        id: ETranslations.update_notification_dialog_title,
+      }),
+      description:
+        appUpdateInfo.summary ||
+        intl.formatMessage({
+          id: ETranslations.update_notification_dialog_desc,
+        }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.update_update_now,
+      }),
+      showCancelButton: false,
+      onHeaderCloseButtonPress: () => {
+        console.log('onHeaderCloseButtonPress');
+        defaultLogger.app.component.closedInUpdateDialog();
+      },
+      onConfirm: () => {
+        navigation.pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.UpdatePreview,
+          params: {
+            latestVersion: appUpdateInfo.latestVersion,
+            isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
+            autoClose: false,
+            ...appUpdateInfo,
+          },
+        });
+      },
+    });
+  }, [intl, navigation, themeVariant]);
 
   const getFileTypeFromUpdateInfo = useCallback(async () => {
     const appUpdateInfo =
@@ -91,7 +148,10 @@ export const useDownloadPackage = () => {
   }, []);
 
   const verifyPackage = useCallback(async () => {
-    const fileType = await getFileTypeFromUpdateInfo();
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    const updateStrategy = appUpdateInfo.updateStrategy;
+    const fileType = getUpdateFileType(appUpdateInfo);
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
@@ -109,11 +169,15 @@ export const useDownloadPackage = () => {
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
       defaultLogger.app.appUpdate.endVerifyPackage(true);
+
+      if (updateStrategy === EUpdateStrategy.silent) {
+        await showSilentUpdateDialog();
+      }
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, [getFileTypeFromUpdateInfo]);
+  }, [showSilentUpdateDialog]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
