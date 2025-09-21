@@ -5,6 +5,7 @@ export enum EUpdateStrategy {
   silent = 0,
   force = 1,
   manual = 2,
+  seamless = 3,
 }
 
 export enum EUpdateFileType {
