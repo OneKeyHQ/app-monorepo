@@ -2,7 +2,10 @@ import type {
   EUpdateFileType,
   EUpdateStrategy,
 } from '@onekeyhq/shared/src/appUpdate';
-import type { IDownloadPackageParams, IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import type {
+  IDownloadPackageParams,
+  IUpdateDownloadedEvent,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal } from '../../../base/decorators';
@@ -30,8 +33,66 @@ export class AppUpdateScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
-  public startVerify() {}
+  public startVerifyPackage(params: IDownloadPackageParams) {
+    return params;
+  }
 
   @LogToLocal({ level: 'info' })
-  public endVerify() {}
+  public endVerifyPackage(success: boolean, error?: Error) {
+    return { success, error: error?.message };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public startVerifyASC(params: IDownloadPackageParams) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public endVerifyASC(success: boolean, error?: Error) {
+    return { success, error: error?.message };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public startDownloadASC(params: IDownloadPackageParams) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public endDownloadASC(success: boolean, error?: Error) {
+    return { success, error: error?.message };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public startInstallPackage(params: unknown) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public endInstallPackage(success: boolean, error?: Error) {
+    return { success, error: error?.message };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public startManualInstallPackage(params: unknown) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
+  public endManualInstallPackage(success: boolean, error?: Error) {
+    return { success, error: error?.message };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public startCheckForUpdatesOnly() {
+    return {};
+  }
+
+  @LogToLocal({ level: 'info' })
+  public endCheckForUpdates(result: {
+    isNeedUpdate: boolean;
+    isForceUpdate: boolean;
+    updateFileType?: string;
+  }) {
+    return result;
+  }
 }

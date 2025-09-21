@@ -1,6 +1,7 @@
 import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
+import { AppUpdateScene } from './scenes/appUpdate';
 import { BackgroundScene } from './scenes/background';
 import { BootstrapScene } from './scenes/bootstrap';
 import { ComponentScene } from './scenes/component';
@@ -11,7 +12,6 @@ import { NetworkScene } from './scenes/network';
 import { PageScene } from './scenes/page';
 import { AppPerfScene } from './scenes/perf';
 import { WebembedScene } from './scenes/webembed';
-import { AppUpdateScene } from './scenes/appUpdate';
 
 export class AppScope extends BaseScope {
   protected override scopeName = EScopeName.app;

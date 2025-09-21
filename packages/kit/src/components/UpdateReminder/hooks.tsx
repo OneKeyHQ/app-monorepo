@@ -22,6 +22,7 @@ import {
   isFirstLaunchAfterUpdated,
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IDownloadPackageParams } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -98,6 +99,7 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
         return;
       }
+      defaultLogger.app.appUpdate.startVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
@@ -106,7 +108,9 @@ export const useDownloadPackage = () => {
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+      defaultLogger.app.appUpdate.endVerifyPackage(true);
     } catch (e) {
+      defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
   }, [getFileTypeFromUpdateInfo]);
@@ -120,6 +124,7 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
         return;
       }
+      defaultLogger.app.appUpdate.startVerifyASC(params);
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
@@ -127,8 +132,10 @@ export const useDownloadPackage = () => {
           : AppUpdate.verifyASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
+      defaultLogger.app.appUpdate.endVerifyASC(true);
       await verifyPackage();
     } catch (e) {
+      defaultLogger.app.appUpdate.endVerifyASC(false, e as Error);
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
   }, [getFileTypeFromUpdateInfo, verifyPackage]);
@@ -142,6 +149,7 @@ export const useDownloadPackage = () => {
         await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
         return;
       }
+      defaultLogger.app.appUpdate.startDownloadASC(params);
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await Promise.all([
         fileType === EUpdateFileType.jsBundle
@@ -149,8 +157,10 @@ export const useDownloadPackage = () => {
           : AppUpdate.downloadASC(params),
         timerUtils.wait(MIN_EXECUTION_DURATION),
       ]);
+      defaultLogger.app.appUpdate.endDownloadASC(true);
       await verifyASC();
     } catch (e) {
+      defaultLogger.app.appUpdate.endDownloadASC(false, e as Error);
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
   }, [getFileTypeFromUpdateInfo, verifyASC]);
@@ -245,11 +255,17 @@ export const useDownloadPackage = () => {
   const manualInstallPackage = useCallback(async () => {
     const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
     try {
+      defaultLogger.app.appUpdate.startManualInstallPackage(params);
+      if (!params) {
+        throw new OneKeyError('No download event found');
+      }
       await AppUpdate.manualInstallPackage({
         ...params,
         buildNumber: String(platformEnv.buildNumber || 1),
       });
+      defaultLogger.app.appUpdate.endManualInstallPackage(true);
     } catch (e) {
+      defaultLogger.app.appUpdate.endManualInstallPackage(false, e as Error);
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.global_update_failed,
@@ -269,6 +285,7 @@ export const useDownloadPackage = () => {
       const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const fileType = await getFileTypeFromUpdateInfo();
       try {
+        defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
         if (fileType === EUpdateFileType.jsBundle) {
           if (!data.downloadedEvent) {
             onFail();
@@ -278,8 +295,10 @@ export const useDownloadPackage = () => {
         } else {
           await AppUpdate.installPackage(data);
         }
+        defaultLogger.app.appUpdate.endInstallPackage(true);
         onSuccess();
       } catch (e: unknown) {
+        defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
           onFail();
         } else {
@@ -380,6 +399,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   }, [appUpdateInfo.updateStrategy, navigation]);
 
   const checkForUpdates = useCallback(async () => {
+    defaultLogger.app.appUpdate.startCheckForUpdatesOnly();
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
     const { shouldUpdate, fileType } = isNeedUpdate({
@@ -388,12 +408,18 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       status: response?.status,
     });
     const updateStrategy = response?.updateStrategy ?? EUpdateStrategy.manual;
-    return {
+    const result = {
       isForceUpdate: isForceUpdateStrategy(updateStrategy),
       isNeedUpdate: shouldUpdate,
       updateFileType: fileType,
       response,
     };
+    defaultLogger.app.appUpdate.endCheckForUpdates({
+      isNeedUpdate: shouldUpdate,
+      isForceUpdate: isForceUpdateStrategy(updateStrategy),
+      updateFileType: fileType as unknown as string,
+    });
+    return result;
   }, []);
 
   const dialog = useInTabDialog();
