@@ -77,6 +77,7 @@ import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
+import { AutoUpdateDevSettings } from './AutoUpdateDevSettings';
 
 let correctDevOnlyPwd = '';
 
@@ -984,54 +985,7 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-
-      <SectionPressItem
-        icon="AppleBrand"
-        title="Test Auto Update"
-        onPress={async () => {
-          Dialog.show({
-            title: 'Auto Update Test Result',
-            renderContent: (
-              <YStack p="$4" gap="$3">
-                <Button
-                  variant="primary"
-                  onPress={async () => {
-                    try {
-                      const result = await BundleUpdate.testVerification();
-                      Dialog.show({
-                        title: 'Test Result',
-                        renderContent: (
-                          <YStack p="$4">
-                            <SizableText>
-                              Verification Result:{' '}
-                              {result ? 'Success' : 'Failed'}
-                            </SizableText>
-                          </YStack>
-                        ),
-                      });
-                    } catch (error) {
-                      Dialog.show({
-                        title: 'Test Error',
-                        renderContent: (
-                          <YStack p="$4">
-                            <SizableText>
-                              Error:{' '}
-                              {(error as Error)?.message || 'Unknown error'}
-                            </SizableText>
-                          </YStack>
-                        ),
-                      });
-                    }
-                  }}
-                >
-                  Test Verification
-                </Button>
-              </YStack>
-            ),
-          });
-        }}
-      />
-
+      <AutoUpdateDevSettings />
       <ListItem
         icon="PerformanceOutline"
         title="Performance Monitor(UI FPS/JS FPS)"
