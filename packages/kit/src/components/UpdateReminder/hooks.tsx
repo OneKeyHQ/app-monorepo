@@ -41,6 +41,26 @@ import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
+export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
+  return (
+    updateStrategy === EUpdateStrategy.silent ||
+    updateStrategy === EUpdateStrategy.seamless
+  );
+};
+
+export const isShowUpdateUIWhenDownloadingStrategy = (
+  updateStrategy: EUpdateStrategy,
+) => {
+  return (
+    updateStrategy === EUpdateStrategy.manual ||
+    updateStrategy === EUpdateStrategy.force
+  );
+};
+
+export const isForceUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
+  return updateStrategy === EUpdateStrategy.force;
+};
+
 export const useAppChangeLog = (version?: string) => {
   const response = usePromiseResult(
     () =>
@@ -324,7 +344,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         screen: EAppUpdateRoutes.UpdatePreview,
         params: {
           latestVersion: appUpdateInfo.latestVersion,
-          isForceUpdate: appUpdateInfo.updateStrategy === EUpdateStrategy.force,
+          isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
           autoClose: isFull,
           ...params,
         },
@@ -342,7 +362,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     navigation.pushModal(EModalRoutes.AppUpdateModal, {
       screen: EAppUpdateRoutes.DownloadVerify,
       params: {
-        isForceUpdate: appUpdateInfo.updateStrategy === EUpdateStrategy.force,
+        isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
       },
     });
   }, [appUpdateInfo.updateStrategy, navigation]);
@@ -355,9 +375,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       jsBundleVersion: response?.jsBundleVersion,
       status: response?.status,
     });
+    const updateStrategy = response?.updateStrategy || EUpdateStrategy.manual;
     return {
-      isForceUpdate: response?.updateStrategy === EUpdateStrategy.force,
-      isSilentUpdate: response?.updateStrategy === EUpdateStrategy.silent,
+      isForceUpdate: isForceUpdateStrategy(updateStrategy),
       isNeedUpdate: shouldUpdate,
       updateFileType: fileType,
       response,
@@ -449,14 +469,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else {
       void checkForUpdates().then(
-        async ({
-          isNeedUpdate: needUpdate,
-          isForceUpdate,
-          isSilentUpdate,
-          response,
-        }) => {
-          if (needUpdate) {
-            if (isSilentUpdate) {
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+          const updateStrategy =
+            response?.updateStrategy || EUpdateStrategy.manual;
+          if (updateStrategy && needUpdate) {
+            if (isAutoUpdateStrategy(updateStrategy)) {
               void downloadPackage();
             } else if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
