@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { isEmpty, noop } from 'lodash';
+import { isEmpty, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
@@ -42,6 +42,8 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
+import type { IntlShape } from 'react-intl';
+
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
 export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
@@ -81,6 +83,62 @@ export const useAppChangeLog = (version?: string) => {
   );
   return useMemo(() => response.result, [response.result]);
 };
+
+const showSilentUpdateDialogUI = throttle(
+  async ({
+    intl,
+    summary,
+    onConfirm,
+    themeVariant,
+  }: {
+    intl: IntlShape;
+    summary: string;
+    onConfirm: () => void;
+    themeVariant: 'light' | 'dark';
+  }) => {
+    Dialog.show({
+      dismissOnOverlayPress: false,
+      renderIcon: (
+        <YStack
+          borderRadius="$5"
+          borderCurve="continuous"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
+          overflow="hidden"
+        >
+          <LottieView
+            loop={false}
+            height={56}
+            width={56}
+            source={
+              themeVariant === 'light'
+                ? UpdateNotificationLight
+                : UpdateNotificationDark
+            }
+          />
+        </YStack>
+      ),
+      title: intl.formatMessage({
+        id: ETranslations.update_notification_dialog_title,
+      }),
+      description:
+        summary ||
+        intl.formatMessage({
+          id: ETranslations.update_notification_dialog_desc,
+        }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.update_update_now,
+      }),
+      showCancelButton: false,
+      onHeaderCloseButtonPress: () => {
+        defaultLogger.app.component.closedInUpdateDialog();
+      },
+      onConfirm,
+    });
+  },
+  15 * 1000,
+);
 
 export const useDownloadPackage = () => {
   const intl = useIntl();
@@ -133,48 +191,14 @@ export const useDownloadPackage = () => {
     [getFileTypeFromUpdateInfo],
   );
 
-  const showSilentUpdateDialog = useThrottledCallback(async () => {
+  const showSilentUpdateDialog = useCallback(async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    Dialog.show({
-      dismissOnOverlayPress: false,
-      renderIcon: (
-        <YStack
-          borderRadius="$5"
-          borderCurve="continuous"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
-          overflow="hidden"
-        >
-          <LottieView
-            loop={false}
-            height={56}
-            width={56}
-            source={
-              themeVariant === 'light'
-                ? UpdateNotificationLight
-                : UpdateNotificationDark
-            }
-          />
-        </YStack>
-      ),
-      title: intl.formatMessage({
-        id: ETranslations.update_notification_dialog_title,
-      }),
-      description:
-        appUpdateInfo.summary ||
-        intl.formatMessage({
-          id: ETranslations.update_notification_dialog_desc,
-        }),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.update_update_now,
-      }),
-      showCancelButton: false,
-      onHeaderCloseButtonPress: () => {
-        console.log('onHeaderCloseButtonPress');
-        defaultLogger.app.component.closedInUpdateDialog();
-      },
+    await whenAppUnlocked();
+    await showSilentUpdateDialogUI({
+      intl,
+      summary: appUpdateInfo.summary || '',
+      themeVariant,
       onConfirm: () => {
         if (isEmpty(appUpdateInfo.changeLog)) {
           void installPackage(noop, () => {
@@ -195,7 +219,7 @@ export const useDownloadPackage = () => {
         });
       },
     });
-  }, 5500);
+  }, [intl, navigation, themeVariant, installPackage]);
 
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
@@ -555,7 +579,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         }),
         showCancelButton: false,
         onHeaderCloseButtonPress: () => {
-          console.log('onHeaderCloseButtonPress');
           defaultLogger.app.component.closedInUpdateDialog();
         },
         onConfirm: () => {
