@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { isEmpty, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { useThrottledCallback } from 'use-debounce';
 
 import {
   Dialog,
@@ -137,7 +136,7 @@ const showSilentUpdateDialogUI = throttle(
       onConfirm,
     });
   },
-  15 * 1000,
+  30 * 1000,
 );
 
 export const useDownloadPackage = () => {
@@ -429,6 +428,7 @@ export const useDownloadPackage = () => {
       installPackage,
       manualInstallPackage,
       showUpdateInCompleteDialog,
+      showSilentUpdateDialog,
     }),
     [
       downloadPackage,
@@ -439,6 +439,7 @@ export const useDownloadPackage = () => {
       installPackage,
       manualInstallPackage,
       showUpdateInCompleteDialog,
+      showSilentUpdateDialog,
     ],
   );
 };
@@ -454,6 +455,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     verifyPackage,
     verifyASC,
     downloadASC,
+    showSilentUpdateDialog,
     showUpdateInCompleteDialog,
   } = useDownloadPackage();
   const onViewReleaseInfo = useCallback(() => {
@@ -614,10 +616,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyASC();
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
-    } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
-      if (appUpdateInfo.status === EAppUpdateStatus.ready) {
-        void verifyPackage();
-      }
+    } else if (
+      appUpdateInfo.updateStrategy === EUpdateStrategy.silent &&
+      appUpdateInfo.status === EAppUpdateStatus.ready
+    ) {
+      void showSilentUpdateDialog();
     } else {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
