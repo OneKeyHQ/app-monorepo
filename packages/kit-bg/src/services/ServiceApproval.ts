@@ -183,6 +183,33 @@ class ServiceApproval extends ServiceBase {
   }
 
   @backgroundMethod()
+  async shouldShowInactiveApprovalsRevokeSuggestion({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getInactiveApprovalsRevokeSuggestionConfig(
+        {
+          networkId,
+          accountId,
+        },
+      );
+
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      if (interval > timerUtils.getTimeDurationMs({ day: 14 })) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
   async shouldShowInactiveApprovalsAlert({
     networkId,
     accountId,
@@ -197,6 +224,30 @@ class ServiceApproval extends ServiceBase {
           accountId,
         },
       );
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      if (interval > timerUtils.getTimeDurationMs({ day: 30 })) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowRiskApprovalsAlert({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getRiskApprovalsAlertConfig({
+        networkId,
+        accountId,
+      });
     if (config && config.lastShowTime) {
       const interval = Date.now() - config.lastShowTime;
       if (interval > timerUtils.getTimeDurationMs({ day: 30 })) {
@@ -225,6 +276,22 @@ class ServiceApproval extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateInactiveApprovalsRevokeSuggestionConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsRevokeSuggestionConfig(
+      {
+        networkId,
+        accountId,
+      },
+    );
+  }
+
+  @backgroundMethod()
   async updateInactiveApprovalsAlertConfig({
     networkId,
     accountId,
@@ -238,6 +305,20 @@ class ServiceApproval extends ServiceBase {
         accountId,
       },
     );
+  }
+
+  @backgroundMethod()
+  async updateRiskApprovalsAlertConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateRiskApprovalsAlertConfig({
+      networkId,
+      accountId,
+    });
   }
 }
 

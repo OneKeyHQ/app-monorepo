@@ -136,7 +136,7 @@ export function HomePageView({
         }
         const [
           shouldShowRiskApprovalsRevokeSuggestion,
-          shouldShowInactiveApprovalsAlert,
+          shouldShowInactiveApprovalsRevokeSuggestion,
         ] = await Promise.all([
           backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
             {
@@ -144,15 +144,18 @@ export function HomePageView({
               accountId: account.id,
             },
           ),
-          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
-            networkId: network.id,
-            accountId: account.id,
-          }),
+          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsRevokeSuggestion(
+            {
+              networkId: network.id,
+              accountId: account.id,
+            },
+          ),
         ]);
         if (
           (shouldShowRiskApprovalsRevokeSuggestion &&
             riskApprovals.length > 0) ||
-          (shouldShowInactiveApprovalsAlert && inactiveApprovals.length > 0)
+          (shouldShowInactiveApprovalsRevokeSuggestion &&
+            inactiveApprovals.length > 0)
         ) {
           await timerUtils.wait(2000);
           navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
