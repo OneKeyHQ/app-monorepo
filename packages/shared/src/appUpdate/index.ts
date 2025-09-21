@@ -56,7 +56,7 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   if (
     jsBundleVersion &&
     latestVersion &&
-    semver.eq(latestVersion, APP_VERSION)
+    semver.gte(latestVersion, APP_VERSION)
   ) {
     return {
       shouldUpdate: !!(
