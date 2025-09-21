@@ -799,12 +799,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     [
       intl,
       isPrimeAvailable,
-      isLoggedIn,
+      perpConfigCommon.disablePerp,
+      perpConfigCommon.usePerpWeb,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
+      isLoggedIn,
+      settings.hardwareTransportType,
+      isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       onPressAddressBook,
@@ -812,9 +816,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
-      settings.hardwareTransportType,
-      perpConfigCommon.disablePerp,
-      perpConfigCommon.usePerpWeb,
     ],
   );
 };
