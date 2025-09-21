@@ -534,19 +534,24 @@ export function SocialButtonGroup() {
   const { copyText } = useClipboard();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const isTabNavigator = useIsTabNavigator();
+  const version = useMemo(() => {
+    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
+  }, []);
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': `${platformEnv.version ?? ''} ${
-        platformEnv.buildNumber ?? ''
-      }`,
+      'versionNum': version,
     },
   );
-  const handlePress = useCallback(() => {
+  const handleCopyVersion = useCallback(() => {
     void handleOpenDevMode(() =>
-      copyText(`${upperFirst(versionString)}-${platformEnv.githubSHA || ''}`),
+      copyText(
+        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${
+          platformEnv.githubSHA || ''
+        }`,
+      ),
     );
   }, [copyText, versionString]);
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
@@ -596,7 +601,7 @@ export function SocialButtonGroup() {
           minWidth={platformEnv.isNativeAndroid ? 240 : undefined}
           textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
           numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
-          onPress={handlePress}
+          onPress={handleCopyVersion}
         >
           {upperFirst(versionString)}
         </SizableText>
