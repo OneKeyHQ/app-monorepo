@@ -1,14 +1,72 @@
-import { ScrollView, XStack, YStack } from '@onekeyhq/components';
+import { useCallback, useMemo, useRef } from 'react';
 
-import { PerpOrderInfoPanel } from '../components/OrderInfoPanel/PerpOrderInfoPanel';
+import { useIntl } from 'react-intl';
+
+import type { IModalNavigationProp } from '@onekeyhq/components';
+import {
+  IconButton,
+  SizableText,
+  Tabs,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
+import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
+import {
+  usePerpOrders,
+  usePerpPositions,
+} from '../hooks/usePerpOrderInfoPanel';
 
 export function PerpMobileLayout() {
-  return (
-    <ScrollView flex={1}>
-      <YStack bg="$bgApp">
+  const intl = useIntl();
+  const orders = usePerpOrders();
+  const positions = usePerpPositions();
+  const tabsRef = useRef<{
+    switchTab: (tabName: string) => void;
+  } | null>(null);
+  const tabNameToTranslationKey = {
+    'Positions': ETranslations.perp_position_title,
+    'Open Orders': ETranslations.perp_open_orders_title,
+    'Trades History': ETranslations.perp_trades_history_title,
+  };
+  const handleViewTpslOrders = () => {
+    tabsRef.current?.switchTab('Open Orders');
+  };
+  const navigation =
+    useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
+  const handleViewTradesHistory = () => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.PerpTradersHistoryList,
+    });
+  };
+
+  const tabCount = useCallback(
+    (name: string) => {
+      if (name === 'Trades History') {
+        return '';
+      }
+      if (name === 'Positions' && positions.length > 0) {
+        return `(${positions.length})`;
+      }
+      if (name === 'Open Orders' && orders.length > 0) {
+        return `(${orders.length})`;
+      }
+      return '';
+    },
+    [positions.length, orders.length],
+  );
+  const tabHeader = useMemo(
+    () => (
+      <YStack bg="$bgApp" pointerEvents="box-none">
         <PerpTickerBar />
 
         <XStack alignItems="stretch" gap="$2" px="$4" pb="$4">
@@ -19,11 +77,63 @@ export function PerpMobileLayout() {
             <PerpTradingPanel isMobile />
           </YStack>
         </XStack>
-
-        <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
-          <PerpOrderInfoPanel isMobile />
-        </YStack>
       </YStack>
-    </ScrollView>
+    ),
+    [],
+  );
+  return (
+    <Tabs.Container
+      ref={tabsRef as any}
+      renderHeader={() => tabHeader}
+      initialTabName="Positions"
+      renderTabBar={(props) => (
+        <Tabs.TabBar
+          {...props}
+          renderToolbar={() => (
+            <IconButton
+              variant="tertiary"
+              size="small"
+              mr="$2"
+              borderRadius="$full"
+              icon="ClockTimeHistoryOutline"
+              onPress={handleViewTradesHistory}
+            />
+          )}
+          renderItem={({ name, isFocused, onPress }) => (
+            <XStack
+              py="$3"
+              ml="$5"
+              mr="$2"
+              borderBottomWidth={isFocused ? '$0.5' : '$0'}
+              borderBottomColor="$borderActive"
+              onPress={() => onPress(name)}
+            >
+              <SizableText size="$headingXs">
+                {`${intl.formatMessage({
+                  id: tabNameToTranslationKey[
+                    name as keyof typeof tabNameToTranslationKey
+                  ],
+                })} ${tabCount(name)}`}
+              </SizableText>
+            </XStack>
+          )}
+          containerStyle={{
+            borderRadius: 0,
+            margin: 0,
+            padding: 0,
+          }}
+        />
+      )}
+    >
+      <Tabs.Tab name="Positions">
+        <PerpPositionsList
+          handleViewTpslOrders={handleViewTpslOrders}
+          isMobile
+        />
+      </Tabs.Tab>
+      <Tabs.Tab name="Open Orders">
+        <PerpOpenOrdersList isMobile />
+      </Tabs.Tab>
+    </Tabs.Container>
   );
 }

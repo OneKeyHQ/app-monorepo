@@ -35,6 +35,7 @@ interface INewTradesHistory {
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsSelectedAccountAtom();
   const [currentToken] = usePerpsSelectedSymbolAtom();
+  const [currentListPage, setCurrentListPage] = useState(1);
   const { coin } = currentToken;
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
     [],
@@ -116,6 +117,7 @@ export function usePerpTradesHistory() {
           },
         );
         const sortedTrades = trades.sort((a, b) => b.time - a.time);
+        setCurrentListPage(1);
         return sortedTrades;
       }
       return [];
@@ -125,31 +127,31 @@ export function usePerpTradesHistory() {
   );
 
   const mergeTradesHistory = useMemo(() => {
-    if (newTradesHistory.length === 0) {
-      return result;
+    let mergedTrades = result;
+    if (newTradesHistory.length > 0) {
+      const existingOrderIds = new Set(result.map((trade) => trade.oid));
+      const newUniqueTrades = newTradesHistory
+        .filter(
+          (trade) =>
+            !existingOrderIds.has(trade.fill.oid) &&
+            trade.coinId === coin &&
+            trade.userId === currentAccount?.accountAddress,
+        )
+        .map((trade) => trade.fill);
+
+      if (newUniqueTrades.length === 0) {
+        return result;
+      }
+      mergedTrades = [...mergedTrades, ...newUniqueTrades];
     }
-
-    const existingOrderIds = new Set(result.map((trade) => trade.oid));
-    const newUniqueTrades = newTradesHistory
-      .filter(
-        (trade) =>
-          !existingOrderIds.has(trade.fill.oid) &&
-          trade.coinId === coin &&
-          trade.userId === currentAccount?.accountAddress,
-      )
-      .map((trade) => trade.fill);
-
-    if (newUniqueTrades.length === 0) {
-      return result;
-    }
-
-    return [...result, ...newUniqueTrades]
-      .filter((t) => !t.coin.startsWith('@'))
-      ?.sort((a, b) => b.time - a.time);
+    const filteredTrades = mergedTrades.filter((t) => !t.coin.startsWith('@'));
+    return filteredTrades?.sort((a, b) => b.time - a.time);
   }, [currentAccount?.accountAddress, coin, newTradesHistory, result]);
 
   return {
     trades: mergeTradesHistory,
+    currentListPage,
+    setCurrentListPage,
     isLoading,
   };
 }

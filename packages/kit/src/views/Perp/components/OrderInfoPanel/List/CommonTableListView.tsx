@@ -138,12 +138,18 @@ export interface ICommonTableListViewProps {
   // 分页相关
   enablePagination?: boolean;
   pageSize?: number;
+  currentListPage?: number;
+  setCurrentListPage?: (page: number) => void;
+  useTabsList?: boolean;
 }
 
 export function CommonTableListView({
   columns,
   data,
+  useTabsList,
   renderRow,
+  currentListPage,
+  setCurrentListPage,
   isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
@@ -154,16 +160,17 @@ export function CommonTableListView({
   enablePagination = false,
   pageSize = 20,
 }: ICommonTableListViewProps) {
-  const [currentPage, setCurrentPage] = useState(1);
   const paginatedData = useMemo<any[]>(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    if (!enablePagination || data.length <= pageSize) return data;
+    if (!enablePagination || data.length <= pageSize || !currentListPage) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return data;
+    }
 
-    const startIndex = (currentPage - 1) * pageSize;
+    const startIndex = (currentListPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return data.slice(startIndex, endIndex);
-  }, [data, currentPage, pageSize, enablePagination]);
+  }, [data, currentListPage, pageSize, enablePagination]);
 
   const totalPages = useMemo(() => {
     if (!enablePagination || data.length <= pageSize) return 1;
@@ -171,65 +178,65 @@ export function CommonTableListView({
   }, [data.length, pageSize, enablePagination]);
 
   const handlePreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+    if (currentListPage && currentListPage > 1 && setCurrentListPage) {
+      setCurrentListPage(currentListPage - 1);
     }
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+    if (currentListPage && currentListPage < totalPages && setCurrentListPage) {
+      setCurrentListPage(currentListPage + 1);
     }
   };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    if (setCurrentListPage) {
+      setCurrentListPage(page);
+    }
   };
-
+  const ListComponent = useTabsList ? Tabs.FlatList : ListView;
+  console.log('paginatedData--', paginatedData.length);
   if (isMobile) {
     return (
-      <YStack flex={1}>
-        <ListView
-          data={paginatedData}
-          renderItem={({ item, index }) => {
-            return renderRow(item, index);
-          }}
-          ListEmptyComponent={
-            <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {emptyMessage}
-              </SizableText>
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-                mt="$2"
-              >
-                {emptySubMessage}
-              </SizableText>
-            </YStack>
-          }
-          contentContainerStyle={{
-            paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
-          }}
-        />
-        {enablePagination && totalPages > 1 ? (
-          <PaginationFooter
-            isMobile={isMobile}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPreviousPage={handlePreviousPage}
-            onNextPage={handleNextPage}
-            onPageChange={handlePageChange}
-            headerBgColor={headerBgColor}
-            headerTextColor={headerTextColor}
-          />
-        ) : null}
-      </YStack>
+      <ListComponent
+        data={paginatedData}
+        ListFooterComponent={
+          enablePagination && currentListPage && totalPages > 1 ? (
+            <PaginationFooter
+              isMobile={isMobile}
+              currentPage={currentListPage}
+              totalPages={totalPages}
+              onPreviousPage={handlePreviousPage}
+              onNextPage={handleNextPage}
+              onPageChange={handlePageChange}
+              headerBgColor={headerBgColor}
+              headerTextColor={headerTextColor}
+            />
+          ) : null
+        }
+        renderItem={({ item, index }) => {
+          return renderRow(item, index);
+        }}
+        ListEmptyComponent={
+          <YStack flex={1} alignItems="center" p="$6">
+            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
+              {emptyMessage}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              textAlign="center"
+              mt="$2"
+            >
+              {emptySubMessage}
+            </SizableText>
+          </YStack>
+        }
+        contentContainerStyle={{
+          paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+          minHeight: 0,
+        }}
+      />
     );
   }
 
@@ -331,9 +338,9 @@ export function CommonTableListView({
                 paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
               }}
             />
-            {enablePagination && totalPages > 1 ? (
+            {enablePagination && currentListPage && totalPages > 1 ? (
               <PaginationFooter
-                currentPage={currentPage}
+                currentPage={currentListPage}
                 totalPages={totalPages}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
