@@ -30,6 +30,7 @@ import { ApprovalListViewContext } from './ApprovalListViewContext';
 type IProps = {
   accountId: string;
   networkId: string;
+  indexedAccountId?: string;
   inTabList?: boolean;
   tableLayout?: boolean;
   onRefresh?: () => void;
