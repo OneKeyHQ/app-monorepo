@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   monospaceText: {
-    fontFamily: 'SFMono-Regular',
+    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'SFMono-Regular',
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
@@ -463,18 +463,56 @@ export function OrderBook({
         >
           <View style={styles.horizontalHeaderContainer}>
             <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-            </Text>
-            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               {intl.formatMessage({ id: ETranslations.global_buy })}
             </Text>
-          </View>
-          <View style={styles.horizontalHeaderContainer}>
+            {showTickSelector ? (
+              <Select
+                floatingPanelProps={{
+                  width: 150,
+                }}
+                title={intl.formatMessage({
+                  id: ETranslations.perp_orderbook_spread,
+                })}
+                items={tickOptions}
+                value={selectedTickOption?.value}
+                onChange={handleTickOptionChange}
+                renderTrigger={({ onPress }) => (
+                  <TouchableOpacity
+                    style={{
+                      minWidth: 1,
+                      maxWidth: 150,
+                      height: 16,
+                      borderRadius: 4,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingHorizontal: 8,
+                      gap: 4,
+                    }}
+                    onPress={onPress}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[styles.bodySm, { color: textColor.text }]}
+                    >
+                      {selectedTickOption?.label
+                        ? new BigNumber(selectedTickOption.label).toFixed(
+                            priceDecimals,
+                          )
+                        : '-'}
+                    </Text>
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$3"
+                      color="$iconSubdued"
+                    />
+                  </TouchableOpacity>
+                )}
+              />
+            ) : null}
             <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
               {intl.formatMessage({ id: ETranslations.global_sell })}
-            </Text>
-            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
             </Text>
           </View>
         </View>
