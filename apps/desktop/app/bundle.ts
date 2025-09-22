@@ -100,6 +100,9 @@ export const getBundleIndexHtmlPath = ({
   appVersion: string;
   bundleVersion: string;
 }) => {
+  if (!appVersion || !bundleVersion) {
+    return undefined;
+  }
   if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
     return undefined;
   }

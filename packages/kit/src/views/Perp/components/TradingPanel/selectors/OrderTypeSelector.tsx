@@ -40,7 +40,9 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
         value={value}
         onChange={onChange}
         disabled={disabled}
-        title="Order Type"
+        title={intl.formatMessage({
+          id: ETranslations.perp_trade_order_type,
+        })}
         renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
           <XStack
             cursor="pointer"

@@ -83,7 +83,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && isNative,
+    enabled: isVisible,
   });
 
   useAutoTokenDetailUpdate({
@@ -98,7 +98,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && !isNative,
+    enabled: isVisible,
     chartType: '1m',
     currency: 'usd',
   });
