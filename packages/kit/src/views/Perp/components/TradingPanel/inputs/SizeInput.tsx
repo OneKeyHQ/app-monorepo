@@ -1,9 +1,13 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatWithPrecision,
+  validateSizeInput,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
 
@@ -35,11 +39,87 @@ export const SizeInput = memo(
     const intl = useIntl();
     const szDecimals = tokenInfo?.szDecimals ?? 2;
     const isDisabled = disabled || !tokenInfo;
-    const maxSzs = tokenInfo?.maxTradeSzs || [0, 0];
-    const maxSize = maxSzs[side === 'long' ? 0 : 1];
+
+    const [inputMode, setInputMode] = useState<'token' | 'usd'>('token');
+    const [tokenAmount, setTokenAmount] = useState('');
+    const [usdAmount, setUsdAmount] = useState('');
+    const [isUserTyping, setIsUserTyping] = useState(false);
+
+    const prevValueRef = useRef(value);
+
+    const currentPrice = tokenInfo?.markPx || '0';
+
+    const priceBN = useMemo(() => new BigNumber(currentPrice), [currentPrice]);
+    const hasValidPrice = useMemo(
+      () => priceBN.isFinite() && priceBN.gt(0),
+      [priceBN],
+    );
+
+    useEffect(() => {
+      if (value !== prevValueRef.current) {
+        setTokenAmount(value);
+        prevValueRef.current = value;
+      }
+    }, [value]);
+
+    useEffect(() => {
+      if (inputMode === 'token' && hasValidPrice && tokenAmount) {
+        const tokenBN = new BigNumber(tokenAmount);
+        if (tokenBN.isFinite()) {
+          const usdValue = formatWithPrecision(
+            tokenBN.multipliedBy(priceBN),
+            2,
+            true,
+          );
+          setUsdAmount(usdValue);
+        }
+      }
+    }, [inputMode, tokenAmount, hasValidPrice, priceBN]);
+
+    useEffect(() => {
+      if (inputMode === 'usd' && hasValidPrice && usdAmount && !isUserTyping) {
+        const usdBN = new BigNumber(usdAmount);
+        if (usdBN.isFinite()) {
+          const newTokenValue = formatWithPrecision(
+            usdBN.dividedBy(priceBN),
+            szDecimals,
+            true,
+          );
+          setTokenAmount((prevTokenAmount) => {
+            if (newTokenValue !== prevTokenAmount) {
+              onChange(newTokenValue);
+              return newTokenValue;
+            }
+            return prevTokenAmount;
+          });
+        }
+      }
+    }, [
+      inputMode,
+      usdAmount,
+      hasValidPrice,
+      szDecimals,
+      onChange,
+      isUserTyping,
+      priceBN,
+    ]);
+
     const validator = useCallback(
-      (text: string) => validateSizeInput(text, szDecimals),
-      [szDecimals],
+      (text: string) => {
+        if (!validateSizeInput(text, inputMode === 'token' ? szDecimals : 2)) {
+          return false;
+        }
+
+        if (inputMode === 'usd' && text) {
+          const [integerPart] = text.split('.');
+          if (integerPart && integerPart.length > 12) {
+            return false;
+          }
+        }
+
+        return true;
+      },
+      [szDecimals, inputMode],
     );
 
     const formatLabel = useMemo(() => {
@@ -53,15 +133,85 @@ export const SizeInput = memo(
           });
     }, [side, label, intl]);
 
+    useEffect(() => {
+      if (isUserTyping) {
+        const timer = setTimeout(() => {
+          setIsUserTyping(false);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }, [isUserTyping]);
+
+    const handleInputChange = useCallback(
+      (newValue: string) => {
+        setIsUserTyping(true);
+
+        if (inputMode === 'token') {
+          setTokenAmount(newValue);
+          onChange(newValue);
+        } else {
+          setUsdAmount(newValue);
+
+          if (hasValidPrice && newValue) {
+            const usdBN = new BigNumber(newValue);
+            if (usdBN.isFinite()) {
+              const tokenValue = formatWithPrecision(
+                usdBN.dividedBy(priceBN),
+                szDecimals,
+                true,
+              );
+              setTokenAmount(tokenValue);
+              onChange(tokenValue);
+            }
+          } else {
+            setTokenAmount('');
+            onChange('');
+          }
+        }
+      },
+      [inputMode, hasValidPrice, szDecimals, onChange, priceBN],
+    );
+
+    const actions = useMemo(() => {
+      const unitDisplay = inputMode === 'token' ? tokenInfo?.name || '' : 'USD';
+
+      return [
+        {
+          labelColor: '$textSubdued',
+          label: unitDisplay,
+          onPress: () => {
+            const newMode = inputMode === 'token' ? 'usd' : 'token';
+            setInputMode(newMode);
+            setIsUserTyping(false);
+
+            if (newMode === 'usd' && hasValidPrice && tokenAmount) {
+              const tokenBN = new BigNumber(tokenAmount);
+              if (tokenBN.isFinite()) {
+                const usdValue = formatWithPrecision(
+                  tokenBN.multipliedBy(priceBN),
+                  2,
+                  true,
+                );
+                setUsdAmount(usdValue);
+              }
+            }
+          },
+          disabled: !hasValidPrice,
+        },
+      ];
+    }, [inputMode, tokenInfo?.name, hasValidPrice, tokenAmount, priceBN]);
+
+    const displayValue = inputMode === 'token' ? tokenAmount : usdAmount;
+
     return (
       <TradingFormInput
-        value={value}
-        onChange={onChange}
+        value={displayValue}
+        onChange={handleInputChange}
         label={formatLabel}
         disabled={isDisabled}
         error={error}
         validator={validator}
-        suffix={tokenInfo?.name || ''}
+        actions={actions}
         isMobile={isMobile}
         placeholder={
           isMobile
