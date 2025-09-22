@@ -12,6 +12,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { SectionPressItem } from './SectionPressItem';
 
 export function AutoUpdateSettings() {
@@ -28,9 +29,9 @@ export function AutoUpdateSettings() {
           <SizableText>
             {typeof result === 'boolean'
               ? `Result: ${String(result ? 'Success' : 'Failed')}`
-              : `Success: ${String(
-                  result.success,
-                )}\nMessage: ${String(result.message)}`}
+              : `Success: ${String(result.success)}\nMessage: ${String(
+                  result.message,
+                )}`}
           </SizableText>
         </YStack>
       ),
@@ -90,11 +91,9 @@ export function AutoUpdateSettings() {
           <Button
             variant="secondary"
             onPress={() => {
-              void backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(
-                {
-                  message: '404',
-                },
-              );
+              void backgroundApiProxy.serviceAppUpdate.downloadPackageFailed({
+                message: '404',
+              });
             }}
           >
             Download Package Failed
@@ -134,12 +133,10 @@ export function AutoUpdateSettings() {
           <Button
             variant="secondary"
             onPress={() => {
-              void backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(
-                {
-                  message:
-                    ETranslations.update_installation_package_possibly_compromised,
-                },
-              );
+              void backgroundApiProxy.serviceAppUpdate.verifyPackageFailed({
+                message:
+                  ETranslations.update_installation_package_possibly_compromised,
+              });
             }}
           >
             Verify Package Failed (Compromised)
@@ -147,12 +144,9 @@ export function AutoUpdateSettings() {
           <Button
             variant="secondary"
             onPress={() => {
-              void backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(
-                {
-                  message:
-                    ETranslations.update_installation_not_safe_alert_text,
-                },
-              );
+              void backgroundApiProxy.serviceAppUpdate.verifyPackageFailed({
+                message: ETranslations.update_installation_not_safe_alert_text,
+              });
             }}
           >
             Verify Package Failed (Not Safe)
@@ -279,34 +273,35 @@ export function AutoUpdateSettings() {
   };
 
   const showMainDialog = async () => {
-    let currentAppVersion = 'Unknown';
-    let currentBundleVersion = 'Unknown';
-    
-    try {
-      const versionInfo = await backgroundApiProxy.serviceApp.getVersionInfo();
-      currentAppVersion = versionInfo.version || 'Unknown';
-      currentBundleVersion = versionInfo.jsBundleVersion || 'Unknown';
-    } catch (error) {
-      console.error('Failed to get version info:', error);
-    }
+    const currentAppVersion = String(platformEnv.version);
+    const currentBundleVersion = String(platformEnv.bundleVersion);
 
     const dialogInstance = Dialog.show({
       title: 'Auto Update Test Suite',
       renderContent: (
         <YStack p="$4" gap="$3">
           <SizableText size="$headingSm">Current Version Info</SizableText>
-          <YStack gap="$2" p="$3" backgroundColor="$bgSubdued" borderRadius="$2">
-            <SizableText size="$bodyMd">App Version: {currentAppVersion}</SizableText>
-            <SizableText size="$bodyMd">JS Bundle Version: {currentBundleVersion}</SizableText>
+          <YStack
+            gap="$2"
+            p="$3"
+            backgroundColor="$bgSubdued"
+            borderRadius="$2"
+          >
+            <SizableText size="$bodyMd">
+              App Version: {currentAppVersion}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              JS Bundle Version: {currentBundleVersion}
+            </SizableText>
           </YStack>
-          
+
           <SizableText size="$headingSm">Select Test Category</SizableText>
-          
-          {(platformEnv.isNativeAndroid ||
-            (platformEnv.isDesktop &&
-              !platformEnv.isMas &&
-              !platformEnv.isDesktopLinuxSnap &&
-              !platformEnv.isDesktopWinMsStore)) && (
+
+          {platformEnv.isNativeAndroid ||
+          (platformEnv.isDesktop &&
+            !platformEnv.isMas &&
+            !platformEnv.isDesktopLinuxSnap &&
+            !platformEnv.isDesktopWinMsStore) ? (
             <Button
               variant="secondary"
               onPress={() => {
@@ -316,8 +311,8 @@ export function AutoUpdateSettings() {
             >
               Auto Update Failed Tests
             </Button>
-          )}
-          
+          ) : null}
+
           <Button
             variant="secondary"
             onPress={() => {
@@ -327,7 +322,7 @@ export function AutoUpdateSettings() {
           >
             Verification Tests
           </Button>
-          
+
           <Button
             variant="secondary"
             onPress={() => {
@@ -337,9 +332,9 @@ export function AutoUpdateSettings() {
           >
             Bundle Tests
           </Button>
-          
+
           <Divider />
-          
+
           <Button
             variant="secondary"
             onPress={() => {
