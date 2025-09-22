@@ -1,0 +1,14 @@
+diff --git a/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js b/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
+index 96d6d8b..069ca19 100644
+--- a/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
++++ b/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
+@@ -180,7 +180,8 @@ export const spacing = {
+ };
+ const fontFamily = {
+     regular: 'KHTeka',
+-    mono: 'KHTekaMono'
++    mono: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"'
++    // mono: 'KHTeka' // KHTekaMono
+ };
+ const fontWeight = {
+     regular: '400',

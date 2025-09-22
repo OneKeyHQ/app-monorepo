@@ -5,6 +5,10 @@ import {
   CoreHelperUtil,
 } from '@reown/appkit-controllers';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { WALLET_CONNECT_CLIENT_META } from '@onekeyhq/shared/src/walletConnect/constant';
+import type { IWalletConnectUniversalProvider } from '@onekeyhq/shared/src/walletConnect/types';
+
 import type { CreateAppKit } from '@reown/appkit/core';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -52,9 +56,18 @@ class OneKeyAppKit extends AppKit {
 export function createOneKeyAppKit(options: CreateAppKit) {
   //   const AppKitCls = OneKeyAppKit;
   const AppKitCls = AppKit;
+  const metadata = WALLET_CONNECT_CLIENT_META;
   return new AppKitCls({
     ...options,
-    universalProvider: {} as any, // undefined,
+    universalProvider: {
+      on() {
+        throw new OneKeyLocalError(
+          'ReownAppKit built-in universalProvider is disabled. Background WalletConnectDappSideProvider is already active.',
+        );
+      },
+    } as unknown as IWalletConnectUniversalProvider,
+    // node_modules/@reown/appkit/dist/esm/src/client/appkit-base-client.js getDefaultMetaData()
+    metadata,
     sdkVersion: CoreHelperUtil.generateSdkVersion(
       options.adapters ?? [],
       'html',
