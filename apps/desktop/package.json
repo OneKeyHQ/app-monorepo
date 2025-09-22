@@ -48,7 +48,8 @@
     "electron-updater": "6.1.8",
     "electron-windows-security": "0.0.7",
     "keytar": "^7.9.0",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "semver": "7.5.4"
   },
   "devDependencies": {
     "@electron/notarize": "2.3.2",
