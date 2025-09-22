@@ -85,6 +85,23 @@ export type IDownloadBundleASC = (
 export type IInstallBundle = (params: IUpdateDownloadedEvent) => Promise<void>;
 export type IClearBundle = () => Promise<void>;
 
+export type ITestDeleteJsBundle = (
+  appVersion: string,
+  bundleVersion: string,
+) => Promise<{ success: boolean; message: string }>;
+export type ITestDeleteJsRuntimeDir = (
+  appVersion: string,
+  bundleVersion: string,
+) => Promise<{ success: boolean; message: string }>;
+export type ITestDeleteMetadataJson = (
+  appVersion: string,
+  bundleVersion: string,
+) => Promise<{ success: boolean; message: string }>;
+export type ITestWriteEmptyMetadataJson = (
+  appVersion: string,
+  bundleVersion: string,
+) => Promise<{ success: boolean; message: string }>;
+
 export interface IBundleUpdate {
   downloadBundle: IDownloadBundle;
   verifyBundle: IVerifyBundle;
@@ -93,4 +110,8 @@ export interface IBundleUpdate {
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
   testVerification: () => Promise<boolean>;
+  testDeleteJsBundle: ITestDeleteJsBundle;
+  testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;
+  testDeleteMetadataJson: ITestDeleteMetadataJson;
+  testWriteEmptyMetadataJson: ITestWriteEmptyMetadataJson;
 }

@@ -6,6 +6,7 @@ import path from 'path';
 import { app } from 'electron';
 import logger from 'electron-log/main';
 import { readCleartextMessage, readKey } from 'openpgp';
+import semver from 'semver';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -99,7 +100,7 @@ export const getBundleIndexHtmlPath = ({
   appVersion: string;
   bundleVersion: string;
 }) => {
-  if (platformEnv.version !== appVersion) {
+  if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({

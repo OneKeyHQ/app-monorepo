@@ -29,7 +29,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
@@ -394,7 +397,13 @@ export function ListVersionItem(props: ICustomElementProps) {
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
   }, [appUpdateInfo]);
-  return appUpdateInfo.isNeedUpdate ? (
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  return isShowAppUpdateUI && appUpdateInfo.isNeedUpdate ? (
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
@@ -525,19 +534,24 @@ export function SocialButtonGroup() {
   const { copyText } = useClipboard();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const isTabNavigator = useIsTabNavigator();
+  const version = useMemo(() => {
+    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
+  }, []);
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': `${platformEnv.version ?? ''} ${
-        platformEnv.buildNumber ?? ''
-      }`,
+      'versionNum': version,
     },
   );
-  const handlePress = useCallback(() => {
+  const handleCopyVersion = useCallback(() => {
     void handleOpenDevMode(() =>
-      copyText(`${upperFirst(versionString)}-${platformEnv.githubSHA || ''}`),
+      copyText(
+        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${
+          platformEnv.githubSHA || ''
+        }`,
+      ),
     );
   }, [copyText, versionString]);
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
@@ -587,7 +601,7 @@ export function SocialButtonGroup() {
           minWidth={platformEnv.isNativeAndroid ? 240 : undefined}
           textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
           numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
-          onPress={handlePress}
+          onPress={handleCopyVersion}
         >
           {upperFirst(versionString)}
         </SizableText>

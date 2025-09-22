@@ -66,6 +66,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
+import { AutoUpdateDevSettings } from './AutoUpdateDevSettings';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
@@ -984,54 +985,7 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-
-      <SectionPressItem
-        icon="AppleBrand"
-        title="Test Auto Update"
-        onPress={async () => {
-          Dialog.show({
-            title: 'Auto Update Test Result',
-            renderContent: (
-              <YStack p="$4" gap="$3">
-                <Button
-                  variant="primary"
-                  onPress={async () => {
-                    try {
-                      const result = await BundleUpdate.testVerification();
-                      Dialog.show({
-                        title: 'Test Result',
-                        renderContent: (
-                          <YStack p="$4">
-                            <SizableText>
-                              Verification Result:{' '}
-                              {result ? 'Success' : 'Failed'}
-                            </SizableText>
-                          </YStack>
-                        ),
-                      });
-                    } catch (error) {
-                      Dialog.show({
-                        title: 'Test Error',
-                        renderContent: (
-                          <YStack p="$4">
-                            <SizableText>
-                              Error:{' '}
-                              {(error as Error)?.message || 'Unknown error'}
-                            </SizableText>
-                          </YStack>
-                        ),
-                      });
-                    }
-                  }}
-                >
-                  Test Verification
-                </Button>
-              </YStack>
-            ),
-          });
-        }}
-      />
-
+      <AutoUpdateDevSettings />
       <ListItem
         icon="PerformanceOutline"
         title="Performance Monitor(UI FPS/JS FPS)"

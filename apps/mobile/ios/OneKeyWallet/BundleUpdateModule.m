@@ -76,22 +76,59 @@ RCT_EXPORT_MODULE();
     return [bundleDir stringByAppendingPathComponent:folderName];
 }
 
++ (NSComparisonResult)compareVersion:(NSString *)version1 withVersion:(NSString *)version2 {
+    if (!version1 || !version2) {
+        if (!version1 && !version2) return NSOrderedSame;
+        if (!version1) return NSOrderedAscending;
+        return NSOrderedDescending;
+    }
+    
+    NSArray *components1 = [version1 componentsSeparatedByString:@"."];
+    NSArray *components2 = [version2 componentsSeparatedByString:@"."];
+    
+    NSInteger maxCount = MAX(components1.count, components2.count);
+    
+    for (NSInteger i = 0; i < maxCount; i++) {
+        NSInteger value1 = 0;
+        NSInteger value2 = 0;
+        
+        if (i < components1.count) {
+            value1 = [components1[i] integerValue];
+        }
+        
+        if (i < components2.count) {
+            value2 = [components2[i] integerValue];
+        }
+        
+        if (value1 < value2) {
+            return NSOrderedAscending;
+        } else if (value1 > value2) {
+            return NSOrderedDescending;
+        }
+    }
+    
+    return NSOrderedSame;
+}
+
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     NSString *currentBundleVersion = [self currentBundleVersion];
-    NSLog(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
     DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
     if (currentBundleVersion == nil) {
         return nil;
     }
-    if (currentAppVersion != nil) {
+    if (currentAppVersion != nil && ![currentAppVersion isEqualToString: currentBundleVersion]) {
         NSString *bundleAppVersion = [currentBundleVersion componentsSeparatedByString:@"-"][0];
-        if (![currentAppVersion isEqualToString:bundleAppVersion]) {
+        // Compare versions using semantic versioning
+        NSComparisonResult result = [self compareVersion:currentAppVersion withVersion:bundleAppVersion];
+        if (result == NSOrderedAscending) {
+            DDLogDebug(@"currentAppVersion is less than currentBundleVersion");
             return nil;
         }
     }
     NSString *folderName = [self currentBundleDir];
     if (!folderName || ![[NSFileManager defaultManager] fileExistsAtPath:folderName]) {
+        DDLogDebug(@"currentBundleDir does not exist");
         return nil;
     }
     
@@ -644,6 +681,122 @@ RCT_EXPORT_METHOD(testVerification:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     BOOL result = [Verification testExtractedSha256FromVerifyAscFile];
     resolve(@(result));
+}
+
+RCT_EXPORT_METHOD(testDeleteJsBundle:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *jsBundlePath = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"main.jsbundle.hbc"];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:jsBundlePath]) {
+        NSError *error;
+        BOOL success = [fileManager removeItemAtPath:jsBundlePath error:&error];
+        if (success) {
+            DDLogDebug(@"testDeleteJsBundle: Deleted jsBundle: %@", jsBundlePath);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Deleted jsBundle: %@", jsBundlePath]});
+        } else {
+            DDLogDebug(@"testDeleteJsBundle: Error deleting jsBundle: %@", error.localizedDescription);
+            reject(@"DELETE_ERROR", error.localizedDescription, error);
+        }
+    } else {
+        DDLogDebug(@"testDeleteJsBundle: jsBundle not found: %@", jsBundlePath);
+        resolve(@{@"success": @NO, @"message": [NSString stringWithFormat:@"jsBundle not found: %@", jsBundlePath]});
+    }
+}
+
+RCT_EXPORT_METHOD(testDeleteJsRuntimeDir:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *jsRuntimeDir = [bundleDir stringByAppendingPathComponent:folderName];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:jsRuntimeDir]) {
+        NSError *error;
+        BOOL success = [fileManager removeItemAtPath:jsRuntimeDir error:&error];
+        if (success) {
+            DDLogDebug(@"testDeleteJsRuntimeDir: Deleted js runtime directory: %@", jsRuntimeDir);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Deleted js runtime directory: %@", jsRuntimeDir]});
+        } else {
+            DDLogDebug(@"testDeleteJsRuntimeDir: Error deleting js runtime directory: %@", error.localizedDescription);
+            reject(@"DELETE_ERROR", error.localizedDescription, error);
+        }
+    } else {
+        DDLogDebug(@"testDeleteJsRuntimeDir: js runtime directory not found: %@", jsRuntimeDir);
+        resolve(@{@"success": @NO, @"message": [NSString stringWithFormat:@"js runtime directory not found: %@", jsRuntimeDir]});
+    }
+}
+
+RCT_EXPORT_METHOD(testDeleteMetadataJson:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *metadataPath = [[bundleDir stringByAppendingPathComponent:folderName] stringByAppendingPathComponent:@"metadata.json"];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    if ([fileManager fileExistsAtPath:metadataPath]) {
+        NSError *error;
+        BOOL success = [fileManager removeItemAtPath:metadataPath error:&error];
+        if (success) {
+            DDLogDebug(@"testDeleteMetadataJson: Deleted metadata.json: %@", metadataPath);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Deleted metadata.json: %@", metadataPath]});
+        } else {
+            DDLogDebug(@"testDeleteMetadataJson: Error deleting metadata.json: %@", error.localizedDescription);
+            reject(@"DELETE_ERROR", error.localizedDescription, error);
+        }
+    } else {
+        DDLogDebug(@"testDeleteMetadataJson: metadata.json not found: %@", metadataPath);
+        resolve(@{@"success": @NO, @"message": [NSString stringWithFormat:@"metadata.json not found: %@", metadataPath]});
+    }
+}
+
+RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
+                  bundleVersion:(NSString *)bundleVersion
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
+    NSString *bundleDir = [BundleUpdateModule bundleDir];
+    NSString *jsRuntimeDir = [bundleDir stringByAppendingPathComponent:folderName];
+    NSString *metadataPath = [jsRuntimeDir stringByAppendingPathComponent:@"metadata.json"];
+    
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    
+    // Ensure directory exists
+    if (![fileManager fileExistsAtPath:jsRuntimeDir]) {
+        NSError *error;
+        BOOL success = [fileManager createDirectoryAtPath:jsRuntimeDir withIntermediateDirectories:YES attributes:nil error:&error];
+        if (!success) {
+            DDLogDebug(@"testWriteEmptyMetadataJson: Error creating directory: %@", error.localizedDescription);
+            reject(@"CREATE_DIR_ERROR", error.localizedDescription, error);
+            return;
+        }
+    }
+    
+    // Write empty metadata.json
+    NSDictionary *emptyMetadata = @{};
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:emptyMetadata options:NSJSONWritingPrettyPrinted error:&error];
+    if (jsonData) {
+        BOOL success = [jsonData writeToFile:metadataPath atomically:YES];
+        if (success) {
+            DDLogDebug(@"testWriteEmptyMetadataJson: Created empty metadata.json: %@", metadataPath);
+            resolve(@{@"success": @YES, @"message": [NSString stringWithFormat:@"Created empty metadata.json: %@", metadataPath]});
+        } else {
+            DDLogDebug(@"testWriteEmptyMetadataJson: Error writing metadata.json");
+            reject(@"WRITE_ERROR", @"Failed to write metadata.json", nil);
+        }
+    } else {
+        DDLogDebug(@"testWriteEmptyMetadataJson: Error serializing metadata: %@", error.localizedDescription);
+        reject(@"SERIALIZE_ERROR", error.localizedDescription, error);
+    }
 }
 
 @end
