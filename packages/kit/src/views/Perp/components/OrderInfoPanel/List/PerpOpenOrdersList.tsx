@@ -180,6 +180,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
+      useTabsList
       enablePagination
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

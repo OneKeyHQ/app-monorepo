@@ -128,6 +128,9 @@ const PositionRow = memo(
       const fundingSinceChangeBN = new BigNumber(pos.cumFunding.sinceChange);
       const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '';
       const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '';
+      const fundingSinceOpenColor = fundingSinceOpenBN.gt(0)
+        ? '$textCritical'
+        : '$textSuccess';
       const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
         ? '-'
         : '';
@@ -146,6 +149,7 @@ const PositionRow = memo(
         fundingAllPlusOrMinus,
         fundingSinceOpenPlusOrMinus,
         fundingSinceChangePlusOrMinus,
+        fundingSinceOpenColor,
         roiPercent,
         pnlColor,
         pnlPlusOrMinus,
@@ -278,7 +282,10 @@ const PositionRow = memo(
               </SizableText>
               <Tooltip
                 renderTrigger={
-                  <SizableText size="$bodySm" color="$textCritical">
+                  <SizableText
+                    size="$bodySm"
+                    color={otherInfo.fundingSinceOpenColor}
+                  >
                     {`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 }
@@ -470,7 +477,7 @@ const PositionRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-                color="$textCritical"
+                color={otherInfo.fundingSinceOpenColor}
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={`allTime: ${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted} sinceChange: ${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}

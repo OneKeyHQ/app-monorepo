@@ -66,7 +66,7 @@ export function PerpMobileLayout() {
   );
   const tabHeader = useMemo(
     () => (
-      <YStack bg="$bgApp">
+      <YStack bg="$bgApp" pointerEvents="box-none">
         <PerpTickerBar />
 
         <XStack alignItems="stretch" gap="$2" px="$4" pb="$4">

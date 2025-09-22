@@ -140,11 +140,13 @@ export interface ICommonTableListViewProps {
   pageSize?: number;
   currentListPage?: number;
   setCurrentListPage?: (page: number) => void;
+  useTabsList?: boolean;
 }
 
 export function CommonTableListView({
   columns,
   data,
+  useTabsList,
   renderRow,
   currentListPage,
   setCurrentListPage,
@@ -192,10 +194,11 @@ export function CommonTableListView({
       setCurrentListPage(page);
     }
   };
-
+  const ListComponent = useTabsList ? Tabs.FlatList : ListView;
+  console.log('paginatedData--', paginatedData.length);
   if (isMobile) {
     return (
-      <Tabs.FlashList
+      <ListComponent
         data={paginatedData}
         ListFooterComponent={
           enablePagination && currentListPage && totalPages > 1 ? (
@@ -215,7 +218,7 @@ export function CommonTableListView({
           return renderRow(item, index);
         }}
         ListEmptyComponent={
-          <YStack flex={1} justifyContent="center" alignItems="center" p="$6">
+          <YStack flex={1} alignItems="center" p="$6">
             <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
               {emptyMessage}
             </SizableText>
@@ -231,6 +234,7 @@ export function CommonTableListView({
         }
         contentContainerStyle={{
           paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+          minHeight: 0,
         }}
       />
     );

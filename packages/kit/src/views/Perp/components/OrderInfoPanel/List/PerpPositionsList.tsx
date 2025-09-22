@@ -236,6 +236,7 @@ function PerpPositionsList({
 
   return (
     <CommonTableListView
+      useTabsList
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       enablePagination
