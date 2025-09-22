@@ -139,6 +139,45 @@ def download_and_compile_gopenpgp(version)
   end
 end
 
+def support_below_xcode26_app_icon()
+  # Check Xcode version and update app icon configuration for compatibility
+  xcode_version_output = `xcodebuild -version 2>/dev/null | head -n 1`.strip
+  if xcode_version_output.match(/Xcode (\d+)/)
+    xcode_version = $1.to_i
+    puts "Detected Xcode version: #{xcode_version}"
+    
+    if xcode_version < 26
+      puts "Xcode version is less than 26, updating app icon configuration..."
+      
+      project_file = File.join(__dir__, "OneKeyWallet.xcodeproj", "project.pbxproj")
+      
+      if File.exist?(project_file)
+        content = File.read(project_file)
+        
+        # Replace ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo with AppIcon
+        updated_content = content.gsub(
+          /ASSETCATALOG_COMPILER_APPICON_NAME = OneKeyLogo/,
+          "ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon"
+        )
+        
+        if content != updated_content
+          File.write(project_file, updated_content)
+          puts "Updated ASSETCATALOG_COMPILER_APPICON_NAME from OneKeyLogo to AppIcon"
+        else
+          puts "No changes needed for app icon configuration"
+        end
+      else
+        puts "Warning: project.pbxproj file not found at #{project_file}"
+      end
+    else
+      puts "Xcode version is 26 or higher, no app icon configuration changes needed"
+    end
+  else
+    puts "Warning: Could not detect Xcode version"
+  end
+end
+
+support_below_xcode26_app_icon()
 # Execute the download and compile script
 download_and_compile_gopenpgp("3.3.0")
 
