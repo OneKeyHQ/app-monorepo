@@ -135,14 +135,18 @@ const OpenOrdersRow = memo(
 
     if (isMobile) {
       return (
-        <ListItem flexDirection="column" alignItems="flex-start">
+        <ListItem
+          flex={1}
+          mt="$1.5"
+          flexDirection="column"
+          alignItems="flex-start"
+        >
           <XStack
             justifyContent="space-between"
             width="100%"
             alignItems="center"
           >
             <YStack
-              gap="$2"
               cursor="pointer"
               onPress={() => selectToken(assetInfo.assetSymbol)}
             >
@@ -177,7 +181,11 @@ const OpenOrdersRow = memo(
               variant="secondary"
               onPress={handleCancelOrder}
             >
-              <SizableText size="$bodyMd">Cancel</SizableText>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_open_orders_cancel,
+                })}
+              </SizableText>
             </Button>
           </XStack>
           <XStack
@@ -185,7 +193,11 @@ const OpenOrdersRow = memo(
             alignItems="center"
             justifyContent="space-between"
           >
-            <SizableText size="$bodySm">Filled / Size</SizableText>
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_mobile_fill,
+              })}
+            </SizableText>
             <SizableText size="$bodySm">
               {`${orderBaseInfo.sizeFormatted as string} / ${
                 orderBaseInfo.origSizeFormatted as string
@@ -197,7 +209,11 @@ const OpenOrdersRow = memo(
             alignItems="center"
             justifyContent="space-between"
           >
-            <SizableText size="$bodySm">Price</SizableText>
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_orderbook_price,
+              })}
+            </SizableText>
             <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
               {`${orderBaseInfo.priceFormatted}`}
             </SizableText>
@@ -207,7 +223,11 @@ const OpenOrdersRow = memo(
             alignItems="center"
             justifyContent="space-between"
           >
-            <SizableText size="$bodySm">Trigger Condition</SizableText>
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_open_orders_trigger_condition,
+              })}
+            </SizableText>
             <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
               {`${orderBaseInfo.triggerCondition}`}
             </SizableText>
@@ -217,7 +237,11 @@ const OpenOrdersRow = memo(
             alignItems="center"
             justifyContent="space-between"
           >
-            <SizableText size="$bodySm">TP/SL</SizableText>
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            </SizableText>
             <SizableText
               numberOfLines={1}
               ellipsizeMode="tail"
@@ -267,7 +291,13 @@ const OpenOrdersRow = memo(
           cursor="pointer"
           onPress={() => selectToken(assetInfo.assetSymbol)}
         >
-          <SizableText size="$bodySm" numberOfLines={1} ellipsizeMode="tail">
+          <SizableText
+            size="$bodySm"
+            fontWeight={800}
+            numberOfLines={1}
+            color={assetInfo.typeColor}
+            ellipsizeMode="tail"
+          >
             {assetInfo.assetSymbol}
           </SizableText>
           <SizableText
@@ -369,13 +399,18 @@ const OpenOrdersRow = memo(
           justifyContent={calcCellAlign(columnConfigs[9].align)}
           alignItems="center"
         >
-          <Button size="small" variant="tertiary" onPress={handleCancelOrder}>
-            <SizableText size="$bodyMdMedium" color="$green11">
-              {intl.formatMessage({
-                id: ETranslations.perp_open_orders_cancel,
-              })}
-            </SizableText>
-          </Button>
+          <SizableText
+            color="$green11"
+            hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
+            cursor="pointer"
+            size="$bodySm"
+            fontWeight={400}
+            onPress={handleCancelOrder}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_open_orders_cancel,
+            })}
+          </SizableText>
         </XStack>
       </XStack>
     );
