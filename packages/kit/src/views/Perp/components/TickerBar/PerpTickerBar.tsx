@@ -75,14 +75,24 @@ function PerpTickerBar() {
           justifyContent="space-between"
         >
           <XStack
-            gap="$1"
+            gap="$1.5"
             bg="$bgApp"
             onPress={onPressTokenSelector}
             justifyContent="center"
             alignItems="center"
           >
-            <SizableText size="$headingLg">{coin}-PERP</SizableText>
             <Icon name="MenuOutline" size="$5" />
+            <SizableText size="$headingLg">{coin}-PERP</SizableText>
+            <NumberSizeableText
+              size="$headingXs"
+              color={change24hPercent >= 0 ? '$green11' : '$red11'}
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+            >
+              {change24hPercent}
+            </NumberSizeableText>
           </XStack>
           <IconButton
             icon="TradingViewCandlesOutline"
