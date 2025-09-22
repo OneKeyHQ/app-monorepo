@@ -5,6 +5,7 @@ import {
   NumberSizeableText,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -26,13 +27,87 @@ interface IPerpTokenSelectorRowProps {
     isDelisted?: boolean;
   };
   onPress: () => void;
+  isOnModal?: boolean;
 }
 
 const PerpTokenSelectorRow = memo(
-  ({ token, onPress }: IPerpTokenSelectorRowProps) => {
+  ({ token, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
     const themeVariant = useThemeVariant();
     if (token.isDelisted) {
       return null;
+    }
+    if (isOnModal) {
+      return (
+        <XStack
+          px="$5"
+          py="$2.5"
+          flex={1}
+          justifyContent="space-between"
+          alignItems="center"
+          onPress={onPress}
+          cursor="pointer"
+          pressStyle={{
+            bg: '$bgHover',
+          }}
+        >
+          <XStack gap="$2" alignItems="center" justifyContent="center">
+            <Token
+              size="lg"
+              borderRadius="$full"
+              bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+              tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
+              fallbackIcon="CryptoCoinOutline"
+            />
+            <YStack gap="$1">
+              <XStack gap="$1.5" alignItems="center" justifyContent="center">
+                <SizableText size="$bodyMdMedium">{token.name}</SizableText>
+
+                <XStack
+                  borderRadius="$1"
+                  bg="$bgInfo"
+                  justifyContent="center"
+                  alignItems="center"
+                  px="$1.5"
+                >
+                  <SizableText
+                    fontSize={10}
+                    alignSelf="center"
+                    color="$textInfo"
+                    lineHeight={16}
+                  >
+                    {token.maxLeverage}x
+                  </SizableText>
+                </XStack>
+              </XStack>
+              <SizableText size="$bodySm" color="$text">
+                $
+                {formatDisplayNumber(
+                  NUMBER_FORMATTER.marketCap(token.volume24h),
+                )}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <YStack gap="$1" justifyContent="flex-end">
+            <NumberSizeableText
+              formatter="price"
+              size="$bodyMdMedium"
+              color="$text"
+              alignSelf="flex-end"
+            >
+              {token.markPrice}
+            </NumberSizeableText>
+            <NumberSizeableText
+              size="$bodySm"
+              alignSelf="flex-end"
+              color={token.change24hPercent > 0 ? '$green11' : '$red11'}
+              formatter="priceChange"
+              formatterOptions={{ showPlusMinusSigns: true }}
+            >
+              {token.change24hPercent.toString()}
+            </NumberSizeableText>
+          </YStack>
+        </XStack>
+      );
     }
 
     return (
