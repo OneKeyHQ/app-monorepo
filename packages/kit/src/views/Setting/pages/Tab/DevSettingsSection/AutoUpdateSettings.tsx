@@ -285,7 +285,6 @@ export function AutoUpdateSettings() {
           <SizableText size="$headingSm">
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
-          <SizableText size="$headingSm">Select Test Category</SizableText>
           {platformEnv.isNativeAndroid ||
           (platformEnv.isDesktop &&
             !platformEnv.isMas &&
