@@ -6,7 +6,10 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  IL2BookOptions,
+  IPerpOrderBookTickOptionPersist,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   activeAssetCtxAtom,
@@ -16,6 +19,7 @@ import {
   contextAtomMethod,
   currentTokenAtom,
   l2BookAtom,
+  orderBookTickOptionsAtom,
   subscriptionActiveAtom,
   tradingFormAtom,
   tradingLoadingAtom,
@@ -25,6 +29,8 @@ import {
 import type { ITradingFormData } from './atoms';
 
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
+  private orderBookTickOptionsLoaded = false;
+
   updateAllMids = contextAtomMethod((_, set, data: HL.IWsAllMids) => {
     set(allMidsAtom(), data);
   });
@@ -56,6 +62,55 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateL2Book = contextAtomMethod((_, set, data: HL.IBook) => {
     set(l2BookAtom(), data);
   });
+
+  ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
+    if (this.orderBookTickOptionsLoaded) return;
+    try {
+      const stored = await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      set(orderBookTickOptionsAtom(), stored);
+    } catch (error) {
+      console.error('Failed to load order book tick options:', error);
+    } finally {
+      this.orderBookTickOptionsLoaded = true;
+    }
+  });
+
+  setOrderBookTickOption = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload:
+        | null
+        | {
+            symbol: string;
+            option: IPerpOrderBookTickOptionPersist | null;
+          },
+    ) => {
+      if (!payload?.symbol) return;
+      const { symbol, option } = payload;
+      const prev = get(orderBookTickOptionsAtom());
+      const next: Record<string, IPerpOrderBookTickOptionPersist> = {
+        ...prev,
+      };
+
+      if (!option) {
+        delete next[symbol];
+      } else {
+        next[symbol] = option;
+      }
+
+      set(orderBookTickOptionsAtom(), next);
+
+      try {
+        await backgroundApiProxy.simpleDb.perp.setOrderBookTickOption({
+          symbol,
+          option,
+        });
+      } catch (error) {
+        console.error('Failed to persist order book tick option:', error);
+      }
+    },
+  );
 
   updateConnectionState = contextAtomMethod(
     (
@@ -702,6 +757,9 @@ export function useHyperliquidActions() {
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
 
+  const ensureOrderBookTickOptionsLoaded = actions.ensureOrderBookTickOptionsLoaded.use();
+  const setOrderBookTickOption = actions.setOrderBookTickOption.use();
+
   return useRef({
     updateAllMids,
     updateWebData2,
@@ -732,5 +790,8 @@ export function useHyperliquidActions() {
     cancelOrder,
     setPositionTpsl,
     withdraw,
+
+    ensureOrderBookTickOptionsLoaded,
+    setOrderBookTickOption,
   });
 }

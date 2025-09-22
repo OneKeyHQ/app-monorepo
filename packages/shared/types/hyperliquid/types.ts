@@ -150,6 +150,12 @@ export interface IL2BookOptions {
   mantissa?: 2 | 5 | null;
 }
 
+export interface IPerpOrderBookTickOptionPersist {
+  value: string;
+  nSigFigs: IL2BookOptions['nSigFigs'];
+  mantissa: IL2BookOptions['mantissa'];
+}
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
