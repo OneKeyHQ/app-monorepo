@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
-  IconButton,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -15,7 +14,6 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
-  useAccountPanelDataAtom,
   useHyperliquidActions,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -27,7 +25,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useCurrentTokenData } from '../../../hooks';
+import { useCurrentTokenData, usePerpPositions } from '../../../hooks';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
@@ -55,8 +53,7 @@ function PerpTradingForm({
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const tokenInfo = useCurrentTokenData();
-  const [accountPanelData] = useAccountPanelDataAtom();
-  const { accountSummary, totalPositionValue } = accountPanelData;
+  const perpsPositions = usePerpPositions();
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
   const { universe } = perpsSelectedSymbol;
   const updateForm = useCallback(
@@ -113,6 +110,19 @@ function PerpTradingForm({
     return new BigNumber(0);
   }, [formData.type, formData.price, tokenInfo?.markPx]);
 
+  const availableToTrade = useMemo(() => {
+    const maxTradeSzs = tokenInfo?.maxTradeSzs || [0, 0];
+    return maxTradeSzs[formData.side === 'long' ? 0 : 1] || 0;
+  }, [tokenInfo?.maxTradeSzs, formData.side]);
+
+  const selectedSymbolPositionValue = useMemo(() => {
+    return (
+      perpsPositions.filter(
+        (pos) => pos.position.coin === perpsSelectedSymbol.coin,
+      )?.[0]?.position.positionValue || '0'
+    );
+  }, [perpsPositions, perpsSelectedSymbol.coin]);
+
   const totalValue = useMemo(() => {
     const size = new BigNumber(formData.size || 0);
     return size.multipliedBy(referencePrice);
@@ -152,13 +162,9 @@ function PerpTradingForm({
             <Skeleton width={70} height={16} />
           ) : (
             <XStack alignItems="center" gap="$1">
-              <NumberSizeableText
-                size="$bodySmMedium"
-                formatter="value"
-                formatterOptions={{ currency: '$' }}
-              >
-                {accountSummary.withdrawable}
-              </NumberSizeableText>
+              <SizableText size="$bodySmMedium" color="$text">
+                {selectedSymbolPositionValue} {tokenInfo?.name}
+              </SizableText>
               <PerpAccountPanel isTradingPanel />
             </XStack>
           )}
@@ -313,13 +319,9 @@ function PerpTradingForm({
             {perpsAccountLoading?.selectAccountLoading ? (
               <Skeleton width={70} height={16} />
             ) : (
-              <NumberSizeableText
-                size="$bodySmMedium"
-                formatter="value"
-                formatterOptions={{ currency: '$' }}
-              >
-                {accountSummary.withdrawable}
-              </NumberSizeableText>
+              <SizableText size="$bodySmMedium" color="$text">
+                {availableToTrade} {tokenInfo?.name}
+              </SizableText>
             )}
           </XStack>
           <XStack justifyContent="space-between">
@@ -336,7 +338,7 @@ function PerpTradingForm({
                 formatter="value"
                 formatterOptions={{ currency: '$' }}
               >
-                {totalPositionValue}
+                {selectedSymbolPositionValue}
               </NumberSizeableText>
             )}
           </XStack>

@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -50,28 +51,37 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     return true;
   }
 
+  syncToSceneMutex = new Semaphore(1);
+
   override async syncToSceneEachItem(params: {
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMarketWatchList;
     payload: ICloudSyncPayloadMarketWatchList;
   }): Promise<boolean> {
-    const { payload, item } = params;
+    return this.syncToSceneMutex.runExclusive(async () => {
+      const { payload, item } = params;
 
-    const watchListItem: IMarketWatchListItemV2 = {
-      chainId: payload.chainId,
-      contractAddress: payload.contractAddress,
-      isNative: payload.isNative,
-      sortIndex: payload.sortIndex,
-    };
-    if (item.isDeleted) {
-      // await this.backgroundApi.serviceMarket.removeMarketWatchList({
-      await this.backgroundApi.serviceMarketV2.removeMarketWatchListV2({
-        items: [watchListItem],
-        // avoid infinite loop sync
-        skipSaveLocalSyncItem: true,
-        skipEventEmit: true,
-      });
-    } else {
+      const watchListItem: IMarketWatchListItemV2 = {
+        chainId: payload.chainId,
+        contractAddress: payload.contractAddress,
+        isNative: payload.isNative,
+        sortIndex: payload.sortIndex,
+      };
+      if (item.isDeleted) {
+        // await this.backgroundApi.serviceMarket.removeMarketWatchList({
+        await this.backgroundApi.serviceMarketV2.removeMarketWatchListV2({
+          items: [watchListItem],
+          // avoid infinite loop sync
+          skipSaveLocalSyncItem: true,
+          skipEventEmit: true,
+        });
+        const removedItemExists =
+          await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
+            chainId: payload.chainId,
+            contractAddress: payload.contractAddress,
+          });
+        return !removedItemExists;
+      }
       // await this.backgroundApi.serviceMarket.addMarketWatchList({
       await this.backgroundApi.serviceMarketV2.addMarketWatchListV2({
         watchList: [watchListItem],
@@ -79,8 +89,13 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
         skipSaveLocalSyncItem: true,
         skipEventEmit: true,
       });
-    }
-    return true;
+      const addedItemExists =
+        await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
+          chainId: payload.chainId,
+          contractAddress: payload.contractAddress,
+        });
+      return !!addedItemExists;
+    });
   }
 
   override async getDBRecordBySyncPayload(params: {

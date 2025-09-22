@@ -322,7 +322,7 @@ const PositionRow = memo(
               width={160}
               size="small"
               variant="secondary"
-              onPress={handleClosePosition('market')}
+              onPress={() => handleClosePosition('market')}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_position_close,

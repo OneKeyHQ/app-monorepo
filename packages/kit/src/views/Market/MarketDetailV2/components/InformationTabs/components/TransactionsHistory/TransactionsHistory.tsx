@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
@@ -59,6 +60,7 @@ export function TransactionsHistory({
   onScrollEnd,
 }: ITransactionsHistoryProps) {
   const isVisible = useRouteIsFocused();
+  const { websocketConfig } = useTokenDetail();
 
   const intl = useIntl();
   const { gtXl } = useMedia();
@@ -75,10 +77,12 @@ export function TransactionsHistory({
   });
 
   // Subscribe to real-time transaction updates
+  // Only enable if websocket.txs is enabled and other conditions are met
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled: !platformEnv.isNative && isVisible,
+    enabled:
+      !platformEnv.isNative && isVisible && (websocketConfig?.txs ?? false),
     onNewTransaction: addNewTransaction,
   });
 
