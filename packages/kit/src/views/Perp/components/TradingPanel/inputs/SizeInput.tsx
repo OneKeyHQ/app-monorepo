@@ -49,7 +49,6 @@ export const SizeInput = memo(
 
     const currentPrice = tokenInfo?.markPx || '0';
 
-    // 缓存价格BigNumber实例，避免重复创建
     const priceBN = useMemo(() => new BigNumber(currentPrice), [currentPrice]);
     const hasValidPrice = useMemo(
       () => priceBN.isFinite() && priceBN.gt(0),
@@ -111,7 +110,6 @@ export const SizeInput = memo(
           return false;
         }
 
-        // USD模式下的额外限制：整数部分最多12位
         if (inputMode === 'usd' && text) {
           const [integerPart] = text.split('.');
           if (integerPart && integerPart.length > 12) {
