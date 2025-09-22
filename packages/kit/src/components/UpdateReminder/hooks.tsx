@@ -90,7 +90,7 @@ function LottieViewIcon({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       lottieViewRef.current?.play?.();
-    }, 350);
+    }, 450);
     return () => clearTimeout(timer);
   }, []);
 
