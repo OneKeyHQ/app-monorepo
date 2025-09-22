@@ -53,6 +53,9 @@ export const SizeInput = memo(
 
     return (
       <TradingFormInput
+        placeholder={intl.formatMessage({
+          id: ETranslations.perp_trade_amount_place_holder,
+        })}
         value={value}
         onChange={onChange}
         label={

@@ -60,6 +60,9 @@ export const PriceInput = memo(
 
     return (
       <TradingFormInput
+        placeholder={intl.formatMessage({
+          id: ETranslations.perp_trade_price_place_holder,
+        })}
         value={value}
         onChange={handleInputChange}
         label={

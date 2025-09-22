@@ -104,16 +104,22 @@ export const TradingFormInput = memo(
         py="$1"
         pl="$1"
         pr="$2.5"
-        hoverStyle={{
-          outlineWidth: '$px',
-          outlineColor: '$border',
-          outlineStyle: 'solid',
-        }}
+        hoverStyle={
+          ifOnDialog
+            ? undefined
+            : {
+                outlineWidth: '$px',
+                outlineColor: '$border',
+                outlineStyle: 'solid',
+              }
+        }
+        borderWidth={ifOnDialog ? '$px' : '$0'}
+        borderColor={ifOnDialog ? '$border' : '$transparent'}
       >
         <YStack>
           <Input
             h={40}
-            placeholder="Price"
+            placeholder={placeholder}
             textAlign="right"
             leftAddOnProps={{
               renderContent: (

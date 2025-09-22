@@ -211,7 +211,22 @@ export const TpslInput = memo(
     return (
       <YStack gap="$3">
         <XStack gap="$3">
-          <YStack flex={1}>
+          <YStack
+            flex={1}
+            hoverStyle={
+              ifOnDialog
+                ? undefined
+                : {
+                    outlineWidth: '$px',
+                    outlineColor: '$border',
+                    outlineStyle: 'solid',
+                  }
+            }
+            borderWidth={ifOnDialog ? '$px' : 0}
+            borderColor={ifOnDialog ? '$border' : undefined}
+            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+            borderRadius="$2"
+          >
             <Input
               h={40}
               placeholder={intl.formatMessage({
@@ -223,14 +238,26 @@ export const TpslInput = memo(
               keyboardType="decimal-pad"
               size="small"
               containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
+                borderWidth: 0,
               }}
             />
           </YStack>
-          <YStack width={120}>
+          <YStack
+            width={120}
+            hoverStyle={
+              ifOnDialog
+                ? undefined
+                : {
+                    outlineWidth: '$px',
+                    outlineColor: '$border',
+                    outlineStyle: 'solid',
+                  }
+            }
+            borderWidth={ifOnDialog ? '$px' : 0}
+            borderColor={ifOnDialog ? '$border' : undefined}
+            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+            borderRadius="$2"
+          >
             <Input
               h={40}
               placeholder={intl.formatMessage({
@@ -244,10 +271,7 @@ export const TpslInput = memo(
               textAlign="right"
               leftIconName="PlusSmallOutline"
               containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
+                borderWidth: 0,
               }}
               addOns={[
                 {
@@ -264,7 +288,22 @@ export const TpslInput = memo(
           </YStack>
         </XStack>
         <XStack gap="$2">
-          <YStack flex={1}>
+          <YStack
+            flex={1}
+            hoverStyle={
+              ifOnDialog
+                ? undefined
+                : {
+                    outlineWidth: '$px',
+                    outlineColor: '$border',
+                    outlineStyle: 'solid',
+                  }
+            }
+            borderWidth={ifOnDialog ? '$px' : 0}
+            borderColor={ifOnDialog ? '$border' : undefined}
+            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+            borderRadius="$2"
+          >
             <Input
               h={40}
               placeholder={intl.formatMessage({
@@ -276,14 +315,26 @@ export const TpslInput = memo(
               keyboardType="decimal-pad"
               size="small"
               containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
+                borderWidth: 0,
               }}
             />
           </YStack>
-          <YStack width={120}>
+          <YStack
+            width={120}
+            hoverStyle={
+              ifOnDialog
+                ? undefined
+                : {
+                    outlineWidth: '$px',
+                    outlineColor: '$border',
+                    outlineStyle: 'solid',
+                  }
+            }
+            borderRadius="$2"
+            borderWidth={ifOnDialog ? '$px' : 0}
+            borderColor={ifOnDialog ? '$border' : undefined}
+            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+          >
             <Input
               h={40}
               placeholder={intl.formatMessage({
@@ -297,10 +348,7 @@ export const TpslInput = memo(
               keyboardType="decimal-pad"
               size="small"
               containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
+                borderWidth: 0,
               }}
               addOns={[
                 {
