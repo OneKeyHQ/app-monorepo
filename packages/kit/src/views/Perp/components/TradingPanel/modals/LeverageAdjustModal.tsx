@@ -11,6 +11,7 @@ import {
   Slider,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -92,9 +93,10 @@ const LeverageContent = memo(
     ]);
     const isDisabled = value <= 0 || loading;
     const intl = useIntl();
+    const { gtSm } = useMedia();
     return (
       <YStack>
-        <YStack p="$1" my="$3" gap="$3">
+        <YStack p="$1" my="$3" gap="$3" flex={1}>
           <XStack flex={1} alignItems="center" gap="$4">
             <Slider
               value={value || 1}
@@ -105,32 +107,34 @@ const LeverageContent = memo(
               disabled={loading}
               flex={1}
             />
-            <Input
-              containerProps={{
-                borderRadius: '$3',
-                p: 0,
-              }}
-              InputComponentStyle={{
-                p: 0,
-              }}
-              size="medium"
-              alignItems="center"
-              value={value ? value.toString() : ''}
-              onChangeText={handleInputChange}
-              keyboardType="numeric"
-              width={30}
-              textAlign="right"
-              disabled={loading}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" pr="$1">
-                      <Icon name="CrossedSmallOutline" size="$5" />
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
+            <XStack width={gtSm ? undefined : 60} alignItems="center">
+              <Input
+                containerProps={{
+                  borderRadius: '$3',
+                  p: 0,
+                }}
+                InputComponentStyle={{
+                  p: 0,
+                }}
+                width={30}
+                size="medium"
+                alignItems="center"
+                value={value ? value.toString() : ''}
+                onChangeText={handleInputChange}
+                keyboardType="numeric"
+                textAlign="right"
+                disabled={loading}
+                addOns={[
+                  {
+                    renderContent: (
+                      <XStack alignItems="center" pr="$1">
+                        <Icon name="CrossedSmallOutline" size="$5" />
+                      </XStack>
+                    ),
+                  },
+                ]}
+              />
+            </XStack>
           </XStack>
         </YStack>
         <SizableText size="$bodyMd" color="$textSubdued">
