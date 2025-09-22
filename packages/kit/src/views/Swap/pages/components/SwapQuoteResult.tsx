@@ -7,6 +7,7 @@ import {
   Accordion,
   Divider,
   Icon,
+  Keyboard,
   LottieView,
   NumberSizeableText,
   SizableText,
@@ -64,6 +65,8 @@ interface ISwapQuoteResultProps {
   onOpenRecipient?: () => void;
   refreshAction: (manual?: boolean) => void;
 }
+
+const SWAP_ACCORDION_VALUE = 'swap_accordion_value';
 
 const SwapQuoteResult = ({
   onOpenProviderList,
@@ -254,6 +257,12 @@ const SwapQuoteResult = ({
     [intl],
   );
 
+  const onValueChange = useCallback((value: string) => {
+    if (value === SWAP_ACCORDION_VALUE) {
+      Keyboard.dismiss();
+    }
+  }, []);
+
   const allCostFeeFormatValue = useMemo(() => {
     const oneKeyFeeAmountBN = new BigNumber(
       quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount ?? '0',
@@ -443,8 +452,8 @@ const SwapQuoteResult = ({
     !new BigNumber(fromAmountDebounce.value).isNaN()
   ) {
     return (
-      <Accordion type="single" collapsible>
-        <Accordion.Item value="1">
+      <Accordion type="single" collapsible onValueChange={onValueChange}>
+        <Accordion.Item value={SWAP_ACCORDION_VALUE}>
           <Accordion.Trigger
             unstyled
             borderWidth={0}
