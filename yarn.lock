@@ -7792,6 +7792,7 @@ __metadata:
     keytar: "npm:^7.9.0"
     node-fetch: "npm:^2.6.7"
     rimraf: "npm:^3"
+    semver: "npm:7.5.4"
     webpack: "npm:5.90.3"
   languageName: unknown
   linkType: soft
