@@ -61,14 +61,12 @@ export function TransactionsHistory({
 }: ITransactionsHistoryProps) {
   const { websocketConfig } = useTokenDetail();
   const isVisible = useRouteIsFocused();
+  const { gtXl } = useMedia();
 
   const normalMode =
-    !platformEnv.isNative &&
-    !platformEnv.isExtChrome &&
-    !(websocketConfig?.txs ?? false);
+    !platformEnv.isNative && !gtXl && !(websocketConfig?.txs ?? false);
 
   const intl = useIntl();
-  const { gtXl } = useMedia();
   const {
     transactions,
     isRefreshing,
