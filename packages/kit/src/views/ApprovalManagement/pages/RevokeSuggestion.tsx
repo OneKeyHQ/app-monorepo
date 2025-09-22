@@ -290,7 +290,7 @@ function RevokeSuggestion() {
       }
       if (inactiveNumber > 0) {
         tasks.push(
-          backgroundApiProxy.serviceApproval.updateInactiveApprovalsAlertConfig(
+          backgroundApiProxy.serviceApproval.updateInactiveApprovalsRevokeSuggestionConfig(
             {
               networkId,
               accountId,

@@ -1,14 +1,11 @@
 import BigNumber from 'bignumber.js';
-import { debounce, isNil, uniq, uniqBy } from 'lodash';
+import { debounce, isNil, uniq } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import {
-  getListedNetworkMap,
-  getNetworkIdsMap,
-} from '@onekeyhq/shared/src/config/networkIds';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -19,22 +16,16 @@ import perfUtils, {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
-  buildAggregateTokenListMapKeyForTokenList,
-  buildAggregateTokenMapKeyForAggregateConfig,
-  buildHomeDefaultTokenMapKey,
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
-  IAggregateToken,
   IFetchAccountTokensParams,
   IFetchAccountTokensResp,
-  IFetchAggregateTokenConfigMapResp,
   IFetchTokenDetailItem,
   IFetchTokenDetailParams,
-  IHomeDefaultToken,
   ISearchTokensParams,
   IToken,
   ITokenData,
@@ -60,20 +51,10 @@ class ServiceToken extends ServiceBase {
 
   _searchTokensControllers: AbortController[] = [];
 
-  _fetchAggregateTokenMapControllers: AbortController[] = [];
-
   @backgroundMethod()
   public async abortSearchTokens() {
     this._searchTokensControllers.forEach((controller) => controller.abort());
     this._searchTokensControllers = [];
-  }
-
-  @backgroundMethod()
-  public async abortFetchAggregateTokenMap() {
-    this._fetchAggregateTokenMapControllers.forEach((controller) =>
-      controller.abort(),
-    );
-    this._fetchAggregateTokenMapControllers = [];
   }
 
   @backgroundMethod()
@@ -949,130 +930,6 @@ class ServiceToken extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async syncAggregateTokenConfigMap() {
-    await this.abortFetchAggregateTokenMap();
-    const resp = await this.fetchAggregateTokenConfigMap();
-
-    if (!resp) {
-      return;
-    }
-    const { tokens = {}, meta: { homeDefaults = [] } = {} } = resp;
-    const allAggregateTokenMap: Record<
-      string,
-      {
-        tokens: IAccountToken[];
-      }
-    > = {};
-
-    const aggregateTokenConfigMap: Record<string, IAggregateToken> = {};
-    const homeDefaultTokenMap: Record<string, IHomeDefaultToken> = {};
-    const aggregateTokenSymbolMap: Record<string, boolean> = {};
-    const listedNetworkMap = getListedNetworkMap();
-    homeDefaults.forEach((homeDefault) => {
-      homeDefaultTokenMap[
-        buildHomeDefaultTokenMapKey({
-          networkId: homeDefault.networkId,
-          symbol: homeDefault.symbol,
-        })
-      ] = homeDefault;
-    });
-    Object.entries(tokens).forEach(
-      ([commonSymbol, { data, logoURI, name }]) => {
-        const filteredData = uniqBy(
-          data.filter((token) => !!listedNetworkMap[token.networkId]),
-          (token) => token.networkId,
-        );
-
-        if (filteredData.length > 1) {
-          aggregateTokenSymbolMap[commonSymbol] = true;
-
-          filteredData.forEach((token) => {
-            const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList(
-              {
-                commonSymbol,
-              },
-            );
-
-            if (allAggregateTokenMap[aggregateTokenKey]) {
-              allAggregateTokenMap[aggregateTokenKey].tokens.push({
-                ...token,
-                $key: buildAggregateTokenListMapKeyForTokenList({
-                  commonSymbol,
-                  networkId: token.networkId,
-                }),
-                name,
-                symbol: commonSymbol,
-                isNative: false,
-                logoURI,
-                commonSymbol,
-                address: token.address || token.assetType || '',
-              });
-            } else {
-              allAggregateTokenMap[aggregateTokenKey] = {
-                tokens: [
-                  {
-                    ...token,
-                    $key: buildAggregateTokenListMapKeyForTokenList({
-                      commonSymbol,
-                      networkId: token.networkId,
-                    }),
-                    name,
-                    symbol: commonSymbol,
-                    isNative: false,
-                    logoURI,
-                    commonSymbol,
-                    address: token.address || token.assetType || '',
-                  },
-                ],
-              };
-            }
-
-            aggregateTokenConfigMap[
-              buildAggregateTokenMapKeyForAggregateConfig({
-                networkId: token.networkId,
-                tokenAddress: token.address || token.assetType || '',
-              })
-            ] = {
-              ...token,
-              name,
-              logoURI,
-              commonSymbol,
-            };
-          });
-        }
-      },
-    );
-
-    const allAggregateTokens: IAccountToken[] = Object.keys(
-      allAggregateTokenMap,
-    ).map((key) => {
-      const aggregateToken = allAggregateTokenMap[key].tokens[0];
-      return {
-        $key: key,
-        isAggregateToken: true,
-        commonSymbol: aggregateToken.commonSymbol,
-        name: aggregateToken.name,
-        symbol: aggregateToken.symbol,
-        networkId: '',
-        address: key,
-        isNative: false,
-        decimals: 0,
-        logoURI: aggregateToken.logoURI,
-      };
-    });
-
-    await this.backgroundApi.simpleDb.aggregateToken.updateAllAggregateInfo({
-      allAggregateTokens,
-      aggregateTokenConfigMap,
-      homeDefaultTokenMap,
-      allAggregateTokenMap,
-      aggregateTokenSymbolMap,
-    });
-
-    return aggregateTokenConfigMap;
-  }
-
-  @backgroundMethod()
   public async getHomeDefaultTokenMap() {
     return this.backgroundApi.simpleDb.aggregateToken.getHomeDefaultTokenMap();
   }
@@ -1085,21 +942,6 @@ class ServiceToken extends ServiceBase {
   @backgroundMethod()
   public async getAggregateTokenConfigMap() {
     return this.backgroundApi.simpleDb.aggregateToken.getAggregateTokenConfigMap();
-  }
-
-  @backgroundMethod()
-  public async fetchAggregateTokenConfigMap() {
-    const controller = new AbortController();
-    this._fetchAggregateTokenMapControllers.push(controller);
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Wallet);
-      const resp = await client.get<IFetchAggregateTokenConfigMapResp>(
-        '/wallet/v1/tokens/aggregate-chains',
-      );
-      return resp.data.data;
-    } catch (e) {
-      return null;
-    }
   }
 
   @backgroundMethod()

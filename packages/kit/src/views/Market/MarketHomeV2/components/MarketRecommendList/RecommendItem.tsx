@@ -8,6 +8,7 @@ import {
   YStack,
   getSharedButtonStyles,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketTokenIcon } from '../../../components/MarketTokenIcon';
 
@@ -59,7 +60,16 @@ export function RecommendItem({
     >
       <XStack gap="$3" ai="center" flexShrink={1}>
         <MarketTokenIcon uri={icon} size="md" networkId={networkId} />
-        <YStack flexShrink={1}>
+        <YStack
+          flexShrink={1}
+          {...(platformEnv.isNativeAndroid
+            ? {
+                width: '$20',
+                height: '$9',
+                justifyContent: 'center',
+              }
+            : {})}
+        >
           <XStack>
             <SizableText
               size="$bodyLgMedium"

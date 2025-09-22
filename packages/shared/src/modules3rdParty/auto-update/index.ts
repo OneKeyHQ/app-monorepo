@@ -45,6 +45,14 @@ export const BundleUpdate: IBundleUpdate = {
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
   testVerification: () => Promise.resolve(false),
+  testDeleteJsBundle: () =>
+    Promise.resolve({ success: false, message: 'Not supported on web' }),
+  testDeleteJsRuntimeDir: () =>
+    Promise.resolve({ success: false, message: 'Not supported on web' }),
+  testDeleteMetadataJson: () =>
+    Promise.resolve({ success: false, message: 'Not supported on web' }),
+  testWriteEmptyMetadataJson: () =>
+    Promise.resolve({ success: false, message: 'Not supported on web' }),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;

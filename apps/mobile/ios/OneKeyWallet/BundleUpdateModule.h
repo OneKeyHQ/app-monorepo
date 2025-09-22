@@ -19,5 +19,6 @@
 + (NSString *)currentBundleVersion;
 + (NSString *)currentBundleDir;
 + (NSDictionary *)currentMetadataJson;
++ (NSComparisonResult)compareVersion:(NSString *)version1 withVersion:(NSString *)version2;
 + (void)setCurrentBundleVersion:(NSString *)version;
 @end

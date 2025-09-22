@@ -172,8 +172,43 @@ class ServiceApproval extends ServiceBase {
       );
 
     if (config && config.lastShowTime) {
+      const { approvalResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
       const interval = Date.now() - config.lastShowTime;
-      if (interval > timerUtils.getTimeDurationMs({ day: 14 })) {
+      if (
+        interval > timerUtils.getTimeDurationMs({ day: approvalResurfaceDays })
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowInactiveApprovalsRevokeSuggestion({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getInactiveApprovalsRevokeSuggestionConfig(
+        {
+          networkId,
+          accountId,
+        },
+      );
+
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      const { approvalResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      if (
+        interval > timerUtils.getTimeDurationMs({ day: approvalResurfaceDays })
+      ) {
         return true;
       }
       return false;
@@ -199,7 +234,41 @@ class ServiceApproval extends ServiceBase {
       );
     if (config && config.lastShowTime) {
       const interval = Date.now() - config.lastShowTime;
-      if (interval > timerUtils.getTimeDurationMs({ day: 30 })) {
+      const { approvalAlertResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      if (
+        interval >
+        timerUtils.getTimeDurationMs({ day: approvalAlertResurfaceDays })
+      ) {
+        return true;
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  @backgroundMethod()
+  async shouldShowRiskApprovalsAlert({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const config =
+      await this.backgroundApi.simpleDb.approval.getRiskApprovalsAlertConfig({
+        networkId,
+        accountId,
+      });
+    if (config && config.lastShowTime) {
+      const interval = Date.now() - config.lastShowTime;
+      const { approvalAlertResurfaceDays } =
+        await this.getApprovalResurfaceDaysConfig();
+      if (
+        interval >
+        timerUtils.getTimeDurationMs({ day: approvalAlertResurfaceDays })
+      ) {
         return true;
       }
       return false;
@@ -225,6 +294,22 @@ class ServiceApproval extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateInactiveApprovalsRevokeSuggestionConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsRevokeSuggestionConfig(
+      {
+        networkId,
+        accountId,
+      },
+    );
+  }
+
+  @backgroundMethod()
   async updateInactiveApprovalsAlertConfig({
     networkId,
     accountId,
@@ -237,6 +322,46 @@ class ServiceApproval extends ServiceBase {
         networkId,
         accountId,
       },
+    );
+  }
+
+  @backgroundMethod()
+  async updateRiskApprovalsAlertConfig({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateRiskApprovalsAlertConfig({
+      networkId,
+      accountId,
+    });
+  }
+
+  @backgroundMethod()
+  async updateApprovalResurfaceDaysConfig({
+    approvalResurfaceDays,
+    approvalAlertResurfaceDays,
+  }: {
+    approvalResurfaceDays: number;
+    approvalAlertResurfaceDays: number;
+  }) {
+    await this.backgroundApi.simpleDb.approval.updateApprovalResurfaceDaysConfig(
+      {
+        approvalResurfaceDays,
+        approvalAlertResurfaceDays,
+      },
+    );
+  }
+
+  @backgroundMethod()
+  async getApprovalResurfaceDaysConfig() {
+    return (
+      (await this.backgroundApi.simpleDb.approval.getApprovalResurfaceDaysConfig()) ?? {
+        approvalResurfaceDays: 14,
+        approvalAlertResurfaceDays: 30,
+      }
     );
   }
 }
