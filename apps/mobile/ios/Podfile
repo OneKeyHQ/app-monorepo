@@ -19,6 +19,44 @@ prepare_react_native_project!
 
 def installGo()
   go_version = `which go 2>/dev/null && go version 2>/dev/null`.strip
+  required_version = "1.24.0"
+  # Check if Go version is at least 1.24.0
+  if !go_version.empty?
+    # Extract version number from go version output (e.g., "go version go1.24.0 darwin/arm64")
+    version_match = go_version.match(/go(\d+\.\d+\.\d+)/)
+    if version_match
+      current_version = version_match[1]
+      
+      # Compare versions
+      current_parts = current_version.split('.').map(&:to_i)
+      required_parts = required_version.split('.').map(&:to_i)
+      
+      version_sufficient = false
+      [current_parts.length, required_parts.length].max.times do |i|
+        current_part = current_parts[i] || 0
+        required_part = required_parts[i] || 0
+        
+        if current_part > required_part
+          version_sufficient = true
+          break
+        elsif current_part < required_part
+          version_sufficient = false
+          break
+        end
+        # If equal, continue to next part
+      end
+      
+      if current_parts == required_parts
+        version_sufficient = true
+      end
+      
+      unless version_sufficient
+        raise "Go version #{current_version} is installed, but version #{required_version} or higher is required"
+      end
+    else
+      raise "Could not parse Go version from: #{go_version}"
+    end
+  end
   if go_version.empty?
     puts "Go is not installed. Installing Go..."
     
@@ -26,7 +64,7 @@ def installGo()
     arch = `uname -m`.strip
     os = `uname -s`.strip.downcase
 
-    go_version = "1.24.0"
+    go_version = required_version
     
     if os == "darwin"
       if arch == "arm64"
