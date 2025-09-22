@@ -6,7 +6,6 @@ import { colorTokens } from '@tamagui/themes';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import {
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -105,7 +104,8 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   levelList: {
-    flexGrow: 1,
+    flex: 1,
+    minWidth: 0,
   },
   row: {
     height: rowHeight,
