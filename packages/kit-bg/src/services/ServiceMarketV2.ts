@@ -14,6 +14,7 @@ import type {
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetail,
+  IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
   IMarketTokenListResponse,
@@ -37,18 +38,16 @@ class ServiceMarketV2 extends ServiceBase {
     networkId: string,
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: {
-        token: IMarketTokenDetail;
-      };
-    }>('/utility/v2/market/token/detail', {
-      params: {
-        tokenAddress,
-        networkId,
+    const response = await client.get<IMarketTokenDetailResponse>(
+      '/utility/v2/market/token/detail',
+      {
+        params: {
+          tokenAddress,
+          networkId,
+        },
       },
-    });
-    const { data } = response.data;
-    return data.token;
+    );
+    return response.data;
   }
 
   private memoizedFetchMarketChains = memoizee(
