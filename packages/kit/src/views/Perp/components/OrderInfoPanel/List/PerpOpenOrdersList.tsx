@@ -1,8 +1,9 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useCurrentUserAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks';
@@ -20,9 +21,13 @@ interface IPerpOpenOrdersListProps {
 function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
   const orders = usePerpOrders();
+  const [currentUser] = useCurrentUserAtom();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
-
+  const [currentListPage, setCurrentListPage] = useState(1);
+  useEffect(() => {
+    setCurrentListPage(1);
+  }, [currentUser]);
   const handleCancelAll = useCallback(() => {
     const ordersToCancel = orders
       .map((order) => {
@@ -175,6 +180,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
+      useTabsList
+      enablePagination
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={orders}
