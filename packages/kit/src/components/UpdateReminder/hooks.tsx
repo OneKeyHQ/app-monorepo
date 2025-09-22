@@ -223,7 +223,6 @@ export const useDownloadPackage = () => {
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    const updateStrategy = appUpdateInfo.updateStrategy;
     const fileType = getUpdateFileType(appUpdateInfo);
     try {
       const params =
