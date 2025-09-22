@@ -444,26 +444,26 @@ class DesktopApiAppBundleUpdate {
   async testDeleteJsBundle(appVersion: string, bundleVersion: string) {
     try {
       const bundleDir = getBundleExtractDir({ appVersion, bundleVersion });
-      const mainJsBundlePath = path.join(bundleDir, 'main.jsbundle.hbc');
+      const mainIndexHtmlPath = path.join(bundleDir, 'index.html');
 
-      if (fs.existsSync(mainJsBundlePath)) {
-        fs.unlinkSync(mainJsBundlePath);
+      if (fs.existsSync(mainIndexHtmlPath)) {
+        fs.unlinkSync(mainIndexHtmlPath);
         logger.info(
           'testDeleteJsBundle',
-          `Deleted jsBundle: ${mainJsBundlePath}`,
+          `Deleted jsBundle: ${mainIndexHtmlPath}`,
         );
         return {
           success: true,
-          message: `Deleted jsBundle: ${mainJsBundlePath}`,
+          message: `Deleted jsBundle: ${mainIndexHtmlPath}`,
         };
       }
       logger.info(
         'testDeleteJsBundle',
-        `jsBundle not found: ${mainJsBundlePath}`,
+        `jsBundle not found: ${mainIndexHtmlPath}`,
       );
       return {
         success: false,
-        message: `jsBundle not found: ${mainJsBundlePath}`,
+        message: `jsBundle not found: ${mainIndexHtmlPath}`,
       };
     } catch (error) {
       logger.error(
