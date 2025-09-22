@@ -74,8 +74,8 @@ export function useTokenManagement({
 
       // query aggregate tokens in both all networks and single network
       pair.push({
-        accountId: indexedAccountId ?? '',
-        accountXpubOrAddress: indexedAccountId,
+        accountId: indexedAccountId ?? accountId ?? '',
+        accountXpubOrAddress: indexedAccountId ?? accountId,
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
       });
 
