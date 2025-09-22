@@ -47,6 +47,7 @@ function ApprovalList() {
     accountId,
     networkId,
     walletId,
+    indexedAccountId,
     isBulkRevokeMode: routeBulkMode,
   } = route.params;
   const intl = useIntl();
@@ -278,6 +279,7 @@ function ApprovalList() {
           hideRiskOverview={accountUtils.isWatchingWallet({ walletId })}
           accountId={accountId}
           networkId={networkId}
+          indexedAccountId={indexedAccountId}
           onPress={handleApprovalOnPress}
         />
       </Page.Body>

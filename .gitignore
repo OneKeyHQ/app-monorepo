@@ -91,6 +91,5 @@ apps/mobile/android/.kotlin/
 apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/**/*.class
 /apps/mobile/out-dir-bundle
 /apps/mobile/out-dir-bundle-zip
-/apps/mobile/ios/XCFrameworks
 /apps/mobile/ios/go-install
 /apps/mobile/ios/tmp-oc-test
