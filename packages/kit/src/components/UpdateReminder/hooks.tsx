@@ -83,6 +83,7 @@ export const useAppChangeLog = (version?: string) => {
   return useMemo(() => response.result, [response.result]);
 };
 
+const DIALOG_THROTTLE_TIME = 30 * 1000;
 const showSilentUpdateDialogUI = throttle(
   async ({
     intl,
@@ -136,7 +137,66 @@ const showSilentUpdateDialogUI = throttle(
       onConfirm,
     });
   },
-  30 * 1000,
+  DIALOG_THROTTLE_TIME,
+);
+
+const showUpdateDialogUI = throttle(
+  async ({
+    dialog,
+    intl,
+    themeVariant,
+    summary,
+    onConfirm,
+  }: {
+    dialog: ReturnType<typeof useInTabDialog>;
+    themeVariant: 'light' | 'dark';
+    intl: IntlShape;
+    summary: string;
+    storeUrl: string;
+    onConfirm: () => void;
+  }) => {
+    dialog.show({
+      dismissOnOverlayPress: false,
+      renderIcon: (
+        <YStack
+          borderRadius="$5"
+          borderCurve="continuous"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
+          overflow="hidden"
+        >
+          <LottieView
+            loop={false}
+            height={56}
+            width={56}
+            source={
+              themeVariant === 'light'
+                ? UpdateNotificationLight
+                : UpdateNotificationDark
+            }
+          />
+        </YStack>
+      ),
+      title: intl.formatMessage({
+        id: ETranslations.update_notification_dialog_title,
+      }),
+      description:
+        summary ||
+        intl.formatMessage({
+          id: ETranslations.update_notification_dialog_desc,
+        }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.update_update_now,
+      }),
+      showCancelButton: false,
+      onHeaderCloseButtonPress: () => {
+        defaultLogger.app.component.closedInUpdateDialog();
+      },
+      onConfirm,
+    });
+  },
+  DIALOG_THROTTLE_TIME,
 );
 
 export const useDownloadPackage = () => {
@@ -223,6 +283,7 @@ export const useDownloadPackage = () => {
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+
     const fileType = getUpdateFileType(appUpdateInfo);
     try {
       const params =
@@ -241,11 +302,15 @@ export const useDownloadPackage = () => {
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
       defaultLogger.app.appUpdate.endVerifyPackage(true);
+
+      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+        void showSilentUpdateDialog();
+      }
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, []);
+  }, [showSilentUpdateDialog]);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
@@ -540,44 +605,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         storeUrl?: string;
       },
     ) => {
-      dialog.show({
-        dismissOnOverlayPress: false,
-        renderIcon: (
-          <YStack
-            borderRadius="$5"
-            borderCurve="continuous"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
-            overflow="hidden"
-          >
-            <LottieView
-              loop={false}
-              height={56}
-              width={56}
-              source={
-                themeVariant === 'light'
-                  ? UpdateNotificationLight
-                  : UpdateNotificationDark
-              }
-            />
-          </YStack>
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.update_notification_dialog_title,
-        }),
-        description:
-          params?.summary ||
-          intl.formatMessage({
-            id: ETranslations.update_notification_dialog_desc,
-          }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.update_update_now,
-        }),
-        showCancelButton: false,
-        onHeaderCloseButtonPress: () => {
-          defaultLogger.app.component.closedInUpdateDialog();
-        },
+      void showUpdateDialogUI({
+        dialog,
+        intl,
+        themeVariant,
+        summary: params?.summary || '',
+        storeUrl: params?.storeUrl || '',
         onConfirm: () => {
           if (!platformEnv.isExtension && params?.storeUrl) {
             openUrlExternal(params.storeUrl);
@@ -611,11 +644,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyASC();
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
-    } else if (
-      appUpdateInfo.updateStrategy === EUpdateStrategy.silent &&
-      appUpdateInfo.status === EAppUpdateStatus.ready
-    ) {
-      void showSilentUpdateDialog();
+    } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
+      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+        void showSilentUpdateDialog();
+      } else {
+        void showUpdateDialog();
+      }
     } else {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
