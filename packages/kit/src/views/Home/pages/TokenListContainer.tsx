@@ -882,7 +882,7 @@ function TokenListContainer({
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
       if (!a?.aggregateTokenConfigMap) {
-        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
       }
 

@@ -45,15 +45,25 @@ function ApprovalListHeader({
   const [approvalsAlertOpacity, setApprovalsAlertOpacity] = useState(0);
   const [tableHeaderOpacity, setTableHeaderOpacity] = useState(0);
 
-  const { result: shouldShowInactiveApprovalsAlert } =
-    usePromiseResult(async () => {
-      return backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert(
-        {
-          accountId,
-          networkId,
-        },
-      );
-    }, [accountId, networkId]);
+  const { result } = usePromiseResult(async () => {
+    const [ssi, ssr] = await Promise.all([
+      backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
+        accountId,
+        networkId,
+      }),
+      backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsAlert({
+        accountId,
+        networkId,
+      }),
+    ]);
+    return {
+      shouldShowRiskApprovalsAlert: ssr,
+      shouldShowInactiveApprovalsAlert: ssi,
+    };
+  }, [accountId, networkId]);
+
+  const { shouldShowInactiveApprovalsAlert, shouldShowRiskApprovalsAlert } =
+    result ?? {};
 
   const [{ approvals }] = useApprovalListAtom();
   const [{ tokenMap }] = useTokenMapAtom();
@@ -133,17 +143,39 @@ function ApprovalListHeader({
   }, [approvals]);
 
   const handleCloseApprovalsAlert = useCallback(async () => {
-    await backgroundApiProxy.serviceApproval.updateInactiveApprovalsAlertConfig(
-      {
-        accountId,
-        networkId,
-      },
-    );
+    const tasks = [];
+
+    if (riskApprovals.length > 0) {
+      tasks.push(
+        backgroundApiProxy.serviceApproval.updateRiskApprovalsAlertConfig({
+          accountId,
+          networkId,
+        }),
+      );
+    }
+
+    if (warningApprovals.length > 0) {
+      tasks.push(
+        backgroundApiProxy.serviceApproval.updateInactiveApprovalsAlertConfig({
+          accountId,
+          networkId,
+        }),
+      );
+    }
+
+    await Promise.all(tasks);
+
     setShowApprovalsAlert(false);
     setTimeout(() => {
       recomputeLayout();
     }, 350);
-  }, [accountId, networkId, recomputeLayout]);
+  }, [
+    accountId,
+    networkId,
+    recomputeLayout,
+    riskApprovals.length,
+    warningApprovals.length,
+  ]);
 
   const renderRiskOverview = useCallback(() => {
     if (hideRiskOverview) {
@@ -152,6 +184,7 @@ function ApprovalListHeader({
 
     const riskyNumber = riskApprovals.length;
     const inactiveNumber = warningApprovals.length;
+
     if (!showApprovalsAlert || (riskyNumber === 0 && inactiveNumber === 0)) {
       return null;
     }
@@ -237,7 +270,9 @@ function ApprovalListHeader({
   ]);
 
   useEffect(() => {
-    const targetShow = !!shouldShowInactiveApprovalsAlert;
+    const targetShow = !!(
+      shouldShowInactiveApprovalsAlert || shouldShowRiskApprovalsAlert
+    );
     setShowApprovalsAlert(targetShow);
 
     setTimeout(() => {
@@ -247,7 +282,11 @@ function ApprovalListHeader({
       }
       setTableHeaderOpacity(1);
     }, 350);
-  }, [shouldShowInactiveApprovalsAlert, recomputeLayout]);
+  }, [
+    shouldShowInactiveApprovalsAlert,
+    shouldShowRiskApprovalsAlert,
+    recomputeLayout,
+  ]);
 
   return (
     <>
