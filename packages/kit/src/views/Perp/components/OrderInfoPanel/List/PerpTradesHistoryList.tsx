@@ -12,11 +12,16 @@ import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
+  useTabsList?: boolean;
 }
 
-function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
+function PerpTradesHistoryList({
+  isMobile,
+  useTabsList,
+}: IPerpTradesHistoryListProps) {
   const intl = useIntl();
-  const { trades } = usePerpTradesHistory();
+  const { trades, currentListPage, setCurrentListPage } =
+    usePerpTradesHistory();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
@@ -112,6 +117,9 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
   };
   return (
     <CommonTableListView
+      useTabsList={useTabsList}
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       data={trades}
       isMobile={isMobile}
@@ -124,7 +132,6 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
         id: ETranslations.perp_trade_history_empty_desc,
       })}
       enablePagination
-      pageSize={20}
     />
   );
 }
