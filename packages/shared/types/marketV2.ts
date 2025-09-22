@@ -72,6 +72,7 @@ export interface IMarketTokenDetail {
   volume4hChangePercent?: string;
   volume8hChangePercent?: string;
   volume24hChangePercent?: string;
+  vBuy1m?: string;
   vBuy5m?: string;
   vBuy30m?: string;
   vBuy1h?: string;
@@ -89,11 +90,6 @@ export interface IMarketTokenDetail {
   vSell24h?: string;
   lastUpdated?: number;
   [key: string]: unknown;
-}
-
-export interface IMarketTokenDetailAttribute {
-  labelKey: string;
-  value: string;
 }
 
 export interface IMarketChain {
@@ -291,4 +287,20 @@ export interface IMarketBasicConfigResponse {
   code: number;
   message: string;
   data: IMarketBasicConfigData;
+}
+
+export interface IMarketTokenDetailWebsocket {
+  txs: boolean;
+  kline: boolean;
+}
+
+export interface IMarketTokenDetailData {
+  token: IMarketTokenDetail;
+  websocket: IMarketTokenDetailWebsocket;
+}
+
+export interface IMarketTokenDetailResponse {
+  code: number;
+  message: string;
+  data: IMarketTokenDetailData;
 }
