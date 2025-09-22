@@ -23,6 +23,33 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     return { data: [] };
   }
 
+  async getMarketWatchListItemV2({
+    chainId,
+    contractAddress,
+  }: {
+    chainId: string;
+    contractAddress: string;
+  }): Promise<IMarketWatchListItemV2 | undefined> {
+    try {
+      const watchList = await this.getMarketWatchListV2();
+      return watchList.data.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: chainId,
+            contractAddress,
+          },
+          token2: {
+            networkId: item.chainId,
+            contractAddress: item.contractAddress,
+          },
+        }),
+      );
+    } catch (error) {
+      console.error('Failed to get market watch list item:', error);
+      return undefined;
+    }
+  }
+
   // addOrEdit
   async addMarketWatchListV2({
     watchList,

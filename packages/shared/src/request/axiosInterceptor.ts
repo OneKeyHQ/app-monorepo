@@ -193,6 +193,9 @@ axios.interceptors.response.use(
       const title = appLocale.intl.formatMessage({
         id: ETranslations.global_network_error,
       });
+      // if (process.env.NODE_ENV !== 'production') {
+      //   title += error?.config?.url || '';
+      // }
       throw new OneKeyError({
         name: error.name,
         message: title,

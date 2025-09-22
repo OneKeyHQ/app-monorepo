@@ -349,6 +349,22 @@ class ServiceMarketV2 extends ServiceBase {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
   }
 
+  @backgroundMethod()
+  async getMarketWatchListItemV2({
+    chainId,
+    contractAddress,
+  }: {
+    chainId: string;
+    contractAddress: string;
+  }): Promise<IMarketWatchListItemV2 | undefined> {
+    return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
+      {
+        chainId,
+        contractAddress,
+      },
+    );
+  }
+
   async getMarketWatchListWithFillingSortIndexV2() {
     const items = await this.getMarketWatchListV2();
     const hasMissingSortIndex = items.data.some((item) =>
