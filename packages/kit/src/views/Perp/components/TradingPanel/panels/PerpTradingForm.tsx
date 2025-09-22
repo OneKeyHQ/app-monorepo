@@ -203,6 +203,7 @@ function PerpTradingForm({
         <SizeInput
           side={formData.side}
           tokenInfo={tokenInfo}
+          symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
           isMobile={isMobile}
@@ -361,6 +362,7 @@ function PerpTradingForm({
         <SizeInput
           side={formData.side}
           tokenInfo={tokenInfo}
+          symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
         />
