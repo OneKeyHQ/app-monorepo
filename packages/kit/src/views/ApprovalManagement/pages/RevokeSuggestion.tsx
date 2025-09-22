@@ -40,8 +40,15 @@ function RevokeSuggestion() {
         EModalApprovalManagementRoutes.RevokeSuggestion
       >
     >();
-  const { accountId, networkId, approvals, tokenMap, contractMap, autoShow } =
-    route.params;
+  const {
+    accountId,
+    networkId,
+    indexedAccountId,
+    approvals,
+    tokenMap,
+    contractMap,
+    autoShow,
+  } = route.params;
   const {
     updateApprovalList,
     updateTokenMap,
@@ -203,12 +210,14 @@ function RevokeSuggestion() {
         onPress={handleApprovalItemOnPress}
         accountId={accountId}
         networkId={networkId}
+        indexedAccountId={indexedAccountId}
       />
     );
   }, [
     accountId,
     handleApprovalItemOnPress,
     networkId,
+    indexedAccountId,
     riskyNumber,
     inactiveNumber,
   ]);
@@ -282,7 +291,7 @@ function RevokeSuggestion() {
         tasks.push(
           backgroundApiProxy.serviceApproval.updateRiskApprovalsRevokeSuggestionConfig(
             {
-              networkId,
+              indexedAccountId,
               accountId,
             },
           ),
@@ -292,7 +301,7 @@ function RevokeSuggestion() {
         tasks.push(
           backgroundApiProxy.serviceApproval.updateInactiveApprovalsRevokeSuggestionConfig(
             {
-              networkId,
+              indexedAccountId,
               accountId,
             },
           ),
@@ -302,7 +311,7 @@ function RevokeSuggestion() {
         await Promise.all(tasks);
       }
     }
-  }, [autoShow, networkId, accountId, riskyNumber, inactiveNumber]);
+  }, [autoShow, indexedAccountId, accountId, riskyNumber, inactiveNumber]);
 
   return (
     <Page scrollEnabled onClose={handleOnClose}>

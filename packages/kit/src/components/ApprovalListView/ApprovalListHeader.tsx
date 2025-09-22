@@ -39,35 +39,56 @@ function ApprovalListHeader({
 
   const navigation = useAppNavigation();
 
-  const { tableLayout, accountId, networkId } = useApprovalListViewContext();
+  const { tableLayout, accountId, networkId, indexedAccountId } =
+    useApprovalListViewContext();
 
   const [showApprovalsAlert, setShowApprovalsAlert] = useState(false);
   const [approvalsAlertOpacity, setApprovalsAlertOpacity] = useState(0);
   const [tableHeaderOpacity, setTableHeaderOpacity] = useState(0);
 
-  const { result } = usePromiseResult(async () => {
-    const [ssi, ssr] = await Promise.all([
-      backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
-        accountId,
-        networkId,
-      }),
-      backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsAlert({
-        accountId,
-        networkId,
-      }),
-    ]);
-    return {
-      shouldShowRiskApprovalsAlert: ssr,
-      shouldShowInactiveApprovalsAlert: ssi,
-    };
-  }, [accountId, networkId]);
-
-  const { shouldShowInactiveApprovalsAlert, shouldShowRiskApprovalsAlert } =
-    result ?? {};
-
   const [{ approvals }] = useApprovalListAtom();
   const [{ tokenMap }] = useTokenMapAtom();
   const [{ contractMap }] = useContractMapAtom();
+
+  const { riskApprovals, warningApprovals } = useMemo(() => {
+    return approvals.reduce<{
+      riskApprovals: IContractApproval[];
+      warningApprovals: IContractApproval[];
+    }>(
+      (acc, approval) => {
+        if (approval.isRiskContract) {
+          acc.riskApprovals.push(approval);
+        } else if (approval.isInactiveApproval) {
+          acc.warningApprovals.push(approval);
+        }
+        return acc;
+      },
+      { riskApprovals: [], warningApprovals: [] },
+    );
+  }, [approvals]);
+
+  const { result } = usePromiseResult(async () => {
+    const [_shouldShowInactiveApprovalsAlert, _shouldShowRiskApprovalsAlert] =
+      await Promise.all([
+        backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
+          accountId,
+          networkId,
+        }),
+        backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsAlert({
+          accountId,
+          networkId,
+        }),
+      ]);
+    return {
+      shouldShowInactiveApprovalsAlert:
+        _shouldShowInactiveApprovalsAlert && warningApprovals.length > 0,
+      shouldShowRiskApprovalsAlert:
+        _shouldShowRiskApprovalsAlert && riskApprovals.length > 0,
+    };
+  }, [accountId, networkId, riskApprovals.length, warningApprovals.length]);
+
+  const { shouldShowInactiveApprovalsAlert, shouldShowRiskApprovalsAlert } =
+    result ?? {};
 
   const renderTableHeader = useCallback(() => {
     if (!tableLayout || approvals?.length <= 0) {
@@ -119,28 +140,12 @@ function ApprovalListHeader({
           tokenMap,
           accountId,
           networkId,
+          indexedAccountId,
         },
       });
     },
-    [navigation, contractMap, tokenMap, accountId, networkId],
+    [navigation, contractMap, tokenMap, accountId, networkId, indexedAccountId],
   );
-
-  const { riskApprovals, warningApprovals } = useMemo(() => {
-    return approvals.reduce<{
-      riskApprovals: IContractApproval[];
-      warningApprovals: IContractApproval[];
-    }>(
-      (acc, approval) => {
-        if (approval.isRiskContract) {
-          acc.riskApprovals.push(approval);
-        } else if (approval.isInactiveApproval) {
-          acc.warningApprovals.push(approval);
-        }
-        return acc;
-      },
-      { riskApprovals: [], warningApprovals: [] },
-    );
-  }, [approvals]);
 
   const handleCloseApprovalsAlert = useCallback(async () => {
     const tasks = [];

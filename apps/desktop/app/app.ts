@@ -59,6 +59,9 @@ let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 globalThis.$desktopMainAppFunctions = {
   getBundleIndexHtmlPath: () => {
     const bundleData = store.getUpdateBundleData();
+    if (!bundleData.appVersion || !bundleData.bundleVersion) {
+      return undefined;
+    }
     return getBundleIndexHtmlPath({
       appVersion: bundleData.appVersion,
       bundleVersion: bundleData.bundleVersion,
