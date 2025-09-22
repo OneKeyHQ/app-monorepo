@@ -157,17 +157,17 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   async shouldShowRiskApprovalsRevokeSuggestion({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
     const config =
       await this.backgroundApi.simpleDb.approval.getRiskApprovalsRevokeSuggestionConfig(
         {
-          networkId,
           accountId,
+          indexedAccountId,
         },
       );
 
@@ -188,17 +188,17 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   async shouldShowInactiveApprovalsRevokeSuggestion({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
     const config =
       await this.backgroundApi.simpleDb.approval.getInactiveApprovalsRevokeSuggestionConfig(
         {
-          networkId,
           accountId,
+          indexedAccountId,
         },
       );
 
@@ -279,32 +279,32 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   async updateRiskApprovalsRevokeSuggestionConfig({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
     await this.backgroundApi.simpleDb.approval.updateRiskApprovalsRevokeSuggestionConfig(
       {
-        networkId,
         accountId,
+        indexedAccountId,
       },
     );
   }
 
   @backgroundMethod()
   async updateInactiveApprovalsRevokeSuggestionConfig({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
     await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsRevokeSuggestionConfig(
       {
-        networkId,
         accountId,
+        indexedAccountId,
       },
     );
   }

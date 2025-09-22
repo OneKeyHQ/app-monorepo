@@ -149,14 +149,14 @@ export function HomePageView({
         ] = await Promise.all([
           backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
             {
-              networkId: network.id,
               accountId: account.id,
+              indexedAccountId: indexedAccount?.id,
             },
           ),
           backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsRevokeSuggestion(
             {
-              networkId: network.id,
               accountId: account.id,
+              indexedAccountId: indexedAccount?.id,
             },
           ),
         ]);
@@ -175,6 +175,7 @@ export function HomePageView({
               tokenMap: resp.tokenMap,
               accountId: account.id,
               networkId: network.id,
+              indexedAccountId: indexedAccount?.id,
               autoShow: true,
             },
           });
