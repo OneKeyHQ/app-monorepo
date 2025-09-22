@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
@@ -10,6 +9,7 @@ import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 interface IUseMarketTransactionsProps {
   tokenAddress: string;
   networkId: string;
+  normalMode: boolean;
 }
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -17,13 +17,13 @@ const DEFAULT_PAGE_SIZE = 20;
 export function useMarketTransactions({
   tokenAddress,
   networkId,
+  normalMode,
 }: IUseMarketTransactionsProps) {
   const [accumulatedTransactions, setAccumulatedTransactions] = useState<
     IMarketTokenTransaction[]
   >([]);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const { websocketConfig } = useTokenDetail();
 
   const {
     result: transactionsData,
@@ -39,7 +39,7 @@ export function useMarketTransactions({
       return response;
     },
     [tokenAddress, networkId],
-    platformEnv.isNative || !websocketConfig?.txs
+    normalMode
       ? {
           watchLoading: true,
           pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
