@@ -198,11 +198,11 @@ export function buildTickOptions(
  * Get the default tick option (usually the first exact match or smallest multiplier)
  */
 export function getDefaultTickOption(options: ITickParam[]): ITickParam {
-  // Prefer exact matches with smaller multipliers
-  const exactMatch = options.find((opt) => opt.exact);
-  if (exactMatch) return exactMatch;
+  if (!options.length) {
+    throw new OneKeyError('tick options must not be empty');
+  }
 
-  // Fallback to first option
+  // UI defaults to the first generated option to match display ordering
   return options[0];
 }
 
