@@ -122,29 +122,30 @@ const PositionRow = memo(
           currency: '$',
         },
       });
-      const fundingFormatted = numberFormat(pos.cumFunding.allTime, {
-        formatter: 'value',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
-      const fundingFormattedSinceChange = numberFormat(
-        pos.cumFunding.sinceChange,
-        {
-          formatter: 'value',
-          formatterOptions: {
-            currency: '$',
-          },
-        },
-      );
+
+      const fundingAllTimeBN = new BigNumber(pos.cumFunding.allTime);
+      const fundingSinceOpenBN = new BigNumber(pos.cumFunding.sinceOpen);
+      const fundingSinceChangeBN = new BigNumber(pos.cumFunding.sinceChange);
+      const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '';
+      const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '';
+      const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
+        ? '-'
+        : '';
+      const fundingAllTimeFormatted = fundingAllTimeBN.abs().toFixed(2);
+      const fundingSinceOpenFormatted = fundingSinceOpenBN.abs().toFixed(2);
+      const fundingSinceChangeFormatted = fundingSinceChangeBN.abs().toFixed(2);
       const roiPercent = marginUsedBN.gt(0)
         ? pnlBn.div(marginUsedBN).times(100).abs().toFixed(2)
         : '0';
       return {
         unrealizedPnl: pnlFormatted,
         marginUsedFormatted,
-        fundingFormatted,
-        fundingFormattedSinceChange,
+        fundingAllTimeFormatted,
+        fundingSinceOpenFormatted,
+        fundingSinceChangeFormatted,
+        fundingAllPlusOrMinus,
+        fundingSinceOpenPlusOrMinus,
+        fundingSinceChangePlusOrMinus,
         roiPercent,
         pnlColor,
         pnlPlusOrMinus,
@@ -278,14 +279,10 @@ const PositionRow = memo(
               <Tooltip
                 renderTrigger={
                   <SizableText size="$bodySm" color="$textCritical">
-                    {`-${otherInfo.fundingFormatted as string}`}
+                    {`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 }
-                renderContent={`allTime: -${
-                  otherInfo.fundingFormatted as string
-                } sinceChange: -${
-                  otherInfo.fundingFormattedSinceChange as string
-                }`}
+                renderContent={`allTime: ${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted} sinceChange: ${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
               />
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
@@ -474,11 +471,9 @@ const PositionRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color="$textCritical"
-              >{`-${otherInfo.fundingFormatted as string}`}</SizableText>
+              >{`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
-            renderContent={`allTime: -${
-              otherInfo.fundingFormatted as string
-            } sinceChange: -${otherInfo.fundingFormattedSinceChange as string}`}
+            renderContent={`allTime: ${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted} sinceChange: ${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
           />
         </XStack>
 

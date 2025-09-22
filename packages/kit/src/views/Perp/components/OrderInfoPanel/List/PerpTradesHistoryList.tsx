@@ -16,7 +16,9 @@ interface IPerpTradesHistoryListProps {
 
 function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
   const intl = useIntl();
-  const { trades } = usePerpTradesHistory();
+  const { trades, currentListPage, setCurrentListPage } =
+    usePerpTradesHistory();
+  console.log('perp__', trades);
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
@@ -112,6 +114,8 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
   };
   return (
     <CommonTableListView
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       data={trades}
       isMobile={isMobile}
@@ -124,7 +128,6 @@ function PerpTradesHistoryList({ isMobile }: IPerpTradesHistoryListProps) {
         id: ETranslations.perp_trade_history_empty_desc,
       })}
       enablePagination
-      pageSize={20}
     />
   );
 }
