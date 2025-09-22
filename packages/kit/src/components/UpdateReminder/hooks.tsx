@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { isEmpty, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -84,12 +84,13 @@ export const useAppChangeLog = (version?: string) => {
 };
 
 function LottieViewIcon({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
-  const [isLoaded, setIsLoaded] = useState(false);
-
+  const lottieViewRef = useRef<{
+    play?: () => void;
+  } | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsLoaded(true);
-    }, 100);
+      lottieViewRef.current?.play?.();
+    }, 350);
     return () => clearTimeout(timer);
   }, []);
 
@@ -102,20 +103,18 @@ function LottieViewIcon({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
       elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
       overflow="hidden"
     >
-      {isLoaded ? (
-        <LottieView
-          loop={false}
-          height={56}
-          width={56}
-          source={
-            themeVariant === 'light'
-              ? UpdateNotificationLight
-              : UpdateNotificationDark
-          }
-        />
-      ) : (
-        <YStack height={56} width={56} />
-      )}
+      <LottieView
+        ref={lottieViewRef as any}
+        loop={false}
+        autoPlay={false}
+        height={56}
+        width={56}
+        source={
+          themeVariant === 'light'
+            ? UpdateNotificationLight
+            : UpdateNotificationDark
+        }
+      />
     </YStack>
   );
 }
