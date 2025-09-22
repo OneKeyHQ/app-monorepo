@@ -60,11 +60,12 @@ export function TransactionsHistory({
   onScrollEnd,
 }: ITransactionsHistoryProps) {
   const { websocketConfig } = useTokenDetail();
+  const isVisible = useRouteIsFocused();
+
   const normalMode =
     !platformEnv.isNative &&
     !platformEnv.isExtChrome &&
     !(websocketConfig?.txs ?? false);
-  const isVisible = useRouteIsFocused();
 
   const intl = useIntl();
   const { gtXl } = useMedia();
