@@ -178,14 +178,14 @@ class ServiceToken extends ServiceBase {
       // get aggregate hidden tokens
       this.backgroundApi.serviceCustomToken.getHiddenTokens({
         accountId: indexedAccountId ?? accountId ?? '',
-        accountXpubOrAddress: indexedAccountId ?? accountXpubOrAddress,
+        accountXpubOrAddress: indexedAccountId ?? accountId,
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
         customTokensRawData,
       }),
       // get aggregate custom tokens
       this.backgroundApi.serviceCustomToken.getCustomTokens({
         accountId: indexedAccountId ?? accountId ?? '',
-        accountXpubOrAddress: indexedAccountId ?? accountXpubOrAddress,
+        accountXpubOrAddress: indexedAccountId ?? accountId,
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
         customTokensRawData,
       }),

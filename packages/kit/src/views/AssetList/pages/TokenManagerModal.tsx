@@ -27,6 +27,7 @@ import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
 
 import type { RouteProp } from '@react-navigation/core';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function TokenManagerModal() {
   const intl = useIntl();
@@ -83,10 +84,14 @@ function TokenManagerModal() {
   const onAddCustomToken = useCallback(
     async (token?: ICustomTokenItem) => {
       if (token?.isAggregateToken) {
+        const accountXpubOrAddress = accountUtils.isOthersAccount({ accountId })
+          ? accountId
+          : indexedAccountId;
+
         await backgroundApiProxy.serviceCustomToken.addCustomToken({
           token: {
             ...token,
-            accountXpubOrAddress: indexedAccountId ?? '',
+            accountXpubOrAddress: accountXpubOrAddress || '',
             tokenStatus: ECustomTokenStatus.Custom,
           },
         });
@@ -142,10 +147,14 @@ function TokenManagerModal() {
       let currentNetworkDeriveType = deriveType;
 
       if (token.isAggregateToken) {
+        const accountXpubOrAddress = accountUtils.isOthersAccount({ accountId })
+          ? accountId
+          : indexedAccountId;
+
         await backgroundApiProxy.serviceCustomToken.hideToken({
           token: {
             ...token,
-            accountXpubOrAddress: indexedAccountId ?? '',
+            accountXpubOrAddress: accountXpubOrAddress || '',
             tokenStatus: ECustomTokenStatus.Hidden,
           },
         });
