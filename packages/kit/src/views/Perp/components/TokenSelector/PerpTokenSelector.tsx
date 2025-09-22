@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -54,7 +54,9 @@ function BasePerpTokenSelectorContent({
               borderRadius: '$2',
             }}
             autoFocus
-            placeholder="Search"
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search_asset,
+            })}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
