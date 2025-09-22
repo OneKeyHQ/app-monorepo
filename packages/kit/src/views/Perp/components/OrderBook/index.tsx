@@ -713,7 +713,7 @@ export function OrderBook({
             {showTickSelector ? (
               <Select
                 floatingPanelProps={{
-                  width: 140,
+                  width: 150,
                 }}
                 title={intl.formatMessage({
                   id: ETranslations.perp_orderbook_spread,
@@ -725,7 +725,7 @@ export function OrderBook({
                   <TouchableOpacity
                     style={{
                       minWidth: 56,
-                      maxWidth: 140,
+                      maxWidth: 150,
                       height: 24,
                       borderRadius: 4,
                       flexDirection: 'row',
