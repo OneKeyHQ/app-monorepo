@@ -154,6 +154,7 @@ class ServiceToken extends ServiceBase {
       vaultSettings,
       network,
       aggregateHiddenTokens,
+      aggregateCustomTokens,
       allAggregateTokenInfo,
     ] = await Promise.all([
       this.backgroundApi.serviceCustomToken.getCustomTokens({
@@ -176,18 +177,34 @@ class ServiceToken extends ServiceBase {
       this.backgroundApi.serviceNetwork.getNetworkSafe({ networkId }),
       // get aggregate hidden tokens
       this.backgroundApi.serviceCustomToken.getHiddenTokens({
-        accountId: indexedAccountId ?? '',
-        accountXpubOrAddress: indexedAccountId,
+        accountId: indexedAccountId ?? accountId ?? '',
+        accountXpubOrAddress: indexedAccountId ?? accountId,
+        networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+        customTokensRawData,
+      }),
+      // get aggregate custom tokens
+      this.backgroundApi.serviceCustomToken.getCustomTokens({
+        accountId: indexedAccountId ?? accountId ?? '',
+        accountXpubOrAddress: indexedAccountId ?? accountId,
         networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
         customTokensRawData,
       }),
       this.backgroundApi.serviceToken.getAllAggregateTokenInfo(),
     ]);
 
-    rest.contractList = [
-      ...(rest.contractList ?? []),
-      ...customTokens.map((t) => t.address),
-    ];
+    if (aggregateCustomTokens?.length > 0) {
+      aggregateCustomTokens.forEach((t) => {
+        if (allAggregateTokenInfo.allAggregateTokenMap[t.$key]) {
+          // @ts-ignore
+          customTokens = [
+            ...customTokens,
+            ...allAggregateTokenInfo.allAggregateTokenMap[t.$key].tokens.filter(
+              (token) => token.networkId === networkId,
+            ),
+          ];
+        }
+      });
+    }
 
     if (aggregateHiddenTokens?.length > 0) {
       aggregateHiddenTokens.forEach((t) => {
@@ -202,6 +219,11 @@ class ServiceToken extends ServiceBase {
         }
       });
     }
+
+    rest.contractList = uniq([
+      ...(rest.contractList ?? []),
+      ...customTokens.map((t) => t.address),
+    ]);
 
     rest.hiddenTokens = uniq(hiddenTokens.map((t) => t.address));
 
