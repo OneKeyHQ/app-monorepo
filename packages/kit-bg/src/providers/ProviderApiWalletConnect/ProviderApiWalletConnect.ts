@@ -147,6 +147,7 @@ class ProviderApiWalletConnect {
       proposal?.params?.requiredNamespaces,
     );
     const origin = uriUtils.safeGetWalletConnectOrigin(proposal);
+
     const metadata = proposal.params.proposer.metadata;
     if (notSupportedChains.length > 0) {
       console.error(

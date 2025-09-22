@@ -386,7 +386,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
       signOptions?: any;
     },
-  ): Promise<any> {
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const networkId = this.convertCosmosChainId(params.signDoc.chainId);
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');
@@ -659,7 +659,8 @@ class ProviderApiCosmos extends ProviderApiBase {
     params: any,
   ) {
     // @ts-ignore
-    const wcChain = request.wcChain as string;
+    const wcChain = request.data.wcChainName as string;
+
     if (!wcChain) {
       throw new OneKeyLocalError('Invalid wcChain');
     }
@@ -677,17 +678,25 @@ class ProviderApiCosmos extends ProviderApiBase {
     return [
       {
         algo: 'secp251k1',
-        pubkey: account.account.pub ? Buffer.from(hexUtils.stripHexPrefix(account.account.pub), 'hex').toString('base64') : '',
+        pubkey: account.account.pub
+          ? Buffer.from(
+              hexUtils.stripHexPrefix(account.account.pub),
+              'hex',
+            ).toString('base64')
+          : '',
         address: account.account.addressDetail.displayAddress,
       },
     ];
   }
 
   @providerApiMethod()
-  public async cosmos_signAmino(request: IJsBridgeMessagePayload, params: {
-    signerAddress: string,
-    signDoc: ICosmosStdSignDoc,
-  }) {
+  public async cosmos_signAmino(
+    request: IJsBridgeMessagePayload,
+    params: {
+      signerAddress: string;
+      signDoc: ICosmosStdSignDoc;
+    },
+  ) {
     return this.signAmino(request, {
       signer: params.signerAddress,
       signDoc: params.signDoc,
@@ -712,16 +721,27 @@ class ProviderApiCosmos extends ProviderApiBase {
       signDoc: {
         chainId: params.signDoc.chainId,
         accountNumber: params.signDoc.accountNumber,
-        authInfoBytes: Buffer.from(params.signDoc.authInfoBytes, 'base64').toString('hex'),
-        bodyBytes: Buffer.from(params.signDoc.bodyBytes, 'base64').toString('hex'),
+        authInfoBytes: Buffer.from(
+          params.signDoc.authInfoBytes,
+          'base64',
+        ).toString('hex'),
+        bodyBytes: Buffer.from(params.signDoc.bodyBytes, 'base64').toString(
+          'hex',
+        ),
       },
     }).then((res) => {
       return {
         signed: {
           chainId: res.signed.chainId,
           accountNumber: res.signed.accountNumber,
-          authInfoBytes: Buffer.from(hexUtils.stripHexPrefix(res.signed.authInfoBytes), 'hex').toString('base64'),
-          bodyBytes: Buffer.from(hexUtils.stripHexPrefix(res.signed.bodyBytes), 'hex').toString('base64'),
+          authInfoBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.authInfoBytes),
+            'hex',
+          ).toString('base64'),
+          bodyBytes: Buffer.from(
+            hexUtils.stripHexPrefix(res.signed.bodyBytes),
+            'hex',
+          ).toString('base64'),
         },
         signature: res.signature,
       };

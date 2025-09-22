@@ -32,9 +32,11 @@ export abstract class WalletConnectRequestProxy {
   ): Promise<T> {
     const resp = await this.client.backgroundApi.handleProviderMethods<T>({
       scope: this.providerName,
-      wcChain: options.wcChain,
       origin: this.client.getDAppOrigin(options),
-      data,
+      data: {
+        ...data,
+        wcChainName: options.wcChain,
+      },
       isWalletConnectRequest: true,
     });
     return Promise.resolve(resp.result as T);
