@@ -112,7 +112,7 @@ const usePassKeyOperations = () => {
         },
       }));
     } finally {
-      console.log('close from renderPassKeyPage', from);
+      console.log('close from renderPassKeyPage');
       closeWindow();
     }
   }, [
