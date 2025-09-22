@@ -12,6 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ECustomTokenStatus,
   type IAccountToken,
@@ -27,7 +28,6 @@ import { useTokenManagement } from '../hooks/useTokenManagement';
 import { useTokenSearch } from '../hooks/useTokenSearch';
 
 import type { RouteProp } from '@react-navigation/core';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 function TokenManagerModal() {
   const intl = useIntl();
