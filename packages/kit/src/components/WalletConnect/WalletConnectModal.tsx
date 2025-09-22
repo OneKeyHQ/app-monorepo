@@ -15,10 +15,11 @@ import { WALLET_CONNECT_V2_PROJECT_ID } from '@onekeyhq/shared/src/walletConnect
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import { createOneKeyAppKit } from './AppKitClient';
+import { createOneKeyAppKit } from './OneKeyAppKitClient';
 
 import type { IWalletConnectModalShared } from './types';
 import type { AppKit, PublicStateControllerState } from '@reown/appkit/core';
+
 
 if (process.env.NODE_ENV !== 'production') {
   EventsController.subscribe((state) => {

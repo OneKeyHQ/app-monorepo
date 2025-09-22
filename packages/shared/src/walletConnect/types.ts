@@ -10,7 +10,9 @@ import type {
   SignClientTypes,
 } from '@walletconnect/types';
 import type { ConnectParams } from '@walletconnect/universal-provider';
+import type UniversalProvider from '@walletconnect/universal-provider';
 
+export type IWalletConnectUniversalProvider = UniversalProvider;
 export type IWalletConnectConnectParams = ConnectParams;
 export type IWalletConnectNamespaces = SessionTypes.Namespaces;
 export type IWalletConnectRequiredNamespaces = ProposalTypes.RequiredNamespaces;
