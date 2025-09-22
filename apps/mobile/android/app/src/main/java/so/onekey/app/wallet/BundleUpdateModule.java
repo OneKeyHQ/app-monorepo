@@ -175,6 +175,52 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return calculateSHA256(metadataFilePath).equals(extractedSha256);
     }
 
+    public static int compareVersion(String version1, String version2) {
+        if (version1 == null && version2 == null) {
+            return 0;
+        }
+        if (version1 == null) {
+            return -1;
+        }
+        if (version2 == null) {
+            return 1;
+        }
+        
+        String[] components1 = version1.split("\\.");
+        String[] components2 = version2.split("\\.");
+        
+        int maxCount = Math.max(components1.length, components2.length);
+        
+        for (int i = 0; i < maxCount; i++) {
+            int value1 = 0;
+            int value2 = 0;
+            
+            if (i < components1.length) {
+                try {
+                    value1 = Integer.parseInt(components1[i]);
+                } catch (NumberFormatException e) {
+                    value1 = 0;
+                }
+            }
+            
+            if (i < components2.length) {
+                try {
+                    value2 = Integer.parseInt(components2[i]);
+                } catch (NumberFormatException e) {
+                    value2 = 0;
+                }
+            }
+            
+            if (value1 < value2) {
+                return -1;
+            } else if (value1 > value2) {
+                return 1;
+            }
+        }
+        
+        return 0;
+    }
+
     public static String getCurrentBundleMainJSBundle(Context context) {
         try {
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
@@ -187,15 +233,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return null;
             }
             
-            if (currentAppVersion != null) {
+            if (currentAppVersion != null && !currentAppVersion.equals(currentBundleVersion)) {
                 String bundleAppVersion = currentBundleVersion.split("-")[0];
-                if (!currentAppVersion.equals(bundleAppVersion)) {
+                if (compareVersion(currentAppVersion, bundleAppVersion) == -1) {
+                    staticLog(TAG, "currentAppVersion is less than currentBundleVersion");
                     return null;
                 }
             }
             
             String bundleDir = getCurrentBundleDir(context, currentBundleVersion);
             if (bundleDir == null || !new File(bundleDir).exists()) {
+                staticLog(TAG, "currentBundleDir does not exist");
                 return null;
             }
             String signature = null;
@@ -662,6 +710,130 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             throw new RuntimeException(e);
         }
         promise.resolve(result);
+    }
+
+    @ReactMethod
+    public void testDeleteJsBundle(String appVersion, int bundleVersion, Promise promise) {
+        String folderName = appVersion + "-" + bundleVersion;
+        String bundleDir = getBundleDir(reactContext);
+        String jsBundlePath = new File(new File(bundleDir, folderName), "main.jsbundle.hbc").getAbsolutePath();
+        
+        File jsBundleFile = new File(jsBundlePath);
+        if (jsBundleFile.exists()) {
+            boolean success = jsBundleFile.delete();
+            if (success) {
+                log("testDeleteJsBundle", "Deleted jsBundle: " + jsBundlePath);
+                WritableMap result = Arguments.createMap();
+                result.putBoolean("success", true);
+                result.putString("message", "Deleted jsBundle: " + jsBundlePath);
+                promise.resolve(result);
+            } else {
+                log("testDeleteJsBundle", "Error deleting jsBundle: " + jsBundlePath);
+                promise.reject("DELETE_ERROR", "Failed to delete jsBundle: " + jsBundlePath);
+            }
+        } else {
+            log("testDeleteJsBundle", "jsBundle not found: " + jsBundlePath);
+            WritableMap result = Arguments.createMap();
+            result.putBoolean("success", false);
+            result.putString("message", "jsBundle not found: " + jsBundlePath);
+            promise.resolve(result);
+        }
+    }
+
+    @ReactMethod
+    public void testDeleteJsRuntimeDir(String appVersion, int bundleVersion, Promise promise) {
+        String folderName = appVersion + "-" + bundleVersion;
+        String bundleDir = getBundleDir(reactContext);
+        String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
+        
+        File jsRuntimeDirFile = new File(jsRuntimeDir);
+        if (jsRuntimeDirFile.exists()) {
+            boolean success = deleteDirectory(jsRuntimeDirFile);
+            if (success) {
+                log("testDeleteJsRuntimeDir", "Deleted js runtime directory: " + jsRuntimeDir);
+                WritableMap result = Arguments.createMap();
+                result.putBoolean("success", true);
+                result.putString("message", "Deleted js runtime directory: " + jsRuntimeDir);
+                promise.resolve(result);
+            } else {
+                log("testDeleteJsRuntimeDir", "Error deleting js runtime directory: " + jsRuntimeDir);
+                promise.reject("DELETE_ERROR", "Failed to delete js runtime directory: " + jsRuntimeDir);
+            }
+        } else {
+            log("testDeleteJsRuntimeDir", "js runtime directory not found: " + jsRuntimeDir);
+            WritableMap result = Arguments.createMap();
+            result.putBoolean("success", false);
+            result.putString("message", "js runtime directory not found: " + jsRuntimeDir);
+            promise.resolve(result);
+        }
+    }
+
+    @ReactMethod
+    public void testDeleteMetadataJson(String appVersion, int bundleVersion, Promise promise) {
+        String folderName = appVersion + "-" + bundleVersion;
+        String bundleDir = getBundleDir(reactContext);
+        String metadataPath = new File(new File(bundleDir, folderName), "metadata.json").getAbsolutePath();
+        
+        File metadataFile = new File(metadataPath);
+        if (metadataFile.exists()) {
+            boolean success = metadataFile.delete();
+            if (success) {
+                log("testDeleteMetadataJson", "Deleted metadata.json: " + metadataPath);
+                WritableMap result = Arguments.createMap();
+                result.putBoolean("success", true);
+                result.putString("message", "Deleted metadata.json: " + metadataPath);
+                promise.resolve(result);
+            } else {
+                log("testDeleteMetadataJson", "Error deleting metadata.json: " + metadataPath);
+                promise.reject("DELETE_ERROR", "Failed to delete metadata.json: " + metadataPath);
+            }
+        } else {
+            log("testDeleteMetadataJson", "metadata.json not found: " + metadataPath);
+            WritableMap result = Arguments.createMap();
+            result.putBoolean("success", false);
+            result.putString("message", "metadata.json not found: " + metadataPath);
+            promise.resolve(result);
+        }
+    }
+
+    @ReactMethod
+    public void testWriteEmptyMetadataJson(String appVersion, int bundleVersion, Promise promise) {
+        String folderName = appVersion + "-" + bundleVersion;
+        String bundleDir = getBundleDir(reactContext);
+        String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
+        String metadataPath = new File(jsRuntimeDir, "metadata.json").getAbsolutePath();
+        
+        File jsRuntimeDirFile = new File(jsRuntimeDir);
+        
+        // Ensure directory exists
+        if (!jsRuntimeDirFile.exists()) {
+            boolean success = jsRuntimeDirFile.mkdirs();
+            if (!success) {
+                log("testWriteEmptyMetadataJson", "Error creating directory: " + jsRuntimeDir);
+                promise.reject("CREATE_DIR_ERROR", "Failed to create directory: " + jsRuntimeDir);
+                return;
+            }
+        }
+        
+        // Write empty metadata.json
+        try {
+            JSONObject emptyMetadata = new JSONObject();
+            String jsonString = emptyMetadata.toString(2); // Pretty print with 2 spaces
+            
+            try (FileOutputStream fos = new FileOutputStream(metadataPath)) {
+                fos.write(jsonString.getBytes("UTF-8"));
+                fos.flush();
+            }
+            
+            log("testWriteEmptyMetadataJson", "Created empty metadata.json: " + metadataPath);
+            WritableMap result = Arguments.createMap();
+            result.putBoolean("success", true);
+            result.putString("message", "Created empty metadata.json: " + metadataPath);
+            promise.resolve(result);
+        } catch (Exception e) {
+            log("testWriteEmptyMetadataJson", "Error writing empty metadata.json: " + e.getMessage());
+            promise.reject("WRITE_ERROR", "Failed to write empty metadata.json: " + e.getMessage());
+        }
     }
 
     private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
