@@ -79,11 +79,6 @@ export const PriceInput = memo(
         actions={actions}
         ifOnDialog={ifOnDialog}
         isMobile={isMobile}
-        placeholder={
-          isMobile
-            ? intl.formatMessage({ id: ETranslations.perp_trade_limit_pirce })
-            : '0.0'
-        }
       />
     );
   },
