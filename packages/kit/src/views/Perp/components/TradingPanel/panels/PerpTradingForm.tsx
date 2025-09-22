@@ -259,6 +259,7 @@ function PerpTradingForm({
               fontSize={10}
               formatter="value"
               formatterOptions={{ currency: '$' }}
+              color="$text"
             >
               {totalValue.toNumber()}
             </NumberSizeableText>
@@ -269,8 +270,8 @@ function PerpTradingForm({
                 id: ETranslations.perp_position_liq_price,
               })}
             </SizableText>
-            <SizableText fontSize={10} color="$textSubdued">
-              <LiquidationPriceDisplay />
+            <SizableText fontSize={10} color="$text">
+              <LiquidationPriceDisplay isMobile={isMobile} />
             </SizableText>
           </XStack>
         </YStack>

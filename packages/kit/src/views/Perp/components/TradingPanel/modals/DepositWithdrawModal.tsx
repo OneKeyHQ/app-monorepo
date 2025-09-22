@@ -384,7 +384,12 @@ function DepositWithdrawContent({
                 color="$text"
                 size="$bodyMd"
               >
-                MAX: {availableBalance || '0.00'}
+                {availableBalance || '0.00'}{' '}
+                <SizableText size="$bodyMd" color="$green11">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_custom_filters_max,
+                  })}
+                </SizableText>
               </SizableText>
             )}
           </XStack>

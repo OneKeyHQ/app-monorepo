@@ -57,7 +57,7 @@ const PositionRow = memo(
       return {
         assetSymbol: pos.coin,
         leverage: pos.leverage?.value ?? '',
-        assetColor: side === 'long' ? '$textSuccess' : '$textCritical',
+        assetColor: side === 'long' ? '$green11' : '$red11',
       };
     }, [pos.coin, side, pos.leverage?.value]);
 
@@ -109,10 +109,10 @@ const PositionRow = memo(
           currency: '$',
         },
       });
-      let pnlColor = '$textSuccess';
+      let pnlColor = '$green11';
       let pnlPlusOrMinus = '+';
       if (pnlBn.lt(0)) {
-        pnlColor = '$textCritical';
+        pnlColor = '$red11';
         pnlPlusOrMinus = '-';
       }
       const marginUsedBN = new BigNumber(pos.marginUsed || '0');
@@ -189,11 +189,16 @@ const PositionRow = memo(
 
     if (isMobile) {
       return (
-        <ListItem flex={1} flexDirection="column" alignItems="flex-start">
-          <XStack gap="$2">
+        <ListItem
+          flex={1}
+          mt="$1.5"
+          flexDirection="column"
+          alignItems="flex-start"
+        >
+          <XStack gap="$2" alignItems="center">
             <XStack
-              w="$5"
-              h="$5"
+              w="$4"
+              h="$4"
               justifyContent="center"
               alignItems="center"
               borderRadius="$1"
@@ -201,7 +206,7 @@ const PositionRow = memo(
               cursor="pointer"
               onPress={() => selectToken(assetInfo.assetSymbol)}
             >
-              <SizableText size="$bodyMdMedium" color="$textOnColor">
+              <SizableText size="$bodySmMedium" color="$textOnColor">
                 {side === 'long' ? 'B' : 'S'}
               </SizableText>
             </XStack>
@@ -220,10 +225,10 @@ const PositionRow = memo(
             <YStack gap="$1">
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.perp_position_pnl,
+                  id: ETranslations.perp_position_pnl_mobile,
                 })}
               </SizableText>
-              <SizableText size="$bodySm" color={otherInfo.pnlColor}>
+              <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
                 {`${otherInfo.unrealizedPnl as string}`}
               </SizableText>
             </YStack>
@@ -231,7 +236,7 @@ const PositionRow = memo(
               <SizableText size="$bodySm" color="$textSubdued">
                 ROE
               </SizableText>
-              <SizableText size="$bodySm" color={otherInfo.pnlColor}>
+              <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
                 {`${otherInfo.roiPercent}%`}
               </SizableText>
             </YStack>
@@ -243,7 +248,7 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySmMedium">
                 {`${sizeInfo.sizeAbsFormatted as string}`}
               </SizableText>
             </YStack>
@@ -253,7 +258,7 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_margin,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySmMedium">
                 {`${otherInfo.marginUsedFormatted as string}`}
               </SizableText>
             </YStack>
@@ -263,7 +268,7 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_entry_price,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySmMedium">
                 {`${priceInfo.entryPriceFormatted}`}
               </SizableText>
             </YStack>
@@ -277,7 +282,7 @@ const PositionRow = memo(
               </SizableText>
               <Tooltip
                 renderTrigger={
-                  <SizableText size="$bodySm" color="$textCritical">
+                  <SizableText size="$bodySmMedium" color="$textCritical">
                     {`-${otherInfo.fundingFormatted as string}`}
                   </SizableText>
                 }
@@ -294,7 +299,7 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_tp_sl,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
+              <SizableText size="$bodySmMedium">{`${tpslInfo.tpsl}`}</SizableText>
             </YStack>
             <YStack gap="$1" width={120} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -302,31 +307,30 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_liq_price,
                 })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySmMedium">
                 {`${priceInfo.liquidationPriceFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
-          <XStack width="100%" justifyContent="space-between">
-            <Button
-              width={160}
-              size="small"
-              variant="secondary"
-              onPress={setTpsl}
-            >
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_set_tp_sl,
-              })}
+          <XStack width="100%" gap="$2.5" justifyContent="space-between">
+            <Button size="small" variant="secondary" onPress={setTpsl} flex={1}>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trade_set_tp_sl,
+                })}
+              </SizableText>
             </Button>
             <Button
-              width={160}
               size="small"
               variant="secondary"
               onPress={() => handleClosePosition('market')}
+              flex={1}
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_position_close,
-              })}
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_close,
+                })}
+              </SizableText>
             </Button>
           </XStack>
         </ListItem>
@@ -355,6 +359,20 @@ const PositionRow = memo(
           cursor="pointer"
           onPress={() => selectToken(assetInfo.assetSymbol)}
         >
+          <XStack
+            w="$4"
+            h="$4"
+            justifyContent="center"
+            alignItems="center"
+            borderRadius="$1"
+            backgroundColor={assetInfo.assetColor}
+            cursor="pointer"
+            onPress={() => selectToken(assetInfo.assetSymbol)}
+          >
+            <SizableText size="$bodySmMedium" color="$textOnColor">
+              {side === 'long' ? 'B' : 'S'}
+            </SizableText>
+          </XStack>
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -494,18 +512,22 @@ const PositionRow = memo(
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
-                iconSize="$2.5"
+                iconSize="$3"
                 onPress={setTpsl}
+                cursor="pointer"
               />
-              <Button
-                size="small"
-                variant="tertiary"
+
+              <SizableText
+                cursor="pointer"
+                hoverStyle={{ size: '$bodySmMedium' }}
+                color="$green11"
+                size="$bodySm"
                 onPress={handleViewTpslOrders}
               >
-                <SizableText color="$textSuccess" size="$bodySm">
-                  View Order
-                </SizableText>
-              </Button>
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_view_orders,
+                })}
+              </SizableText>
             </XStack>
           ) : (
             <XStack alignItems="center" gap="$1">
@@ -513,8 +535,9 @@ const PositionRow = memo(
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
-                iconSize="$2.5"
+                iconSize="$3"
                 onPress={setTpsl}
+                cursor="pointer"
               />
               <SizableText
                 numberOfLines={1}
@@ -539,20 +562,28 @@ const PositionRow = memo(
             onPress={() => handleClosePosition('market')}
           >
             <SizableText
+              cursor="pointer"
+              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$textSuccess"
-              size="$bodySmMedium"
-              fontWeight={600}
+              size="$bodySm"
+              fontWeight={400}
             >
-              Market
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_market,
+              })}
             </SizableText>
           </XStack>
           <XStack cursor="pointer" onPress={() => handleClosePosition('limit')}>
             <SizableText
+              cursor="pointer"
+              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$textSuccess"
-              size="$bodySmMedium"
-              fontWeight={600}
+              size="$bodySm"
+              fontWeight={400}
             >
-              Limit
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_limit,
+              })}
             </SizableText>
           </XStack>
         </XStack>
