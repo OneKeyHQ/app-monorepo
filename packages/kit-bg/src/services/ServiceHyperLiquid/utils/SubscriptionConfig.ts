@@ -158,7 +158,7 @@ export interface ISubscriptionState {
   currentUser: IHex | null;
   currentSymbol: string;
   isConnected: boolean;
-  l2BookOptions?: IL2BookOptions;
+  l2BookOptions?: IL2BookOptions | null;
 }
 
 export interface ISubscriptionDiff {
