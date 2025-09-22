@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { isEmpty, noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -83,6 +83,43 @@ export const useAppChangeLog = (version?: string) => {
   return useMemo(() => response.result, [response.result]);
 };
 
+function LottieViewIcon({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <YStack
+      borderRadius="$5"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
+      overflow="hidden"
+    >
+      {isLoaded ? (
+        <LottieView
+          loop={false}
+          height={56}
+          width={56}
+          source={
+            themeVariant === 'light'
+              ? UpdateNotificationLight
+              : UpdateNotificationDark
+          }
+        />
+      ) : (
+        <YStack height={56} width={56} />
+      )}
+    </YStack>
+  );
+}
+
 const DIALOG_THROTTLE_TIME = 30 * 1000;
 const showSilentUpdateDialogUI = throttle(
   async ({
@@ -98,27 +135,7 @@ const showSilentUpdateDialogUI = throttle(
   }) => {
     Dialog.show({
       dismissOnOverlayPress: false,
-      renderIcon: (
-        <YStack
-          borderRadius="$5"
-          borderCurve="continuous"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
-          overflow="hidden"
-        >
-          <LottieView
-            loop={false}
-            height={56}
-            width={56}
-            source={
-              themeVariant === 'light'
-                ? UpdateNotificationLight
-                : UpdateNotificationDark
-            }
-          />
-        </YStack>
-      ),
+      renderIcon: <LottieViewIcon themeVariant={themeVariant} />,
       title: intl.formatMessage({
         id: ETranslations.update_notification_dialog_title,
       }),
@@ -157,27 +174,7 @@ const showUpdateDialogUI = throttle(
   }) => {
     dialog.show({
       dismissOnOverlayPress: false,
-      renderIcon: (
-        <YStack
-          borderRadius="$5"
-          borderCurve="continuous"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
-          overflow="hidden"
-        >
-          <LottieView
-            loop={false}
-            height={56}
-            width={56}
-            source={
-              themeVariant === 'light'
-                ? UpdateNotificationLight
-                : UpdateNotificationDark
-            }
-          />
-        </YStack>
-      ),
+      renderIcon: <LottieViewIcon themeVariant={themeVariant} />,
       title: intl.formatMessage({
         id: ETranslations.update_notification_dialog_title,
       }),
