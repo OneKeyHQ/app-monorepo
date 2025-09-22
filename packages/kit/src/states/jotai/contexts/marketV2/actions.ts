@@ -12,7 +12,11 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketTokenDetail,
+  IMarketTokenDetailResponse,
+  IMarketTokenDetailWebsocket,
+} from '@onekeyhq/shared/types/marketV2';
 
 import {
   contextAtomMethod,
@@ -22,6 +26,7 @@ import {
   tokenAddressAtom,
   tokenDetailAtom,
   tokenDetailLoadingAtom,
+  tokenDetailWebsocketAtom,
 } from './atoms';
 
 export const homeResettingFlags: Record<string, number> = {};
@@ -46,11 +51,18 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(networkIdAtom(), payload);
   });
 
+  setTokenDetailWebsocket = contextAtomMethod(
+    (_, set, payload: IMarketTokenDetailWebsocket | undefined) => {
+      set(tokenDetailWebsocketAtom(), payload);
+    },
+  );
+
   clearTokenDetail = contextAtomMethod((_, set) => {
     set(tokenDetailAtom(), undefined);
     set(tokenDetailLoadingAtom(), false);
     set(tokenAddressAtom(), '');
     set(networkIdAtom(), '');
+    set(tokenDetailWebsocketAtom(), undefined);
   });
 
   // ShowWatchlistOnly Actions
@@ -83,32 +95,41 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
             networkId,
           );
 
-        if (typeof response?.name === 'undefined' || response.name === '') {
+        // Assume new format with data.token and data.websocket
+        const responseData = response as unknown as IMarketTokenDetailResponse;
+
+        if (
+          typeof responseData?.data?.token?.name === 'undefined' ||
+          responseData.data.token.name === ''
+        ) {
           console.warn('Token detail is not available');
           return;
         }
+
+        // Extract token and websocket data from new response format
+        const tokenData = responseData.data.token;
+        const websocketConfig = responseData.data.websocket;
 
         // Always preserve K-line updated price if it exists, fallback to API price
         const currentTokenDetail = get(tokenDetailAtom());
         const hasKLinePrice = currentTokenDetail?.lastUpdated;
 
-        const finalResponse = hasKLinePrice
+        const finalTokenData = hasKLinePrice
           ? {
-              ...response,
+              ...tokenData,
               price: currentTokenDetail.price, // Always use K-line price
               lastUpdated: currentTokenDetail.lastUpdated,
             }
-          : {
-              ...response,
-              // Use API price as fallback when no K-line price available
-            };
+          : tokenData;
 
-        set(tokenDetailAtom(), finalResponse);
+        set(tokenDetailAtom(), finalTokenData);
+        set(tokenDetailWebsocketAtom(), websocketConfig);
 
-        return finalResponse;
+        return finalTokenData;
       } catch (error) {
         console.error('Failed to fetch token detail:', error);
         set(tokenDetailAtom(), undefined);
+        set(tokenDetailWebsocketAtom(), undefined);
         throw error;
       } finally {
         set(tokenDetailLoadingAtom(), false);
@@ -292,6 +313,7 @@ export function useTokenDetailActions() {
   const setTokenDetailLoading = actions.setTokenDetailLoading.use();
   const setTokenAddress = actions.setTokenAddress.use();
   const setNetworkId = actions.setNetworkId.use();
+  const setTokenDetailWebsocket = actions.setTokenDetailWebsocket.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
 
@@ -300,6 +322,7 @@ export function useTokenDetailActions() {
     setTokenDetailLoading,
     setTokenAddress,
     setNetworkId,
+    setTokenDetailWebsocket,
     fetchTokenDetail,
     clearTokenDetail,
   });

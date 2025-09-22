@@ -17,7 +17,7 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
       // Always fetch token detail data to get complete token information
       // The K-line price priority logic is handled inside fetchTokenDetail
-      const result = await tokenDetailActions.fetchTokenDetail(
+      await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
       );

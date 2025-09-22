@@ -51,6 +51,7 @@ export type IStartServerSyncFlowParams = {
   setUndefinedTimeToNow?: boolean;
   throwError?: boolean;
   callerName?: string;
+  noDebounceUpload?: boolean;
 };
 
 export type ICloudSyncServerItem = {

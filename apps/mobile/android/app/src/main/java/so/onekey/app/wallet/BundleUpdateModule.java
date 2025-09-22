@@ -748,7 +748,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         
         File jsRuntimeDirFile = new File(jsRuntimeDir);
         if (jsRuntimeDirFile.exists()) {
-            boolean success = deleteDirectory(jsRuntimeDirFile);
+            deleteDirectory(jsRuntimeDirFile);
+            boolean success = !jsRuntimeDirFile.exists();
             if (success) {
                 log("testDeleteJsRuntimeDir", "Deleted js runtime directory: " + jsRuntimeDir);
                 WritableMap result = Arguments.createMap();
