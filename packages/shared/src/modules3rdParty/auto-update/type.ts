@@ -92,4 +92,5 @@ export interface IBundleUpdate {
   downloadBundleASC: IDownloadBundleASC;
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
+  testVerification: () => Promise<boolean>;
 }

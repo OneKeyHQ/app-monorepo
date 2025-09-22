@@ -652,6 +652,18 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
+    @ReactMethod
+    public void testVerification(Promise promise) {
+        String cacheFilePath = reactContext.getCacheDir().getAbsolutePath() + "/bundle-gpg-test-verification-temp";
+        boolean result = false;
+        try {
+            result = Verification.testExtractedSha256FromVerifyAscFile(cacheFilePath);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        promise.resolve(result);
+    }
+
     private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
         File file = new File(filePath);
         file.getParentFile().mkdirs();

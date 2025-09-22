@@ -71,7 +71,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   }, [tokenInfo, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   return (
-    <YStack gap="$4" p="$4">
+    <YStack gap="$4">
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       <PerpTradingButton
         loading={universalLoading}

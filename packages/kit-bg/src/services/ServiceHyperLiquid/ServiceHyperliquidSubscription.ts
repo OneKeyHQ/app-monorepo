@@ -45,7 +45,7 @@ interface ISubscriptionUpdateParams {
   currentUser?: IHex | null;
   currentSymbol?: string;
   isConnected?: boolean;
-  l2BookOptions?: IL2BookOptions;
+  l2BookOptions?: IL2BookOptions | null;
 }
 
 @backgroundClass()

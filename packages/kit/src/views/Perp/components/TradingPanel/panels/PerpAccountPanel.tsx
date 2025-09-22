@@ -175,16 +175,16 @@ function PerpAccountPanel({
     );
   }
   return (
-    <YStack flex={1} gap="$1.5">
+    <YStack flex={1} gap="$4" pt="$4">
       {/* Header */}
-      <XStack p="$4" justifyContent="space-between" alignItems="center">
+      <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$headingSm">
           {intl.formatMessage({
             id: ETranslations.perp_trade_account_overview,
           })}
         </SizableText>
       </XStack>
-      <YStack flex={1} px="$4" gap="$2.5">
+      <YStack flex={1} gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
           <Tooltip
@@ -229,7 +229,7 @@ function PerpAccountPanel({
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
-        <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
+        <XStack gap="$2.5">
           <Button
             borderRadius="$3"
             flex={1}

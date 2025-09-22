@@ -640,4 +640,10 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
     resolve(nil);
 }
 
+RCT_EXPORT_METHOD(testVerification:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    BOOL result = [Verification testExtractedSha256FromVerifyAscFile];
+    resolve(@(result));
+}
+
 @end
