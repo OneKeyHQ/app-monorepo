@@ -1,9 +1,16 @@
-import { useMemo } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
-import { Image, Page, XStack, useMedia } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  Image,
+  Page,
+  Stack,
+  XStack,
+  YStack,
+  useMedia,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -16,6 +23,8 @@ import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {
   const { gtMd } = useMedia();
@@ -55,24 +64,58 @@ function PerpContentFooter() {
 
 function PerpContent() {
   console.log('PerpContent render');
-
+  const [tabPageHeight, setTabPageHeight] = useState(
+    platformEnv.isNativeIOS ? 143 : 92,
+  );
+  const handleTabPageLayout = useCallback((e: LayoutChangeEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const height = e.nativeEvent.layout.height - 20;
+    setTabPageHeight(height);
+  }, []);
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Perp}
-        customHeaderRightItems={
-          <PerpsAccountSelectorProviderMirror>
-            <PerpsProviderMirror>
-              <PerpAccountPanel ifOnHeader />
-            </PerpsProviderMirror>
-          </PerpsAccountSelectorProviderMirror>
-        }
-      />
+      {platformEnv.isNative ? (
+        <Stack h={tabPageHeight} />
+      ) : (
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Perp}
+          customHeaderRightItems={
+            <PerpsAccountSelectorProviderMirror>
+              <PerpsProviderMirror>
+                <PerpAccountPanel ifOnHeader />
+              </PerpsProviderMirror>
+            </PerpsAccountSelectorProviderMirror>
+          }
+        />
+      )}
       <Page.Body>
         <PerpLayout />
       </Page.Body>
       <PerpContentFooter />
+      {platformEnv.isNative ? (
+        <YStack
+          position="absolute"
+          top={-20}
+          left={0}
+          bg="$bgApp"
+          pt="$5"
+          width="100%"
+          onLayout={handleTabPageLayout}
+        >
+          <TabPageHeader
+            sceneName={EAccountSelectorSceneName.home}
+            tabRoute={ETabRoutes.Perp}
+            customHeaderRightItems={
+              <PerpsAccountSelectorProviderMirror>
+                <PerpsProviderMirror>
+                  <PerpAccountPanel ifOnHeader />
+                </PerpsProviderMirror>
+              </PerpsAccountSelectorProviderMirror>
+            }
+          />
+        </YStack>
+      ) : null}
     </Page>
   );
 }
