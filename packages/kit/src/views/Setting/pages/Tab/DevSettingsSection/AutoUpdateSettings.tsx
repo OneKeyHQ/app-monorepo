@@ -68,9 +68,10 @@ export function AutoUpdateSettings() {
           />
           <Button
             variant="primary"
-            onPress={() => {
-              void dialogInstance.close();
-              showMainDialog();
+            onPress={async () => {
+              await dialogInstance.close();
+              // eslint-disable-next-line @typescript-eslint/no-use-before-define
+              await showMainDialog();
             }}
           >
             Continue
@@ -272,31 +273,19 @@ export function AutoUpdateSettings() {
     });
   };
 
-  const showMainDialog = async () => {
+  async function showMainDialog() {
     const currentAppVersion = String(platformEnv.version);
+    const currentBuildNumber = String(platformEnv.buildNumber);
     const currentBundleVersion = String(platformEnv.bundleVersion);
 
     const dialogInstance = Dialog.show({
       title: 'Auto Update Test Suite',
       renderContent: (
-        <YStack p="$4" gap="$3">
-          <SizableText size="$headingSm">Current Version Info</SizableText>
-          <YStack
-            gap="$2"
-            p="$3"
-            backgroundColor="$bgSubdued"
-            borderRadius="$2"
-          >
-            <SizableText size="$bodyMd">
-              App Version: {currentAppVersion}
-            </SizableText>
-            <SizableText size="$bodyMd">
-              JS Bundle Version: {currentBundleVersion}
-            </SizableText>
-          </YStack>
-
+        <YStack p="$1" gap="$1">
+          <SizableText size="$headingSm">
+            {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
+          </SizableText>
           <SizableText size="$headingSm">Select Test Category</SizableText>
-
           {platformEnv.isNativeAndroid ||
           (platformEnv.isDesktop &&
             !platformEnv.isMas &&
