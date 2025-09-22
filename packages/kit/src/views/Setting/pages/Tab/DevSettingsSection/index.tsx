@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 import { I18nManager } from 'react-native';
 
 import {
+  Button,
   Dialog,
   ESwitchSize,
   Input,
+  SizableText,
   Switch,
   TextAreaInput,
   Toast,
@@ -34,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -63,6 +66,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
+import { AutoUpdateDevSettings } from './AutoUpdateDevSettings';
 import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
@@ -981,7 +985,7 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-
+      <AutoUpdateDevSettings />
       <ListItem
         icon="PerformanceOutline"
         title="Performance Monitor(UI FPS/JS FPS)"

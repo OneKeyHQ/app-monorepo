@@ -21,6 +21,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import ApprovalListView from '../../../components/ApprovalListView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useApprovalListActions } from '../../../states/jotai/contexts/approvalList';
 import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
@@ -44,6 +45,8 @@ function ApprovalListContainer() {
     updateApprovalListState,
   } = useApprovalListActions().current;
 
+  const { updateApprovalsInfo } = useAccountOverviewActions().current;
+
   const { run } = usePromiseResult(
     async () => {
       if (!account || !network) return;
@@ -64,6 +67,14 @@ function ApprovalListContainer() {
             networkId: network.id,
             indexedAccountId: indexedAccount?.id,
           });
+
+        const riskApprovals = resp.contractApprovals.filter(
+          (item) => item.isRiskContract,
+        );
+
+        updateApprovalsInfo({
+          hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
+        });
 
         updateApprovalList({ data: resp.contractApprovals });
         updateTokenMap({ data: resp.tokenMap });
@@ -91,12 +102,13 @@ function ApprovalListContainer() {
     [
       account,
       network,
-      updateApprovalListState,
       indexedAccount?.id,
+      updateApprovalsInfo,
       updateApprovalList,
       updateTokenMap,
       updateContractMap,
       setIsHeaderRefreshing,
+      updateApprovalListState,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,

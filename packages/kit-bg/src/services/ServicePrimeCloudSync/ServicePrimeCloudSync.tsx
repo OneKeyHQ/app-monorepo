@@ -368,6 +368,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow,
     syncCredential,
     encryptedSecurityPasswordR1ForServer,
+    noDebounceUpload,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush?: boolean;
@@ -376,6 +377,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow?: boolean;
     syncCredential?: ICloudSyncCredential | undefined;
     encryptedSecurityPasswordR1ForServer?: string;
+    noDebounceUpload?: boolean;
   }) {
     if (!skipPrimeStatusCheck) {
       await this.ensureCloudSyncIsAvailable();
@@ -423,6 +425,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       localItems,
       pwdHash,
       setUndefinedTimeToNow,
+      noDebounceUpload,
     });
   }
 
@@ -536,41 +539,51 @@ class ServicePrimeCloudSync extends ServiceBase {
     localItems,
     pwdHash,
     setUndefinedTimeToNow,
+    noDebounceUpload,
   }: {
     localItems: IDBCloudSyncItem[];
     pwdHash: string;
     setUndefinedTimeToNow?: boolean;
+    noDebounceUpload?: boolean;
   }) {
     this.uploadItemsToMerge = uniqBy(
       [...localItems, ...this.uploadItemsToMerge],
       (i: IDBCloudSyncItem) => i.id,
     );
+    if (noDebounceUpload) {
+      return this._callApiUploadItemsInstantly({
+        pwdHash,
+        setUndefinedTimeToNow,
+      });
+    }
     return this._callApiUploadItemsDebounced({
       pwdHash,
       setUndefinedTimeToNow,
     });
   }
 
+  _callApiUploadItemsInstantly = async ({
+    pwdHash,
+    setUndefinedTimeToNow,
+  }: {
+    pwdHash: string;
+    setUndefinedTimeToNow?: boolean;
+  }) => {
+    const localItems = [...this.uploadItemsToMerge];
+    this.uploadItemsToMerge = [];
+    if (localItems.length) {
+      await this._callApiUploadItems({
+        localItems,
+        isFlush: false,
+        lockItem: undefined,
+        pwdHash,
+        setUndefinedTimeToNow,
+      });
+    }
+  };
+
   _callApiUploadItemsDebounced = debounce(
-    async ({
-      pwdHash,
-      setUndefinedTimeToNow,
-    }: {
-      pwdHash: string;
-      setUndefinedTimeToNow?: boolean;
-    }) => {
-      const localItems = this.uploadItemsToMerge;
-      this.uploadItemsToMerge = [];
-      if (localItems.length) {
-        await this._callApiUploadItems({
-          localItems,
-          isFlush: false,
-          lockItem: undefined,
-          pwdHash,
-          setUndefinedTimeToNow,
-        });
-      }
-    },
+    this._callApiUploadItemsInstantly,
     1000,
     {
       leading: false,
@@ -946,6 +959,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     encryptedSecurityPasswordR1ForServer,
     setUndefinedTimeToNow,
     callerName,
+    noDebounceUpload,
   }: Omit<IStartServerSyncFlowParams, 'throwError'> = {}) {
     await this.startServerSyncFlowSilently({
       isFlush,
@@ -953,6 +967,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       setUndefinedTimeToNow,
       throwError: true,
       callerName,
+      noDebounceUpload,
     });
   }
 
@@ -981,6 +996,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow,
     throwError,
     callerName,
+    noDebounceUpload,
   }: IStartServerSyncFlowParams = {}) {
     try {
       if (!(await this.isCloudSyncIsAvailable())) {
@@ -1029,6 +1045,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         isFlush,
         encryptedSecurityPasswordR1ForServer,
         isFullDBChecking: true,
+        noDebounceUpload,
       });
     } catch (error) {
       errorUtils.autoPrintErrorIgnore(error);
@@ -1091,12 +1108,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     setUndefinedTimeToNow,
     encryptedSecurityPasswordR1ForServer,
     isFullDBChecking,
+    noDebounceUpload,
   }: {
     localItems: IDBCloudSyncItem[];
     isFlush?: boolean;
     setUndefinedTimeToNow?: boolean;
     encryptedSecurityPasswordR1ForServer?: string;
     isFullDBChecking?: boolean;
+    noDebounceUpload?: boolean;
   }) {
     if (!(await this.isCloudSyncIsAvailable())) {
       return;
@@ -1125,6 +1144,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         setUndefinedTimeToNow: setUndefinedTimeToNow ?? true,
         syncCredential,
         encryptedSecurityPasswordR1ForServer,
+        noDebounceUpload,
       });
     }
 

@@ -57,8 +57,8 @@ function MobileHeader() {
     markPriceNumber === 0;
 
   return (
-    <YStack alignItems="flex-end" mb="$2">
-      <SizableText size="$bodySm" color="$textSubdued">
+    <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
+      <SizableText fontSize={10} color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.perp_token_bar_Funding,
         })}
@@ -141,7 +141,7 @@ export function PerpOrderBook({
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={12}
+          maxLevelsPerSide={13}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptionsData.tickOptions}
@@ -153,13 +153,13 @@ export function PerpOrderBook({
       );
     }
     return (
-      <>
+      <YStack gap="$1">
         <MobileHeaderMemo />
         <OrderBookMobile
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={9}
+          maxLevelsPerSide={6}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptionsData.tickOptions}
@@ -168,7 +168,7 @@ export function PerpOrderBook({
           sizeDecimals={tickOptionsData.sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
-      </>
+      </YStack>
     );
   }, [
     entry,

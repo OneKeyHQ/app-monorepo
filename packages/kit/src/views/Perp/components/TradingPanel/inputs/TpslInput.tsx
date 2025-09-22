@@ -3,7 +3,13 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Input, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Input,
+  SizableText,
+  XStack,
+  YStack,
+  getFontSize,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatPercentage,
@@ -23,6 +29,7 @@ interface ITpslInputProps {
   onChange: (data: { tpPrice: string; slPrice: string }) => void;
   disabled?: boolean;
   ifOnDialog?: boolean;
+  isMobile?: boolean;
 }
 
 export const TpslInput = memo(
@@ -35,6 +42,7 @@ export const TpslInput = memo(
     onChange,
     disabled = false,
     ifOnDialog = false,
+    isMobile = false,
   }: ITpslInputProps) => {
     const [internalState, setInternalState] = useState({
       tpTriggerPx: tpsl.tpPrice,
@@ -207,7 +215,80 @@ export const TpslInput = memo(
       ],
     );
     const intl = useIntl();
-
+    if (isMobile) {
+      return (
+        <YStack gap="$3">
+          <YStack flex={1}>
+            <Input
+              h={32}
+              placeholder={intl.formatMessage({
+                id: ETranslations.perp_trade_tp_price,
+              })}
+              value={internalState.tpTriggerPx}
+              onChangeText={handleTpPriceChange}
+              disabled={disabled}
+              keyboardType="decimal-pad"
+              fontSize={getFontSize('$bodyMd')}
+              size="small"
+              containerProps={{
+                borderWidth: ifOnDialog ? '$px' : 0,
+                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
+                borderRadius: '$2',
+              }}
+              InputComponentStyle={{
+                px: '$3',
+              }}
+              addOns={[
+                {
+                  renderContent: (
+                    <XStack alignItems="center" justifyContent="center" pr="$3">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        USD
+                      </SizableText>
+                    </XStack>
+                  ),
+                },
+              ]}
+            />
+          </YStack>
+          <YStack flex={1}>
+            <Input
+              h={32}
+              placeholder={intl.formatMessage({
+                id: ETranslations.perp_trade_sl_price,
+              })}
+              value={internalState.slTriggerPx}
+              onChangeText={handleSlPriceChange}
+              disabled={disabled}
+              keyboardType="decimal-pad"
+              fontSize={getFontSize('$bodyMd')}
+              size="small"
+              containerProps={{
+                borderWidth: ifOnDialog ? '$px' : 0,
+                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
+                borderRadius: '$2',
+              }}
+              InputComponentStyle={{
+                px: '$3',
+              }}
+              addOns={[
+                {
+                  renderContent: (
+                    <XStack alignItems="center" justifyContent="center" pr="$3">
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        USD
+                      </SizableText>
+                    </XStack>
+                  ),
+                },
+              ]}
+            />
+          </YStack>
+        </YStack>
+      );
+    }
     return (
       <YStack gap="$3">
         <XStack gap="$3">

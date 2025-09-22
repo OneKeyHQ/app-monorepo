@@ -14,7 +14,13 @@ import {
   View,
 } from 'react-native';
 
-import { Icon, Select, useTheme, useThemeName } from '@onekeyhq/components';
+import {
+  Icon,
+  Select,
+  YStack,
+  useTheme,
+  useThemeName,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -707,7 +713,7 @@ export function OrderBook({
             {showTickSelector ? (
               <Select
                 floatingPanelProps={{
-                  width: 140,
+                  width: 150,
                 }}
                 title={intl.formatMessage({
                   id: ETranslations.perp_orderbook_spread,
@@ -719,7 +725,7 @@ export function OrderBook({
                   <TouchableOpacity
                     style={{
                       minWidth: 56,
-                      maxWidth: 140,
+                      maxWidth: 150,
                       height: 24,
                       borderRadius: 4,
                       flexDirection: 'row',
@@ -972,9 +978,9 @@ export function OrderPairBook({
 }
 
 // Compact row height for mobile
-const MOBILE_ROW_GAP = 1;
-const MOBILE_ROW_HEIGHT = 19;
-const MOBILE_SPREAD_ROW_HEIGHT = 35;
+const MOBILE_ROW_GAP = 0;
+const MOBILE_ROW_HEIGHT = 20;
+const MOBILE_SPREAD_ROW_HEIGHT = 40;
 const MobileRow = ({
   item,
   priceColor,
@@ -1085,22 +1091,46 @@ export function OrderBookMobile({
   return (
     <View style={style}>
       <View style={styles.pairBookHeader}>
-        <Text
-          style={[
-            styles.headerText,
-            { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-          ]}
-        >
-          {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-        </Text>
-        <Text
-          style={[
-            styles.headerText,
-            { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-          ]}
-        >
-          {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-        </Text>
+        <YStack>
+          <Text
+            style={[
+              styles.headerText,
+              { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
+            ]}
+          >
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+          </Text>
+          <Text
+            style={[
+              styles.headerText,
+              {
+                color: textColor.textSubdued,
+                fontSize: 10,
+                lineHeight: 12,
+              },
+            ]}
+          >
+            (USD)
+          </Text>
+        </YStack>
+        <YStack alignItems="flex-end">
+          <Text
+            style={[
+              styles.headerText,
+              { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
+            ]}
+          >
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+          </Text>
+          <Text
+            style={[
+              styles.headerText,
+              { color: textColor.textSubdued, fontSize: 10, lineHeight: 12 },
+            ]}
+          >
+            ({_symbol ?? ''})
+          </Text>
+        </YStack>
       </View>
       <View style={styles.relativeContainer}>
         {/* background depth bars */}

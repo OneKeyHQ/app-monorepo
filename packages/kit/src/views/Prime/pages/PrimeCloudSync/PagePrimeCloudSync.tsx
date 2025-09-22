@@ -342,6 +342,7 @@ function AppDataSection() {
       });
       await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
         callerName: 'Manual Cloud Sync',
+        noDebounceUpload: true,
       });
       await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime();
     } finally {

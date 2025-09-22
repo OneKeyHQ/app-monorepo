@@ -30,7 +30,7 @@ jobs:
         uses: ./.github/actions/shared-env
         with:
           env_file_name: '.env'
-          sentry_project: 'desktop-mas'
+          sentry_project: 'react-native'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
           sentry_dsn_react_native: ${{ secrets.SENTRY_DSN_REACT_NATIVE }}
@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle
+          name: release-native-bundle-zips
           path: |
             ./apps/mobile/out-dir-bundle-zip
             !**/.DS_Store
@@ -99,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle
+          name: release-native-bundle-sources
           path: |
             ./apps/mobile/out-dir-bundle
             !**/.DS_Store

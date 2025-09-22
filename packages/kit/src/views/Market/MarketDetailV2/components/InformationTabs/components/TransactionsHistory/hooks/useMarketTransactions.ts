@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
@@ -22,6 +23,7 @@ export function useMarketTransactions({
   >([]);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const { websocketConfig } = useTokenDetail();
 
   const {
     result: transactionsData,
@@ -37,7 +39,7 @@ export function useMarketTransactions({
       return response;
     },
     [tokenAddress, networkId],
-    platformEnv.isNative
+    platformEnv.isNative || !websocketConfig?.txs
       ? {
           watchLoading: true,
           pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),

@@ -1,6 +1,6 @@
 #import "Verification.h"
 #import <CocoaLumberjack/CocoaLumberjack.h>
-#import <ObjectivePGP/ObjectivePGP.h>
+#import <Gopenpgp/Gopenpgp.h>
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
@@ -61,7 +61,8 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
 @implementation Verification
 
 + (NSString *)extractedTextContentFromVerifyAscFile:(NSString *)ascFileContent error:(NSError **)error {
-    if (!ascFileContent) {
+    if (!ascFileContent || ascFileContent.length == 0) {
+        DDLogError(@"Invalid parameters");
         if (error) {
             *error = [NSError errorWithDomain:@"VerificationError" code:1001 userInfo:@{NSLocalizedDescriptionKey: @"Invalid parameters"}];
         }
@@ -69,58 +70,150 @@ static NSString * const PUBLIC_KEY = @"-----BEGIN PGP PUBLIC KEY BLOCK-----\n"
     }
     
     @try {
-        // Parse the public key
-        NSData *publicKeyData = [PUBLIC_KEY dataUsingEncoding:NSUTF8StringEncoding];
-      
-        NSError *publicKeyError = nil;
-        NSArray<PGPKey *> *publicKeys = [ObjectivePGP readKeysFromData:publicKeyData error:&publicKeyError];
-
-        if (publicKeyError) {
-            DDLogError(@"Failed to parse public key: %@", publicKeyError.localizedDescription);
+        // Create a key from the public key using gopenpgp
+        NSError *keyError = nil;
+        CryptoKey *key = CryptoNewKeyFromArmored(PUBLIC_KEY, &keyError);
+        if (!key || keyError) {
+            DDLogError(@"Failed to create key from armored string: %@", keyError.localizedDescription);
+            if (error) {
+                *error = keyError;
+            }
             return nil;
         }
         
-        // Parse the signed message
-        NSData *signatureData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
+        // Create a key ring from the key
+        CryptoKeyRing *keyRing = CryptoNewKeyRing(key, &keyError);
+        if (!keyRing || keyError) {
+            DDLogError(@"Failed to create key ring: %@", keyError.localizedDescription);
+            if (error) {
+                *error = keyError;
+            }
+            return nil;
+        }
         
-        // Verify the signature and extract clear text
+        // Create PGP handle for verification
+        CryptoPGPHandle *pgpHandle = CryptoPGP();
+        if (!pgpHandle) {
+            DDLogError(@"Failed to create PGP handle");
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1003 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create PGP handle"}];
+            }
+            return nil;
+        }
+        
+        // Create verification handle builder
+        CryptoVerifyHandleBuilder *verifyBuilder = [pgpHandle verify];
+        if (!verifyBuilder) {
+            DDLogError(@"Failed to create verify builder");
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1004 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create verify builder"}];
+            }
+            return nil;
+        }
+        
+        // Configure verification with the key ring
+        NSError *verifyHandleError = nil;
+        id<CryptoPGPVerify> verifyHandle = [[verifyBuilder verificationKeys:keyRing] new: &verifyHandleError];
+        if (!verifyHandle || verifyHandleError != nil) {
+            DDLogError(@"Failed to create verify handle");
+            if (error) {
+                *error = [NSError errorWithDomain:@"VerificationError" code:1005 userInfo:@{NSLocalizedDescriptionKey: @"Failed to create verify handle"}];
+            }
+            return nil;
+        }
+        
+        // Convert string to data for verification
+        NSData *ascData = [ascFileContent dataUsingEncoding:NSUTF8StringEncoding];
+        if (!ascData) {
+            ascData = [NSData data];
+        }
+        
+        // Verify the cleartext message
         NSError *verifyError = nil;
-        BOOL verified = [ObjectivePGP verifySignature:signatureData usingKeys:publicKeys passphraseForKey:nil error:&verifyError];
+        CryptoVerifyCleartextResult *verifyResult = [verifyHandle verifyCleartext:ascData error:&verifyError];
+        if (!verifyResult || verifyError) {
+            DDLogError(@"Failed to verify cleartext: %@", verifyError.localizedDescription);
+            if (error) {
+                *error = verifyError;
+            }
+            return nil;
+        }
+      
+        CryptoSignatureVerificationError *signatureError = [verifyResult signatureErrorExplicit];
 
-        if (!verified || verifyError) {
-            DDLogError(@"PGP verification failed: %@", verifyError.localizedDescription);
+        // Check for signature errors
+        if (signatureError) {
+            DDLogError(@"Error description: %@", signatureError.description);
+            DDLogError(@"Error message: %@", signatureError.message);
+            DDLogError(@"Error status: %ld", signatureError.status);
             return nil;
+        } else {
+            DDLogInfo(@"No signature error");
         }
-        
-        // Extract the clear text between PGP message markers
-        NSString *beginMarker = @"-----BEGIN PGP SIGNED MESSAGE-----";
-        NSString *endMarker = @"-----BEGIN PGP SIGNATURE-----";
-        
-        NSRange beginRange = [ascFileContent rangeOfString:beginMarker];
-        NSRange endRange = [ascFileContent rangeOfString:endMarker];
-        
-        if (beginRange.location == NSNotFound || endRange.location == NSNotFound) {
-            DDLogError(@"PGP message markers not found");
-            return nil;
+      
+        NSData *cleartextData = [verifyResult cleartext];
+        if (cleartextData) {
+            NSString *cleartextString = [[NSString alloc] initWithData:cleartextData encoding:NSUTF8StringEncoding];
+            DDLogInfo(@"cleartextData: %@", cleartextString);
+            return cleartextString;
         }
+        return nil;
         
-        // Find the start of the actual content (after the hash line)
-        NSUInteger contentStart = beginRange.location + beginRange.length;
-        // Extract content up to the signature marker
-        NSUInteger contentEnd = endRange.location;
-        if (contentStart >= contentEnd) {
-            DDLogError(@"Invalid PGP message format");
-            return nil;
-        }
-        
-        NSString *clearText = [ascFileContent substringWithRange:NSMakeRange(contentStart, contentEnd - contentStart)];
-        // Trim whitespace and newlines
-        clearText = [clearText stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-        return clearText;
     } @catch (NSException *exception) {
         DDLogError(@"Exception during PGP verification: %@", exception.reason);
+        if (error) {
+            *error = [NSError errorWithDomain:@"VerificationError" code:1002 userInfo:@{NSLocalizedDescriptionKey: exception.reason}];
+        }
         return nil;
     }
+}
+
++ (BOOL)testExtractedSha256FromVerifyAscFile {
+    NSString *ascFileContent = @"-----BEGIN PGP SIGNED MESSAGE-----\n"
+           @"Hash: SHA256\n"
+           @"\n"
+           @"{\n"
+           @"  \"fileName\": \"metadata.json\",\n"
+           @"  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba\",\n"
+           @"  \"size\": 158590,\n"
+           @"  \"generatedAt\": \"2025-09-19T07:49:13.000Z\"\n"
+           @"}\n"
+           @"-----BEGIN PGP SIGNATURE-----\n"
+           @"\n"
+           @"iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmjNJ1IOHGRldkBvbmVr\n"
+           @"ZXkuc28ACgkQs2mmepC/OHs6Rw/9FKHl5aNsE7V0IsFf/l+h16BYKFwVsL69alMk\n"
+           @"CFLna8oUn0+tyECF6wKBKw5pHo5YR27o2pJfYbAER6dygDF6WTZ1lZdf5QcBMjGA\n"
+           @"LCeXC0hzUBzSSOH4bKBTa3fHp//HdSV1F2OnkymbXqYN7WXvuQPLZ0nV6aU88hCk\n"
+           @"HgFifcvkXAnWKoosUtj0Bban/YBRyvmQ5C2akxUPEkr4Yck1QXwzJeNRd7wMXHjH\n"
+           @"JFK6lJcuABiB8wpJDXJkFzKs29pvHIK2B2vdOjU2rQzKOUwaKHofDi5C4+JitT2b\n"
+           @"2pSeYP3PAxXYw6XDOmKTOiC7fPnfLjtcPjNYNFCezVKZT6LKvZW9obnW8Q9LNJ4W\n"
+           @"okMPgHObkabv3OqUaTA9QNVfI/X9nvggzlPnaKDUrDWTf7n3vlrdexugkLtV/tJA\n"
+           @"uguPlI5hY7Ue5OW7ckWP46hfmq1+UaIdeUY7dEO+rPZDz6KcArpaRwBiLPBhneIr\n"
+           @"/X3KuMzS272YbPbavgCZGN9xJR5kZsEQE5HhPCbr6Nf0qDnh+X8mg0tAB/U6F+ZE\n"
+           @"o90sJL1ssIaYvST+VWVaGRr4V5nMDcgHzWSF9Q/wm22zxe4alDaBdvOlUseW0iaM\n"
+           @"n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ\n"
+           @"91Js0rQ=\n"
+           @"=A/Ii\n"
+           @"-----END PGP SIGNATURE-----";
+    NSString *result = [self extractedTextContentFromVerifyAscFile:ascFileContent error:nil];
+  
+    if (result == nil) {
+      return NO;
+    }
+    
+    // Parse the result as JSON to extract sha256
+    NSError *jsonError;
+    NSData *jsonData = [result dataUsingEncoding:NSUTF8StringEncoding];
+    NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&jsonError];
+    
+    if (jsonError || !jsonDict) {
+        DDLogError(@"Failed to parse JSON: %@", jsonError.localizedDescription);
+        return NO;
+    }
+    
+    NSString *extractedSha256 = jsonDict[@"sha256"];
+    NSString *expectedSha256 = @"2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba";
+    return [extractedSha256 isEqualToString:expectedSha256];
 }
 
 @end

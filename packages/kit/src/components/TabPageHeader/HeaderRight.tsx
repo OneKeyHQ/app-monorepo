@@ -59,14 +59,17 @@ function NotificationsButton() {
     });
   }, [navigation]);
   return (
-    <Stack key="notifications" testID="headerRightNotificationsButton">
+    <Stack
+      key="notifications"
+      testID="headerRightNotificationsButton"
+      onPress={openNotificationsModal}
+    >
       <HeaderIconButton
         title={intl.formatMessage({
           id: ETranslations.global_notifications,
         })}
         trackID="header-right-notifications"
         icon="BellOutline"
-        onPress={openNotificationsModal}
       />
       {!firstTimeGuideOpened || badge ? (
         <Stack

@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   NumberSizeableText,
   ScrollView,
@@ -16,6 +17,7 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import {
   NUMBER_FORMATTER,
@@ -39,28 +41,31 @@ function PerpTickerBar() {
     openInterest,
     volume24h,
     change24hPercent,
+    coin,
   } = priceData;
 
   const formattedMarkPrice = markPrice;
   const formattedOraclePrice = oraclePrice;
   const intl = useIntl();
   const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
-
   const onPressCandleChart = useCallback(() => {
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
+  }, [navigation]);
+
+  const onPressTokenSelector = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
   }, [navigation]);
 
   if (!gtMd) {
     return (
       <XStack
         bg="$bgApp"
-        borderBottomWidth="$px"
-        borderBottomColor="$borderSubdued"
-        p="$4"
+        px="$4"
+        py="$3"
         alignItems="center"
         justifyContent="flex-start"
-        gap="$6"
-        h={62}
       >
         <XStack
           flex={1}
@@ -68,10 +73,19 @@ function PerpTickerBar() {
           alignItems="center"
           justifyContent="space-between"
         >
-          <PerpTokenSelector />
+          <XStack
+            gap="$1"
+            bg="$bgApp"
+            onPress={onPressTokenSelector}
+            justifyContent="center"
+            alignItems="center"
+          >
+            <SizableText size="$headingLg">{coin}-PERP</SizableText>
+            <Icon name="MenuOutline" size="$5" />
+          </XStack>
           <IconButton
             icon="TradingViewCandlesOutline"
-            size="medium"
+            size="small"
             variant="tertiary"
             onPress={onPressCandleChart}
           />

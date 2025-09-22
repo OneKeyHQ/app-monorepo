@@ -14,6 +14,7 @@ import type {
   IMarketChainsResponse,
   IMarketTokenBatchListResponse,
   IMarketTokenDetail,
+  IMarketTokenDetailResponse,
   IMarketTokenHoldersResponse,
   IMarketTokenKLineResponse,
   IMarketTokenListResponse,
@@ -37,18 +38,16 @@ class ServiceMarketV2 extends ServiceBase {
     networkId: string,
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: {
-        token: IMarketTokenDetail;
-      };
-    }>('/utility/v2/market/token/detail', {
-      params: {
-        tokenAddress,
-        networkId,
+    const response = await client.get<IMarketTokenDetailResponse>(
+      '/utility/v2/market/token/detail',
+      {
+        params: {
+          tokenAddress,
+          networkId,
+        },
       },
-    });
-    const { data } = response.data;
-    return data.token;
+    );
+    return response.data;
   }
 
   private memoizedFetchMarketChains = memoizee(
@@ -348,6 +347,22 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async getMarketWatchListV2() {
     return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListV2();
+  }
+
+  @backgroundMethod()
+  async getMarketWatchListItemV2({
+    chainId,
+    contractAddress,
+  }: {
+    chainId: string;
+    contractAddress: string;
+  }): Promise<IMarketWatchListItemV2 | undefined> {
+    return this.backgroundApi.simpleDb.marketWatchListV2.getMarketWatchListItemV2(
+      {
+        chainId,
+        contractAddress,
+      },
+    );
   }
 
   async getMarketWatchListWithFillingSortIndexV2() {

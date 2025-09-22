@@ -390,7 +390,8 @@ function validateSizeInput(input: string, szDecimals: number): boolean {
   if (szDecimals === 0) return /^[0-9]*$/.test(input);
   if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
 
-  const [, dec = ''] = input.split('.');
+  const [integerPart, dec = ''] = input.split('.');
+  if (integerPart.length > 12) return false;
   return dec.length <= szDecimals;
 }
 
