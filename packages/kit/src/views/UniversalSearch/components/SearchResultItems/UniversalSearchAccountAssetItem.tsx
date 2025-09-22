@@ -68,6 +68,7 @@ export function UniversalSearchAccountAssetItem({
         isAllNetworks: activeAccount.network?.isAllNetworks,
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
         tokenMap: allTokenListMapAtom,
+        accountAddress: activeAccount.account?.address ?? '',
       },
     });
 

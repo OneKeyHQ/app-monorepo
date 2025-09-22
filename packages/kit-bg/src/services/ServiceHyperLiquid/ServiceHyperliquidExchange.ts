@@ -1,5 +1,6 @@
 import { ExchangeClient, HttpTransport } from '@nktkas/hyperliquid';
 import { BigNumber } from 'bignumber.js';
+import { isNumber } from 'lodash';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
@@ -9,6 +10,7 @@ import {
 import {
   type EHyperLiquidAgentName,
   PERPS_EMPTY_ADDRESS,
+  PERPS_EVM_CHAIN_ID_HEX,
 } from '@onekeyhq/shared/src/consts/perp';
 import {
   OneKeyLocalError,
@@ -60,6 +62,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   private _exchangeClient: ExchangeClient | null = null;
 
+  private _builderFeeInfo:
+    | {
+        b: `0x${string}`;
+        f: number;
+      }
+    | undefined = undefined;
+
   public slippage = 0.08;
 
   private get exchangeClient(): ExchangeClient {
@@ -95,6 +104,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     agentCredential?: ICoreHyperLiquidAgentCredential;
   }): Promise<void> {
     try {
+      const { hyperliquidBuilderAddress, hyperliquidMaxBuilderFee } =
+        await this.backgroundApi.simpleDb.perp.getPerpData();
+      if (
+        hyperliquidBuilderAddress &&
+        !Number.isNaN(hyperliquidMaxBuilderFee) &&
+        isNumber(hyperliquidMaxBuilderFee)
+      ) {
+        this._builderFeeInfo = {
+          b: hyperliquidBuilderAddress.toLowerCase() as `0x${string}`,
+          f: hyperliquidMaxBuilderFee,
+        };
+      }
       if (!params.userAddress) {
         throw new OneKeyLocalError(
           'ServiceHyperliquidExchange.setup Error: User address is required',
@@ -123,6 +144,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       this._exchangeClient = new ExchangeClient({
         transport,
         wallet,
+        signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
       });
 
       this._account = account;
@@ -173,7 +195,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setReferrerCode(params: ISetReferrerRequest) {
     this._ensureSetup();
     await this.checkAccountCanTrade();
-    return this._exchangeClient!.setReferrer(params);
+    return this.exchangeClient.setReferrer(params);
   }
 
   @backgroundMethod()
@@ -181,7 +203,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._ensureSetup();
     await this.checkAccountCanTrade();
     try {
-      await this._exchangeClient!.updateLeverage(params);
+      await this.exchangeClient.updateLeverage(params);
     } catch (error) {
       throw new OneKeyLocalError(`Failed to update leverage: ${String(error)}`);
     }
@@ -192,7 +214,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     this._ensureSetup();
     await this.checkAccountCanTrade();
     try {
-      return await this._exchangeClient!.approveBuilderFee(params);
+      return await this.exchangeClient.approveBuilderFee(params);
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to approve builder fee: ${String(error)}`,
@@ -204,7 +226,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async approveAgent(params: IAgentApprovalRequest) {
     this._ensureSetup();
     await this.checkAccountCanTrade();
-    return this._exchangeClient!.approveAgent({
+    return this.exchangeClient.approveAgent({
       agentAddress: params.agent,
       agentName: params.agentName || null,
     });
@@ -227,13 +249,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async placeOrderRaw(params: IOrderRequest): Promise<IOrderResponse> {
+  async placeOrderRaw({
+    orders,
+    grouping,
+  }: {
+    orders: IOrderParams[];
+    grouping: IOrderRequest['grouping'];
+  }): Promise<IOrderResponse> {
     this._ensureSetup();
     await this.checkAccountCanTrade();
     try {
-      return await this._exchangeClient!.order({
-        orders: params.action.orders,
-        grouping: params.action.grouping,
+      return await this.exchangeClient.order({
+        orders,
+        grouping,
+        builder: this._builderFeeInfo,
       });
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
@@ -248,6 +277,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async dispose(): Promise<void> {
     this._account = null;
     this._exchangeClient = null;
+    this._builderFeeInfo = undefined;
   }
 
   async checkAccountCanTrade() {
@@ -292,7 +322,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
               },
       };
 
-      return await this.exchangeClient.order({
+      return await this.placeOrderRaw({
         orders: [orderParams],
         grouping: 'na',
       });
@@ -306,12 +336,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
     try {
       const isMarket = params.type === 'market';
-      const midPx = params.midPx;
-      const price = this._calculateSlippagePrice({
-        markPrice: midPx,
-        isBuy: params.isBuy,
-        slippage: params.slippage || this.slippage,
-      });
+
+      const price = isMarket
+        ? this._calculateSlippagePrice({
+            markPrice: params.price,
+            isBuy: params.isBuy,
+            slippage: params.slippage || this.slippage,
+          })
+        : params.price;
 
       const orders: IOrderParams[] = [];
 
@@ -324,24 +356,21 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         t: isMarket
           ? {
               limit: {
-                tif: 'Gtc',
+                tif: 'Ioc',
               },
             }
-          : { limit: { tif: 'Ioc' } },
+          : { limit: { tif: 'Gtc' } },
       };
       orders.push(mainOrder);
 
       if (params.tpTriggerPx) {
         const originalTpPrice = params.tpTriggerPx;
-        let executionPrice = originalTpPrice;
 
-        if (isMarket) {
-          executionPrice = this._calculateSlippagePrice({
-            markPrice: originalTpPrice,
-            isBuy: !params.isBuy,
-            slippage: params.slippage || this.slippage,
-          });
-        }
+        const executionPrice = this._calculateSlippagePrice({
+          markPrice: originalTpPrice,
+          isBuy: !params.isBuy,
+          slippage: params.slippage || this.slippage,
+        });
 
         const tpOrder: IOrderParams = {
           a: params.assetId,
@@ -362,15 +391,12 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
       if (params.slTriggerPx) {
         const originalSlPrice = params.slTriggerPx;
-        let executionPrice = originalSlPrice;
 
-        if (isMarket) {
-          executionPrice = this._calculateSlippagePrice({
-            markPrice: originalSlPrice,
-            isBuy: !params.isBuy,
-            slippage: params.slippage || this.slippage,
-          });
-        }
+        const executionPrice = this._calculateSlippagePrice({
+          markPrice: originalSlPrice,
+          isBuy: !params.isBuy,
+          slippage: params.slippage || this.slippage,
+        });
 
         const slOrder: IOrderParams = {
           a: params.assetId,
@@ -389,7 +415,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         orders.push(slOrder);
       }
 
-      return await this.exchangeClient.order({
+      return await this.placeOrderRaw({
         orders,
         grouping: orders.length > 1 ? 'normalTpsl' : 'na',
       });
@@ -420,7 +446,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
 
     try {
-      return await this.exchangeClient.order({
+      return await this.placeOrderRaw({
         orders: [orderParams],
         grouping: 'na',
       });
@@ -465,7 +491,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         return orderParam;
       });
 
-      return await this.exchangeClient.order({
+      return await this.placeOrderRaw({
         orders: orderParams,
         grouping: 'na',
       });
@@ -548,7 +574,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         );
       }
 
-      return await this.exchangeClient.order({
+      return await this.placeOrderRaw({
         orders,
         grouping: 'positionTpsl',
       });

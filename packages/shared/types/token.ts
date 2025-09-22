@@ -29,7 +29,6 @@ export type IToken = {
 
   // for aggregate token
   isAggregateToken?: boolean;
-  hasSameSymbolToken?: boolean;
   commonSymbol?: string;
 };
 
@@ -219,20 +218,4 @@ export type IHomeDefaultToken = {
   networkId: string;
   logoURI: string;
   order: number;
-};
-
-export type IFetchAggregateTokenConfigMapResp = {
-  data: {
-    meta: {
-      homeDefaults: IHomeDefaultToken[];
-    };
-    tokens: Record<
-      string,
-      {
-        logoURI: string;
-        name: string;
-        data: IAggregateToken[];
-      }
-    >;
-  };
 };

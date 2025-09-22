@@ -87,33 +87,49 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
 
     set(currentTokenAtom(), coin);
-    await this.updateSubscriptions.call(set);
+    await this.updateSubscriptions.call(set, { l2BookOptions: null });
   });
 
-  updateSubscriptions = contextAtomMethod(async (get, _set) => {
-    const currentToken = get(currentTokenAtom());
-    const currentAccount = await perpsSelectedAccountAtom.get();
-    const currentUser = currentAccount?.accountAddress;
-    const isActive = get(subscriptionActiveAtom());
+  updateSubscriptions = contextAtomMethod(
+    async (
+      get,
+      _set,
+      overrides?: { l2BookOptions?: IL2BookOptions | null },
+    ) => {
+      const currentToken = get(currentTokenAtom());
+      const currentAccount = await perpsSelectedAccountAtom.get();
+      const currentUser = currentAccount?.accountAddress;
+      const isActive = get(subscriptionActiveAtom());
 
-    if (!isActive) {
-      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-    }
+      if (!isActive) {
+        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+      }
 
-    try {
-      await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions(
-        {
+      try {
+        const payload: {
+          currentSymbol: string;
+          currentUser?: HL.IHex | null;
+          l2BookOptions?: IL2BookOptions | null;
+        } = {
           currentSymbol: currentToken,
           currentUser,
-        },
-      );
-    } catch (error) {
-      console.error(
-        '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
-        error,
-      );
-    }
-  });
+        };
+
+        if (overrides?.l2BookOptions !== undefined) {
+          payload.l2BookOptions = overrides.l2BookOptions;
+        }
+
+        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions(
+          payload,
+        );
+      } catch (error) {
+        console.error(
+          '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
+          error,
+        );
+      }
+    },
+  );
 
   updateL2BookSubscription = contextAtomMethod(
     async (get, set, options?: IL2BookOptions) => {
@@ -355,7 +371,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: number;
         formData?: ITradingFormData;
         slippage?: number;
-        midPx: string;
+        price: string;
       },
     ) => {
       const formData = params.formData || get(tradingFormAtom());
@@ -369,7 +385,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             assetId: params.assetId,
             isBuy: formData.side === 'long',
             size: formData.size,
-            midPx: params.midPx,
+            price: params.price,
             type: formData.type,
             tpTriggerPx: formData.hasTpsl ? formData.tpTriggerPx : undefined,
             slTriggerPx: formData.hasTpsl ? formData.slTriggerPx : undefined,
@@ -508,8 +524,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       try {
-        set(tradingLoadingAtom(), true);
-
         const result =
           await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
             params.orders.map((order) => ({
@@ -547,8 +561,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
 
         throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
       }
     },
   );

@@ -11,16 +11,16 @@ export function PerpMobileLayout() {
       <YStack bg="$bgApp">
         <PerpTickerBar />
 
-        <XStack gap="$3" alignItems="stretch">
-          <YStack flex={1}>
-            <PerpTradingPanel />
-          </YStack>
-          <YStack w={161} pr="$5" pl="$0">
+        <XStack alignItems="stretch" gap="$2" px="$4" pb="$4">
+          <YStack flex={4}>
             <PerpOrderBook />
+          </YStack>
+          <YStack flex={6}>
+            <PerpTradingPanel isMobile />
           </YStack>
         </XStack>
 
-        <YStack mt="$5">
+        <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
           <PerpOrderInfoPanel isMobile />
         </YStack>
       </YStack>

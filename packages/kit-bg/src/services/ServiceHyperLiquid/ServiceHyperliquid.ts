@@ -14,7 +14,7 @@ import {
   FALLBACK_MAX_BUILDER_FEE,
   HYPERLIQUID_AGENT_TTL_DEFAULT,
   HYPERLIQUID_REFERRAL_CODE,
-  PERPS_CHAIN_ID,
+  PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -24,6 +24,8 @@ import type {
   IApiRequestResult,
   IFill,
   IHex,
+  IMarginTables,
+  IOrderRequest,
   IPerpsUniverse,
   IUserFillsByTimeParameters,
   IUserFillsParameters,
@@ -32,6 +34,7 @@ import type {
 import localDb from '../../dbs/local/localDb';
 import {
   perpsAccountLoadingInfoAtom,
+  perpsCustomSettingsAtom,
   perpsSelectedAccountAtom,
   perpsSelectedAccountStatusAtom,
   perpsSelectedSymbolAtom,
@@ -44,6 +47,7 @@ import type ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
 import type ServiceHyperliquidWallet from './ServiceHyperliquidWallet';
 import type {
   IPerpsAccountLoadingInfo,
+  IPerpsCustomSettings,
   IPerpsSelectedAccount,
   IPerpsSelectedAccountStatus,
   IPerpsSelectedAccountStatusDetails,
@@ -126,13 +130,19 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getMarginTables(): Promise<IMarginTables> {
+    return (await this.backgroundApi.simpleDb.perp.getMarginTables()) || [];
+  }
+
+  @backgroundMethod()
   async changeSelectedSymbol(params: { coin: string }): Promise<{
     universeItems: IPerpsUniverse[];
     selectedUniverse: IPerpsUniverse;
   }> {
-    const universeItems = await this.getTradingUniverse();
-    const marginTables =
-      await this.backgroundApi.simpleDb.perp.getMarginTables();
+    const [universeItems, marginTables] = await Promise.all([
+      this.getTradingUniverse(),
+      this.getMarginTables(),
+    ]);
     const selectedUniverse: IPerpsUniverse | undefined =
       universeItems.find((item) => item.name === params.coin) ||
       universeItems?.[0];
@@ -178,7 +188,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       console.log('selectPerpsAccount______111', indexedAccountId, accountId);
       if (indexedAccountId || accountId) {
-        const ethNetworkId = PERPS_CHAIN_ID;
+        const ethNetworkId = PERPS_NETWORK_ID;
         const account =
           await this.backgroundApi.serviceAccount.getNetworkAccount({
             indexedAccountId: indexedAccountId ?? undefined,
@@ -210,6 +220,11 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsSelectedAccountAtom.set(perpsAccount);
     return perpsAccount;
+  }
+
+  @backgroundMethod()
+  async setPerpsCustomSettings(settings: IPerpsCustomSettings) {
+    await perpsCustomSettingsAtom.set(settings);
   }
 
   @backgroundMethod()
@@ -650,6 +665,40 @@ export default class ServiceHyperliquid extends ServiceBase {
         builderFeeOk: false,
         referralCodeOk: false,
       },
+    });
+  }
+
+  @backgroundMethod()
+  async getTradingviewDisplayPriceScale(
+    symbol: string,
+  ): Promise<number | undefined> {
+    return this.backgroundApi.simpleDb.perp.getTradingviewDisplayPriceScale(
+      symbol,
+    );
+  }
+
+  @backgroundMethod()
+  async setTradingviewDisplayPriceScale({
+    symbol,
+    priceScale,
+  }: {
+    symbol: string;
+    priceScale: number;
+  }) {
+    if (!symbol || priceScale === undefined || priceScale === null) {
+      return;
+    }
+    const priceScaleBN = new BigNumber(priceScale);
+    if (
+      priceScaleBN.isNaN() ||
+      priceScaleBN.isNegative() ||
+      !priceScaleBN.isInteger()
+    ) {
+      return;
+    }
+    await this.backgroundApi.simpleDb.perp.updateTradingviewDisplayPriceScale({
+      symbol,
+      priceScale,
     });
   }
 }

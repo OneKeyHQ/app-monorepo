@@ -8,7 +8,6 @@ import {
   Button,
   Dialog,
   Input,
-  NumberSizeableText,
   SegmentControl,
   SizableText,
   Skeleton,
@@ -26,7 +25,7 @@ import {
   perpsSelectedAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -65,7 +64,7 @@ function DepositWithdrawContent({
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
-    networkId: PERPS_CHAIN_ID,
+    networkId: PERPS_NETWORK_ID,
   });
 
   const hyperliquidActions = useHyperliquidActions();
@@ -80,7 +79,7 @@ function DepositWithdrawContent({
       try {
         const tokenDetails =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: PERPS_CHAIN_ID,
+            networkId: PERPS_NETWORK_ID,
             contractAddress: USDC_TOKEN_INFO.address,
             accountId: selectedAccount.accountId,
             accountAddress: selectedAccount.accountAddress,
@@ -96,9 +95,9 @@ function DepositWithdrawContent({
     }, [selectedAccount.accountId, selectedAccount.accountAddress]);
   const availableBalance = useMemo(() => {
     if (selectedAction === 'withdraw') {
-      return params.withdrawable;
+      return new BigNumber(params.withdrawable || '0').toFixed(2);
     }
-    return usdcBalance;
+    return new BigNumber(usdcBalance || '0').toFixed(2);
   }, [selectedAction, params.withdrawable, usdcBalance]);
   const isValidAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
@@ -229,17 +228,17 @@ function DepositWithdrawContent({
     const balanceBN = new BigNumber(availableBalance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
   }, [amount, availableBalance]);
-
-  const buttonText = useMemo(() => {
-    if (isSubmitting) {
-      return `${
-        selectedAction === 'deposit' ? 'Depositing' : 'Withdrawing'
-      }...`;
-    }
-    if (isInsufficientBalance) return 'Insufficient balance';
-    return selectedAction === 'deposit' ? 'Deposit' : 'Withdraw';
-  }, [isSubmitting, isInsufficientBalance, selectedAction]);
   const intl = useIntl();
+  const buttonText = useMemo(() => {
+    if (isInsufficientBalance)
+      return intl.formatMessage({
+        id: ETranslations.earn_insufficient_balance,
+      });
+    return selectedAction === 'deposit'
+      ? intl.formatMessage({ id: ETranslations.perp_trade_deposit })
+      : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
+  }, [isInsufficientBalance, selectedAction, intl]);
+
   return (
     <YStack
       gap="$4"
@@ -350,6 +349,7 @@ function DepositWithdrawContent({
               justifyContent: 'flex-end',
             }}
             textAlign="right"
+            maxLength={12}
           />
           <XStack alignItems="center">
             <SizableText size="$bodyMd">USDC</SizableText>
@@ -378,17 +378,14 @@ function DepositWithdrawContent({
             {balanceLoading ? (
               <Skeleton w={80} h={14} />
             ) : (
-              <NumberSizeableText
+              <SizableText
+                cursor="pointer"
                 onPress={handleMaxPress}
                 color="$text"
                 size="$bodyMd"
-                formatter="balance"
-                formatterOptions={{
-                  tokenSymbol: selectedAction === 'withdraw' ? 'USD' : 'USDC',
-                }}
               >
-                {availableBalance || '0'}
-              </NumberSizeableText>
+                MAX: {availableBalance || '0.00'}
+              </SizableText>
             )}
           </XStack>
         </XStack>
@@ -432,7 +429,7 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
 
   const dialogInstance = Dialog.show({
     renderContent: (
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <DepositWithdrawContent
           params={params}
           selectedAccount={selectedAccount}

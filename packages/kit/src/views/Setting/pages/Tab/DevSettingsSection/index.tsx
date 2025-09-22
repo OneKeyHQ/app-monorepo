@@ -5,9 +5,11 @@ import { useIntl } from 'react-intl';
 import { I18nManager } from 'react-native';
 
 import {
+  Button,
   Dialog,
   ESwitchSize,
   Input,
+  SizableText,
   Switch,
   TextAreaInput,
   Toast,
@@ -34,6 +36,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -978,6 +981,53 @@ const BaseDevSettingsSection = () => {
                 ? process.env.SENTRY_DSN_REACT_NATIVE
                 : '',
             },
+          });
+        }}
+      />
+
+      <SectionPressItem
+        icon="AppleBrand"
+        title="Test Auto Update"
+        onPress={async () => {
+          Dialog.show({
+            title: 'Auto Update Test Result',
+            renderContent: (
+              <YStack p="$4" gap="$3">
+                <Button
+                  variant="primary"
+                  onPress={async () => {
+                    try {
+                      const result = await BundleUpdate.testVerification();
+                      Dialog.show({
+                        title: 'Test Result',
+                        renderContent: (
+                          <YStack p="$4">
+                            <SizableText>
+                              Verification Result:{' '}
+                              {result ? 'Success' : 'Failed'}
+                            </SizableText>
+                          </YStack>
+                        ),
+                      });
+                    } catch (error) {
+                      Dialog.show({
+                        title: 'Test Error',
+                        renderContent: (
+                          <YStack p="$4">
+                            <SizableText>
+                              Error:{' '}
+                              {(error as Error)?.message || 'Unknown error'}
+                            </SizableText>
+                          </YStack>
+                        ),
+                      });
+                    }
+                  }}
+                >
+                  Test Verification
+                </Button>
+              </YStack>
+            ),
           });
         }}
       />

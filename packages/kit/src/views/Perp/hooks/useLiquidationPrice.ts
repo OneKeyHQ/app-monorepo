@@ -2,18 +2,21 @@ import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useAccountPanelDataAtom,
+  useTradingFormAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { calculateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useHyperliquidAccount } from './useHyperliquid';
 import { useCurrentTokenData } from './usePerpMarketData';
 import { usePerpPositions } from './usePerpOrderInfoPanel';
 
-export function useLiquidationPrice() {
+export function useLiquidationPrice(): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const tokenInfo = useCurrentTokenData();
-  const { accountSummary } = useHyperliquidAccount();
+  const [accountPanelData] = useAccountPanelDataAtom();
+  const { accountSummary } = accountPanelData;
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
   const perpsPositions = usePerpPositions();
   const { coin, margin } = perpsSelectedSymbol;

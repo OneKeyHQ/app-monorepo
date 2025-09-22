@@ -2,10 +2,14 @@ import { memo } from 'react';
 
 import { NumberSizeableText } from '@onekeyhq/components';
 
-import { useLiquidationPrice } from '../../../hooks';
+import { useLiquidationPrice } from '../../../hooks/useLiquidationPrice';
 
 const LiquidationPriceDisplay = memo(() => {
   const liquidationPrice = useLiquidationPrice();
+
+  if (!liquidationPrice) {
+    return 'N/A';
+  }
 
   return (
     <NumberSizeableText
@@ -13,7 +17,7 @@ const LiquidationPriceDisplay = memo(() => {
       formatter="price"
       formatterOptions={{ currency: '$' }}
     >
-      {liquidationPrice?.toNumber() || 'N/A'}
+      {liquidationPrice.toNumber()}
     </NumberSizeableText>
   );
 });

@@ -177,6 +177,7 @@ function TokenListFooter(props: IProps) {
         isAllNetworks: network.isAllNetworks,
         aggregateTokensListMap,
         aggregateTokensMap,
+        accountAddress: account.address,
       },
     });
   }, [
@@ -215,6 +216,7 @@ function TokenListFooter(props: IProps) {
         deriveInfo,
         isAllNetworks: network.isAllNetworks,
         hideValue,
+        accountAddress: account.address,
       },
     });
   }, [

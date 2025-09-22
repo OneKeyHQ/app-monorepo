@@ -882,7 +882,7 @@ function TokenListContainer({
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
       if (!a?.aggregateTokenConfigMap) {
-        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
       }
 
@@ -1756,6 +1756,7 @@ function TokenListContainer({
         params: {
           accountId: token.accountId ?? account?.id ?? '',
           networkId: token.networkId ?? network.id,
+          accountAddress: account?.address ?? '',
           walletId: wallet.id,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
@@ -1766,6 +1767,7 @@ function TokenListContainer({
       });
     },
     [
+      account?.address,
       account?.id,
       aggregateTokenListMapAtom,
       deriveInfo,

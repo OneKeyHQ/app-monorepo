@@ -22,6 +22,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
+  usePerpsCommonConfigPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -132,6 +133,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = usePrimeAuthV2();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
@@ -364,7 +366,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
-            !settings.perpConfigCommon.disablePerp
+            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
               ? {
                   icon: 'LabOutline',
                   title: 'Perp Config',
@@ -802,7 +804,8 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       privacyPolicyUrl,
       copyText,
       settings.hardwareTransportType,
-      settings.perpConfigCommon.disablePerp,
+      perpConfigCommon.disablePerp,
+      perpConfigCommon.usePerpWeb,
     ],
   );
 };

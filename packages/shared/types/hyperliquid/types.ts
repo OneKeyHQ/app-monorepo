@@ -75,7 +75,7 @@ export interface IOrderOpenParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  price: string;
   type: 'market' | 'limit';
   tpTriggerPx?: string;
   slTriggerPx?: string;
@@ -153,7 +153,7 @@ export interface IL2BookOptions {
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
-  disablePerpActionButton?: boolean;
+  disablePerpActionPerp?: boolean;
   perpBannerConfig?: IPerpServerBannerConfig;
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];

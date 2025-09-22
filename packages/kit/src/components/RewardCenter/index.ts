@@ -1,8 +1,5 @@
 import type { IDialogShowProps, IKeyOfIcons } from '@onekeyhq/components';
-import {
-  IMPL_ALLNETWORKS,
-  IMPL_TRON,
-} from '@onekeyhq/shared/src/engine/engineConsts';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -39,7 +36,6 @@ export const getRewardCenterConfig = (
   const impl = networkUtils.getNetworkImpl({ networkId });
 
   switch (impl) {
-    case IMPL_ALLNETWORKS:
     case IMPL_TRON:
       return {
         ...rewardCenterDefaultConfig,

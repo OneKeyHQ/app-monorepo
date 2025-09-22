@@ -2131,6 +2131,7 @@
   perp_trade_order_type = 'perp.trade_order_type',
   perp_trade_order_value = 'perp.trade_order_value',
   perp_trade_sell_amount = 'perp.trade_sell_amount',
+  perp_trade_set_tp_sl = 'perp.trade_set_tp_sl',
   perp_trade_short = 'perp.trade_short',
   perp_trade_sl_price = 'perp.trade_sl_price',
   perp_trade_sl_price_loss = 'perp.trade_sl_price_loss',
