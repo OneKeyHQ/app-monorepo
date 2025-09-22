@@ -57,7 +57,7 @@ const PositionRow = memo(
       return {
         assetSymbol: pos.coin,
         leverage: pos.leverage?.value ?? '',
-        assetColor: side === 'long' ? '$textSuccess' : '$textCritical',
+        assetColor: side === 'long' ? '$green11' : '$red11',
       };
     }, [pos.coin, side, pos.leverage?.value]);
 
@@ -190,10 +190,10 @@ const PositionRow = memo(
     if (isMobile) {
       return (
         <ListItem flex={1} flexDirection="column" alignItems="flex-start">
-          <XStack gap="$2">
+          <XStack gap="$2" alignItems="center">
             <XStack
-              w="$5"
-              h="$5"
+              w="$4"
+              h="$4"
               justifyContent="center"
               alignItems="center"
               borderRadius="$1"
@@ -201,11 +201,11 @@ const PositionRow = memo(
               cursor="pointer"
               onPress={() => selectToken(assetInfo.assetSymbol)}
             >
-              <SizableText size="$bodyMdMedium" color="$textOnColor">
+              <SizableText size="$bodySmMedium" color="$textOnColor">
                 {side === 'long' ? 'B' : 'S'}
               </SizableText>
             </XStack>
-            <SizableText size="$bodyMdMedium" color="$text">
+            <SizableText size="$bodySmMedium" color="$text">
               {assetInfo.assetSymbol}
             </SizableText>
             <SizableText size="$bodySm" color={assetInfo.assetColor}>
@@ -355,6 +355,20 @@ const PositionRow = memo(
           cursor="pointer"
           onPress={() => selectToken(assetInfo.assetSymbol)}
         >
+          <XStack
+            w="$4"
+            h="$4"
+            justifyContent="center"
+            alignItems="center"
+            borderRadius="$1"
+            backgroundColor={assetInfo.assetColor}
+            cursor="pointer"
+            onPress={() => selectToken(assetInfo.assetSymbol)}
+          >
+            <SizableText size="$bodySmMedium" color="$textOnColor">
+              {side === 'long' ? 'B' : 'S'}
+            </SizableText>
+          </XStack>
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"

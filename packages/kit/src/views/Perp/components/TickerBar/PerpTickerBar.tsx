@@ -273,7 +273,7 @@ function PerpTickerBar() {
                 }
                 renderContent={
                   <YStack bg="$bgSubdued" gap="$1">
-                    <YStack py="$2" gap="$0.5" justifyContent="space-between">
+                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
                       <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_ticker_annualized_funding_tooltip,
@@ -289,7 +289,7 @@ function PerpTickerBar() {
                       </SizableText>
                     </YStack>
                     <Divider />
-                    <YStack py="$2" gap="$0.5" justifyContent="space-between">
+                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
                       <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.perp_trades_history_direction,
