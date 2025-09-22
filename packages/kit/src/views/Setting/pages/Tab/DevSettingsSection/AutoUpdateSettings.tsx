@@ -332,6 +332,14 @@ export function AutoUpdateSettings() {
           >
             Configure Versions
           </Button>
+          <Button
+            variant="secondary"
+            onPress={() => {
+              BundleUpdate.clearAllJSBundleData();
+            }}
+          >
+            Clear All JSBundle Data
+          </Button>
         </YStack>
       ),
     });

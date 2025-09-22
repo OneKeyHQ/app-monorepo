@@ -432,6 +432,17 @@ class DesktopApiAppBundleUpdate {
     });
   }
 
+  async clearAllJSBundleData() {
+    await this.clearDownload();
+    await this.clearBundleExtract();
+    store.clearUpdateBundleData();
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 300);
+    });
+  }
+
   async testVerification() {
     return testExtractedSha256FromVerifyAscFile();
   }

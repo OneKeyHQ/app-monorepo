@@ -76,6 +76,25 @@ RCT_EXPORT_MODULE();
     return [bundleDir stringByAppendingPathComponent:folderName];
 }
 
++ (void)clearUpdateBundleData {
+    // Clear bundle directory
+    NSString *bundleDir = [self bundleDir];
+    if ([[NSFileManager defaultManager] fileExistsAtPath:bundleDir]) {
+        NSError *error;
+        [[NSFileManager defaultManager] removeItemAtPath:bundleDir error:&error];
+        if (error) {
+            DDLogError(@"Failed to remove bundle directory: %@", error.localizedDescription);
+        }
+    }
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *currentBundleVersion = [self currentBundleVersion];
+    if (currentBundleVersion) {
+        [userDefaults removeObjectForKey:currentBundleVersion];
+    }
+    [userDefaults removeObjectForKey:@"currentBundleVersion"];
+    [userDefaults synchronize];
+}
+
 + (NSComparisonResult)compareVersion:(NSString *)version1 withVersion:(NSString *)version2 {
     if (!version1 || !version2) {
         if (!version1 && !version2) return NSOrderedSame;
