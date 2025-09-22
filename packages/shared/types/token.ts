@@ -219,21 +219,3 @@ export type IHomeDefaultToken = {
   logoURI: string;
   order: number;
 };
-
-export type IFetchAggregateTokenConfigMapResp = {
-  data: {
-    meta: {
-      homeDefaults: IHomeDefaultToken[];
-      approvalResurfaceDays: number;
-      approvalAlertResurfaceDays: number;
-    };
-    tokens: Record<
-      string,
-      {
-        logoURI: string;
-        name: string;
-        data: IAggregateToken[];
-      }
-    >;
-  };
-};
