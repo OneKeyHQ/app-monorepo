@@ -59,8 +59,12 @@ export function TransactionsHistory({
   networkId,
   onScrollEnd,
 }: ITransactionsHistoryProps) {
-  const isVisible = useRouteIsFocused();
   const { websocketConfig } = useTokenDetail();
+  const normalMode =
+    !platformEnv.isNative &&
+    !platformEnv.isExtChrome &&
+    !(websocketConfig?.txs ?? false);
+  const isVisible = useRouteIsFocused();
 
   const intl = useIntl();
   const { gtXl } = useMedia();
@@ -74,6 +78,7 @@ export function TransactionsHistory({
   } = useMarketTransactions({
     tokenAddress,
     networkId,
+    normalMode,
   });
 
   // Subscribe to real-time transaction updates
@@ -81,8 +86,7 @@ export function TransactionsHistory({
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled:
-      !platformEnv.isNative && isVisible && (websocketConfig?.txs ?? false),
+    enabled: normalMode && isVisible,
     onNewTransaction: addNewTransaction,
   });
 
