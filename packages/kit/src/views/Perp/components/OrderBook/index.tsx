@@ -1044,6 +1044,9 @@ export function OrderBookMobile({
   sizeDecimals = 3,
   style,
   onSelectLevel,
+  showTickSelector = true,
+  tickOptions = [],
+  onTickOptionChange,
 }: IOrderBookProps) {
   const intl = useIntl();
   const { markPrice, oraclePrice } = usePerpMarketData();
@@ -1068,8 +1071,21 @@ export function OrderBookMobile({
     parseFloat(asks[0]?.px ?? '0'),
   );
 
+  // Handle tick option change
+  const handleTickOptionChange = useCallback(
+    (value?: string) => {
+      if (value === undefined) return;
+      const option = tickOptions.find((opt) => opt.value === value);
+      if (option && onTickOptionChange) {
+        onTickOptionChange(option);
+      }
+    },
+    [tickOptions, onTickOptionChange],
+  );
+
   const textColor = useTextColor();
   const blockColors = useBlockColorsMobile();
+  const spreadColor = useSpreadColor();
   const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
@@ -1269,6 +1285,54 @@ export function OrderBookMobile({
           ))}
         </View>
       </View>
+      {showTickSelector ? (
+        <Select
+          floatingPanelProps={{
+            width: 150,
+          }}
+          title={intl.formatMessage({
+            id: ETranslations.perp_orderbook_spread,
+          })}
+          items={tickOptions}
+          value={selectedTickOption?.value}
+          onChange={handleTickOptionChange}
+          renderTrigger={({ onPress }) => (
+            <TouchableOpacity
+              style={{
+                minWidth: 56,
+                maxWidth: 150,
+                height: 24,
+                borderRadius: 4,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingHorizontal: 8,
+                gap: 4,
+                backgroundColor: spreadColor.backgroundColor,
+                marginTop: 10,
+              }}
+              onPress={onPress}
+            >
+              <Text
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={[styles.bodySm, { color: textColor.text }]}
+              >
+                {selectedTickOption?.label
+                  ? new BigNumber(selectedTickOption.label).toFixed(
+                      priceDecimals,
+                    )
+                  : '-'}
+              </Text>
+              <Icon
+                name="ChevronTriangleDownSmallOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </TouchableOpacity>
+          )}
+        />
+      ) : null}
     </View>
   );
 }
