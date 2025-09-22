@@ -278,11 +278,28 @@ export function AutoUpdateSettings() {
     });
   };
 
-  const showMainDialog = () => {
+  const showMainDialog = async () => {
+    let currentAppVersion = 'Unknown';
+    let currentBundleVersion = 'Unknown';
+    
+    try {
+      const versionInfo = await backgroundApiProxy.serviceApp.getVersionInfo();
+      currentAppVersion = versionInfo.version || 'Unknown';
+      currentBundleVersion = versionInfo.jsBundleVersion || 'Unknown';
+    } catch (error) {
+      console.error('Failed to get version info:', error);
+    }
+
     const dialogInstance = Dialog.show({
       title: 'Auto Update Test Suite',
       renderContent: (
         <YStack p="$4" gap="$3">
+          <SizableText size="$headingSm">Current Version Info</SizableText>
+          <YStack gap="$2" p="$3" backgroundColor="$bgSubdued" borderRadius="$2">
+            <SizableText size="$bodyMd">App Version: {currentAppVersion}</SizableText>
+            <SizableText size="$bodyMd">JS Bundle Version: {currentBundleVersion}</SizableText>
+          </YStack>
+          
           <SizableText size="$headingSm">Select Test Category</SizableText>
           
           {(platformEnv.isNativeAndroid ||
@@ -338,7 +355,7 @@ export function AutoUpdateSettings() {
   };
 
   const showAutoUpdateDialog = () => {
-    showMainDialog();
+    void showMainDialog();
   };
 
   return (
