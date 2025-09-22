@@ -335,7 +335,7 @@ export function AutoUpdateSettings() {
           <Button
             variant="secondary"
             onPress={() => {
-              BundleUpdate.clearAllJSBundleData();
+              void BundleUpdate.clearAllJSBundleData();
             }}
           >
             Clear All JSBundle Data
@@ -343,7 +343,7 @@ export function AutoUpdateSettings() {
         </YStack>
       ),
     });
-  };
+  }
 
   const showAutoUpdateDialog = () => {
     void showMainDialog();
