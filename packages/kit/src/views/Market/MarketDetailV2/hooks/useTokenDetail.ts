@@ -3,6 +3,7 @@ import {
   useTokenAddressAtom,
   useTokenDetailAtom,
   useTokenDetailLoadingAtom,
+  useTokenDetailWebsocketAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 export function useTokenDetail() {
@@ -10,6 +11,7 @@ export function useTokenDetail() {
   const [isLoading] = useTokenDetailLoadingAtom();
   const [tokenAddress] = useTokenAddressAtom();
   const [networkId] = useNetworkIdAtom();
+  const [websocketConfig] = useTokenDetailWebsocketAtom();
 
   const isReady = !isLoading && !!tokenDetail;
 
@@ -18,6 +20,7 @@ export function useTokenDetail() {
     isLoading,
     tokenAddress,
     networkId,
+    websocketConfig,
     isReady,
   };
 }

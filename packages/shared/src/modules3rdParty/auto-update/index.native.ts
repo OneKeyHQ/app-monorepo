@@ -215,8 +215,34 @@ export const AppUpdate: IAppUpdate = {
   clearPackage,
 };
 
+interface INativeBundleUpdateModule {
+  downloadBundle: (params: any) => Promise<any>;
+  verifyBundle: (params: any) => Promise<void>;
+  verifyBundleASC: (params: any) => Promise<void>;
+  downloadBundleASC: (params: any) => Promise<void>;
+  installBundle: (params: any) => Promise<void>;
+  clearBundle: () => Promise<void>;
+  testVerification: () => Promise<boolean>;
+  testDeleteJsBundle: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<{ success: boolean; message: string }>;
+  testDeleteJsRuntimeDir: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<{ success: boolean; message: string }>;
+  testDeleteMetadataJson: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<{ success: boolean; message: string }>;
+  testWriteEmptyMetadataJson: (
+    appVersion: string,
+    bundleVersion: string,
+  ) => Promise<{ success: boolean; message: string }>;
+}
+
 const { BundleUpdateModule } = NativeModules as {
-  BundleUpdateModule: IBundleUpdate;
+  BundleUpdateModule: INativeBundleUpdateModule;
 };
 
 export const BundleUpdate: IBundleUpdate = {
@@ -263,4 +289,12 @@ export const BundleUpdate: IBundleUpdate = {
   },
   clearBundle: () => BundleUpdateModule.clearBundle(),
   testVerification: () => BundleUpdateModule.testVerification(),
+  testDeleteJsBundle: (appVersion, bundleVersion) =>
+    BundleUpdateModule.testDeleteJsBundle(appVersion, bundleVersion),
+  testDeleteJsRuntimeDir: (appVersion, bundleVersion) =>
+    BundleUpdateModule.testDeleteJsRuntimeDir(appVersion, bundleVersion),
+  testDeleteMetadataJson: (appVersion, bundleVersion) =>
+    BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
+  testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
+    BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
 };

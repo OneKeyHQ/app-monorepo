@@ -9,9 +9,12 @@ import {
   ScrollView,
   Stack,
   Tabs,
+  XStack,
   YStack,
   useTabContainerWidth,
 } from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
@@ -26,6 +29,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
@@ -35,7 +39,10 @@ import { WalletBackupAlert } from '../../../components/WalletBackup';
 import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
+import {
+  useAccountOverviewActions,
+  useApprovalsInfoAtom,
+} from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
@@ -74,6 +81,7 @@ export function HomePageView({
 
   const navigation = useAppNavigation();
 
+  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
   const { updateApprovalsInfo } = useAccountOverviewActions().current;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -127,16 +135,17 @@ export function HomePageView({
         (item) => item.isInactiveApproval,
       );
 
+      updateApprovalsInfo({
+        hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
+      });
+
       if (
         !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
         (riskApprovals.length > 0 || inactiveApprovals.length > 0)
       ) {
-        if (riskApprovals.length > 0) {
-          updateApprovalsInfo({ hasRiskApprovals: true });
-        }
         const [
           shouldShowRiskApprovalsRevokeSuggestion,
-          shouldShowInactiveApprovalsAlert,
+          shouldShowInactiveApprovalsRevokeSuggestion,
         ] = await Promise.all([
           backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
             {
@@ -144,15 +153,18 @@ export function HomePageView({
               accountId: account.id,
             },
           ),
-          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsAlert({
-            networkId: network.id,
-            accountId: account.id,
-          }),
+          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsRevokeSuggestion(
+            {
+              networkId: network.id,
+              accountId: account.id,
+            },
+          ),
         ]);
         if (
           (shouldShowRiskApprovalsRevokeSuggestion &&
             riskApprovals.length > 0) ||
-          (shouldShowInactiveApprovalsAlert && inactiveApprovals.length > 0)
+          (shouldShowInactiveApprovalsRevokeSuggestion &&
+            inactiveApprovals.length > 0)
         ) {
           await timerUtils.wait(2000);
           navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
@@ -237,12 +249,10 @@ export function HomePageView({
 
   const tabContainerWidth: any = useTabContainerWidth();
 
-  const tabs = useMemo(() => {
-    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
-      network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
-    const tabConfigs = [
+  const tabConfigs = useMemo(() => {
+    return [
       {
+        id: EHomeWalletTab.Tokens,
         name: intl.formatMessage({
           id: ETranslations.global_crypto,
         }),
@@ -250,6 +260,7 @@ export function HomePageView({
       },
       isNFTEnabled
         ? {
+            id: EHomeWalletTab.NFT,
             name: intl.formatMessage({
               id: ETranslations.global_nft,
             }),
@@ -257,6 +268,7 @@ export function HomePageView({
           }
         : undefined,
       {
+        id: EHomeWalletTab.History,
         name: intl.formatMessage({
           id: ETranslations.global_history,
         }),
@@ -264,6 +276,7 @@ export function HomePageView({
       },
       isBulkRevokeApprovalEnabled
         ? {
+            id: EHomeWalletTab.Approvals,
             name: intl.formatMessage({
               id: ETranslations.global_approval,
             }),
@@ -271,6 +284,35 @@ export function HomePageView({
           }
         : undefined,
     ].filter(Boolean);
+  }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const tabId = tabConfigs.find((i) => i.name === props.name)?.id;
+      return (
+        <XStack position="relative">
+          <TabBarItem {...props} />
+          {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
+            <Stack
+              position="absolute"
+              right={-6}
+              top={12}
+              w="$1.5"
+              h="$1.5"
+              bg="$iconCritical"
+              borderRadius="$full"
+            />
+          ) : null}
+        </XStack>
+      );
+    },
+    [hasRiskApprovals, tabConfigs],
+  );
+
+  const tabs = useMemo(() => {
+    const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
+      network?.id ?? ''
+    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
     return (
       <Tabs.Container
         key={key}
@@ -280,6 +322,7 @@ export function HomePageView({
         renderTabBar={(props: any) => (
           <Tabs.TabBar
             {...props}
+            renderItem={handleRenderItem}
             renderToolbar={({ focusedTab }) => (
               <TabHeaderSettings focusedTab={focusedTab} />
             )}
@@ -296,11 +339,12 @@ export function HomePageView({
   }, [
     account?.id,
     account?.indexedAccountId,
-    intl,
+    handleRenderItem,
     isBulkRevokeApprovalEnabled,
     isNFTEnabled,
     network?.id,
     renderHeader,
+    tabConfigs,
     tabContainerWidth,
   ]);
 

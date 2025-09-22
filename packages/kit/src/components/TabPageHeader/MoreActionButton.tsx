@@ -67,7 +67,10 @@ import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { UpdateReminder } from '../UpdateReminder';
-import { useAppUpdateInfo } from '../UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '../UpdateReminder/hooks';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -688,16 +691,26 @@ const useIsShowWalletXfpStatus = () => {
 // This component may trigger multiple update checks simultaneously
 // Deduplicate or throttle API requests.
 // to prevent unnecessary API calls and improve performance
-const useIsShowUpgradeDot = () => {
+const useIsShowAppUpdateDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);
   const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
   const isShowWalletXfpStatus = useIsShowWalletXfpStatus();
-  return isAppNeedUpdate || isNeedUpgradeFirmware || isShowWalletXfpStatus;
+  return (
+    (isShowAppUpdateUI && isAppNeedUpdate) ||
+    isNeedUpgradeFirmware ||
+    isShowWalletXfpStatus
+  );
 };
 
 function UpdateReminders() {
-  const isShowUpgradeComponents = useIsShowUpgradeDot();
+  const isShowUpgradeComponents = useIsShowAppUpdateDot();
   return isShowUpgradeComponents ? (
     <YStack gap="$2">
       <UpdateReminder />
@@ -767,7 +780,7 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
 function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isShowRedDot = useIsShowRedDot();
-  const isShowUpgradeDot = useIsShowUpgradeDot();
+  const isShowUpgradeDot = useIsShowAppUpdateDot();
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
       return <Dot color="$blue8" />;
