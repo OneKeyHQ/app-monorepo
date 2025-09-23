@@ -2069,6 +2069,8 @@
   "perp.leverage_desc_warning": "Controlla la leva utilizzata per le posizioni su {token}. La leva massima è {leverage}. Nota che impostare una leva più alta aumenta il rischio di liquidazione.",
   "perp.leverage_maximum_desc": "Nota che impostare una leva più alta aumenta il rischio di liquidazione.",
   "perp.market_price": "Prezzo di mercato",
+  "perp.offline": "Fuori linea",
+  "perp.online": "In linea",
   "perp.open_interest_tooltip": "Interesse aperto su entrambi i lati: la somma delle posizioni long e short su questo\ncontratto.",
   "perp.open_order_empty": "Nessun ordine aperto",
   "perp.open_order_empty_desc": "I tuoi ordini appariranno qui dopo l'apertura delle operazioni",

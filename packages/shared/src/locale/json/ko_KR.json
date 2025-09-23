@@ -2069,6 +2069,8 @@
   "perp.leverage_desc_warning": "{token} 포지션에 사용할 레버리지를 제어하세요. 최대 레버리지는 {leverage}입니다. 레버리지를 높게 설정할수록 청산 위험이 증가한다는 점에 유의하세요.",
   "perp.leverage_maximum_desc": "레버리지를 높게 설정하면 청산 위험이 증가한다는 점에 유의하세요.",
   "perp.market_price": "시장 가격",
+  "perp.offline": "오프라인",
+  "perp.online": "온라인",
   "perp.open_interest_tooltip": "양방향 미결제약정: 이 계약의 롱 포지션과 숏 포지션의 합계입니다.",
   "perp.open_order_empty": "미체결 주문 없음",
   "perp.open_order_empty_desc": "거래를 시작하면 주문이 여기에 표시됩니다.",

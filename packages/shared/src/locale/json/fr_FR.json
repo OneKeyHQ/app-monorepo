@@ -2069,6 +2069,8 @@
   "perp.leverage_desc_warning": "Contrôlez l'effet de levier utilisé pour les positions {token}. L'effet de levier maximum est {leverage}. Notez que définir un effet de levier plus élevé augmente le risque de liquidation.",
   "perp.leverage_maximum_desc": "Notez que définir un effet de levier plus élevé augmente le risque de liquidation.",
   "perp.market_price": "Prix du marché",
+  "perp.offline": "Hors ligne",
+  "perp.online": "En ligne",
   "perp.open_interest_tooltip": "Intérêt ouvert bilatéral : la somme des positions longues et courtes sur ce\ncontrat.",
   "perp.open_order_empty": "Aucun ordre ouvert",
   "perp.open_order_empty_desc": "Vos ordres apparaîtront ici après l'ouverture des transactions",

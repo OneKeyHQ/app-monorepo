@@ -2069,6 +2069,8 @@
   "perp.leverage_desc_warning": "Controla el apalancamiento utilizado para las posiciones de {token}. El apalancamiento máximo es de {leverage}. Ten en cuenta que establecer un apalancamiento más alto aumenta el riesgo de liquidación.",
   "perp.leverage_maximum_desc": "Ten en cuenta que establecer un apalancamiento más alto aumenta el riesgo de liquidación.",
   "perp.market_price": "Precio de mercado",
+  "perp.offline": "Desconectado",
+  "perp.online": "En línea",
   "perp.open_interest_tooltip": "Interés abierto de dos lados: la suma de las posiciones largas y cortas en este contrato.",
   "perp.open_order_empty": "No hay órdenes abiertas",
   "perp.open_order_empty_desc": "Tus órdenes aparecerán aquí después de abrir operaciones",

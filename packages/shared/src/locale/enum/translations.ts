@@ -2074,6 +2074,8 @@
   perp_leverage_desc_warning = 'perp.leverage_desc_warning',
   perp_leverage_maximum_desc = 'perp.leverage_maximum_desc',
   perp_market_price = 'perp.market_price',
+  perp_offline = 'perp.offline',
+  perp_online = 'perp.online',
   perp_open_interest_tooltip = 'perp.open_interest_tooltip',
   perp_open_order_empty = 'perp.open_order_empty',
   perp_open_order_empty_desc = 'perp.open_order_empty_desc',

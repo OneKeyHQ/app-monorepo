@@ -2069,6 +2069,8 @@
   "perp.leverage_desc_warning": "Kiểm soát đòn bẩy được sử dụng cho vị thế {token}. Đòn bẩy tối đa là {leverage}. Lưu ý rằng đặt đòn bẩy cao hơn sẽ làm tăng rủi ro bị thanh lý.",
   "perp.leverage_maximum_desc": "Lưu ý rằng thiết lập đòn bẩy cao hơn sẽ làm tăng rủi ro bị thanh lý.",
   "perp.market_price": "Giá thị trường",
+  "perp.offline": "Ngoại tuyến",
+  "perp.online": "Trực tuyến",
   "perp.open_interest_tooltip": "Lãi suất mở hai chiều: tổng số vị thế mua và bán trên hợp đồng này.",
   "perp.open_order_empty": "Không có lệnh mở",
   "perp.open_order_empty_desc": "Các lệnh của bạn sẽ xuất hiện ở đây sau khi mở giao dịch",
