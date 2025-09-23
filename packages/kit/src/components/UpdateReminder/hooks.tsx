@@ -591,7 +591,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
   const dialog = useInTabDialog();
   const showUpdateDialog = useCallback(
-    (
+    async (
       isFull = false,
       params?: {
         latestVersion?: string;
@@ -600,6 +600,8 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         storeUrl?: string;
       },
     ) => {
+      const currentUpdateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       void showUpdateDialogUI({
         dialog,
         intl,
@@ -610,14 +612,18 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             openUrlExternal(params.storeUrl);
           } else {
             setTimeout(() => {
-              toUpdatePreviewPage(isFull, params);
+              if (currentUpdateInfo.status === EAppUpdateStatus.ready) {
+                toDownloadAndVerifyPage();
+              } else {
+                toUpdatePreviewPage(isFull, params);
+              }
             }, 120);
           }
           defaultLogger.app.component.confirmedInUpdateDialog();
         },
       });
     },
-    [dialog, intl, themeVariant, toUpdatePreviewPage],
+    [dialog, intl, themeVariant, toDownloadAndVerifyPage, toUpdatePreviewPage],
   );
 
   // run only once
