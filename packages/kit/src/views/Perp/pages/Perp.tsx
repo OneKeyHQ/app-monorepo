@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -35,6 +35,47 @@ function PerpLayout() {
   return <PerpMobileLayout />;
 }
 
+function PerpNetworkStatus() {
+  const isNetworkStable = false; // Placeholder for actual network status logic
+  const networkStyle = useMemo(() => {
+    return {
+      badgeType: isNetworkStable ? 'success' : 'critical',
+      indicatorBg: isNetworkStable ? '$success10' : '$critical10',
+      text: isNetworkStable ? 'Connection is stable' : 'Disconnected',
+    };
+  }, [isNetworkStable]);
+  return (
+    <Badge
+      badgeType={networkStyle.badgeType}
+      badgeSize="sm"
+      h={18}
+      borderRadius="$full"
+      paddingVertical={0}
+      paddingHorizontal={8}
+      gap="$1.5"
+    >
+      <Stack
+        position="relative"
+        w={8}
+        h={8}
+        borderRadius="$full"
+        alignItems="center"
+        justifyContent="center"
+        bg="$neutral3"
+      >
+        <Stack
+          position="absolute"
+          w={6}
+          h={6}
+          borderRadius="$full"
+          bg={networkStyle.indicatorBg}
+        />
+      </Stack>
+      <Badge.Text style={{ fontSize: 8 }}>{networkStyle.text}</Badge.Text>
+    </Badge>
+  );
+}
+
 function PerpContentFooter() {
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
@@ -49,35 +90,7 @@ function PerpContentFooter() {
         p="$2"
         justifyContent="space-between"
       >
-        <Badge
-          badgeType="success"
-          badgeSize="sm"
-          h={18}
-          borderRadius="$full"
-          paddingVertical={0}
-          paddingHorizontal={8}
-          gap="$1.5"
-        >
-          <Stack
-            position="relative"
-            w={8}
-            h={8}
-            borderRadius="$full"
-            alignItems="center"
-            justifyContent="center"
-            bg="$neutral3"
-          >
-            <Stack
-              position="absolute"
-              w={6}
-              h={6}
-              borderRadius="$full"
-              bg="$success10"
-            />
-          </Stack>
-          <Badge.Text style={{ fontSize: 8 }}>Connection is stable</Badge.Text>
-        </Badge>
-
+        <PerpNetworkStatus />
         <Image
           source={
             themeVariant === 'light'
