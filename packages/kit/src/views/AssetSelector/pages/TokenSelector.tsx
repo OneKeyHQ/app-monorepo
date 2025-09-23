@@ -68,7 +68,6 @@ function TokenSelector() {
     activeNetworkId,
     aggregateTokenSelectorScreen,
     allAggregateTokenMap,
-    allAggregateTokens,
     hideZeroBalanceTokens,
     keepDefaultZeroBalanceTokens,
     enableNetworkAfterSelect,
@@ -388,9 +387,9 @@ function TokenSelector() {
           tokenSelectorSearchTokenState={searchTokenState}
           tokenSelectorSearchTokenList={searchTokenList}
           allAggregateTokenMap={allAggregateTokenMap}
-          allAggregateTokens={allAggregateTokens}
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
+          showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
         />
       </Page.Body>
     </Page>

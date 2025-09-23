@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
@@ -27,15 +29,23 @@ function buildApprovalAlertKey(networkId: string, accountId: string) {
 function buildApprovalRevokeSuggestionKey({
   accountId,
   indexedAccountId,
+  xfp,
 }: {
   accountId: string;
   indexedAccountId?: string;
+  xfp?: string;
 }) {
   if (accountUtils.isOthersAccount({ accountId })) {
     return accountId;
   }
 
-  const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+  const { walletId, index } = accountUtils.parseIndexedAccountId({
+    indexedAccountId: indexedAccountId ?? '',
+  });
+
+  if (xfp && !isNil(index)) {
+    return `${xfp}_${index}`;
+  }
 
   return `${walletId}_${indexedAccountId ?? ''}`;
 }
@@ -49,14 +59,17 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
   async getRiskApprovalsRevokeSuggestionConfig({
     accountId,
     indexedAccountId,
+    xfp,
   }: {
     accountId: string;
     indexedAccountId?: string;
+    xfp?: string;
   }) {
     const config = await this.getRawData();
     const key = buildApprovalRevokeSuggestionKey({
       accountId,
       indexedAccountId,
+      xfp,
     });
     return config?.riskApprovalsRevokeSuggestionConfig?.[key];
   }
@@ -65,14 +78,17 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
   async getInactiveApprovalsRevokeSuggestionConfig({
     accountId,
     indexedAccountId,
+    xfp,
   }: {
     accountId: string;
     indexedAccountId?: string;
+    xfp?: string;
   }) {
     const config = await this.getRawData();
     const key = buildApprovalRevokeSuggestionKey({
       accountId,
       indexedAccountId,
+      xfp,
     });
     return config?.inactiveApprovalsRevokeSuggestionConfig?.[key];
   }
@@ -133,14 +149,17 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
   async updateRiskApprovalsRevokeSuggestionConfig({
     accountId,
     indexedAccountId,
+    xfp,
   }: {
     accountId: string;
     indexedAccountId?: string;
+    xfp?: string;
   }) {
     await this.setRawData((rawData) => {
       const key = buildApprovalRevokeSuggestionKey({
         accountId,
         indexedAccountId,
+        xfp,
       });
       return {
         riskApprovalsRevokeSuggestionConfig: {
@@ -158,14 +177,17 @@ export class SimpleDbEntityApproval extends SimpleDbEntityBase<ISimpleDbApproval
   async updateInactiveApprovalsRevokeSuggestionConfig({
     accountId,
     indexedAccountId,
+    xfp,
   }: {
     accountId: string;
     indexedAccountId?: string;
+    xfp?: string;
   }) {
     await this.setRawData((rawData) => {
       const key = buildApprovalRevokeSuggestionKey({
         accountId,
         indexedAccountId,
+        xfp,
       });
       return {
         ...rawData,
