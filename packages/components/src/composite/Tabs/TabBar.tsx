@@ -76,7 +76,21 @@ export interface ITabBarItemProps {
   focusedTabStyle?: IYStackProps;
 }
 
-export function TabBar({
+export type IScrollableTabBarProps = Omit<
+  Partial<ITabBarProps>,
+  'focusedTab' | 'tabNames'
+> & {
+  focusedTab: SharedValue<string>;
+  tabNames: string[];
+  onTabPress: (name: string) => void;
+  divider?: boolean;
+  tabItemStyle?: IYStackProps;
+  focusedTabStyle?: IYStackProps;
+  renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
+  scrollable?: boolean;
+};
+
+export function ScrollableTabBar({
   onTabPress,
   tabNames,
   focusedTab,
@@ -89,16 +103,7 @@ export function TabBar({
   // eslint-disable-next-line react/prop-types
   containerStyle,
   scrollable = false,
-}: Omit<Partial<ITabBarProps>, 'focusedTab' | 'tabNames'> & {
-  focusedTab: SharedValue<string>;
-  tabNames: string[];
-  onTabPress: (name: string) => void;
-  divider?: boolean;
-  tabItemStyle?: IYStackProps;
-  focusedTabStyle?: IYStackProps;
-  renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
-  scrollable?: boolean;
-}) {
+}: IScrollableTabBarProps) {
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -253,5 +258,20 @@ export function TabBar({
     >
       {content}
     </YStack>
+  );
+}
+
+function AnimationTabBar({ ...props }: IScrollableTabBarProps) {
+  return null;
+}
+
+export function TabBar({
+  scrollable = false,
+  ...props
+}: IScrollableTabBarProps) {
+  return scrollable ? (
+    <ScrollableTabBar {...props} scrollable={scrollable} />
+  ) : (
+    <TabBar {...props} />
   );
 }
