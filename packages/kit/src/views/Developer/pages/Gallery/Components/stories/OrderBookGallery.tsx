@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import {
   OrderBook,
+  OrderBookMobile,
   OrderPairBook,
 } from '@onekeyhq/kit/src/views/Perp/components/OrderBook';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -106,20 +107,27 @@ const OrderBookDemo = () => {
       </Stack>
 
       <Stack gap="$2">
-        <SizableText size="$bodyMd" fontWeight="500">
-          Order Book
-        </SizableText>
-
-        <Stack p="$2">
-          <OrderBook bids={bids} asks={asks} maxLevelsPerSide={15} />
+        <Stack>
+          <SizableText size="$bodyMd" fontWeight="500">
+            Order Book (horizontal)
+          </SizableText>
+          <Stack p="$2">
+            <OrderBook bids={bids} asks={asks} maxLevelsPerSide={15} />
+          </Stack>
         </Stack>
-        <Stack p="$2">
-          <OrderBook
-            horizontal={false}
-            bids={bids}
-            asks={asks}
-            maxLevelsPerSide={15}
-          />
+
+        <Stack>
+          <SizableText size="$bodyMd" fontWeight="500">
+            Order Book (vertical)
+          </SizableText>
+          <Stack p="$2">
+            <OrderBook
+              horizontal={false}
+              bids={bids}
+              asks={asks}
+              maxLevelsPerSide={15}
+            />
+          </Stack>
         </Stack>
       </Stack>
       <Stack p="$2">
