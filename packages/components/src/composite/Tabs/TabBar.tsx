@@ -219,8 +219,11 @@ export function TabBar({
     >
       <XStack alignItems="center" gap="$2" justifyContent="space-between">
         <ListView
+          style={{
+            flexShrink: 1,
+          }}
+          useFlashList
           data={tabNames}
-          estimatedItemSize={44}
           ref={listViewRef}
           horizontal
           pr="$4"
@@ -230,7 +233,9 @@ export function TabBar({
           renderItem={handleRenderItem as any}
           showsHorizontalScrollIndicator={false}
         />
-        {renderToolbar?.({ focusedTab: currentTab })}
+        {renderToolbar ? (
+          <XStack>{renderToolbar({ focusedTab: currentTab })}</XStack>
+        ) : null}
       </XStack>
       {divider ? <Divider /> : null}
     </YStack>
