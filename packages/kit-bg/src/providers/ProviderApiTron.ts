@@ -228,7 +228,6 @@ class ProviderApiTron extends ProviderApiBase {
     message: string,
   ): Promise<string> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    console.log('signMessageV2', request, message);
 
     const { accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
@@ -243,8 +242,6 @@ class ProviderApiTron extends ProviderApiBase {
       accountId: accountId ?? '',
       networkId: networkId ?? '',
     })) as string;
-
-    console.log('signMessageV2 DONE', result, request);
 
     return result;
   }
@@ -287,6 +284,79 @@ class ProviderApiTron extends ProviderApiBase {
     } catch {
       return false;
     }
+  }
+
+  // TIP6963 Api
+  @providerApiMethod()
+  async eth_chainId(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_chainId(request);
+  }
+
+  @providerApiMethod()
+  async eth_requestAccounts(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_requestAccounts(request);
+  }
+
+  @providerApiMethod()
+  async wallet_accounts(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_accounts(request);
+  }
+
+  @providerApiMethod()
+  async wallet_switchEthereumChain(
+    request: IJsBridgeMessagePayload,
+    { chainId }: { chainId: string },
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async personal_sign(request: IJsBridgeMessagePayload, message: string) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const messageBuffer = hexUtils.stringToUtf8Bytes(message);
+    const messageStr = Buffer.from(messageBuffer).toString('hex');
+    return this.signMessageV2(request, messageStr);
+  }
+
+  @providerApiMethod()
+  async eth_signTransaction(
+    request: IJsBridgeMessagePayload,
+    transaction: any,
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    return this.tron_signTransaction(request, transaction);
+  }
+
+  // https://tronweb.network/docu/docs/API%20List/trx/multiSign
+  @providerApiMethod()
+  async eth_multiSign(request: IJsBridgeMessagePayload, transaction: any) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  // https://tronweb.network/docu/docs/API%20List/trx/signTypedData/
+  @providerApiMethod()
+  async eth_signTypedData(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async wallet_disconnect(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    const { origin } = request;
+    if (!origin) {
+      return;
+    }
+    await this.backgroundApi.serviceDApp.disconnectWebsite({
+      origin,
+      storageType: 'injectedProvider',
+    });
   }
 }
 

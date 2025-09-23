@@ -204,23 +204,26 @@ function useHyperliquidAccountSelect() {
 
   const { result: globalDeriveType, run: refreshGlobalDeriveType } =
     usePromiseResult(
-      () =>
-        backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId: PERPS_NETWORK_ID,
-        }),
+      async () => {
+        const driveType =
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: PERPS_NETWORK_ID,
+          });
+        return driveType;
+      },
       [],
+      {
+        checkIsFocused: false,
+      },
     );
 
   useEffect(() => {
-    appEventBus.on(
-      EAppEventBusNames.GlobalDeriveTypeUpdate,
-      refreshGlobalDeriveType,
-    );
+    const fn = async () => {
+      await refreshGlobalDeriveType();
+    };
+    appEventBus.on(EAppEventBusNames.GlobalDeriveTypeUpdate, fn);
     return () => {
-      appEventBus.off(
-        EAppEventBusNames.GlobalDeriveTypeUpdate,
-        refreshGlobalDeriveType,
-      );
+      appEventBus.off(EAppEventBusNames.GlobalDeriveTypeUpdate, fn);
     };
   }, [refreshGlobalDeriveType]);
 
