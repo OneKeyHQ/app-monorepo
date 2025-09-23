@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,9 +12,11 @@ import {
 import {
   useCurrentTokenPriceAtom,
   useHyperliquidActions,
+  useOrderBookTickOptionsAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
@@ -88,11 +90,24 @@ export function PerpOrderBook({
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
   const [formData] = useTradingFormAtom();
-  const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
-  const prevSymbolRef = useRef<string | undefined>(undefined);
+  const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+  const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
+
+  const l2SubscriptionOptions = useMemo(() => {
+    const coin = perpsSelectedSymbol?.coin;
+    if (!coin) {
+      return { nSigFigs: null, mantissa: undefined };
+    }
+    const stored = orderBookTickOptions[coin];
+    const nSigFigs = stored?.nSigFigs ?? null;
+    const mantissa =
+      stored?.mantissa === undefined ? undefined : stored.mantissa;
+    return { nSigFigs, mantissa };
+  }, [orderBookTickOptions, perpsSelectedSymbol?.coin]);
+
   const { l2Book, hasOrderBook } = useL2Book({
-    nSigFigs: selectedTickOption?.nSigFigs || null,
-    mantissa: selectedTickOption?.mantissa,
+    nSigFigs: l2SubscriptionOptions.nSigFigs,
+    mantissa: l2SubscriptionOptions.mantissa,
   });
 
   const tickOptionsData = useTickOptions({
@@ -100,21 +115,20 @@ export function PerpOrderBook({
     bids: l2Book?.bids ?? [],
     asks: l2Book?.asks ?? [],
   });
+  const {
+    tickOptions,
+    selectedTickOption,
+    setSelectedTickOption,
+    priceDecimals,
+    sizeDecimals,
+  } = tickOptionsData;
 
-  useEffect(() => {
-    // Only reset when symbol changes or when initially setting
-    if (
-      (prevSymbolRef.current !== l2Book?.coin || !selectedTickOption) &&
-      tickOptionsData.defaultTickOption
-    ) {
-      setSelectedTickOption(tickOptionsData.defaultTickOption);
-      prevSymbolRef.current = l2Book?.coin;
-    }
-  }, [l2Book?.coin, tickOptionsData.defaultTickOption, selectedTickOption]);
-
-  const handleTickOptionChange = useCallback((option: ITickParam) => {
-    setSelectedTickOption(option);
-  }, []);
+  const handleTickOptionChange = useCallback(
+    (option: ITickParam) => {
+      setSelectedTickOption(option);
+    },
+    [setSelectedTickOption],
+  );
 
   const handleLevelSelect = useCallback(
     (selection: IOrderBookSelection) => {
@@ -144,10 +158,10 @@ export function PerpOrderBook({
           maxLevelsPerSide={13}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptionsData.tickOptions}
+          tickOptions={tickOptions}
           showTickSelector
-          priceDecimals={tickOptionsData.priceDecimals}
-          sizeDecimals={tickOptionsData.sizeDecimals}
+          priceDecimals={priceDecimals}
+          sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
       );
@@ -162,10 +176,10 @@ export function PerpOrderBook({
           maxLevelsPerSide={formData.hasTpsl ? 8 : 6}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptionsData.tickOptions}
+          tickOptions={tickOptions}
           showTickSelector
-          priceDecimals={tickOptionsData.priceDecimals}
-          sizeDecimals={tickOptionsData.sizeDecimals}
+          priceDecimals={priceDecimals}
+          sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
       </YStack>
@@ -177,9 +191,11 @@ export function PerpOrderBook({
     l2Book,
     handleLevelSelect,
     selectedTickOption,
-    tickOptionsData,
     hasOrderBook,
     formData.hasTpsl,
+    tickOptions,
+    priceDecimals,
+    sizeDecimals,
   ]);
 
   if (!hasOrderBook || !l2Book) {
@@ -203,10 +219,10 @@ export function PerpOrderBook({
           maxLevelsPerSide={12}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptionsData.tickOptions}
+          tickOptions={tickOptions}
           showTickSelector
-          priceDecimals={tickOptionsData.priceDecimals}
-          sizeDecimals={tickOptionsData.sizeDecimals}
+          priceDecimals={priceDecimals}
+          sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
       ) : (

@@ -1,12 +1,17 @@
-import { useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import {
+  useHyperliquidActions,
+  useOrderBookTickOptionsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   analyzeOrderBookPrecision,
   getDisplayPriceScaleDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   type ITickParam,
@@ -17,6 +22,8 @@ import {
 interface ITickOptionsResult {
   tickOptions: ITickParam[];
   defaultTickOption: ITickParam;
+  selectedTickOption: ITickParam;
+  setSelectedTickOption: (option: ITickParam) => void;
   priceDecimals: number;
   sizeDecimals: number;
 }
@@ -38,21 +45,31 @@ export function useTickOptions({
     priceDecimals: number;
   } | null>(null);
 
+  const [persistedTickOptions] = useOrderBookTickOptionsAtom();
+  const actions = useHyperliquidActions();
+
+  useEffect(() => {
+    void actions.current.ensureOrderBookTickOptionsLoaded();
+  }, [actions]);
+
   const topBidPrice = bids[0]?.px;
   const topAskPrice = asks[0]?.px;
 
   const tickOptionsData = useMemo(() => {
     if (!symbol) return null;
 
-    // Return cached result if symbol hasn't changed and cache exists
-    if (tickOptionsCache.current?.symbol === symbol) {
-      return tickOptionsCache.current;
-    }
-
     const marketPrice = topBidPrice || topAskPrice || '0';
     if (marketPrice === '0') return null;
 
     const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
+    const cached =
+      tickOptionsCache.current?.symbol === symbol
+        ? tickOptionsCache.current
+        : null;
+
+    if (cached && priceDecimals <= cached.priceDecimals) {
+      return cached;
+    }
 
     // Handle edge case: when priceDecimals = 0, use 1 as base decimal
     const decimalsArg =
@@ -86,7 +103,7 @@ export function useTickOptions({
     return calculatedSizeDecimals;
   }, [bids, asks]);
 
-  return useMemo(() => {
+  const baseTickOptionsData = useMemo(() => {
     // Fallback when no data available
     if (!tickOptionsData) {
       const priceDecimals = 0;
@@ -98,13 +115,97 @@ export function useTickOptions({
         tickOptions,
         defaultTickOption,
         priceDecimals,
-        sizeDecimals,
       };
     }
 
+    return tickOptionsData;
+  }, [tickOptionsData]);
+
+  const selectedTickOption = useMemo(() => {
+    const { tickOptions, defaultTickOption } = baseTickOptionsData;
+
+    if (!symbol) return defaultTickOption;
+
+    const saved = persistedTickOptions[symbol];
+    if (saved) {
+      const byValue = tickOptions.find(
+        (option) => option.value === saved.value,
+      );
+      if (byValue) return byValue;
+
+      const byParams = tickOptions.find(
+        (option) =>
+          option.nSigFigs === saved.nSigFigs &&
+          (option.nSigFigs === 5 ? option.mantissa === saved.mantissa : true),
+      );
+
+      if (byParams) {
+        return byParams;
+      }
+    }
+
+    return defaultTickOption;
+  }, [baseTickOptionsData, persistedTickOptions, symbol]);
+
+  useEffect(() => {
+    if (!symbol) return;
+
+    const persisted = persistedTickOptions[symbol];
+    const currentPersist: IPerpOrderBookTickOptionPersist = {
+      value: selectedTickOption.value,
+      nSigFigs: selectedTickOption.nSigFigs ?? null,
+      mantissa: selectedTickOption.mantissa ?? null,
+    };
+
+    if (
+      !persisted ||
+      persisted.value !== currentPersist.value ||
+      persisted.nSigFigs !== currentPersist.nSigFigs ||
+      persisted.mantissa !== currentPersist.mantissa
+    ) {
+      void actions.current.setOrderBookTickOption({
+        symbol,
+        option: currentPersist,
+      });
+    }
+  }, [symbol, persistedTickOptions, selectedTickOption, actions]);
+
+  const handleSelectTickOption = useCallback(
+    (option: ITickParam) => {
+      if (!symbol) return;
+      if (
+        option.value === selectedTickOption.value &&
+        option.nSigFigs === selectedTickOption.nSigFigs &&
+        option.mantissa === selectedTickOption.mantissa
+      ) {
+        return;
+      }
+
+      void actions.current.setOrderBookTickOption({
+        symbol,
+        option: {
+          value: option.value,
+          nSigFigs: option.nSigFigs ?? null,
+          mantissa: option.mantissa ?? null,
+        },
+      });
+    },
+    [actions, selectedTickOption, symbol],
+  );
+
+  return useMemo(() => {
     return {
-      ...tickOptionsData,
+      tickOptions: baseTickOptionsData.tickOptions,
+      defaultTickOption: baseTickOptionsData.defaultTickOption,
+      selectedTickOption,
+      setSelectedTickOption: handleSelectTickOption,
+      priceDecimals: baseTickOptionsData.priceDecimals,
       sizeDecimals,
     };
-  }, [tickOptionsData, sizeDecimals]);
+  }, [
+    baseTickOptionsData,
+    selectedTickOption,
+    handleSelectTickOption,
+    sizeDecimals,
+  ]);
 }
