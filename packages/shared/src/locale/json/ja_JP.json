@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "ガスはかかりません。注文は数秒以内に確定されます。",
   "perp.deposit_chain": "入金チェーン",
   "perp.funding_tooltip": "ロングがショートに支払う時間ごとのレート（マイナスの場合はショートがロングに支払います）。",
+  "perp.label_perp": "Perp",
   "perp.leverage": "レバレッジ",
   "perp.leverage_desc": "{token}のポジションで使用するレバレッジを制御します。最大レバレッジは{leverage}です。",
   "perp.leverage_desc_warning": "{token} のポジションで使用するレバレッジを管理します。最大レバレッジは {leverage} です。レバレッジを高く設定すると、清算リスクが高まる点にご注意ください。",

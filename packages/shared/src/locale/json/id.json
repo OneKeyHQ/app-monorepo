@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "Anda tidak membayar gas. Pesanan akan dikonfirmasi dalam beberapa detik.",
   "perp.deposit_chain": "Rantai Deposit",
   "perp.funding_tooltip": "Tarif per jam di mana posisi long membayar posisi short (jika negatif, posisi short membayar posisi long).",
+  "perp.label_perp": "Perp",
   "perp.leverage": "Leverage",
   "perp.leverage_desc": "Kendalikan leverage yang digunakan untuk posisi {token}. Leverage maksimum adalah {leverage}.",
   "perp.leverage_desc_warning": "Kendalikan leverage yang digunakan untuk posisi {token}. Leverage maksimum adalah {leverage}. Perhatikan bahwa menetapkan leverage yang lebih tinggi meningkatkan risiko likuidasi.",

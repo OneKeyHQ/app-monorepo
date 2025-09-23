@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "Vous ne payez pas de gas. L'ordre sera confirmé dans quelques secondes.",
   "perp.deposit_chain": "Chaîne de Dépôt",
   "perp.funding_tooltip": "Le taux horaire auquel les positions longues paient les positions courtes (si négatif, les positions courtes paient les positions longues).",
+  "perp.label_perp": "Perp",
   "perp.leverage": "Effet de levier",
   "perp.leverage_desc": "Contrôlez l'effet de levier utilisé pour les positions {token}. L'effet de levier maximum est {leverage}.",
   "perp.leverage_desc_warning": "Contrôlez l'effet de levier utilisé pour les positions {token}. L'effet de levier maximum est {leverage}. Notez que définir un effet de levier plus élevé augmente le risque de liquidation.",

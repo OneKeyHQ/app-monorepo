@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "您無需支付 gas，訂單將在幾秒鐘內確認。",
   "perp.deposit_chain": "存款網絡",
   "perp.funding_tooltip": "多頭向空頭支付的每小時費率（如為負數，則空頭向多頭支付）。",
+  "perp.label_perp": "永續",
   "perp.leverage": "槓桿",
   "perp.leverage_desc": "调整 {token} 倉位所使用的槓桿，最大槓桿為 {leverage}",
   "perp.leverage_desc_warning": "调整 {token} 倉位的槓桿，最大槓桿為 {leverage}。請注意，設定較高的槓桿會增加清算風險。",

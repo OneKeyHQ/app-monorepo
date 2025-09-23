@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "gas를 지불하지 않습니다. 주문은 몇 초 내에 확인됩니다.",
   "perp.deposit_chain": "입금 체인",
   "perp.funding_tooltip": "롱 포지션이 숏 포지션에게 지불하는 시간당 요율입니다(음수일 경우, 숏 포지션이 롱 포지션에게 지불합니다).",
+  "perp.label_perp": "Perp",
   "perp.leverage": "레버리지",
   "perp.leverage_desc": "{token} 포지션에 사용되는 레버리지를 설정하세요. 최대 레버리지는 {leverage}입니다.",
   "perp.leverage_desc_warning": "{token} 포지션에 사용할 레버리지를 제어하세요. 최대 레버리지는 {leverage}입니다. 레버리지를 높게 설정할수록 청산 위험이 증가한다는 점에 유의하세요.",

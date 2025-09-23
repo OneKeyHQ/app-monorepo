@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "No pagas gas. La orden se confirmará en unos segundos.",
   "perp.deposit_chain": "Cadena de depósito",
   "perp.funding_tooltip": "La tasa por hora a la que los largos pagan a los cortos (si es negativa, los cortos pagan a los largos).",
+  "perp.label_perp": "Perp",
   "perp.leverage": "Apalancamiento",
   "perp.leverage_desc": "Controla el apalancamiento utilizado para las posiciones de {token}. El apalancamiento máximo es de {leverage}.",
   "perp.leverage_desc_warning": "Controla el apalancamiento utilizado para las posiciones de {token}. El apalancamiento máximo es de {leverage}. Ten en cuenta que establecer un apalancamiento más alto aumenta el riesgo de liquidación.",

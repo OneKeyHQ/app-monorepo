@@ -2059,6 +2059,7 @@
   "perp.confirm_order_desc": "Non paghi gas. L'ordine verrà confermato entro pochi secondi.",
   "perp.deposit_chain": "Catena di deposito",
   "perp.funding_tooltip": "La tariffa oraria con cui le posizioni long pagano le posizioni short (se negativa, sono gli short a pagare i long).",
+  "perp.label_perp": "Perp",
   "perp.leverage": "Leva",
   "perp.leverage_desc": "Controlla la leva utilizzata per le posizioni su {token}. La leva massima è {leverage}.",
   "perp.leverage_desc_warning": "Controlla la leva utilizzata per le posizioni su {token}. La leva massima è {leverage}. Nota che impostare una leva più alta aumenta il rischio di liquidazione.",

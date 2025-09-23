@@ -2064,6 +2064,7 @@
   perp_confirm_order_desc = 'perp.confirm_order_desc',
   perp_deposit_chain = 'perp.deposit_chain',
   perp_funding_tooltip = 'perp.funding_tooltip',
+  perp_label_perp = 'perp.label_perp',
   perp_leverage = 'perp.leverage',
   perp_leverage_desc = 'perp.leverage_desc',
   perp_leverage_desc_warning = 'perp.leverage_desc_warning',
