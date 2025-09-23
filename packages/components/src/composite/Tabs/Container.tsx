@@ -68,11 +68,14 @@ const renderDefaultTabBar = (props: TabBarProps<string>) => {
   return <TabBar {...props} />;
 };
 
-interface IRefProps {
-  ref: React.RefObject<{
-    switchTab: (tabName: string) => void;
-    switchTabWithIndex: (index: number) => void;
-  }>;
+export interface ITabContainerRef {
+  jumpToTab: (tabName: string) => void;
+  setIndex: (index: number) => void;
+  getFocusedTab: () => string;
+  getCurrentIndex: () => number;
+}
+interface ITabContainerRefProps {
+  ref: React.RefObject<ITabContainerRef>;
 }
 
 export function Container({
@@ -85,7 +88,7 @@ export function Container({
   ref: containerRef,
   initialTabName,
   ...props
-}: PropsWithChildren<CollapsibleProps> & IRefProps) {
+}: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -283,11 +286,17 @@ export function Container({
   );
 
   useImperativeHandle(containerRef, () => ({
-    switchTab: (tabName: string) => {
+    jumpToTab: (tabName: string) => {
       onTabPress(tabName);
     },
-    switchTabWithIndex: (index: number) => {
+    setIndex: (index: number) => {
       onTabPress(tabNames[index]);
+    },
+    getFocusedTab: () => {
+      return focusedTab.value;
+    },
+    getCurrentIndex: () => {
+      return tabNames.findIndex((name) => name === focusedTab.value);
     },
   }));
 

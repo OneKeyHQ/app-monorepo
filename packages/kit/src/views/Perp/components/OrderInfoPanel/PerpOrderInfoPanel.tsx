@@ -2,7 +2,10 @@ import { useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IModalNavigationProp } from '@onekeyhq/components';
+import type {
+  IModalNavigationProp,
+  ITabContainerRef,
+} from '@onekeyhq/components';
 import { IconButton, SizableText, Tabs, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,16 +28,14 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   const intl = useIntl();
   const orders = usePerpOrders();
   const positions = usePerpPositions();
-  const tabsRef = useRef<{
-    switchTab: (tabName: string) => void;
-  } | null>(null);
+  const tabsRef = useRef<ITabContainerRef | null>(null);
   const tabNameToTranslationKey = {
     'Positions': ETranslations.perp_position_title,
     'Open Orders': ETranslations.perp_open_orders_title,
     'Trades History': ETranslations.perp_trades_history_title,
   };
   const handleViewTpslOrders = () => {
-    tabsRef.current?.switchTab('Open Orders');
+    tabsRef.current?.jumpToTab('Open Orders');
   };
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
