@@ -45,6 +45,7 @@ import {
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
+
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
