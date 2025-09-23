@@ -22,6 +22,7 @@ import {
   getTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
 interface IOrderConfirmContentProps {
@@ -138,16 +139,18 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
         </XStack>
       </YStack>
 
-      <Button
-        variant="primary"
-        size="medium"
-        disabled={isSubmitting}
-        loading={isSubmitting}
-        onPress={confirmOrder}
-        {...buttonStyleProps}
-      >
-        {buttonText}
-      </Button>
+      <TradingGuardWrapper>
+        <Button
+          variant="primary"
+          size="medium"
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          onPress={confirmOrder}
+          {...buttonStyleProps}
+        >
+          {buttonText}
+        </Button>
+      </TradingGuardWrapper>
     </YStack>
   );
 }

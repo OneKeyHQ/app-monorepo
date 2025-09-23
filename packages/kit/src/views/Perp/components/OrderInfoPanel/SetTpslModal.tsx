@@ -25,6 +25,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -306,18 +307,19 @@ const SetTpslForm = memo(
             step={1}
           />
         </YStack>
-
-        <Button
-          size="large"
-          variant="primary"
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-          loading={isSubmitting}
-        >
-          {appLocale.intl.formatMessage({
-            id: ETranslations.perp_confirm_order,
-          })}
-        </Button>
+        <TradingGuardWrapper>
+          <Button
+            size="large"
+            variant="primary"
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            loading={isSubmitting}
+          >
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_confirm_order,
+            })}
+          </Button>{' '}
+        </TradingGuardWrapper>
       </YStack>
     );
   },

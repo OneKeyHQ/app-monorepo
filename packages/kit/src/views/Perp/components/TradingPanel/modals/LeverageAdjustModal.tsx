@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   Dialog,
   Icon,
   Input,
@@ -22,6 +23,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
+import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
 interface ILeverageContentProps {
   initialValue: number;
@@ -93,7 +95,7 @@ const LeverageContent = memo(
     const isDisabled = value <= 0 || loading;
     const intl = useIntl();
     return (
-      <YStack>
+      <YStack gap="$4">
         <YStack p="$1" my="$3" gap="$3">
           <XStack flex={1} alignItems="center" gap="$4">
             <Slider
@@ -145,17 +147,15 @@ const LeverageContent = memo(
           )}
         </SizableText>
 
-        <Dialog.Footer
-          onConfirm={handleConfirm}
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_confirm,
-          })}
-          confirmButtonProps={{
-            disabled: isDisabled,
-            loading,
-          }}
-          showCancelButton={false}
-        />
+        <TradingGuardWrapper>
+          <Button
+            onPress={handleConfirm}
+            disabled={isDisabled}
+            loading={loading}
+          >
+            {intl.formatMessage({ id: ETranslations.global_confirm })}
+          </Button>
+        </TradingGuardWrapper>
       </YStack>
     );
   },

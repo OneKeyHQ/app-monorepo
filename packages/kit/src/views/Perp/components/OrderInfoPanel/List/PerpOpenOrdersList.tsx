@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList } from '../../../hooks';
+import { useTokenList, useTradingGuard } from '../../../hooks';
 import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
@@ -22,8 +22,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const orders = usePerpOrders();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
+  const { ensureTradingEnabled } = useTradingGuard();
 
   const handleCancelAll = useCallback(() => {
+    ensureTradingEnabled();
     const ordersToCancel = orders
       .map((order) => {
         const tokenInfo = getTokenInfo(order.coin);
@@ -44,7 +46,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     }
 
     void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, getTokenInfo, actions]);
+  }, [orders, getTokenInfo, actions, ensureTradingEnabled]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -136,6 +138,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
 
   const handleCancelOrder = useCallback(
     (order: FrontendOrder) => {
+      ensureTradingEnabled();
       const tokenInfo = getTokenInfo(order.coin);
       if (!tokenInfo) {
         console.warn(`Token info not found for coin: ${order.coin}`);
@@ -150,7 +153,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         ],
       });
     },
-    [getTokenInfo, actions],
+    [getTokenInfo, actions, ensureTradingEnabled],
   );
 
   const totalMinWidth = useMemo(
