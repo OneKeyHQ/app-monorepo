@@ -180,7 +180,7 @@ export function TokenName({
   textProps?: ISizableTextProps;
   isAggregateToken?: boolean;
   withAggregateBadge?: boolean;
-  allAggregateTokenMap: Record<string, { tokens: IAccountToken[] }>;
+  allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
 } & IXStackProps) {
   const { network } = useAccountData({ networkId });
   const intl = useIntl();

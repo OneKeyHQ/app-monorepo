@@ -14,6 +14,7 @@ import type {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 @backgroundClass()
 class ServiceApproval extends ServiceBase {
@@ -163,14 +164,24 @@ class ServiceApproval extends ServiceBase {
     accountId: string;
     indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+
     const config =
       await this.backgroundApi.simpleDb.approval.getRiskApprovalsRevokeSuggestionConfig(
         {
           accountId,
           indexedAccountId,
+          xfp,
         },
       );
-
     if (config && config.lastShowTime) {
       const { approvalResurfaceDays } =
         await this.getApprovalResurfaceDaysConfig();
@@ -194,14 +205,23 @@ class ServiceApproval extends ServiceBase {
     accountId: string;
     indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
     const config =
       await this.backgroundApi.simpleDb.approval.getInactiveApprovalsRevokeSuggestionConfig(
         {
           accountId,
           indexedAccountId,
+          xfp,
         },
       );
-
     if (config && config.lastShowTime) {
       const interval = Date.now() - config.lastShowTime;
       const { approvalResurfaceDays } =
@@ -285,10 +305,21 @@ class ServiceApproval extends ServiceBase {
     accountId: string;
     indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+
     await this.backgroundApi.simpleDb.approval.updateRiskApprovalsRevokeSuggestionConfig(
       {
         accountId,
         indexedAccountId,
+        xfp,
       },
     );
   }
@@ -301,10 +332,20 @@ class ServiceApproval extends ServiceBase {
     accountId: string;
     indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
     await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsRevokeSuggestionConfig(
       {
         accountId,
         indexedAccountId,
+        xfp,
       },
     );
   }
