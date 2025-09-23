@@ -628,7 +628,6 @@ function TokenDetailsView() {
                   <TokenDetailsTabToolbar
                     tokens={tokens}
                     onSelected={(token) => {
-                      console.log('token', token, tabsRef.current);
                       tabsRef.current?.jumpToTab(token.networkName ?? '');
                     }}
                   />
