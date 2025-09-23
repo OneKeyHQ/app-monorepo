@@ -152,8 +152,14 @@ export function useSpeedSwapActions(props: {
           });
         }
       } else {
-        const sellTradeToken =
-          defaultTradeTokens?.find((item) => item.isNative) ?? tradeToken;
+        const sellTradeToken = defaultTradeTokens?.find(
+          (item) => item.isNative,
+        ) ?? {
+          networkId: tradeToken?.networkId,
+          contractAddress: tradeToken?.contractAddress,
+          symbol: tradeToken?.symbol,
+          logoURI: tradeToken?.logoURI,
+        };
         const tokenDetail =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: sellTradeToken?.networkId ?? '',
@@ -162,7 +168,7 @@ export function useSpeedSwapActions(props: {
         if (tokenDetail?.length) {
           setTradeTokenDetail({
             ...tokenDetail[0],
-            symbol: sellTradeToken?.symbol,
+            symbol: sellTradeToken?.symbol ?? '',
             logoURI: tokenDetail[0]?.logoURI
               ? tokenDetail[0]?.logoURI
               : sellTradeToken?.logoURI,
@@ -170,7 +176,14 @@ export function useSpeedSwapActions(props: {
         }
       }
     })();
-  }, [tradeToken, tradeType, defaultTradeTokens]);
+  }, [
+    tradeType,
+    defaultTradeTokens,
+    tradeToken?.contractAddress,
+    tradeToken?.logoURI,
+    tradeToken?.networkId,
+    tradeToken?.symbol,
+  ]);
 
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
