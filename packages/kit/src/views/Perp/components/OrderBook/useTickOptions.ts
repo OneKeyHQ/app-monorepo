@@ -58,15 +58,18 @@ export function useTickOptions({
   const tickOptionsData = useMemo(() => {
     if (!symbol) return null;
 
-    // Return cached result if symbol hasn't changed and cache exists
-    if (tickOptionsCache.current?.symbol === symbol) {
-      return tickOptionsCache.current;
-    }
-
     const marketPrice = topBidPrice || topAskPrice || '0';
     if (marketPrice === '0') return null;
 
     const priceDecimals = getDisplayPriceScaleDecimals(marketPrice);
+    const cached =
+      tickOptionsCache.current?.symbol === symbol
+        ? tickOptionsCache.current
+        : null;
+
+    if (cached && priceDecimals <= cached.priceDecimals) {
+      return cached;
+    }
 
     // Handle edge case: when priceDecimals = 0, use 1 as base decimal
     const decimalsArg =
