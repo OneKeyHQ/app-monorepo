@@ -222,6 +222,7 @@ interface INativeBundleUpdateModule {
   downloadBundleASC: (params: any) => Promise<void>;
   installBundle: (params: any) => Promise<void>;
   clearBundle: () => Promise<void>;
+  clearAllJSBundleData: () => Promise<void>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (
     appVersion: string,
@@ -288,6 +289,7 @@ export const BundleUpdate: IBundleUpdate = {
     }, 2500);
   },
   clearBundle: () => BundleUpdateModule.clearBundle(),
+  clearAllJSBundleData: () => BundleUpdateModule.clearAllJSBundleData(),
   testVerification: () => BundleUpdateModule.testVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
     BundleUpdateModule.testDeleteJsBundle(appVersion, bundleVersion),
