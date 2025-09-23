@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
-import { useDebouncedCallback } from 'use-debounce';
+import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
@@ -76,6 +76,7 @@ export interface ITabBarItemProps {
   focusedTabStyle?: IYStackProps;
 }
 
+let tabClickCount = 0;
 export function TabBar({
   onTabPress,
   tabNames,
@@ -99,9 +100,11 @@ export function TabBar({
   renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
   scrollable?: boolean;
 }) {
-  const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
+  const clickTabAt = useRef<number>(0);
 
   const scrollToTab = useCallback(
     (tabName: string) => {
@@ -120,19 +123,28 @@ export function TabBar({
     [tabNames],
   );
 
-  const debouncedScrollToTab = useDebouncedCallback(scrollToTab, 50);
-  const debouncedSetCurrentTab = useDebouncedCallback(setCurrentTab, 50);
+  const handleTabPress = useThrottledCallback((name: string) => {
+    tabClickCount = Date.now();
+    setCurrentTab(name);
+    scrollToTab(name);
+    onTabPress(name);
+  }, 50);
+
   useAnimatedReaction(
     () => focusedTab.value,
     (result, previous) => {
+      if (Date.now() - tabClickCount < 300) {
+        return;
+      }
       if (result !== previous && previous) {
-        runOnJS(debouncedSetCurrentTab)(result);
+        runOnJS(setCurrentTab)(result);
         if (scrollable && listViewRef.current) {
-          runOnJS(debouncedScrollToTab)(result);
+          runOnJS(scrollToTab)(result);
         }
       }
     },
   );
+
   const tabItems = useMemo(() => {
     return tabNames.map((name, index) =>
       renderItem ? (
@@ -140,7 +152,7 @@ export function TabBar({
           {
             name,
             isFocused: currentTab === name,
-            onPress: onTabPress,
+            onPress: handleTabPress,
             tabItemStyle,
             focusedTabStyle,
           },
@@ -151,7 +163,7 @@ export function TabBar({
           key={name}
           name={name}
           isFocused={currentTab === name}
-          onPress={onTabPress}
+          onPress={handleTabPress}
           tabItemStyle={tabItemStyle}
           focusedTabStyle={focusedTabStyle}
         />
@@ -160,7 +172,7 @@ export function TabBar({
   }, [
     currentTab,
     focusedTabStyle,
-    onTabPress,
+    handleTabPress,
     renderItem,
     tabItemStyle,
     tabNames,
