@@ -1108,6 +1108,7 @@ const icons = {
     I18nManager.isRTL
       ? import("./react/solid/AlignmentLeft")
       : import("./react/solid/AlignmentRight"),
+  AllNetworksSolid: () => import("./react/solid/AllNetworks"),
   AltSolid: () => import("./react/solid/Alt"),
   AltTextSolid: () => import("./react/solid/AltText"),
   AnchorSolid: () => import("./react/solid/Anchor"),

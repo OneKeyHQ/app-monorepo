@@ -198,7 +198,6 @@ export const useDownloadPackage = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
-
   const showUpdateInCompleteDialogRef =
     useRef<
       ({
@@ -245,35 +244,23 @@ export const useDownloadPackage = () => {
     [getFileTypeFromUpdateInfo],
   );
 
-  const showSilentUpdateDialog = useCallback(async () => {
-    const appUpdateInfo =
-      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    await whenAppUnlocked();
-    await showSilentUpdateDialogUI({
-      intl,
-      summary: appUpdateInfo.summary || '',
-      themeVariant,
-      onConfirm: () => {
-        if (isEmpty(appUpdateInfo.changeLog)) {
-          void installPackage(noop, () => {
-            showUpdateInCompleteDialogRef.current?.({
-              onConfirm: noop,
-              onCancel: noop,
-            });
+  const showSilentUpdateDialog = useCallback(() => {
+    setTimeout(async () => {
+      const currentUpdateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      await whenAppUnlocked();
+      await showSilentUpdateDialogUI({
+        intl,
+        summary: currentUpdateInfo.summary || '',
+        themeVariant,
+        onConfirm: () => {
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.DownloadVerify,
           });
-        }
-        navigation.pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.UpdatePreview,
-          params: {
-            latestVersion: appUpdateInfo.latestVersion,
-            isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-            autoClose: false,
-            ...appUpdateInfo,
-          },
-        });
-      },
-    });
-  }, [intl, navigation, themeVariant, installPackage]);
+        },
+      });
+    }, 0);
+  }, [intl, navigation, themeVariant]);
 
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
@@ -299,7 +286,7 @@ export const useDownloadPackage = () => {
       defaultLogger.app.appUpdate.endVerifyPackage(true);
 
       if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
-        void showSilentUpdateDialog();
+        showSilentUpdateDialog();
       }
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
@@ -600,24 +587,32 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         storeUrl?: string;
       },
     ) => {
-      void showUpdateDialogUI({
-        dialog,
-        intl,
-        themeVariant,
-        summary: params?.summary || '',
-        onConfirm: () => {
-          if (!platformEnv.isExtension && params?.storeUrl) {
-            openUrlExternal(params.storeUrl);
-          } else {
-            setTimeout(() => {
-              toUpdatePreviewPage(isFull, params);
-            }, 120);
-          }
-          defaultLogger.app.component.confirmedInUpdateDialog();
-        },
-      });
+      setTimeout(async () => {
+        const currentUpdateInfo =
+          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        void showUpdateDialogUI({
+          dialog,
+          intl,
+          themeVariant,
+          summary: params?.summary || '',
+          onConfirm: () => {
+            if (!platformEnv.isExtension && params?.storeUrl) {
+              openUrlExternal(params.storeUrl);
+            } else {
+              setTimeout(() => {
+                if (currentUpdateInfo.status === EAppUpdateStatus.ready) {
+                  toDownloadAndVerifyPage();
+                } else {
+                  toUpdatePreviewPage(isFull, params);
+                }
+              }, 120);
+            }
+            defaultLogger.app.component.confirmedInUpdateDialog();
+          },
+        });
+      }, 0);
     },
-    [dialog, intl, themeVariant, toUpdatePreviewPage],
+    [dialog, intl, themeVariant, toDownloadAndVerifyPage, toUpdatePreviewPage],
   );
 
   // run only once
@@ -640,9 +635,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyPackage();
     } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
       if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
-        void showSilentUpdateDialog();
+        showSilentUpdateDialog();
       } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.manual) {
-        void showUpdateDialog();
+        showUpdateDialog();
       }
     } else {
       void checkForUpdates().then(

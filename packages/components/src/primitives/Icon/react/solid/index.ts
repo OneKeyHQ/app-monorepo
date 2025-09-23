@@ -29,6 +29,7 @@ export { default as AlignmentCenter } from './AlignmentCenter';
 export { default as AlignmentJustify } from './AlignmentJustify';
 export { default as AlignmentLeft } from './AlignmentLeft';
 export { default as AlignmentRight } from './AlignmentRight';
+export { default as AllNetworks } from './AllNetworks';
 export { default as AltText } from './AltText';
 export { default as Alt } from './Alt';
 export { default as Anchor } from './Anchor';

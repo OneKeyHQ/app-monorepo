@@ -229,6 +229,7 @@ function TokenManagerList({
       renderItem={({ item }: { item: ICustomTokenItem }) => (
         <ListItem>
           <TokenIconView
+            $key={item.$key}
             icon={item.logoURI}
             networkId={item.networkId ?? networkId}
             isAllNetworks

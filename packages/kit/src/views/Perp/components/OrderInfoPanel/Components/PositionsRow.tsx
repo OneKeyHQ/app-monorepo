@@ -234,7 +234,9 @@ const PositionRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
-                {`${otherInfo.unrealizedPnl as string}`}
+                {`${otherInfo.pnlPlusOrMinus}${
+                  otherInfo.unrealizedPnl as string
+                }`}
               </SizableText>
             </YStack>
             <YStack gap="$1" alignItems="flex-end">
@@ -242,7 +244,7 @@ const PositionRow = memo(
                 ROE
               </SizableText>
               <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
-                {`${otherInfo.roiPercent}%`}
+                {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
               </SizableText>
             </YStack>
           </XStack>

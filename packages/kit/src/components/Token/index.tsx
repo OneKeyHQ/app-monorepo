@@ -25,7 +25,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
@@ -42,6 +42,7 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   networkId?: string;
+  isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
 
 const sizeMap: Record<
@@ -67,6 +68,7 @@ export function Token({
   networkId,
   showNetworkIcon,
   fallbackIcon,
+  isAggregateToken,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
@@ -166,6 +168,7 @@ export function TokenName({
   textProps,
   isAggregateToken,
   withAggregateBadge,
+  allAggregateTokenMap,
   ...rest
 }: {
   $key: string;
@@ -177,13 +180,15 @@ export function TokenName({
   textProps?: ISizableTextProps;
   isAggregateToken?: boolean;
   withAggregateBadge?: boolean;
+  allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
 } & IXStackProps) {
   const { network } = useAccountData({ networkId });
   const intl = useIntl();
 
   const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
-  const aggregateTokenList = aggregateTokensListMap[$key];
-  const firstAggregateToken = aggregateTokenList?.tokens[0];
+  const aggregateTokenList = aggregateTokensListMap[$key]?.tokens ?? [];
+  const allAggregateTokenList = allAggregateTokenMap?.[$key]?.tokens ?? [];
+  const firstAggregateToken = aggregateTokenList?.[0] ?? [];
   const { network: firstAggregateTokenNetwork } = useAccountData({
     networkId: firstAggregateToken?.networkId,
   });
@@ -197,7 +202,7 @@ export function TokenName({
       withAggregateBadge &&
       isAggregateToken &&
       aggregateTokenList &&
-      aggregateTokenList.tokens.length > 1 ? (
+      (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>
             {intl.formatMessage({ id: ETranslations.global__multichain })}
@@ -205,13 +210,15 @@ export function TokenName({
         </Badge>
       ) : null}
       {withNetwork &&
-      (network ||
+      ((network && !network.isAggregateNetwork && !isAggregateToken) ||
         (firstAggregateTokenNetwork &&
-          aggregateTokenList?.tokens.length === 1)) &&
-      !isNative ? (
+          aggregateTokenList?.length === 1 &&
+          allAggregateTokenList.length === 0)) ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>
-            {network?.name || firstAggregateTokenNetwork?.name}
+            {network?.isAggregateNetwork
+              ? firstAggregateTokenNetwork?.name
+              : network?.name || firstAggregateTokenNetwork?.name}
           </Badge.Text>
         </Badge>
       ) : null}

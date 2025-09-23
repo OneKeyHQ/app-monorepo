@@ -162,23 +162,21 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     symbol: string;
     option: IPerpOrderBookTickOptionPersist | null;
   }) {
-    await this.setPerpData(
-      (prevConfig): ISimpleDbPerpData => {
-        const nextOptions = {
-          ...(prevConfig?.hyperliquidOrderBookTickOptions ?? {}),
-        };
-        if (!option) {
-          delete nextOptions[symbol];
-        } else {
-          nextOptions[symbol] = option;
-        }
+    await this.setPerpData((prevConfig): ISimpleDbPerpData => {
+      const nextOptions = {
+        ...(prevConfig?.hyperliquidOrderBookTickOptions ?? {}),
+      };
+      if (!option) {
+        delete nextOptions[symbol];
+      } else {
+        nextOptions[symbol] = option;
+      }
 
-        return {
-          ...prevConfig,
-          hyperliquidOrderBookTickOptions: nextOptions,
-        };
-      },
-    );
+      return {
+        ...prevConfig,
+        hyperliquidOrderBookTickOptions: nextOptions,
+      };
+    });
   }
 
   async updateTradingviewDisplayPriceScale({
