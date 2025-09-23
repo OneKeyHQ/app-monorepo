@@ -195,7 +195,7 @@ export function CommonTableListView({
     }
   };
   const ListComponent = useTabsList ? Tabs.FlatList : ListView;
-  console.log('paginatedData--', paginatedData.length);
+  // console.log('paginatedData--', paginatedData.length);
   if (isMobile) {
     return (
       <ListComponent

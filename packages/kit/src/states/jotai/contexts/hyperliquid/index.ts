@@ -7,6 +7,7 @@ export {
   useActiveAssetDataAtom,
   useL2BookAtom,
   useConnectionStateAtom,
+  useOrderBookTickOptionsAtom,
 } from './atoms';
 
 export { useSubscriptionActiveAtom } from './atoms';
