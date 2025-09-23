@@ -89,7 +89,9 @@ const MarginModeSelector = ({
       value={currentMode}
       onChange={handleChange}
       disabled={disabled}
-      title="Margin Mode"
+      title={intl.formatMessage({
+        id: ETranslations.perp_trade_margin_type,
+      })}
       renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
         <XStack
           cursor="pointer"

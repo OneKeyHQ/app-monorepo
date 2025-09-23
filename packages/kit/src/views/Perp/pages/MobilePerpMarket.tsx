@@ -1,10 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
 import { Page, SizableText, XStack, YStack } from '@onekeyhq/components';
-import {
-  EJotaiContextStoreNames,
-  usePerpsSelectedSymbolAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -61,11 +58,11 @@ function MobilePerpMarket() {
         <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />
 
-          <YStack flex={1} minHeight={364}>
+          <YStack flex={1} minHeight={450}>
             <PerpCandles />
           </YStack>
 
-          <YStack flexShrink={0} bg="$bgApp" px="$5">
+          <YStack flexShrink={0} bg="$bgApp" px={2}>
             <PerpOrderBook entry="perpMobileMarket" />
           </YStack>
         </YStack>

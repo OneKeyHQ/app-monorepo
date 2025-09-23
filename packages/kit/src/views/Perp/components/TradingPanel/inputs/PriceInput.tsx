@@ -62,12 +62,15 @@ export const PriceInput = memo(
 
     return (
       <TradingFormInput
+        placeholder={intl.formatMessage({
+          id: ETranslations.perp_trade_price_place_holder,
+        })}
         value={value}
         onChange={handleInputChange}
         label={
           label ??
           intl.formatMessage({
-            id: ETranslations.perp_trade_limit_pirce,
+            id: ETranslations.perp_orderbook_price,
           })
         }
         disabled={disabled}
@@ -76,11 +79,6 @@ export const PriceInput = memo(
         actions={actions}
         ifOnDialog={ifOnDialog}
         isMobile={isMobile}
-        placeholder={
-          isMobile
-            ? intl.formatMessage({ id: ETranslations.perp_trade_limit_pirce })
-            : '0.0'
-        }
       />
     );
   },

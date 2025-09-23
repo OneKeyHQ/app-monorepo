@@ -119,7 +119,7 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       </Tabs.Tab>
       {!isMobile ? (
         <Tabs.Tab name="Trades History">
-          <PerpTradesHistoryList />
+          <PerpTradesHistoryList useTabsList />
         </Tabs.Tab>
       ) : null}
     </Tabs.Container>

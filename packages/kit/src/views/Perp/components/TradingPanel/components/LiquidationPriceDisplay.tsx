@@ -4,16 +4,18 @@ import { NumberSizeableText } from '@onekeyhq/components';
 
 import { useLiquidationPrice } from '../../../hooks/useLiquidationPrice';
 
-const LiquidationPriceDisplay = memo(() => {
+const LiquidationPriceDisplay = memo(({ isMobile }: { isMobile?: boolean }) => {
   const liquidationPrice = useLiquidationPrice();
-
   if (!liquidationPrice) {
     return 'N/A';
   }
 
   return (
     <NumberSizeableText
-      size="$bodySmMedium"
+      size={isMobile ? undefined : '$bodySmMedium'}
+      style={{
+        fontSize: isMobile ? '10px' : undefined,
+      }}
       formatter="price"
       formatterOptions={{ currency: '$' }}
     >

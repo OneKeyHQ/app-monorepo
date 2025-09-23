@@ -131,20 +131,61 @@ export function useSpeedSwapActions(props: {
     leading: true,
   });
 
+  const [tradeTokenDetail, setTradeTokenDetail] =
+    useState<ISwapTokenBase>(tradeToken);
+
+  useEffect(() => {
+    void (async () => {
+      if (tradeType === ESwapDirection.BUY) {
+        const tokenDetail =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: tradeToken?.networkId ?? '',
+            contractAddress: tradeToken?.contractAddress ?? '',
+          });
+        if (tokenDetail?.length) {
+          setTradeTokenDetail({
+            ...tokenDetail[0],
+            symbol: tradeToken?.symbol,
+            logoURI: tokenDetail[0]?.logoURI
+              ? tokenDetail[0]?.logoURI
+              : tradeToken?.logoURI,
+          });
+        }
+      } else {
+        const sellTradeToken =
+          defaultTradeTokens?.find((item) => item.isNative) ?? tradeToken;
+        const tokenDetail =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: sellTradeToken?.networkId ?? '',
+            contractAddress: sellTradeToken?.contractAddress ?? '',
+          });
+        if (tokenDetail?.length) {
+          setTradeTokenDetail({
+            ...tokenDetail[0],
+            symbol: sellTradeToken?.symbol,
+            logoURI: tokenDetail[0]?.logoURI
+              ? tokenDetail[0]?.logoURI
+              : sellTradeToken?.logoURI,
+          });
+        }
+      }
+    })();
+  }, [tradeToken, tradeType, defaultTradeTokens]);
+
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
       return {
-        fromToken: tradeToken,
+        fromToken: tradeTokenDetail,
         toToken: baseToken ?? marketToken,
-        balanceToken: tradeToken,
+        balanceToken: tradeTokenDetail,
       };
     }
     return {
       fromToken: baseToken ?? marketToken,
-      toToken: defaultTradeTokens?.find((item) => item.isNative) ?? tradeToken,
+      toToken: tradeTokenDetail,
       balanceToken: baseToken ?? marketToken,
     };
-  }, [tradeType, baseToken, marketToken, defaultTradeTokens, tradeToken]);
+  }, [tradeType, baseToken, marketToken, tradeTokenDetail]);
 
   // --- build tx
 

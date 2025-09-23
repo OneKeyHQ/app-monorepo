@@ -215,7 +215,9 @@ export const SizeInput = memo(
         isMobile={isMobile}
         placeholder={
           isMobile
-            ? intl.formatMessage({ id: ETranslations.send_amount })
+            ? intl.formatMessage({
+                id: ETranslations.perp_trade_amount_place_holder,
+              })
             : '0.0'
         }
       />
