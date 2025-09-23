@@ -605,7 +605,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         intl,
         themeVariant,
         summary: params?.summary || '',
-        storeUrl: params?.storeUrl || '',
         onConfirm: () => {
           if (!platformEnv.isExtension && params?.storeUrl) {
             openUrlExternal(params.storeUrl);
@@ -642,7 +641,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
       if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         void showSilentUpdateDialog();
-      } else {
+      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.manual) {
         void showUpdateDialog();
       }
     } else {
