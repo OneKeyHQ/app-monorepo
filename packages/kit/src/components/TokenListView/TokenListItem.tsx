@@ -25,6 +25,7 @@ export type ITokenListItemProps = {
   hideValue?: boolean;
   withSwapAction?: boolean;
   showNetworkIcon?: boolean;
+  withAggregateBadge?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -39,6 +40,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     hideValue,
     withSwapAction,
     showNetworkIcon,
+    withAggregateBadge,
     ...rest
   } = props;
 
@@ -56,6 +58,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           />
           <YStack flex={1}>
             <TokenNameView
+              withAggregateBadge={withAggregateBadge}
               $key={token.$key}
               name={
                 token.isAggregateToken
@@ -103,7 +106,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
         <YStack flex={1}>
           <TokenNameView
             $key={token.$key}
-            withAggregateBadge={isTokenSelector}
+            withAggregateBadge={withAggregateBadge ?? isTokenSelector}
             name={
               token.isAggregateToken
                 ? token.commonSymbol ?? token.symbol
@@ -143,6 +146,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     tableLayout,
     isTokenSelector,
     showNetworkIcon,
+    withAggregateBadge,
   ]);
 
   const renderSecondColumn = useCallback(() => {

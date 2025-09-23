@@ -45,6 +45,7 @@ import {
   useSmallBalanceTokenListMapAtom,
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
+import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
   tableLayout?: boolean;
@@ -72,6 +73,8 @@ function TokenListFooter(props: IProps) {
   const [settings] = useSettingsPersistAtom();
 
   const [{ hideValue }] = useSettingsValuePersistAtom();
+
+  const { allAggregateTokenMap } = useTokenListViewContext();
 
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
 
@@ -178,6 +181,7 @@ function TokenListFooter(props: IProps) {
         aggregateTokensListMap,
         aggregateTokensMap,
         accountAddress: account.address,
+        allAggregateTokenMap,
       },
     });
   }, [
@@ -196,6 +200,7 @@ function TokenListFooter(props: IProps) {
     hideValue,
     aggregateTokensListMap,
     aggregateTokensMap,
+    allAggregateTokenMap,
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {

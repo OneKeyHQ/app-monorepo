@@ -380,6 +380,7 @@ function RiskTokenManager() {
                   networkId={token.networkId}
                   icon={token.logoURI}
                   isAllNetworks={isAllNetworks}
+                  showNetworkIcon={isAllNetworks}
                 />
                 <YStack flex={1}>
                   <TokenNameView

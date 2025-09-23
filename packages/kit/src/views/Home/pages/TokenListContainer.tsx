@@ -483,8 +483,7 @@ function TokenListContainer({
     [],
   );
 
-  const { allAggregateTokenMap, allAggregateTokens } =
-    allAggregateTokenInfo ?? {};
+  const { allAggregateTokenMap } = allAggregateTokenInfo ?? {};
 
   const isAllNetworkManualRefresh = useRef(false);
 
@@ -1471,7 +1470,7 @@ function TokenListContainer({
       });
       refreshAllTokenList({
         keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
-        tokens: [...tokenList.tokens, ...riskyTokenList.riskyTokens],
+        tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
         accountId: account?.id,
         networkId: network?.id,
       });
@@ -1932,7 +1931,6 @@ function TokenListContainer({
       hideValue
       withSwapAction
       allAggregateTokenMap={allAggregateTokenMap}
-      allAggregateTokens={allAggregateTokens}
       showNetworkIcon={!!network?.isAllNetworks}
       hideZeroBalanceTokens={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
