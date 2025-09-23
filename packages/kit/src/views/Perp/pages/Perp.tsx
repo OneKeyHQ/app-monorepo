@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import {
+  Badge,
   Image,
   Page,
   Stack,
@@ -45,9 +46,38 @@ function PerpContentFooter() {
         bg="$bgApp"
         h={40}
         alignItems="center"
-        p="$4"
-        justifyContent="flex-end"
+        p="$2"
+        justifyContent="space-between"
       >
+        <Badge
+          badgeType="success"
+          badgeSize="sm"
+          h={18}
+          borderRadius="$full"
+          paddingVertical={0}
+          paddingHorizontal={8}
+          gap="$1.5"
+        >
+          <Stack
+            position="relative"
+            w={8}
+            h={8}
+            borderRadius="$full"
+            alignItems="center"
+            justifyContent="center"
+            bg="$neutral3"
+          >
+            <Stack
+              position="absolute"
+              w={6}
+              h={6}
+              borderRadius="$full"
+              bg="$success10"
+            />
+          </Stack>
+          <Badge.Text style={{ fontSize: 8 }}>Connection is stable</Badge.Text>
+        </Badge>
+
         <Image
           source={
             themeVariant === 'light'
