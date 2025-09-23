@@ -6,6 +6,7 @@ import type {
   SizeTokens,
 } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -13,7 +14,6 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
 
 import type { FontSizeTokens } from 'tamagui';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export const NetworkAvatarBase = ({
   logoURI,

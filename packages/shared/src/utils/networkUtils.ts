@@ -9,6 +9,7 @@ import {
   getDefaultEnabledNetworksInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -24,7 +25,6 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
-import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 
 const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
 const defaultEnabledNetworkIds = defaultEnabledNetworks.map((n) => n.id);

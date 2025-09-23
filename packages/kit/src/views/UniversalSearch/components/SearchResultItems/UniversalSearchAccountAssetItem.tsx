@@ -21,8 +21,8 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
 import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 interface IUniversalSearchAccountAssetItemProps {
   item: IUniversalSearchAccountAssets;

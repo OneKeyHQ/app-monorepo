@@ -25,13 +25,13 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
-import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 type ITokenSize = 'xl' | 'lg' | 'md' | 'sm' | 'xs';
 export type ITokenProps = {
