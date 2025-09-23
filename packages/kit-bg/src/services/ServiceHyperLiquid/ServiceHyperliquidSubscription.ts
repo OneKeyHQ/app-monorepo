@@ -11,10 +11,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { perpsNetworkStatusAtom } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
 import {
@@ -67,6 +69,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   };
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
+
+  private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private _lastMessageAt: number | null = null;
 
   @backgroundMethod()
   async updateSubscriptions(params: ISubscriptionUpdateParams): Promise<void> {
@@ -127,6 +133,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async disconnect(): Promise<void> {
     await this._cleanupAllSubscriptions();
+    this._clearNetworkTimeout();
     await this._closeClient();
     this._currentState.isConnected = false;
     this._emitConnectionStatus();
@@ -419,12 +426,69 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         data,
         metadata,
       });
+
+      const messageTimestamp = metadata.timestamp ?? Date.now();
+      const isFresh =
+        Date.now() - messageTimestamp < HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS;
+      void perpsNetworkStatusAtom.set((prev) => ({
+        ...prev,
+        connected: isFresh,
+        lastMessageAt: messageTimestamp,
+        lastMessageType: subscriptionType,
+        lastMessageKey: key,
+        activeSubscriptions: this._activeSubscriptions.size,
+      }));
+
+      this._scheduleNetworkTimeout(messageTimestamp);
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${key}:`,
         error,
       );
     }
+  }
+
+  private _scheduleNetworkTimeout(messageTimestamp: number): void {
+    this._lastMessageAt = messageTimestamp;
+
+    if (this._networkTimeoutTimer) {
+      return;
+    }
+
+    this._networkTimeoutTimer = setTimeout(() => {
+      void this._handleNetworkTimeout();
+    }, HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS);
+  }
+
+  private _clearNetworkTimeout(): void {
+    if (this._networkTimeoutTimer) {
+      clearTimeout(this._networkTimeoutTimer);
+      this._networkTimeoutTimer = null;
+    }
+  }
+
+  private async _handleNetworkTimeout(): Promise<void> {
+    this._networkTimeoutTimer = null;
+
+    const lastMessageAt = this._lastMessageAt;
+    const elapsed = lastMessageAt ? Date.now() - lastMessageAt : Infinity;
+
+    if (elapsed < HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS) {
+      void perpsNetworkStatusAtom.set((prev) => ({
+        ...prev,
+        connected: true,
+        lastMessageAt,
+      }));
+      if (lastMessageAt) {
+        this._scheduleNetworkTimeout(lastMessageAt);
+      }
+      return;
+    }
+
+    await perpsNetworkStatusAtom.set((prev) => ({
+      ...prev,
+      connected: false,
+    }));
   }
 
   private _parseKeyToParams(key: string, type: ESubscriptionType): any {
