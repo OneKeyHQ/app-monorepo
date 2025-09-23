@@ -114,6 +114,7 @@ export function Radio({
                   />
                 </RadioGroup.Item>
                 <YStack
+                  userSelect="none"
                   py={orientation === 'horizontal' ? '$0' : '$2'}
                   my={orientation === 'horizontal' ? '$0' : '$-2'}
                   flex={orientation === 'horizontal' ? undefined : 1}
