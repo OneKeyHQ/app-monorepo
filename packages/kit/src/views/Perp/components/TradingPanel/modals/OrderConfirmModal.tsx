@@ -69,7 +69,7 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
     [perpsCustomSettings, setPerpsCustomSettings],
   );
   return (
-    <YStack gap="$4" p="$1" style={{ marginTop: -18 }}>
+    <YStack gap="$4" p="$1">
       {/* Order Details */}
       <YStack gap="$3">
         {/* Action */}
