@@ -90,7 +90,7 @@ function LottieViewIcon({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       lottieViewRef.current?.play?.();
-    }, 450);
+    }, 550);
     return () => clearTimeout(timer);
   }, []);
 
@@ -168,7 +168,6 @@ const showUpdateDialogUI = throttle(
     themeVariant: 'light' | 'dark';
     intl: IntlShape;
     summary: string;
-    storeUrl: string;
     onConfirm: () => void;
   }) => {
     dialog.show({
