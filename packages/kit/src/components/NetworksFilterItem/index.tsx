@@ -31,7 +31,7 @@ export function NetworksFilterItem({
 }: INetworksFilterItemProps) {
   const renderNetworkImage = useCallback(() => {
     if (isAllNetworks) {
-      return <Icon name="GlobusOutline" color="$iconActive" size="$6" />;
+      return <Icon name="AllNetworksSolid" color="$iconActive" size="$6" />;
     }
     return networkImageUri ? (
       <Image

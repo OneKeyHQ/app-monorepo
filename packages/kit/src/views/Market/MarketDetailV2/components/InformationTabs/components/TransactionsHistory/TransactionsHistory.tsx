@@ -85,7 +85,7 @@ export function TransactionsHistory({
   useTransactionsWebSocket({
     networkId,
     tokenAddress,
-    enabled: normalMode && isVisible,
+    enabled: !normalMode && isVisible,
     onNewTransaction: addNewTransaction,
   });
 

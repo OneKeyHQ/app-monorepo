@@ -59,9 +59,7 @@ function TokenNameView(props: IProps) {
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
-        {isNative && !isAggregateToken && showNetworkName
-          ? network?.name
-          : name}
+        {name}
       </SizableText>
       {isAllNetworks &&
       withAggregateBadge &&
@@ -77,8 +75,7 @@ function TokenNameView(props: IProps) {
       ((network && !network.isAggregateNetwork && !isAggregateToken) ||
         (firstAggregateTokenNetwork &&
           aggregateTokenList?.length === 1 &&
-          allAggregateTokenList.length === 0)) &&
-      !isNative ? (
+          allAggregateTokenList.length === 0)) ? (
         <Badge flexShrink={1}>
           <Badge.Text numberOfLines={1}>
             {network?.isAggregateNetwork

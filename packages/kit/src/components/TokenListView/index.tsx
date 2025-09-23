@@ -2,7 +2,6 @@ import type { ComponentProps, ReactElement, ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { uniqBy } from 'lodash';
 
 import {
   ListView,
@@ -90,7 +89,6 @@ type IProps = {
     | 'contentContainerStyle'
   >;
   showNetworkIcon?: boolean;
-  allAggregateTokens?: IAccountToken[];
   allAggregateTokenMap?: Record<
     string,
     {
@@ -100,6 +98,7 @@ type IProps = {
   hideZeroBalanceTokens?: boolean;
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   keepDefaultZeroBalanceTokens?: boolean;
+  withAggregateBadge?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -127,11 +126,11 @@ function TokenListViewCmp(props: IProps) {
     listViewStyleProps,
     onRefresh,
     showNetworkIcon,
-    allAggregateTokens,
     allAggregateTokenMap,
     hideZeroBalanceTokens,
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens = true,
+    withAggregateBadge,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -157,13 +156,6 @@ function TokenListViewCmp(props: IProps) {
       );
     } else {
       resultTokens = tokenList.tokens;
-    }
-
-    if (isAllNetworks && allAggregateTokenMap && allAggregateTokens) {
-      resultTokens = uniqBy(
-        [...resultTokens, ...allAggregateTokens],
-        (item) => item.$key,
-      );
     }
 
     if (hideZeroBalanceTokens) {
@@ -201,9 +193,6 @@ function TokenListViewCmp(props: IProps) {
     showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
-    isAllNetworks,
-    allAggregateTokenMap,
-    allAggregateTokens,
     hideZeroBalanceTokens,
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens,
@@ -447,6 +436,7 @@ function TokenListViewCmp(props: IProps) {
             isTokenSelector={isTokenSelector}
             withSwapAction={withSwapAction}
             showNetworkIcon={showNetworkIcon}
+            withAggregateBadge={withAggregateBadge}
           />
           {isTokenSelector &&
           tokenSelectorSearchTokenState.isSearching &&

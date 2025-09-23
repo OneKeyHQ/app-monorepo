@@ -478,6 +478,13 @@ function TokenListContainer({
     },
   );
 
+  const { result: allAggregateTokenInfo } = usePromiseResult(
+    async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
+    [],
+  );
+
+  const { allAggregateTokenMap } = allAggregateTokenInfo ?? {};
+
   const isAllNetworkManualRefresh = useRef(false);
 
   const updateAllNetworkData = useThrottledCallback(() => {
@@ -1463,7 +1470,7 @@ function TokenListContainer({
       });
       refreshAllTokenList({
         keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
-        tokens: [...tokenList.tokens, ...riskyTokenList.riskyTokens],
+        tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
         accountId: account?.id,
         networkId: network?.id,
       });
@@ -1923,6 +1930,8 @@ function TokenListContainer({
       inTabList
       hideValue
       withSwapAction
+      allAggregateTokenMap={allAggregateTokenMap}
+      showNetworkIcon={!!network?.isAllNetworks}
       hideZeroBalanceTokens={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
       manageTokenEnabled={manageTokenEnabled}

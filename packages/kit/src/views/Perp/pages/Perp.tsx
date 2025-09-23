@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
 import {
+  Badge,
   Image,
   Page,
   Stack,
@@ -10,6 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -34,6 +36,51 @@ function PerpLayout() {
   return <PerpMobileLayout />;
 }
 
+function PerpNetworkStatus() {
+  const [networkStatus] = usePerpsNetworkStatusAtom();
+  const isNetworkStable = networkStatus.connected;
+  const networkStyle = useMemo(() => {
+    return {
+      badgeType: isNetworkStable ? 'success' : 'critical',
+      indicatorBg: isNetworkStable ? '$success10' : '$critical10',
+      text: isNetworkStable ? 'Online' : 'Disconnected',
+    };
+  }, [isNetworkStable]);
+  return useMemo(
+    () => (
+      <Badge
+        badgeType={networkStyle.badgeType}
+        badgeSize="sm"
+        height={20}
+        borderRadius="$full"
+        paddingVertical={0}
+        paddingHorizontal={8}
+        gap="$1.5"
+      >
+        <Stack
+          position="relative"
+          w={8}
+          h={8}
+          borderRadius="$full"
+          alignItems="center"
+          justifyContent="center"
+          bg="$neutral3"
+        >
+          <Stack
+            position="absolute"
+            w={6}
+            h={6}
+            borderRadius="$full"
+            bg={networkStyle.indicatorBg}
+          />
+        </Stack>
+        <Badge.Text style={{ fontSize: 10 }}>{networkStyle.text}</Badge.Text>
+      </Badge>
+    ),
+    [networkStyle],
+  );
+}
+
 function PerpContentFooter() {
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
@@ -45,9 +92,10 @@ function PerpContentFooter() {
         bg="$bgApp"
         h={40}
         alignItems="center"
-        p="$4"
-        justifyContent="flex-end"
+        p="$2"
+        justifyContent="space-between"
       >
+        <PerpNetworkStatus />
         <Image
           source={
             themeVariant === 'light'

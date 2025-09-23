@@ -9,6 +9,7 @@ import {
   getDefaultEnabledNetworksInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -171,6 +172,14 @@ function isAllNetwork({
   return Boolean(networkId && networkId === getNetworkIdsMap().onekeyall);
 }
 
+function isAggregateNetwork({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(networkId && networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID);
+}
+
 function getDefaultDeriveTypeVisibleNetworks() {
   return platformEnv.isE2E
     ? [
@@ -239,4 +248,5 @@ export default {
   getBtcDappUniSetChainName,
   getLocalNetworkInfo,
   isViewInExplorerDisabled,
+  isAggregateNetwork,
 };
