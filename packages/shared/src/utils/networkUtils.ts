@@ -24,6 +24,7 @@ import platformEnv from '../platformEnv';
 import numberUtils from './numberUtils';
 
 import type { IServerNetwork } from '../../types';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 
 const defaultEnabledNetworks = getDefaultEnabledNetworksInAllNetworks();
 const defaultEnabledNetworkIds = defaultEnabledNetworks.map((n) => n.id);
@@ -171,6 +172,14 @@ function isAllNetwork({
   return Boolean(networkId && networkId === getNetworkIdsMap().onekeyall);
 }
 
+function isAggregateNetwork({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(networkId && networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID);
+}
+
 function getDefaultDeriveTypeVisibleNetworks() {
   return platformEnv.isE2E
     ? [
@@ -239,4 +248,5 @@ export default {
   getBtcDappUniSetChainName,
   getLocalNetworkInfo,
   isViewInExplorerDisabled,
+  isAggregateNetwork,
 };

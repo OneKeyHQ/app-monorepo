@@ -58,6 +58,7 @@ import {
 
 import { RecentSearched } from './components/RecentSearched';
 import { UniversalSearchProviderMirror } from './UniversalSearchProviderMirror';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 interface IUniversalSection {
   tabIndex: number;
@@ -125,6 +126,12 @@ export function UniversalSearch({
   const [allTokenList] = useAllTokenListAtom();
   const [allTokenListMap] = useAllTokenListMapAtom();
   const [aggregateTokenListMap] = useAggregateTokensListMapAtom();
+
+  const { result: allAggregateTokenInfo } = usePromiseResult(
+    async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
+    [],
+  );
+  const { allAggregateTokenMap } = allAggregateTokenInfo ?? {};
 
   const [sections, setSections] = useState<IUniversalSection[]>([]);
   const [searchStatus, setSearchStatus] = useState<ESearchStatus>(
@@ -450,7 +457,12 @@ export function UniversalSearch({
             />
           );
         case EUniversalSearchType.AccountAssets:
-          return <UniversalSearchAccountAssetItem item={item} />;
+          return (
+            <UniversalSearchAccountAssetItem
+              item={item}
+              allAggregateTokenMap={allAggregateTokenMap}
+            />
+          );
         case EUniversalSearchType.Dapp:
           return (
             <UniversalSearchDappItem
@@ -462,7 +474,7 @@ export function UniversalSearch({
           return null;
       }
     },
-    [activeAccount?.network?.id, searchStatus],
+    [activeAccount?.network?.id, searchStatus, allAggregateTokenMap],
   );
 
   const keyExtractor = useCallback(

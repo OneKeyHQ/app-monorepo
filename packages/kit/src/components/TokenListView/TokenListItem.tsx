@@ -47,6 +47,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       return (
         <XStack alignItems="center" gap="$3" maxWidth="60%">
           <TokenIconView
+            $key={token.$key}
+            isAggregateToken={token.isAggregateToken}
             networkId={token.networkId}
             icon={token.logoURI}
             isAllNetworks={isAllNetworks}
@@ -91,8 +93,11 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     return (
       <XStack alignItems="center" gap="$3" flexGrow={1} flexBasis={0}>
         <TokenIconView
+          $key={token.$key}
+          isAggregateToken={token.isAggregateToken}
           networkId={token.networkId}
           icon={token.logoURI}
+          showNetworkIcon={showNetworkIcon}
           isAllNetworks={isAllNetworks}
         />
         <YStack flex={1}>

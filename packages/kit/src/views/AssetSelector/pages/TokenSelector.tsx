@@ -391,6 +391,7 @@ function TokenSelector() {
           allAggregateTokens={allAggregateTokens}
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
+          showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
         />
       </Page.Body>
     </Page>

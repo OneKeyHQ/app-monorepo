@@ -13,6 +13,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
 
 import type { FontSizeTokens } from 'tamagui';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export const NetworkAvatarBase = ({
   logoURI,
@@ -21,6 +22,7 @@ export const NetworkAvatarBase = ({
   networkName,
   isAllNetworks,
   allNetworksIconProps,
+  isAggregateToken,
 }: {
   logoURI: string;
   size?: IImageProps['size'];
@@ -28,11 +30,12 @@ export const NetworkAvatarBase = ({
   networkName?: string;
   isAllNetworks?: boolean;
   allNetworksIconProps?: ComponentProps<typeof Icon>;
+  isAggregateToken?: boolean;
 }) => {
   if (isCustomNetwork) {
     return <LetterAvatar letter={networkName?.[0]} size={size} />;
   }
-  if (isAllNetworks) {
+  if (isAllNetworks || isAggregateToken) {
     if (size) {
       return (
         <Icon
@@ -100,6 +103,18 @@ export function NetworkAvatar({
   if (isCustomNetwork) {
     return <LetterAvatar letter={name?.[0]} size={size} />;
   }
+
+  if (networkUtils.isAggregateNetwork({ networkId })) {
+    return (
+      <NetworkAvatarBase
+        size={size}
+        isAggregateToken
+        logoURI=""
+        allNetworksIconProps={allNetworksIconProps}
+      />
+    );
+  }
+
   return logoURI ? (
     <NetworkAvatarBase
       size={size}
