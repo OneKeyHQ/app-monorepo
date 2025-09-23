@@ -1,0 +1,21 @@
+diff --git a/node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js b/node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js
+index 688a542..6229c0a 100644
+--- a/node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js
++++ b/node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js
+@@ -69,10 +69,12 @@ export const EventsController = {
+                 err.cause.status === ConstantsUtil.HTTP_STATUS_CODES.FORBIDDEN &&
+                 !state.reportedErrors['FORBIDDEN'];
+             if (isForbiddenError) {
+-                AlertController.open({
+-                    displayMessage: 'Invalid App Configuration',
+-                    debugMessage: `Origin ${isSafe() ? window.origin : 'uknown'} not found on Allowlist - update configuration on cloud.reown.com`
+-                }, 'error');
++                const debugMessage = `Origin ${isSafe() ? window.origin : 'uknown'} not found on Allowlist - update configuration on cloud.reown.com`;
++                console.error(debugMessage);
++                // AlertController.open({
++                //     displayMessage: 'Invalid App Configuration',
++                //     debugMessage: debugMessage
++                // }, 'error');
+                 state.reportedErrors['FORBIDDEN'] = true;
+             }
+         }

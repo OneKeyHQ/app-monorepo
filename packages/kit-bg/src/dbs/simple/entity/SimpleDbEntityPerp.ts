@@ -7,6 +7,7 @@ import type {
   IMarginTables,
   IPerpsUniverse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -29,6 +30,10 @@ export interface ISimpleDbPerpData {
     }
   >;
   hyperliquidCurrentToken?: string;
+  hyperliquidOrderBookTickOptions?: Record<
+    string,
+    IPerpOrderBookTickOptionPersist
+  >;
   tradingUniverse?: IPerpsUniverse[] | undefined;
   marginTables?: IMarginTables | undefined;
   agentTTL?: number; // in milliseconds
@@ -138,6 +143,41 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           ...settings,
         },
       }),
+    );
+  }
+
+  @backgroundMethod()
+  async getOrderBookTickOptions(): Promise<
+    Record<string, IPerpOrderBookTickOptionPersist>
+  > {
+    const config = await this.getPerpData();
+    return config.hyperliquidOrderBookTickOptions ?? {};
+  }
+
+  @backgroundMethod()
+  async setOrderBookTickOption({
+    symbol,
+    option,
+  }: {
+    symbol: string;
+    option: IPerpOrderBookTickOptionPersist | null;
+  }) {
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => {
+        const nextOptions = {
+          ...(prevConfig?.hyperliquidOrderBookTickOptions ?? {}),
+        };
+        if (!option) {
+          delete nextOptions[symbol];
+        } else {
+          nextOptions[symbol] = option;
+        }
+
+        return {
+          ...prevConfig,
+          hyperliquidOrderBookTickOptions: nextOptions,
+        };
+      },
     );
   }
 

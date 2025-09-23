@@ -1,10 +1,11 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { useTokenDetail } from './useTokenDetail';
 
@@ -17,7 +18,16 @@ export function useMarketHolders({
   tokenAddress,
   networkId,
 }: IUseMarketHoldersProps) {
-  const { tokenDetail, isReady } = useTokenDetail();
+  const { tokenDetail } = useTokenDetail();
+  const [cacheTokenDetail, setCacheTokenDetail] = useState<
+    IMarketTokenDetail | undefined
+  >(undefined);
+
+  useEffect(() => {
+    if (tokenDetail && tokenDetail?.fdv && tokenDetail?.price) {
+      setCacheTokenDetail(tokenDetail);
+    }
+  }, [tokenDetail]);
 
   const {
     result: holdersData,
@@ -37,14 +47,14 @@ export function useMarketHolders({
 
         if (
           holder.amount &&
-          isReady &&
-          tokenDetail?.fdv &&
-          tokenDetail?.price
+          cacheTokenDetail &&
+          cacheTokenDetail?.fdv &&
+          cacheTokenDetail?.price
         ) {
           try {
             const holderAmount = new BigNumber(holder.amount);
-            const fdv = new BigNumber(tokenDetail.fdv);
-            const price = new BigNumber(tokenDetail.price);
+            const fdv = new BigNumber(cacheTokenDetail.fdv);
+            const price = new BigNumber(cacheTokenDetail.price);
 
             if (fdv.isGreaterThan(0) && price.isGreaterThan(0)) {
               // Calculate total supply = fdv / price
@@ -73,7 +83,7 @@ export function useMarketHolders({
         list: processedList,
       };
     },
-    [tokenAddress, networkId, isReady, tokenDetail?.fdv, tokenDetail?.price],
+    [tokenAddress, networkId, cacheTokenDetail],
     {
       watchLoading: true,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 5 }),
