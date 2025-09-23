@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "Это отправит приказ на закрытие вашей позиции по лимитной цене.",
   "perp.close_position_market_desc": "Это приведёт к попытке немедленно закрыть позицию.",
   "perp.close_position_title": "Закрыть позицию",
+  "perp.confirm_not_show": "Больше не показывать это.",
   "perp.confirm_order": "Подтвердить ордер",
   "perp.confirm_order_action": "Подтвердить ордер",
   "perp.confirm_order_desc": "Вы не платите gas. Ордер будет подтверждён в течение нескольких секунд.",

@@ -2058,6 +2058,7 @@
   perp_close_position_limit_desc = 'perp.close_position_limit_desc',
   perp_close_position_market_desc = 'perp.close_position_market_desc',
   perp_close_position_title = 'perp.close_position_title',
+  perp_confirm_not_show = 'perp.confirm_not_show',
   perp_confirm_order = 'perp.confirm_order',
   perp_confirm_order_action = 'perp.confirm_order_action',
   perp_confirm_order_desc = 'perp.confirm_order_desc',

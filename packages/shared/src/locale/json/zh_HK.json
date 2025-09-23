@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "會以限價價格送出平倉訂單",
   "perp.close_position_market_desc": "這將嘗試立即平倉。",
   "perp.close_position_title": "平倉",
+  "perp.confirm_not_show": "不再顯示此彈窗",
   "perp.confirm_order": "確認訂單",
   "perp.confirm_order_action": "確認訂單",
   "perp.confirm_order_desc": "您無需支付 gas，訂單將在幾秒鐘內確認。",

@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "これは、指値でポジションをクローズする注文を送信します。",
   "perp.close_position_market_desc": "これは直ちにポジションをクローズしようと試みます。",
   "perp.close_position_title": "ポジションをクローズ",
+  "perp.confirm_not_show": "今後は表示しないでください。",
   "perp.confirm_order": "注文を確認",
   "perp.confirm_order_action": "注文を確認",
   "perp.confirm_order_desc": "ガスはかかりません。注文は数秒以内に確定されます。",

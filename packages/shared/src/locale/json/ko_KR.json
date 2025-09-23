@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "이 작업은 지정가로 포지션을 청산하도록 주문을 전송합니다.",
   "perp.close_position_market_desc": "이 작업은 포지션을 즉시 청산하려고 시도합니다.",
   "perp.close_position_title": "포지션 청산",
+  "perp.confirm_not_show": "다시는 이걸 표시하지 마세요.",
   "perp.confirm_order": "주문 확인",
   "perp.confirm_order_action": "주문 확인",
   "perp.confirm_order_desc": "gas를 지불하지 않습니다. 주문은 몇 초 내에 확인됩니다.",

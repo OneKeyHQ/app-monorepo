@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "এটি সীমা দামে আপনার পজিশন বন্ধ করতে একটি অর্ডার পাঠাবে।",
   "perp.close_position_market_desc": "এটি অবস্থানটি সঙ্গে সঙ্গে বন্ধ করার চেষ্টা করবে।",
   "perp.close_position_title": "পজিশন বন্ধ করুন",
+  "perp.confirm_not_show": "এটা আবার দেখাবেন না।",
   "perp.confirm_order": "অর্ডার নিশ্চিত করুন",
   "perp.confirm_order_action": "অর্ডার নিশ্চিত করুন",
   "perp.confirm_order_desc": "আপনি কোনো gas পরিশোধ করবেন না। অর্ডারটি কয়েক সেকেন্ডের মধ্যেই নিশ্চিত করা হবে।",

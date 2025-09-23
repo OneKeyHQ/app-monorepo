@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "以限价价格发送平仓订单",
   "perp.close_position_market_desc": "这将尝试立即平仓。",
   "perp.close_position_title": "平仓",
+  "perp.confirm_not_show": "不再显示此弹窗",
   "perp.confirm_order": "确认订单",
   "perp.confirm_order_action": "确认订单",
   "perp.confirm_order_desc": "您无需支付 gas，订单将在几秒钟内确认",

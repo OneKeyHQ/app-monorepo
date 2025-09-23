@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "Thao tác này sẽ gửi lệnh đóng vị thế của bạn ở mức giá giới hạn.",
   "perp.close_position_market_desc": "Thao tác này sẽ cố gắng đóng vị thế ngay lập tức.",
   "perp.close_position_title": "Đóng vị thế",
+  "perp.confirm_not_show": "Đừng hiển thị điều này nữa.",
   "perp.confirm_order": "Xác nhận Lệnh",
   "perp.confirm_order_action": "Xác nhận Lệnh",
   "perp.confirm_order_desc": "Bạn không phải trả gas. Lệnh sẽ được xác nhận trong vài giây.",

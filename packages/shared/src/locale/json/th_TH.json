@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "สิ่งนี้จะส่งคำสั่งเพื่อปิดสถานะของคุณที่ราคาลิมิต",
   "perp.close_position_market_desc": "การดำเนินการนี้จะพยายามปิดสถานะทันที",
   "perp.close_position_title": "ปิดสถานะ",
+  "perp.confirm_not_show": "อย่าแสดงสิ่งนี้อีก",
   "perp.confirm_order": "ยืนยันคำสั่งซื้อ",
   "perp.confirm_order_action": "ยืนยันคำสั่งซื้อ",
   "perp.confirm_order_desc": "คุณไม่ต้องจ่าย gas คำสั่งจะได้รับการยืนยันภายในไม่กี่วินาที",

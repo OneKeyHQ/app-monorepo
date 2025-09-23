@@ -120,7 +120,7 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
             })}
           </SizableText>
           <SizableText size="$bodyMd">
-            <LiquidationPriceDisplay />
+            <LiquidationPriceDisplay textSize="$bodyMdMedium" />
           </SizableText>
         </XStack>
 
@@ -131,7 +131,9 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
               fontSize: '$bodyMdMedium',
               color: '$textSubdued',
             }}
-            label="Don't show this again"
+            label={appLocale.intl.formatMessage({
+              id: ETranslations.perp_confirm_not_show,
+            })}
             value={perpsCustomSettings.skipOrderConfirm}
             onChange={(checked) => setSkipOrderConfirm(!!checked)}
           />

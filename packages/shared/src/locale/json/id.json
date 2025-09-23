@@ -2053,6 +2053,7 @@
   "perp.close_position_limit_desc": "Ini akan mengirim perintah untuk menutup posisi Anda pada harga batas.",
   "perp.close_position_market_desc": "Ini akan mencoba untuk segera menutup posisi.",
   "perp.close_position_title": "Tutup Posisi",
+  "perp.confirm_not_show": "Jangan tampilkan ini lagi.",
   "perp.confirm_order": "Konfirmasi Pesanan",
   "perp.confirm_order_action": "Konfirmasi Pesanan",
   "perp.confirm_order_desc": "Anda tidak membayar gas. Pesanan akan dikonfirmasi dalam beberapa detik.",
