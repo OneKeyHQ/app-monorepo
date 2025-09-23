@@ -24,3 +24,5 @@ export const USDC_TOKEN_INFO = {
   symbol: 'USDC',
   isNative: false,
 } as const;
+
+export const HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS = 60_000;

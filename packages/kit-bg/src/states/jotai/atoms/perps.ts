@@ -135,3 +135,19 @@ export const {
     skipOrderConfirm: false,
   },
 });
+
+export interface IPerpsNetworkStatus {
+  connected: boolean;
+  lastMessageAt: number | null;
+}
+
+export const {
+  target: perpsNetworkStatusAtom,
+  use: usePerpsNetworkStatusAtom,
+} = globalAtom<IPerpsNetworkStatus>({
+  name: EAtomNames.perpsNetworkStatusAtom,
+  initialValue: {
+    connected: true,
+    lastMessageAt: null,
+  },
+});
