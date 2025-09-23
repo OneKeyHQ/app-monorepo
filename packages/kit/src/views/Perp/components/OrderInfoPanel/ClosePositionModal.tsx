@@ -376,7 +376,13 @@ const ClosePositionForm = memo(
               gap="$1"
             >
               <SizableText size="$bodyMdMedium">
-                {formData.type === 'limit' ? 'Limit' : 'Market'}
+                {formData.type === 'limit'
+                  ? appLocale.intl.formatMessage({
+                      id: ETranslations.perp_trade_limit,
+                    })
+                  : appLocale.intl.formatMessage({
+                      id: ETranslations.perp_trade_market,
+                    })}
               </SizableText>
               <Icon
                 name="RepeatOutline"
@@ -454,14 +460,9 @@ export function showClosePositionDialog({
   hyperliquidActions,
 }: IClosePositionParams) {
   const dialogInstance = Dialog.show({
-    title:
-      type === 'market'
-        ? appLocale.intl.formatMessage({
-            id: ETranslations.perp_close_position_button_market,
-          })
-        : appLocale.intl.formatMessage({
-            id: ETranslations.perp_close_position_button_limit,
-          }),
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_close_position_title,
+    }),
     renderContent: (
       <PerpsProviderMirror>
         <ClosePositionForm

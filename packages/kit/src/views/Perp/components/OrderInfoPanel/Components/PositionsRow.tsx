@@ -571,7 +571,7 @@ const PositionRow = memo(
               fontWeight={400}
             >
               {intl.formatMessage({
-                id: ETranslations.perp_trade_market,
+                id: ETranslations.perp_position_market,
               })}
             </SizableText>
           </XStack>
@@ -584,7 +584,7 @@ const PositionRow = memo(
               fontWeight={400}
             >
               {intl.formatMessage({
-                id: ETranslations.perp_trade_limit,
+                id: ETranslations.perp_position_limit,
               })}
             </SizableText>
           </XStack>
