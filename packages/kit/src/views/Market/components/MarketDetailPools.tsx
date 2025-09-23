@@ -287,7 +287,7 @@ export function MarketDetailPools({
         });
       },
     }),
-    [intl, isCEXSelected],
+    [inPageDialog, intl, isCEXSelected],
   );
 
   const poolColumns = useMemo(
