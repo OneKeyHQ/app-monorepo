@@ -102,9 +102,7 @@ export function TabBar({
 }) {
   const listViewRef = useRef<IListViewRef<string>>(null);
   const listViewTimerId = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
-  const clickTabAt = useRef<number>(0);
 
   const scrollToTab = useCallback(
     (tabName: string) => {
