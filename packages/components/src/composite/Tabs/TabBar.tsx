@@ -1,6 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
+import {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
@@ -11,6 +17,7 @@ import type { IListViewRef } from '../../layouts';
 import type { IYStackProps } from '../../primitives';
 import type { TabBarProps } from 'react-native-collapsible-tab-view';
 import type { SharedValue } from 'react-native-reanimated';
+import { LayoutChangeEvent } from 'react-native';
 
 export function TabBarItem({
   name,
@@ -63,10 +70,7 @@ export function TabBarItem({
   );
 }
 
-export interface ITabBarProps extends TabBarProps<string> {
-  containerStyle?: IYStackProps;
-  renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
-}
+export type ITabBarProps = TabBarProps<string>;
 
 export interface ITabBarItemProps {
   name: string;
@@ -88,6 +92,9 @@ export type IScrollableTabBarProps = Omit<
   focusedTabStyle?: IYStackProps;
   renderItem?: (props: ITabBarItemProps, index: number) => React.ReactNode;
   scrollable?: boolean;
+
+  containerStyle?: IYStackProps;
+  renderToolbar?: ({ focusedTab }: { focusedTab: string }) => React.ReactNode;
 };
 
 export function ScrollableTabBar({
@@ -138,53 +145,6 @@ export function ScrollableTabBar({
       }
     },
   );
-  const tabItems = useMemo(() => {
-    return tabNames.map((name, index) =>
-      renderItem ? (
-        renderItem(
-          {
-            name,
-            isFocused: currentTab === name,
-            onPress: onTabPress,
-            tabItemStyle,
-            focusedTabStyle,
-          },
-          index,
-        )
-      ) : (
-        <TabBarItem
-          key={name}
-          name={name}
-          isFocused={currentTab === name}
-          onPress={onTabPress}
-          tabItemStyle={tabItemStyle}
-          focusedTabStyle={focusedTabStyle}
-        />
-      ),
-    );
-  }, [
-    currentTab,
-    focusedTabStyle,
-    onTabPress,
-    renderItem,
-    tabItemStyle,
-    tabNames,
-  ]);
-  const content = useMemo(() => {
-    if (scrollable) {
-      return null;
-    }
-    return (
-      <>
-        <XStack ai="center" jc="space-between">
-          <XStack>{tabItems}</XStack>
-          {renderToolbar?.({ focusedTab: currentTab })}
-        </XStack>
-        {divider ? <Divider /> : null}
-      </>
-    );
-  }, [currentTab, divider, renderToolbar, scrollable, tabItems]);
-
   const handleRenderItem = useCallback(
     ({ item, index }: { item: string; index: number }) => {
       const name = item;
@@ -213,7 +173,7 @@ export function ScrollableTabBar({
     [currentTab, focusedTabStyle, onTabPress, renderItem, tabItemStyle],
   );
 
-  return scrollable ? (
+  return (
     <YStack
       position={'sticky' as any}
       top={0}
@@ -244,7 +204,147 @@ export function ScrollableTabBar({
       </XStack>
       {divider ? <Divider /> : null}
     </YStack>
-  ) : (
+  );
+}
+
+function AnimationTabBar({
+  onTabPress,
+  tabNames,
+  focusedTab,
+  renderToolbar,
+  renderItem,
+  divider = true,
+  tabItemStyle,
+  focusedTabStyle,
+  containerStyle,
+}: IScrollableTabBarProps) {
+  const [currentTab, setCurrentTab] = useState<string>(focusedTab.value);
+  const [tabLayouts, setTabLayouts] = useState<{
+    [key: string]: { x: number; width: number };
+  }>({});
+
+  // Animated values for the indicator
+  const indicatorX = useSharedValue(0);
+  const indicatorWidth = useSharedValue(0);
+
+  const debouncedSetCurrentTab = useDebouncedCallback(setCurrentTab, 50);
+
+  useAnimatedReaction(
+    () => focusedTab.value,
+    (result, previous) => {
+      if (result !== previous && previous) {
+        runOnJS(debouncedSetCurrentTab)(result);
+        // Update indicator position when tab changes
+        const layout = tabLayouts[result];
+        if (layout) {
+          indicatorX.value = withTiming(layout.x, { duration: 250 });
+          indicatorWidth.value = withTiming(layout.width, { duration: 250 });
+        }
+      }
+    },
+  );
+
+  const handleTabLayout = useCallback(
+    (name: string, x: number, width: number) => {
+      setTabLayouts((prev) => ({
+        ...prev,
+        [name]: { x, width },
+      }));
+
+      // Initialize indicator position for the first focused tab
+      if (name === currentTab && indicatorX.value === 0) {
+        indicatorX.value = x;
+        indicatorWidth.value = width;
+      }
+    },
+    [currentTab, indicatorX, indicatorWidth],
+  );
+
+  const AnimatedTabBarItem = useCallback(
+    ({
+      name,
+      isFocused,
+      onPress: onPressTab,
+      tabItemStyle: itemStyle,
+      focusedTabStyle: focusedStyle,
+    }: ITabBarItemProps) => {
+      const handlePress = () => {
+        onPressTab(name);
+      };
+
+      const handleLayout = (event: LayoutChangeEvent) => {
+        const { x, width } = event.nativeEvent.layout;
+        handleTabLayout(name, x, width);
+      };
+
+      return (
+        <YStack
+          h={44}
+          ai="center"
+          jc="center"
+          ml={20}
+          key={name}
+          cursor="pointer"
+          onPress={handlePress}
+          position="relative"
+          onLayout={handleLayout}
+          {...itemStyle}
+          {...(isFocused ? focusedStyle : undefined)}
+        >
+          <SizableText
+            size="$bodyLgMedium"
+            color={isFocused ? '$text' : '$textSubdued'}
+          >
+            {name}
+          </SizableText>
+        </YStack>
+      );
+    },
+    [handleTabLayout],
+  );
+
+  const tabItems = useMemo(() => {
+    return tabNames.map((name, index) =>
+      renderItem ? (
+        renderItem(
+          {
+            name,
+            isFocused: currentTab === name,
+            onPress: onTabPress,
+            tabItemStyle,
+            focusedTabStyle,
+          },
+          index,
+        )
+      ) : (
+        <AnimatedTabBarItem
+          key={name}
+          name={name}
+          isFocused={currentTab === name}
+          onPress={onTabPress}
+          tabItemStyle={tabItemStyle}
+          focusedTabStyle={focusedTabStyle}
+        />
+      ),
+    );
+  }, [
+    currentTab,
+    focusedTabStyle,
+    onTabPress,
+    renderItem,
+    tabItemStyle,
+    tabNames,
+    AnimatedTabBarItem,
+  ]);
+
+  const indicatorStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: indicatorX.value }],
+      width: indicatorWidth.value,
+    };
+  });
+
+  return (
     <YStack
       userSelect="none"
       cursor="pointer"
@@ -256,22 +356,32 @@ export function ScrollableTabBar({
       zIndex={10}
       {...containerStyle}
     >
-      {content}
+      <XStack ai="center" jc="space-between">
+        <XStack position="relative">
+          {tabItems}
+          {/* Animated indicator */}
+          <YStack
+            position="absolute"
+            bottom={0}
+            h="$0.5"
+            bg="$text"
+            borderRadius={1}
+            style={indicatorStyle}
+          />
+        </XStack>
+        {renderToolbar?.({ focusedTab: currentTab })}
+      </XStack>
+      {divider ? <Divider /> : null}
     </YStack>
   );
-}
-
-function AnimationTabBar({ ...props }: IScrollableTabBarProps) {
-  return null;
 }
 
 export function TabBar({
   scrollable = false,
   ...props
 }: IScrollableTabBarProps) {
-  return scrollable ? (
-    <ScrollableTabBar {...props} scrollable={scrollable} />
-  ) : (
-    <TabBar {...props} />
-  );
+  if (scrollable) {
+    return <ScrollableTabBar {...props} scrollable={scrollable} />;
+  }
+  return <AnimationTabBar {...props} />;
 }
