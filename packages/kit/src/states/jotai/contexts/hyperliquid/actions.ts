@@ -66,7 +66,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
     if (this.orderBookTickOptionsLoaded) return;
     try {
-      const stored = await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      const stored =
+        await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
       set(orderBookTickOptionsAtom(), stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
@@ -75,16 +76,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  getPersistedL2BookOptions = contextAtomMethod(
+    async (get, set, coin: string): Promise<IL2BookOptions | null> => {
+      await this.ensureOrderBookTickOptionsLoaded.call(set);
+      const persistedOptions = get(orderBookTickOptionsAtom());
+      const persistedForSymbol = persistedOptions?.[coin];
+      if (!persistedForSymbol) {
+        return null;
+      }
+      return {
+        nSigFigs: persistedForSymbol.nSigFigs ?? null,
+        ...(persistedForSymbol.mantissa != null
+          ? { mantissa: persistedForSymbol.mantissa }
+          : {}),
+      };
+    },
+  );
+
   setOrderBookTickOption = contextAtomMethod(
     async (
       get,
       set,
-      payload:
-        | null
-        | {
-            symbol: string;
-            option: IPerpOrderBookTickOptionPersist | null;
-          },
+      payload: null | {
+        symbol: string;
+        option: IPerpOrderBookTickOptionPersist | null;
+      },
     ) => {
       if (!payload?.symbol) return;
       const { symbol, option } = payload;
@@ -131,6 +147,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     const currentToken = get(currentTokenAtom());
     if (currentToken === coin) return;
 
+    const l2BookOptions = await this.getPersistedL2BookOptions.call(set, coin);
+
     const currentForm = get(tradingFormAtom());
     set(tradingFormAtom(), {
       ...currentForm,
@@ -142,7 +160,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
 
     set(currentTokenAtom(), coin);
-    await this.updateSubscriptions.call(set, { l2BookOptions: null });
+    await this.updateSubscriptions.call(set, { l2BookOptions });
   });
 
   updateSubscriptions = contextAtomMethod(
@@ -757,7 +775,8 @@ export function useHyperliquidActions() {
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
 
-  const ensureOrderBookTickOptionsLoaded = actions.ensureOrderBookTickOptionsLoaded.use();
+  const ensureOrderBookTickOptionsLoaded =
+    actions.ensureOrderBookTickOptionsLoaded.use();
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
 
   return useRef({
