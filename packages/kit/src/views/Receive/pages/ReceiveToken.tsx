@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
+import { getColors } from 'react-native-image-colors';
 
 import {
   Badge,
@@ -10,6 +11,7 @@ import {
   Dialog,
   Empty,
   IconButton,
+  Image,
   Page,
   QRCode,
   SizableText,
@@ -43,6 +45,8 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
+import { NetworkAvatar } from '../../../components/NetworkAvatar';
+import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { useHelpLink } from '../../../hooks/useHelpLink';
@@ -96,6 +100,8 @@ function ReceiveToken() {
     EAddressState.Unverified,
   );
 
+  const [networkLogoColor, setNetworkLogoColor] = useState<string | null>(null);
+
   const [hardwareUiState] = useHardwareUiStateAtom();
 
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
@@ -146,6 +152,27 @@ function ReceiveToken() {
 
     return false;
   }, [addressState, isHardwareWallet]);
+
+  useEffect(() => {
+    const url = network?.logoURI;
+
+    if (!url) return;
+
+    getColors(url, {
+      key: url,
+    })
+      .then((colors) => {
+        if (colors.platform === 'android' || colors.platform === 'web') {
+          setNetworkLogoColor(colors.vibrant);
+        }
+        if (colors.platform === 'ios') {
+          setNetworkLogoColor(colors.primary);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to get colors from network logo:', error);
+      });
+  }, [network?.logoURI]);
 
   const handleCopyAddress = useCallback(() => {
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
@@ -552,84 +579,97 @@ function ReceiveToken() {
     if (!currentAccount || !network || !wallet) return null;
 
     return (
-      <YStack
-        width={264}
-        height={264}
-        p="$5"
-        mb="$6"
-        alignItems="center"
-        justifyContent="center"
-        bg="white"
-        borderRadius="$3"
-        borderCurve="continuous"
-        $platform-native={{
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: '$borderSubdued',
-        }}
-        $platform-web={{
-          boxShadow:
-            '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
-        }}
-        elevation={0.5}
-        {...(!shouldShowQRCode && {
-          onPress: handleVerifyOnDevicePress,
-          userSelect: 'none',
-          bg: '$bg',
-          hoverStyle: {
-            bg: '$bgHover',
-          },
-          pressStyle: {
-            bg: '$bgActive',
-          },
-          focusable: true,
-          focusVisibleStyle: {
-            outlineWidth: 2,
-            outlineColor: '$focusRing',
-            outlineOffset: 2,
-            outlineStyle: 'solid',
-          },
-        })}
-      >
-        {shouldShowQRCode ? (
-          <QRCode
-            value={currentAccount.address}
-            size={224}
-            logo={
-              network.isCustomNetwork
-                ? undefined
-                : { uri: token?.logoURI || network.logoURI }
-            }
-            logoSize={network.isCustomNetwork ? undefined : 45}
-          />
-        ) : null}
+      <YStack flex={1} justifyContent="center" alignItems="center">
+        <YStack
+          width={264}
+          height={264}
+          p="$5"
+          alignItems="center"
+          justifyContent="center"
+          bg="white"
+          borderRadius="$3"
+          borderCurve="continuous"
+          $platform-native={{
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: '$borderSubdued',
+          }}
+          $platform-web={{
+            boxShadow:
+              '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
+          }}
+          elevation={0.5}
+          {...(!shouldShowQRCode && {
+            onPress: handleVerifyOnDevicePress,
+            userSelect: 'none',
+            bg: '$bg',
+            hoverStyle: {
+              bg: '$bgHover',
+            },
+            pressStyle: {
+              bg: '$bgActive',
+            },
+            focusable: true,
+            focusVisibleStyle: {
+              outlineWidth: 2,
+              outlineColor: '$focusRing',
+              outlineOffset: 2,
+              outlineStyle: 'solid',
+            },
+          })}
+        >
+          {shouldShowQRCode ? (
+            <YStack>
+              <QRCode value={currentAccount.address} size={224} />
+              {network.isCustomNetwork ? null : (
+                <YStack
+                  position="absolute"
+                  left="50%"
+                  top="50%"
+                  transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
+                  borderWidth={4}
+                  borderColor="white"
+                  borderRadius="$full"
+                >
+                  <Token
+                    size="lg"
+                    tokenImageUri={token?.logoURI}
+                    networkImageUri={network.logoURI}
+                    networkId={networkId}
+                  />
+                </YStack>
+              )}
+            </YStack>
+          ) : null}
 
-        {!shouldShowQRCode ? (
-          <Empty
-            p="0"
-            icon="QrCodeOutline"
-            description={intl.formatMessage({
-              id: ETranslations.address_verify_address_instruction,
-            })}
-            iconProps={{
-              size: '$8',
-              mb: '$5',
-            }}
-            descriptionProps={{
-              size: '$bodyLgMedium',
-              color: '$text',
-            }}
-          />
-        ) : null}
+          {!shouldShowQRCode ? (
+            <Empty
+              p="0"
+              icon="QrCodeOutline"
+              description={intl.formatMessage({
+                id: ETranslations.address_verify_address_instruction,
+              })}
+              iconProps={{
+                size: '$8',
+                mb: '$5',
+              }}
+              descriptionProps={{
+                size: '$bodyLgMedium',
+                color: '$text',
+              }}
+            />
+          ) : null}
+        </YStack>
       </YStack>
     );
   }, [
     currentAccount,
     network,
     wallet,
-    intl,
-    token?.logoURI,
     shouldShowQRCode,
     handleVerifyOnDevicePress,
+    token?.logoURI,
+    networkId,
+    intl,
   ]);
 
   return (
@@ -637,8 +677,48 @@ function ReceiveToken() {
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_receive })}
       />
-      <Page.Body flex={1} justifyContent="center" alignItems="center">
+      <Page.Body flex={1} pb="$5" px="$5">
         {renderReceiveQrCode()}
+        {shouldShowQRCode ? (
+          <XStack
+            py="$2.5"
+            px="$3"
+            gap="$3"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor={
+              networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
+            }
+            bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
+            borderRadius="$2"
+            borderCurve="continuous"
+            // TODO: if pressable
+            {...{
+              userSelect: 'none',
+              focusable: true,
+              focusVisibleStyle: {
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineStyle: 'solid',
+                outlineOffset: 0,
+              },
+              hoverStyle: {
+                bg: networkLogoColor ? `${networkLogoColor}1A` : '$bgHover',
+              },
+              pressStyle: {
+                bg: networkLogoColor ? `${networkLogoColor}2A` : '$bgActive',
+              },
+              onPress: () => {
+                console.log('press');
+              },
+            }}
+          >
+            <Image
+              size="$5"
+              fallback={<NetworkAvatar size="$5" networkId={networkId} />}
+            />
+            <SizableText size="$bodyMd">Text here</SizableText>
+          </XStack>
+        ) : null}
       </Page.Body>
       <Page.Footer>{renderReceiveFooter()}</Page.Footer>
     </Page>
