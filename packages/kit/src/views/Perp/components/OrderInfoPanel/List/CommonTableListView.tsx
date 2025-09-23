@@ -78,20 +78,22 @@ const PaginationFooter = ({
         icon="ChevronLeftOutline"
       />
       <XStack gap="$2" alignItems="center">
-        <Input
-          value={inputValue}
-          onChangeText={handleInputChange}
-          onSubmitEditing={handleInputSubmit}
-          onBlur={handleInputBlur}
-          keyboardType="numeric"
-          w="$12"
-          h="$7"
-          p="$1"
-          textAlign="center"
-          borderColor="$borderStrong"
-          borderRadius="$2"
-          maxLength={totalPages.toString().length}
-        />
+        <XStack w={isMobile ? 40 : undefined}>
+          <Input
+            value={inputValue}
+            onChangeText={handleInputChange}
+            onSubmitEditing={handleInputSubmit}
+            onBlur={handleInputBlur}
+            keyboardType="numeric"
+            w={isMobile ? undefined : '$12'}
+            h="$7"
+            p="$1"
+            textAlign="center"
+            borderColor="$borderStrong"
+            borderRadius="$2"
+            maxLength={totalPages.toString().length}
+          />
+        </XStack>
         <SizableText size="$bodyMd" color={headerTextColor}>
           /
         </SizableText>

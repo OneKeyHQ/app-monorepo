@@ -13,6 +13,7 @@ import {
   View,
   XStack,
   YStack,
+  useInPageDialog,
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -267,10 +268,13 @@ export function MarketDetailPools({
     }),
     [handleSortTypeChange],
   );
+
+  const inPageDialog = useInPageDialog();
+
   const onRow = useCallback(
     (item: IMarketDetailPool | IMarketDetailTicker) => ({
       onPress: () => {
-        Dialog.show({
+        inPageDialog.show({
           showFooter: false,
           title: intl.formatMessage({
             id: ETranslations.market_pool_details,
@@ -283,7 +287,7 @@ export function MarketDetailPools({
         });
       },
     }),
-    [intl, isCEXSelected],
+    [inPageDialog, intl, isCEXSelected],
   );
 
   const poolColumns = useMemo(

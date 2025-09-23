@@ -376,9 +376,11 @@ function RiskTokenManager() {
             >
               <XStack alignItems="center" gap="$3" maxWidth="60%">
                 <TokenIconView
+                  $key={token.$key}
                   networkId={token.networkId}
                   icon={token.logoURI}
                   isAllNetworks={isAllNetworks}
+                  showNetworkIcon={isAllNetworks}
                 />
                 <YStack flex={1}>
                   <TokenNameView

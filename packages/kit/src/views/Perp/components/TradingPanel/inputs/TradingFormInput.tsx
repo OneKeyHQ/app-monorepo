@@ -1,7 +1,7 @@
 import { memo, useCallback } from 'react';
 
 import {
-  Divider,
+  Icon,
   Input,
   SizableText,
   XStack,
@@ -14,6 +14,7 @@ interface IInputAction {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  icon?: string;
 }
 
 interface IInputHelper {
@@ -86,10 +87,14 @@ export const TradingFormInput = memo(
                 cursor="pointer"
                 onPress={action.onPress}
                 opacity={action.disabled ? 0.5 : 1}
+                gap="$1"
               >
                 <SizableText size="$bodyMdMedium" color={action.labelColor}>
                   {action.label}
                 </SizableText>
+                {action.icon ? (
+                  <Icon name={action.icon as any} size="$3" />
+                ) : null}
               </XStack>
             ),
           });
@@ -129,7 +134,7 @@ export const TradingFormInput = memo(
               p: 0,
               bg: 'transparent',
             }}
-            addOns={renderAddOns()}
+            addOns={disabled ? undefined : renderAddOns()}
           />
           {error ? (
             <SizableText size="$bodySm" color="$red10" mt="$1">

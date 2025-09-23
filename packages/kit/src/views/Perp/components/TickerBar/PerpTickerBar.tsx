@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Divider,
   Icon,
   IconButton,
@@ -82,17 +83,15 @@ function PerpTickerBar() {
             alignItems="center"
           >
             <Icon name="MenuOutline" size="$5" />
-            <SizableText size="$headingLg">{coin}-PERP</SizableText>
-            <NumberSizeableText
-              size="$headingXs"
-              color={change24hPercent >= 0 ? '$green11' : '$red11'}
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-            >
-              {change24hPercent}
-            </NumberSizeableText>
+
+            <SizableText size="$headingXl">{coin}USD</SizableText>
+            <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+              <SizableText color="$textSubdued" fontSize={11}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_label_perp,
+                })}
+              </SizableText>
+            </Badge>
           </XStack>
           <IconButton
             icon="TradingViewCandlesOutline"
@@ -253,11 +252,18 @@ function PerpTickerBar() {
               </SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_funding_tooltip,
-                })}
-              </SizableText>
+              <YStack gap="$2">
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip1,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip2,
+                  })}
+                </SizableText>
+              </YStack>
             }
             placement="top"
           />

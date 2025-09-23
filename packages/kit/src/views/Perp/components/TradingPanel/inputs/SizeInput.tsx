@@ -179,6 +179,7 @@ export const SizeInput = memo(
         {
           labelColor: '$textSubdued',
           label: unitDisplay,
+          icon: 'RepeatOutline',
           onPress: () => {
             const newMode = inputMode === 'token' ? 'usd' : 'token';
             setInputMode(newMode);

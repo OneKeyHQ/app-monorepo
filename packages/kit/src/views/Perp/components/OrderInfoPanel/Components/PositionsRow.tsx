@@ -319,7 +319,12 @@ const PositionRow = memo(
             </YStack>
           </XStack>
           <XStack width="100%" gap="$2.5" justifyContent="space-between">
-            <Button size="small" variant="secondary" onPress={setTpsl} flex={1}>
+            <Button
+              size="medium"
+              variant="secondary"
+              onPress={setTpsl}
+              flex={1}
+            >
               <SizableText size="$bodySm">
                 {intl.formatMessage({
                   id: ETranslations.perp_trade_set_tp_sl,
@@ -327,7 +332,7 @@ const PositionRow = memo(
               </SizableText>
             </Button>
             <Button
-              size="small"
+              size="medium"
               variant="secondary"
               onPress={() => handleClosePosition('market')}
               flex={1}
@@ -573,7 +578,7 @@ const PositionRow = memo(
               fontWeight={400}
             >
               {intl.formatMessage({
-                id: ETranslations.perp_trade_market,
+                id: ETranslations.perp_position_market,
               })}
             </SizableText>
           </XStack>
@@ -586,7 +591,7 @@ const PositionRow = memo(
               fontWeight={400}
             >
               {intl.formatMessage({
-                id: ETranslations.perp_trade_limit,
+                id: ETranslations.perp_position_limit,
               })}
             </SizableText>
           </XStack>

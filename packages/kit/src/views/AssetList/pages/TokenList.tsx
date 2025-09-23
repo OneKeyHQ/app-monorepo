@@ -65,6 +65,7 @@ function TokenList() {
     aggregateTokensListMap,
     aggregateTokensMap,
     accountAddress,
+    allAggregateTokenMap,
   } = route.params;
   const { tokens, map: tokenMap, keys } = tokenList;
 
@@ -199,9 +200,10 @@ function TokenList() {
         <TokenListView
           onPressToken={onPressToken ?? handleOnPressToken}
           withPrice
-          withNetwork={isAllNetworks}
           isAllNetworks={isAllNetworks}
           hideValue={hideValue}
+          allAggregateTokenMap={allAggregateTokenMap}
+          showNetworkIcon={isAllNetworks}
         />
       </Page.Body>
     </Page>

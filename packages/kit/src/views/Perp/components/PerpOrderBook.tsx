@@ -3,6 +3,8 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
+  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -59,25 +61,136 @@ function MobileHeader() {
     markPriceNumber === 0;
 
   return (
-    <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-      <SizableText fontSize={10} color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.perp_token_bar_Funding,
-        })}
-      </SizableText>
-      {showSkeleton ? (
-        <Skeleton width={120} height={16} />
-      ) : (
-        <XStack alignItems="center" gap={6}>
-          <SizableText size="$bodySmMedium" color={fundingColor}>
-            {fundingDisplay}
+    <Popover
+      title={intl.formatMessage({
+        id: ETranslations.perp_position_funding,
+      })}
+      renderTrigger={
+        <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
+          <SizableText fontSize={10} color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_token_bar_Funding,
+            })}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
-            {countdown}
-          </SizableText>
-        </XStack>
-      )}
-    </YStack>
+          {showSkeleton ? (
+            <Skeleton width={120} height={16} />
+          ) : (
+            <XStack alignItems="center" gap={6}>
+              <SizableText size="$bodySmMedium" color={fundingColor}>
+                {fundingDisplay}
+              </SizableText>
+              <SizableText size="$bodySmMedium" color="$text">
+                {countdown}
+              </SizableText>
+            </XStack>
+          )}
+        </YStack>
+      }
+      renderContent={
+        <YStack
+          bg="$bg"
+          justifyContent="center"
+          w="100%"
+          px="$5"
+          pt="$2"
+          pb="$5"
+          gap="$5"
+        >
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_Funding,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={fundingColor}>
+                {fundingDisplay}
+              </SizableText>
+            </YStack>
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_ticker_annualized_funding_tooltip,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={fundingColor}>
+                {(parseFloat(fundingRate) * 100 * 24 * 365).toFixed(2)}%
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_direction,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={fundingColor}>
+                {parseFloat(fundingRate) >= 0 ? (
+                  <SizableText size="$bodySmMedium" color="$text">
+                    <SizableText size="$bodySmMedium" color="$green11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                      })}
+                    </SizableText>{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                    })}{' '}
+                    <SizableText size="$bodySmMedium" color="$red11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                      })}
+                    </SizableText>
+                  </SizableText>
+                ) : (
+                  <SizableText size="$bodySmMedium" color="$text">
+                    <SizableText size="$bodySmMedium" color="$red11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                      })}
+                    </SizableText>{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                    })}{' '}
+                    <SizableText size="$bodySmMedium" color="$green11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                      })}
+                    </SizableText>
+                  </SizableText>
+                )}
+              </SizableText>
+            </YStack>
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_countdown,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{countdown}</SizableText>
+            </YStack>
+          </XStack>
+          <Divider />
+          <YStack gap="$2">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate_tip0,
+              })}
+            </SizableText>
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate_tip1,
+              })}
+            </SizableText>
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate_tip2,
+              })}
+            </SizableText>
+          </YStack>
+        </YStack>
+      }
+    />
   );
 }
 const MobileHeaderMemo = memo(MobileHeader);
