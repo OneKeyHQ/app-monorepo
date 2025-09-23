@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -11,6 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -36,43 +37,47 @@ function PerpLayout() {
 }
 
 function PerpNetworkStatus() {
-  const isNetworkStable = false; // Placeholder for actual network status logic
+  const [networkStatus] = usePerpsNetworkStatusAtom();
+  const isNetworkStable = networkStatus.connected;
   const networkStyle = useMemo(() => {
     return {
       badgeType: isNetworkStable ? 'success' : 'critical',
       indicatorBg: isNetworkStable ? '$success10' : '$critical10',
-      text: isNetworkStable ? 'Connection is stable' : 'Disconnected',
+      text: isNetworkStable ? 'Online' : 'Disconnected',
     };
   }, [isNetworkStable]);
-  return (
-    <Badge
-      badgeType={networkStyle.badgeType}
-      badgeSize="sm"
-      h={18}
-      borderRadius="$full"
-      paddingVertical={0}
-      paddingHorizontal={8}
-      gap="$1.5"
-    >
-      <Stack
-        position="relative"
-        w={8}
-        h={8}
+  return useMemo(
+    () => (
+      <Badge
+        badgeType={networkStyle.badgeType}
+        badgeSize="sm"
+        height={20}
         borderRadius="$full"
-        alignItems="center"
-        justifyContent="center"
-        bg="$neutral3"
+        paddingVertical={0}
+        paddingHorizontal={8}
+        gap="$1.5"
       >
         <Stack
-          position="absolute"
-          w={6}
-          h={6}
+          position="relative"
+          w={8}
+          h={8}
           borderRadius="$full"
-          bg={networkStyle.indicatorBg}
-        />
-      </Stack>
-      <Badge.Text style={{ fontSize: 8 }}>{networkStyle.text}</Badge.Text>
-    </Badge>
+          alignItems="center"
+          justifyContent="center"
+          bg="$neutral3"
+        >
+          <Stack
+            position="absolute"
+            w={6}
+            h={6}
+            borderRadius="$full"
+            bg={networkStyle.indicatorBg}
+          />
+        </Stack>
+        <Badge.Text style={{ fontSize: 10 }}>{networkStyle.text}</Badge.Text>
+      </Badge>
+    ),
+    [networkStyle],
   );
 }
 
