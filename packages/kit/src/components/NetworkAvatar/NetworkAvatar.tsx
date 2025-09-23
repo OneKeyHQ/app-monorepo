@@ -36,17 +36,17 @@ export const NetworkAvatarBase = ({
     if (size) {
       return (
         <Icon
-          name="GlobusOutline"
-          color="$iconSubdued"
+          name="AllNetworksSolid"
           size={size as SizeTokens}
+          color="$iconActive"
           {...allNetworksIconProps}
         />
       );
     }
     return (
       <Icon
-        name="GlobusOutline"
-        color="$iconSubdued"
+        name="AllNetworksSolid"
+        color="$iconActive"
         {...allNetworksIconProps}
       />
     );
