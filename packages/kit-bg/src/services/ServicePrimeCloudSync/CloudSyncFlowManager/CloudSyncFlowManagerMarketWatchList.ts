@@ -2,6 +2,7 @@ import { Semaphore } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   ICloudSyncPayloadMarketWatchList,
@@ -15,8 +16,7 @@ import type { IDBCloudSyncItem, IDBDevice } from '../../../dbs/local/types';
 function buildItemKey(item: IMarketWatchListItemV2) {
   return [
     item.chainId,
-    item.contractAddress,
-    // item.isNative ? 'native' : '',
+    item.contractAddress?.toLowerCase() || '', // Convert to lowercase for consistent key generation
   ].join('_');
 }
 
@@ -104,11 +104,17 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     const { payload } = params;
     const watchList =
       await this.backgroundApi.serviceMarketV2.getMarketWatchListV2();
-    const result = watchList.data.find(
-      (i) =>
-        i.chainId === payload.chainId &&
-        i.contractAddress === payload.contractAddress,
-      // !!i.isNative === !!payload.isNative,
+    const result = watchList.data.find((i) =>
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: i.chainId,
+          contractAddress: i.contractAddress,
+        },
+        token2: {
+          networkId: payload.chainId,
+          contractAddress: payload.contractAddress,
+        },
+      }),
     );
     return cloneDeep(result);
   }
