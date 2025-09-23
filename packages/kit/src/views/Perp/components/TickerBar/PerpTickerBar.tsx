@@ -252,11 +252,18 @@ function PerpTickerBar() {
               </SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_funding_tooltip,
-                })}
-              </SizableText>
+              <YStack gap="$2">
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip1,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip2,
+                  })}
+                </SizableText>
+              </YStack>
             }
             placement="top"
           />
