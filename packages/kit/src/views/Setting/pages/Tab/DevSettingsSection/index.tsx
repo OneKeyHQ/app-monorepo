@@ -66,8 +66,7 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
-import { AutoUpdateDevSettings } from './AutoUpdateDevSettings';
-import { AutoUpdateSection } from './AutoUpdateSection';
+import { AutoUpdateSettings } from './AutoUpdateSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
@@ -575,7 +574,7 @@ const BaseDevSettingsSection = () => {
         />
       </ListItem>
 
-      <AutoUpdateSection />
+      <AutoUpdateSettings />
 
       <SectionFieldItem
         icon="WalletOutline"
@@ -985,7 +984,6 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-      <AutoUpdateDevSettings />
       <ListItem
         icon="PerformanceOutline"
         title="Performance Monitor(UI FPS/JS FPS)"

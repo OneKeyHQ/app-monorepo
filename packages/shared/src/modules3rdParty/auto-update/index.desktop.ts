@@ -163,6 +163,8 @@ export const BundleUpdate: IBundleUpdate = {
   installBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
+  clearAllJSBundleData: () =>
+    globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
   testVerification: () =>
     globalThis.desktopApiProxy.bundleUpdate.testVerification(),
   testDeleteJsBundle: (appVersion, bundleVersion) =>
