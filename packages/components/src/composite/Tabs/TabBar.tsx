@@ -76,6 +76,7 @@ export interface ITabBarItemProps {
   focusedTabStyle?: IYStackProps;
 }
 
+// Prevent pager scroll event callbacks from modifying tabbar selected state
 let tabClickCount = 0;
 export function TabBar({
   onTabPress,
