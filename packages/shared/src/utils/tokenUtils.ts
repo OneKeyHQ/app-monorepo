@@ -455,6 +455,20 @@ export function mergeDeriveTokenList({
   return newTokens;
 }
 
+export function normalizeTokenContractAddress({
+  networkId,
+  contractAddress,
+}: {
+  networkId: string;
+  contractAddress: string | undefined;
+}): string | undefined {
+  const impl = networkUtils.getNetworkImpl({ networkId });
+  if (caseSensitiveNetworkImpl.includes(impl)) {
+    return contractAddress;
+  }
+  return contractAddress?.toLowerCase();
+}
+
 export function equalTokenNoCaseSensitive({
   token1,
   token2,
@@ -466,14 +480,15 @@ export function equalTokenNoCaseSensitive({
     return false;
   }
   if (token1?.networkId !== token2?.networkId) return false;
-  const impl = networkUtils.getNetworkImpl({ networkId: token1.networkId });
-  if (caseSensitiveNetworkImpl.includes(impl)) {
-    return token1?.contractAddress === token2?.contractAddress;
-  }
-  return (
-    token1?.contractAddress?.toLowerCase() ===
-    token2?.contractAddress?.toLowerCase()
-  );
+  const token1ContractAddress = normalizeTokenContractAddress({
+    networkId: token1.networkId,
+    contractAddress: token1.contractAddress,
+  });
+  const token2ContractAddress = normalizeTokenContractAddress({
+    networkId: token2.networkId,
+    contractAddress: token2.contractAddress,
+  });
+  return token1ContractAddress === token2ContractAddress;
 }
 
 export const checkWrappedTokenPair = ({

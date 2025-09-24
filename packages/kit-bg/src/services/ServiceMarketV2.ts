@@ -299,10 +299,12 @@ class ServiceMarketV2 extends ServiceBase {
     watchList,
     skipSaveLocalSyncItem,
     skipEventEmit,
+    callerName,
   }: {
     watchList: IMarketWatchListItemV2[];
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
+    callerName: string;
   }) {
     const currentData =
       await this.backgroundApi.simpleDb.marketWatchListV2.getRawData();
@@ -318,6 +320,7 @@ class ServiceMarketV2 extends ServiceBase {
       fn: () =>
         this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
           watchList: newWatchList,
+          callerName,
         }),
     });
   }
@@ -327,10 +330,12 @@ class ServiceMarketV2 extends ServiceBase {
     items,
     skipSaveLocalSyncItem,
     skipEventEmit,
+    callerName,
   }: {
     items: Array<{ chainId: string; contractAddress: string }>;
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
+    callerName: string;
   }) {
     return this.withMarketWatchListV2CloudSync({
       watchList: items,
@@ -340,6 +345,7 @@ class ServiceMarketV2 extends ServiceBase {
       fn: () =>
         this.backgroundApi.simpleDb.marketWatchListV2.removeMarketWatchListV2({
           items,
+          callerName,
         }),
     });
   }
@@ -374,6 +380,7 @@ class ServiceMarketV2 extends ServiceBase {
       const newList = sortUtils.fillingMissingSortIndex({ items: items.data });
       await this.backgroundApi.simpleDb.marketWatchListV2.addMarketWatchListV2({
         watchList: newList.items,
+        callerName: 'getMarketWatchListWithFillingSortIndexV2',
       });
     }
     return this.getMarketWatchListV2();
