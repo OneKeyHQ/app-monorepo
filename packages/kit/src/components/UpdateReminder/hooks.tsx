@@ -636,7 +636,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
       if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
-      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.manual) {
+      } else {
         showUpdateDialog();
       }
     } else {
