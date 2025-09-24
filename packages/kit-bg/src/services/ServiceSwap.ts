@@ -88,6 +88,8 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
@@ -957,17 +959,29 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const resp = await client.get<{
-      data: ISwapCheckSupportResponse[];
-    }>(`/swap/v1/check-support`, {
-      params: {
-        networkId,
-        protocol: EProtocolOfExchange.SWAP,
-      },
-    });
-    return resp.data.data[0];
+    return this.checkSupportSwapMemo({ networkId });
   }
+
+  checkSupportSwapMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapCheckSupportResponse[];
+      }>(`/swap/v1/check-support`, {
+        params: {
+          networkId,
+          protocol: EProtocolOfExchange.SWAP,
+        },
+      });
+      return resp.data.data[0];
+    },
+    {
+      max: 10,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
 
   @backgroundMethod()
   async fetchApproveAllowance({
