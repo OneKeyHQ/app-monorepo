@@ -14,6 +14,7 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
+  useActiveAssetDataAtom,
   useHyperliquidActions,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -53,8 +54,10 @@ function PerpTradingForm({
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const tokenInfo = useCurrentTokenData();
+  const currentTokenName = tokenInfo?.name;
   const perpsPositions = usePerpPositions();
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
+  const [activeAssetData] = useActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
@@ -64,7 +67,8 @@ function PerpTradingForm({
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
-  const prevTokenRef = useRef<string>(tokenInfo?.name || '');
+  const prevTokenRef = useRef<string>(currentTokenName || '');
+  const tokenSwitchingRef = useRef<string | false>(false);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
@@ -78,59 +82,92 @@ function PerpTradingForm({
   }, [formData.type, formData.price, tokenInfo?.markPx, updateForm]);
 
   useEffect(() => {
-    const currentTokenName = tokenInfo?.name;
     const prevToken = prevTokenRef.current;
-
-    if (
-      prevToken &&
-      currentTokenName &&
-      prevToken !== currentTokenName &&
+    const hasTokenChanged =
+      currentTokenName && prevToken && prevToken !== currentTokenName;
+    const isDataSynced = prevToken === currentTokenName;
+    const shouldUpdatePrice =
+      tokenSwitchingRef.current === currentTokenName &&
       formData.type === 'limit' &&
-      tokenInfo?.markPx
-    ) {
-      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
+      currentTokenName &&
+      tokenInfo?.markPx &&
+      isDataSynced;
+
+    // Handle token switch
+    if (hasTokenChanged) {
+      tokenSwitchingRef.current = currentTokenName;
+      prevTokenRef.current = currentTokenName;
+      return; // Early return to avoid price update with stale data
     }
 
-    if (currentTokenName) {
+    // Update price after token switch when data is synchronized
+    if (shouldUpdatePrice && tokenInfo.markPx) {
+      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
+      tokenSwitchingRef.current = false;
+    }
+
+    if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
-  }, [tokenInfo?.name, tokenInfo?.markPx, formData.type, updateForm]);
+  }, [currentTokenName, tokenInfo?.markPx, formData.type, updateForm]);
 
   const leverage = useMemo(() => {
-    return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage;
-  }, [tokenInfo?.leverage?.value, tokenInfo?.maxLeverage]);
+    return activeAssetData?.leverage?.value || tokenInfo?.maxLeverage;
+  }, [activeAssetData?.leverage?.value, tokenInfo?.maxLeverage]);
 
-  const referencePrice = useMemo(() => {
+  const [referencePrice, referencePriceString] = useMemo(() => {
+    let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
-      return new BigNumber(formData.price);
+      price = new BigNumber(formData.price);
     }
     if (formData.type === 'market' && tokenInfo?.markPx) {
-      return new BigNumber(tokenInfo.markPx);
+      price = new BigNumber(tokenInfo.markPx);
     }
-    return new BigNumber(0);
-  }, [formData.type, formData.price, tokenInfo?.markPx]);
+    return [
+      price,
+      formatPriceToSignificantDigits(price, tokenInfo?.szDecimals ?? 2),
+    ];
+  }, [formData.type, formData.price, tokenInfo?.markPx, tokenInfo?.szDecimals]);
 
   const availableToTrade = useMemo(() => {
-    const maxTradeSzs = tokenInfo?.maxTradeSzs || [0, 0];
-    return maxTradeSzs[formData.side === 'long' ? 0 : 1] || 0;
-  }, [tokenInfo?.maxTradeSzs, formData.side]);
+    const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
+    const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
+    return new BigNumber(value).toFixed(2, BigNumber.ROUND_DOWN);
+  }, [formData.side, activeAssetData?.availableToTrade]);
 
-  const selectedSymbolPositionValue = useMemo(() => {
-    return (
-      perpsPositions.filter(
-        (pos) => pos.position.coin === perpsSelectedSymbol.coin,
-      )?.[0]?.position.positionValue || '0'
-    );
-  }, [perpsPositions, perpsSelectedSymbol.coin]);
+  const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
+    useMemo(() => {
+      const value = Number(
+        perpsPositions.filter(
+          (pos) => pos.position.coin === perpsSelectedSymbol.coin,
+        )?.[0]?.position.szi || '0',
+      );
+      const side = value >= 0 ? 'long' : 'short';
+
+      return [Math.abs(value), side];
+    }, [perpsPositions, perpsSelectedSymbol.coin]);
 
   const totalValue = useMemo(() => {
     const size = new BigNumber(formData.size || 0);
     return size.multipliedBy(referencePrice);
   }, [formData.size, referencePrice]);
 
+  const marginRequired = useMemo(() => {
+    return new BigNumber(formData.size || 0)
+      .multipliedBy(referencePrice)
+      .dividedBy(leverage || 1);
+  }, [formData.size, referencePrice, leverage]);
+
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
       updateForm({ hasTpsl: !!checked });
+
+      if (!checked) {
+        updateForm({
+          tpTriggerPx: '',
+          slTriggerPx: '',
+        });
+      }
     },
     [updateForm],
   );
@@ -158,16 +195,12 @@ function PerpTradingForm({
               id: ETranslations.perp_trade_account_overview_available,
             })}
           </SizableText>
-          {perpsAccountLoading?.selectAccountLoading ? (
-            <Skeleton width={70} height={16} />
-          ) : (
-            <XStack alignItems="center" gap="$1">
-              <SizableText size="$bodySmMedium" color="$text">
-                {selectedSymbolPositionValue} {tokenInfo?.name}
-              </SizableText>
-              <PerpAccountPanel isTradingPanel />
-            </XStack>
-          )}
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodySmMedium" color="$text">
+              ${availableToTrade}
+            </SizableText>
+            <PerpAccountPanel isTradingPanel />
+          </XStack>
         </XStack>
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
@@ -220,6 +253,7 @@ function PerpTradingForm({
         <SizeInput
           side={formData.side}
           tokenInfo={tokenInfo}
+          symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
           isMobile={isMobile}
@@ -255,6 +289,7 @@ function PerpTradingForm({
               onChange={handleTpslChange}
               disabled={isSubmitting}
               isMobile={isMobile}
+              amount={formData.size}
             />
           ) : null}
         </YStack>
@@ -290,6 +325,16 @@ function PerpTradingForm({
             </SizableText>
             <SizableText fontSize={10} color="$text">
               <LiquidationPriceDisplay isMobile={isMobile} />
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between">
+            <SizableText fontSize={10} color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+            </SizableText>
+            <SizableText fontSize={10}>
+              ${marginRequired.toFixed(2)}
             </SizableText>
           </XStack>
         </YStack>
@@ -335,12 +380,12 @@ function PerpTradingForm({
                 id: ETranslations.perp_trade_account_overview_available,
               })}
             </SizableText>
-            {perpsAccountLoading?.selectAccountLoading ? (
-              <Skeleton width={70} height={16} />
-            ) : (
+            {activeAssetData ? (
               <SizableText size="$bodySmMedium" color="$text">
-                {availableToTrade} {tokenInfo?.name}
+                ${availableToTrade}
               </SizableText>
+            ) : (
+              <Skeleton width={70} height={16} />
             )}
           </XStack>
           <XStack justifyContent="space-between">
@@ -352,13 +397,16 @@ function PerpTradingForm({
             {perpsAccountLoading?.selectAccountLoading ? (
               <Skeleton width={60} height={16} />
             ) : (
-              <NumberSizeableText
+              <SizableText
                 size="$bodySmMedium"
-                formatter="value"
-                formatterOptions={{ currency: '$' }}
+                color={
+                  selectedSymbolPositionSide === 'long'
+                    ? '$textSuccess'
+                    : '$textCritical'
+                }
               >
-                {selectedSymbolPositionValue}
-              </NumberSizeableText>
+                {selectedSymbolPositionValue} {perpsSelectedSymbol.coin}
+              </SizableText>
             )}
           </XStack>
         </YStack>
@@ -380,6 +428,7 @@ function PerpTradingForm({
         <SizeInput
           side={formData.side}
           tokenInfo={tokenInfo}
+          symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
         />
@@ -403,7 +452,7 @@ function PerpTradingForm({
 
           {formData.hasTpsl ? (
             <TpslInput
-              price={referencePrice.toFixed()}
+              price={referencePriceString}
               side={formData.side}
               szDecimals={tokenInfo?.szDecimals ?? 2}
               leverage={leverage}
@@ -413,6 +462,7 @@ function PerpTradingForm({
               }}
               onChange={handleTpslChange}
               disabled={isSubmitting}
+              amount={formData.size}
             />
           ) : null}
         </YStack>
@@ -442,6 +492,20 @@ function PerpTradingForm({
           <SizableText size="$bodySm" color="$textSubdued">
             <LiquidationPriceDisplay />
           </SizableText>
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_margin_required,
+            })}
+          </SizableText>
+          <NumberSizeableText
+            size="$bodySm"
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+          >
+            {marginRequired.toNumber()}
+          </NumberSizeableText>
         </XStack>
       </YStack>
     </>

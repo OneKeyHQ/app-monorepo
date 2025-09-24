@@ -43,12 +43,7 @@ export interface ICurrentTokenData {
   openInterest?: string;
   funding?: string;
   prevDayPx?: string;
-  leverage?: {
-    value: number;
-  };
   maxLeverage?: number;
-  mode?: 'isolated' | 'cross';
-  maxTradeSzs?: number[];
 }
 
 export function usePerpMarketData(): IPerpMarketDataReturn {
@@ -131,7 +126,6 @@ export function useCurrentTokenData(): ICurrentTokenData | null {
   const [tradingData] = useTradingPanelDataAtom();
   const [currentToken] = usePerpsSelectedSymbolAtom();
   const [webData2] = useWebData2Atom();
-  const [activeAssetData] = useActiveAssetDataAtom();
 
   if (!tradingData || !currentToken || !webData2) {
     return null;
@@ -148,13 +142,6 @@ export function useCurrentTokenData(): ICurrentTokenData | null {
     assetId,
     szDecimals: tokenFromUniverse?.szDecimals ?? 2,
     maxLeverage: tokenFromUniverse?.maxLeverage,
-    mode: activeAssetData?.leverage?.type,
-    maxTradeSzs: activeAssetData?.maxTradeSzs
-      ? [
-          Number(activeAssetData.maxTradeSzs[0]),
-          Number(activeAssetData.maxTradeSzs[1]),
-        ]
-      : [0, 0],
   };
 }
 

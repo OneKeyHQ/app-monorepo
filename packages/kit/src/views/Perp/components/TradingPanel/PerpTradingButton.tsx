@@ -1,9 +1,10 @@
 import { useCallback, useMemo } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import { Button, SizableText, Spinner } from '@onekeyhq/components';
+import { Button, SizableText, Spinner, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import {
@@ -21,6 +22,8 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useCurrentTokenData } from '../../hooks';
+
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
 
 export function PerpTradingButton({
@@ -37,9 +40,9 @@ export function PerpTradingButton({
   isNoEnoughMargin: boolean;
 }) {
   const intl = useIntl();
-  const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
+  const tokenInfo = useCurrentTokenData();
   const [perpsAccount] = usePerpsSelectedAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
@@ -102,9 +105,8 @@ export function PerpTradingButton({
     });
   }, [isSubmitting, isNoEnoughMargin, intl]);
 
+  const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
-    const isLong = formData.side === 'long';
-
     const getBgColor = () => {
       if (isAccountLoading) return undefined;
       return isLong ? '#18794E' : '#E5484D';
@@ -126,7 +128,7 @@ export function PerpTradingButton({
       pressBg: getPressBgColor(),
       textColor: buttonDisabled ? '$textDisabled' : '$textOnColor',
     };
-  }, [formData.side, buttonDisabled, isAccountLoading]);
+  }, [buttonDisabled, isAccountLoading, isLong]);
 
   const createAddressButtonRender = useCallback((props: IButtonProps) => {
     return <Button size="medium" borderRadius="$3" {...props} />;
@@ -140,6 +142,75 @@ export function PerpTradingButton({
       disabled: true,
     });
   }, [createAddressButtonRender, intl]);
+
+  const getTpslErrorMessage = useCallback(
+    (type: 'TP' | 'SL', direction: 'higher' | 'lower') => ({
+      title: `${type} price must be ${direction} than current price. To close position immediately, use the position table or order form.`,
+    }),
+    [],
+  );
+
+  const validateTpslPrices = useCallback(() => {
+    if (!formData.hasTpsl || !formData.price) return true;
+
+    const entryPrice = new BigNumber(
+      formData.type === 'limit' ? formData.price : tokenInfo?.markPx || '0',
+    );
+    if (!entryPrice.isFinite() || entryPrice.isZero()) {
+      // entry price is invalid
+      return true;
+    }
+    const tpPrice = formData.tpTriggerPx
+      ? new BigNumber(formData.tpTriggerPx)
+      : null;
+    const slPrice = formData.slTriggerPx
+      ? new BigNumber(formData.slTriggerPx)
+      : null;
+
+    // Validate Take Profit
+    if (tpPrice) {
+      if (isLong && tpPrice.lte(entryPrice)) {
+        Toast.error(getTpslErrorMessage('TP', 'higher'));
+        return false;
+      }
+      if (!isLong && tpPrice.gte(entryPrice)) {
+        Toast.error(getTpslErrorMessage('TP', 'lower'));
+        return false;
+      }
+    }
+
+    // Validate Stop Loss
+    if (slPrice) {
+      if (isLong && slPrice.gte(entryPrice)) {
+        Toast.error(getTpslErrorMessage('SL', 'lower'));
+        return false;
+      }
+      if (!isLong && slPrice.lte(entryPrice)) {
+        Toast.error(getTpslErrorMessage('SL', 'higher'));
+        return false;
+      }
+    }
+
+    return true;
+  }, [
+    formData.hasTpsl,
+    formData.price,
+    formData.type,
+    tokenInfo?.markPx,
+    formData.tpTriggerPx,
+    formData.slTriggerPx,
+    isLong,
+    getTpslErrorMessage,
+  ]);
+
+  const orderConfirm = useCallback(() => {
+    // Validate TPSL prices before proceeding
+    if (!validateTpslPrices()) {
+      return;
+    }
+
+    handleShowConfirm();
+  }, [validateTpslPrices, handleShowConfirm]);
 
   if (loading || perpsAccountLoading?.selectAccountLoading) {
     return (
@@ -204,9 +275,7 @@ export function PerpTradingButton({
       hoverStyle={{ bg: buttonStyles.hoverBg }}
       pressStyle={{ bg: buttonStyles.pressBg }}
       loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
-      onPress={() => {
-        handleShowConfirm();
-      }}
+      onPress={orderConfirm}
       disabled={buttonDisabled}
       size="medium"
       borderRadius="$3"

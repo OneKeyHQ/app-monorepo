@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  calculateProfitLoss,
   formatPercentage,
   formatPriceToSignificantDigits,
   validatePriceInput,
@@ -30,6 +31,8 @@ interface ITpslInputProps {
   disabled?: boolean;
   ifOnDialog?: boolean;
   isMobile?: boolean;
+  // Optional props for profit/loss calculation
+  amount?: string | number;
 }
 
 export const TpslInput = memo(
@@ -43,35 +46,45 @@ export const TpslInput = memo(
     disabled = false,
     ifOnDialog = false,
     isMobile = false,
+    amount,
   }: ITpslInputProps) => {
-    const [internalState, setInternalState] = useState({
-      tpTriggerPx: tpsl.tpPrice,
-      tpGainPercent: '',
-      slTriggerPx: tpsl.slPrice,
-      slLossPercent: '',
-    });
-
     const referencePrice = useMemo(() => {
       return new BigNumber(price || 0);
     }, [price]);
 
-    const calculatePrice = useCallback(
-      (percent: string, isTP: boolean) => {
-        if (!percent || referencePrice.isZero()) return '';
-        const percentNum = new BigNumber(percent).dividedBy(100);
-        // Adjust percentage by leverage: actual price change is percentage / leverage
-        const adjustedPercent = percentNum.dividedBy(leverage);
-        const multiplier =
-          (side === 'long') === isTP
-            ? new BigNumber(1).plus(adjustedPercent)
-            : new BigNumber(1).minus(adjustedPercent);
-        return formatPriceToSignificantDigits(
-          referencePrice.multipliedBy(multiplier).toNumber(),
-          szDecimals,
-        );
-      },
-      [referencePrice, side, szDecimals, leverage],
-    );
+    // Calculate expected profit for TP
+    const expectedProfit = useMemo(() => {
+      if (!tpsl.tpPrice || !amount || !price) return null;
+
+      return calculateProfitLoss({
+        entryPrice: price,
+        exitPrice: tpsl.tpPrice,
+        amount,
+        side,
+        formatOptions: {
+          currency: '$',
+          decimals: 2,
+          showSign: false,
+        },
+      });
+    }, [tpsl.tpPrice, amount, price, side]);
+
+    // Calculate expected loss for SL
+    const expectedLoss = useMemo(() => {
+      if (!tpsl.slPrice || !amount || !price) return null;
+
+      return calculateProfitLoss({
+        entryPrice: price,
+        exitPrice: tpsl.slPrice,
+        amount,
+        side,
+        formatOptions: {
+          currency: '$',
+          decimals: 2,
+          showSign: false,
+        },
+      });
+    }, [tpsl.slPrice, amount, price, side]);
 
     const calculatePercent = useCallback(
       (priceValue: string, isTP: boolean) => {
@@ -91,6 +104,31 @@ export const TpslInput = memo(
       },
       [referencePrice, side, leverage],
     );
+    const [internalState, setInternalState] = useState({
+      tpTriggerPx: tpsl.tpPrice,
+      tpGainPercent: calculatePercent(tpsl.tpPrice, true),
+      slTriggerPx: tpsl.slPrice,
+      slLossPercent: calculatePercent(tpsl.slPrice, false),
+    });
+
+    const calculatePrice = useCallback(
+      (percent: string, isTP: boolean) => {
+        if (!percent || referencePrice.isZero()) return '';
+        const percentNum = new BigNumber(percent);
+        // Adjust percentage by leverage: actual price change is percentage / leverage
+        const adjustedPercent = percentNum.dividedBy(leverage);
+        const multiplier =
+          (side === 'long') === isTP
+            ? new BigNumber(100).plus(adjustedPercent)
+            : new BigNumber(100).minus(adjustedPercent);
+        return formatPriceToSignificantDigits(
+          referencePrice.multipliedBy(multiplier).dividedBy(100),
+          szDecimals,
+        );
+      },
+      [referencePrice, side, szDecimals, leverage],
+    );
+
     useEffect(() => {
       const newTpPercent = tpsl.tpPrice
         ? calculatePercent(tpsl.tpPrice, true)
@@ -119,6 +157,7 @@ export const TpslInput = memo(
 
     const handleTpPriceChange = useCallback(
       (value: string) => {
+        if (value === '-') return;
         const _value = value.replace(/。/g, '.');
         if (!validatePriceInput(_value, szDecimals)) return;
         const percent = calculatePercent(_value, true);
@@ -136,8 +175,7 @@ export const TpslInput = memo(
     );
 
     const isValidPercent = useCallback(
-      (value: string) =>
-        value === '' || value === '-' || /^-?(\d+\.?\d*|\d*\.\d+)$/.test(value),
+      (value: string) => value === '' || /^-?(\d+\.?\d*|\d*\.\d+)$/.test(value),
       [],
     );
 
@@ -174,6 +212,7 @@ export const TpslInput = memo(
 
     const handleSlPriceChange = useCallback(
       (value: string) => {
+        if (value === '-') return;
         const _value = value.replace(/。/g, '.');
         if (!validatePriceInput(_value, szDecimals)) return;
         const percent = calculatePercent(_value, false);
@@ -218,7 +257,7 @@ export const TpslInput = memo(
     if (isMobile) {
       return (
         <YStack gap="$3">
-          <YStack flex={1}>
+          <YStack gap="$2">
             <Input
               h={32}
               placeholder={intl.formatMessage({
@@ -251,8 +290,22 @@ export const TpslInput = memo(
                 },
               ]}
             />
+            {expectedProfit ? (
+              <XStack justifyContent="flex-end" pr="$0.5">
+                <SizableText
+                  size="$bodySm"
+                  color={
+                    !expectedProfit.startsWith('-')
+                      ? '$textSuccess'
+                      : '$textSubdued'
+                  }
+                >
+                  {expectedProfit}
+                </SizableText>
+              </XStack>
+            ) : null}
           </YStack>
-          <YStack flex={1}>
+          <YStack gap="$2">
             <Input
               h={32}
               placeholder={intl.formatMessage({
@@ -285,6 +338,18 @@ export const TpslInput = memo(
                 },
               ]}
             />
+            <XStack justifyContent="flex-end" pr="$0.5">
+              <SizableText
+                size="$bodySm"
+                color={
+                  expectedLoss && expectedLoss.startsWith('-')
+                    ? '$textCritical'
+                    : '$textSubdued'
+                }
+              >
+                {expectedLoss || '$0.00'}
+              </SizableText>
+            </XStack>
           </YStack>
         </YStack>
       );
@@ -368,6 +433,20 @@ export const TpslInput = memo(
             />
           </YStack>
         </XStack>
+        {expectedProfit ? (
+          <XStack justifyContent="flex-end" pr="$0.5">
+            <SizableText
+              size="$bodyMd"
+              color={
+                !expectedProfit.startsWith('-')
+                  ? '$textSuccess'
+                  : '$textSubdued'
+              }
+            >
+              {expectedProfit}
+            </SizableText>
+          </XStack>
+        ) : null}
         <XStack gap="$2">
           <YStack
             flex={1}
@@ -445,6 +524,18 @@ export const TpslInput = memo(
             />
           </YStack>
         </XStack>
+        {expectedLoss ? (
+          <XStack justifyContent="flex-end" pr="$0.5">
+            <SizableText
+              size="$bodyMd"
+              color={
+                expectedLoss.startsWith('-') ? '$textCritical' : '$textSubdued'
+              }
+            >
+              {expectedLoss}
+            </SizableText>
+          </XStack>
+        ) : null}
       </YStack>
     );
   },
