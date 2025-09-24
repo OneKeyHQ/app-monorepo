@@ -31,6 +31,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
+  MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
@@ -61,7 +62,7 @@ function DepositWithdrawContent({
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showMinDepositError, setShowMinDepositError] = useState(false);
+  const [showMinAmountError, setShowMinAmountError] = useState(false);
 
   const { serviceAccount } = backgroundApiProxy;
   const { result: accountResult } = usePromiseResult(async () => {
@@ -157,16 +158,19 @@ function DepositWithdrawContent({
     if (selectedAction === 'deposit') {
       return (
         amountBN.lte(balanceBN) &&
-        (!showMinDepositError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
+        (!showMinAmountError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
       );
     }
 
     if (selectedAction === 'withdraw') {
-      return amountBN.lte(balanceBN);
+      return (
+        amountBN.lte(balanceBN) &&
+        (!showMinAmountError || amountBN.gte(MIN_WITHDRAW_AMOUNT))
+      );
     }
 
     return true;
-  }, [amount, availableBalance, selectedAction, showMinDepositError]);
+  }, [amount, availableBalance, selectedAction, showMinAmountError]);
 
   const errorMessage = useMemo(() => {
     if (!amount) return '';
@@ -177,36 +181,45 @@ function DepositWithdrawContent({
     }
 
     if (selectedAction === 'deposit') {
-      if (showMinDepositError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+      if (showMinAmountError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
         return `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
       }
     }
 
+    if (selectedAction === 'withdraw') {
+      if (showMinAmountError && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
+        return `Minimum withdraw is ${MIN_WITHDRAW_AMOUNT} USDC`;
+      }
+    }
+
     return '';
-  }, [amount, selectedAction, showMinDepositError]);
+  }, [amount, selectedAction, showMinAmountError]);
 
   const handleAmountChange = useCallback(
     (value: string) => {
       if (value === '' || /^\d*\.?\d*$/.test(value)) {
         setAmount(value);
-        // Clear minimum deposit error when user changes amount
-        if (showMinDepositError) {
-          setShowMinDepositError(false);
+        // Clear minimum amount error when user changes amount
+        if (showMinAmountError) {
+          setShowMinAmountError(false);
         }
       }
     },
-    [showMinDepositError],
+    [showMinAmountError],
   );
 
   const handleAmountBlur = useCallback(() => {
-    if (selectedAction === 'deposit' && amount) {
+    if (amount) {
       const amountBN = new BigNumber(amount);
-      if (
-        !amountBN.isNaN() &&
-        amountBN.gt(0) &&
-        amountBN.lt(MIN_DEPOSIT_AMOUNT)
-      ) {
-        setShowMinDepositError(true);
+      if (!amountBN.isNaN() && amountBN.gt(0)) {
+        if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+          setShowMinAmountError(true);
+        } else if (
+          selectedAction === 'withdraw' &&
+          amountBN.lt(MIN_WITHDRAW_AMOUNT)
+        ) {
+          setShowMinAmountError(true);
+        }
       }
     }
   }, [selectedAction, amount]);
