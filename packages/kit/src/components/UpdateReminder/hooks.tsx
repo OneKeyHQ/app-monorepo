@@ -634,7 +634,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
     } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
-      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+      const fileType = getUpdateFileType(appUpdateInfo);
+      if (
+        fileType === EUpdateFileType.jsBundle &&
+        appUpdateInfo.updateStrategy === EUpdateStrategy.seamless
+      ) {
+        void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
       } else {
         showUpdateDialog();
