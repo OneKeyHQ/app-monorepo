@@ -17,16 +17,17 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
-import {
-  EJotaiContextStoreNames,
-  perpsSelectedAccountAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
@@ -61,6 +62,48 @@ function DepositWithdrawContent({
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinDepositError, setShowMinDepositError] = useState(false);
+
+  const { serviceAccount } = backgroundApiProxy;
+  const { result: accountResult } = usePromiseResult(async () => {
+    const isOtherAccount = accountUtils.isOthersAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    let indexedAccount: IDBIndexedAccount | undefined;
+    let account: INetworkAccount | undefined;
+    const wallet = await serviceAccount.getWalletSafe({
+      walletId: accountUtils.getWalletIdFromAccountId({
+        accountId: selectedAccount.accountId ?? '',
+      }),
+    });
+    if (isOtherAccount && selectedAccount.accountId) {
+      account = await serviceAccount.getAccount({
+        accountId: selectedAccount.accountId,
+        networkId: PERPS_NETWORK_ID,
+      });
+    } else if (selectedAccount.indexedAccountId) {
+      indexedAccount = await serviceAccount.getIndexedAccount({
+        id: selectedAccount.indexedAccountId,
+      });
+    }
+
+    console.log('accountResult--', {
+      wallet,
+      account,
+      indexedAccount,
+      isOtherAccount,
+    });
+
+    return {
+      wallet,
+      account,
+      indexedAccount,
+      isOtherAccount,
+    };
+  }, [
+    selectedAccount.indexedAccountId,
+    selectedAccount.accountId,
+    serviceAccount,
+  ]);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
@@ -253,6 +296,25 @@ function DepositWithdrawContent({
         marginTop: -22,
       }}
     >
+      <XStack alignItems="center" gap="$2" pb="$3">
+        <AccountAvatar
+          size="small"
+          account={
+            accountResult?.isOtherAccount ? accountResult?.account : undefined
+          }
+          indexedAccount={
+            accountResult?.isOtherAccount
+              ? undefined
+              : accountResult?.indexedAccount
+          }
+          wallet={accountResult?.wallet}
+        />
+        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+          {accountResult?.isOtherAccount
+            ? accountResult?.account?.name
+            : accountResult?.indexedAccount?.name}
+        </SizableText>
+      </XStack>
       <SegmentControl
         height={38}
         segmentControlItemStyleProps={{
