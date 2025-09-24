@@ -23,6 +23,7 @@ export const Tabs = {
   TabBarItem: typeof TabBarItem;
 };
 
+export type { ITabContainerRef } from './Container';
 export * from './hooks';
 
 export { startViewTransition } from './utils';
