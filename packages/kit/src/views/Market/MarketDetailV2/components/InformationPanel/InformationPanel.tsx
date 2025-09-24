@@ -52,7 +52,6 @@ export function InformationPanel() {
     formatter: 'marketCap',
     formatterOptions: {
       currency: currencySymbol,
-      capAtMaxT: true,
     },
   });
 
@@ -60,7 +59,6 @@ export function InformationPanel() {
     formatter: 'marketCap',
     formatterOptions: {
       currency: currencySymbol,
-      capAtMaxT: true,
     },
   });
 
