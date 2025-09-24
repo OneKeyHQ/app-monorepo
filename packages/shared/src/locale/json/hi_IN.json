@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "पोज़िशन खुलने के बाद से नेट फंडिंग भुगतान। ऑल-टाइम और बदलाव के बाद से देखने के लिए होवर करें।",
   "perp.position_mark_price": "मार्क प्राइस",
   "perp.position_market": "बाज़ार",
-  "perp.position_mobile_fill": "भरा हुआ / आकार",
+  "perp.position_mobile_fill": "अपूर्ण / आकार",
   "perp.position_pnl": "पीएनएल (आरओई%)",
   "perp.position_pnl_mobile": "पीएनएल",
   "perp.position_position_size": "पोजीशन साइज",

@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Чисті платежі за фінансування з моменту відкриття позиції. Наведіть курсор для перегляду за весь час та з моменту зміни.",
   "perp.position_mark_price": "Маркова ціна",
   "perp.position_market": "Ринок",
-  "perp.position_mobile_fill": "Заповнений / Розмір",
+  "perp.position_mobile_fill": "Незаповнений / Розмір",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "Пнл",
   "perp.position_position_size": "Розмір позиції",

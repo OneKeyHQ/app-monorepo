@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "自开仓以来的净资金费用。悬停查看历史总计和变更后的资金费用",
   "perp.position_mark_price": "标记价格",
   "perp.position_market": "市价",
-  "perp.position_mobile_fill": "成交 / 总数量",
+  "perp.position_mobile_fill": "未成交 / 总数量",
   "perp.position_pnl": "盈亏 (ROE%)",
   "perp.position_pnl_mobile": "盈亏",
   "perp.position_position_size": "仓位",

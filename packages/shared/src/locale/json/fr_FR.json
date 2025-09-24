@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Paiements de financement nets depuis l'ouverture de la position. Survolez pour voir le total historique et depuis la modification.",
   "perp.position_mark_price": "Prix de Référence",
   "perp.position_market": "Marché",
-  "perp.position_mobile_fill": "Rempli / Taille",
+  "perp.position_mobile_fill": "Non rempli / Taille",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "Pnl",
   "perp.position_position_size": "Taille de Position",

@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "ポジションを開いてからの純資金調達支払い。ホバーすると、全期間および変更後からのデータが表示されます。",
   "perp.position_mark_price": "マーク価格",
   "perp.position_market": "市場",
-  "perp.position_mobile_fill": "塗りつぶし / サイズ",
+  "perp.position_mobile_fill": "未充填 / サイズ",
   "perp.position_pnl": "損益（ROE％）",
   "perp.position_pnl_mobile": "損益",
   "perp.position_position_size": "ポジションサイズ",

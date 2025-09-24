@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Net funding payments since the position was opened. Hover for all-time and since changed.",
   "perp.position_mark_price": "Mark Price",
   "perp.position_market": "Market",
-  "perp.position_mobile_fill": "Filled / Size",
+  "perp.position_mobile_fill": "Unfilled / Size",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "PNL",
   "perp.position_position_size": "Position Size",

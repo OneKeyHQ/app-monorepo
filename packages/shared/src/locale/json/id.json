@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Pembayaran pendanaan bersih sejak posisi dibuka. Arahkan kursor untuk melihat sepanjang waktu dan sejak perubahan.",
   "perp.position_mark_price": "Harga Mark",
   "perp.position_market": "Pasar",
-  "perp.position_mobile_fill": "Terisi / Ukuran",
+  "perp.position_mobile_fill": "Belum Diisi / Ukuran",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "Pnl",
   "perp.position_position_size": "Ukuran Posisi",

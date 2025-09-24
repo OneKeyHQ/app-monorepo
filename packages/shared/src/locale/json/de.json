@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Netto-Funding-Zahlungen seit Eröffnung der Position. Zum Anzeigen von „seit Beginn“ und „seit Änderung“ darüberfahren.",
   "perp.position_mark_price": "Markpreis",
   "perp.position_market": "Markt",
-  "perp.position_mobile_fill": "Gefüllt / Größe",
+  "perp.position_mobile_fill": "Ungefüllt / Größe",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "PNL",
   "perp.position_position_size": "Positionsgröße",

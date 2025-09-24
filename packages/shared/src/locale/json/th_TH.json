@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "การชำระเงินทุนสุทธิตั้งแต่เปิดสถานะ วางเมาส์ค้างเพื่อดูตลอดเวลาและตั้งแต่มีการเปลี่ยนแปลง",
   "perp.position_mark_price": "ราคา Mark",
   "perp.position_market": "ตลาด",
-  "perp.position_mobile_fill": "เติม / ขนาด",
+  "perp.position_mobile_fill": "ไม่ได้เติม / ขนาด",
   "perp.position_pnl": "กำไรขาดทุน (ROE%)",
   "perp.position_pnl_mobile": "พีเอ็นแอล",
   "perp.position_position_size": "ขนาดสถานะ",

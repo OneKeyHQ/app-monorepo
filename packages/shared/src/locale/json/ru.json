@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Чистые выплаты по фондированию с момента открытия позиции. Наведите курсор, чтобы увидеть данные за всё время и с момента изменений.",
   "perp.position_mark_price": "Маркет-прайс",
   "perp.position_market": "Рынок",
-  "perp.position_mobile_fill": "Заполнено / Размер",
+  "perp.position_mobile_fill": "Незаполнено / Размер",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "Пнл",
   "perp.position_position_size": "Размер позиции",

@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Các khoản thanh toán tài trợ ròng kể từ khi vị thế được mở. Di chuột để xem toàn thời gian và kể từ khi thay đổi.",
   "perp.position_mark_price": "Giá đánh dấu",
   "perp.position_market": "Chợ",
-  "perp.position_mobile_fill": "Đã điền / Kích thước",
+  "perp.position_mobile_fill": "Chưa tô / Kích thước",
   "perp.position_pnl": "Lãi/Lỗ (ROE%)",
   "perp.position_pnl_mobile": "Pnl",
   "perp.position_position_size": "Kích thước vị thế",

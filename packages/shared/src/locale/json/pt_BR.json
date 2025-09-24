@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Pagamentos líquidos de financiamento desde que a posição foi aberta. Passe o mouse para ver histórico completo e desde a alteração.",
   "perp.position_mark_price": "Preço de Marca",
   "perp.position_market": "Mercado",
-  "perp.position_mobile_fill": "Preenchido / Tamanho",
+  "perp.position_mobile_fill": "Não preenchido / Tamanho",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "Pnl",
   "perp.position_position_size": "Tamanho da Posição",

@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "পজিশন খোলার পর থেকে নিট ফান্ডিং পেমেন্ট। সর্বমোট এবং পরিবর্তনের পর থেকে দেখতে হোভার করুন।",
   "perp.position_mark_price": "মার্ক প্রাইস",
   "perp.position_market": "বাজার",
-  "perp.position_mobile_fill": "ভরাট / আকার",
+  "perp.position_mobile_fill": "অভর্তি / আকার",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "পিএনএল",
   "perp.position_position_size": "পজিশন সাইজ",

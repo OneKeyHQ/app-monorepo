@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "포지션을 연 이후의 순 펀딩 지급액입니다. 전체 기간 및 변경 이후 기준은 마우스를 올려 확인하세요.",
   "perp.position_mark_price": "마크 가격",
   "perp.position_market": "시장",
-  "perp.position_mobile_fill": "채워진 / 크기",
+  "perp.position_mobile_fill": "미충전 / 크기",
   "perp.position_pnl": "손익 (ROE%)",
   "perp.position_pnl_mobile": "개인",
   "perp.position_position_size": "포지션 크기",

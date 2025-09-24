@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "Pagamenti netti di funding da quando la posizione è stata aperta. Passa il mouse per vedere i dati da sempre e da quando è cambiata.",
   "perp.position_mark_price": "Prezzo di riferimento",
   "perp.position_market": "Mercato",
-  "perp.position_mobile_fill": "Riempito / Dimensione",
+  "perp.position_mobile_fill": "Non compilato / Dimensione",
   "perp.position_pnl": "PnL (ROE%)",
   "perp.position_pnl_mobile": "Pnl",
   "perp.position_position_size": "Dimensione della posizione",

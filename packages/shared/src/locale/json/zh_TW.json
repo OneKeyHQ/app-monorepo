@@ -2105,7 +2105,7 @@
   "perp.position_margin_tooltip_funding": "自開倉以來的淨資金費用。懸停查看歷史總計和變更後數據",
   "perp.position_mark_price": "標記價格",
   "perp.position_market": "市價",
-  "perp.position_mobile_fill": "成交 / 總數量",
+  "perp.position_mobile_fill": "未成交 / 总数量",
   "perp.position_pnl": "損益 (ROE%)",
   "perp.position_pnl_mobile": "盈虧",
   "perp.position_position_size": "倉位",
