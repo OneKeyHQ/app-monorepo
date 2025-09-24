@@ -17,19 +17,21 @@ import {
   getFontSize,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
-import {
-  EJotaiContextStoreNames,
-  perpsSelectedAccountAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
+  MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
@@ -60,7 +62,49 @@ function DepositWithdrawContent({
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showMinDepositError, setShowMinDepositError] = useState(false);
+  const [showMinAmountError, setShowMinAmountError] = useState(false);
+
+  const { serviceAccount } = backgroundApiProxy;
+  const { result: accountResult } = usePromiseResult(async () => {
+    const isOtherAccount = accountUtils.isOthersAccount({
+      accountId: selectedAccount.accountId ?? '',
+    });
+    let indexedAccount: IDBIndexedAccount | undefined;
+    let account: INetworkAccount | undefined;
+    const wallet = await serviceAccount.getWalletSafe({
+      walletId: accountUtils.getWalletIdFromAccountId({
+        accountId: selectedAccount.accountId ?? '',
+      }),
+    });
+    if (isOtherAccount && selectedAccount.accountId) {
+      account = await serviceAccount.getAccount({
+        accountId: selectedAccount.accountId,
+        networkId: PERPS_NETWORK_ID,
+      });
+    } else if (selectedAccount.indexedAccountId) {
+      indexedAccount = await serviceAccount.getIndexedAccount({
+        id: selectedAccount.indexedAccountId,
+      });
+    }
+
+    console.log('accountResult--', {
+      wallet,
+      account,
+      indexedAccount,
+      isOtherAccount,
+    });
+
+    return {
+      wallet,
+      account,
+      indexedAccount,
+      isOtherAccount,
+    };
+  }, [
+    selectedAccount.indexedAccountId,
+    selectedAccount.accountId,
+    serviceAccount,
+  ]);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
@@ -114,16 +158,19 @@ function DepositWithdrawContent({
     if (selectedAction === 'deposit') {
       return (
         amountBN.lte(balanceBN) &&
-        (!showMinDepositError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
+        (!showMinAmountError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
       );
     }
 
     if (selectedAction === 'withdraw') {
-      return amountBN.lte(balanceBN);
+      return (
+        amountBN.lte(balanceBN) &&
+        (!showMinAmountError || amountBN.gte(MIN_WITHDRAW_AMOUNT))
+      );
     }
 
     return true;
-  }, [amount, availableBalance, selectedAction, showMinDepositError]);
+  }, [amount, availableBalance, selectedAction, showMinAmountError]);
 
   const errorMessage = useMemo(() => {
     if (!amount) return '';
@@ -134,26 +181,48 @@ function DepositWithdrawContent({
     }
 
     if (selectedAction === 'deposit') {
-      if (showMinDepositError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+      if (showMinAmountError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
         return `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
       }
     }
 
+    if (selectedAction === 'withdraw') {
+      if (showMinAmountError && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
+        return `Minimum withdraw is ${MIN_WITHDRAW_AMOUNT} USDC`;
+      }
+    }
+
     return '';
-  }, [amount, selectedAction, showMinDepositError]);
+  }, [amount, selectedAction, showMinAmountError]);
 
   const handleAmountChange = useCallback(
     (value: string) => {
       if (value === '' || /^\d*\.?\d*$/.test(value)) {
         setAmount(value);
-        // Clear minimum deposit error when user changes amount
-        if (showMinDepositError) {
-          setShowMinDepositError(false);
+        // Clear minimum amount error when user changes amount
+        if (showMinAmountError) {
+          setShowMinAmountError(false);
         }
       }
     },
-    [showMinDepositError],
+    [showMinAmountError],
   );
+
+  const handleAmountBlur = useCallback(() => {
+    if (amount) {
+      const amountBN = new BigNumber(amount);
+      if (!amountBN.isNaN() && amountBN.gt(0)) {
+        if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+          setShowMinAmountError(true);
+        } else if (
+          selectedAction === 'withdraw' &&
+          amountBN.lt(MIN_WITHDRAW_AMOUNT)
+        ) {
+          setShowMinAmountError(true);
+        }
+      }
+    }
+  }, [selectedAction, amount]);
 
   const handleMaxPress = useCallback(() => {
     if (availableBalance) {
@@ -163,15 +232,6 @@ function DepositWithdrawContent({
 
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
-
-    // Check minimum deposit amount on submit
-    if (
-      selectedAction === 'deposit' &&
-      new BigNumber(amount).lt(MIN_DEPOSIT_AMOUNT)
-    ) {
-      setShowMinDepositError(true);
-      return;
-    }
 
     try {
       setIsSubmitting(true);
@@ -253,6 +313,25 @@ function DepositWithdrawContent({
         marginTop: -22,
       }}
     >
+      <XStack alignItems="center" gap="$2" pb="$3">
+        <AccountAvatar
+          size="small"
+          account={
+            accountResult?.isOtherAccount ? accountResult?.account : undefined
+          }
+          indexedAccount={
+            accountResult?.isOtherAccount
+              ? undefined
+              : accountResult?.indexedAccount
+          }
+          wallet={accountResult?.wallet}
+        />
+        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
+          {accountResult?.isOtherAccount
+            ? accountResult?.account?.name
+            : accountResult?.indexedAccount?.name}
+        </SizableText>
+      </XStack>
       <SegmentControl
         height={38}
         segmentControlItemStyleProps={{
@@ -280,7 +359,7 @@ function DepositWithdrawContent({
       />
       <XStack
         borderWidth="$px"
-        borderColor={errorMessage ? '$red7' : '$borderSubdued'}
+        borderColor="$borderSubdued"
         borderRadius="$3"
         px="$3"
         bg="$bgSubdued"
@@ -338,6 +417,7 @@ function DepositWithdrawContent({
             })}
             value={amount}
             onChangeText={handleAmountChange}
+            onBlur={handleAmountBlur}
             keyboardType="decimal-pad"
             disabled={isSubmitting}
             borderWidth={0}

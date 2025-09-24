@@ -8,6 +8,7 @@ import {
   ScrollView,
   SizableText,
   Tabs,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -116,6 +117,7 @@ const PaginationFooter = ({
 };
 
 export interface IColumnConfig {
+  tooltip?: string;
   key: string;
   title: string;
   width?: number; // 固定宽度
@@ -296,14 +298,38 @@ export function CommonTableListView({
                     onPress={column.onPress}
                     cursor={column.onPress ? 'pointer' : 'default'}
                   >
-                    <SizableText
-                      size="$bodySm"
-                      color={column.onPress ? '$textSuccess' : headerTextColor}
-                      fontWeight="600"
-                      textAlign={column.align || 'left'}
-                    >
-                      {column.title}
-                    </SizableText>
+                    {column.tooltip ? (
+                      <Tooltip
+                        placement="top"
+                        renderTrigger={
+                          <SizableText
+                            size="$bodySm"
+                            textDecorationLine="underline"
+                            textDecorationStyle="dashed"
+                            textDecorationColor="$textSubdued"
+                            color={
+                              column.onPress ? '$textSuccess' : headerTextColor
+                            }
+                            fontWeight="600"
+                            textAlign={column.align || 'left'}
+                          >
+                            {column.title}
+                          </SizableText>
+                        }
+                        renderContent={column.tooltip}
+                      />
+                    ) : (
+                      <SizableText
+                        size="$bodySm"
+                        color={
+                          column.onPress ? '$textSuccess' : headerTextColor
+                        }
+                        fontWeight="600"
+                        textAlign={column.align || 'left'}
+                      >
+                        {column.title}
+                      </SizableText>
+                    )}
                   </XStack>
                 );
               })}

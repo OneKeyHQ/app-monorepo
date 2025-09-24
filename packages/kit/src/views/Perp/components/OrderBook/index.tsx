@@ -16,7 +16,9 @@ import {
 import {
   Haptics,
   Icon,
+  Popover,
   Select,
+  SizableText,
   YStack,
   useTheme,
   useThemeName,
@@ -1278,34 +1280,66 @@ export function OrderBookMobile({
               height: MOBILE_SPREAD_ROW_HEIGHT,
             }}
           >
-            <Text
-              style={[
-                styles.monospaceText,
-                {
-                  color: textColor.red,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  lineHeight: 24,
-                },
-              ]}
-            >
-              {markPrice || midPrice}
-            </Text>
-            <Text
-              style={[
-                styles.monospaceText,
-                {
-                  color: textColor.textSubdued,
-                  fontSize: 10,
-                  fontWeight: '400',
-                  lineHeight: 16,
-                  textDecorationLine: 'underline',
-                  textDecorationStyle: 'dotted',
-                },
-              ]}
-            >
-              {oraclePrice}
-            </Text>
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_order_mid_price_title,
+              })}
+              renderTrigger={
+                <Text
+                  style={[
+                    styles.monospaceText,
+                    {
+                      color: textColor.red,
+                      fontSize: 18,
+                      fontWeight: '600',
+                      lineHeight: 24,
+                    },
+                  ]}
+                >
+                  {midPrice}
+                </Text>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_order_mid_price_title_desc,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_position_mark_price,
+              })}
+              renderTrigger={
+                <Text
+                  style={[
+                    styles.monospaceText,
+                    {
+                      color: textColor.textSubdued,
+                      fontSize: 10,
+                      fontWeight: '400',
+                      lineHeight: 16,
+                      textDecorationLine: 'underline',
+                      textDecorationStyle: 'dotted',
+                    },
+                  ]}
+                >
+                  {markPrice}
+                </Text>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_mark_price_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
           </View>
           {aggregatedData.bids.map((itemData, index) => (
             <Pressable
@@ -1372,11 +1406,7 @@ export function OrderBookMobile({
                     )
                   : '-'}
               </Text>
-              <Icon
-                name="ChevronTriangleDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
+              <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
             </TouchableOpacity>
           )}
         />
