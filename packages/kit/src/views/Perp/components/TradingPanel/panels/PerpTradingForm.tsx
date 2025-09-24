@@ -54,6 +54,7 @@ function PerpTradingForm({
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const tokenInfo = useCurrentTokenData();
+  const currentTokenName = tokenInfo?.name;
   const perpsPositions = usePerpPositions();
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
   const [activeAssetData] = useActiveAssetDataAtom();
@@ -66,7 +67,8 @@ function PerpTradingForm({
   );
 
   const prevTypeRef = useRef<'market' | 'limit'>(formData.type);
-  const prevTokenRef = useRef<string>(tokenInfo?.name || '');
+  const prevTokenRef = useRef<string>(currentTokenName || '');
+  const tokenSwitchingRef = useRef<string | false>(false);
 
   useEffect(() => {
     const prevType = prevTypeRef.current;
@@ -80,23 +82,34 @@ function PerpTradingForm({
   }, [formData.type, formData.price, tokenInfo?.markPx, updateForm]);
 
   useEffect(() => {
-    const currentTokenName = tokenInfo?.name;
     const prevToken = prevTokenRef.current;
-
-    if (
-      prevToken &&
-      currentTokenName &&
-      prevToken !== currentTokenName &&
+    const hasTokenChanged =
+      currentTokenName && prevToken && prevToken !== currentTokenName;
+    const isDataSynced = prevToken === currentTokenName;
+    const shouldUpdatePrice =
+      tokenSwitchingRef.current === currentTokenName &&
       formData.type === 'limit' &&
-      tokenInfo?.markPx
-    ) {
-      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
+      currentTokenName &&
+      tokenInfo?.markPx &&
+      isDataSynced;
+
+    // Handle token switch
+    if (hasTokenChanged) {
+      tokenSwitchingRef.current = currentTokenName;
+      prevTokenRef.current = currentTokenName;
+      return; // Early return to avoid price update with stale data
     }
 
-    if (currentTokenName) {
+    // Update price after token switch when data is synchronized
+    if (shouldUpdatePrice && tokenInfo.markPx) {
+      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
+      tokenSwitchingRef.current = false;
+    }
+
+    if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
-  }, [tokenInfo?.name, tokenInfo?.markPx, formData.type, updateForm]);
+  }, [currentTokenName, tokenInfo?.markPx, formData.type, updateForm]);
 
   const leverage = useMemo(() => {
     return activeAssetData?.leverage?.value || tokenInfo?.maxLeverage;
@@ -134,6 +147,12 @@ function PerpTradingForm({
     const size = new BigNumber(formData.size || 0);
     return size.multipliedBy(referencePrice);
   }, [formData.size, referencePrice]);
+
+  const marginRequired = useMemo(() => {
+    return new BigNumber(formData.size || 0)
+      .multipliedBy(referencePrice)
+      .dividedBy(leverage || 1);
+  }, [formData.size, referencePrice, leverage]);
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
@@ -275,6 +294,16 @@ function PerpTradingForm({
             </SizableText>
             <SizableText fontSize={10} color="$textSubdued">
               <LiquidationPriceDisplay />
+            </SizableText>
+          </XStack>
+          <XStack justifyContent="space-between">
+            <SizableText fontSize={10} color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+            </SizableText>
+            <SizableText fontSize={10}>
+              ${marginRequired.toFixed(2)}
             </SizableText>
           </XStack>
         </YStack>
@@ -431,6 +460,20 @@ function PerpTradingForm({
           <SizableText size="$bodySm" color="$textSubdued">
             <LiquidationPriceDisplay />
           </SizableText>
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_margin_required,
+            })}
+          </SizableText>
+          <NumberSizeableText
+            size="$bodySm"
+            formatter="value"
+            formatterOptions={{ currency: '$' }}
+          >
+            {marginRequired.toNumber()}
+          </NumberSizeableText>
         </XStack>
       </YStack>
     </>

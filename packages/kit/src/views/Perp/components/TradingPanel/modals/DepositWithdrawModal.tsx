@@ -70,8 +70,8 @@ function DepositWithdrawContent({
   const hyperliquidActions = useHyperliquidActions();
   const { withdraw } = hyperliquidActions.current;
 
-  const { result: usdcBalance, isLoading: balanceLoading } =
-    usePromiseResult(async () => {
+  const { result: usdcBalance, isLoading: balanceLoading } = usePromiseResult(
+    async () => {
       if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
         return '0';
       }
@@ -92,7 +92,13 @@ function DepositWithdrawContent({
         );
         return '0';
       }
-    }, [selectedAccount.accountId, selectedAccount.accountAddress]);
+    },
+    [selectedAccount.accountId, selectedAccount.accountAddress],
+    {
+      checkIsMounted: true,
+      debounced: 1000,
+    },
+  );
   const availableBalance = useMemo(() => {
     if (selectedAction === 'withdraw') {
       return new BigNumber(params.withdrawable || '0').toFixed(2);
@@ -418,13 +424,6 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
   const selectedAccount = await perpsSelectedAccountAtom.get();
   if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
     console.error('[DepositWithdrawModal] Missing required parameters');
-    // export function showDepositWithdrawModal(
-    //   activeAccount: IActiveAccount,
-    //   actionType: IPerpsDepositWithdrawActionType,
-    // ) {
-    // if (!activeAccount?.account?.id) {
-    //   console.error('[DepositWithdrawModal] No active account available');
-    //   return;
   }
 
   const dialogInstance = Dialog.show({
@@ -438,13 +437,6 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
           }}
         />
       </PerpsProviderMirror>
-      // <DepositWithdrawContent
-      //   actionType={actionType}
-      //   activeAccount={activeAccount}
-      //   onClose={() => {
-      //     void dialogInstance.close();
-      //   }}
-      // />
     ),
     showFooter: false,
     onClose: () => {
