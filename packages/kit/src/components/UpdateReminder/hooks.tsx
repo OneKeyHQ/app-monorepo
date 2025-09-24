@@ -588,8 +588,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       },
     ) => {
       setTimeout(async () => {
-        const currentUpdateInfo =
-          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
         void showUpdateDialogUI({
           dialog,
           intl,
@@ -599,7 +597,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             if (!platformEnv.isExtension && params?.storeUrl) {
               openUrlExternal(params.storeUrl);
             } else {
-              setTimeout(() => {
+              setTimeout(async () => {
+                const currentUpdateInfo =
+                  await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
                 if (currentUpdateInfo.status === EAppUpdateStatus.ready) {
                   toDownloadAndVerifyPage();
                 } else {
