@@ -41,7 +41,7 @@ export function InformationPanel() {
     price: currentPrice = '0',
     priceChange24hPercent = '0',
     marketCap = '0',
-    volume24h = '0',
+    liquidity = '0',
     holders = 0,
     address = '',
   } = tokenDetail;
@@ -55,7 +55,7 @@ export function InformationPanel() {
     },
   });
 
-  const formattedVolume24h = numberFormat(volume24h, {
+  const formattedLiquidity = numberFormat(liquidity, {
     formatter: 'marketCap',
     formatterOptions: {
       currency: currencySymbol,
@@ -96,7 +96,7 @@ export function InformationPanel() {
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_liquidity })}
           </SizableText>
-          <SizableText size="$bodySmMedium">{formattedVolume24h}</SizableText>
+          <SizableText size="$bodySmMedium">{formattedLiquidity}</SizableText>
         </XStack>
         <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
