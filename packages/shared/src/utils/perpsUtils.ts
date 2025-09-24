@@ -47,6 +47,18 @@ interface ICombinePositionResult {
   isEmpty: boolean; // whether completely closed
 }
 
+interface IProfitLossParams {
+  entryPrice: string | number | BigNumber;
+  exitPrice: string | number | BigNumber;
+  amount: string | number | BigNumber;
+  side: 'long' | 'short';
+  formatOptions?: {
+    currency?: string;
+    decimals?: number;
+    showSign?: boolean;
+  };
+}
+
 /**
  * Count significant figures in a BigNumber
  */
@@ -468,17 +480,12 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
  * @returns Formatted price string suitable for display
  */
 function formatPriceToSignificantDigits(
-  price: number | string,
+  price: number | string | BigNumber,
   szDecimals?: number,
 ): string {
   if (!price) return '0';
 
-  let priceBN: BigNumber;
-  try {
-    priceBN = new BigNumber(price);
-  } catch {
-    return '0';
-  }
+  const priceBN = price instanceof BigNumber ? price : new BigNumber(price);
 
   if (!priceBN.isFinite()) return '0';
 
@@ -504,19 +511,30 @@ function formatPriceToSignificantDigits(
       // Calculate how many decimal digits we can have for significant figures
       const allowedSigFigDecimals = MAX_SIGNIFICANT_FIGURES - integerDigits;
 
-      // For numbers like 0.0012345, count leading zeros separately
-      const leadingZeroMatch = decimalPart.match(/^(0*)/);
-      const leadingZeros = leadingZeroMatch ? leadingZeroMatch[1].length : 0;
-      const significantDecimalDigits = decimalPart.substring(leadingZeros);
+      // For numbers starting with 0 (like 0.0012345), count leading zeros separately
+      // But for numbers with integer part > 0, all decimal digits are significant
+      if (integerDigits === 0) {
+        // Case: 0.xxxx - leading zeros in decimal part don't count as significant
+        const leadingZeroMatch = decimalPart.match(/^(0*)/);
+        const leadingZeros = leadingZeroMatch ? leadingZeroMatch[1].length : 0;
+        const significantDecimalDigits = decimalPart.substring(leadingZeros);
 
-      if (significantDecimalDigits.length > allowedSigFigDecimals) {
-        const truncatedSignificant = significantDecimalDigits.substring(
+        if (significantDecimalDigits.length > allowedSigFigDecimals) {
+          const truncatedSignificant = significantDecimalDigits.substring(
+            0,
+            allowedSigFigDecimals,
+          );
+          result = `${integerPart}.${
+            leadingZeros > 0 ? '0'.repeat(leadingZeros) : ''
+          }${truncatedSignificant}`;
+        }
+      } else if (decimalPart.length > allowedSigFigDecimals) {
+        // Case: X.decimal where X > 0 - all decimal digits are significant
+        const truncatedDecimal = decimalPart.substring(
           0,
           allowedSigFigDecimals,
         );
-        result = `${integerPart}.${
-          leadingZeros > 0 ? '0'.repeat(leadingZeros) : ''
-        }${truncatedSignificant}`;
+        result = `${integerPart}.${truncatedDecimal}`;
       }
     }
   }
@@ -538,7 +556,7 @@ function formatPriceToSignificantDigits(
     }
   }
 
-  // Remove trailing zeros
+  // Always remove trailing zeros (this preserves middle zeros but removes end zeros)
   if (result.includes('.')) {
     result = result.replace(/\.?0+$/, '');
   }
@@ -654,6 +672,59 @@ function combinePositionWithOrder(
     finalEntryPrice: newOrderPrice,
     isEmpty: false,
   };
+}
+
+/**
+ * Calculate profit/loss for a position
+ *
+ * Formula: (exitPrice - entryPrice) * side * amount
+ * - For long positions: profit when exitPrice > entryPrice
+ * - For short positions: profit when exitPrice < entryPrice
+ *
+ * @param params - Profit/loss calculation parameters
+ * @returns Formatted profit/loss string with currency symbol
+ */
+function calculateProfitLoss(params: IProfitLossParams): string {
+  const { entryPrice, exitPrice, amount, side, formatOptions = {} } = params;
+
+  const { currency = '', decimals = 2, showSign = true } = formatOptions;
+
+  // Convert all inputs to BigNumber for precision
+  const entryPriceBN = new BigNumber(entryPrice);
+  const exitPriceBN = new BigNumber(exitPrice);
+  const amountBN = new BigNumber(amount);
+
+  // Validate inputs
+  if (
+    !entryPriceBN.isFinite() ||
+    !exitPriceBN.isFinite() ||
+    !amountBN.isFinite() ||
+    entryPriceBN.isZero() ||
+    amountBN.isZero()
+  ) {
+    return `${currency}0.${'0'.repeat(decimals)}`;
+  }
+
+  // Calculate profit: (exitPrice - entryPrice) * sideMultiplier * amount
+  const sideMultiplier = side === 'long' ? 1 : -1;
+  const profit = exitPriceBN
+    .minus(entryPriceBN)
+    .multipliedBy(sideMultiplier)
+    .multipliedBy(amountBN);
+
+  // Format result
+  const isNegative = profit.lt(0);
+  const absProfit = profit.abs();
+  const formattedAmount = absProfit.toFixed(decimals);
+
+  if (showSign) {
+    const sign = isNegative ? '-' : '';
+    return `${sign}${currency}${formattedAmount}`;
+  }
+
+  return isNegative
+    ? `-${currency}${formattedAmount}`
+    : `${currency}${formattedAmount}`;
 }
 
 /**
@@ -794,6 +865,7 @@ export {
   formatPercentage,
   validatePriceInput,
   formatPriceToSignificantDigits,
+  calculateProfitLoss,
   findMarginTier,
   calculateLiquidationPrice,
   calculateLiquidationPriceCore,
@@ -816,6 +888,7 @@ export default {
   formatPercentage,
   validatePriceInput,
   formatPriceToSignificantDigits,
+  calculateProfitLoss,
   findMarginTier,
   calculateLiquidationPrice,
   calculateLiquidationPriceCore,

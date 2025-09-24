@@ -115,15 +115,19 @@ function PerpTradingForm({
     return activeAssetData?.leverage?.value || tokenInfo?.maxLeverage;
   }, [activeAssetData?.leverage?.value, tokenInfo?.maxLeverage]);
 
-  const referencePrice = useMemo(() => {
+  const [referencePrice, referencePriceString] = useMemo(() => {
+    let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
-      return new BigNumber(formData.price);
+      price = new BigNumber(formData.price);
     }
     if (formData.type === 'market' && tokenInfo?.markPx) {
-      return new BigNumber(tokenInfo.markPx);
+      price = new BigNumber(tokenInfo.markPx);
     }
-    return new BigNumber(0);
-  }, [formData.type, formData.price, tokenInfo?.markPx]);
+    return [
+      price,
+      formatPriceToSignificantDigits(price, tokenInfo?.szDecimals ?? 2),
+    ];
+  }, [formData.type, formData.price, tokenInfo?.markPx, tokenInfo?.szDecimals]);
 
   const availableToTrade = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
@@ -157,6 +161,13 @@ function PerpTradingForm({
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
       updateForm({ hasTpsl: !!checked });
+
+      if (!checked) {
+        updateForm({
+          tpTriggerPx: '',
+          slTriggerPx: '',
+        });
+      }
     },
     [updateForm],
   );
@@ -260,6 +271,7 @@ function PerpTradingForm({
               onChange={handleTpslChange}
               disabled={isSubmitting}
               isMobile={isMobile}
+              amount={formData.size}
             />
           ) : null}
         </YStack>
@@ -421,7 +433,7 @@ function PerpTradingForm({
 
           {formData.hasTpsl ? (
             <TpslInput
-              price={referencePrice.toFixed()}
+              price={referencePriceString}
               side={formData.side}
               szDecimals={tokenInfo?.szDecimals ?? 2}
               leverage={leverage}
@@ -431,6 +443,7 @@ function PerpTradingForm({
               }}
               onChange={handleTpslChange}
               disabled={isSubmitting}
+              amount={formData.size}
             />
           ) : null}
         </YStack>
