@@ -248,8 +248,11 @@ export const {
     });
   }
   const receivedSorted = resetList.slice().sort((a, b) => {
-    const aVal = new BigNumber(a.toAmount || 0);
-    const bVal = new BigNumber(b.toAmount || 0);
+    // check toAmountSlippage
+    const aToAmountSlippage = new BigNumber(a.toAmountSlippage || 0).plus(1);
+    const bToAmountSlippage = new BigNumber(b.toAmountSlippage || 0).plus(1);
+    const aVal = new BigNumber(a.toAmount || 0).multipliedBy(aToAmountSlippage);
+    const bVal = new BigNumber(b.toAmount || 0).multipliedBy(bToAmountSlippage);
     // Check if limit exists for a and b
     const aHasLimit = !!a.limit;
     const bHasLimit = !!b.limit;
