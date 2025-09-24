@@ -518,6 +518,7 @@ export interface IFetchQuoteResult {
   kind?: ESwapQuoteKind;
   networkCostBuyAmount?: string;
   oneKeyFeeExtraInfo?: IOneKeyFeeInfo;
+  toAmountSlippage?: number;
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;

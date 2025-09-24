@@ -119,7 +119,12 @@ const TradesHistoryRow = memo(
             width="100%"
           >
             <YStack gap="$1">
-              <XStack gap="$2" cursor="pointer" alignItems="center">
+              <XStack
+                gap="$2"
+                cursor="pointer"
+                alignItems="center"
+                onPress={() => selectToken(assetSymbol)}
+              >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
                   size="$bodySm"
