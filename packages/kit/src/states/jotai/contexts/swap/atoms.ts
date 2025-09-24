@@ -283,6 +283,39 @@ export const {
     }
     return bVal.comparedTo(aVal);
   });
+  const receivedOriginalSorted = resetList.slice().sort((a, b) => {
+    const aVal = new BigNumber(a.toAmount || 0);
+    const bVal = new BigNumber(b.toAmount || 0);
+    // Check if limit exists for a and b
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
+      return -1;
+    }
+
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
+    if (
+      aVal.isZero() ||
+      aVal.isNaN() ||
+      fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
+      fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
+    ) {
+      return 1;
+    }
+    if (
+      bVal.isZero() ||
+      bVal.isNaN() ||
+      fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
+      fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
+    ) {
+      return -1;
+    }
+    return bVal.comparedTo(aVal);
+  });
   let recommendedSorted = receivedSorted.slice();
   const recommendedSortedApproved = recommendedSorted.filter(
     (item) =>
@@ -354,7 +387,7 @@ export const {
     if (p?.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
       p.isBest = true;
     }
-    if (p?.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
+    if (p?.quoteId === receivedOriginalSorted?.[0]?.quoteId && p.toAmount) {
       p.receivedBest = true;
     }
     if (p.quoteId === gasFeeSorted?.[0]?.quoteId && p.toAmount) {
