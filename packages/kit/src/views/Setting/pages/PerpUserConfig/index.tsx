@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Page, Radio, XStack, startViewTransition } from '@onekeyhq/components';
+import { Page, Radio, XStack, YStack, startViewTransition } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePerpsUserConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -17,7 +17,7 @@ function PerpUserConfig() {
     <Page>
       <Page.Header title="Perp User Config" />
       <Page.Body>
-        <XStack px="$5">
+        <YStack px="$5">
           <Radio
             value={perpUserConfig.currentUserType}
             onChange={(value) => setPerpUserConfig(value as EPerpUserType)}
@@ -34,7 +34,7 @@ function PerpUserConfig() {
               },
             ]}
           />
-        </XStack>
+        </YStack>
       </Page.Body>
     </Page>
   );
