@@ -132,7 +132,7 @@ function PerpTickerBar() {
               renderContent={
                 <SizableText size="$bodySm">
                   {intl.formatMessage({
-                    id: ETranslations.perp_token_selector_last_price,
+                    id: ETranslations.perp_mark_price_tooltip,
                   })}
                 </SizableText>
               }
