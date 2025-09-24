@@ -9,7 +9,9 @@ export {
 
 export { useFundingCountdown } from './useFundingCountdown';
 export { useOrderConfirm } from './useOrderConfirm';
+export { useTradingGuard } from './useTradingGuard';
 
 export type { IPerpTokenSelectorReturn } from './usePerpTokenSelector';
 export type { IPerpSessionReturn } from './usePerpSession';
 export type { IPerpMarketDataReturn } from './usePerpMarketData';
+export type { IUseTradingGuardReturn } from './useTradingGuard';

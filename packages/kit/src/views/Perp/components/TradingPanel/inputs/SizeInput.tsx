@@ -3,6 +3,8 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { ISelectItem } from '@onekeyhq/components';
+import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatWithPrecision,
@@ -17,6 +19,7 @@ import type { ISide } from '../selectors/TradeSideToggle';
 interface ISizeInputProps {
   value: string;
   side: ISide;
+  symbol: string;
   onChange: (value: string) => void;
   tokenInfo?: ICurrentTokenData | null;
   error?: string;
@@ -29,6 +32,7 @@ export const SizeInput = memo(
   ({
     value,
     onChange,
+    symbol,
     tokenInfo,
     error,
     disabled = false,
@@ -172,35 +176,68 @@ export const SizeInput = memo(
       [inputMode, hasValidPrice, szDecimals, onChange, priceBN],
     );
 
-    const actions = useMemo(() => {
-      const unitDisplay = inputMode === 'token' ? tokenInfo?.name || '' : 'USD';
-
+    const selectItems = useMemo((): ISelectItem[] => {
+      const tokenName = symbol || '';
       return [
-        {
-          labelColor: '$textSubdued',
-          label: unitDisplay,
-          icon: 'RepeatOutline',
-          onPress: () => {
-            const newMode = inputMode === 'token' ? 'usd' : 'token';
-            setInputMode(newMode);
-            setIsUserTyping(false);
-
-            if (newMode === 'usd' && hasValidPrice && tokenAmount) {
-              const tokenBN = new BigNumber(tokenAmount);
-              if (tokenBN.isFinite()) {
-                const usdValue = formatWithPrecision(
-                  tokenBN.multipliedBy(priceBN),
-                  2,
-                  true,
-                );
-                setUsdAmount(usdValue);
-              }
-            }
-          },
-          disabled: !hasValidPrice,
-        },
+        { label: tokenName, value: 'token' },
+        { label: 'USD', value: 'usd' },
       ];
-    }, [inputMode, tokenInfo?.name, hasValidPrice, tokenAmount, priceBN]);
+    }, [symbol]);
+
+    const selectWidth = useMemo(() => {
+      const tokenName = symbol || '';
+      return tokenName.length > 5 ? 140 : 100;
+    }, [symbol]);
+
+    const handleModeChange = useCallback(
+      (newMode: string) => {
+        const mode = newMode as 'token' | 'usd';
+        if (mode === inputMode) return;
+
+        setInputMode(mode);
+        setIsUserTyping(false);
+
+        if (mode === 'usd' && hasValidPrice && tokenAmount) {
+          const tokenBN = new BigNumber(tokenAmount);
+          if (tokenBN.isFinite()) {
+            const usdValue = formatWithPrecision(
+              tokenBN.multipliedBy(priceBN),
+              2,
+              true,
+            );
+            setUsdAmount(usdValue);
+          }
+        }
+      },
+      [inputMode, hasValidPrice, tokenAmount, priceBN, setUsdAmount],
+    );
+
+    const customSuffix = useMemo(
+      () => (
+        <Select
+          items={selectItems}
+          value={inputMode}
+          onChange={handleModeChange}
+          title="Select Unit"
+          floatingPanelProps={{
+            width: selectWidth,
+          }}
+          renderTrigger={({ label: selectedLabel }) => (
+            <XStack alignItems="center" gap="$1" cursor="pointer">
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {selectedLabel}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                size="$4"
+                color="$iconSubdued"
+              />
+            </XStack>
+          )}
+        />
+      ),
+      [selectItems, inputMode, handleModeChange, selectWidth],
+    );
 
     const displayValue = inputMode === 'token' ? tokenAmount : usdAmount;
 
@@ -212,7 +249,7 @@ export const SizeInput = memo(
         disabled={isDisabled}
         error={error}
         validator={validator}
-        actions={actions}
+        customSuffix={customSuffix}
         isMobile={isMobile}
         placeholder={
           isMobile

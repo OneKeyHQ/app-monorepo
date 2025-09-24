@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 
 import {
   Button,
+  Checkbox,
   Dialog,
   SizableText,
   Slider,
@@ -11,11 +12,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
+  formatPriceToSignificantDigits,
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -25,6 +26,7 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -64,9 +66,12 @@ const SetTpslForm = memo(
     const [allMids] = useAllMidsAtom();
     const getMidPrice = useCallback(() => {
       if (!allMids?.mids) return '0';
-      const midPrice = allMids.mids[position.coin];
+      const midPrice = formatPriceToSignificantDigits(
+        allMids.mids[position.coin],
+        szDecimals,
+      );
       return midPrice || '0';
-    }, [allMids, position.coin]);
+    }, [allMids, position.coin, szDecimals]);
 
     const markPrice = useMemo(() => {
       const currentMidPrice = getMidPrice() || '0';
@@ -102,6 +107,8 @@ const SetTpslForm = memo(
       amount: '',
       percentage: 100,
     });
+
+    const [configureAmount, setConfigureAmount] = useState(false);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -181,19 +188,23 @@ const SetTpslForm = memo(
       try {
         setIsSubmitting(true);
 
-        const tpslAmount = formData.amount || calculatedAmount;
+        const tpslAmount = configureAmount
+          ? formData.amount || calculatedAmount
+          : '0';
         const tpslAmountBN = new BigNumber(tpslAmount);
 
-        if (!tpslAmount || tpslAmountBN.lte(0)) {
-          throw new OneKeyLocalError({
-            message: 'Please enter a valid amount',
-          });
-        }
+        if (configureAmount) {
+          if (!tpslAmount || tpslAmountBN.lte(0)) {
+            throw new OneKeyLocalError({
+              message: 'Please enter a valid amount',
+            });
+          }
 
-        if (tpslAmountBN.gt(positionSize)) {
-          throw new OneKeyLocalError({
-            message: 'Amount cannot exceed position size',
-          });
+          if (tpslAmountBN.gt(positionSize)) {
+            throw new OneKeyLocalError({
+              message: 'Amount cannot exceed position size',
+            });
+          }
         }
 
         if (!formData.tpPrice && !formData.slPrice) {
@@ -220,8 +231,11 @@ const SetTpslForm = memo(
         setIsSubmitting(false);
       }
     }, [
-      formData,
+      configureAmount,
+      formData.amount,
       calculatedAmount,
+      formData.tpPrice,
+      formData.slPrice,
       positionSize,
       assetId,
       isLongPosition,
@@ -278,46 +292,65 @@ const SetTpslForm = memo(
           leverage={leverage}
           tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
           onChange={handleTpslChange}
-          ifOnDialog
-        />
-
-        <TradingFormInput
-          label={appLocale.intl.formatMessage({
-            id: ETranslations.dexmarket_details_history_amount,
-          })}
-          value={
-            formData.amount || (formData.percentage > 0 ? calculatedAmount : '')
+          amount={
+            configureAmount
+              ? formData.amount || calculatedAmount
+              : positionSize.toFixed(szDecimals)
           }
-          onChange={handleAmountChange}
-          suffix={position.coin}
-          validator={(value: string) => {
-            const processedValue = value.replace(/。/g, '.');
-            return validateSizeInput(processedValue, szDecimals);
-          }}
           ifOnDialog
         />
 
-        <YStack gap="$2" p="$2">
-          <Slider
-            value={formData.percentage}
-            onChange={handlePercentageChange}
-            max={100}
-            min={0}
-            step={1}
+        <XStack alignItems="center" gap="$3">
+          <Checkbox
+            value={configureAmount}
+            onChange={(checked) => setConfigureAmount(Boolean(checked))}
+            label="Configure Amount"
           />
-        </YStack>
+        </XStack>
 
-        <Button
-          size="large"
-          variant="primary"
-          onPress={handleSubmit}
-          disabled={isSubmitting}
-          loading={isSubmitting}
-        >
-          {appLocale.intl.formatMessage({
-            id: ETranslations.perp_confirm_order,
-          })}
-        </Button>
+        {configureAmount ? (
+          <>
+            <TradingFormInput
+              label={appLocale.intl.formatMessage({
+                id: ETranslations.dexmarket_details_history_amount,
+              })}
+              value={
+                formData.amount ||
+                (formData.percentage > 0 ? calculatedAmount : '')
+              }
+              onChange={handleAmountChange}
+              suffix={position.coin}
+              validator={(value: string) => {
+                const processedValue = value.replace(/。/g, '.');
+                return validateSizeInput(processedValue, szDecimals);
+              }}
+              ifOnDialog
+            />
+
+            <YStack gap="$2" p="$2">
+              <Slider
+                value={formData.percentage}
+                onChange={handlePercentageChange}
+                max={100}
+                min={0}
+                step={1}
+              />
+            </YStack>
+          </>
+        ) : null}
+        <TradingGuardWrapper>
+          <Button
+            size="large"
+            variant="primary"
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            loading={isSubmitting}
+          >
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_confirm_order,
+            })}
+          </Button>{' '}
+        </TradingGuardWrapper>
       </YStack>
     );
   },

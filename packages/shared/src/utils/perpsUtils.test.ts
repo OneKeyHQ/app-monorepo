@@ -238,6 +238,18 @@ describe('formatPriceToSignificantDigits - HyperLiquid Price Formatting', () => 
     expect(formatPriceToSignificantDigits('123.456', 6)).toBe('123'); // Forced to integer
   });
 
+  // Rule: Zeros within decimal digits count as significant figures
+  test('zeros within decimal digits are significant', () => {
+    // 2.05842: 1 integer digit + 5 decimal digits = 6 total, limited to 5 sig figs
+    // Integer part: 1 digit, so decimal part limited to 4 digits: 0584
+    expect(formatPriceToSignificantDigits('2.05842', 0)).toBe('2.0584');
+
+    // Similar cases with zeros in decimal part counting as significant
+    expect(formatPriceToSignificantDigits('3.10456', 0)).toBe('3.1045'); // 1 + 4 = 5 sig figs
+    expect(formatPriceToSignificantDigits('12.0789', 0)).toBe('12.078'); // 2 + 3 = 5 sig figs
+    expect(formatPriceToSignificantDigits('1.20304', 0)).toBe('1.203'); // 1 + 4 = 5 sig figs, trailing zero removed
+  });
+
   // Edge cases
   test('edge cases and error handling', () => {
     expect(formatPriceToSignificantDigits('')).toBe('0'); // Empty string

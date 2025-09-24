@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 
 import {
   useAccountPanelDataAtom,
+  useActiveAssetDataAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -15,6 +16,7 @@ import { usePerpPositions } from './usePerpOrderInfoPanel';
 export function useLiquidationPrice(): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const tokenInfo = useCurrentTokenData();
+  const [activeAssetData] = useActiveAssetDataAtom();
   const [accountPanelData] = useAccountPanelDataAtom();
   const { accountSummary } = accountPanelData;
   const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
@@ -49,8 +51,8 @@ export function useLiquidationPrice(): BigNumber | null {
   }, [formData.size, referencePrice]);
 
   const leverage = useMemo(() => {
-    return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage;
-  }, [tokenInfo]);
+    return activeAssetData?.leverage?.value || tokenInfo?.maxLeverage;
+  }, [activeAssetData?.leverage?.value, tokenInfo?.maxLeverage]);
 
   const currentCoinPosition = useMemo(() => {
     return perpsPositions.filter((pos) => pos.position.coin === coin)?.[0]
@@ -58,7 +60,7 @@ export function useLiquidationPrice(): BigNumber | null {
   }, [perpsPositions, coin]);
 
   const liquidationPrice: BigNumber | null = useMemo(() => {
-    if (!leverage || !tokenInfo?.mode) return null;
+    if (!leverage || !activeAssetData?.leverage.type) return null;
 
     const positionSize = new BigNumber(formData.size || 0);
     if (positionSize.isZero()) return null;
@@ -73,7 +75,7 @@ export function useLiquidationPrice(): BigNumber | null {
       positionSize,
       side: formData.side,
       leverage,
-      mode: tokenInfo.mode,
+      mode: activeAssetData?.leverage.type,
       marginTiers: margin?.marginTiers,
       maxLeverage: tokenInfo?.maxLeverage || 1,
       crossMarginUsed: new BigNumber(stableAccountValues.crossAccountValue),
@@ -92,7 +94,7 @@ export function useLiquidationPrice(): BigNumber | null {
     return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
   }, [
     leverage,
-    tokenInfo?.mode,
+    activeAssetData?.leverage.type,
     tokenInfo?.markPx,
     tokenInfo?.maxLeverage,
     formData.size,
