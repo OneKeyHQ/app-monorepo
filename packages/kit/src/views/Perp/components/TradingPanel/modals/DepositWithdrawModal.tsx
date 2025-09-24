@@ -198,6 +198,19 @@ function DepositWithdrawContent({
     [showMinDepositError],
   );
 
+  const handleAmountBlur = useCallback(() => {
+    if (selectedAction === 'deposit' && amount) {
+      const amountBN = new BigNumber(amount);
+      if (
+        !amountBN.isNaN() &&
+        amountBN.gt(0) &&
+        amountBN.lt(MIN_DEPOSIT_AMOUNT)
+      ) {
+        setShowMinDepositError(true);
+      }
+    }
+  }, [selectedAction, amount]);
+
   const handleMaxPress = useCallback(() => {
     if (availableBalance) {
       setAmount(availableBalance);
@@ -206,15 +219,6 @@ function DepositWithdrawContent({
 
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
-
-    // Check minimum deposit amount on submit
-    if (
-      selectedAction === 'deposit' &&
-      new BigNumber(amount).lt(MIN_DEPOSIT_AMOUNT)
-    ) {
-      setShowMinDepositError(true);
-      return;
-    }
 
     try {
       setIsSubmitting(true);
@@ -342,7 +346,7 @@ function DepositWithdrawContent({
       />
       <XStack
         borderWidth="$px"
-        borderColor={errorMessage ? '$red7' : '$borderSubdued'}
+        borderColor="$borderSubdued"
         borderRadius="$3"
         px="$3"
         bg="$bgSubdued"
@@ -400,6 +404,7 @@ function DepositWithdrawContent({
             })}
             value={amount}
             onChangeText={handleAmountChange}
+            onBlur={handleAmountBlur}
             keyboardType="decimal-pad"
             disabled={isSubmitting}
             borderWidth={0}
