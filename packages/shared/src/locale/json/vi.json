@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "Loại",
   "perp.open_orders_value": "Giá trị",
   "perp.oracle_price_tooltip": "Giá theo thời gian thực của tài sản từ các nguồn dữ liệu giá bên ngoài.",
+  "perp.order_mid_price_title": "Giá trung bình",
+  "perp.order_mid_price_title_desc": "Giá trung bình giữa giá chào mua và chào bán tốt nhất, phản ánh giá trị thị trường hợp lý.",
   "perp.orderbook_price": "Giá",
   "perp.orderbook_size": "Kích thước",
   "perp.orderbook_spread": "Chênh lệch",

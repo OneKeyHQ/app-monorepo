@@ -63,18 +63,15 @@ function PerpTickerBar() {
   if (!gtMd) {
     return (
       <XStack
+        flex={1}
         bg="$bgApp"
+        gap="$4"
         px="$4"
         py="$3"
         alignItems="center"
-        justifyContent="flex-start"
+        justifyContent="space-between"
       >
-        <XStack
-          flex={1}
-          gap="$4"
-          alignItems="center"
-          justifyContent="space-between"
-        >
+        <YStack gap="$1.5">
           <XStack
             gap="$1.5"
             bg="$bgApp"
@@ -93,14 +90,14 @@ function PerpTickerBar() {
               </SizableText>
             </Badge>
           </XStack>
-          <IconButton
-            icon="TradingViewCandlesOutline"
-            size="small"
-            iconColor="$iconSubdued"
-            variant="tertiary"
-            onPress={onPressCandleChart}
-          />
-        </XStack>
+        </YStack>
+        <IconButton
+          icon="TradingViewCandlesOutline"
+          size="small"
+          iconColor="$iconSubdued"
+          variant="tertiary"
+          onPress={onPressCandleChart}
+        />
       </XStack>
     );
   }

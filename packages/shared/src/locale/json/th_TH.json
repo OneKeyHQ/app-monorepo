@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "ประเภท",
   "perp.open_orders_value": "มูลค่า",
   "perp.oracle_price_tooltip": "ราคาสินทรัพย์แบบเรียลไทม์จากฟีดราคาภายนอก",
+  "perp.order_mid_price_title": "ราคากลาง",
+  "perp.order_mid_price_title_desc": "ค่าเฉลี่ยของราคาซื้อและราคาขายที่ดีที่สุด สะท้อนมูลค่าตลาดที่ยุติธรรม",
   "perp.orderbook_price": "ราคา",
   "perp.orderbook_size": "ขนาด",
   "perp.orderbook_spread": "สเปรด",

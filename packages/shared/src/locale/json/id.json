@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "Tipe",
   "perp.open_orders_value": "Nilai",
   "perp.oracle_price_tooltip": "Harga aset waktu nyata dari feed harga eksternal.",
+  "perp.order_mid_price_title": "Harga Tengah",
+  "perp.order_mid_price_title_desc": "Rata-rata dari harga bid dan ask terbaik, mencerminkan nilai pasar yang wajar.",
   "perp.orderbook_price": "Harga",
   "perp.orderbook_size": "Ukuran",
   "perp.orderbook_spread": "selisih harga beli dan jual",

@@ -2091,6 +2091,8 @@
   perp_open_orders_type = 'perp.open_orders_type',
   perp_open_orders_value = 'perp.open_orders_value',
   perp_oracle_price_tooltip = 'perp.oracle_price_tooltip',
+  perp_order_mid_price_title = 'perp.order_mid_price_title',
+  perp_order_mid_price_title_desc = 'perp.order_mid_price_title_desc',
   perp_orderbook_price = 'perp.orderbook_price',
   perp_orderbook_size = 'perp.orderbook_size',
   perp_orderbook_spread = 'perp.orderbook_spread',

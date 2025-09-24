@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "类型",
   "perp.open_orders_value": "价值",
   "perp.oracle_price_tooltip": "来自外部价格源的资产实时价格",
+  "perp.order_mid_price_title": "中间价",
+  "perp.order_mid_price_title_desc": "最佳买入价和卖出价的平均值，反映市场公允价值",
   "perp.orderbook_price": "价格",
   "perp.orderbook_size": "数量",
   "perp.orderbook_spread": "价差",

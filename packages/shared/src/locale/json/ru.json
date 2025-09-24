@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "Тип",
   "perp.open_orders_value": "Значение",
   "perp.oracle_price_tooltip": "Цена актива в реальном времени из внешних ценовых источников.",
+  "perp.order_mid_price_title": "Средняя цена",
+  "perp.order_mid_price_title_desc": "Среднее значение лучшей цены покупки и продажи, отражающее справедливую рыночную стоимость.",
   "perp.orderbook_price": "Цена",
   "perp.orderbook_size": "Размер",
   "perp.orderbook_spread": "Спред",

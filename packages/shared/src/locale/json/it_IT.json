@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "Tipo",
   "perp.open_orders_value": "Valore",
   "perp.oracle_price_tooltip": "Prezzo in tempo reale dell’asset da feed di prezzo esterni.",
+  "perp.order_mid_price_title": "Prezzo medio",
+  "perp.order_mid_price_title_desc": "La media tra il miglior prezzo denaro e il miglior prezzo lettera, che riflette il valore equo di mercato.",
   "perp.orderbook_price": "Prezzo",
   "perp.orderbook_size": "Dimensione",
   "perp.orderbook_spread": "Spread",

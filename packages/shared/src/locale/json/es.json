@@ -2086,6 +2086,8 @@
   "perp.open_orders_type": "Tipo",
   "perp.open_orders_value": "Valor",
   "perp.oracle_price_tooltip": "Precio en tiempo real del activo a partir de fuentes de precios externas.",
+  "perp.order_mid_price_title": "Precio intermedio",
+  "perp.order_mid_price_title_desc": "El promedio entre los mejores precios de oferta y demanda, que refleja el valor justo de mercado.",
   "perp.orderbook_price": "Precio",
   "perp.orderbook_size": "Tamaño",
   "perp.orderbook_spread": "Diferencial",
