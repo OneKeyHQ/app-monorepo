@@ -109,11 +109,7 @@ const MarginModeSelector = ({
           {isLoading ? (
             <Spinner size="small" />
           ) : (
-            <Icon
-              name="ChevronTriangleDownSmallOutline"
-              color="$icon"
-              size="$5"
-            />
+            <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
           )}
         </XStack>
       )}

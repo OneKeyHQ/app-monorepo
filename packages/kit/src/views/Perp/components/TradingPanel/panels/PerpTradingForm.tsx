@@ -278,6 +278,7 @@ function PerpTradingForm({
               formatter="value"
               formatterOptions={{ currency: '$' }}
               color="$text"
+              fontWeight={500}
             >
               {totalValue.toNumber()}
             </NumberSizeableText>

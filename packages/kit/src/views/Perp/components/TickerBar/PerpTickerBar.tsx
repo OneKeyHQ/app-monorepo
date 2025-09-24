@@ -96,6 +96,7 @@ function PerpTickerBar() {
           <IconButton
             icon="TradingViewCandlesOutline"
             size="small"
+            iconColor="$iconSubdued"
             variant="tertiary"
             onPress={onPressCandleChart}
           />

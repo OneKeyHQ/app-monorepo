@@ -1372,11 +1372,7 @@ export function OrderBookMobile({
                     )
                   : '-'}
               </Text>
-              <Icon
-                name="ChevronTriangleDownSmallOutline"
-                size="$5"
-                color="$iconSubdued"
-              />
+              <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
             </TouchableOpacity>
           )}
         />
