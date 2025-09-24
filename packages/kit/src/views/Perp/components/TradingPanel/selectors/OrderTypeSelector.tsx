@@ -57,11 +57,7 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
             flex={1}
           >
             <SizableText size="$bodyMdMedium">{label}</SizableText>
-            <Icon
-              name="ChevronTriangleDownSmallOutline"
-              color="$icon"
-              size="$5"
-            />
+            <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
           </XStack>
         )}
         placement="bottom-start"
