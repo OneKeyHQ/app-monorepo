@@ -1,6 +1,13 @@
 import { useCallback, useEffect } from 'react';
 
-import { Icon, Page, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  NavBackButton,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -35,31 +42,42 @@ function MobilePerpMarket() {
     });
   }, [navigation]);
 
+  const onPageGoBack = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
   const renderHeaderTitle = useCallback(() => {
     const pairLabel = coin ? `${coin} - USD` : '--';
     return (
-      <XStack
-        alignItems="center"
-        gap="$2"
-        onPress={onPressTokenSelector}
-        cursor="pointer"
-        hoverStyle={{ opacity: 0.8 }}
-        pressStyle={{ opacity: 0.6 }}
-      >
-        <Token
-          size="sm"
-          borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          tokenImageUri={
-            coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
-          }
-          fallbackIcon="CryptoCoinOutline"
+      <XStack alignItems="center" gap="$2">
+        <NavBackButton
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+          onPress={onPageGoBack}
         />
-        <SizableText size="$headingLg">{pairLabel}</SizableText>
-        <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        <XStack
+          alignItems="center"
+          gap="$2"
+          onPress={onPressTokenSelector}
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+        >
+          <Token
+            size="sm"
+            borderRadius="$full"
+            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+            tokenImageUri={
+              coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
+            }
+            fallbackIcon="CryptoCoinOutline"
+          />
+          <SizableText size="$headingLg">{pairLabel}</SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        </XStack>
       </XStack>
     );
-  }, [coin, themeVariant, onPressTokenSelector]);
+  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack]);
 
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
@@ -71,7 +89,7 @@ function MobilePerpMarket() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={renderHeaderTitle} />
+      <Page.Header headerLeft={renderHeaderTitle} />
       <Page.Body px="$0" py="$0">
         <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />
