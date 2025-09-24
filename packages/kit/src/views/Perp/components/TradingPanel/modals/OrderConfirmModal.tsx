@@ -10,18 +10,19 @@ import {
 } from '@onekeyhq/components';
 import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  EJotaiContextStoreNames,
   usePerpsCustomSettingsAtom,
+  usePerpsSelectedSymbolAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-import { useCurrentTokenData, useOrderConfirm } from '../../../hooks';
+import { useOrderConfirm } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
   getTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
 interface IOrderConfirmContentProps {
@@ -37,16 +38,16 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
-  const tokenInfo = useCurrentTokenData();
+  const [selectedSymbol] = usePerpsSelectedSymbolAtom();
   const actionColor = getTradingSideTextColor(formData.side);
   const buttonStyleProps = getTradingButtonStyleProps(formData.side, false);
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
   const sizeDisplay = useMemo(() => {
-    if (formData.size && tokenInfo?.name)
-      return `${formData.size} ${tokenInfo.name}`;
+    if (formData.size && selectedSymbol?.coin)
+      return `${formData.size} ${selectedSymbol.coin}`;
     return '0';
-  }, [formData.size, tokenInfo?.name]);
+  }, [formData.size, selectedSymbol?.coin]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -140,16 +141,18 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
         </XStack>
       </YStack>
 
-      <Button
-        variant="primary"
-        size="medium"
-        disabled={isSubmitting}
-        loading={isSubmitting}
-        onPress={confirmOrder}
-        {...buttonStyleProps}
-      >
-        {buttonText}
-      </Button>
+      <TradingGuardWrapper>
+        <Button
+          variant="primary"
+          size="medium"
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          onPress={confirmOrder}
+          {...buttonStyleProps}
+        >
+          {buttonText}
+        </Button>
+      </TradingGuardWrapper>
     </YStack>
   );
 }

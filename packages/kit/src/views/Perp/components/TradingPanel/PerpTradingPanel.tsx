@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { YStack } from '@onekeyhq/components';
 import {
   useAccountPanelDataAtom,
+  useActiveAssetDataAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -10,7 +11,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-import { useCurrentTokenData, useOrderConfirm } from '../../hooks';
+import { useOrderConfirm } from '../../hooks';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
@@ -20,7 +21,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [accountPanelData] = useAccountPanelDataAtom();
   const { accountSummary } = accountPanelData;
-  const tokenInfo = useCurrentTokenData();
+  const [activeAssetData] = useActiveAssetDataAtom();
   const [formData] = useTradingFormAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
 
@@ -31,13 +32,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
-    return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
-  }, [tokenInfo]);
+    return activeAssetData?.leverage?.value || 1;
+  }, [activeAssetData?.leverage?.value]);
 
   const maxTradeSz = useMemo(() => {
-    const maxTradeSzs = tokenInfo?.maxTradeSzs || [0, 0];
-    return maxTradeSzs[formData.side === 'long' ? 0 : 1];
-  }, [tokenInfo?.maxTradeSzs, formData.side]);
+    const maxTradeSzs = activeAssetData?.maxTradeSzs || [0, 0];
+    return Number(maxTradeSzs[formData.side === 'long' ? 0 : 1]);
+  }, [activeAssetData?.maxTradeSzs, formData.side]);
 
   const isNoEnoughMargin = useMemo(() => {
     if (formData.type === 'limit') {
@@ -57,7 +58,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   ]);
 
   const handleShowConfirm = useCallback(() => {
-    if (!tokenInfo) {
+    if (!activeAssetData) {
       console.error(
         '[PerpTradingPanel.handleShowConfirm] No token info available',
       );
@@ -68,7 +69,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       return;
     }
     showOrderConfirmDialog();
-  }, [tokenInfo, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
+  }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   return (
     <YStack gap="$4">
