@@ -8,7 +8,7 @@ import type {
   IVerifyMessageArgs,
 } from '../../types/lightning/webln';
 import type { IAddCustomTokenRouteParams } from '../../types/token';
-import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
+import type { WalletKitTypes } from '@reown/walletkit';
 
 export enum EDAppConnectionModal {
   'ConnectionModal' = 'ConnectionModal',

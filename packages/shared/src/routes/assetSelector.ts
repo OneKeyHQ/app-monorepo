@@ -4,7 +4,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IAccountToken,
-  IAggregateToken,
   IToken,
   ITokenData,
   ITokenFiat,

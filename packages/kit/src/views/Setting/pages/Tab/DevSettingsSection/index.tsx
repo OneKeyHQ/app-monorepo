@@ -5,11 +5,9 @@ import { useIntl } from 'react-intl';
 import { I18nManager } from 'react-native';
 
 import {
-  Button,
   Dialog,
   ESwitchSize,
   Input,
-  SizableText,
   Switch,
   TextAreaInput,
   Toast,
@@ -36,7 +34,6 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,

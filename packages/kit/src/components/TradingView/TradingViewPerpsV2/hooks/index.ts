@@ -40,4 +40,3 @@ export const simulateTradeEvent = (
   };
   pushFn(mockTrade);
 };
-

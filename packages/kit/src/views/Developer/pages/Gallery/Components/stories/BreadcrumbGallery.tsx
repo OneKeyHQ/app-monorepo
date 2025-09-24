@@ -2,12 +2,10 @@ import { useState } from 'react';
 
 import {
   Breadcrumb,
-  Button,
   Icon,
   Image,
   Page,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
