@@ -1,13 +1,23 @@
 import { useCallback, useEffect } from 'react';
 
-import { Page, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  NavBackButton,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { Token } from '../../../components/Token';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
@@ -22,26 +32,52 @@ function MobilePerpMarket() {
   const [currentToken] = usePerpsSelectedSymbolAtom();
   const { coin } = currentToken;
   const themeVariant = useThemeVariant();
+  const navigation = useAppNavigation();
   const longButtonStyle = getTradingButtonStyleProps('long');
   const shortButtonStyle = getTradingButtonStyleProps('short');
+
+  const onPressTokenSelector = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
+  }, [navigation]);
+
+  const onPageGoBack = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
     const pairLabel = coin ? `${coin} - USD` : '--';
     return (
       <XStack alignItems="center" gap="$2">
-        <Token
-          size="sm"
-          borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          tokenImageUri={
-            coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
-          }
-          fallbackIcon="CryptoCoinOutline"
+        <NavBackButton
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+          onPress={onPageGoBack}
         />
-        <SizableText size="$headingLg">{pairLabel}</SizableText>
+        <XStack
+          alignItems="center"
+          gap="$2"
+          onPress={onPressTokenSelector}
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+        >
+          <Token
+            size="sm"
+            borderRadius="$full"
+            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+            tokenImageUri={
+              coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
+            }
+            fallbackIcon="CryptoCoinOutline"
+          />
+          <SizableText size="$headingLg">{pairLabel}</SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        </XStack>
       </XStack>
     );
-  }, [coin, themeVariant]);
+  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack]);
 
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
@@ -53,7 +89,7 @@ function MobilePerpMarket() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={renderHeaderTitle} />
+      <Page.Header headerLeft={renderHeaderTitle} />
       <Page.Body px="$0" py="$0">
         <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />

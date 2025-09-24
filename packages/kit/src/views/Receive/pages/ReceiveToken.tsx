@@ -50,6 +50,8 @@ import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { useHelpLink } from '../../../hooks/useHelpLink';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -82,6 +84,13 @@ function ReceiveToken() {
       walletId,
     });
 
+  const { handleBannerOnPress } = useWalletBanner({
+    account,
+    network,
+    wallet,
+    indexedAccountId,
+  });
+
   const [currentDeriveType, setCurrentDeriveType] = useState<
     IAccountDeriveTypes | undefined
   >(deriveType);
@@ -107,6 +116,17 @@ function ReceiveToken() {
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
+
+  const { result: banner } = usePromiseResult(async () => {
+    const banners =
+      await backgroundApiProxy.serviceWalletBanner.fetchWalletBanner({
+        accountId,
+      });
+    return banners.find(
+      (_banner) =>
+        _banner.position === 'receive' && _banner.networkId === networkId,
+    );
+  }, [accountId, networkId]);
 
   const isHardwareWallet =
     accountUtils.isQrWallet({
@@ -679,7 +699,7 @@ function ReceiveToken() {
       />
       <Page.Body flex={1} pb="$5" px="$5">
         {renderReceiveQrCode()}
-        {shouldShowQRCode ? (
+        {banner && shouldShowQRCode ? (
           <XStack
             py="$2.5"
             px="$3"
@@ -691,7 +711,6 @@ function ReceiveToken() {
             bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
             borderRadius="$2"
             borderCurve="continuous"
-            // TODO: if pressable
             {...{
               userSelect: 'none',
               focusable: true,
@@ -707,16 +726,16 @@ function ReceiveToken() {
               pressStyle: {
                 bg: networkLogoColor ? `${networkLogoColor}2A` : '$bgActive',
               },
-              onPress: () => {
-                console.log('press');
-              },
+              onPress: banner?.href
+                ? () => handleBannerOnPress(banner)
+                : undefined,
             }}
           >
             <Image
               size="$5"
               fallback={<NetworkAvatar size="$5" networkId={networkId} />}
             />
-            <SizableText size="$bodyMd">Text here</SizableText>
+            <SizableText size="$bodyMd">{banner.title}</SizableText>
           </XStack>
         ) : null}
       </Page.Body>

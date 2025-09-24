@@ -7,12 +7,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useTradingViewUrl } from '../hooks';
+import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
-  useNavigationHandler,
   useTradingViewV2WebSocket,
 } from './hooks';
 import { useTradingViewMessageHandler } from './messageHandlers';

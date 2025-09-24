@@ -1,6 +1,5 @@
 export { useAutoKLineUpdate } from './useAutoKLineUpdate';
 export { useAutoTokenDetailUpdate } from './useAutoTokenDetailUpdate';
-export { useNavigationHandler } from './useNavigationHandler';
 export {
   fetchTradingViewV2Data,
   fetchTradingViewV2DataWithSlicing,
