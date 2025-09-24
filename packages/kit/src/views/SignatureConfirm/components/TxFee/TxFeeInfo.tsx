@@ -1420,18 +1420,32 @@ function TxFeeInfo(props: IProps) {
       }
 
       return (
-        <SizableText size="$bodyMd" color="$text">
-          {`${payTokenAmount ?? '-'} ${payTokenInfo.symbol ?? ''}`}
-        </SizableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$text"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: payTokenInfo.symbol,
+            keepLeadingZero: true,
+          }}
+        >
+          {payTokenAmount ?? '-'}
+        </NumberSizeableText>
       );
     }
 
     return (
-      <SizableText size="$bodyMd" color="$text">
-        {`${selectedFee?.totalNativeMinForDisplay ?? '-'} ${
-          txFeeCommon?.nativeSymbol ?? ''
-        }`}
-      </SizableText>
+      <NumberSizeableText
+        size="$bodyMd"
+        color="$text"
+        formatter="balance"
+        formatterOptions={{
+          tokenSymbol: txFeeCommon?.nativeSymbol,
+          keepLeadingZero: true,
+        }}
+      >
+        {selectedFee?.totalNativeMinForDisplay ?? '-'}
+      </NumberSizeableText>
     );
   }, [
     megafuelEligible.sponsorable,
@@ -1530,9 +1544,17 @@ function TxFeeInfo(props: IProps) {
           textDecorationColor={textColor}
           textDecorationStyle="solid"
         >
-          <SizableText size="$bodyMd" color={textColor}>
-            {`${totalNative ?? '-'} ${txFeeCommon?.nativeSymbol ?? ''}`}
-          </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color={textColor}
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: txFeeCommon?.nativeSymbol,
+              keepLeadingZero: true,
+            }}
+          >
+            {totalNative ?? '-'}
+          </NumberSizeableText>
           (
           <NumberSizeableText
             size="$bodyMd"
