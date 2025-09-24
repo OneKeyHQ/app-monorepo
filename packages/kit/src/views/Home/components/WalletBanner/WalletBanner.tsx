@@ -68,9 +68,9 @@ function WalletBanner() {
 
       return banners.filter((banner) => {
         if (banner.position && banner.position !== 'home') {
-          return !closedForeverBanners[banner.id];
+          return false;
         }
-        return true;
+        return !closedForeverBanners[banner.id];
       });
     },
     [banners, closedForeverBanners],
