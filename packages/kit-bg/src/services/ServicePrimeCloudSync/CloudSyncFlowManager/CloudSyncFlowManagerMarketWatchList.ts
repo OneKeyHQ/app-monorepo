@@ -2,7 +2,11 @@ import { Semaphore } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   ICloudSyncPayloadMarketWatchList,
@@ -16,7 +20,10 @@ import type { IDBCloudSyncItem, IDBDevice } from '../../../dbs/local/types';
 function buildItemKey(item: IMarketWatchListItemV2) {
   return [
     item.chainId,
-    item.contractAddress?.toLowerCase() || '', // Convert to lowercase for consistent key generation
+    normalizeTokenContractAddress({
+      networkId: item.chainId,
+      contractAddress: item.contractAddress,
+    }) || '',
   ].join('_');
 }
 
@@ -61,38 +68,48 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     return this.syncToSceneMutex.runExclusive(async () => {
       const { payload, item } = params;
 
+      const contractAddress =
+        normalizeTokenContractAddress({
+          networkId: payload.chainId,
+          contractAddress: payload.contractAddress,
+        }) || '';
+
       const watchListItem: IMarketWatchListItemV2 = {
         chainId: payload.chainId,
-        contractAddress: payload.contractAddress,
+        contractAddress,
         isNative: payload.isNative,
         sortIndex: payload.sortIndex,
       };
       if (item.isDeleted) {
+        defaultLogger.cloudSync.market.removeWatchList(watchListItem);
         // await this.backgroundApi.serviceMarket.removeMarketWatchList({
         await this.backgroundApi.serviceMarketV2.removeMarketWatchListV2({
           items: [watchListItem],
           // avoid infinite loop sync
           skipSaveLocalSyncItem: true,
           skipEventEmit: true,
+          callerName: 'cloudSync_syncToSceneEachItem',
         });
         const removedItemExists =
           await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
             chainId: payload.chainId,
-            contractAddress: payload.contractAddress,
+            contractAddress,
           });
         return !removedItemExists;
       }
+      defaultLogger.cloudSync.market.addWatchList(watchListItem);
       // await this.backgroundApi.serviceMarket.addMarketWatchList({
       await this.backgroundApi.serviceMarketV2.addMarketWatchListV2({
         watchList: [watchListItem],
         // avoid infinite loop sync
         skipSaveLocalSyncItem: true,
         skipEventEmit: true,
+        callerName: 'cloudSync_syncToSceneEachItem',
       });
       const addedItemExists =
         await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
           chainId: payload.chainId,
-          contractAddress: payload.contractAddress,
+          contractAddress,
         });
       return !!addedItemExists;
     });
