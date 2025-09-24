@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -23,6 +24,7 @@ function getPriceSizeByValue(price: string) {
 
 export function InformationPanel() {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
   const { tokenDetail, networkId, tokenAddress } = useTokenDetail();
 
   // Directly use the security data hook to check if we have security data
@@ -43,6 +45,24 @@ export function InformationPanel() {
     holders = 0,
     address = '',
   } = tokenDetail;
+
+  const currencySymbol = settings.currencyInfo.symbol;
+
+  const formattedMarketCap = numberFormat(marketCap, {
+    formatter: 'marketCap',
+    formatterOptions: {
+      currency: currencySymbol,
+      capAtMaxT: true,
+    },
+  });
+
+  const formattedVolume24h = numberFormat(volume24h, {
+    formatter: 'marketCap',
+    formatterOptions: {
+      currency: currencySymbol,
+      capAtMaxT: true,
+    },
+  });
 
   const priceChangeNum = parseFloat(priceChange24hPercent);
   const isPriceUp = priceChangeNum >= 0;
@@ -72,17 +92,13 @@ export function InformationPanel() {
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_market_cap })}
           </SizableText>
-          <SizableText size="$bodySmMedium">
-            ${numberFormat(marketCap, { formatter: 'marketCap' })}
-          </SizableText>
+          <SizableText size="$bodySmMedium">{formattedMarketCap}</SizableText>
         </XStack>
         <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.global_liquidity })}
           </SizableText>
-          <SizableText size="$bodySmMedium">
-            ${numberFormat(volume24h, { formatter: 'marketCap' })}
-          </SizableText>
+          <SizableText size="$bodySmMedium">{formattedVolume24h}</SizableText>
         </XStack>
         <XStack pointerEvents="none" gap="$1" width="100%" jc="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
