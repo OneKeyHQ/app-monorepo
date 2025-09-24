@@ -2,6 +2,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IWalletBanner } from '@onekeyhq/shared/types/walletBanner';
 
@@ -15,22 +17,34 @@ class ServiceWalletBanner extends ServiceBase {
 
   @backgroundMethod()
   async fetchWalletBanner({ accountId }: { accountId?: string }) {
-    const client = await this.backgroundApi.serviceGas.getClient(
-      EServiceEndpointEnum.Utility,
-    );
-    const resp = await client.get<{ data: IWalletBanner[] }>(
-      '/utility/v1/wallet-banner/list',
-      {
-        params: {},
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-
-    return resp.data.data;
+    return this.fetchWalletBannerMemo({ accountId });
   }
+
+  fetchWalletBannerMemo = memoizee(
+    async ({ accountId }: { accountId?: string }) => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const resp = await client.get<{ data: IWalletBanner[] }>(
+        '/utility/v1/wallet-banner/list',
+        {
+          params: {},
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+
+      return resp.data.data;
+    },
+    {
+      promise: true,
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      max: 3,
+    },
+  );
 
   @backgroundMethod()
   async updateClosedForeverBanners({
