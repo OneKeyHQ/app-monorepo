@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
@@ -157,20 +158,30 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   async shouldShowRiskApprovalsRevokeSuggestion({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+
     const config =
       await this.backgroundApi.simpleDb.approval.getRiskApprovalsRevokeSuggestionConfig(
         {
-          networkId,
           accountId,
+          indexedAccountId,
+          xfp,
         },
       );
-
     if (config && config.lastShowTime) {
       const { approvalResurfaceDays } =
         await this.getApprovalResurfaceDaysConfig();
@@ -188,20 +199,29 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   async shouldShowInactiveApprovalsRevokeSuggestion({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
     const config =
       await this.backgroundApi.simpleDb.approval.getInactiveApprovalsRevokeSuggestionConfig(
         {
-          networkId,
           accountId,
+          indexedAccountId,
+          xfp,
         },
       );
-
     if (config && config.lastShowTime) {
       const interval = Date.now() - config.lastShowTime;
       const { approvalResurfaceDays } =
@@ -279,32 +299,53 @@ class ServiceApproval extends ServiceBase {
 
   @backgroundMethod()
   async updateRiskApprovalsRevokeSuggestionConfig({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
+
     await this.backgroundApi.simpleDb.approval.updateRiskApprovalsRevokeSuggestionConfig(
       {
-        networkId,
         accountId,
+        indexedAccountId,
+        xfp,
       },
     );
   }
 
   @backgroundMethod()
   async updateInactiveApprovalsRevokeSuggestionConfig({
-    networkId,
     accountId,
+    indexedAccountId,
   }: {
-    networkId: string;
     accountId: string;
+    indexedAccountId?: string;
   }) {
+    let xfp: string | undefined;
+
+    if (!accountUtils.isOthersAccount({ accountId })) {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId,
+      });
+      xfp = wallet?.xfp;
+    }
     await this.backgroundApi.simpleDb.approval.updateInactiveApprovalsRevokeSuggestionConfig(
       {
-        networkId,
         accountId,
+        indexedAccountId,
+        xfp,
       },
     );
   }

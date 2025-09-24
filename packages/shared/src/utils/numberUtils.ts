@@ -63,6 +63,7 @@ export type IFormatterOptions = {
   showPlusMinusSigns?: boolean;
   disableThousandSeparator?: boolean;
   capAtMaxT?: boolean;
+  keepLeadingZero?: boolean;
 };
 
 export interface IDisplayNumber {
@@ -613,6 +614,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
       showPlusMinusSigns,
       tokenSymbol,
       isZero,
+      keepLeadingZero,
     },
   } = value;
   const isNegativeNumber =
@@ -650,7 +652,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     strings.push(currency);
   }
 
-  if (leadingZeros && leadingZeros > 4) {
+  if (leadingZeros && leadingZeros > 4 && !keepLeadingZero) {
     const { value: formattedZero } = formatLocalNumber('0', {
       digits: 1,
       removeTrailingZeros: false,

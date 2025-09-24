@@ -1426,6 +1426,7 @@ function TxFeeInfo(props: IProps) {
           formatter="balance"
           formatterOptions={{
             tokenSymbol: payTokenInfo.symbol,
+            keepLeadingZero: true,
           }}
         >
           {payTokenAmount ?? '-'}
@@ -1440,6 +1441,7 @@ function TxFeeInfo(props: IProps) {
         formatter="balance"
         formatterOptions={{
           tokenSymbol: txFeeCommon?.nativeSymbol,
+          keepLeadingZero: true,
         }}
       >
         {selectedFee?.totalNativeMinForDisplay ?? '-'}
@@ -1548,6 +1550,7 @@ function TxFeeInfo(props: IProps) {
             formatter="balance"
             formatterOptions={{
               tokenSymbol: txFeeCommon?.nativeSymbol,
+              keepLeadingZero: true,
             }}
           >
             {totalNative ?? '-'}

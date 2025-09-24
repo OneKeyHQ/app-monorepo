@@ -10,6 +10,7 @@ import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
+  IPerpOrderBookTickOptionPersist,
   ITokenListItem,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -52,6 +53,11 @@ export const {
   atom: hyperliquidStorageReadyAtom,
   use: useHyperliquidStorageReadyAtom,
 } = contextAtom<boolean>(false);
+
+export const {
+  atom: orderBookTickOptionsAtom,
+  use: useOrderBookTickOptionsAtom,
+} = contextAtom<Record<string, IPerpOrderBookTickOptionPersist>>({});
 
 const CURRTOKEN_INIT = Symbol('CURRTOKEN_INIT');
 export const currentTokenAtom = memoizee(() =>

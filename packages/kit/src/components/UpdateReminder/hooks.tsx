@@ -83,6 +83,43 @@ export const useAppChangeLog = (version?: string) => {
   return useMemo(() => response.result, [response.result]);
 };
 
+function LottieViewIcon({ themeVariant }: { themeVariant: 'light' | 'dark' }) {
+  const lottieViewRef = useRef<{
+    play?: () => void;
+  } | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      lottieViewRef.current?.play?.();
+    }, 550);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <YStack
+      borderRadius="$5"
+      borderCurve="continuous"
+      borderWidth={StyleSheet.hairlineWidth}
+      borderColor="$borderSubdued"
+      elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
+      overflow="hidden"
+    >
+      <LottieView
+        ref={lottieViewRef as any}
+        loop={false}
+        autoPlay={false}
+        height={56}
+        width={56}
+        source={
+          themeVariant === 'light'
+            ? UpdateNotificationLight
+            : UpdateNotificationDark
+        }
+      />
+    </YStack>
+  );
+}
+
+const DIALOG_THROTTLE_TIME = 30 * 1000;
 const showSilentUpdateDialogUI = throttle(
   async ({
     intl,
@@ -97,27 +134,7 @@ const showSilentUpdateDialogUI = throttle(
   }) => {
     Dialog.show({
       dismissOnOverlayPress: false,
-      renderIcon: (
-        <YStack
-          borderRadius="$5"
-          borderCurve="continuous"
-          borderWidth={StyleSheet.hairlineWidth}
-          borderColor="$borderSubdued"
-          elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
-          overflow="hidden"
-        >
-          <LottieView
-            loop={false}
-            height={56}
-            width={56}
-            source={
-              themeVariant === 'light'
-                ? UpdateNotificationLight
-                : UpdateNotificationDark
-            }
-          />
-        </YStack>
-      ),
+      renderIcon: <LottieViewIcon themeVariant={themeVariant} />,
       title: intl.formatMessage({
         id: ETranslations.update_notification_dialog_title,
       }),
@@ -136,14 +153,51 @@ const showSilentUpdateDialogUI = throttle(
       onConfirm,
     });
   },
-  30 * 1000,
+  DIALOG_THROTTLE_TIME,
+);
+
+const showUpdateDialogUI = throttle(
+  async ({
+    dialog,
+    intl,
+    themeVariant,
+    summary,
+    onConfirm,
+  }: {
+    dialog: ReturnType<typeof useInTabDialog>;
+    themeVariant: 'light' | 'dark';
+    intl: IntlShape;
+    summary: string;
+    onConfirm: () => void;
+  }) => {
+    dialog.show({
+      dismissOnOverlayPress: false,
+      renderIcon: <LottieViewIcon themeVariant={themeVariant} />,
+      title: intl.formatMessage({
+        id: ETranslations.update_notification_dialog_title,
+      }),
+      description:
+        summary ||
+        intl.formatMessage({
+          id: ETranslations.update_notification_dialog_desc,
+        }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.update_update_now,
+      }),
+      showCancelButton: false,
+      onHeaderCloseButtonPress: () => {
+        defaultLogger.app.component.closedInUpdateDialog();
+      },
+      onConfirm,
+    });
+  },
+  DIALOG_THROTTLE_TIME,
 );
 
 export const useDownloadPackage = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const themeVariant = useThemeVariant();
-
   const showUpdateInCompleteDialogRef =
     useRef<
       ({
@@ -190,40 +244,28 @@ export const useDownloadPackage = () => {
     [getFileTypeFromUpdateInfo],
   );
 
-  const showSilentUpdateDialog = useCallback(async () => {
-    const appUpdateInfo =
-      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    await whenAppUnlocked();
-    await showSilentUpdateDialogUI({
-      intl,
-      summary: appUpdateInfo.summary || '',
-      themeVariant,
-      onConfirm: () => {
-        if (isEmpty(appUpdateInfo.changeLog)) {
-          void installPackage(noop, () => {
-            showUpdateInCompleteDialogRef.current?.({
-              onConfirm: noop,
-              onCancel: noop,
-            });
+  const showSilentUpdateDialog = useCallback(() => {
+    setTimeout(async () => {
+      const currentUpdateInfo =
+        await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      await whenAppUnlocked();
+      await showSilentUpdateDialogUI({
+        intl,
+        summary: currentUpdateInfo.summary || '',
+        themeVariant,
+        onConfirm: () => {
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.DownloadVerify,
           });
-        }
-        navigation.pushModal(EModalRoutes.AppUpdateModal, {
-          screen: EAppUpdateRoutes.UpdatePreview,
-          params: {
-            latestVersion: appUpdateInfo.latestVersion,
-            isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-            autoClose: false,
-            ...appUpdateInfo,
-          },
-        });
-      },
-    });
-  }, [intl, navigation, themeVariant, installPackage]);
+        },
+      });
+    }, 0);
+  }, [intl, navigation, themeVariant]);
 
   const verifyPackage = useCallback(async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    const updateStrategy = appUpdateInfo.updateStrategy;
+
     const fileType = getUpdateFileType(appUpdateInfo);
     try {
       const params =
@@ -243,8 +285,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
       defaultLogger.app.appUpdate.endVerifyPackage(true);
 
-      if (updateStrategy === EUpdateStrategy.silent) {
-        await showSilentUpdateDialog();
+      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+        showSilentUpdateDialog();
       }
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
@@ -545,57 +587,32 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         storeUrl?: string;
       },
     ) => {
-      dialog.show({
-        dismissOnOverlayPress: false,
-        renderIcon: (
-          <YStack
-            borderRadius="$5"
-            borderCurve="continuous"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            elevation={platformEnv.isNativeAndroid ? undefined : 0.5}
-            overflow="hidden"
-          >
-            <LottieView
-              loop={false}
-              height={56}
-              width={56}
-              source={
-                themeVariant === 'light'
-                  ? UpdateNotificationLight
-                  : UpdateNotificationDark
-              }
-            />
-          </YStack>
-        ),
-        title: intl.formatMessage({
-          id: ETranslations.update_notification_dialog_title,
-        }),
-        description:
-          params?.summary ||
-          intl.formatMessage({
-            id: ETranslations.update_notification_dialog_desc,
-          }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.update_update_now,
-        }),
-        showCancelButton: false,
-        onHeaderCloseButtonPress: () => {
-          defaultLogger.app.component.closedInUpdateDialog();
-        },
-        onConfirm: () => {
-          if (!platformEnv.isExtension && params?.storeUrl) {
-            openUrlExternal(params.storeUrl);
-          } else {
-            setTimeout(() => {
-              toUpdatePreviewPage(isFull, params);
-            }, 120);
-          }
-          defaultLogger.app.component.confirmedInUpdateDialog();
-        },
-      });
+      setTimeout(async () => {
+        const currentUpdateInfo =
+          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        void showUpdateDialogUI({
+          dialog,
+          intl,
+          themeVariant,
+          summary: params?.summary || '',
+          onConfirm: () => {
+            if (!platformEnv.isExtension && params?.storeUrl) {
+              openUrlExternal(params.storeUrl);
+            } else {
+              setTimeout(() => {
+                if (currentUpdateInfo.status === EAppUpdateStatus.ready) {
+                  toDownloadAndVerifyPage();
+                } else {
+                  toUpdatePreviewPage(isFull, params);
+                }
+              }, 120);
+            }
+            defaultLogger.app.component.confirmedInUpdateDialog();
+          },
+        });
+      }, 0);
     },
-    [dialog, intl, themeVariant, toUpdatePreviewPage],
+    [dialog, intl, themeVariant, toDownloadAndVerifyPage, toUpdatePreviewPage],
   );
 
   // run only once
@@ -616,11 +633,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       void verifyASC();
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
-    } else if (
-      appUpdateInfo.updateStrategy === EUpdateStrategy.silent &&
-      appUpdateInfo.status === EAppUpdateStatus.ready
-    ) {
-      void showSilentUpdateDialog();
+    } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
+      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+        showSilentUpdateDialog();
+      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.manual) {
+        showUpdateDialog();
+      }
     } else {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {

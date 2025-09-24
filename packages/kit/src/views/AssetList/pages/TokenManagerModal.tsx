@@ -12,6 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ECustomTokenStatus,
   type IAccountToken,
@@ -83,10 +84,14 @@ function TokenManagerModal() {
   const onAddCustomToken = useCallback(
     async (token?: ICustomTokenItem) => {
       if (token?.isAggregateToken) {
+        const accountXpubOrAddress = accountUtils.isOthersAccount({ accountId })
+          ? accountId
+          : indexedAccountId;
+
         await backgroundApiProxy.serviceCustomToken.addCustomToken({
           token: {
             ...token,
-            accountXpubOrAddress: indexedAccountId ?? '',
+            accountXpubOrAddress: accountXpubOrAddress || '',
             tokenStatus: ECustomTokenStatus.Custom,
           },
         });
@@ -142,10 +147,14 @@ function TokenManagerModal() {
       let currentNetworkDeriveType = deriveType;
 
       if (token.isAggregateToken) {
+        const accountXpubOrAddress = accountUtils.isOthersAccount({ accountId })
+          ? accountId
+          : indexedAccountId;
+
         await backgroundApiProxy.serviceCustomToken.hideToken({
           token: {
             ...token,
-            accountXpubOrAddress: indexedAccountId ?? '',
+            accountXpubOrAddress: accountXpubOrAddress || '',
             tokenStatus: ECustomTokenStatus.Hidden,
           },
         });

@@ -3,6 +3,8 @@ import { memo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
+  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -74,14 +76,22 @@ function PerpTickerBar() {
           justifyContent="space-between"
         >
           <XStack
-            gap="$1"
+            gap="$1.5"
             bg="$bgApp"
             onPress={onPressTokenSelector}
             justifyContent="center"
             alignItems="center"
           >
-            <SizableText size="$headingLg">{coin}-PERP</SizableText>
             <Icon name="MenuOutline" size="$5" />
+
+            <SizableText size="$headingXl">{coin}USD</SizableText>
+            <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+              <SizableText color="$textSubdued" fontSize={11}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_label_perp,
+                })}
+              </SizableText>
+            </Badge>
           </XStack>
           <IconButton
             icon="TradingViewCandlesOutline"
@@ -242,11 +252,18 @@ function PerpTickerBar() {
               </SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_funding_tooltip,
-                })}
-              </SizableText>
+              <YStack gap="$2">
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip1,
+                  })}
+                </SizableText>
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_funding_rate_tip2,
+                  })}
+                </SizableText>
+              </YStack>
             }
             placement="top"
           />
@@ -254,15 +271,83 @@ function PerpTickerBar() {
             <Skeleton width={120} height={16} />
           ) : (
             <XStack alignItems="center" gap="$2">
-              <SizableText
-                size="$headingXs"
-                color={parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'}
-              >
-                {(parseFloat(fundingRate) * 100).toFixed(4)}%
-              </SizableText>
-              <SizableText size="$headingXs" color="$text">
-                {countdown}
-              </SizableText>
+              <Tooltip
+                renderTrigger={
+                  <XStack alignItems="center" gap="$2">
+                    <SizableText
+                      size="$headingXs"
+                      color={
+                        parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'
+                      }
+                    >
+                      {(parseFloat(fundingRate) * 100).toFixed(4)}%
+                    </SizableText>
+                    <SizableText size="$headingXs" color="$text">
+                      {countdown}
+                    </SizableText>
+                  </XStack>
+                }
+                renderContent={
+                  <YStack bg="$bgSubdued" gap="$1">
+                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_ticker_annualized_funding_tooltip,
+                        })}
+                      </SizableText>
+                      <SizableText
+                        size="$bodySmMedium"
+                        color={
+                          parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'
+                        }
+                      >
+                        {(parseFloat(fundingRate) * 100 * 24 * 365).toFixed(2)}%
+                      </SizableText>
+                    </YStack>
+                    <Divider />
+                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_trades_history_direction,
+                        })}
+                      </SizableText>
+                      {parseFloat(fundingRate) >= 0 ? (
+                        <SizableText size="$bodySmMedium" color="$text">
+                          <SizableText size="$bodySmMedium" color="$green11">
+                            {intl.formatMessage({
+                              id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                            })}
+                          </SizableText>{' '}
+                          {intl.formatMessage({
+                            id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                          })}{' '}
+                          <SizableText size="$bodySmMedium" color="$red11">
+                            {intl.formatMessage({
+                              id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                            })}
+                          </SizableText>
+                        </SizableText>
+                      ) : (
+                        <SizableText size="$bodySmMedium" color="$text">
+                          <SizableText size="$bodySmMedium" color="$red11">
+                            {intl.formatMessage({
+                              id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                            })}
+                          </SizableText>{' '}
+                          {intl.formatMessage({
+                            id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                          })}{' '}
+                          <SizableText size="$bodySmMedium" color="$green11">
+                            {intl.formatMessage({
+                              id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                            })}
+                          </SizableText>
+                        </SizableText>
+                      )}
+                    </YStack>
+                  </YStack>
+                }
+              />
             </XStack>
           )}
         </YStack>

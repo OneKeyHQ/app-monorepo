@@ -20,7 +20,6 @@ import { createOneKeyAppKit } from './OneKeyAppKitClient';
 import type { IWalletConnectModalShared } from './types';
 import type { AppKit, PublicStateControllerState } from '@reown/appkit/core';
 
-
 if (process.env.NODE_ENV !== 'production') {
   EventsController.subscribe((state) => {
     console.log(

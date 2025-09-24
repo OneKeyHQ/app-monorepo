@@ -167,6 +167,7 @@ function ApprovalListContainer() {
     <ApprovalListView
       accountId={account?.id ?? ''}
       networkId={network?.id ?? ''}
+      indexedAccountId={indexedAccount?.id}
       inTabList
       withHeader
       searchDisabled

@@ -120,6 +120,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).putString(version, signature).apply();
     }
 
+    public static void clearUpdateBundleData(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String version = getCurrentBundleVersion(context);
+        if (version != null) {
+            prefs.edit().remove(version).remove(CURRENT_BUNDLE_VERSION_KEY).apply();
+        }
+    }
+
     public static String getCurrentBundleDir(Context context, String currentBundleVersion) {
         if (currentBundleVersion == null) {
             return null;
@@ -701,6 +709,20 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void clearAllJSBundleData(Promise promise) {
+        File downloadBundleDir = new File(getDownloadBundleDir(reactContext));
+        if (downloadBundleDir.exists()) {
+            deleteDirectory(downloadBundleDir);
+        }
+        File bundleDir = new File(getBundleDir(reactContext));
+        if (bundleDir.exists()) {
+            deleteDirectory(bundleDir);
+        }
+        BundleUpdateModule.clearUpdateBundleData(reactContext);
+        promise.resolve(null);
+    }
+
+    @ReactMethod
     public void testVerification(Promise promise) {
         String cacheFilePath = reactContext.getCacheDir().getAbsolutePath() + "/bundle-gpg-test-verification-temp";
         boolean result = false;
@@ -748,7 +770,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         
         File jsRuntimeDirFile = new File(jsRuntimeDir);
         if (jsRuntimeDirFile.exists()) {
-            boolean success = deleteDirectory(jsRuntimeDirFile);
+            deleteDirectory(jsRuntimeDirFile);
+            boolean success = !jsRuntimeDirFile.exists();
             if (success) {
                 log("testDeleteJsRuntimeDir", "Deleted js runtime directory: " + jsRuntimeDir);
                 WritableMap result = Arguments.createMap();

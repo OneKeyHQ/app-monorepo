@@ -232,7 +232,24 @@ function PerpTradingForm({
             szDecimals={universe?.szDecimals ?? 2}
             isMobile={isMobile}
           />
-        ) : null}
+        ) : (
+          <PriceInput
+            onUseMarketPrice={() => {
+              if (tokenInfo?.markPx) {
+                updateForm({
+                  price: formatPriceToSignificantDigits(tokenInfo.markPx),
+                });
+              }
+            }}
+            value={intl.formatMessage({
+              id: ETranslations.perp_market_price,
+            })}
+            onChange={(value) => updateForm({ price: value })}
+            szDecimals={universe?.szDecimals ?? 2}
+            isMobile={isMobile}
+            disabled
+          />
+        )}
         <SizeInput
           side={formData.side}
           tokenInfo={tokenInfo}
@@ -241,7 +258,7 @@ function PerpTradingForm({
           onChange={(value) => updateForm({ size: value })}
           isMobile={isMobile}
         />
-        <YStack>
+        <YStack gap="$1">
           <Checkbox
             label={intl.formatMessage({
               id: ETranslations.perp_position_tp_sl,
@@ -253,9 +270,10 @@ function PerpTradingForm({
               fontSize: getFontSize('$bodySm'),
               color: '$textSubdued',
             }}
-            containerProps={{ alignItems: 'center' }}
+            containerProps={{ p: 0, alignItems: 'center' }}
             width="$3.5"
             height="$3.5"
+            p="$0"
           />
 
           {formData.hasTpsl ? (
@@ -294,6 +312,7 @@ function PerpTradingForm({
               fontSize={10}
               formatter="value"
               formatterOptions={{ currency: '$' }}
+              color="$text"
             >
               {totalValue.toNumber()}
             </NumberSizeableText>
@@ -304,8 +323,8 @@ function PerpTradingForm({
                 id: ETranslations.perp_position_liq_price,
               })}
             </SizableText>
-            <SizableText fontSize={10} color="$textSubdued">
-              <LiquidationPriceDisplay />
+            <SizableText fontSize={10} color="$text">
+              <LiquidationPriceDisplay isMobile={isMobile} />
             </SizableText>
           </XStack>
           <XStack justifyContent="space-between">

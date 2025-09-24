@@ -1,12 +1,4 @@
-import {
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
@@ -20,8 +12,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { DialogHeaderContext } from '@onekeyhq/components/src/composite/Dialog/Header';
-import type { IDialogHeaderProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -104,7 +94,6 @@ const ClosePositionForm = memo(
     onClose,
   }: IClosePositionFormProps) => {
     const [allMids] = useAllMidsAtom();
-    const { setHeaderProps } = useContext(DialogHeaderContext);
 
     const getMidPrice = useCallback(() => {
       if (!allMids?.mids) return '0';
@@ -155,14 +144,6 @@ const ClosePositionForm = memo(
         isMountedRef.current = false;
       };
     }, []);
-
-    useEffect(() => {
-      const title = getClosePositionDialogTitle(formData.type);
-      setHeaderProps((prev: IDialogHeaderProps) => ({
-        ...prev,
-        title,
-      }));
-    }, [formData.type, setHeaderProps]);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -460,7 +441,13 @@ const ClosePositionForm = memo(
               gap="$1"
             >
               <SizableText size="$bodyMdMedium">
-                {formData.type === 'limit' ? 'Limit' : 'Market'}
+                {formData.type === 'limit'
+                  ? appLocale.intl.formatMessage({
+                      id: ETranslations.perp_trade_limit,
+                    })
+                  : appLocale.intl.formatMessage({
+                      id: ETranslations.perp_trade_market,
+                    })}
               </SizableText>
               <Icon
                 name="RepeatOutline"
@@ -545,7 +532,9 @@ export function showClosePositionDialog({
   hyperliquidActions,
 }: IClosePositionParams) {
   const dialogInstance = Dialog.show({
-    title: getClosePositionDialogTitle(type),
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_close_position_title,
+    }),
     renderContent: (
       <PerpsProviderMirror>
         <ClosePositionForm
