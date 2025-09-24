@@ -70,7 +70,7 @@ function WalletBanner() {
         if (banner.position && banner.position !== 'home') {
           return !closedForeverBanners[banner.id];
         }
-        return false;
+        return true;
       });
     },
     [banners, closedForeverBanners],
