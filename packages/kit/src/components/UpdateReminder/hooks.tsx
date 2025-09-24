@@ -651,7 +651,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               toUpdatePreviewPage(true, response);
             } else if (
               (platformEnv.isNative || platformEnv.isDesktop) &&
-              response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
               isFirstLaunch = false;
