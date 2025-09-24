@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import {
+  Haptics,
   Icon,
   Select,
   YStack,
@@ -438,6 +439,9 @@ export function OrderBook({
     (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
+      }
+      if (platformEnv.isNative) {
+        Haptics.selection();
       }
       onSelectLevel({
         price: item.price,
@@ -903,6 +907,9 @@ export function OrderPairBook({
       if (!onSelectLevel) {
         return;
       }
+      if (platformEnv.isNative) {
+        Haptics.selection();
+      }
       onSelectLevel({
         price: item.price,
         size: item.size,
@@ -1130,6 +1137,9 @@ export function OrderBookMobile({
     (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
+      }
+      if (platformEnv.isNative) {
+        Haptics.selection();
       }
       onSelectLevel({
         price: item.price,
