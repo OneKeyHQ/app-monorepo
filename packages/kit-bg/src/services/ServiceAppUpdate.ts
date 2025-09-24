@@ -285,7 +285,6 @@ class ServiceAppUpdate extends ServiceBase {
       updateAt: 0,
       summary: '',
       status: EAppUpdateStatus.done,
-      isShowUpdateDialog: false,
       jsBundleVersion: undefined,
       jsBundle: undefined,
     });
@@ -356,11 +355,6 @@ class ServiceAppUpdate extends ServiceBase {
           updateAt: Date.now(),
           status:
             shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
-          isShowUpdateDialog:
-            releaseInfo.updateStrategy === EUpdateStrategy.force ||
-            releaseInfo.updateStrategy === EUpdateStrategy.manual
-              ? shouldUpdate
-              : false,
         };
       });
     } else {
