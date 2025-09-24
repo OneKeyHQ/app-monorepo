@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { Page, Radio, XStack, YStack, startViewTransition } from '@onekeyhq/components';
+import { Page, Radio, YStack, startViewTransition } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePerpsUserConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
