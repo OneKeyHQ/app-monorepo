@@ -10,16 +10,12 @@ import {
   Page,
   SizableText,
   Stepper,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  AppUpdate,
-  useDownloadProgress,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
@@ -171,11 +167,7 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
             })}
-            badgeText={
-              Number(percent) !== 100 && Number(percent) !== 0
-                ? `${percent}%`
-                : undefined
-            }
+            badgeText={Number(percent) !== 0 ? `${percent}%` : undefined}
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return renderDownloadError();
