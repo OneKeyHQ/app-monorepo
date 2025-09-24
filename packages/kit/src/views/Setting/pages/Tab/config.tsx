@@ -377,8 +377,10 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
               ? {
-                  icon: 'LabOutline',
-                  title: 'Perp Config',
+                  icon: 'BrowserOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.perp_setting_interface,
+                  }),
                   onPress: (navigation) => {
                     navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
                   },

@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   Icon,
@@ -30,6 +31,7 @@ interface ITradingFormInputProps {
   disabled?: boolean;
   error?: string;
   suffix?: string;
+  customSuffix?: ReactNode;
   actions?: IInputAction[];
   helper?: IInputHelper;
   validator?: (value: string) => boolean;
@@ -48,6 +50,7 @@ export const TradingFormInput = memo(
     disabled = false,
     error,
     suffix,
+    customSuffix,
     actions,
     helper,
     validator,
@@ -66,7 +69,11 @@ export const TradingFormInput = memo(
     const renderAddOns = () => {
       const addOns = [];
 
-      if (suffix) {
+      if (customSuffix) {
+        addOns.push({
+          renderContent: <XStack alignItems="center">{customSuffix}</XStack>,
+        });
+      } else if (suffix) {
         addOns.push({
           renderContent: (
             <XStack alignItems="center">
