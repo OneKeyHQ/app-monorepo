@@ -373,7 +373,11 @@ function TokenDetailsView() {
   const headerRight = useCallback(() => {
     const sections: IActionListSection[] = [];
 
-    if (tokenInfo.isAggregateToken && tokens.length > 1) {
+    if (
+      tokenInfo.isAggregateToken &&
+      tokens.length > 1 &&
+      !tokenInfo.isNative
+    ) {
       return (
         <Popover
           title={intl.formatMessage({
