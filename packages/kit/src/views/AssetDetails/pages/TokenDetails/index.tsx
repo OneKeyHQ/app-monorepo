@@ -10,6 +10,7 @@ import type {
   IListViewProps,
   ISectionListProps,
   IStackProps,
+  ITabContainerRef,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -129,9 +130,7 @@ function TokenDetailsView() {
 
   const { gtMd } = useMedia();
 
-  const tabsRef = useRef<{
-    switchTab: (tabName: string) => void;
-  } | null>(null);
+  const tabsRef = useRef<ITabContainerRef | null>(null);
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
 
@@ -629,7 +628,7 @@ function TokenDetailsView() {
                   <TokenDetailsTabToolbar
                     tokens={tokens}
                     onSelected={(token) => {
-                      tabsRef.current?.switchTab(token.networkName ?? '');
+                      tabsRef.current?.jumpToTab(token.networkName ?? '');
                     }}
                   />
                 )}
