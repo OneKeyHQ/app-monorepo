@@ -617,7 +617,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
   // run only once
   useEffect(() => {
-    if (!autoCheck) {
+    if (!autoCheck || !isFirstLaunch) {
       return;
     }
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
@@ -669,8 +669,20 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         },
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    autoCheck,
+    appUpdateInfo.status,
+    checkForUpdates,
+    downloadASC,
+    downloadPackage,
+    onViewReleaseInfo,
+    showSilentUpdateDialog,
+    showUpdateDialog,
+    toUpdatePreviewPage,
+    verifyASC,
+    verifyPackage,
+    appUpdateInfo,
+  ]);
 
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
