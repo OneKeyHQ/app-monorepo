@@ -126,14 +126,14 @@ const PositionRow = memo(
       const fundingAllTimeBN = new BigNumber(pos.cumFunding.allTime);
       const fundingSinceOpenBN = new BigNumber(pos.cumFunding.sinceOpen);
       const fundingSinceChangeBN = new BigNumber(pos.cumFunding.sinceChange);
-      const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '';
-      const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '';
+      const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '+';
+      const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '+';
       const fundingSinceOpenColor = fundingSinceOpenBN.gt(0)
         ? '$textCritical'
         : '$textSuccess';
       const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
         ? '-'
-        : '';
+        : '+';
       const fundingAllTimeFormatted = fundingAllTimeBN.abs().toFixed(2);
       const fundingSinceOpenFormatted = fundingSinceOpenBN.abs().toFixed(2);
       const fundingSinceChangeFormatted = fundingSinceChangeBN.abs().toFixed(2);
@@ -200,7 +200,12 @@ const PositionRow = memo(
           flexDirection="column"
           alignItems="flex-start"
         >
-          <XStack gap="$2" alignItems="center">
+          <XStack
+            gap="$2"
+            alignItems="center"
+            cursor="pointer"
+            onPress={() => selectToken(assetInfo.assetSymbol)}
+          >
             <XStack
               w="$4"
               h="$4"
@@ -208,8 +213,6 @@ const PositionRow = memo(
               alignItems="center"
               borderRadius="$1"
               backgroundColor={assetInfo.assetColor}
-              cursor="pointer"
-              onPress={() => selectToken(assetInfo.assetSymbol)}
             >
               <SizableText size="$bodySmMedium" color="$textOnColor">
                 {side === 'long' ? 'B' : 'S'}
@@ -294,7 +297,7 @@ const PositionRow = memo(
                     size="$bodySmMedium"
                     color={otherInfo.fundingSinceOpenColor}
                   >
-                    {`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}
+                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 }
                 renderContent={
@@ -303,12 +306,12 @@ const PositionRow = memo(
                       id: ETranslations.perp_position_funding_all_time,
                     })}
                     {': '}
-                    {`${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted}`}
+                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
                     {intl.formatMessage({
                       id: ETranslations.perp_position_funding_since_change,
                     })}
                     {': '}
-                    {`${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
                   </SizableText>
                 }
               />
@@ -517,7 +520,7 @@ const PositionRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color={otherInfo.fundingSinceOpenColor}
-              >{`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
+              >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -525,12 +528,12 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_funding_all_time,
                 })}
                 {': '}
-                {`${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted}`}{' '}
+                {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
                 {intl.formatMessage({
                   id: ETranslations.perp_position_funding_since_change,
                 })}
                 {': '}
-                {`${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+                {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
               </SizableText>
             }
           />
