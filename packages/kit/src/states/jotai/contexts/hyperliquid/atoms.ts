@@ -19,9 +19,9 @@ export const { atom: perpsAllMidsAtom, use: usePerpsAllMidsAtom } =
 
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
-    allAssetCtxs: HL.IPerpsAssetCtx[];
+    assetCtxs: HL.IPerpsAssetCtx[];
   }>({
-    allAssetCtxs: [],
+    assetCtxs: [],
   });
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =

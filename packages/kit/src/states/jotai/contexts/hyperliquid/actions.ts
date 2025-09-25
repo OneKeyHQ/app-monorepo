@@ -58,7 +58,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     // just save raw ctxs here
     // use usePerpsAssetCtx() for single asset ctx with ctx formatted
     set(perpsAllAssetCtxsAtom(), {
-      allAssetCtxs: data.assetCtxs,
+      assetCtxs: data.assetCtxs,
     });
   });
 
@@ -381,7 +381,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   clearAllData = contextAtomMethod(async (get, set) => {
     set(perpsAllMidsAtom(), null);
     set(perpsAllAssetCtxsAtom(), {
-      allAssetCtxs: [],
+      assetCtxs: [],
     });
     set(l2BookAtom(), null);
     set(subscriptionActiveAtom(), false);

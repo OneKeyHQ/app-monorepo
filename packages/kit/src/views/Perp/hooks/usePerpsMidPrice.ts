@@ -24,7 +24,8 @@ export function usePerpsMidPrice({
     if (isNil(szDecimals) || Number.isNaN(szDecimals)) {
       return mid;
     }
-    return formatPriceToSignificantDigits(mid, szDecimals);
+    const result = formatPriceToSignificantDigits(mid, szDecimals);
+    return result;
   }, [mid, szDecimals]);
   if (midValue.isNaN() || midValue.isLessThanOrEqualTo(0)) {
     return { mid: undefined, midFormattedByDecimals: undefined };

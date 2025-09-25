@@ -1,6 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
-import { isEqual, isNil } from 'lodash';
+import { isEqual, isNil, omit } from 'lodash';
 import pTimeout from 'p-timeout';
 
 import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
@@ -352,7 +352,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     ) {
       await perpsActiveAssetDataAtom.set(
         (_prev): IPerpsActiveAssetData => ({
-          ...data,
+          ...omit(data, 'user'),
           accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
           coin: data.coin,
           assetId: activeAsset?.assetId,
@@ -474,7 +474,8 @@ export default class ServiceHyperliquid extends ServiceBase {
             deriveType: deriveType || 'default',
           });
         console.log('selectPerpsAccount______222', account);
-        perpsAccount.accountAddress = (account.address as IHex) || null;
+        perpsAccount.accountAddress =
+          (account.address?.toLowerCase() as IHex) || null;
         if (perpsAccount.accountAddress) {
           perpsAccount.accountId = account.id || null;
         }

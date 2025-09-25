@@ -11,8 +11,14 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePerpsAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  usePerpsActiveOpenOrdersAtom,
+  usePerpsActivePositionAtom,
+  usePerpsAllAssetCtxsAtom,
+  usePerpsAllMidsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
@@ -22,34 +28,53 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
+import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
 
 function DebugButton() {
+  const [currentMid] = usePerpsCurrentMidAtom(); // TODO remove
   const [allMids] = usePerpsAllMidsAtom();
-  const [selectedSymbol] = usePerpsActiveAssetAtom();
-  const [currentMid] = usePerpsCurrentMidAtom();
-  const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const [activeAssetCtxGlobal] = usePerpsActiveAssetCtxAtom();
+  const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
+  const { assetCtx: btcAssetCtx } = usePerpsAssetCtx({ assetId: 0 });
+  const { mid: btcMid, midFormattedByDecimals: btcMidFormattedByDecimals } =
+    usePerpsMidPrice({ coin: 'BTC', szDecimals: 2 });
+
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const [activeOpenOrders] = usePerpsActiveOpenOrdersAtom();
+  const [activePositions] = usePerpsActivePositionAtom();
+
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DebugButton">
       <Button
         onPress={async () => {
-          const perpData = await backgroundApiProxy.simpleDb.perp.getPerpData();
-          const hyperLiquidCache =
+          const simpleDbPerpData =
+            await backgroundApiProxy.simpleDb.perp.getPerpData();
+          const bgHyperLiquidCache =
             await backgroundApiProxy.serviceHyperliquid.getHyperLiquidCache();
           console.log('PerpsHeaderRight__DebugButton', {
+            simpleDbPerpData,
+            bgHyperLiquidCache,
             currentMid,
-            perpData,
             allMids,
-            selectedSymbol,
-            hyperLiquidCache,
-            activeAssetCtxGlobal,
+            allAssetCtxs,
+            btcAssetCtx,
+            btcMidFormattedByDecimals,
+            btcMid,
+            activeAccount,
             activeAccountSummary,
+            activeAsset,
+            activeAssetCtx,
             activeAssetData,
+            activeOpenOrders,
+            activePositions,
           });
         }}
       >

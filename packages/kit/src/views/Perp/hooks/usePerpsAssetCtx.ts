@@ -10,7 +10,7 @@ export function usePerpsAssetCtx({ assetId }: { assetId: number }): {
   assetCtx: IPerpsFormattedAssetCtx;
   isLoading: boolean;
 } {
-  const [{ allAssetCtxs }] = usePerpsAllAssetCtxsAtom();
+  const [{ assetCtxs: allAssetCtxs }] = usePerpsAllAssetCtxsAtom();
   const actions = useHyperliquidActions();
   const assetCtx: IPerpsFormattedAssetCtx = useMemo<IPerpsFormattedAssetCtx>(
     () => perpsUtils.formatAssetCtx(allAssetCtxs[assetId]) || undefined,
