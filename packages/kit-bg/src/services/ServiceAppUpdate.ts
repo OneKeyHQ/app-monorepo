@@ -23,7 +23,7 @@ import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
-let extensionSyncTimerId: ReturnType<typeof setTimeout>;
+let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
@@ -89,20 +89,20 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   async isNeedSyncAppUpdateInfo() {
     const { status, updateAt } = await appUpdatePersistAtom.get();
+    clearTimeout(syncTimerId);
+    // add random time to avoid all extension request at the same time.
+    const timeout =
+      timerUtils.getTimeDurationMs({
+        hour: 1,
+      }) +
+      timerUtils.getTimeDurationMs({
+        minute: 5,
+      }) *
+        Math.random();
+    syncTimerId = setTimeout(() => {
+      void this.fetchAppUpdateInfo();
+    }, timeout);
     if (platformEnv.isExtension) {
-      clearTimeout(extensionSyncTimerId);
-      // add random time to avoid all extension request at the same time.
-      const timeout =
-        timerUtils.getTimeDurationMs({
-          hour: 1,
-        }) +
-        timerUtils.getTimeDurationMs({
-          minute: 5,
-        }) *
-          Math.random();
-      extensionSyncTimerId = setTimeout(() => {
-        void this.fetchAppUpdateInfo();
-      }, timeout);
       return (
         Date.now() - updateAt >
         timerUtils.getTimeDurationMs({
@@ -277,7 +277,7 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async reset() {
-    clearTimeout(extensionSyncTimerId);
+    clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
       latestVersion: '0.0.0',
