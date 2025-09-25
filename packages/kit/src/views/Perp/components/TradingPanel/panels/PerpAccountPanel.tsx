@@ -16,6 +16,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountPanelDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -23,6 +24,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
@@ -59,6 +62,7 @@ function PerpAccountPanel({
   const userAddress = selectedAccount.accountAddress;
   const userAccountId = selectedAccount.accountId;
   const { gtSm } = useMedia();
+  const navigation = useAppNavigation();
   const accountDataInfo = useMemo(() => {
     const withdrawableBalance = accountSummary.withdrawable;
     const accountValue = accountSummary.accountValue;
@@ -120,6 +124,12 @@ function PerpAccountPanel({
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
+  const handleOpenPerpSettings = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SettingModal, {
+      screen: EModalSettingRoutes.SettingPerpUserConfig,
+    });
+  }, [navigation]);
+
   if (isTradingPanel) {
     return (
       <IconButton
@@ -135,43 +145,55 @@ function PerpAccountPanel({
   }
   if (ifOnHeader) {
     return (
-      <Badge
-        borderRadius="$full"
-        size="medium"
-        variant="secondary"
-        onPress={() => handleDepositOrWithdraw('deposit')}
-        alignItems="center"
-        justifyContent="center"
-        flexDirection="row"
-        gap="$2"
-        px="$3"
-        h={32}
-        hoverStyle={{
-          bg: '$bgStrongHover',
-        }}
-        pressStyle={{
-          bg: '$bgStrongActive',
-        }}
-        cursor="pointer"
-      >
-        <Icon name="WalletOutline" size="$4" />
+      <XStack alignItems="center" gap="$5">
+        <Badge
+          borderRadius="$full"
+          size="medium"
+          variant="secondary"
+          onPress={() => handleDepositOrWithdraw('deposit')}
+          alignItems="center"
+          justifyContent="center"
+          flexDirection="row"
+          gap="$2"
+          px="$3"
+          h={32}
+          hoverStyle={{
+            bg: '$bgStrongHover',
+          }}
+          pressStyle={{
+            bg: '$bgStrongActive',
+          }}
+          cursor="pointer"
+        >
+          <Icon name="WalletOutline" size="$4" />
 
-        {gtSm
-          ? renderAccountValue(
-              accountDataInfo.accountValue ?? '',
-              60,
-              '$bodySmMedium',
-            )
-          : null}
-        <Divider
-          borderWidth={0.33}
-          borderBottomWidth={12}
-          borderColor="$borderSubdued"
-        />
-        <SizableText size="$bodySmMedium" color="$text">
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      </Badge>
+          {gtSm
+            ? renderAccountValue(
+                accountDataInfo.accountValue ?? '',
+                60,
+                '$bodySmMedium',
+              )
+            : null}
+          <Divider
+            borderWidth={0.33}
+            borderBottomWidth={12}
+            borderColor="$borderSubdued"
+          />
+          <SizableText size="$bodySmMedium" color="$text">
+            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          </SizableText>
+        </Badge>
+        {platformEnv.isNative ? null : (
+          <IconButton
+            size="small"
+            variant="tertiary"
+            icon="SettingsOutline"
+            iconColor="$iconSubdued"
+            onPress={handleOpenPerpSettings}
+            testID="perp-header-settings-button"
+          />
+        )}
+      </XStack>
     );
   }
   return (
