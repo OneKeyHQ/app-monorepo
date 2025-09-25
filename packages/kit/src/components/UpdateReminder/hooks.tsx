@@ -246,6 +246,7 @@ export const useDownloadPackage = () => {
 
   const showSilentUpdateDialog = useCallback(() => {
     setTimeout(async () => {
+      await whenAppUnlocked();
       const currentUpdateInfo =
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       await whenAppUnlocked();
@@ -588,6 +589,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       },
     ) => {
       setTimeout(async () => {
+        await whenAppUnlocked();
         void showUpdateDialogUI({
           dialog,
           intl,
@@ -620,6 +622,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (!autoCheck || !isFirstLaunch) {
       return;
     }
+    isFirstLaunch = false;
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
@@ -655,12 +658,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               void downloadPackage();
             } else if (isForceUpdate) {
               toUpdatePreviewPage(true, response);
-            } else if (
-              (platformEnv.isNative || platformEnv.isDesktop) &&
-              isFirstLaunch
-            ) {
-              isFirstLaunch = false;
-              await whenAppUnlocked();
+            } else if (platformEnv.isNative || platformEnv.isDesktop) {
               setTimeout(() => {
                 showUpdateDialog(false, response);
               }, 200);
