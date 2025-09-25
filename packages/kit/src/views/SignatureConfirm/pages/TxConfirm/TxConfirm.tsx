@@ -112,6 +112,7 @@ function TxConfirm() {
             networkId,
             unsignedTxs: reactiveUnsignedTxs,
             transferPayload,
+            sourceInfo,
           });
 
         let extraFeeNativeTotal = new BigNumber(0);
