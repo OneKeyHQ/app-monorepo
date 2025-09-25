@@ -37,6 +37,7 @@ import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constant
 import type {
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
+  ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
   ISwapTxInfo,
@@ -55,7 +56,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { ESwapDirection } from './useTradeType';
 
 export function useSpeedSwapActions(props: {
-  marketToken: ISwapTokenBase;
+  marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
   fromTokenAmount: string;
@@ -89,7 +90,6 @@ export function useSpeedSwapActions(props: {
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
   const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
     useState(false);
-  const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
   const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
   const [swapNativeTokenReserveGas, setSwapNativeTokenReserveGas] = useState<
     ISwapNativeTokenReserveGas[]
@@ -132,7 +132,7 @@ export function useSpeedSwapActions(props: {
   });
 
   const [tradeTokenDetail, setTradeTokenDetail] =
-    useState<ISwapTokenBase>(tradeToken);
+    useState<ISwapToken>(tradeToken);
 
   useEffect(() => {
     void (async () => {
@@ -189,16 +189,16 @@ export function useSpeedSwapActions(props: {
     if (tradeType === ESwapDirection.BUY) {
       return {
         fromToken: tradeTokenDetail,
-        toToken: baseToken ?? marketToken,
+        toToken: marketToken,
         balanceToken: tradeTokenDetail,
       };
     }
     return {
-      fromToken: baseToken ?? marketToken,
+      fromToken: marketToken,
       toToken: tradeTokenDetail,
-      balanceToken: baseToken ?? marketToken,
+      balanceToken: marketToken,
     };
-  }, [tradeType, baseToken, marketToken, tradeTokenDetail]);
+  }, [tradeType, marketToken, tradeTokenDetail]);
 
   // --- build tx
 
@@ -884,19 +884,9 @@ export function useSpeedSwapActions(props: {
       ...(prev ?? {}),
       loading: true,
     }));
-    const [fromTokenPrice, toTokenPrice] = await Promise.all([
-      backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: fromToken.networkId ?? '',
-        contractAddress: fromToken.contractAddress ?? '',
-      }),
-      backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: toToken.networkId ?? '',
-        contractAddress: toToken.contractAddress ?? '',
-      }),
-    ]);
-    if (fromTokenPrice?.length && toTokenPrice?.length) {
-      const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
-      const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+    if (fromToken.price && toToken.price) {
+      const fromTokenPriceBN = new BigNumber(fromToken.price || 0);
+      const toTokenPriceBN = new BigNumber(toToken.price || 0);
       setPriceRate({
         rate: toTokenPriceBN.isZero()
           ? 0
@@ -906,17 +896,42 @@ export function useSpeedSwapActions(props: {
         loading: false,
       });
     } else {
-      setPriceRate((prev) => ({
-        ...(prev ?? {}),
-        loading: false,
-      }));
+      const [fromTokenPrice, toTokenPrice] = await Promise.all([
+        backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: fromToken.networkId ?? '',
+          contractAddress: fromToken.contractAddress ?? '',
+        }),
+        backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: toToken.networkId ?? '',
+          contractAddress: toToken.contractAddress ?? '',
+        }),
+      ]);
+      if (fromTokenPrice?.length && toTokenPrice?.length) {
+        const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
+        const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+        setPriceRate({
+          rate: toTokenPriceBN.isZero()
+            ? 0
+            : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
+          fromTokenSymbol: fromToken.symbol,
+          toTokenSymbol: toToken.symbol,
+          loading: false,
+        });
+      } else {
+        setPriceRate((prev) => ({
+          ...(prev ?? {}),
+          loading: false,
+        }));
+      }
     }
   }, [
+    fromToken.price,
     fromToken.symbol,
-    toToken.symbol,
     fromToken.networkId,
-    toToken.networkId,
     fromToken.contractAddress,
+    toToken.price,
+    toToken.symbol,
+    toToken.networkId,
     toToken.contractAddress,
   ]);
 
@@ -1007,30 +1022,6 @@ export function useSpeedSwapActions(props: {
     checkTokenApproveAllowance,
     inAppNotificationAtom.speedSwapApprovingTransaction?.status,
     netAccountRes?.result?.address,
-  ]);
-
-  useEffect(() => {
-    void (async () => {
-      const tokenInfo =
-        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: marketToken?.networkId,
-          contractAddress: marketToken?.contractAddress,
-        });
-      if (tokenInfo?.length) {
-        setBaseToken({
-          ...tokenInfo[0],
-          symbol: marketToken?.symbol,
-          logoURI: tokenInfo[0]?.logoURI
-            ? tokenInfo[0]?.logoURI
-            : marketToken?.logoURI,
-        });
-      }
-    })();
-  }, [
-    marketToken?.contractAddress,
-    marketToken?.logoURI,
-    marketToken?.networkId,
-    marketToken?.symbol,
   ]);
 
   useEffect(() => {
