@@ -96,7 +96,7 @@ class ServiceAppUpdate extends ServiceBase {
         hour: 1,
       }) +
       timerUtils.getTimeDurationMs({
-        minute: 5,
+        minute: 30,
       }) *
         Math.random();
     syncTimerId = setTimeout(() => {
