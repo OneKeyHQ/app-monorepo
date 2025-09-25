@@ -519,22 +519,28 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         isForceUpdate?: boolean;
       },
     ) => {
-      const pushModal = isFull
-        ? navigation.pushFullModal
-        : navigation.pushModal;
-      pushModal(EModalRoutes.AppUpdateModal, {
-        screen: EAppUpdateRoutes.UpdatePreview,
-        params: {
-          latestVersion: appUpdateInfo.latestVersion,
-          isForceUpdate: isForceUpdateStrategy(appUpdateInfo.updateStrategy),
-          autoClose: isFull,
-          ...params,
-        },
-      });
+      setTimeout(async () => {
+        const currentAppUpdateInfo =
+          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        const pushModal = isFull
+          ? navigation.pushFullModal
+          : navigation.pushModal;
+        pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.UpdatePreview,
+          params: {
+            latestVersion:
+              params?.latestVersion ?? currentAppUpdateInfo.latestVersion,
+            isForceUpdate:
+              params?.isForceUpdate ??
+              isForceUpdateStrategy(appUpdateInfo.updateStrategy),
+            autoClose: isFull,
+            ...params,
+          },
+        });
+      }, 0);
     },
     [
       appUpdateInfo.updateStrategy,
-      appUpdateInfo.latestVersion,
       navigation.pushFullModal,
       navigation.pushModal,
     ],
