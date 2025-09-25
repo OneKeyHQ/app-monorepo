@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
@@ -119,13 +119,21 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     10,
   );
 
+  const updatedDownloaded = useCallback(() => {
+    defaultLogger.update.app.log('downloaded');
+    setPercent(100);
+  }, []);
+
   useEffect(() => {
     const onProgressUpdateSubscription =
       electronUpdateListeners.onProgressUpdate?.(updatePercent);
+    const updateDownloadedSubscription =
+      electronUpdateListeners.onDownloaded?.(updatedDownloaded);
     return () => {
       onProgressUpdateSubscription?.();
+      updateDownloadedSubscription?.();
     };
-  }, [updatePercent]);
+  }, [updatedDownloaded, updatePercent]);
   return percent;
 };
 

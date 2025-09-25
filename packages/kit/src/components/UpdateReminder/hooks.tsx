@@ -588,8 +588,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       },
     ) => {
       setTimeout(async () => {
-        const currentUpdateInfo =
-          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
         void showUpdateDialogUI({
           dialog,
           intl,
@@ -599,7 +597,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
             if (!platformEnv.isExtension && params?.storeUrl) {
               openUrlExternal(params.storeUrl);
             } else {
-              setTimeout(() => {
+              setTimeout(async () => {
+                const currentUpdateInfo =
+                  await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
                 if (currentUpdateInfo.status === EAppUpdateStatus.ready) {
                   toDownloadAndVerifyPage();
                 } else {
@@ -634,9 +634,15 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
     } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
-      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
+      const fileType = getUpdateFileType(appUpdateInfo);
+      if (
+        fileType === EUpdateFileType.jsBundle &&
+        appUpdateInfo.updateStrategy === EUpdateStrategy.seamless
+      ) {
+        void BundleUpdate.installBundle(appUpdateInfo.downloadedEvent);
+      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
         showSilentUpdateDialog();
-      } else if (appUpdateInfo.updateStrategy === EUpdateStrategy.manual) {
+      } else {
         showUpdateDialog();
       }
     } else {
@@ -651,7 +657,6 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
               toUpdatePreviewPage(true, response);
             } else if (
               (platformEnv.isNative || platformEnv.isDesktop) &&
-              response?.isShowUpdateDialog &&
               isFirstLaunch
             ) {
               isFirstLaunch = false;

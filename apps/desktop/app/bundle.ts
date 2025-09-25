@@ -100,22 +100,23 @@ export const getBundleIndexHtmlPath = ({
   appVersion: string;
   bundleVersion: string;
 }) => {
-  if (!appVersion || !bundleVersion) {
-    return undefined;
-  }
-  if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
-    return undefined;
-  }
-  const extractDir = getBundleExtractDir({
-    appVersion: platformEnv.version || '1.0.0',
-    bundleVersion: bundleVersion || '1',
-  });
-  if (!fs.existsSync(extractDir)) {
-    return undefined;
-  }
-  const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
-  logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
-  return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
+  return undefined;
+  // if (!appVersion || !bundleVersion) {
+  //   return undefined;
+  // }
+  // if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
+  //   return undefined;
+  // }
+  // const extractDir = getBundleExtractDir({
+  //   appVersion: platformEnv.version || '1.0.0',
+  //   bundleVersion: bundleVersion || '1',
+  // });
+  // if (!fs.existsSync(extractDir)) {
+  //   return undefined;
+  // }
+  // const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+  // logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
+  // return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
 
 export const checkFileSha512 = (filePath: string, sha512: string) => {
