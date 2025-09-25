@@ -5,11 +5,7 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type {
-  IColorTokens,
-  ILottieViewProps,
-  UseFormReturn,
-} from '@onekeyhq/components';
+import type { ILottieViewProps, UseFormReturn } from '@onekeyhq/components';
 import {
   Alert,
   Anchor,

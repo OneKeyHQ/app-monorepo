@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -142,7 +143,20 @@ function TokenDetailsTabToolbar(props: IProps) {
                 >
                   {token.networkName}
                 </SizableText>
-                {tokenDetail?.fiatValue ? (
+                {isNil(tokenDetail?.fiatValue) ? (
+                  <Tooltip
+                    renderTrigger={
+                      <Icon
+                        name="RefreshCcwOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    }
+                    renderContent={intl.formatMessage({
+                      id: ETranslations.network_enable_or_create_address,
+                    })}
+                  />
+                ) : (
                   <ListItem.Text
                     align="right"
                     primary={
@@ -161,19 +175,6 @@ function TokenDetailsTabToolbar(props: IProps) {
                         {tokenDetail?.fiatValue}
                       </NumberSizeableTextWrapper>
                     }
-                  />
-                ) : (
-                  <Tooltip
-                    renderTrigger={
-                      <Icon
-                        name="RefreshCcwOutline"
-                        size="$4"
-                        color="$iconSubdued"
-                      />
-                    }
-                    renderContent={intl.formatMessage({
-                      id: ETranslations.network_enable_or_create_address,
-                    })}
                   />
                 )}
               </ListItem>

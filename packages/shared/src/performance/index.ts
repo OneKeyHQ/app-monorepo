@@ -1,5 +1,5 @@
 export default {
-  start: (withCPU = false, withMonitorView = false) => {},
+  start: (_withCPU = false, _withMonitorView = false) => {},
   stop: () => {},
   addListener: () => ({
     remove: () => {},

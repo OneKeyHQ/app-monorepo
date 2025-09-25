@@ -12,7 +12,6 @@ import {
 import {
   Button,
   Dialog,
-  Icon,
   SizableText,
   XStack,
   YStack,
