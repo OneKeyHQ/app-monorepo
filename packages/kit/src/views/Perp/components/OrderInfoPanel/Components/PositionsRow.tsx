@@ -288,6 +288,7 @@ const PositionRow = memo(
                 })}
               </SizableText>
               <Tooltip
+                placement="top"
                 renderTrigger={
                   <SizableText
                     size="$bodySmMedium"
@@ -296,7 +297,20 @@ const PositionRow = memo(
                     {`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 }
-                renderContent={`allTime: ${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted} sinceChange: ${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+                renderContent={
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_all_time,
+                    })}
+                    {': '}
+                    {`${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted}`}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_since_change,
+                    })}
+                    {': '}
+                    {`${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+                  </SizableText>
+                }
               />
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
@@ -505,7 +519,20 @@ const PositionRow = memo(
                 color={otherInfo.fundingSinceOpenColor}
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
-            renderContent={`allTime: ${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted} sinceChange: ${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_funding_all_time,
+                })}
+                {': '}
+                {`${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted}`}{' '}
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_funding_since_change,
+                })}
+                {': '}
+                {`${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+              </SizableText>
+            }
           />
         </XStack>
 

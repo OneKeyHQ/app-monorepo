@@ -6,6 +6,7 @@ import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   type EHyperLiquidAgentName,
@@ -43,7 +44,10 @@ import type {
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { perpsSelectedAccountAtom } from '../../states/jotai/atoms';
+import {
+  perpsSelectedAccountAtom,
+  perpsSelectedAccountStatusAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type {
@@ -72,7 +76,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   public slippage = 0.08;
 
   private get exchangeClient(): ExchangeClient {
-    if (!this._exchangeClient) {
+    if (!this._account || !this._exchangeClient) {
       throw new OneKeyLocalError(
         'Exchange client not setup. Call setup() first.',
       );
@@ -183,35 +187,46 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   //   });
   // }
 
-  private _ensureSetup(): void {
-    if (!this._account || !this._exchangeClient) {
+  /**
+   * Check if agent is ready based on local status only
+   */
+  private async _ensureAgentReady(): Promise<boolean> {
+    const accountStatus = await perpsSelectedAccountStatusAtom.get();
+    return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
+  }
+
+  /**
+   * Get exchange client for trading operations with automatic agent authorization
+   */
+  private async getExchangeClientForTrading(): Promise<ExchangeClient> {
+    const isReady = await this._ensureAgentReady();
+
+    if (!isReady) {
       throw new OneKeyLocalError(
-        'Exchange client not setup. Call setup() first.',
+        'Agent authorization required. Please enable trading first.',
       );
     }
+
+    return this.exchangeClient;
   }
 
   @backgroundMethod()
   async setReferrerCode(params: ISetReferrerRequest) {
-    this._ensureSetup();
     await this.checkAccountCanTrade();
     return this.exchangeClient.setReferrer(params);
   }
 
   @backgroundMethod()
+  @toastIfError()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
-    this._ensureSetup();
     await this.checkAccountCanTrade();
-    try {
-      await this.exchangeClient.updateLeverage(params);
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to update leverage: ${String(error)}`);
-    }
+
+    const client = await this.getExchangeClientForTrading();
+    await client.updateLeverage(params);
   }
 
   @backgroundMethod()
   async approveBuilderFee(params: IBuilderFeeRequest) {
-    this._ensureSetup();
     await this.checkAccountCanTrade();
     try {
       return await this.exchangeClient.approveBuilderFee(params);
@@ -224,7 +239,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async approveAgent(params: IAgentApprovalRequest) {
-    this._ensureSetup();
     await this.checkAccountCanTrade();
     return this.exchangeClient.approveAgent({
       agentAddress: params.agent,
@@ -234,7 +248,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async removeAgent(params: { agentName: EHyperLiquidAgentName | undefined }) {
-    this._ensureSetup();
     await this.checkAccountCanTrade();
     return this.approveAgent({
       agent: PERPS_EMPTY_ADDRESS,
@@ -249,6 +262,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async placeOrderRaw({
     orders,
     grouping,
@@ -256,17 +270,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     orders: IOrderParams[];
     grouping: IOrderRequest['grouping'];
   }): Promise<IOrderResponse> {
-    this._ensureSetup();
     await this.checkAccountCanTrade();
-    try {
-      return await this.exchangeClient.order({
-        orders,
-        grouping,
-        builder: this._builderFeeInfo,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
-    }
+
+    const client = await this.getExchangeClientForTrading();
+    return client.order({
+      orders,
+      grouping,
+      builder: this._builderFeeInfo,
+    });
   }
 
   @backgroundMethod()
@@ -458,20 +469,19 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
     await this.checkAccountCanTrade();
-    try {
-      const cancelParams = cancels.map((cancel) => ({
-        a: cancel.assetId,
-        o: cancel.oid,
-      }));
 
-      return await this.exchangeClient.cancel({
-        cancels: cancelParams,
-      });
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to cancel orders: ${String(error)}`);
-    }
+    const cancelParams = cancels.map((cancel) => ({
+      a: cancel.assetId,
+      o: cancel.oid,
+    }));
+
+    const client = await this.getExchangeClientForTrading();
+    return client.cancel({
+      cancels: cancelParams,
+    });
   }
 
   @backgroundMethod()
@@ -586,6 +596,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
     const wallet =
@@ -596,10 +607,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       transport: new HttpTransport(),
       wallet,
     });
-    try {
-      await exchangeClient.withdraw3(params);
-    } catch (error) {
-      throw new OneKeyLocalError(`Failed to withdraw: ${String(error)}`);
-    }
+    await exchangeClient.withdraw3(params);
   }
 }

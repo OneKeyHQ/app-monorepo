@@ -622,17 +622,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           error,
         );
 
-        // Show error toast by default
-        if (params.showToast !== false) {
-          Toast.error({
-            title: 'Cancel Failed',
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Failed to cancel orders',
-          });
-        }
-
         throw error;
       }
     },
@@ -680,17 +669,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           error,
         );
 
-        // Show error toast by default
-        if (params.showToast !== false) {
-          Toast.error({
-            title: 'Set TP/SL Failed',
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Failed to set position TP/SL',
-          });
-        }
-
         throw error;
       } finally {
         set(tradingLoadingAtom(), false);
@@ -724,12 +702,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           '[HyperliquidActions.withdraw] Failed to withdraw:',
           error,
         );
-
-        Toast.error({
-          title: 'Withdraw Failed',
-          message:
-            error instanceof Error ? error.message : 'Failed to withdraw',
-        });
 
         throw error;
       }
