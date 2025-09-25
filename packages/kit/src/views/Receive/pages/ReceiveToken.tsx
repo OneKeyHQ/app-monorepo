@@ -711,9 +711,9 @@ function ReceiveToken() {
             bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
             borderRadius="$2"
             borderCurve="continuous"
+            userSelect="none"
             {...(banner?.href
               ? {
-                  userSelect: 'none',
                   focusable: true,
                   focusVisibleStyle: {
                     outlineColor: '$focusRing',
