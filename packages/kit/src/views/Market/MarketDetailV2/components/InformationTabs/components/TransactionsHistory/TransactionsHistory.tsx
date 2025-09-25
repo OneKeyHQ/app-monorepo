@@ -145,7 +145,7 @@ export function TransactionsHistory({
         ) : null
       }
       contentContainerStyle={{
-        paddingBottom: platformEnv.isNativeAndroid ? 48 : 16,
+        paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
       }}
     />
   );
