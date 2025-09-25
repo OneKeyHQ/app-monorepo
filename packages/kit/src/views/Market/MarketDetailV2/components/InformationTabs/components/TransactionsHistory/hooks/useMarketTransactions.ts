@@ -36,7 +36,7 @@ export function useMarketTransactions({
       setAccumulatedTransactions(current);
       accumulatedTransactionsRef.current = current;
     },
-    1500,
+    platformEnv.isNative ? 1500 : 50,
   );
   const {
     result: transactionsData,
