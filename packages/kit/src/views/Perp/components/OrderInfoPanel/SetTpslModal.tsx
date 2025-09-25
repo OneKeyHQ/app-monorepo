@@ -310,7 +310,7 @@ const SetTpslForm = memo(
             ifOnDialog
           />
 
-          <YStack alignItems="flex-start" gap="$2" pb="$5" width="100%">
+          <YStack alignItems="flex-start" gap="$2" width="100%">
             <Checkbox
               value={configureAmount}
               onChange={(checked) => setConfigureAmount(Boolean(checked))}
@@ -359,21 +359,20 @@ const SetTpslForm = memo(
               </YStack>
             ) : null}
           </YStack>
-
-          <TradingGuardWrapper>
-            <Button
-              size="medium"
-              variant="primary"
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            >
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_confirm_order,
-              })}
-            </Button>{' '}
-          </TradingGuardWrapper>
         </YStack>
+        <TradingGuardWrapper>
+          <Button
+            size="medium"
+            variant="primary"
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            loading={isSubmitting}
+          >
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_confirm_order,
+            })}
+          </Button>{' '}
+        </TradingGuardWrapper>
       </YStack>
     );
   },
