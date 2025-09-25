@@ -14,7 +14,6 @@ import type {
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
@@ -28,21 +27,9 @@ function MarketDetail({
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
   const { tokenAddress, networkId, isNative } = route.params;
   const media = useMedia();
-  const tokenDetailActions = useTokenDetailActions();
 
   // Track market entry analytics
   useMarketEnterAnalytics();
-
-  // Clear all token detail content when unmount
-  useEffect(() => {
-    const actions = tokenDetailActions.current;
-    return () => {
-      actions.setTokenDetail(undefined);
-      actions.setTokenDetailLoading(false);
-      actions.setTokenAddress('');
-      actions.setNetworkId('');
-    };
-  }, [tokenDetailActions]);
 
   // Start auto-refresh for token details every 5 seconds
   useAutoRefreshTokenDetail({

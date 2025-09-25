@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
@@ -22,24 +22,17 @@ import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewV2Props {
-  identifier: string;
   symbol: string;
-  targetToken: string;
-  onLoadEnd: () => void;
   tradingViewUrl?: string;
   tokenAddress?: string;
   networkId?: string;
-  interval?: string;
-  timeFrom?: number;
-  timeTo?: number;
   decimal: number;
   onPanesCountChange?: (count: number) => void;
-  isNative?: boolean;
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
-export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
+export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
@@ -47,14 +40,12 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isVisible = useRouteIsFocused();
 
   const {
-    onLoadEnd,
     tradingViewUrl,
     tokenAddress = '',
     networkId = '',
     symbol,
     decimal,
     onPanesCountChange,
-    isNative = false,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -107,14 +98,13 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     [handleNavigation],
   );
 
-  return (
-    <Stack position="relative" flex={1}>
+  const webView = useMemo(
+    () => (
       <WebView
         key={theme}
         customReceiveHandler={async (data) => {
           await customReceiveHandler(data as ICustomReceiveHandlerData);
         }}
-        onLoadEnd={onLoadEnd}
         onWebViewRef={(ref) => {
           webRef.current = ref;
         }}
@@ -130,6 +120,19 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         decelerationRate="normal"
         src={tradingViewUrlWithParams}
       />
+    ),
+    [
+      customReceiveHandler,
+      onShouldStartLoadWithRequest,
+      theme,
+      tradingViewUrlWithParams,
+      webRef,
+    ],
+  );
+
+  return (
+    <Stack position="relative" flex={1}>
+      {webView}
 
       {platformEnv.isNativeIOS || isIPadPortrait ? (
         <Stack
@@ -144,4 +147,4 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
       ) : null}
     </Stack>
   );
-}
+};
