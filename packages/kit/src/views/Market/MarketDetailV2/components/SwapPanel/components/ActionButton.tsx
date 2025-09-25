@@ -184,7 +184,8 @@ export function ActionButton({
   }
 
   // Use colored style only for normal trading states (has amount, not disabled, has account)
-  const shouldUseColoredStyle = hasAmount && !shouldDisable && !noAccount;
+  const shouldUseColoredStyle =
+    hasAmount && !shouldDisable && !noAccount && !disabled;
 
   const buttonStyleProps = shouldUseColoredStyle
     ? {
@@ -217,17 +218,22 @@ export function ActionButton({
       }
       if (shouldCreateAddress?.result) {
         setCreateAddressLoading(true);
-        await createAddress({
-          num: 0,
-          selectAfterCreate: false,
-          account: {
-            walletId: activeAccount?.wallet?.id,
-            networkId: networkId ?? '',
-            indexedAccountId: activeAccount?.indexedAccount?.id,
-            deriveType: activeAccount?.deriveType ?? 'default',
-          },
-        });
-        setCreateAddressLoading(false);
+        try {
+          await createAddress({
+            num: 0,
+            selectAfterCreate: false,
+            account: {
+              walletId: activeAccount?.wallet?.id,
+              networkId: networkId ?? '',
+              indexedAccountId: activeAccount?.indexedAccount?.id,
+              deriveType: activeAccount?.deriveType ?? 'default',
+            },
+          });
+        } catch (e) {
+          console.error('Create address failed:', e);
+        } finally {
+          setCreateAddressLoading(false);
+        }
         return;
       }
 
