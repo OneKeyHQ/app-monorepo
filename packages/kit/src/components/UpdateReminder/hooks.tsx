@@ -628,6 +628,15 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
+
+    if (
+      appUpdateInfo.status !== EAppUpdateStatus.done &&
+      appUpdateInfo.status !== EAppUpdateStatus.notify &&
+      isForceUpdateStrategy(appUpdateInfo.updateStrategy)
+    ) {
+      toUpdatePreviewPage(true, appUpdateInfo);
+    }
+
     if (appUpdateInfo.status === EAppUpdateStatus.updateIncomplete) {
       // do nothing
     } else if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
