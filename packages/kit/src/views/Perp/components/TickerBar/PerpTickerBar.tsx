@@ -27,6 +27,7 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 
 function PerpTickerBar() {
@@ -91,13 +92,16 @@ function PerpTickerBar() {
             </Badge>
           </XStack>
         </YStack>
-        <IconButton
-          icon="TradingViewCandlesOutline"
-          size="small"
-          iconColor="$iconSubdued"
-          variant="tertiary"
-          onPress={onPressCandleChart}
-        />
+        <XStack gap="$3" alignItems="center">
+          <IconButton
+            icon="TradingViewCandlesOutline"
+            size="small"
+            iconProps={{ color: '$iconSubdued' }}
+            variant="tertiary"
+            onPress={onPressCandleChart}
+          />
+          <PerpSettingsButton testID="perp-mobile-settings-button" />
+        </XStack>
       </XStack>
     );
   }

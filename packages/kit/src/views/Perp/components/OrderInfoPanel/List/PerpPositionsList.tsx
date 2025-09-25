@@ -245,7 +245,7 @@ function PerpPositionsList({
       useTabsList
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
-      enablePagination
+      enablePagination={!isMobile}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={positionSort}
