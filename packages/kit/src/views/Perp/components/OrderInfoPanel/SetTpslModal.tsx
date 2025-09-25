@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 
 import {
@@ -272,7 +272,7 @@ const SetTpslForm = memo(
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {positionSize.toNumber()} {position.coin}
+                {positionSize.toFixed(szDecimals)} {position.coin}
               </SizableText>
             </XStack>
 
