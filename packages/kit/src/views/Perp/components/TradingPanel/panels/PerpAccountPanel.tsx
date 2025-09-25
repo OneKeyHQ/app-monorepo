@@ -16,7 +16,6 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAccountPanelDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -24,9 +23,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes/setting';
 
+import { PerpSettingsButton } from '../../PerpSettingsButton';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -62,7 +60,6 @@ function PerpAccountPanel({
   const userAddress = selectedAccount.accountAddress;
   const userAccountId = selectedAccount.accountId;
   const { gtSm } = useMedia();
-  const navigation = useAppNavigation();
   const accountDataInfo = useMemo(() => {
     const withdrawableBalance = accountSummary.withdrawable;
     const accountValue = accountSummary.accountValue;
@@ -124,11 +121,6 @@ function PerpAccountPanel({
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
-  const handleOpenPerpSettings = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingPerpUserConfig,
-    });
-  }, [navigation]);
 
   if (isTradingPanel) {
     return (
@@ -184,14 +176,7 @@ function PerpAccountPanel({
           </SizableText>
         </Badge>
         {platformEnv.isNative ? null : (
-          <IconButton
-            size="small"
-            variant="tertiary"
-            icon="SettingsOutline"
-            iconColor="$iconSubdued"
-            onPress={handleOpenPerpSettings}
-            testID="perp-header-settings-button"
-          />
+          <PerpSettingsButton testID="perp-header-settings-button" />
         )}
       </XStack>
     );
