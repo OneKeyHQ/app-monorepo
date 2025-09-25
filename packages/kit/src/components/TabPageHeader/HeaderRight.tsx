@@ -168,7 +168,7 @@ function DepositAction() {
           size="$bodySmMedium"
           color="$textSubdued"
         >
-          {intl.formatMessage({ id: ETranslations.earn_deposit })}
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
         </SizableText>
       </XStack>
     </Button>
