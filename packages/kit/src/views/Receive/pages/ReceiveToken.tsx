@@ -649,6 +649,7 @@ function ReceiveToken() {
                   borderWidth={4}
                   borderColor="white"
                   borderRadius="$full"
+                  bg="white"
                 >
                   <Token
                     size="lg"
