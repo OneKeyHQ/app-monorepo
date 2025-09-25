@@ -11,20 +11,6 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import {
-  useOpenOrdersListAtom,
-  usePositionListAtom,
-} from '../../../states/jotai/contexts/hyperliquid';
-
-export function usePerpPositions() {
-  const [positions] = usePositionListAtom();
-  return positions;
-}
-
-export function usePerpOrders() {
-  const [orders] = useOpenOrdersListAtom();
-  return orders;
-}
 
 interface INewTradesHistory {
   fill: IFill;

@@ -12,8 +12,7 @@ export { useSubscriptionActiveAtom } from './atoms';
 export {
   useTradingFormAtom,
   useTradingLoadingAtom,
-  usePositionListAtom,
-  useOpenOrdersListAtom,
+  usePerpsActivePositionAtom,
 } from './atoms';
 
 export { useHyperliquidActions } from './actions';

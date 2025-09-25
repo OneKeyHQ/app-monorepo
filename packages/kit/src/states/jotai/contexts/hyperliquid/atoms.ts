@@ -8,6 +8,7 @@ import type {
 const {
   Provider: ProviderJotaiContextHyperliquid,
   contextAtom,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   contextAtomComputed,
   contextAtomMethod,
 } = createJotaiContext();
@@ -22,8 +23,6 @@ export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   }>({
     allAssetCtxs: [],
   });
-
-export const { atom: webData2Atom } = contextAtom<HL.IWsWebData2 | null>(null);
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
@@ -75,33 +74,26 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
   contextAtom<boolean>(false);
 
-// IPerpsAssetPosition[]
-export const { atom: positionListAtom, use: usePositionListAtom } =
-  contextAtomComputed((get) => {
-    const webData2 = get(webData2Atom());
+export type IPerpsActivePositionAtom = {
+  accountAddress: string | undefined;
+  activePositions: HL.IPerpsAssetPosition[];
+};
+export const {
+  atom: perpsActivePositionAtom,
+  use: usePerpsActivePositionAtom,
+} = contextAtom<IPerpsActivePositionAtom>({
+  accountAddress: undefined,
+  activePositions: [],
+});
 
-    if (!webData2?.clearinghouseState?.assetPositions) {
-      return [];
-    }
-
-    const positions = webData2.clearinghouseState.assetPositions;
-
-    const activePositions = positions.filter((pos) => {
-      const size = parseFloat(pos.position?.szi || '0');
-      return Math.abs(size) > 0;
-    });
-
-    return activePositions;
-  });
-
-// IPerpsFrontendOrder[]
-export const { atom: openOrdersListAtom, use: useOpenOrdersListAtom } =
-  contextAtomComputed((get) => {
-    const webData2 = get(webData2Atom());
-
-    if (!webData2?.openOrders) {
-      return [];
-    }
-
-    return webData2.openOrders;
-  });
+export type IPerpsActiveOpenOrdersAtom = {
+  accountAddress: string | undefined;
+  openOrders: HL.IPerpsFrontendOrder[];
+};
+export const {
+  atom: perpsActiveOpenOrdersAtom,
+  use: usePerpsActiveOpenOrdersAtom,
+} = contextAtom<IPerpsActiveOpenOrdersAtom>({
+  accountAddress: undefined,
+  openOrders: [],
+});

@@ -18,12 +18,13 @@ import {
   contextAtomMethod,
   l2BookAtom,
   orderBookTickOptionsAtom,
+  perpsActiveOpenOrdersAtom,
+  perpsActivePositionAtom,
   perpsAllAssetCtxsAtom,
   perpsAllMidsAtom,
   subscriptionActiveAtom,
   tradingFormAtom,
   tradingLoadingAtom,
-  webData2Atom,
 } from './atoms';
 import { EActionType, withToast } from './utils';
 
@@ -61,9 +62,51 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
   });
 
-  updateWebData2 = contextAtomMethod((_, set, data: HL.IWsWebData2) => {
-    set(webData2Atom(), data); // TODO remove
+  updateWebData2 = contextAtomMethod(async (get, set, data: HL.IWsWebData2) => {
     this.updateAllAssetCtxs.call(set, data);
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const dataUser = data?.user?.toLowerCase();
+    const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
+
+    if (activeAccountAddress === dataUser) {
+      // Update active positions from webData2
+      const positions = data?.clearinghouseState?.assetPositions || [];
+      const activePositions = positions.filter((pos) => {
+        const size = parseFloat(pos.position?.szi || '0');
+        return Math.abs(size) > 0;
+      });
+
+      set(perpsActivePositionAtom(), {
+        accountAddress: activeAccountAddress,
+        activePositions,
+      });
+
+      const openOrders = data?.openOrders || [];
+      set(perpsActiveOpenOrdersAtom(), {
+        accountAddress: activeAccountAddress,
+        openOrders,
+      });
+    } else {
+      const activePosition = get(perpsActivePositionAtom());
+      if (
+        activePosition?.accountAddress?.toLowerCase() !== activeAccountAddress
+      ) {
+        set(perpsActivePositionAtom(), {
+          accountAddress: activeAccountAddress,
+          activePositions: [],
+        });
+      }
+      const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
+      if (
+        activeOpenOrders?.accountAddress?.toLowerCase() !== activeAccountAddress
+      ) {
+        set(perpsActiveOpenOrdersAtom(), {
+          accountAddress: activeAccountAddress,
+          openOrders: [],
+        });
+      }
+    }
   });
 
   updateL2Book = contextAtomMethod((_, set, data: HL.IBook) => {
@@ -331,7 +374,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   // reset user data
   clearUserData = contextAtomMethod((get, set) => {
-    set(webData2Atom(), null);
+    // TODO
   });
 
   // reset all data
@@ -340,7 +383,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(perpsAllAssetCtxsAtom(), {
       allAssetCtxs: [],
     });
-    set(webData2Atom(), null);
     set(l2BookAtom(), null);
     set(subscriptionActiveAtom(), false);
     set(connectionStateAtom(), {

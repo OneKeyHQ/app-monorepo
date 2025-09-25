@@ -1,5 +1,6 @@
+export { usePerpsActivePositionAtom } from '../../../states/jotai/contexts/hyperliquid';
+export { usePerpsActiveOpenOrdersAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
 export { usePerpTokenSelector } from './usePerpTokenSelector';
-export { usePerpPositions } from './usePerpOrderInfoPanel';
 export { usePerpSession } from './usePerpSession';
 
 export { useFundingCountdown } from './useFundingCountdown';

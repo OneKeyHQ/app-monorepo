@@ -5,16 +5,16 @@ import { useIntl } from 'react-intl';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useHyperliquidActions,
+  usePerpsActivePositionAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import {
-  usePerpOrders,
-  usePerpPositions,
-} from '../../../hooks/usePerpOrderInfoPanel';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
 import { showSetTpslDialog } from '../SetTpslModal';
@@ -35,8 +35,8 @@ function PerpPositionsList({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [currentUser] = usePerpsActiveAccountAtom();
-  const positions = usePerpPositions();
-  const openOrders = usePerpOrders();
+  const [{ activePositions: positions }] = usePerpsActivePositionAtom();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
