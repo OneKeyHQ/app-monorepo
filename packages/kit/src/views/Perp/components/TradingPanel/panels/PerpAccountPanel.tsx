@@ -24,6 +24,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { PerpSettingsButton } from '../../PerpSettingsButton';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 import type { FontSizeTokens } from 'tamagui';
@@ -120,6 +121,7 @@ function PerpAccountPanel({
     },
     [userAccountId, userAddress, accountSummary.withdrawable],
   );
+
   if (isTradingPanel) {
     return (
       <IconButton
@@ -135,43 +137,48 @@ function PerpAccountPanel({
   }
   if (ifOnHeader) {
     return (
-      <Badge
-        borderRadius="$full"
-        size="medium"
-        variant="secondary"
-        onPress={() => handleDepositOrWithdraw('deposit')}
-        alignItems="center"
-        justifyContent="center"
-        flexDirection="row"
-        gap="$2"
-        px="$3"
-        h={32}
-        hoverStyle={{
-          bg: '$bgStrongHover',
-        }}
-        pressStyle={{
-          bg: '$bgStrongActive',
-        }}
-        cursor="pointer"
-      >
-        <Icon name="WalletOutline" size="$4" />
+      <XStack alignItems="center" gap="$5">
+        <Badge
+          borderRadius="$full"
+          size="medium"
+          variant="secondary"
+          onPress={() => handleDepositOrWithdraw('deposit')}
+          alignItems="center"
+          justifyContent="center"
+          flexDirection="row"
+          gap="$2"
+          px="$3"
+          h={32}
+          hoverStyle={{
+            bg: '$bgStrongHover',
+          }}
+          pressStyle={{
+            bg: '$bgStrongActive',
+          }}
+          cursor="pointer"
+        >
+          <Icon name="WalletOutline" size="$4" />
 
-        {gtSm
-          ? renderAccountValue(
-              accountDataInfo.accountValue ?? '',
-              60,
-              '$bodySmMedium',
-            )
-          : null}
-        <Divider
-          borderWidth={0.33}
-          borderBottomWidth={12}
-          borderColor="$borderSubdued"
-        />
-        <SizableText size="$bodySmMedium" color="$text">
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
-      </Badge>
+          {gtSm
+            ? renderAccountValue(
+                accountDataInfo.accountValue ?? '',
+                60,
+                '$bodySmMedium',
+              )
+            : null}
+          <Divider
+            borderWidth={0.33}
+            borderBottomWidth={12}
+            borderColor="$borderSubdued"
+          />
+          <SizableText size="$bodySmMedium" color="$text">
+            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          </SizableText>
+        </Badge>
+        {platformEnv.isNative ? null : (
+          <PerpSettingsButton testID="perp-header-settings-button" />
+        )}
+      </XStack>
     );
   }
   return (

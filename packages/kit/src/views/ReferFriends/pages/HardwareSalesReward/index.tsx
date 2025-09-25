@@ -94,7 +94,7 @@ export default function HardwareSalesReward() {
         if (salesResult.status === 'fulfilled') {
           const data = salesResult.value;
           setSections(formatSections(data.items));
-          originalData.current.push(...data.items);
+          originalData.current = data.items;
         }
 
         if (summaryResult.status === 'fulfilled') {
