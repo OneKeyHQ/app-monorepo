@@ -391,6 +391,7 @@ function TokenDetailsHeader(props: IProps) {
                 <SizableText
                   size="$bodyMd"
                   color="$text"
+                  flexShrink={1}
                   $platform-web={{
                     wordBreak: 'break-word',
                   }}
