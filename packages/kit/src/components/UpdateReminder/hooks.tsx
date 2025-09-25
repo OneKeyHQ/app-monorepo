@@ -285,15 +285,11 @@ export const useDownloadPackage = () => {
       ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
       defaultLogger.app.appUpdate.endVerifyPackage(true);
-
-      if (appUpdateInfo.updateStrategy === EUpdateStrategy.silent) {
-        showSilentUpdateDialog();
-      }
     } catch (e) {
       defaultLogger.app.appUpdate.endVerifyPackage(false, e as Error);
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
-  }, [showSilentUpdateDialog]);
+  }, []);
 
   const verifyASC = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
