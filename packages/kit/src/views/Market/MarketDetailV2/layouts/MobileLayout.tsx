@@ -73,7 +73,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
     return '40vh';
   }, [height, isNative]);
 
-  const renderInformationHeader = useCallback(() => {
+  const informationHeader = useMemo(() => {
     return (
       <YStack bg="$bgApp" pointerEvents="box-none">
         <InformationPanel />
@@ -95,13 +95,18 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
     tradingViewHeight,
   ]);
 
+  const renderInformationHeader = useCallback(
+    () => informationHeader,
+    [informationHeader],
+  );
+
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
         return (
           <YStack flex={1} height={height}>
             {isNative ? (
-              renderInformationHeader()
+              informationHeader
             ) : (
               <MobileInformationTabs
                 onScrollEnd={noop}
@@ -121,7 +126,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
         </YStack>
       );
     },
-    [height, isNative, renderInformationHeader],
+    [height, isNative, informationHeader, renderInformationHeader],
   );
 
   return (
