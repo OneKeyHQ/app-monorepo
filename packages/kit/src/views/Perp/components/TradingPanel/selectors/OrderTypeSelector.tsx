@@ -40,7 +40,9 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
         value={value}
         onChange={onChange}
         disabled={disabled}
-        title="Order Type"
+        title={intl.formatMessage({
+          id: ETranslations.perp_trade_order_type,
+        })}
         renderTrigger={({ onPress, label, disabled: disabledTrigger }) => (
           <XStack
             cursor="pointer"
@@ -55,11 +57,7 @@ export const OrderTypeSelector = memo<IOrderTypeSelectorProps>(
             flex={1}
           >
             <SizableText size="$bodyMdMedium">{label}</SizableText>
-            <Icon
-              name="ChevronTriangleDownSmallOutline"
-              color="$icon"
-              size="$5"
-            />
+            <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
           </XStack>
         )}
         placement="bottom-start"

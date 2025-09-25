@@ -15,29 +15,14 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EPassKeyWindowFrom,
-  EPassKeyWindowType,
-} from '@onekeyhq/shared/src/utils/extUtils';
+import { EPassKeyWindowType } from '@onekeyhq/shared/src/utils/extUtils';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { setupExtUIEventOnPassKeyPage } from '../background/extUI';
+import { closeWindow } from '../closePasskeyWIndow';
 
 const params = new URLSearchParams(globalThis.location.href.split('?').pop());
-const from = params.get('from') as EPassKeyWindowFrom;
 const type = params.get('type') as EPassKeyWindowType;
-
-const closeWindow = () => {
-  console.log('closeWindow');
-  if (
-    from === EPassKeyWindowFrom.popup ||
-    from === EPassKeyWindowFrom.sidebar
-  ) {
-    setTimeout(() => {
-      window.close();
-    }, 50);
-  }
-};
 
 const usePassKeyOperations = () => {
   const { setWebAuthEnable, verifiedPasswordWebAuth, checkWebAuth } =
@@ -127,7 +112,7 @@ const usePassKeyOperations = () => {
         },
       }));
     } finally {
-      console.log('close from renderPassKeyPage', from);
+      console.log('close from renderPassKeyPage');
       closeWindow();
     }
   }, [

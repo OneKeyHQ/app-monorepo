@@ -118,10 +118,11 @@ const TradesHistoryRow = memo(
             alignItems="center"
             width="100%"
           >
-            <YStack gap="$2">
+            <YStack gap="$1">
               <XStack
                 gap="$2"
                 cursor="pointer"
+                alignItems="center"
                 onPress={() => selectToken(assetSymbol)}
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
@@ -136,7 +137,7 @@ const TradesHistoryRow = memo(
                 {dateInfo.date} {dateInfo.time}
               </SizableText>
             </YStack>
-            <YStack gap="$2" alignItems="flex-end">
+            <YStack gap="$1" alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.perp_trades_close_pnl,

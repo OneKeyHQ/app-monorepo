@@ -2,6 +2,8 @@ import 'setimmediate';
 
 import '@onekeyhq/shared/src/polyfills/globalShim';
 
+import { closeWindow } from '../closePasskeyWIndow';
+
 const activeTimeAt = Date.now();
 console.log('activeTimeAt', activeTimeAt);
 const maxActiveTime = 5 * 60 * 1000;
@@ -9,7 +11,7 @@ const checkInterval = setInterval(() => {
   const currentTime = Date.now();
   if (currentTime - activeTimeAt >= maxActiveTime) {
     clearInterval(checkInterval);
-    window.close();
+    closeWindow();
   }
 }, 10);
 
@@ -17,7 +19,7 @@ const checkInterval = setInterval(() => {
 window.addEventListener('focus', () => {
   const currentTime = Date.now();
   if (currentTime - activeTimeAt >= maxActiveTime) {
-    window.close();
+    closeWindow();
   }
 });
 

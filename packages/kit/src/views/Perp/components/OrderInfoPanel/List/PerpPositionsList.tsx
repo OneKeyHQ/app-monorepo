@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,6 +6,7 @@ import {
   useAllMidsAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useCurrentUserAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
@@ -31,12 +32,16 @@ function PerpPositionsList({
   isMobile,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
+  const [currentUser] = useCurrentUserAtom();
   const positions = usePerpPositions();
   const openOrders = usePerpOrders();
   const [allMids] = useAllMidsAtom();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
-
+  const [currentListPage, setCurrentListPage] = useState(1);
+  useEffect(() => {
+    setCurrentListPage(1);
+  }, [currentUser]);
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
       {
@@ -100,6 +105,9 @@ function PerpPositionsList({
         minWidth: 100,
         align: 'left',
         flex: 1,
+        tooltip: intl.formatMessage({
+          id: ETranslations.perp_position_margin_tooltip,
+        }),
       },
       {
         key: 'funding',
@@ -109,6 +117,9 @@ function PerpPositionsList({
         minWidth: 100,
         align: 'left',
         flex: 1,
+        tooltip: intl.formatMessage({
+          id: ETranslations.perp_position_margin_tooltip_funding,
+        }),
       },
       {
         key: 'TPSL',
@@ -231,6 +242,10 @@ function PerpPositionsList({
 
   return (
     <CommonTableListView
+      useTabsList
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
+      enablePagination
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={positionSort}

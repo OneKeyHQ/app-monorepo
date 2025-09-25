@@ -109,6 +109,7 @@ export interface IBundleUpdate {
   downloadBundleASC: IDownloadBundleASC;
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
+  clearAllJSBundleData: () => Promise<void>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;

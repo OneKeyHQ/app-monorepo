@@ -1,8 +1,10 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Divider,
+  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -12,9 +14,11 @@ import {
 import {
   useCurrentTokenPriceAtom,
   useHyperliquidActions,
+  useOrderBookTickOptionsAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
@@ -57,25 +61,136 @@ function MobileHeader() {
     markPriceNumber === 0;
 
   return (
-    <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-      <SizableText fontSize={10} color="$textSubdued">
-        {intl.formatMessage({
-          id: ETranslations.perp_token_bar_Funding,
-        })}
-      </SizableText>
-      {showSkeleton ? (
-        <Skeleton width={120} height={16} />
-      ) : (
-        <XStack alignItems="center" gap={6}>
-          <SizableText size="$bodySmMedium" color={fundingColor}>
-            {fundingDisplay}
+    <Popover
+      title={intl.formatMessage({
+        id: ETranslations.perp_position_funding,
+      })}
+      renderTrigger={
+        <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
+          <SizableText fontSize={10} color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_token_bar_Funding,
+            })}
           </SizableText>
-          <SizableText size="$bodySmMedium" color="$text">
-            {countdown}
-          </SizableText>
-        </XStack>
-      )}
-    </YStack>
+          {showSkeleton ? (
+            <Skeleton width={120} height={16} />
+          ) : (
+            <XStack alignItems="center" gap={6}>
+              <SizableText size="$bodySmMedium" color={fundingColor}>
+                {fundingDisplay}
+              </SizableText>
+              <SizableText size="$bodySmMedium" color="$text">
+                {countdown}
+              </SizableText>
+            </XStack>
+          )}
+        </YStack>
+      }
+      renderContent={
+        <YStack
+          bg="$bg"
+          justifyContent="center"
+          w="100%"
+          px="$5"
+          pt="$2"
+          pb="$5"
+          gap="$5"
+        >
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_token_bar_Funding,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={fundingColor}>
+                {fundingDisplay}
+              </SizableText>
+            </YStack>
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_ticker_annualized_funding_tooltip,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={fundingColor}>
+                {(parseFloat(fundingRate) * 100 * 24 * 365).toFixed(2)}%
+              </SizableText>
+            </YStack>
+          </XStack>
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trades_history_direction,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium" color={fundingColor}>
+                {parseFloat(fundingRate) >= 0 ? (
+                  <SizableText size="$bodySmMedium" color="$text">
+                    <SizableText size="$bodySmMedium" color="$green11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                      })}
+                    </SizableText>{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                    })}{' '}
+                    <SizableText size="$bodySmMedium" color="$red11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                      })}
+                    </SizableText>
+                  </SizableText>
+                ) : (
+                  <SizableText size="$bodySmMedium" color="$text">
+                    <SizableText size="$bodySmMedium" color="$red11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                      })}
+                    </SizableText>{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                    })}{' '}
+                    <SizableText size="$bodySmMedium" color="$green11">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                      })}
+                    </SizableText>
+                  </SizableText>
+                )}
+              </SizableText>
+            </YStack>
+            <YStack w="50%">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_countdown,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{countdown}</SizableText>
+            </YStack>
+          </XStack>
+          <Divider />
+          <YStack gap="$2">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate_tip0,
+              })}
+            </SizableText>
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate_tip1,
+              })}
+            </SizableText>
+            <SizableText size="$bodySmMedium">
+              {intl.formatMessage({
+                id: ETranslations.perp_funding_rate_tip2,
+              })}
+            </SizableText>
+          </YStack>
+        </YStack>
+      }
+    />
   );
 }
 const MobileHeaderMemo = memo(MobileHeader);
@@ -88,11 +203,24 @@ export function PerpOrderBook({
   const { gtMd } = useMedia();
   const actionsRef = useHyperliquidActions();
   const [formData] = useTradingFormAtom();
-  const [selectedTickOption, setSelectedTickOption] = useState<ITickParam>();
-  const prevSymbolRef = useRef<string | undefined>(undefined);
+  const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+  const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
+
+  const l2SubscriptionOptions = useMemo(() => {
+    const coin = perpsSelectedSymbol?.coin;
+    if (!coin) {
+      return { nSigFigs: null, mantissa: undefined };
+    }
+    const stored = orderBookTickOptions[coin];
+    const nSigFigs = stored?.nSigFigs ?? null;
+    const mantissa =
+      stored?.mantissa === undefined ? undefined : stored.mantissa;
+    return { nSigFigs, mantissa };
+  }, [orderBookTickOptions, perpsSelectedSymbol?.coin]);
+
   const { l2Book, hasOrderBook } = useL2Book({
-    nSigFigs: selectedTickOption?.nSigFigs || null,
-    mantissa: selectedTickOption?.mantissa,
+    nSigFigs: l2SubscriptionOptions.nSigFigs,
+    mantissa: l2SubscriptionOptions.mantissa,
   });
 
   const tickOptionsData = useTickOptions({
@@ -100,21 +228,20 @@ export function PerpOrderBook({
     bids: l2Book?.bids ?? [],
     asks: l2Book?.asks ?? [],
   });
+  const {
+    tickOptions,
+    selectedTickOption,
+    setSelectedTickOption,
+    priceDecimals,
+    sizeDecimals,
+  } = tickOptionsData;
 
-  useEffect(() => {
-    // Only reset when symbol changes or when initially setting
-    if (
-      (prevSymbolRef.current !== l2Book?.coin || !selectedTickOption) &&
-      tickOptionsData.defaultTickOption
-    ) {
-      setSelectedTickOption(tickOptionsData.defaultTickOption);
-      prevSymbolRef.current = l2Book?.coin;
-    }
-  }, [l2Book?.coin, tickOptionsData.defaultTickOption, selectedTickOption]);
-
-  const handleTickOptionChange = useCallback((option: ITickParam) => {
-    setSelectedTickOption(option);
-  }, []);
+  const handleTickOptionChange = useCallback(
+    (option: ITickParam) => {
+      setSelectedTickOption(option);
+    },
+    [setSelectedTickOption],
+  );
 
   const handleLevelSelect = useCallback(
     (selection: IOrderBookSelection) => {
@@ -144,10 +271,10 @@ export function PerpOrderBook({
           maxLevelsPerSide={13}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptionsData.tickOptions}
+          tickOptions={tickOptions}
           showTickSelector
-          priceDecimals={tickOptionsData.priceDecimals}
-          sizeDecimals={tickOptionsData.sizeDecimals}
+          priceDecimals={priceDecimals}
+          sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
       );
@@ -159,13 +286,13 @@ export function PerpOrderBook({
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={6}
+          maxLevelsPerSide={formData.hasTpsl ? 8 : 6}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptionsData.tickOptions}
+          tickOptions={tickOptions}
           showTickSelector
-          priceDecimals={tickOptionsData.priceDecimals}
-          sizeDecimals={tickOptionsData.sizeDecimals}
+          priceDecimals={priceDecimals}
+          sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
       </YStack>
@@ -177,8 +304,11 @@ export function PerpOrderBook({
     l2Book,
     handleLevelSelect,
     selectedTickOption,
-    tickOptionsData,
     hasOrderBook,
+    formData.hasTpsl,
+    tickOptions,
+    priceDecimals,
+    sizeDecimals,
   ]);
 
   if (!hasOrderBook || !l2Book) {
@@ -202,10 +332,10 @@ export function PerpOrderBook({
           maxLevelsPerSide={12}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
-          tickOptions={tickOptionsData.tickOptions}
+          tickOptions={tickOptions}
           showTickSelector
-          priceDecimals={tickOptionsData.priceDecimals}
-          sizeDecimals={tickOptionsData.sizeDecimals}
+          priceDecimals={priceDecimals}
+          sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
         />
       ) : (

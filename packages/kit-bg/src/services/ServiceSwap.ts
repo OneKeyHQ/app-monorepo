@@ -22,12 +22,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   formatBalance,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ESigningScheme } from '@onekeyhq/shared/types/message';
@@ -957,17 +959,29 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async checkSupportSwap({ networkId }: { networkId: string }) {
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const resp = await client.get<{
-      data: ISwapCheckSupportResponse[];
-    }>(`/swap/v1/check-support`, {
-      params: {
-        networkId,
-        protocol: EProtocolOfExchange.SWAP,
-      },
-    });
-    return resp.data.data[0];
+    return this.checkSupportSwapMemo({ networkId });
   }
+
+  checkSupportSwapMemo = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.get<{
+        data: ISwapCheckSupportResponse[];
+      }>(`/swap/v1/check-support`, {
+        params: {
+          networkId,
+          protocol: EProtocolOfExchange.SWAP,
+        },
+      });
+      return resp.data.data[0];
+    },
+    {
+      max: 10,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      promise: true,
+      primitive: true,
+    },
+  );
 
   @backgroundMethod()
   async fetchApproveAllowance({

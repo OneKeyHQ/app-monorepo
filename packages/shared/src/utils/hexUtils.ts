@@ -54,6 +54,10 @@ function hexStringToUtf8String(hexString: string): string {
   }
 }
 
+function stringToUtf8Bytes(str: string): Buffer {
+  return Buffer.from(utils.toUtf8Bytes(str));
+}
+
 function utf8StringToHexString(utf8String: string): string {
   const encoder = new TextEncoder();
   const bytes = encoder.encode(utf8String);
@@ -69,4 +73,5 @@ export default {
   isHexString,
   hexStringToUtf8String,
   utf8StringToHexString,
+  stringToUtf8Bytes,
 };

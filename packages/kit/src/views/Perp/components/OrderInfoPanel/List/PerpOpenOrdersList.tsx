@@ -1,11 +1,12 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useCurrentUserAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList } from '../../../hooks';
+import { useTokenList, useTradingGuard } from '../../../hooks';
 import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
@@ -20,10 +21,17 @@ interface IPerpOpenOrdersListProps {
 function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
   const orders = usePerpOrders();
+  const [currentUser] = useCurrentUserAtom();
   const actions = useHyperliquidActions();
   const { getTokenInfo } = useTokenList();
+  const { ensureTradingEnabled } = useTradingGuard();
 
+  const [currentListPage, setCurrentListPage] = useState(1);
+  useEffect(() => {
+    setCurrentListPage(1);
+  }, [currentUser]);
   const handleCancelAll = useCallback(() => {
+    ensureTradingEnabled();
     const ordersToCancel = orders
       .map((order) => {
         const tokenInfo = getTokenInfo(order.coin);
@@ -44,7 +52,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     }
 
     void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, getTokenInfo, actions]);
+  }, [orders, getTokenInfo, actions, ensureTradingEnabled]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -136,6 +144,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
 
   const handleCancelOrder = useCallback(
     (order: FrontendOrder) => {
+      ensureTradingEnabled();
       const tokenInfo = getTokenInfo(order.coin);
       if (!tokenInfo) {
         console.warn(`Token info not found for coin: ${order.coin}`);
@@ -150,7 +159,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         ],
       });
     },
-    [getTokenInfo, actions],
+    [getTokenInfo, actions, ensureTradingEnabled],
   );
 
   const totalMinWidth = useMemo(
@@ -175,6 +184,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
+      useTabsList
+      enablePagination
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={orders}

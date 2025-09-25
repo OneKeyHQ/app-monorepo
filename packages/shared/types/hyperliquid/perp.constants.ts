@@ -24,3 +24,6 @@ export const USDC_TOKEN_INFO = {
   symbol: 'USDC',
   isNative: false,
 } as const;
+
+export const HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS = 60_000;
+export const MIN_WITHDRAW_AMOUNT = 2; // Minimum withdraw amount is 2 USDC

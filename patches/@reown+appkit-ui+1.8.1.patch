@@ -1,3 +1,15 @@
+diff --git a/node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-ux-by-reown/styles.js b/node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-ux-by-reown/styles.js
+index d24f360..ef7c90b 100644
+--- a/node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-ux-by-reown/styles.js
++++ b/node_modules/@reown/appkit-ui/dist/esm/src/composites/wui-ux-by-reown/styles.js
+@@ -2,6 +2,7 @@ import { css } from '../../utils/ThemeHelperUtil.js';
+ export default css `
+   .reown-logo {
+     height: 24px;
++    width: 90px;
+   }
+ 
+   a {
 diff --git a/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js b/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js
 index 96d6d8b..069ca19 100644
 --- a/node_modules/@reown/appkit-ui/dist/esm/src/utils/ThemeConstantsUtil.js

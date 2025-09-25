@@ -1,6 +1,8 @@
 import { memo, useCallback } from 'react';
+import type { ReactNode } from 'react';
 
 import {
+  Icon,
   Input,
   SizableText,
   XStack,
@@ -13,6 +15,7 @@ interface IInputAction {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  icon?: string;
 }
 
 interface IInputHelper {
@@ -28,6 +31,7 @@ interface ITradingFormInputProps {
   disabled?: boolean;
   error?: string;
   suffix?: string;
+  customSuffix?: ReactNode;
   actions?: IInputAction[];
   helper?: IInputHelper;
   validator?: (value: string) => boolean;
@@ -46,6 +50,7 @@ export const TradingFormInput = memo(
     disabled = false,
     error,
     suffix,
+    customSuffix,
     actions,
     helper,
     validator,
@@ -64,7 +69,11 @@ export const TradingFormInput = memo(
     const renderAddOns = () => {
       const addOns = [];
 
-      if (suffix) {
+      if (customSuffix) {
+        addOns.push({
+          renderContent: <XStack alignItems="center">{customSuffix}</XStack>,
+        });
+      } else if (suffix) {
         addOns.push({
           renderContent: (
             <XStack alignItems="center">
@@ -85,10 +94,14 @@ export const TradingFormInput = memo(
                 cursor="pointer"
                 onPress={action.onPress}
                 opacity={action.disabled ? 0.5 : 1}
+                gap="$1"
               >
                 <SizableText size="$bodyMdMedium" color={action.labelColor}>
                   {action.label}
                 </SizableText>
+                {action.icon ? (
+                  <Icon name={action.icon as any} size="$3" />
+                ) : null}
               </XStack>
             ),
           });
@@ -128,7 +141,7 @@ export const TradingFormInput = memo(
               p: 0,
               bg: 'transparent',
             }}
-            addOns={renderAddOns()}
+            addOns={disabled ? undefined : renderAddOns()}
           />
           {error ? (
             <SizableText size="$bodySm" color="$red10" mt="$1">
@@ -152,38 +165,50 @@ export const TradingFormInput = memo(
     }
     return (
       <YStack
-        bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+        bg="$bgSubdued"
         borderRadius="$3"
-        borderWidth={ifOnDialog ? '$px' : 0}
-        borderColor={ifOnDialog ? '$borderSubdued' : undefined}
-        p="$3"
-        pb="$2"
+        py="$1"
+        pl="$1"
+        pr="$2.5"
+        hoverStyle={
+          ifOnDialog
+            ? undefined
+            : {
+                outlineWidth: '$px',
+                outlineColor: '$border',
+                outlineStyle: 'solid',
+              }
+        }
+        borderWidth={ifOnDialog ? '$px' : '$0'}
+        borderColor={ifOnDialog ? '$border' : '$transparent'}
       >
-        <SizableText size="$bodySm" color="$textSubdued" mb="$1">
-          {label}
-        </SizableText>
         <YStack>
           <Input
-            flex={1}
-            size="medium"
+            h={40}
+            placeholder={placeholder}
+            textAlign="right"
+            leftAddOnProps={{
+              renderContent: (
+                <XStack alignItems="center" justifyContent="center">
+                  <SizableText size="$bodyMd" color="$textSubdued" mr="$2">
+                    {label}
+                  </SizableText>
+                </XStack>
+              ),
+            }}
             value={value}
             onChangeText={handleInputChange}
-            placeholder={placeholder}
-            keyboardType={keyboardType}
             disabled={disabled}
-            fontSize={getFontSize('$headingMd')}
+            keyboardType="decimal-pad"
+            size="small"
             containerProps={{
-              flex: 1,
-              borderWidth: 0,
-              bg: 'transparent',
-              p: 0,
-            }}
-            InputComponentStyle={{
-              p: 0,
-              bg: 'transparent',
+              bg: '$bgSubdued',
+              borderRadius: '$2',
+              borderWidth: '$0',
             }}
             addOns={renderAddOns()}
           />
+
           {error ? (
             <SizableText size="$bodySm" color="$red10" mt="$1">
               {error}
