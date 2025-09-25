@@ -80,6 +80,7 @@ export interface IUpdateProgressUpdate {
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
+autoUpdater.disableWebInstaller = true;
 autoUpdater.logger = logger;
 
 class DesktopApiAppUpdate {
