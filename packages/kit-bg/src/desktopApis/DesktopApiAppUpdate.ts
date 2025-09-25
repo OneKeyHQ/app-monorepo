@@ -10,6 +10,7 @@ import { readCleartextMessage, readKey } from 'openpgp';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';

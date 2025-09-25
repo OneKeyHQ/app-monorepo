@@ -663,9 +663,9 @@ export class ExternalControllerEvm extends ExternalControllerBase {
             | { name: string; symbol: string; decimals: number }
             | undefined {
             throw new OneKeyLocalError(
-              `connected wallet does not support this network: ${
-                network?.name || network?.shortname || network?.shortcode || ''
-              }`,
+              `${appLocale.intl.formatMessage({
+                id: ETranslations.feedback_external_wallet_does_not_approve_network,
+              })}: ${network?.name || network?.shortname || networkId}`,
             );
           },
           rpcUrls: customRpc?.rpc ? [customRpc.rpc] : [],

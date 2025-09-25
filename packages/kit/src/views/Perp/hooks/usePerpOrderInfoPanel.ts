@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  usePerpsSelectedAccountAtom,
-  usePerpsSelectedSymbolAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -33,8 +33,8 @@ interface INewTradesHistory {
 }
 
 export function usePerpTradesHistory() {
-  const [currentAccount] = usePerpsSelectedAccountAtom();
-  const [currentToken] = usePerpsSelectedSymbolAtom();
+  const [currentAccount] = usePerpsActiveAccountAtom();
+  const [currentToken] = usePerpsActiveAssetAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
   const { coin } = currentToken;
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(

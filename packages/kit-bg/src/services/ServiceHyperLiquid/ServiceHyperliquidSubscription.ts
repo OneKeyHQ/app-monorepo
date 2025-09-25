@@ -12,13 +12,20 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IHex,
+  IPerpsActiveAssetDataRaw,
+  IWsActiveAssetCtx,
+  IWsAllMids,
+  IWsWebData2,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { perpsNetworkStatusAtom } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
+import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptions,
@@ -420,12 +427,37 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         }
       }
 
-      appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
-        type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
-        subType: subscriptionType,
-        data,
-        metadata,
-      });
+      if (subscriptionType === ESubscriptionType.ALL_MIDS) {
+        console.log(
+          '[ServiceHyperliquidSubscription.handleSubscriptionData] User fills data:',
+          data,
+        );
+        // TODO remove
+        hyperLiquidCache.allMids = data as IWsAllMids;
+        void this.backgroundApi.serviceHyperliquid.refreshCurrentMid();
+      }
+      if (subscriptionType === ESubscriptionType.WEB_DATA2) {
+        void this.backgroundApi.serviceHyperliquid.updateActiveAccountSummary(
+          data as IWsWebData2,
+        );
+      }
+
+      if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX) {
+        void this.backgroundApi.serviceHyperliquid.updateActiveAssetCtx(
+          data as IWsActiveAssetCtx,
+        );
+      } else if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
+        void this.backgroundApi.serviceHyperliquid.updateActiveAssetData(
+          data as IPerpsActiveAssetDataRaw,
+        );
+      } else {
+        appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+          type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
+          subType: subscriptionType,
+          data,
+          metadata,
+        });
+      }
 
       const messageTimestamp = metadata.timestamp ?? Date.now();
       const isFresh =

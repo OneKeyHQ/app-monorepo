@@ -28,8 +28,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -83,7 +83,7 @@ interface IDepositWithdrawParams {
 
 interface IDepositWithdrawContentProps {
   params: IDepositWithdrawParams;
-  selectedAccount: IPerpsSelectedAccount;
+  selectedAccount: IPerpsActiveAccountAtom;
   onClose?: () => void;
 }
 
@@ -637,9 +637,13 @@ function DepositWithdrawContent({
 }
 
 export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
-  const selectedAccount = await perpsSelectedAccountAtom.get();
+  const selectedAccount = await perpsActiveAccountAtom.get();
   if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
     console.error('[DepositWithdrawModal] Missing required parameters');
+    Toast.error({
+      title: 'You should select a valid account or create address first',
+    });
+    return;
   }
 
   const dialogInstance = Dialog.show({

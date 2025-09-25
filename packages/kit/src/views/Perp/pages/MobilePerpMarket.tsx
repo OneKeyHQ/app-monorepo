@@ -8,7 +8,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -29,7 +29,7 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const actionsRef = useHyperliquidActions();
-  const [currentToken] = usePerpsSelectedSymbolAtom();
+  const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();

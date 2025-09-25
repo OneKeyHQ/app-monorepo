@@ -1,12 +1,10 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
-import { useTokenList } from './usePerpMarketData';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 export interface ITokenItem {
   coin: string;
@@ -37,66 +35,38 @@ export interface IPerpTokenSelectorReturn {
 }
 
 export function usePerpTokenSelector() {
-  const [currentToken] = usePerpsSelectedSymbolAtom();
   const [searchQuery, setSearchQuery] = useState('');
   const actions = useHyperliquidActions();
-  const { coin } = currentToken;
-  const { data: tokenList } = useTokenList();
 
-  const enhancedTokens = useMemo(() => {
-    return tokenList.map((token) => {
-      const priceDecimals = getValidPriceDecimals(token.markPrice);
-      return {
-        ...token,
-        change24h: (
-          parseFloat(token.markPrice) - parseFloat(token.prevDayPrice)
-        ).toFixed(priceDecimals),
-        change24hPercent:
-          ((parseFloat(token.markPrice) - parseFloat(token.prevDayPrice)) /
-            parseFloat(token.prevDayPrice)) *
-          100,
-      };
-    });
-  }, [tokenList]);
+  const { result } = usePromiseResult(() => {
+    return backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+  }, []);
+  const allTokens = useMemo(
+    () => result?.universeItems || [],
+    [result?.universeItems],
+  );
 
   const filteredTokens = useMemo(() => {
     if (!searchQuery.trim()) {
-      return enhancedTokens;
+      return allTokens;
     }
 
     const query = searchQuery.toLowerCase();
-    return enhancedTokens.filter((token) =>
+    const tokens = allTokens.filter((token) =>
       token.name?.toLowerCase().includes(query),
     );
-  }, [enhancedTokens, searchQuery]);
-
-  const selectToken = useCallback(
-    async (symbol: string) => {
-      if (symbol === coin) return;
-
-      try {
-        await backgroundApiProxy.serviceHyperliquid.changeSelectedSymbol({
-          coin: symbol,
-        });
-        await actions.current.setCurrentToken(symbol);
-      } catch (error) {
-        console.error('[PerpTokenSelector] Failed to select token:', error);
-      }
-    },
-    [coin, actions],
-  );
+    return tokens;
+  }, [allTokens, searchQuery]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
   }, []);
 
   return {
-    tokens: enhancedTokens,
-    currentToken: coin,
+    allTokens,
     searchQuery,
     filteredTokens,
     setSearchQuery,
-    selectToken,
     clearSearch,
   };
 }

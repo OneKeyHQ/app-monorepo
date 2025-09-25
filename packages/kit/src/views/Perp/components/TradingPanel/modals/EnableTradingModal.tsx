@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePerpsSelectedAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -12,7 +12,7 @@ interface IEnableTradingContentProps {
 
 function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
   const [loading, setLoading] = useState(false);
-  const [accountStatus] = usePerpsSelectedAccountStatusAtom();
+  const [accountStatus] = usePerpsActiveAccountStatusAtom();
 
   const isAgentNotReady = useMemo(
     () => !accountStatus?.details?.agentOk || !accountStatus?.canTrade,

@@ -9,8 +9,8 @@ import {
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  perpsSelectedSymbolAtom,
-  usePerpsSelectedAccountAtom,
+  perpsActiveAssetAtom,
+  usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import {
@@ -20,9 +20,7 @@ import {
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
-  IActiveAssetData,
   IBook,
-  IWsActiveAssetCtx,
   IWsAllMids,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -35,11 +33,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
-import {
-  useConnectionStateAtom,
-  useCurrentUserAtom,
-  useSubscriptionActiveAtom,
-} from '../../../states/jotai/contexts/hyperliquid/atoms';
+import { useSubscriptionActiveAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
 
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -48,7 +42,7 @@ function useHyperliquidEventBusListener() {
     const handleDataUpdate = (payload: unknown) => {
       const eventPayload = payload as {
         type: 'market' | 'account';
-        subType: string;
+        subType: ESubscriptionType;
         data: any;
         metadata: {
           timestamp: number;
@@ -67,25 +61,29 @@ function useHyperliquidEventBusListener() {
             void actions.current.updateAllMids(data as IWsAllMids);
             break;
 
+          case ESubscriptionType.WEB_DATA2: {
+            const webData2 = data as IWsWebData2;
+            void actions.current.updateWebData2(webData2);
+            break;
+          }
+
           case ESubscriptionType.ACTIVE_ASSET_CTX:
             if (eventPayload.metadata.coin) {
-              void actions.current.updateActiveAssetCtx(
-                data as IWsActiveAssetCtx,
-                eventPayload.metadata.coin,
-              );
+              // move to global jotai, updateActiveAssetCtx() in background
+              // void actions.current.updateActiveAssetCtx(
+              //   data as IWsActiveAssetCtx,
+              //   eventPayload.metadata.coin,
+              // );
             }
-            break;
-
-          case ESubscriptionType.WEB_DATA2:
-            void actions.current.updateWebData2(data as IWsWebData2);
             break;
 
           case ESubscriptionType.ACTIVE_ASSET_DATA:
             if (eventPayload.metadata.coin) {
-              void actions.current.updateActiveAssetData(
-                data as IActiveAssetData,
-                eventPayload.metadata.coin,
-              );
+              // move to global jotai, updateActiveAssetData() in background
+              // void actions.current.updateActiveAssetData(
+              //   data as IActiveAssetData,
+              //   eventPayload.metadata.coin,
+              // );
             }
             break;
 
@@ -150,10 +148,9 @@ function useHyperliquidEventBusListener() {
 
 function useHyperliquidSession() {
   const [subscriptionActive] = useSubscriptionActiveAtom();
-  const [connectionState] = useConnectionStateAtom();
   const actions = useHyperliquidActions();
 
-  const [currentAccount] = usePerpsSelectedAccountAtom();
+  const [currentAccount] = usePerpsActiveAccountAtom();
   useListenTabFocusState(
     ETabRoutes.Perp,
     (isFocus: boolean, isHiddenByModal: boolean) => {
@@ -174,17 +171,15 @@ function useHyperliquidSession() {
 
   return {
     userAddress: currentAccount?.accountAddress,
-    isConnected: connectionState.isConnected,
     isActive: subscriptionActive,
   };
 }
 
 function useHyperliquidAccountSelect() {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [currentPerpsAccount] = usePerpsSelectedAccountAtom();
+  const [currentPerpsAccount] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
   const isFirstMountRef = useRef(true);
-  const [, setCurrentUser] = useCurrentUserAtom();
   const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
   const isFocused = useRouteIsFocused();
   const [indexedAccountAddressCreationState] =
@@ -197,9 +192,7 @@ function useHyperliquidAccountSelect() {
   const lastCheckTimeRef = useRef(0);
   const checkPerpsAccountStatus = useCallback(async () => {
     lastCheckTimeRef.current = Date.now();
-    const checkResult =
-      await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
-    console.log('checkPerpsAccountStatus::', checkResult);
+    await backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
   }, []);
 
   const { result: globalDeriveType, run: refreshGlobalDeriveType } =
@@ -232,20 +225,17 @@ function useHyperliquidAccountSelect() {
       return;
     }
     noop(activeAccount.account?.address);
-    const account =
+    const _account =
       await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
         indexedAccountId: activeAccount?.indexedAccount?.id || null,
         accountId: activeAccount?.account?.id || null,
         deriveType: globalDeriveType,
       });
-    setCurrentUser(account.accountAddress);
-
     await checkPerpsAccountStatus();
   }, [
     activeAccount.account?.address,
     activeAccount.account?.id,
     activeAccount?.indexedAccount?.id,
-    setCurrentUser,
     checkPerpsAccountStatus,
     globalDeriveType,
   ]);
@@ -298,9 +288,12 @@ function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
   useEffect(() => {
     void (async () => {
-      await backgroundApiProxy.serviceHyperliquid.refreshTradingUniverse();
-      const currentToken = await perpsSelectedSymbolAtom.get();
-      await actions.current.setCurrentToken(currentToken.coin);
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      const currentToken = await perpsActiveAssetAtom.get();
+      await actions.current.changeActiveAsset({
+        coin: currentToken.coin,
+        force: true,
+      });
     })();
   }, [actions]);
 }

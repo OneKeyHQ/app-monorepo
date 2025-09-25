@@ -12,11 +12,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { usePerpTokenSelector } from '../../../hooks';
+import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -24,7 +25,7 @@ import type { AssetPosition, FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
   pos: AssetPosition['position'];
-  mid?: string;
+  coin: string;
   handleClosePosition: (type: 'market' | 'limit') => void;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -35,10 +36,23 @@ interface IPositionRowProps {
   index: number;
 }
 
+function MarkPrice({ coin, decimals }: { coin: string; decimals: number }) {
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    szDecimals: decimals,
+  });
+
+  return (
+    <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+      {midFormattedByDecimals}
+    </SizableText>
+  );
+}
+
 const PositionRow = memo(
   ({
     pos,
-    mid,
+    coin,
     tpslOrders,
     cellMinWidth,
     columnConfigs,
@@ -48,7 +62,7 @@ const PositionRow = memo(
     setTpsl,
     index,
   }: IPositionRowProps) => {
-    const { selectToken } = usePerpTokenSelector();
+    const actions = useHyperliquidActions();
     const intl = useIntl();
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
@@ -60,23 +74,23 @@ const PositionRow = memo(
         assetColor: side === 'long' ? '$green11' : '$red11',
       };
     }, [pos.coin, side, pos.leverage?.value]);
+    const decimals = useMemo(
+      () => getValidPriceDecimals(pos.entryPx || '0'),
+      [pos.entryPx],
+    );
 
     const priceInfo = useMemo(() => {
-      const decimals = getValidPriceDecimals(pos.entryPx || '0');
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
-      const markPrice = new BigNumber(mid || '0').toFixed(decimals);
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
       const entryPriceFormatted = entryPrice;
-      const markPriceFormatted = markPrice;
       const liquidationPriceFormatted = liquidationPrice.isZero()
         ? 'N/A'
         : liquidationPrice.toFixed(decimals);
       return {
         entryPriceFormatted,
-        markPriceFormatted,
         liquidationPriceFormatted,
       };
-    }, [pos.entryPx, mid, pos.liquidationPx]);
+    }, [decimals, pos.entryPx, pos.liquidationPx]);
 
     const sizeInfo = useMemo(() => {
       const sizeBN = new BigNumber(pos.szi || '0');
@@ -204,7 +218,11 @@ const PositionRow = memo(
             gap="$2"
             alignItems="center"
             cursor="pointer"
-            onPress={() => selectToken(assetInfo.assetSymbol)}
+            onPress={() =>
+              actions.current.changeActiveAsset({
+                coin: assetInfo.assetSymbol,
+              })
+            }
           >
             <XStack
               w="$4"
@@ -385,7 +403,11 @@ const PositionRow = memo(
           gap="$2"
           pl="$2"
           cursor="pointer"
-          onPress={() => selectToken(assetInfo.assetSymbol)}
+          onPress={() =>
+            actions.current.changeActiveAsset({
+              coin: assetInfo.assetSymbol,
+            })
+          }
         >
           <XStack
             w="$4"
@@ -395,7 +417,11 @@ const PositionRow = memo(
             borderRadius="$1"
             backgroundColor={assetInfo.assetColor}
             cursor="pointer"
-            onPress={() => selectToken(assetInfo.assetSymbol)}
+            onPress={() =>
+              actions.current.changeActiveAsset({
+                coin: assetInfo.assetSymbol,
+              })
+            }
           >
             <SizableText size="$bodySmMedium" color="$textOnColor">
               {side === 'long' ? 'B' : 'S'}
@@ -458,11 +484,7 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.markPriceFormatted}`}</SizableText>
+          <MarkPrice coin={coin} decimals={decimals} />
         </XStack>
         {/* Liq. Price */}
         <XStack
