@@ -21,13 +21,13 @@ public abstract class CustomReactNativeHost extends DefaultReactNativeHost {
     @Override
     public String getJSBundleFile() {
         // Check for updated bundle first
-        String bundlePath = BundleUpdateModule.getCurrentBundleMainJSBundle(context);
-        if (bundlePath != null) {
-            File bundleFile = new File(bundlePath);
-            if (bundleFile.exists()) {
-                return bundlePath;
-            }
-        }
+        // String bundlePath = BundleUpdateModule.getCurrentBundleMainJSBundle(context);
+        // if (bundlePath != null) {
+        //     File bundleFile = new File(bundlePath);
+        //     if (bundleFile.exists()) {
+        //         return bundlePath;
+        //     }
+        // }
         
         // Fallback to default bundle
         return super.getJSBundleFile();

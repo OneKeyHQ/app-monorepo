@@ -167,7 +167,7 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
             })}
-            badgeText={Number(percent) !== 0 ? `${percent}%` : undefined}
+            badgeText={Number(percent) > 0 ? `${percent}%` : undefined}
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return renderDownloadError();
