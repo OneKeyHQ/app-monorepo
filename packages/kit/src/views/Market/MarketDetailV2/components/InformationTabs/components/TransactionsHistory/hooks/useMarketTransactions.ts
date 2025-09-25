@@ -30,7 +30,9 @@ export function useMarketTransactions({
   const accumulatedTransactionsRef = useRef(accumulatedTransactions);
   const throttleSetAccumulatedTransactions = useThrottledCallback(
     (transactions: IMarketTokenTransaction[]) => {
-      const current = transactions.slice(0, 30 + loadTimesRef.current * 30);
+      const current = platformEnv.isNative
+        ? transactions.slice(0, 30 + loadTimesRef.current * 30)
+        : transactions;
       setAccumulatedTransactions(current);
       accumulatedTransactionsRef.current = current;
     },
