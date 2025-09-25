@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAllMidsAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useCurrentUserAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
 import {
@@ -32,6 +35,7 @@ function PerpPositionsList({
   isMobile,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [currentUser] = useCurrentUserAtom();
   const positions = usePerpPositions();
   const openOrders = usePerpOrders();
@@ -167,7 +171,18 @@ function PerpPositionsList({
         );
         return;
       }
-
+      if (isMobile) {
+        navigation.pushModal(EModalRoutes.PerpModal, {
+          screen: EModalPerpRoutes.MobileSetTpsl,
+          params: {
+            position,
+            szDecimals: tokenInfo.szDecimals ?? 2,
+            assetId: tokenInfo.assetId,
+            hyperliquidActions: actions,
+          },
+        });
+        return;
+      }
       showSetTpslDialog({
         position,
         szDecimals: tokenInfo.szDecimals ?? 2,
@@ -175,7 +190,7 @@ function PerpPositionsList({
         hyperliquidActions: actions,
       });
     },
-    [getTokenInfo, actions],
+    [getTokenInfo, actions, isMobile, navigation],
   );
 
   const allMidsRef = useRef(allMids);

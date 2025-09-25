@@ -1,11 +1,13 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 
 import {
   Button,
   Checkbox,
   Dialog,
+  Page,
   SizableText,
   Slider,
   XStack,
@@ -15,6 +17,10 @@ import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliq
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import {
+  type EModalPerpRoutes,
+  type IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
 import {
   formatPriceToSignificantDigits,
   formatWithPrecision,
@@ -30,10 +36,12 @@ import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
+import type { RouteProp } from '@react-navigation/core';
+
 type IPosition =
   IWsWebData2['clearinghouseState']['assetPositions'][number]['position'];
 
-interface ISetTpslParams {
+export interface ISetTpslParams {
   position: IPosition;
   szDecimals: number;
   assetId: number;
@@ -61,7 +69,7 @@ const SetTpslForm = memo(
     szDecimals,
     assetId,
     hyperliquidActions,
-    onClose,
+    onClose = () => {},
   }: ISetTpslFormProps) => {
     const [allMids] = useAllMidsAtom();
     const getMidPrice = useCallback(() => {
@@ -244,100 +252,102 @@ const SetTpslForm = memo(
     ]);
 
     return (
-      <YStack gap="$4">
-        <YStack gap="$3">
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_token_selector_asset,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">{position.coin}</SizableText>
-          </XStack>
+      <YStack flex={1}>
+        <YStack flex={1} gap="$4" pb="$6">
+          <YStack gap="$3">
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_token_selector_asset,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{position.coin}</SizableText>
+            </XStack>
 
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_position_position_size,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">
-              {positionSize.toNumber()} {position.coin}
-            </SizableText>
-          </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {positionSize.toNumber()} {position.coin}
+              </SizableText>
+            </XStack>
 
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_position_entry_price,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">{entryPrice}</SizableText>
-          </XStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_position_entry_price,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{entryPrice}</SizableText>
+            </XStack>
 
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {appLocale.intl.formatMessage({
-                id: ETranslations.perp_position_mark_price,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMdMedium">{markPrice}</SizableText>
-          </XStack>
-        </YStack>
+            <XStack justifyContent="space-between" alignItems="center">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_position_mark_price,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{markPrice}</SizableText>
+            </XStack>
+          </YStack>
 
-        <TpslInput
-          price={entryPrice}
-          side={isLongPosition ? 'long' : 'short'}
-          szDecimals={szDecimals}
-          leverage={leverage}
-          tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
-          onChange={handleTpslChange}
-          amount={
-            configureAmount
-              ? formData.amount || calculatedAmount
-              : positionSize.toFixed(szDecimals)
-          }
-          ifOnDialog
-        />
-
-        <XStack alignItems="center" gap="$3">
-          <Checkbox
-            value={configureAmount}
-            onChange={(checked) => setConfigureAmount(Boolean(checked))}
-            label="Configure Amount"
+          <TpslInput
+            price={entryPrice}
+            side={isLongPosition ? 'long' : 'short'}
+            szDecimals={szDecimals}
+            leverage={leverage}
+            tpsl={{ tpPrice: formData.tpPrice, slPrice: formData.slPrice }}
+            onChange={handleTpslChange}
+            amount={
+              configureAmount
+                ? formData.amount || calculatedAmount
+                : positionSize.toFixed(szDecimals)
+            }
+            ifOnDialog
           />
-        </XStack>
 
-        {configureAmount ? (
-          <>
-            <TradingFormInput
-              label={appLocale.intl.formatMessage({
-                id: ETranslations.dexmarket_details_history_amount,
-              })}
-              value={
-                formData.amount ||
-                (formData.percentage > 0 ? calculatedAmount : '')
-              }
-              onChange={handleAmountChange}
-              suffix={position.coin}
-              validator={(value: string) => {
-                const processedValue = value.replace(/。/g, '.');
-                return validateSizeInput(processedValue, szDecimals);
-              }}
-              ifOnDialog
+          <XStack alignItems="center" gap="$3">
+            <Checkbox
+              value={configureAmount}
+              onChange={(checked) => setConfigureAmount(Boolean(checked))}
+              label="Configure Amount"
             />
+          </XStack>
 
-            <YStack gap="$2" p="$2">
-              <Slider
-                value={formData.percentage}
-                onChange={handlePercentageChange}
-                max={100}
-                min={0}
-                step={1}
+          {configureAmount ? (
+            <>
+              <TradingFormInput
+                label={appLocale.intl.formatMessage({
+                  id: ETranslations.dexmarket_details_history_amount,
+                })}
+                value={
+                  formData.amount ||
+                  (formData.percentage > 0 ? calculatedAmount : '')
+                }
+                onChange={handleAmountChange}
+                suffix={position.coin}
+                validator={(value: string) => {
+                  const processedValue = value.replace(/。/g, '.');
+                  return validateSizeInput(processedValue, szDecimals);
+                }}
+                ifOnDialog
               />
-            </YStack>
-          </>
-        ) : null}
+
+              <YStack gap="$2" p="$2">
+                <Slider
+                  value={formData.percentage}
+                  onChange={handlePercentageChange}
+                  max={100}
+                  min={0}
+                  step={1}
+                />
+              </YStack>
+            </>
+          ) : null}
+        </YStack>
         <TradingGuardWrapper>
           <Button
             size="large"
@@ -358,6 +368,40 @@ const SetTpslForm = memo(
 
 SetTpslForm.displayName = 'SetTpslForm';
 
+function SetTpslModal() {
+  const route =
+    useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
+
+  const { position, szDecimals, assetId, hyperliquidActions } = route.params;
+  const navigation = useNavigation();
+  const handleClose = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+  return (
+    <Page>
+      <Page.Header
+        title={appLocale.intl.formatMessage({
+          id: ETranslations.perp_tp_sl_position,
+        })}
+      />
+      <Page.Body>
+        <PerpsProviderMirror>
+          <YStack px="$4" flex={1}>
+            <SetTpslForm
+              position={position}
+              szDecimals={szDecimals}
+              assetId={assetId}
+              hyperliquidActions={hyperliquidActions}
+              onClose={handleClose}
+            />
+          </YStack>
+        </PerpsProviderMirror>
+      </Page.Body>
+    </Page>
+  );
+}
+
+export default SetTpslModal;
 export function showSetTpslDialog({
   position,
   szDecimals,
