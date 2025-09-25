@@ -10,6 +10,7 @@ import {
   Slider,
   XStack,
   YStack,
+  getFontSize,
 } from '@onekeyhq/components';
 import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -300,47 +301,59 @@ const SetTpslForm = memo(
           ifOnDialog
         />
 
-        <XStack alignItems="center" gap="$3">
+        <YStack alignItems="flex-start" gap="$2" pb="$5" width="100%">
           <Checkbox
             value={configureAmount}
             onChange={(checked) => setConfigureAmount(Boolean(checked))}
-            label="Configure Amount"
+            label={appLocale.intl.formatMessage({
+              id: ETranslations.perp_tp_sl_partial_position,
+            })}
+            labelProps={{
+              fontSize: getFontSize('$bodyMd'),
+              color: '$textSubdued',
+            }}
+            containerProps={{ alignItems: 'center' }}
+            width="$4"
+            height="$4"
           />
-        </XStack>
 
-        {configureAmount ? (
-          <>
-            <TradingFormInput
-              label={appLocale.intl.formatMessage({
-                id: ETranslations.dexmarket_details_history_amount,
-              })}
-              value={
-                formData.amount ||
-                (formData.percentage > 0 ? calculatedAmount : '')
-              }
-              onChange={handleAmountChange}
-              suffix={position.coin}
-              validator={(value: string) => {
-                const processedValue = value.replace(/。/g, '.');
-                return validateSizeInput(processedValue, szDecimals);
-              }}
-              ifOnDialog
-            />
+          {configureAmount ? (
+            <YStack width="100%" gap="$5">
+              <YStack width="100%">
+                <TradingFormInput
+                  label={appLocale.intl.formatMessage({
+                    id: ETranslations.dexmarket_details_history_amount,
+                  })}
+                  value={
+                    formData.amount ||
+                    (formData.percentage > 0 ? calculatedAmount : '')
+                  }
+                  onChange={handleAmountChange}
+                  suffix={position.coin}
+                  validator={(value: string) => {
+                    const processedValue = value.replace(/。/g, '.');
+                    return validateSizeInput(processedValue, szDecimals);
+                  }}
+                  ifOnDialog
+                />
+              </YStack>
 
-            <YStack gap="$2" p="$2">
-              <Slider
-                value={formData.percentage}
-                onChange={handlePercentageChange}
-                max={100}
-                min={0}
-                step={1}
-              />
+              <YStack flex={1} width="100%">
+                <Slider
+                  value={formData.percentage}
+                  onChange={handlePercentageChange}
+                  max={100}
+                  min={0}
+                  step={1}
+                />
+              </YStack>
             </YStack>
-          </>
-        ) : null}
+          ) : null}
+        </YStack>
+
         <TradingGuardWrapper>
           <Button
-            size="large"
+            size="medium"
             variant="primary"
             onPress={handleSubmit}
             disabled={isSubmitting}

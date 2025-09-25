@@ -291,15 +291,21 @@ export const TpslInput = memo(
               ]}
             />
             {expectedProfit ? (
-              <XStack justifyContent="flex-end" pr="$0.5">
+              <XStack justifyContent="flex-start" pr="$0.5">
                 <SizableText
                   size="$bodySm"
                   color={
                     !expectedProfit.startsWith('-')
-                      ? '$textSuccess'
+                      ? '$green11'
                       : '$textSubdued'
                   }
                 >
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_profit,
+                    })}
+                    {': '}
+                  </SizableText>
                   {expectedProfit}
                 </SizableText>
               </XStack>
@@ -338,15 +344,21 @@ export const TpslInput = memo(
                 },
               ]}
             />
-            <XStack justifyContent="flex-end" pr="$0.5">
+            <XStack justifyContent="flex-start" pr="$0.5">
               <SizableText
                 size="$bodySm"
                 color={
                   expectedLoss && expectedLoss.startsWith('-')
-                    ? '$textCritical'
+                    ? '$red11'
                     : '$textSubdued'
                 }
               >
+                <SizableText size="$bodySm" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_tp_sl_loss,
+                  })}
+                  {': '}
+                </SizableText>
                 {expectedLoss || '$0.00'}
               </SizableText>
             </XStack>
@@ -434,15 +446,19 @@ export const TpslInput = memo(
           </YStack>
         </XStack>
         {expectedProfit ? (
-          <XStack justifyContent="flex-end" pr="$0.5">
+          <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText
-              size="$bodyMd"
+              size="$bodySm"
               color={
-                !expectedProfit.startsWith('-')
-                  ? '$textSuccess'
-                  : '$textSubdued'
+                !expectedProfit.startsWith('-') ? '$green11' : '$textSubdued'
               }
             >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_profit,
+                })}
+                {': '}
+              </SizableText>
               {expectedProfit}
             </SizableText>
           </XStack>
@@ -525,13 +541,18 @@ export const TpslInput = memo(
           </YStack>
         </XStack>
         {expectedLoss ? (
-          <XStack justifyContent="flex-end" pr="$0.5">
+          <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText
-              size="$bodyMd"
-              color={
-                expectedLoss.startsWith('-') ? '$textCritical' : '$textSubdued'
-              }
+              size="$bodySm"
+              color={expectedLoss.startsWith('-') ? '$red11' : '$textSubdued'}
             >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_loss,
+                })}
+                {': '}
+              </SizableText>
+
               {expectedLoss}
             </SizableText>
           </XStack>
