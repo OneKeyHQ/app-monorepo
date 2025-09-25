@@ -92,7 +92,6 @@ export function WalletBackupActions({
 
   return (
     <ActionList
-      placement="bottom-start"
       title={intl.formatMessage({ id: ETranslations.global_backup })}
       items={[
         {
