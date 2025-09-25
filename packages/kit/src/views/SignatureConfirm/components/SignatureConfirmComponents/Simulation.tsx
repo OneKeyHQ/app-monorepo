@@ -19,8 +19,6 @@ function Simulation(props: IProps) {
     <YStack
       px="$4"
       py="$3"
-      alignItems="center"
-      justifyContent="center"
       bg="white"
       borderRadius="$2"
       borderCurve="continuous"
@@ -38,16 +36,29 @@ function Simulation(props: IProps) {
       <SizableText>{component.label}</SizableText>
       <YStack gap="$3">
         {component.assets.map((asset, index) => {
-          if (asset.type === EParseTxComponentType.InternalAssets) {
+          if (asset.type === EParseTxComponentType.NFT) {
             return (
-              <Assets.InternalAssets hideLabel key={index} component={asset} />
+              <Assets.NFT
+                hideLabel
+                inSimulation
+                key={index}
+                component={asset}
+                networkId={asset.networkId}
+                showNetwork={asset.showNetwork}
+              />
             );
           }
-          if (asset.type === EParseTxComponentType.NFT) {
-            return <Assets.NFT hideLabel key={index} component={asset} />;
-          }
           if (asset.type === EParseTxComponentType.Token) {
-            return <Assets.Token hideLabel key={index} component={asset} />;
+            return (
+              <Assets.Token
+                hideLabel
+                inSimulation
+                key={index}
+                component={asset}
+                showNetwork={asset.showNetwork}
+                networkId={asset.networkId}
+              />
+            );
           }
           return null;
         })}
