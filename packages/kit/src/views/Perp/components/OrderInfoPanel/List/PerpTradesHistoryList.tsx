@@ -20,7 +20,7 @@ function PerpTradesHistoryList({
   useTabsList,
 }: IPerpTradesHistoryListProps) {
   const intl = useIntl();
-  const { trades, currentListPage, setCurrentListPage } =
+  const { trades, currentListPage, setCurrentListPage, isLoading } =
     usePerpTradesHistory();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -132,6 +132,8 @@ function PerpTradesHistoryList({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
       enablePagination
+      paginationToBottom={isMobile}
+      listLoading={isLoading}
     />
   );
 }

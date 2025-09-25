@@ -1,20 +1,86 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 
+import { useIntl } from 'react-intl';
+import { InputAccessoryView, Keyboard } from 'react-native';
+
 import {
+  Button,
   IconButton,
   Input,
   ListView,
   ScrollView,
   SizableText,
+  Skeleton,
+  Stack,
   Tabs,
   Tooltip,
   XStack,
   YStack,
+  useIsKeyboardShown,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
 
+const TradesHistoryLoadingView = () => {
+  return (
+    <Stack
+      flex={1}
+      alignItems="flex-start"
+      justifyContent="center"
+      p="$6"
+      gap="$2"
+    >
+      <Skeleton h="$8" w="$40" />
+      <Skeleton h="$6" w="$24" />
+      <Skeleton h="$4" w="$16" />
+    </Stack>
+  );
+};
+
+const PaginationInputAccessoryViewID = 'pagination-input-accessory-view';
+
+const PaginationPercentageStageOnKeyboard = ({
+  inputAmount,
+  totalAmount,
+  onDone,
+}: {
+  inputAmount: string;
+  totalAmount: string;
+  onDone: () => void;
+}) => {
+  const intl = useIntl();
+  const isShow = useIsKeyboardShown();
+  let viewShow = platformEnv.isNativeIOS;
+  if (!platformEnv.isNativeIOS) {
+    viewShow = isShow;
+  }
+  return viewShow ? (
+    <XStack
+      p="$2.5"
+      px="$3.5"
+      justifyContent="space-between"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <SizableText size="$bodyLg" color="$textSubdued">
+        {inputAmount} / {totalAmount}
+      </SizableText>
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          Keyboard.dismiss();
+          onDone();
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  ) : null;
+};
 const PaginationFooter = ({
   currentPage,
   totalPages,
@@ -54,7 +120,7 @@ const PaginationFooter = ({
   };
 
   const handleInputBlur = () => {
-    setInputValue(currentPage.toString());
+    handleInputSubmit();
   };
 
   if (totalPages <= 1) return null;
@@ -82,6 +148,7 @@ const PaginationFooter = ({
         <XStack w={isMobile ? 40 : undefined}>
           <Input
             value={inputValue}
+            inputAccessoryViewID={PaginationInputAccessoryViewID}
             onChangeText={handleInputChange}
             onSubmitEditing={handleInputSubmit}
             onBlur={handleInputBlur}
@@ -112,6 +179,15 @@ const PaginationFooter = ({
         onPress={onNextPage}
         icon="ChevronRightOutline"
       />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={PaginationInputAccessoryViewID}>
+          <PaginationPercentageStageOnKeyboard
+            inputAmount={inputValue}
+            totalAmount={totalPages.toString()}
+            onDone={handleInputSubmit}
+          />
+        </InputAccessoryView>
+      ) : null}
     </XStack>
   );
 };
@@ -145,6 +221,8 @@ export interface ICommonTableListViewProps {
   currentListPage?: number;
   setCurrentListPage?: (page: number) => void;
   useTabsList?: boolean;
+  listLoading?: boolean;
+  paginationToBottom?: boolean;
 }
 
 export function CommonTableListView({
@@ -153,7 +231,9 @@ export function CommonTableListView({
   useTabsList,
   renderRow,
   currentListPage,
+  listLoading,
   setCurrentListPage,
+  paginationToBottom,
   isMobile,
   emptyMessage = 'No data',
   emptySubMessage = 'Data will appear here',
@@ -199,13 +279,15 @@ export function CommonTableListView({
     }
   };
   const ListComponent = useTabsList ? Tabs.FlatList : ListView;
-  // console.log('paginatedData--', paginatedData.length);
   if (isMobile) {
-    return (
+    const ListContent = (
       <ListComponent
         data={paginatedData}
         ListFooterComponent={
-          enablePagination && currentListPage && totalPages > 1 ? (
+          enablePagination &&
+          currentListPage &&
+          totalPages > 1 &&
+          !paginationToBottom ? (
             <PaginationFooter
               isMobile={isMobile}
               currentPage={currentListPage}
@@ -222,26 +304,51 @@ export function CommonTableListView({
           return renderRow(item, index);
         }}
         ListEmptyComponent={
-          <YStack flex={1} alignItems="center" p="$6">
-            <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-              {emptyMessage}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              textAlign="center"
-              mt="$2"
-            >
-              {emptySubMessage}
-            </SizableText>
-          </YStack>
+          listLoading ? (
+            <TradesHistoryLoadingView />
+          ) : (
+            <YStack flex={1} alignItems="center" p="$6">
+              <SizableText
+                size="$bodyMd"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {emptyMessage}
+              </SizableText>
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+                mt="$2"
+              >
+                {emptySubMessage}
+              </SizableText>
+            </YStack>
+          )
         }
         contentContainerStyle={{
           paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
-          minHeight: 0,
         }}
       />
     );
+    if (paginationToBottom && currentListPage && totalPages > 1) {
+      return (
+        <YStack flex={1}>
+          {ListContent}
+          <PaginationFooter
+            isMobile={isMobile}
+            currentPage={currentListPage}
+            totalPages={totalPages}
+            onPreviousPage={handlePreviousPage}
+            onNextPage={handleNextPage}
+            onPageChange={handlePageChange}
+            headerBgColor={headerBgColor}
+            headerTextColor={headerTextColor}
+          />
+        </YStack>
+      );
+    }
+    return ListContent;
   }
 
   return (
@@ -343,24 +450,66 @@ export function CommonTableListView({
                 return renderRow(item, index);
               }}
               ListEmptyComponent={
-                <YStack
-                  flex={1}
-                  justifyContent="flex-start"
-                  alignItems="flex-start"
-                  p="$5"
-                >
-                  <SizableText size="$bodyMd" color="$text" textAlign="center">
-                    {emptyMessage}
-                  </SizableText>
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    textAlign="center"
-                    mt="$2"
+                listLoading ? (
+                  <YStack
+                    flex={1}
+                    justifyContent="flex-start"
+                    alignItems="flex-start"
+                    p="$5"
+                    gap="$3"
                   >
-                    {emptySubMessage}
-                  </SizableText>
-                </YStack>
+                    {[...Array(5)].map((_, index) => (
+                      <XStack
+                        key={index}
+                        flex={1}
+                        py="$1.5"
+                        px="$3"
+                        alignItems="center"
+                        minWidth={minTableWidth}
+                        {...(index % 2 === 1 && {
+                          backgroundColor: '$bgSubdued',
+                        })}
+                      >
+                        {columns.map((column, colIndex) => (
+                          <XStack
+                            key={column.key}
+                            {...getColumnStyle(column)}
+                            justifyContent={calcCellAlign(column.align) as any}
+                            alignItems="center"
+                            {...(colIndex === 0 && {
+                              pl: '$2',
+                            })}
+                          >
+                            <Skeleton h="$3" w="$16" />
+                          </XStack>
+                        ))}
+                      </XStack>
+                    ))}
+                  </YStack>
+                ) : (
+                  <YStack
+                    flex={1}
+                    justifyContent="flex-start"
+                    alignItems="flex-start"
+                    p="$5"
+                  >
+                    <SizableText
+                      size="$bodyMd"
+                      color="$text"
+                      textAlign="center"
+                    >
+                      {emptyMessage}
+                    </SizableText>
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      textAlign="center"
+                      mt="$2"
+                    >
+                      {emptySubMessage}
+                    </SizableText>
+                  </YStack>
+                )
               }
               contentContainerStyle={{
                 paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
