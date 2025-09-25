@@ -63,31 +63,51 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
     [focusedTab, tabNames, width],
   );
 
+  const tradingViewHeight = useMemo(() => {
+    if (isNative) {
+      return Number(height) * 0.9;
+    }
+    if (platformEnv.isNative) {
+      return Number(height) * 0.58;
+    }
+    return '40vh';
+  }, [height, isNative]);
+
+  const renderInformationHeader = useCallback(() => {
+    return (
+      <YStack bg="$bgApp" pointerEvents="box-none">
+        <InformationPanel />
+        <Stack h={tradingViewHeight} position="relative">
+          <MarketTradingView
+            tokenAddress={tokenAddress}
+            networkId={networkId}
+            tokenSymbol={tokenDetail?.symbol}
+            isNative={isNative}
+          />
+        </Stack>
+      </YStack>
+    );
+  }, [
+    isNative,
+    networkId,
+    tokenAddress,
+    tokenDetail?.symbol,
+    tradingViewHeight,
+  ]);
+
   const renderItem = useCallback(
     ({ index }: { index: number }) => {
       if (index === 0) {
-        const tradingViewHeight = platformEnv.isNative
-          ? Number(height) * 0.58
-          : '40vh';
-
         return (
           <YStack flex={1} height={height}>
-            <MobileInformationTabs
-              onScrollEnd={noop}
-              renderHeader={() => (
-                <YStack bg="$bgApp" pointerEvents="box-none">
-                  <InformationPanel />
-                  <Stack h={tradingViewHeight} position="relative">
-                    <MarketTradingView
-                      tokenAddress={tokenAddress}
-                      networkId={networkId}
-                      tokenSymbol={tokenDetail?.symbol}
-                      isNative={isNative}
-                    />
-                  </Stack>
-                </YStack>
-              )}
-            />
+            {isNative ? (
+              renderInformationHeader()
+            ) : (
+              <MobileInformationTabs
+                onScrollEnd={noop}
+                renderHeader={renderInformationHeader}
+              />
+            )}
           </YStack>
         );
       }
@@ -101,7 +121,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
         </YStack>
       );
     },
-    [height, networkId, tokenAddress, tokenDetail?.symbol, isNative],
+    [height, isNative, renderInformationHeader],
   );
 
   return (
@@ -113,13 +133,16 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
         focusedTab={focusedTab}
       />
       <ScrollView horizontal ref={scrollViewRef} flex={1} scrollEnabled={false}>
-        {tabNames.map((item, index) => (
+        {tabNames.map((_, index) => (
           <YStack key={index} h={height} w={width}>
             {renderItem({ index })}
           </YStack>
         ))}
       </ScrollView>
-      <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+
+      {isNative ? null : (
+        <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
+      )}
     </YStack>
   );
 }
