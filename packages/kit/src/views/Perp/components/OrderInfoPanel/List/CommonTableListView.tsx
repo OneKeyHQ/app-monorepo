@@ -328,7 +328,6 @@ export function CommonTableListView({
         }
         contentContainerStyle={{
           paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
-          minHeight: 200,
         }}
       />
     );
