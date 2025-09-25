@@ -185,7 +185,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   return (
     <CommonTableListView
       useTabsList
-      enablePagination
+      enablePagination={!isMobile}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
