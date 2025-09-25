@@ -58,7 +58,7 @@ function TokenDetailHeader({
   const isModalPage = useIsModalPage();
 
   const {
-    activeAccount: { wallet },
+    activeAccount: { account },
   } = useActiveAccount({
     num: 0,
   });
@@ -104,7 +104,7 @@ function TokenDetailHeader({
       <MarketTradeButton
         coinGeckoId={coinGeckoId}
         token={token}
-        wallet={wallet}
+        accountId={account?.id ?? ''}
       />
       {gtMd ? <MarketDetailOverview token={token} /> : null}
     </YStack>

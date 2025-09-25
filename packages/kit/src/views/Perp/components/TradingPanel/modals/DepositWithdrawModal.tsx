@@ -28,6 +28,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
@@ -58,6 +59,7 @@ function DepositWithdrawContent({
   // const [selectedAction, setSelectedAction] = useState<IActionType>(
   //   params.actionType,
   // );
+  const intl = useIntl();
   const [selectedAction, setSelectedAction] =
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');
@@ -182,18 +184,24 @@ function DepositWithdrawContent({
 
     if (selectedAction === 'deposit') {
       if (showMinAmountError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
-        return `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
+        return intl.formatMessage(
+          { id: ETranslations.perp_mini_deposit },
+          { num: MIN_DEPOSIT_AMOUNT, token: 'USDC' },
+        );
       }
     }
 
     if (selectedAction === 'withdraw') {
       if (showMinAmountError && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
-        return `Minimum withdraw is ${MIN_WITHDRAW_AMOUNT} USDC`;
+        return intl.formatMessage(
+          { id: ETranslations.perp_mini_withdraw },
+          { num: MIN_WITHDRAW_AMOUNT, token: 'USDC' },
+        );
       }
     }
 
     return '';
-  }, [amount, selectedAction, showMinAmountError]);
+  }, [amount, selectedAction, showMinAmountError, intl]);
 
   const handleAmountChange = useCallback(
     (value: string) => {
@@ -294,7 +302,7 @@ function DepositWithdrawContent({
     const balanceBN = new BigNumber(availableBalance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
   }, [amount, availableBalance]);
-  const intl = useIntl();
+
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({

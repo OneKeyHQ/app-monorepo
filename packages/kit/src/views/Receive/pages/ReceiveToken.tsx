@@ -649,6 +649,7 @@ function ReceiveToken() {
                   borderWidth={4}
                   borderColor="white"
                   borderRadius="$full"
+                  bg="white"
                 >
                   <Token
                     size="lg"
@@ -738,7 +739,9 @@ function ReceiveToken() {
               source={{ uri: banner.src }}
               fallback={<NetworkAvatar size="$5" networkId={networkId} />}
             />
-            <SizableText size="$bodyMd">{banner.title}</SizableText>
+            <SizableText size="$bodyMd" flex={1}>
+              {banner.title}
+            </SizableText>
           </XStack>
         ) : null}
       </Page.Body>
