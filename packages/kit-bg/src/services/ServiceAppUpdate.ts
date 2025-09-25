@@ -90,7 +90,12 @@ class ServiceAppUpdate extends ServiceBase {
   async isNeedSyncAppUpdateInfo() {
     const { status, updateAt } = await appUpdatePersistAtom.get();
     clearTimeout(syncTimerId);
-    // add random time to avoid all extension request at the same time.
+    if (
+      status === EAppUpdateStatus.downloadPackage ||
+      status === EAppUpdateStatus.ready
+    ) {
+      return false;
+    }
     const timeout =
       timerUtils.getTimeDurationMs({
         hour: 1,
@@ -110,9 +115,7 @@ class ServiceAppUpdate extends ServiceBase {
         })
       );
     }
-    return ![EAppUpdateStatus.downloadPackage, EAppUpdateStatus.ready].includes(
-      status,
-    );
+    return true;
   }
 
   @backgroundMethod()
