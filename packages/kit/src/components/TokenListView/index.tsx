@@ -455,7 +455,7 @@ function TokenListViewCmp(props: IProps) {
               manageTokenEnabled={manageTokenEnabled}
             />
           ) : null}
-          {footerTipText ? (
+          {!tokenSelectorSearchKey && footerTipText ? (
             <Stack jc="center" ai="center" pt="$3">
               <SizableText size="$bodySm" color="$textSubdued">
                 {footerTipText}
