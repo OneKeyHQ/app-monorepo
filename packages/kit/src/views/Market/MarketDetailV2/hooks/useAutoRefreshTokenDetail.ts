@@ -11,16 +11,16 @@ export function useAutoRefreshTokenDetail(data: IUseMarketDetailDataProps) {
 
   return usePromiseResult(
     async () => {
-      // Set the tokenAddress and networkId in jotai state
-      tokenDetailActions.setTokenAddress(data.tokenAddress);
-      tokenDetailActions.setNetworkId(data.networkId);
-
       // Always fetch token detail data to get complete token information
       // The K-line price priority logic is handled inside fetchTokenDetail
       await tokenDetailActions.fetchTokenDetail(
         data.tokenAddress,
         data.networkId,
       );
+
+      // Set the tokenAddress and networkId in jotai state
+      tokenDetailActions.setTokenAddress(data.tokenAddress);
+      tokenDetailActions.setNetworkId(data.networkId);
     },
     [data.tokenAddress, data.networkId, tokenDetailActions],
     {
