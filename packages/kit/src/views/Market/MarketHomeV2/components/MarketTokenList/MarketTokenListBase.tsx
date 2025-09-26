@@ -18,7 +18,7 @@ import { ESortWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useMarketTokenColumns } from './hooks/useMarketTokenColumns';
-import { useToDetailPage } from './hooks/useToDetailPage';
+import { useToDetailPage } from './hooks/useToMarketDetailPage';
 import { type IMarketToken } from './MarketTokenData';
 
 const SPINNER_HEIGHT = 52;
@@ -63,7 +63,7 @@ function MarketTokenListBase({
   result,
   isWatchlistMode = false,
 }: IMarketTokenListBaseProps) {
-  const toDetailPage = useToDetailPage();
+  const toMarketDetailPage = useToDetailPage();
   const { md } = useMedia();
 
   const marketTokenColumns = useMarketTokenColumns();
@@ -240,7 +240,7 @@ function MarketTokenListBase({
                     })
                   : (item) => ({
                       onPress: () =>
-                        toDetailPage({
+                        toMarketDetailPage({
                           symbol: item.symbol,
                           tokenAddress: item.address,
                           networkId: item.networkId,

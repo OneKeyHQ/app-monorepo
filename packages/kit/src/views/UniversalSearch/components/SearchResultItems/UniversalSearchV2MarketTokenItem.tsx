@@ -16,6 +16,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -23,11 +24,6 @@ import {
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
-import {
-  ERootRoutes,
-  ETabMarketRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
@@ -142,6 +138,10 @@ export function UniversalSearchV2MarketTokenItem({
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListV2Atom();
   const universalSearchActions = useUniversalSearchActions();
+  const toMarketDetailPage = useToDetailPage({
+    useRootNavigation: true,
+    from: EEnterWay.Search,
+  });
   const {
     logoUrl,
     price,
@@ -157,19 +157,14 @@ export function UniversalSearchV2MarketTokenItem({
   const handlePress = useCallback(() => {
     rootNavigationRef.current?.goBack();
     setTimeout(async () => {
-      rootNavigationRef.current?.navigate(ERootRoutes.Main, {
-        screen: ETabRoutes.Market,
-        params: {
-          screen: ETabMarketRoutes.MarketDetailV2,
-          params: {
-            tokenAddress: address,
-            networkId: network,
-            symbol,
-            isNative,
-            from: EEnterWay.Search,
-          },
-        },
+      // Use toMarketDetailPage hook for navigation
+      toMarketDetailPage({
+        tokenAddress: address,
+        networkId: network,
+        symbol,
+        isNative,
       });
+
       defaultLogger.market.token.searchToken({
         tokenSymbol: symbol,
         from:
@@ -196,6 +191,7 @@ export function UniversalSearchV2MarketTokenItem({
     searchStatus,
     universalSearchActions,
     item.type,
+    toMarketDetailPage,
   ]);
 
   if (!isMounted) {
