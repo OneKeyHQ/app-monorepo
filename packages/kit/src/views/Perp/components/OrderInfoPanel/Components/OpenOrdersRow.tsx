@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -34,7 +34,7 @@ const OpenOrdersRow = memo(
     isMobile,
     index,
   }: IOpenOrdersRowProps) => {
-    const { selectToken } = usePerpTokenSelector();
+    const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
@@ -148,7 +148,11 @@ const OpenOrdersRow = memo(
           >
             <YStack
               cursor="pointer"
-              onPress={() => selectToken(assetInfo.assetSymbol)}
+              onPress={() =>
+                actions.current.changeActiveAsset({
+                  coin: assetInfo.assetSymbol,
+                })
+              }
             >
               <SizableText
                 numberOfLines={1}
@@ -289,7 +293,11 @@ const OpenOrdersRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
           cursor="pointer"
-          onPress={() => selectToken(assetInfo.assetSymbol)}
+          onPress={() =>
+            actions.current.changeActiveAsset({
+              coin: assetInfo.assetSymbol,
+            })
+          }
         >
           <SizableText
             size="$bodySm"

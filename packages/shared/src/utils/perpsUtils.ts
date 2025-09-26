@@ -5,11 +5,13 @@
 
 import BigNumber from 'bignumber.js';
 
+import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
   MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IWsActiveAssetCtx } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 // Types for liquidation price calculation
 interface IMarginTier {
@@ -419,10 +421,14 @@ function validateSizeInput(input: string, szDecimals: number): boolean {
 function formatPercentage(percent: number): string {
   if (!percent || Number.isNaN(percent)) return '0';
 
-  const rounded = Math.round(percent * 100) / 100;
-  return Number.isInteger(rounded)
-    ? rounded.toString()
-    : rounded.toFixed(2).replace(/\.?0+$/, '');
+  const roundedBN = new BigNumber(percent)
+    .multipliedBy(100)
+    .integerValue(BigNumber.ROUND_HALF_UP)
+    .dividedBy(100);
+  if (roundedBN.isInteger()) {
+    return roundedBN.toFixed();
+  }
+  return roundedBN.toFixed(2).replace(/\.?0+$/, '');
 }
 
 /**
@@ -480,7 +486,7 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
  * @returns Formatted price string suitable for display
  */
 function formatPriceToSignificantDigits(
-  price: number | string | BigNumber,
+  price: number | string | BigNumber | undefined,
   szDecimals?: number,
 ): string {
   if (!price) return '0';
@@ -592,15 +598,15 @@ function calculateLiquidationPriceCore(
   entryPrice: BigNumber,
   marginAvailable: BigNumber,
   positionSize: BigNumber,
-  mmr: number,
+  mmr: BigNumber,
   side: 'long' | 'short',
 ): BigNumber {
-  const sideMultiplier = side === 'long' ? 1 : -1;
+  const sideMultiplier = side === 'long' ? '1' : '-1';
   return entryPrice.minus(
     new BigNumber(sideMultiplier)
       .multipliedBy(marginAvailable)
       .dividedBy(positionSize)
-      .dividedBy(1 - mmr * sideMultiplier),
+      .dividedBy(new BigNumber('1').minus(mmr.multipliedBy(sideMultiplier))),
   );
 }
 
@@ -777,8 +783,9 @@ function calculateLiquidationPrice(
       existingPositionValue,
       marginTiers || [],
     );
-    const existingMMR =
-      1 / (existingMarginTier?.maxLeverage || maxLeverage) / 2;
+    const existingMMR = new BigNumber(1)
+      .dividedBy(existingMarginTier?.maxLeverage || maxLeverage)
+      .dividedBy(2);
     const existingMaintenanceMarginRequired =
       existingPositionValue.multipliedBy(existingMMR);
 
@@ -802,8 +809,9 @@ function calculateLiquidationPrice(
       combinedPositionValue,
       marginTiers || [],
     );
-    const combinedMMR =
-      1 / (combinedMarginTier?.maxLeverage || maxLeverage) / 2;
+    const combinedMMR = new BigNumber(1)
+      .dividedBy(combinedMarginTier?.maxLeverage || maxLeverage)
+      .dividedBy(2);
     const combinedMaintenanceMarginRequired =
       combinedPositionValue.multipliedBy(combinedMMR);
 
@@ -829,7 +837,9 @@ function calculateLiquidationPrice(
 
   // Simple case without existing position
   const marginTier = findMarginTier(totalValue, marginTiers || []);
-  const mmr = 1 / (marginTier?.maxLeverage || maxLeverage) / 2;
+  const mmr = new BigNumber(1)
+    .dividedBy(marginTier?.maxLeverage || maxLeverage)
+    .dividedBy(2);
   const maintenanceMarginRequired = totalValue.multipliedBy(mmr);
 
   const marginAvailable =
@@ -848,7 +858,74 @@ function calculateLiquidationPrice(
   );
 }
 
+function formatAssetCtx(
+  assetCtx: IWsActiveAssetCtx['ctx'] | null,
+): IPerpsFormattedAssetCtx {
+  const midPrice = assetCtx?.midPx || '0';
+  const ctx: IPerpsFormattedAssetCtx = {
+    midPrice,
+    lastPrice: midPrice,
+    markPrice: assetCtx?.markPx || '0', // indexPrice
+    oraclePrice: assetCtx?.oraclePx || '0',
+    prevDayPrice: assetCtx?.prevDayPx || '0', // ctx.prevDayPx || markPrice;
+    fundingRate: assetCtx?.funding || '0', // funding8h
+    openInterest: assetCtx?.openInterest || '0',
+    volume24h: assetCtx?.dayNtlVlm || '0',
+    change24h: '0',
+    change24hPercent: 0,
+  };
+  const priceDecimals = getValidPriceDecimals(ctx.markPrice);
+
+  const markPriceBN = new BigNumber(ctx.markPrice);
+  const prevDayPriceBN = new BigNumber(ctx.prevDayPrice);
+  const change24hBN = markPriceBN.minus(prevDayPriceBN);
+
+  const change24h = change24hBN.toFixed(priceDecimals);
+  const change24hPercent = prevDayPriceBN.isZero()
+    ? 0
+    : change24hBN.dividedBy(prevDayPriceBN).multipliedBy(100).toNumber();
+
+  ctx.change24h = change24h;
+  ctx.change24hPercent = change24hPercent;
+
+  return ctx;
+}
+
+function formatLargeNumber(
+  value: string | number | undefined | null,
+  decimals = 2,
+): string {
+  if (value == null || value === undefined) return '0';
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (Number.isNaN(num) || num == null) return '0';
+
+  if (num >= 1e12) {
+    return `${(num / 1e12).toFixed(decimals)}T`;
+  }
+  if (num >= 1e9) {
+    return `${(num / 1e9).toFixed(decimals)}B`;
+  }
+  if (num >= 1e6) {
+    return `${(num / 1e6).toFixed(decimals)}M`;
+  }
+  if (num >= 1e3) {
+    return `${(num / 1e3).toFixed(decimals)}K`;
+  }
+
+  // For smaller numbers, show more precision
+  if (num >= 1) {
+    return num.toFixed(decimals);
+  }
+  if (num >= 0.01) {
+    return num.toFixed(decimals);
+  }
+  // For very small numbers, use more decimal places
+  return num.toFixed(6);
+}
+
 export {
+  formatAssetCtx,
+  formatLargeNumber,
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
@@ -872,6 +949,8 @@ export {
   combinePositionWithOrder,
 };
 export default {
+  formatAssetCtx,
+  formatLargeNumber,
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,

@@ -10,8 +10,8 @@ import {
 } from '@onekeyhq/components';
 import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  usePerpsActiveAssetAtom,
   usePerpsCustomSettingsAtom,
-  usePerpsSelectedSymbolAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -41,7 +41,7 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
-  const [selectedSymbol] = usePerpsSelectedSymbolAtom();
+  const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
   const buttonStyleProps = getTradingButtonStyleProps(formData.side, false);
   const actionText = formData.side === 'long' ? 'Long' : 'Short';

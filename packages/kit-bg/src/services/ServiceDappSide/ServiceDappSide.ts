@@ -4,6 +4,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
@@ -305,6 +306,30 @@ class ServiceDappSide extends ServiceBase {
     return { ctrl, connector };
   }
 
+  async normalizeError<T>(fn: () => Promise<T>) {
+    try {
+      return await fn();
+    } catch (error) {
+      const errorInfo = error as
+        | {
+            code: number;
+            name: string;
+            details: string;
+          }
+        | undefined;
+      if (
+        errorInfo &&
+        errorInfo.code === 4001 &&
+        errorInfo.name === 'UserRejectedRequestError' &&
+        errorInfo.details
+      ) {
+        // convert viem Error to plainError
+        throw new OneKeyLocalError(errorInfo.details);
+      }
+      throw error;
+    }
+  }
+
   async sendTransaction({
     account,
     networkId,
@@ -314,25 +339,27 @@ class ServiceDappSide extends ServiceBase {
     networkId: string;
     params: ISignTransactionParams;
   }): Promise<ISignedTxPro> {
-    const { connector, ctrl } =
-      await this.getExternalAccountControllerAndConnector({
+    return this.normalizeError(async () => {
+      const { connector, ctrl } =
+        await this.getExternalAccountControllerAndConnector({
+          account,
+        });
+
+      await ctrl.checkNetworkOrAddressMatched({
+        networkId,
         account,
+        connector,
       });
 
-    await ctrl.checkNetworkOrAddressMatched({
-      networkId,
-      account,
-      connector,
-    });
+      const result = await ctrl.sendTransaction({
+        account,
+        networkId,
+        params,
+        connector,
+      });
 
-    const result = await ctrl.sendTransaction({
-      account,
-      networkId,
-      params,
-      connector,
+      return result;
     });
-
-    return result;
   }
 
   async signMessage({
@@ -344,25 +371,27 @@ class ServiceDappSide extends ServiceBase {
     account: IDBExternalAccount;
     params: ISignMessageParams;
   }): Promise<ISignedMessagePro> {
-    const { connector, ctrl } =
-      await this.getExternalAccountControllerAndConnector({
+    return this.normalizeError(async () => {
+      const { connector, ctrl } =
+        await this.getExternalAccountControllerAndConnector({
+          account,
+        });
+
+      await ctrl.checkNetworkOrAddressMatched({
+        networkId,
         account,
+        connector,
       });
 
-    await ctrl.checkNetworkOrAddressMatched({
-      networkId,
-      account,
-      connector,
-    });
+      const result = await ctrl.signMessage({
+        account,
+        networkId,
+        params,
+        connector,
+      });
 
-    const result = await ctrl.signMessage({
-      account,
-      networkId,
-      params,
-      connector,
+      return result;
     });
-
-    return result;
   }
 }
 
