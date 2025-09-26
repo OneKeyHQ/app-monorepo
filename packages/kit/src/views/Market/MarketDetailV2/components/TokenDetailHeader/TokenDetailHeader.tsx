@@ -1,8 +1,8 @@
 import type { ComponentProps } from 'react';
+import { useMemo } from 'react';
 
 import { XStack, useMedia } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
@@ -23,17 +23,9 @@ export function TokenDetailHeader({
   const { tokenDetail, networkId } = useTokenDetail();
   const media = useMedia();
 
-  const { result: networkData } = usePromiseResult(
-    () =>
-      networkId
-        ? backgroundApiProxy.serviceNetwork.getNetwork({ networkId })
-        : Promise.resolve(undefined),
-    [networkId],
-    {
-      checkIsFocused: false,
-      overrideIsFocused: () => false,
-    },
-  );
+  const networkData = useMemo(() => {
+    return networkId ? networkUtils.getLocalNetworkInfo(networkId) : undefined;
+  }, [networkId]);
 
   return (
     <XStack
