@@ -474,24 +474,30 @@ const ClosePositionForm = memo(
           ifOnDialog
         />
 
-        <YStack gap="$2" p="$2">
-          <Slider
-            value={formData.percentage}
-            onChange={handlePercentageChange}
-            max={100}
-            min={0}
-            step={1}
-          />
-        </YStack>
+        <Slider
+          value={formData.percentage}
+          onChange={handlePercentageChange}
+          max={100}
+          min={0}
+          step={1}
+        />
+
         <XStack justifyContent="space-between" gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
-            Estimated Profit
+            {appLocale.intl.formatMessage({
+              id: ETranslations.perp_tp_sl_profit,
+            })}
           </SizableText>
-          <SizableText size="$bodyMdMedium">{estimatedProfit}</SizableText>
+          <SizableText
+            size="$bodyMdMedium"
+            color={estimatedProfit.startsWith('-') ? '$red11' : '$green11'}
+          >
+            {estimatedProfit}
+          </SizableText>
         </XStack>
         <TradingGuardWrapper>
           <Button
-            size="large"
+            size="medium"
             variant="primary"
             onPress={handleSubmit}
             disabled={!isFormValid || isSubmitting}

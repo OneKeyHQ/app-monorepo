@@ -112,7 +112,16 @@ export function useTokenManagement({
           }),
         ),
       );
-      const uniqueTokens = uniqBy(allTokens, (token) => token.$key);
+      const uniqueTokens = uniqBy(
+        uniqBy(
+          allTokens,
+          (token) =>
+            `${token.accountId ?? ''}_${token.networkId ?? ''}_${
+              token.address
+            }`,
+        ),
+        (token) => token.$key,
+      );
 
       const addedTokens = uniqueTokens
         .map((token) => {
@@ -174,6 +183,7 @@ export function useTokenManagement({
       return {
         sectionTokens,
         addedTokens,
+        customTokens,
       };
     },
     [
@@ -218,6 +228,7 @@ export function useTokenManagement({
   return {
     sectionTokens: result?.sectionTokens,
     tokenList: result?.addedTokens,
+    customTokens: result?.customTokens,
     refreshTokenLists: run,
     isLoadingLocalData,
     networkMaps,
