@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,13 +8,13 @@ import type {
 } from '@onekeyhq/components';
 import { IconButton, SizableText, Tabs, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import { usePerpPositions } from '../../hooks';
-import { usePerpOrders } from '../../hooks/usePerpOrderInfoPanel';
+import { usePerpsActivePositionAtom } from '../../hooks';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
@@ -24,16 +24,63 @@ interface IPerpOrderInfoPanelProps {
   isMobile?: boolean;
 }
 
+const tabNameToTranslationKey = {
+  'Positions': ETranslations.perp_position_title,
+  'Open Orders': ETranslations.perp_open_orders_title,
+  'Trades History': ETranslations.perp_trades_history_title,
+};
+
+function TabBarItem({
+  name,
+  isFocused,
+  onPress,
+}: {
+  name: string;
+  isFocused: boolean;
+  onPress: (name: string) => void;
+}) {
+  const intl = useIntl();
+  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [{ activePositions: positions }] = usePerpsActivePositionAtom();
+
+  const tabCount = useMemo(() => {
+    if (name === 'Trades History') {
+      return '';
+    }
+    if (name === 'Positions' && positions.length > 0) {
+      return `(${positions.length})`;
+    }
+    if (name === 'Open Orders' && orders.length > 0) {
+      return `(${orders.length})`;
+    }
+    return '';
+  }, [positions.length, orders.length, name]);
+
+  return (
+    <XStack
+      py="$3"
+      ml="$5"
+      mr="$2"
+      borderBottomWidth={isFocused ? '$0.5' : '$0'}
+      borderBottomColor="$borderActive"
+      onPress={() => onPress(name)}
+    >
+      <SizableText size="$headingXs">
+        {`${intl.formatMessage({
+          id: tabNameToTranslationKey[
+            name as keyof typeof tabNameToTranslationKey
+          ],
+        })} ${tabCount}`}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
   const intl = useIntl();
-  const orders = usePerpOrders();
-  const positions = usePerpPositions();
+
   const tabsRef = useRef<ITabContainerRef | null>(null);
-  const tabNameToTranslationKey = {
-    'Positions': ETranslations.perp_position_title,
-    'Open Orders': ETranslations.perp_open_orders_title,
-    'Trades History': ETranslations.perp_trades_history_title,
-  };
+
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
   };
@@ -44,22 +91,6 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       screen: EModalPerpRoutes.PerpTradersHistoryList,
     });
   };
-
-  const tabCount = useCallback(
-    (name: string) => {
-      if (name === 'Trades History') {
-        return '';
-      }
-      if (name === 'Positions' && positions.length > 0) {
-        return `(${positions.length})`;
-      }
-      if (name === 'Open Orders' && orders.length > 0) {
-        return `(${orders.length})`;
-      }
-      return '';
-    },
-    [positions.length, orders.length],
-  );
 
   return (
     <Tabs.Container
@@ -84,22 +115,7 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
               : undefined
           }
           renderItem={({ name, isFocused, onPress }) => (
-            <XStack
-              py="$3"
-              ml="$5"
-              mr="$2"
-              borderBottomWidth={isFocused ? '$0.5' : '$0'}
-              borderBottomColor="$borderActive"
-              onPress={() => onPress(name)}
-            >
-              <SizableText size="$headingXs">
-                {`${intl.formatMessage({
-                  id: tabNameToTranslationKey[
-                    name as keyof typeof tabNameToTranslationKey
-                  ],
-                })} ${tabCount(name)}`}
-              </SizableText>
-            </XStack>
+            <TabBarItem name={name} isFocused={isFocused} onPress={onPress} />
           )}
           containerStyle={{
             borderRadius: 0,

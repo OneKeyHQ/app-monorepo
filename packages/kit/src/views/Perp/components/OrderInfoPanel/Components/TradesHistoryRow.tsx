@@ -5,13 +5,13 @@ import { useIntl } from 'react-intl';
 
 import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -32,7 +32,7 @@ const TradesHistoryRow = memo(
     isMobile,
     index,
   }: ITradesHistoryRowProps) => {
-    const { selectToken } = usePerpTokenSelector();
+    const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
@@ -119,7 +119,14 @@ const TradesHistoryRow = memo(
             width="100%"
           >
             <YStack gap="$1">
-              <XStack gap="$2" alignItems="center">
+              <XStack
+                gap="$2"
+                alignItems="center"
+                // cursor="pointer"
+                // onPress={() =>
+                //   actions.current.changeActiveAsset({ coin: assetSymbol })
+                // }
+              >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
                   size="$bodySm"
@@ -235,7 +242,9 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[1].align)}
           alignItems="center"
           cursor="pointer"
-          onPress={() => selectToken(assetSymbol)}
+          onPress={() =>
+            actions.current.changeActiveAsset({ coin: assetSymbol })
+          }
         >
           <SizableText
             numberOfLines={1}

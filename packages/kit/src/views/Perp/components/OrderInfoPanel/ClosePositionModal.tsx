@@ -12,7 +12,8 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -93,18 +94,17 @@ const ClosePositionForm = memo(
     hyperliquidActions,
     onClose,
   }: IClosePositionFormProps) => {
-    const [allMids] = useAllMidsAtom();
-
-    const getMidPrice = useCallback(() => {
-      if (!allMids?.mids) return '0';
-      const midPrice = allMids.mids[position.coin];
-      return midPrice || '0';
-    }, [allMids, position.coin]);
+    // TODO should refresh UI realtime
+    const { result: midPrice } = usePromiseResult(async () => {
+      return backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
+        coin: position.coin,
+      });
+    }, [position.coin]);
 
     const markPrice = useMemo(() => {
-      const currentMidPrice = getMidPrice() || '0';
+      const currentMidPrice = midPrice || '0';
       return currentMidPrice;
-    }, [getMidPrice]);
+    }, [midPrice]);
 
     const positionSize = useMemo(() => {
       const size = new BigNumber(position.szi || '0').abs();
@@ -226,7 +226,7 @@ const ClosePositionForm = memo(
     );
 
     const handleUseMid = useCallback(() => {
-      const latestMarkPrice = getMidPrice();
+      const latestMarkPrice = midPrice;
       if (latestMarkPrice && latestMarkPrice !== '0') {
         setFormData((prev) => ({
           ...prev,
@@ -235,7 +235,7 @@ const ClosePositionForm = memo(
         setUserSetPrice(false);
         initPriceRef.current = true;
       }
-    }, [getMidPrice]);
+    }, [midPrice]);
 
     const handleTypeChange = useCallback((value: string) => {
       setFormData((prev) => ({
@@ -260,7 +260,7 @@ const ClosePositionForm = memo(
         }
 
         if (formData.type === 'market') {
-          const latestMarkPrice = getMidPrice();
+          const latestMarkPrice = midPrice;
           if (!latestMarkPrice || latestMarkPrice === '0') {
             throw new OneKeyLocalError({
               message: 'Unable to get current market price',
@@ -315,7 +315,7 @@ const ClosePositionForm = memo(
       formData.limitPrice,
       calculatedAmount,
       assetId,
-      getMidPrice,
+      midPrice,
       isLongPosition,
       hyperliquidActions,
       onClose,

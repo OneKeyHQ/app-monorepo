@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { usePerpsSelectedAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { showEnableTradingDialog } from '../components/TradingPanel/modals/EnableTradingModal';
@@ -12,7 +12,7 @@ export interface IUseTradingGuardReturn {
 }
 
 export function useTradingGuard(): IUseTradingGuardReturn {
-  const [accountStatus] = usePerpsSelectedAccountStatusAtom();
+  const [accountStatus] = usePerpsActiveAccountStatusAtom();
 
   const isAgentReady = Boolean(
     accountStatus?.details?.agentOk && accountStatus?.canTrade,

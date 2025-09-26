@@ -70,7 +70,7 @@ export class IndexedDBTransactionPromised<
   readonly mode: Mode;
 
   get objectStoreNames(): TypedDOMStringList<TxStores[number]> {
-    return this.nativeTx.objectStoreNames as TypedDOMStringList<
+    return this.nativeTx.objectStoreNames as unknown as TypedDOMStringList<
       TxStores[number]
     >;
   }

@@ -30,7 +30,6 @@ class ServiceBootstrap extends ServiceBase {
         this.backgroundApi.serviceNotification.init(),
         this.backgroundApi.serviceReferralCode.getPostConfig(),
         this.backgroundApi.serviceSetting.syncWalletConfig(),
-        this.backgroundApi.serviceWebviewPerp.updateBuilderFeeConfigByServerWithCache(),
       ]);
     } catch (error) {
       console.error(error);
