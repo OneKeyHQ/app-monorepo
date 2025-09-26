@@ -916,3 +916,34 @@ export function sortTokensCommon({
 
   return sortedTokens;
 }
+
+export function checkIsOnlyOneTokenHasBalance({
+  aggregateTokenList,
+  allAggregateTokenList,
+  tokenMap,
+}: {
+  tokenMap: Record<string, ITokenFiat>;
+  aggregateTokenList: IAccountToken[];
+  allAggregateTokenList: IAccountToken[];
+}) {
+  let tokenHasBalance: IAccountToken | undefined;
+  let tokenHasBalanceCount = 0;
+
+  if (
+    tokenMap &&
+    aggregateTokenList.length > 1 &&
+    allAggregateTokenList.length === 0
+  ) {
+    aggregateTokenList.forEach((t) => {
+      if (new BigNumber(tokenMap[t.$key]?.fiatValue ?? -1).gt(0)) {
+        tokenHasBalance = t;
+        tokenHasBalanceCount += 1;
+      }
+    });
+  }
+
+  return {
+    tokenHasBalance: tokenHasBalanceCount > 1 ? undefined : tokenHasBalance,
+    tokenHasBalanceCount,
+  };
+}
