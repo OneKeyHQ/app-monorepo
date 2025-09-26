@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  type IYStackProps,
   ListView,
   SizableText,
   Stack,
@@ -99,6 +100,7 @@ type IProps = {
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   keepDefaultZeroBalanceTokens?: boolean;
   withAggregateBadge?: boolean;
+  emptyProps?: IYStackProps;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -131,6 +133,7 @@ function TokenListViewCmp(props: IProps) {
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens = true,
     withAggregateBadge,
+    emptyProps,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -384,9 +387,10 @@ function TokenListViewCmp(props: IProps) {
       <EmptySearch
         onManageToken={onManageToken}
         manageTokenEnabled={manageTokenEnabled}
+        {...emptyProps}
       />
     ) : (
-      <EmptyToken />
+      <EmptyToken {...emptyProps} />
     );
   }, [
     emptyAccountView,
@@ -395,6 +399,7 @@ function TokenListViewCmp(props: IProps) {
     searchKey,
     showSkeleton,
     tableLayout,
+    emptyProps,
   ]);
 
   return (

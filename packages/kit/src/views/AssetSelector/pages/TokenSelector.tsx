@@ -390,6 +390,9 @@ function TokenSelector() {
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          emptyProps={{
+            mt: '24%',
+          }}
         />
       </Page.Body>
     </Page>
