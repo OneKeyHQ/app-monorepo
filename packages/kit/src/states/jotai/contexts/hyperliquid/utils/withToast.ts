@@ -1,5 +1,5 @@
 import { Toast } from '@onekeyhq/components';
-import { perpsSelectedAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { perpsActiveAccountStatusInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
@@ -37,8 +37,8 @@ async function handleError(error: unknown): Promise<void> {
   if (errorType) {
     switch (errorType) {
       case EErrorType.INVALID_AGENT: {
-        const accountStatus = await perpsSelectedAccountStatusAtom.get();
-        void perpsSelectedAccountStatusAtom.set({
+        const accountStatus = await perpsActiveAccountStatusInfoAtom.get();
+        void perpsActiveAccountStatusInfoAtom.set({
           ...accountStatus,
           canTrade: false,
           details: {
