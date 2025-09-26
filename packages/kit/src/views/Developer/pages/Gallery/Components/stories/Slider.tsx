@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
 import { Button, Dialog, Slider, Stack } from '@onekeyhq/components';
@@ -104,8 +106,20 @@ const SliderGallery = () => (
       },
       {
         title: 'Slider with segments',
-        element: <Slider min={1} max={100} step={1} segments={3} />,
-      }
+        element: () => {
+          const [value, setValue] = useState(0);
+          return (
+            <Slider
+              min={1}
+              max={100}
+              step={10}
+              segments={3}
+              value={value}
+              onChange={(v) => setValue(v)}
+            />
+          );
+        },
+      },
     ]}
   />
 );
