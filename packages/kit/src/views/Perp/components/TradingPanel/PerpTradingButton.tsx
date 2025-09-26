@@ -7,10 +7,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import { Button, SizableText, Spinner, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -19,7 +16,6 @@ import {
   usePerpsSelectedAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentTokenData } from '../../hooks';
@@ -71,6 +67,19 @@ export function PerpTradingButton({
     }
   }, [perpsAccount.accountAddress, perpsAccount.accountId]);
 
+  const isMinimumOrderNotMet = useMemo(() => {
+    const size = BigNumber(formData.size);
+    const price = BigNumber(formData.price);
+    const leverage = BigNumber(formData.leverage || 1);
+
+    if (!size || !price || size.lte(0) || price.lte(0)) {
+      return false;
+    }
+
+    const orderValue = size.multipliedBy(price).multipliedBy(leverage);
+    return orderValue.lt(10);
+  }, [formData.size, formData.price, formData.leverage]);
+
   const buttonDisabled = useMemo(() => {
     return (
       !(Number(formData.size) > 0) ||
@@ -78,6 +87,7 @@ export function PerpTradingButton({
       isSubmitting ||
       isNoEnoughMargin ||
       isAccountLoading ||
+      isMinimumOrderNotMet ||
       (perpsAccountStatus.canTrade &&
         (perpConfigCommon?.disablePerpActionPerp ||
           perpConfigCommon?.ipDisablePerp))
@@ -88,6 +98,7 @@ export function PerpTradingButton({
     isSubmitting,
     isNoEnoughMargin,
     isAccountLoading,
+    isMinimumOrderNotMet,
     perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
   ]);
@@ -100,10 +111,11 @@ export function PerpTradingButton({
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
       });
+    if (isMinimumOrderNotMet) return 'Order must be at least $10'; // TODO: I18n
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });
-  }, [isSubmitting, isNoEnoughMargin, intl]);
+  }, [isSubmitting, isNoEnoughMargin, isMinimumOrderNotMet, intl]);
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {

@@ -426,11 +426,19 @@ function DepositWithdrawContent({
           }
           wallet={accountResult?.wallet}
         />
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-          {accountResult?.isOtherAccount
-            ? accountResult?.account?.name
-            : accountResult?.indexedAccount?.name}
-        </SizableText>
+        <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
+          <SizableText
+            flex={1}
+            size="$bodyMdMedium"
+            color="$text"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {accountResult?.isOtherAccount
+              ? accountResult?.account?.name
+              : accountResult?.indexedAccount?.name}
+          </SizableText>
+        </XStack>
       </XStack>
       <SegmentControl
         height={38}
