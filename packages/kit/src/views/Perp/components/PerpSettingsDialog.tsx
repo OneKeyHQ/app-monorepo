@@ -1,3 +1,5 @@
+import { useIntl } from 'react-intl';
+
 import { Dialog, Switch, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -5,7 +7,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
-import { useIntl } from 'react-intl';
 
 interface IPerpSettingsDialogContentProps {
   close: () => void;
