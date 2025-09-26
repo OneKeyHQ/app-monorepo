@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
-  useAllMidsAtom,
   useHyperliquidActions,
+  usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useCurrentUserAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import { useTokenList } from '../../../hooks/usePerpMarketData';
-import {
-  usePerpOrders,
-  usePerpPositions,
-} from '../../../hooks/usePerpOrderInfoPanel';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
 import { showSetTpslDialog } from '../SetTpslModal';
@@ -32,16 +33,16 @@ function PerpPositionsList({
   isMobile,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
-  const [currentUser] = useCurrentUserAtom();
-  const positions = usePerpPositions();
-  const openOrders = usePerpOrders();
-  const [allMids] = useAllMidsAtom();
+  const navigation = useAppNavigation();
+  const [currentUser] = usePerpsActiveAccountAtom();
+  const [{ activePositions: positions }] = usePerpsActivePositionAtom();
+  const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const actions = useHyperliquidActions();
-  const { getTokenInfo } = useTokenList();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
+    noop(currentUser?.accountAddress);
     setCurrentListPage(1);
-  }, [currentUser]);
+  }, [currentUser?.accountAddress]);
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
       {
@@ -158,8 +159,11 @@ function PerpPositionsList({
   }, [positions]);
 
   const handleSetTpsl = useCallback(
-    (position: AssetPosition['position']) => {
-      const tokenInfo = getTokenInfo(position.coin);
+    async (position: AssetPosition['position']) => {
+      const tokenInfo =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: position.coin,
+        });
       if (!tokenInfo) {
         console.error(
           '[PerpPositionsList] Token info not found for',
@@ -167,31 +171,40 @@ function PerpPositionsList({
         );
         return;
       }
-
+      if (isMobile) {
+        navigation.pushModal(EModalRoutes.PerpModal, {
+          screen: EModalPerpRoutes.MobileSetTpsl,
+          params: {
+            position,
+            szDecimals: tokenInfo.universe?.szDecimals ?? 2,
+            assetId: tokenInfo.assetId,
+            hyperliquidActions: actions,
+          },
+        });
+        return;
+      }
       showSetTpslDialog({
         position,
-        szDecimals: tokenInfo.szDecimals ?? 2,
+        szDecimals: tokenInfo.universe?.szDecimals ?? 2,
         assetId: tokenInfo.assetId,
         hyperliquidActions: actions,
       });
     },
-    [getTokenInfo, actions],
+    [actions, isMobile, navigation],
   );
 
-  const allMidsRef = useRef(allMids);
-  useEffect(() => {
-    allMidsRef.current = allMids;
-  }, [allMids]);
-
   const handleClosePosition = useCallback(
-    ({
+    async ({
       position,
       type,
     }: {
       position: AssetPosition['position'];
       type: 'market' | 'limit';
     }) => {
-      const tokenInfo = getTokenInfo(position.coin);
+      const tokenInfo =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: position.coin,
+        });
       if (!tokenInfo) {
         console.error(
           '[PerpPositionsList] Token info not found for',
@@ -203,19 +216,18 @@ function PerpPositionsList({
       showClosePositionDialog({
         position,
         type,
-        szDecimals: tokenInfo.szDecimals ?? 2,
+        szDecimals: tokenInfo.universe?.szDecimals ?? 2,
         assetId: tokenInfo.assetId,
         hyperliquidActions: actions,
       });
     },
-    [getTokenInfo, actions],
+    [actions],
   );
 
   const renderPositionRow = (item: AssetPosition, _index: number) => {
     const position = item.position;
     const coin = position?.coin;
     const szi = position?.szi;
-    const midValue = allMids?.mids?.[coin];
     const tpslOrders = openOrders.filter(
       (order) =>
         order.coin === coin &&
@@ -227,7 +239,7 @@ function PerpPositionsList({
       <PositionRow
         key={`${coin}_${szi}`}
         pos={position}
-        mid={midValue}
+        coin={coin}
         isMobile={isMobile}
         tpslOrders={tpslOrders}
         cellMinWidth={totalMinWidth}

@@ -2,6 +2,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import {
+  InputAccessoryView,
+  Keyboard,
+  TouchableWithoutFeedback,
+} from 'react-native';
 
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
@@ -15,6 +20,7 @@ import {
   XStack,
   YStack,
   getFontSize,
+  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -22,13 +28,13 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IPerpsSelectedAccount } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
-
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
   MIN_DEPOSIT_AMOUNT,
@@ -40,6 +46,36 @@ import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
+const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
+  'perp-deposit-withdraw-accessory-view';
+
+function DepositWithdrawKeyboardAccessory({ onDone }: { onDone: () => void }) {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+
+  if (!platformEnv.isNative) return null;
+
+  const shouldShow = platformEnv.isNativeIOS || isKeyboardShown;
+
+  if (!shouldShow) return null;
+
+  return (
+    <XStack
+      px="$4"
+      py="$2"
+      w="100%"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubdued"
+    >
+      <Button variant="tertiary" size="small" onPress={onDone}>
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+}
+
 interface IDepositWithdrawParams {
   withdrawable: string;
   actionType: IPerpsDepositWithdrawActionType;
@@ -47,7 +83,7 @@ interface IDepositWithdrawParams {
 
 interface IDepositWithdrawContentProps {
   params: IDepositWithdrawParams;
-  selectedAccount: IPerpsSelectedAccount;
+  selectedAccount: IPerpsActiveAccountAtom;
   onClose?: () => void;
 }
 
@@ -56,9 +92,6 @@ function DepositWithdrawContent({
   selectedAccount,
   onClose,
 }: IDepositWithdrawContentProps) {
-  // const [selectedAction, setSelectedAction] = useState<IActionType>(
-  //   params.actionType,
-  // );
   const intl = useIntl();
   const [selectedAction, setSelectedAction] =
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
@@ -238,8 +271,52 @@ function DepositWithdrawContent({
     }
   }, [availableBalance]);
 
+  const validateAmountBeforeSubmit = useCallback(() => {
+    const amountBN = new BigNumber(amount || '0');
+    const balanceBN = new BigNumber(availableBalance || '0');
+
+    if (amountBN.isNaN() || amountBN.lte(0)) {
+      Toast.error({
+        title: intl.formatMessage({ id: ETranslations.dexmarket_enter_amount }),
+      });
+      return false;
+    }
+
+    if (amountBN.gt(balanceBN)) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.earn_insufficient_balance,
+        }),
+      });
+      return false;
+    }
+
+    if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+      setShowMinAmountError(true);
+      const message = `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
+      Toast.error({ title: message });
+      return false;
+    }
+
+    if (selectedAction === 'withdraw' && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
+      setShowMinAmountError(true);
+      const message = `Minimum withdraw is ${MIN_WITHDRAW_AMOUNT} USDC`;
+      Toast.error({ title: message });
+      return false;
+    }
+
+    if (showMinAmountError) {
+      setShowMinAmountError(false);
+    }
+
+    return true;
+  }, [amount, availableBalance, intl, selectedAction, showMinAmountError]);
+
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
+
+    const canSubmit = validateAmountBeforeSubmit();
+    if (!canSubmit) return;
 
     try {
       setIsSubmitting(true);
@@ -295,14 +372,29 @@ function DepositWithdrawContent({
     normalizeTxConfirm,
     onClose,
     withdraw,
+    validateAmountBeforeSubmit,
   ]);
+
+  const handleKeyboardDone = useCallback(() => {
+    Keyboard.dismiss();
+  }, []);
+
+  const nativeInputProps = platformEnv.isNative
+    ? {
+        inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID,
+        returnKeyType: 'done' as const,
+        blurOnSubmit: true,
+        onSubmitEditing: () => {
+          handleKeyboardDone();
+        },
+      }
+    : {};
 
   const isInsufficientBalance = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
     const balanceBN = new BigNumber(availableBalance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
   }, [amount, availableBalance]);
-
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({
@@ -313,7 +405,7 @@ function DepositWithdrawContent({
       : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
   }, [isInsufficientBalance, selectedAction, intl]);
 
-  return (
+  const content = (
     <YStack
       gap="$4"
       p="$1"
@@ -334,11 +426,19 @@ function DepositWithdrawContent({
           }
           wallet={accountResult?.wallet}
         />
-        <SizableText size="$bodyMdMedium" color="$text" numberOfLines={1}>
-          {accountResult?.isOtherAccount
-            ? accountResult?.account?.name
-            : accountResult?.indexedAccount?.name}
-        </SizableText>
+        <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
+          <SizableText
+            flex={1}
+            size="$bodyMdMedium"
+            color="$text"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {accountResult?.isOtherAccount
+              ? accountResult?.account?.name
+              : accountResult?.indexedAccount?.name}
+          </SizableText>
+        </XStack>
       </XStack>
       <SegmentControl
         height={38}
@@ -431,6 +531,7 @@ function DepositWithdrawContent({
             borderWidth={0}
             size="medium"
             fontSize={getFontSize('$bodyMd')}
+            {...nativeInputProps}
             containerProps={{
               flex: 1,
               borderWidth: 0,
@@ -509,14 +610,40 @@ function DepositWithdrawContent({
       >
         {buttonText}
       </Button>
+      {platformEnv.isNative && !platformEnv.isNativeIOS ? (
+        <DepositWithdrawKeyboardAccessory onDone={handleKeyboardDone} />
+      ) : null}
     </YStack>
+  );
+
+  const wrappedContent = platformEnv.isNative ? (
+    <TouchableWithoutFeedback onPress={handleKeyboardDone} accessible={false}>
+      {content}
+    </TouchableWithoutFeedback>
+  ) : (
+    content
+  );
+
+  return (
+    <>
+      {wrappedContent}
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID}>
+          <DepositWithdrawKeyboardAccessory onDone={handleKeyboardDone} />
+        </InputAccessoryView>
+      ) : null}
+    </>
   );
 }
 
 export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
-  const selectedAccount = await perpsSelectedAccountAtom.get();
+  const selectedAccount = await perpsActiveAccountAtom.get();
   if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
     console.error('[DepositWithdrawModal] Missing required parameters');
+    Toast.error({
+      title: 'You should select a valid account or create address first',
+    });
+    return;
   }
 
   const dialogInstance = Dialog.show({

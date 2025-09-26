@@ -75,6 +75,10 @@ const restrictedImportsPatterns = [
       'import localDbInstance directly is not allowd, use localDb instead',
   },
   {
+    group: ['@onekeyhq/desktop/app/i18n'],
+    message: 'import ETranslations from "@onekeyhq/shared/src/locale" instead',
+  },
+  {
     group: ['**/v4localDbInstance.native'],
     message:
       'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',

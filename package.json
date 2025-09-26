@@ -203,7 +203,7 @@
     "@types/text-encoding": "^0",
     "@types/validator": "^13",
     "@types/w3c-web-usb": "^1.0.10",
-    "@types/web": "0.0.151",
+    "@types/web": "0.0.269",
     "@types/zxcvbn": "^4",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",

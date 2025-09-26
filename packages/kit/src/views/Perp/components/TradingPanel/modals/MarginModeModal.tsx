@@ -10,14 +10,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  useActiveAssetDataAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetDataAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-import { useCurrentTokenData } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
@@ -29,8 +29,8 @@ interface IMarginModeContentProps {
 
 function MarginModeContent({ onClose }: IMarginModeContentProps) {
   const intl = useIntl();
-  const [activeAssetData] = useActiveAssetDataAtom();
-  const tokenInfo = useCurrentTokenData();
+  const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const [tokenInfo] = usePerpsActiveAssetAtom();
   const actions = useHyperliquidActions();
 
   const [selectedMode, setSelectedMode] = useState<IMarginMode>(
@@ -44,6 +44,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
     const currentLeverage = activeAssetData?.leverage?.value || 1;
     const isCross = selectedMode === 'cross';
 
+    void onClose?.();
     try {
       setLoading(true);
       await actions.current.updateLeverage({
@@ -51,7 +52,6 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         leverage: currentLeverage,
         isCross,
       });
-      onClose?.();
     } catch (error) {
       console.error('[MarginModeModal] Failed to update margin mode:', error);
     } finally {

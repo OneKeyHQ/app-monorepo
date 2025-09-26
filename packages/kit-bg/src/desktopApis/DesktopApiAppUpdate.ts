@@ -10,6 +10,7 @@ import { readCleartextMessage, readKey } from 'openpgp';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
@@ -22,8 +23,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
 import type { UpdateCheckResult } from 'electron-updater';
-
-const isMas = !!process.mas;
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -79,6 +78,7 @@ export interface IUpdateProgressUpdate {
 
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
 
 class DesktopApiAppUpdate {
@@ -100,7 +100,7 @@ class DesktopApiAppUpdate {
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    if (!isMas) {
+    if (!process.mas) {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
     }

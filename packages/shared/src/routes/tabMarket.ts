@@ -1,3 +1,5 @@
+import type { EEnterWay } from '../logger/scopes/dex';
+
 export enum ETabMarketRoutes {
   TabMarket = 'TabMarket',
   MarketDetail = 'MarketDetail',
@@ -14,5 +16,6 @@ export type ITabMarketParamList = {
     networkId: string;
     symbol?: string;
     isNative?: boolean;
+    from?: EEnterWay;
   };
 };

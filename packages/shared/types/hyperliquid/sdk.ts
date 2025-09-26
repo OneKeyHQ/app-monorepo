@@ -14,12 +14,21 @@ export type IApiRequestError = HL.ApiRequestError;
 export type IApiRequestResult = HL.SuccessResponse;
 export type IApiErrorResponse = HL.ErrorResponse;
 
+export type IPerpsAssetCtxRaw = HL.PerpsAssetCtx;
+export type IPerpsAssetCtx = IPerpsAssetCtxRaw;
+
 // Core trading types
-export type IPerpsUniverse = HL.PerpsUniverse;
+export type IPerpsUniverseRaw = HL.PerpsUniverse;
+export type IPerpsUniverse = IPerpsUniverseRaw & {
+  assetId: number;
+};
 export type IMarginTables = HL.MarginTables;
 export type IMarginTable = HL.MarginTable;
+export type IMarginTableMap = Partial<{
+  [key: number]: IMarginTable;
+}>;
 export type IOrder = HL.Order;
-export type IFrontendOrder = HL.FrontendOrder;
+export type IPerpsFrontendOrder = HL.FrontendOrder;
 export type IOrderParams = HL.OrderParams;
 export type IOrderResponse = HL.OrderResponse;
 export type ICancelResponse = HL.CancelResponse;
@@ -30,8 +39,13 @@ export type IOrderType = HL.OrderType;
 export type ITIF = HL.TIF;
 
 // Account and asset types
-export type IAssetPosition = HL.AssetPosition;
-export type IActiveAssetData = HL.ActiveAssetData;
+export type IPerpsAssetPosition = HL.AssetPosition;
+export type IPerpsActiveAssetDataRaw = HL.ActiveAssetData;
+export type IPerpsActiveAssetData = Omit<IPerpsActiveAssetDataRaw, 'user'> & {
+  accountAddress: string;
+  coin: string;
+  assetId: number | undefined;
+};
 export type IPerpsClearinghouseState = HL.PerpsClearinghouseState;
 export type ISpotClearinghouseState = HL.SpotClearinghouseState;
 export type ISpotBalance = HL.SpotBalance;

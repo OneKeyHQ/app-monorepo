@@ -130,6 +130,34 @@ textarea {
   top: 0;
   left: 2px;
 }
+.debug-render-tracker-times-badge.top-center {
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.debug-render-tracker-times-badge.right-center {
+  top: 50%;
+  right: 2px;
+  transform: translateY(-50%);
+}
+.debug-render-tracker-times-badge.bottom-right {
+  bottom: 0;
+  right: 2px;
+}
+.debug-render-tracker-times-badge.bottom-center {
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.debug-render-tracker-times-badge.bottom-left {
+  bottom: 0;
+  left: 2px;
+}
+.debug-render-tracker-times-badge.left-center {
+  top: 50%;
+  left: 2px;
+  transform: translateY(-50%);
+}
 
 .debug-render-tracker-animated-bg {
   position: relative;
