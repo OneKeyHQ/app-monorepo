@@ -106,7 +106,7 @@ export const Slider = ({
           circular
           index={0}
           bg="$bg"
-          zIndex={11}
+          zIndex={segments ? 10 : undefined}
           borderWidth="$px"
           borderColor="$borderStrong"
           elevation={1}
@@ -125,6 +125,7 @@ export const Slider = ({
     max,
     min,
     props,
+    segments,
     value,
   ]);
   return segments ? (
