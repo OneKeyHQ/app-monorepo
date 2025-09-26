@@ -1,0 +1,68 @@
+import { useCallback } from 'react';
+
+import { useNavigation } from '@react-navigation/native';
+
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import { rootNavigationRef } from '@onekeyhq/components';
+import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import {
+  ERootRoutes,
+  ETabMarketRoutes,
+  ETabRoutes,
+  type ITabMarketParamList,
+} from '@onekeyhq/shared/src/routes';
+
+interface IMarketToken {
+  tokenAddress: string;
+  networkId: string;
+  symbol: string;
+  isNative?: boolean;
+}
+
+interface IUseToDetailPageOptions {
+  /**
+   * Force navigation through root navigator (used in universal search)
+   */
+  useRootNavigation?: boolean;
+  /**
+   * Where the navigation originated from
+   */
+  from?: EEnterWay;
+}
+
+export function useToDetailPage(options?: IUseToDetailPageOptions) {
+  const navigation = useNavigation<IPageNavigationProp<ITabMarketParamList>>();
+  const tokenDetailActions = useTokenDetailActions();
+
+  const toMarketDetailPage = useCallback(
+    (item: IMarketToken) => {
+      const params = {
+        tokenAddress: item.tokenAddress,
+        networkId: item.networkId,
+        symbol: item.symbol,
+        isNative: item.isNative,
+        from: options?.from,
+      };
+
+      // Use root navigation if specified (for universal search)
+      if (options?.useRootNavigation) {
+        rootNavigationRef.current?.navigate(ERootRoutes.Main, {
+          screen: ETabRoutes.Market,
+          params: {
+            screen: ETabMarketRoutes.MarketDetailV2,
+            params,
+          },
+        });
+      } else {
+        // Always clear token detail when navigating
+        tokenDetailActions.current.clearTokenDetail();
+
+        navigation.push(ETabMarketRoutes.MarketDetailV2, params);
+      }
+    },
+    [navigation, tokenDetailActions, options?.useRootNavigation, options?.from],
+  );
+
+  return toMarketDetailPage;
+}
