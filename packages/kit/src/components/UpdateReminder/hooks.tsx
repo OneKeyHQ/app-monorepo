@@ -629,11 +629,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       onViewReleaseInfo();
     }
 
+    let isShowForceUpdatePreviewPage = false;
+    const forceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
     if (
       appUpdateInfo.status !== EAppUpdateStatus.done &&
       appUpdateInfo.status !== EAppUpdateStatus.notify &&
-      isForceUpdateStrategy(appUpdateInfo.updateStrategy)
+      forceUpdate
     ) {
+      isShowForceUpdatePreviewPage = true;
       toUpdatePreviewPage(true, appUpdateInfo);
     }
 
@@ -648,6 +651,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
       void verifyPackage();
     } else if (appUpdateInfo.status === EAppUpdateStatus.ready) {
+      if (isShowForceUpdatePreviewPage) {
+        return;
+      }
       const fileType = getUpdateFileType(appUpdateInfo);
       if (
         fileType === EUpdateFileType.jsBundle &&
@@ -662,6 +668,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     } else {
       void checkForUpdates().then(
         async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+          if (isShowForceUpdatePreviewPage) {
+            return;
+          }
           const updateStrategy =
             response?.updateStrategy ?? EUpdateStrategy.manual;
           if (needUpdate) {
