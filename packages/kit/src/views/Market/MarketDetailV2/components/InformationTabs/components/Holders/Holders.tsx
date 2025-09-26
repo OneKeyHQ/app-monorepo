@@ -12,6 +12,7 @@ import { HolderItemNormal } from './layout/HolderItemNormal/HolderItemNormal';
 import { HolderItemSmall } from './layout/HolderItemSmall/HolderItemSmall';
 
 import type { FlatListProps } from 'react-native';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 interface IHoldersProps {
   tokenAddress: string;
@@ -41,6 +42,9 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   return (
     <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
+      contentContainerStyle={{
+        paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
+      }}
       renderItem={renderItem}
       keyExtractor={(item: IMarketTokenHolder) =>
         item.accountAddress + item.fiatValue + item.amount
