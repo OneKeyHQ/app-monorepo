@@ -10,7 +10,7 @@ export type IToastMessageOptions = {
    * Duration in seconds.
    */
   duration: number;
-  haptic?: 'success' | 'warning' | 'info' | 'error' | 'none';
+  haptic?: 'success' | 'warning' | 'info' | 'error' | 'loading' | 'none';
   /**
    * Defaults to `true`.
    */

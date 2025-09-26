@@ -16,7 +16,10 @@ import {
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useActiveAssetDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useActiveAssetDataAtom,
+  useHyperliquidActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsSelectedAccountAtom,
   usePerpsSelectedSymbolAtom,
@@ -24,6 +27,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useTokenList } from '../../../hooks/usePerpMarketData';
+import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
 interface ILeverageContentProps {
@@ -44,6 +48,7 @@ const LeverageContent = memo(
     const [value, setValue] = useState(initialValue);
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
+    const actions = useHyperliquidActions();
 
     const handleSliderChange = useCallback((newValue: number) => {
       const roundedValue = Math.round(newValue);
@@ -72,13 +77,13 @@ const LeverageContent = memo(
 
     const handleConfirm = useCallback(async () => {
       setLoading(true);
+      void dialogInstance.close();
       try {
-        await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
+        await actions.current.updateLeverage({
           asset: tokenInfo.assetId,
           isCross: activeAssetData?.leverage?.type === 'cross',
           leverage: value,
         });
-        void dialogInstance.close();
       } catch (error) {
         console.error(
           '[LeverageAdjustModal] Failed to update leverage:',
@@ -88,6 +93,7 @@ const LeverageContent = memo(
         setLoading(false);
       }
     }, [
+      actions,
       value,
       tokenInfo.assetId,
       activeAssetData?.leverage?.type,
@@ -190,12 +196,14 @@ export const LeverageAdjustModal = memo(
         }),
 
         renderContent: (
-          <LeverageContent
-            initialValue={initialValue}
-            maxLeverage={maxLeverage}
-            tokenInfo={tokenInfo}
-            activeAssetData={activeAssetData}
-          />
+          <PerpsProviderMirror>
+            <LeverageContent
+              initialValue={initialValue}
+              maxLeverage={maxLeverage}
+              tokenInfo={tokenInfo}
+              activeAssetData={activeAssetData}
+            />
+          </PerpsProviderMirror>
         ),
         showFooter: false,
       });

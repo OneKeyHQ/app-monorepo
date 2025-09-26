@@ -196,7 +196,7 @@ const SetTpslForm = memo(
     const handleSubmit = useCallback(async () => {
       try {
         setIsSubmitting(true);
-
+        onClose();
         const tpslAmount = configureAmount
           ? formData.amount || calculatedAmount
           : '0';
@@ -230,8 +230,6 @@ const SetTpslForm = memo(
           tpTriggerPx: formData.tpPrice || undefined,
           slTriggerPx: formData.slPrice || undefined,
         });
-
-        onClose();
       } catch (error) {
         // Error toast is handled in the action
         console.error('SetTpslModal handleSubmit error:', error);

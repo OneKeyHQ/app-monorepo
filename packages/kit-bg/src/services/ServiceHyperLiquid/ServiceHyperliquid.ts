@@ -228,7 +228,6 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async enableTrading() {
     const result = await this.checkPerpsAccountStatus({
       isEnableTradingTrigger: true,
