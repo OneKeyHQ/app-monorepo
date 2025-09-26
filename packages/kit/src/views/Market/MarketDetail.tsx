@@ -1,7 +1,7 @@
 import type { IPageScreenProps } from '@onekeyhq/components';
 
 import { MarketDetailV1 } from './MarketDetailV1';
-import MarketDetailV2 from './MarketDetailV2';
+import { MarketDetailV2 } from './MarketDetailV2';
 
 export type IMarketDetailProps = IPageScreenProps<any, any>;
 
