@@ -123,7 +123,7 @@ export function Slider({
           justifyContent="space-between"
           top={-layout.height / 2}
         >
-          <XStack left={2}>
+          <XStack left={platformEnv.isNativeAndroid ? 16 : 2}>
             <SliderSegment key={-1} marked />
           </XStack>
           {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
@@ -136,7 +136,7 @@ export function Slider({
               }
             />
           ))}
-          <XStack right={2}>
+          <XStack right={platformEnv.isNativeAndroid ? 16 : 2}>
             <SliderSegment key={segments ?? 1} marked={value === max} />
           </XStack>
         </XStack>
