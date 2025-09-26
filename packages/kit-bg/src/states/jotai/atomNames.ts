@@ -56,10 +56,14 @@ export enum EAtomNames {
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
-  perpsSelectedAccountAtom = 'perpsSelectedAccountAtom',
+  perpsActiveAccountAtom = 'perpsActiveAccountAtom',
+  perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',
+  perpsActiveAccountStatusInfoAtom = 'perpsActiveAccountStatusInfoAtom',
   perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',
-  perpsSelectedAccountStatusAtom = 'perpsSelectedAccountStatusAtom',
-  perpsSelectedSymbolAtom = 'perpsSelectedSymbolAtom',
+  perpsActiveAssetAtom = 'perpsActiveAssetAtom',
+  perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
+  perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
+  perpsCurrentMidAtom = 'perpsCurrentMidAtom', // TODO remove
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',

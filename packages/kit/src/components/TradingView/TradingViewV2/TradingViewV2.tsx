@@ -28,6 +28,7 @@ interface IBaseTradingViewV2Props {
   networkId?: string;
   decimal: number;
   onPanesCountChange?: (count: number) => void;
+  dataSource?: 'websocket' | 'polling';
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
@@ -46,6 +47,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     symbol,
     decimal,
     onPanesCountChange,
+    dataSource,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -66,14 +68,11 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     },
   });
 
-  // Use different data update strategies based on token type
-  // For native tokens (main coins), use traditional K-line updates
-  // For other tokens, use WebSocket for better real-time data
   useAutoKLineUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible,
+    enabled: isVisible && dataSource !== 'websocket',
   });
 
   useAutoTokenDetailUpdate({
@@ -88,7 +87,7 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible,
+    enabled: isVisible && dataSource === 'websocket',
     chartType: '1m',
     currency: 'usd',
   });

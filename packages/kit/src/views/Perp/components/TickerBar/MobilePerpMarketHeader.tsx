@@ -11,7 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -41,16 +41,23 @@ function StatRow({
 function MobilePerpMarketHeader() {
   const intl = useIntl();
   const { isReady, hasError } = usePerpSession();
-  const [priceData] = useCurrentTokenPriceAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
 
   const {
     markPrice,
     oraclePrice,
-    funding: fundingRate,
+    fundingRate,
     openInterest,
     volume24h,
     change24hPercent,
-  } = priceData;
+  } = assetCtx?.ctx || {
+    markPrice: '0',
+    oraclePrice: '0',
+    fundingRate: '0',
+    openInterest: '0',
+    volume24h: '0',
+    change24hPercent: 0,
+  };
 
   const markPriceNumber = useMemo(() => parseFloat(markPrice), [markPrice]);
   const fundingRateNumber = useMemo(
