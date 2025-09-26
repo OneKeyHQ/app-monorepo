@@ -344,24 +344,6 @@ export const TpslInput = memo(
                 },
               ]}
             />
-            <XStack justifyContent="flex-start" pr="$0.5">
-              <SizableText
-                size="$bodySm"
-                color={
-                  expectedLoss && expectedLoss.startsWith('-')
-                    ? '$red11'
-                    : '$textSubdued'
-                }
-              >
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_tp_sl_loss,
-                  })}
-                  {': '}
-                </SizableText>
-                {expectedLoss || '$0.00'}
-              </SizableText>
-            </XStack>
           </YStack>
         </YStack>
       );

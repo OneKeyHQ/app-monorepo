@@ -9,11 +9,12 @@ import {
   SegmentControl,
   SizableText,
 } from '@onekeyhq/components';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
   type ITradeSide,
-  getTradingButtonStyleProps,
+  PERP_TRADE_BUTTON_COLORS,
 } from '../../../utils/styleUtils';
 
 export type ISide = ITradeSide;
@@ -53,18 +54,27 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
     const intl = useIntl();
     const isLongActive = value === 'long';
     const isShortActive = value === 'short';
+    const themeVariant = useThemeVariant();
+    const getLongBgColor = () => {
+      if (!isLongActive) return '$transparent';
+      return themeVariant === 'light'
+        ? PERP_TRADE_BUTTON_COLORS.light.long
+        : PERP_TRADE_BUTTON_COLORS.dark.long;
+    };
 
-    const longStyleProps = getTradingButtonStyleProps('long', disabled);
-    const shortStyleProps = getTradingButtonStyleProps('short', disabled);
-
+    const getShortBgColor = () => {
+      if (!isShortActive) return '$transparent';
+      return themeVariant === 'light'
+        ? PERP_TRADE_BUTTON_COLORS.light.short
+        : PERP_TRADE_BUTTON_COLORS.dark.short;
+    };
     const options = [
       {
         value: 'long',
         label: (
           <Button
             {...getCommonButtonStyle(isMobile)}
-            bg={isLongActive ? longStyleProps.bg : '$transparent'}
-            color={isLongActive ? '$textOnColor' : '$textSubdued'}
+            bg={getLongBgColor()}
             onPress={() => onChange('long')}
             disabled={disabled}
             justifyContent="center"
@@ -86,8 +96,7 @@ export const TradeSideToggle = memo<ITradeSideToggleProps>(
         label: (
           <Button
             {...getCommonButtonStyle(isMobile)}
-            bg={isShortActive ? shortStyleProps.bg : '$transparent'}
-            color={isShortActive ? '$textOnColor' : '$textSubdued'}
+            bg={getShortBgColor()}
             onPress={() => onChange('short')}
             disabled={disabled}
             justifyContent="center"
