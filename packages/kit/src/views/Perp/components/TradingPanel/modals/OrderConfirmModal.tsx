@@ -19,7 +19,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { useOrderConfirm } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  getTradingButtonStyleProps,
+  GetTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
@@ -43,7 +43,7 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [formData] = useTradingFormAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
-  const buttonStyleProps = getTradingButtonStyleProps(formData.side, false);
+  const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
   const sizeDisplay = useMemo(() => {

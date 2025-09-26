@@ -101,8 +101,8 @@ const LeverageContent = memo(
     const intl = useIntl();
     const { gtSm } = useMedia();
     return (
-      <YStack>
-        <YStack p="$1" my="$3" gap="$3" flex={1}>
+      <YStack gap="$3" flex={1}>
+        <YStack p="$1" mb="$6" gap="$3" flex={1}>
           <XStack flex={1} alignItems="center" gap="$4">
             <Slider
               value={value || 1}
@@ -160,6 +160,8 @@ const LeverageContent = memo(
             onPress={handleConfirm}
             disabled={isDisabled}
             loading={loading}
+            size="medium"
+            variant="primary"
           >
             {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>

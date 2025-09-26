@@ -28,6 +28,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import {
+  type ITradeSide,
+  getTradingSideTextColor,
+} from '../../../utils/styleUtils';
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
@@ -330,13 +334,22 @@ function PerpTradingForm({
         </YStack>
         <YStack
           flex={1}
-          gap="$1"
           px="$2"
           py="$1"
           borderWidth="$px"
           borderColor="$borderSubdued"
           borderRadius="$2"
         >
+          <XStack justifyContent="space-between">
+            <SizableText fontSize={10} color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_position_liq_price,
+              })}
+            </SizableText>
+            <SizableText fontSize={10} color="$text" fontWeight={500}>
+              <LiquidationPriceDisplay isMobile={isMobile} />
+            </SizableText>
+          </XStack>
           <XStack justifyContent="space-between">
             <SizableText fontSize={10} color="$textSubdued">
               {intl.formatMessage({
@@ -352,26 +365,6 @@ function PerpTradingForm({
             >
               {totalValue.toNumber()}
             </NumberSizeableText>
-          </XStack>
-          <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_liq_price,
-              })}
-            </SizableText>
-            <SizableText fontSize={10} color="$text">
-              <LiquidationPriceDisplay isMobile={isMobile} />
-            </SizableText>
-          </XStack>
-          <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_margin_required,
-              })}
-            </SizableText>
-            <SizableText fontSize={10}>
-              ${marginRequired.toFixed(2)}
-            </SizableText>
           </XStack>
         </YStack>
       </YStack>
@@ -435,11 +428,9 @@ function PerpTradingForm({
             ) : (
               <SizableText
                 size="$bodySmMedium"
-                color={
-                  selectedSymbolPositionSide === 'long'
-                    ? '$textSuccess'
-                    : '$textCritical'
-                }
+                color={getTradingSideTextColor(
+                  selectedSymbolPositionSide as ITradeSide,
+                )}
               >
                 {selectedSymbolPositionValue} {perpsSelectedSymbol.coin}
               </SizableText>
@@ -511,6 +502,16 @@ function PerpTradingForm({
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
+              id: ETranslations.perp_position_liq_price,
+            })}
+          </SizableText>
+          <SizableText size="$bodySmMedium">
+            <LiquidationPriceDisplay />
+          </SizableText>
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
               id: ETranslations.perp_trade_order_value,
             })}
           </SizableText>
@@ -525,21 +526,11 @@ function PerpTradingForm({
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            <LiquidationPriceDisplay />
-          </SizableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
               id: ETranslations.perp_trade_margin_required,
             })}
           </SizableText>
           <NumberSizeableText
-            size="$bodySm"
+            size="$bodySmMedium"
             formatter="value"
             formatterOptions={{ currency: '$' }}
           >
