@@ -2190,7 +2190,6 @@
   perp_trading_adjust_leverage = 'perp.trading_adjust_leverage',
   perp_trading_button_no_enough_margin = 'perp.trading_button_no_enough_margin',
   perp_trading_button_placing = 'perp.trading_button_placing',
-  perp_trading_button_minimum_order = 'perp.trading_button_minimum_order',
   perp_withdraw_chain = 'perp.withdraw_chain',
   perp_you_will_get = 'perp.you_will_get',
   prime_about_cloud_sync = 'prime.about_cloud_sync',

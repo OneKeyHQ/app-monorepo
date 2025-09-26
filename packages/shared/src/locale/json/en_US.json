@@ -2185,7 +2185,6 @@
   "perp.trading_adjust_leverage": "Adjust Leverage",
   "perp.trading_button_no_enough_margin": "No Enough Margin",
   "perp.trading_button_placing": "Placing...",
-  "perp.trading_button_minimum_order": "Order must be at least $10",
   "perp.withdraw_chain": "Withdraw Chain",
   "perp.you_will_get": "You will get",
   "prime.about_cloud_sync": "About cloud sync",

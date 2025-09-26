@@ -2185,7 +2185,6 @@
   "perp.trading_adjust_leverage": "调整杠杆",
   "perp.trading_button_no_enough_margin": "保证金不足",
   "perp.trading_button_placing": "下单中...",
-  "perp.trading_button_minimum_order": "订单不得少于$10",
   "perp.withdraw_chain": "提现网络",
   "perp.you_will_get": "您将获得",
   "prime.about_cloud_sync": "关于云端同步",
