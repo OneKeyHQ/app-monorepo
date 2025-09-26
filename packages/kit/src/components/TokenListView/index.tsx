@@ -55,8 +55,12 @@ import { TokenListFooter } from './TokenListFooter';
 import { TokenListHeader } from './TokenListHeader';
 import { TokenListItem } from './TokenListItem';
 import { TokenListViewContext } from './TokenListViewContext';
+import { useTokenManagement } from '../../views/AssetList/hooks/useTokenManagement';
 
 type IProps = {
+  accountId: string;
+  networkId: string;
+  indexedAccountId: string | undefined;
   tableLayout?: boolean;
   onPressToken?: (token: IAccountToken) => void;
   withHeader?: boolean;
@@ -134,6 +138,9 @@ function TokenListViewCmp(props: IProps) {
     keepDefaultZeroBalanceTokens = true,
     withAggregateBadge,
     emptyProps,
+    accountId,
+    networkId,
+    indexedAccountId,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -144,6 +151,12 @@ function TokenListViewCmp(props: IProps) {
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
+
+  const { customTokens } = useTokenManagement({
+    accountId,
+    networkId,
+    indexedAccountId,
+  });
 
   const tokens = useMemo(() => {
     let resultTokens: IAccountToken[] = [];
@@ -173,15 +186,26 @@ function TokenListViewCmp(props: IProps) {
           return true;
         }
 
-        if (keepDefaultZeroBalanceTokens && homeDefaultTokenMap) {
+        if (keepDefaultZeroBalanceTokens) {
           if (
-            homeDefaultTokenMap[
+            homeDefaultTokenMap?.[
               buildHomeDefaultTokenMapKey({
                 networkId: item.networkId ?? '',
                 symbol: item.commonSymbol ?? item.symbol ?? '',
               })
             ] &&
             (item.isNative || item.isAggregateToken)
+          ) {
+            return true;
+          }
+
+          if (
+            customTokens?.find(
+              (t) =>
+                t.$key === item.$key ||
+                (t.address.toLowerCase() === item.address.toLowerCase() &&
+                  t.networkId === item.networkId),
+            )
           ) {
             return true;
           }
@@ -197,13 +221,14 @@ function TokenListViewCmp(props: IProps) {
     isTokenSelector,
     searchKey,
     hideZeroBalanceTokens,
-    homeDefaultTokenMap,
-    keepDefaultZeroBalanceTokens,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
     tokenListMap,
     aggregateTokenMap,
+    keepDefaultZeroBalanceTokens,
+    homeDefaultTokenMap,
+    customTokens,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();

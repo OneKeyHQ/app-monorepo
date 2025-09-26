@@ -392,6 +392,9 @@ function TokenSelector() {
       />
       <Page.Body>
         <TokenListView
+          accountId={accountId}
+          networkId={networkId}
+          indexedAccountId={indexedAccountId}
           showActiveAccountTokenList={showActiveAccountTokenList}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isAllNetworks ?? network?.isAllNetworks}
