@@ -73,7 +73,7 @@ export function TokenDetailHeaderRight({
   ) : null;
 
   const shareButton = networkId ? (
-    <ShareButton networkId={networkId} address={address} />
+    <ShareButton networkId={networkId} address={address} isNative={isNative} />
   ) : null;
 
   if (!showStats) {
