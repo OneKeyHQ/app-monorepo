@@ -58,7 +58,7 @@ function TokenDetailsTabToolbar(props: IProps) {
         new BigNumber(aFiat.isNaN() ? -1 : aFiat),
       );
     });
-    let index = sortedTokens.findIndex((t) => {
+    const negativeIndex = sortedTokens.findIndex((t) => {
       const key = `${
         t.accountId ||
         tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
@@ -69,26 +69,42 @@ function TokenDetailsTabToolbar(props: IProps) {
       ).isNegative();
     });
 
-    if (index === -1) {
-      index = sortedTokens.findIndex((t) => {
-        const key = `${
-          t.accountId ||
-          tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
-          ''
-        }_${t.networkId || ''}`;
-        return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
-      });
-    }
+    const zeroIndex = sortedTokens.findIndex((t) => {
+      const key = `${
+        t.accountId ||
+        tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
+        ''
+      }_${t.networkId || ''}`;
+      return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
+    });
 
-    if (index > -1) {
-      const tokensWithBalance = sortedTokens.slice(0, index);
-      let tokensWithZeroBalance = sortedTokens.slice(index);
+    if (negativeIndex > -1 || zeroIndex > -1) {
+      let tokensWithNonZeroBalance: IAccountToken[] = [];
+      let tokensWithZeroBalance: IAccountToken[] = [];
+      let tokensWithoutBalance: IAccountToken[] = [];
+
+      if (negativeIndex > -1) {
+        const tokensWithBalance = sortedTokens.slice(0, negativeIndex);
+        tokensWithoutBalance = sortedTokens.slice(negativeIndex);
+        if (zeroIndex > -1) {
+          tokensWithNonZeroBalance = tokensWithBalance.slice(0, zeroIndex);
+          tokensWithZeroBalance = tokensWithBalance.slice(zeroIndex);
+        }
+      }
 
       tokensWithZeroBalance = sortTokensByOrder({
         tokens: tokensWithZeroBalance,
       });
 
-      sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+      tokensWithoutBalance = sortTokensByOrder({
+        tokens: tokensWithoutBalance,
+      });
+
+      sortedTokens = [
+        ...tokensWithNonZeroBalance,
+        ...tokensWithZeroBalance,
+        ...tokensWithoutBalance,
+      ];
     }
 
     return sortedTokens;
