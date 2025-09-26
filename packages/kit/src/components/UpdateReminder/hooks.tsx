@@ -643,11 +643,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
     let isShowForceUpdatePreviewPage = false;
     const forceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
-    if (
-      appUpdateInfo.status !== EAppUpdateStatus.done &&
-      appUpdateInfo.status !== EAppUpdateStatus.notify &&
-      forceUpdate
-    ) {
+    if (appUpdateInfo.status !== EAppUpdateStatus.done && forceUpdate) {
       isShowForceUpdatePreviewPage = true;
       toUpdatePreviewPage(true, appUpdateInfo);
     }
