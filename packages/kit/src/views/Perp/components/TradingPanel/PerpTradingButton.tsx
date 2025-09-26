@@ -7,6 +7,7 @@ import type { IButtonProps } from '@onekeyhq/components';
 import { Button, SizableText, Spinner, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useActiveAccount,
   useSelectedAccount,
@@ -23,6 +24,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useCurrentTokenData } from '../../hooks';
+import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
 
@@ -46,7 +48,7 @@ export function PerpTradingButton({
   const [perpsAccount] = usePerpsSelectedAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
-
+  const themeVariant = useThemeVariant();
   const isAccountLoading = useMemo(() => {
     return (
       perpsAccountLoading.enableTradingLoading ||
@@ -107,28 +109,36 @@ export function PerpTradingButton({
 
   const isLong = useMemo(() => formData.side === 'long', [formData.side]);
   const buttonStyles = useMemo(() => {
+    const colors = PERP_TRADE_BUTTON_COLORS;
     const getBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '#18794E' : '#E5484D';
+
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'long' : 'short']
+        : colors.dark[isLong ? 'long' : 'short'];
     };
 
     const getHoverBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '$green8' : '$red10';
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'longHover' : 'shortHover']
+        : colors.dark[isLong ? 'longHover' : 'shortHover'];
     };
 
     const getPressBgColor = () => {
       if (isAccountLoading) return undefined;
-      return isLong ? '$green9' : '$red9';
+      return themeVariant === 'light'
+        ? colors.light[isLong ? 'longPress' : 'shortPress']
+        : colors.dark[isLong ? 'longPress' : 'shortPress'];
     };
 
     return {
       bg: getBgColor(),
       hoverBg: getHoverBgColor(),
       pressBg: getPressBgColor(),
-      textColor: buttonDisabled ? '$textDisabled' : '$textOnColor',
+      textColor: '$textOnColor',
     };
-  }, [buttonDisabled, isAccountLoading, isLong]);
+  }, [isAccountLoading, isLong, themeVariant]);
 
   const createAddressButtonRender = useCallback((props: IButtonProps) => {
     return <Button size="medium" borderRadius="$3" {...props} />;
@@ -252,15 +262,14 @@ export function PerpTradingButton({
       <Button
         size="medium"
         borderRadius="$3"
-        bg="#18794E"
-        hoverStyle={{ bg: '$green8' }}
-        pressStyle={{ bg: '$green8' }}
+        variant="primary"
         loading={isAccountLoading}
         onPress={async () => {
           await enableTrading();
         }}
+        childrenAsText
       >
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
+        <SizableText size="$bodyMdMedium" color="$textInverse">
           {intl.formatMessage({
             id: ETranslations.perp_trade_button_enable_trading,
           })}
@@ -272,8 +281,16 @@ export function PerpTradingButton({
   return (
     <Button
       bg={buttonStyles.bg}
-      hoverStyle={{ bg: buttonStyles.hoverBg }}
-      pressStyle={{ bg: buttonStyles.pressBg }}
+      hoverStyle={
+        !buttonDisabled && !isSubmitting
+          ? { bg: buttonStyles.hoverBg }
+          : undefined
+      }
+      pressStyle={
+        !buttonDisabled && !isSubmitting
+          ? { bg: buttonStyles.pressBg }
+          : undefined
+      }
       loading={perpsAccountLoading?.enableTradingLoading || isSubmitting}
       onPress={orderConfirm}
       disabled={buttonDisabled}

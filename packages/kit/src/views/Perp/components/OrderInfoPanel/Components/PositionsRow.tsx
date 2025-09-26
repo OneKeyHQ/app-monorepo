@@ -356,7 +356,7 @@ const PositionRow = memo(
             >
               <SizableText size="$bodySm">
                 {intl.formatMessage({
-                  id: ETranslations.perp_position_close,
+                  id: ETranslations.perp_close_position_title,
                 })}
               </SizableText>
             </Button>
