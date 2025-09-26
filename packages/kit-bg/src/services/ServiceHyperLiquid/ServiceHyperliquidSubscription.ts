@@ -428,10 +428,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
-        console.log(
-          '[ServiceHyperliquidSubscription.handleSubscriptionData] User fills data:',
-          data,
-        );
         // TODO remove
         hyperLiquidCache.allMids = data as IWsAllMids;
         void this.backgroundApi.serviceHyperliquid.refreshCurrentMid();

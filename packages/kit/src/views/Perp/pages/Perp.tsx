@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -21,7 +22,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import { showHyperliquidTermsDialog } from '../components/HyperliquidTermsDialog';
+import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
@@ -128,50 +129,48 @@ function PerpContent() {
     setTabPageHeight(height);
   }, []);
 
+  const header = (
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Perp}
+      customHeaderRightItems={
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <PerpsHeaderRight />
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
+      }
+    />
+  );
+
   return (
     <Page>
       {platformEnv.isNative ? (
-        <Stack h={tabPageHeight} />
+        <>
+          <Stack h={tabPageHeight} />
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+            onLayout={handleTabPageLayout}
+            zIndex={FLOAT_NAV_BAR_Z_INDEX}
+          >
+            {header}
+          </YStack>
+        </>
       ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Perp}
-          customHeaderRightItems={
-            <PerpsAccountSelectorProviderMirror>
-              <PerpsProviderMirror>
-                <PerpsHeaderRight />
-              </PerpsProviderMirror>
-            </PerpsAccountSelectorProviderMirror>
-          }
-        />
+        header
       )}
       <Page.Body>
-        <PerpLayout />
+        <Stack position="relative" flex={1}>
+          <PerpLayout />
+          <HyperliquidTermsOverlay />
+        </Stack>
       </Page.Body>
       <PerpContentFooter />
-      {platformEnv.isNative ? (
-        <YStack
-          position="absolute"
-          top={-20}
-          left={0}
-          bg="$bgApp"
-          pt="$5"
-          width="100%"
-          onLayout={handleTabPageLayout}
-        >
-          <TabPageHeader
-            sceneName={EAccountSelectorSceneName.home}
-            tabRoute={ETabRoutes.Perp}
-            customHeaderRightItems={
-              <PerpsAccountSelectorProviderMirror>
-                <PerpsProviderMirror>
-                  <PerpsHeaderRight />
-                </PerpsProviderMirror>
-              </PerpsAccountSelectorProviderMirror>
-            }
-          />
-        </YStack>
-      ) : null}
     </Page>
   );
 }
@@ -179,10 +178,6 @@ function PerpContent() {
 export default function Perp() {
   useFocusEffect(() => {
     void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
-    const timer = setTimeout(() => {
-      void showHyperliquidTermsDialog();
-    }, 600);
-    return () => clearTimeout(timer);
   });
   return (
     <PerpsAccountSelectorProviderMirror>
