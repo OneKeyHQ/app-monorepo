@@ -102,6 +102,10 @@ const SliderGallery = () => (
           </Stack>
         ),
       },
+      {
+        title: 'Slider with segments',
+        element: <Slider min={1} max={100} step={1} segments={3} />,
+      }
     ]}
   />
 );
