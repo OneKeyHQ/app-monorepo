@@ -128,6 +128,9 @@ function useReceiveToken({
             tokenListState,
             searchAll: true,
             closeAfterSelect: false,
+            footerTipText: intl.formatMessage({
+              id: ETranslations.receive_token_list_footer_text,
+            }),
             enableNetworkAfterSelect: true,
             onSelect: async (t: IToken) => {
               if (networkUtils.isLightningNetworkByNetworkId(t.networkId)) {

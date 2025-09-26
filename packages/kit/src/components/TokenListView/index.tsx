@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
+  type IYStackProps,
   ListView,
   SizableText,
   Stack,
@@ -43,6 +44,7 @@ import {
   useTokenListSortAtom,
   useTokenListStateAtom,
 } from '../../states/jotai/contexts/tokenList';
+import { useTokenManagement } from '../../views/AssetList/hooks/useTokenManagement';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { PullToRefresh } from '../../views/Home/components/PullToRefresh';
 import { EmptySearch } from '../Empty';
@@ -56,6 +58,9 @@ import { TokenListItem } from './TokenListItem';
 import { TokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
+  accountId: string;
+  networkId: string;
+  indexedAccountId: string | undefined;
   tableLayout?: boolean;
   onPressToken?: (token: IAccountToken) => void;
   withHeader?: boolean;
@@ -99,6 +104,7 @@ type IProps = {
   homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
   keepDefaultZeroBalanceTokens?: boolean;
   withAggregateBadge?: boolean;
+  emptyProps?: IYStackProps;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -131,6 +137,10 @@ function TokenListViewCmp(props: IProps) {
     homeDefaultTokenMap,
     keepDefaultZeroBalanceTokens = true,
     withAggregateBadge,
+    emptyProps,
+    accountId,
+    networkId,
+    indexedAccountId,
   } = props;
 
   const [activeAccountTokenList] = useActiveAccountTokenListAtom();
@@ -141,6 +151,12 @@ function TokenListViewCmp(props: IProps) {
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
   const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
+
+  const { customTokens } = useTokenManagement({
+    accountId,
+    networkId,
+    indexedAccountId,
+  });
 
   const tokens = useMemo(() => {
     let resultTokens: IAccountToken[] = [];
@@ -170,15 +186,26 @@ function TokenListViewCmp(props: IProps) {
           return true;
         }
 
-        if (keepDefaultZeroBalanceTokens && homeDefaultTokenMap) {
+        if (keepDefaultZeroBalanceTokens) {
           if (
-            homeDefaultTokenMap[
+            homeDefaultTokenMap?.[
               buildHomeDefaultTokenMapKey({
                 networkId: item.networkId ?? '',
                 symbol: item.commonSymbol ?? item.symbol ?? '',
               })
             ] &&
             (item.isNative || item.isAggregateToken)
+          ) {
+            return true;
+          }
+
+          if (
+            customTokens?.find(
+              (t) =>
+                t.$key === item.$key ||
+                (t.address.toLowerCase() === item.address.toLowerCase() &&
+                  t.networkId === item.networkId),
+            )
           ) {
             return true;
           }
@@ -194,13 +221,14 @@ function TokenListViewCmp(props: IProps) {
     isTokenSelector,
     searchKey,
     hideZeroBalanceTokens,
-    homeDefaultTokenMap,
-    keepDefaultZeroBalanceTokens,
     activeAccountTokenList.tokens,
     tokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
     tokenListMap,
     aggregateTokenMap,
+    keepDefaultZeroBalanceTokens,
+    homeDefaultTokenMap,
+    customTokens,
   ]);
 
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -384,9 +412,10 @@ function TokenListViewCmp(props: IProps) {
       <EmptySearch
         onManageToken={onManageToken}
         manageTokenEnabled={manageTokenEnabled}
+        {...emptyProps}
       />
     ) : (
-      <EmptyToken />
+      <EmptyToken {...emptyProps} />
     );
   }, [
     emptyAccountView,
@@ -395,6 +424,7 @@ function TokenListViewCmp(props: IProps) {
     searchKey,
     showSkeleton,
     tableLayout,
+    emptyProps,
   ]);
 
   return (
@@ -455,7 +485,7 @@ function TokenListViewCmp(props: IProps) {
               manageTokenEnabled={manageTokenEnabled}
             />
           ) : null}
-          {footerTipText ? (
+          {!tokenSelectorSearchKey && footerTipText ? (
             <Stack jc="center" ai="center" pt="$3">
               <SizableText size="$bodySm" color="$textSubdued">
                 {footerTipText}
