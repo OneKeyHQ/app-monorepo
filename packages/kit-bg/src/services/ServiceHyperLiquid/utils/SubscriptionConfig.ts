@@ -1,6 +1,5 @@
 import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import type {
-  IActiveAssetData,
   IBook,
   IEventActiveAssetCtxParameters,
   IEventActiveAssetDataParameters,
@@ -12,6 +11,7 @@ import type {
   IEventUserFillsParameters,
   IEventWebData2Parameters,
   IHex,
+  IPerpsActiveAssetDataRaw,
   ISubscriptionClient,
   IWsAllMids,
   IWsAllMidsParameters,
@@ -120,7 +120,7 @@ export const SUBSCRIPTION_TYPE_INFO = {
     createSubscription: (
       client: ISubscriptionClient,
       params: IEventActiveAssetDataParameters,
-      handleData: (data: IActiveAssetData) => void,
+      handleData: (data: IPerpsActiveAssetDataRaw) => void,
     ) => client.activeAssetData(params, handleData),
   },
   [ESubscriptionType.USER_EVENTS]: {

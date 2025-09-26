@@ -25,6 +25,7 @@ import {
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
 } from './Interceptor';
+import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
@@ -210,7 +211,7 @@ axios.interceptors.response.use(
 const orgCreate = axios.create;
 axios.create = function (config?: AxiosRequestConfig): AxiosInstance {
   const defaultConfig: AxiosRequestConfig = {
-    timeout: 30_000,
+    timeout: REQUEST_TIMEOUT,
   };
   const mergedConfig = {
     ...defaultConfig,

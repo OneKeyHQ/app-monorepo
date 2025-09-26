@@ -14,7 +14,6 @@ import {
   YStack,
   getFontSize,
 } from '@onekeyhq/components';
-import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -32,6 +31,7 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
@@ -64,6 +64,13 @@ interface ISetTpslFormProps extends ISetTpslParams {
   onClose: () => void;
 }
 
+function MarkPrice({ coin, szDecimals }: { coin: string; szDecimals: number }) {
+  const { midFormattedByDecimals } = usePerpsMidPrice({ coin, szDecimals });
+  return (
+    <SizableText size="$bodyMdMedium">{midFormattedByDecimals}</SizableText>
+  );
+}
+
 const SetTpslForm = memo(
   ({
     position,
@@ -72,21 +79,6 @@ const SetTpslForm = memo(
     hyperliquidActions,
     onClose = () => {},
   }: ISetTpslFormProps) => {
-    const [allMids] = useAllMidsAtom();
-    const getMidPrice = useCallback(() => {
-      if (!allMids?.mids) return '0';
-      const midPrice = formatPriceToSignificantDigits(
-        allMids.mids[position.coin],
-        szDecimals,
-      );
-      return midPrice || '0';
-    }, [allMids, position.coin, szDecimals]);
-
-    const markPrice = useMemo(() => {
-      const currentMidPrice = getMidPrice() || '0';
-      return currentMidPrice;
-    }, [getMidPrice]);
-
     const positionSize = useMemo(() => {
       const size = new BigNumber(position.szi || '0').abs();
       return size;
@@ -289,10 +281,9 @@ const SetTpslForm = memo(
                   id: ETranslations.perp_position_mark_price,
                 })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">{markPrice}</SizableText>
+              <MarkPrice coin={position.coin} szDecimals={szDecimals} />
             </XStack>
           </YStack>
-
           <TpslInput
             price={entryPrice}
             side={isLongPosition ? 'long' : 'short'}

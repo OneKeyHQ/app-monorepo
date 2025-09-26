@@ -23,12 +23,11 @@ import {
   useTheme,
   useThemeName,
 } from '@onekeyhq/components';
+import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { calculateSpreadPercentage } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
-
-import { usePerpMarketData } from '../../hooks/usePerpMarketData';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 import { type ITickParam } from './tickSizeUtils';
@@ -1096,7 +1095,11 @@ export function OrderBookMobile({
   onTickOptionChange,
 }: IOrderBookProps) {
   const intl = useIntl();
-  const { markPrice, oraclePrice } = usePerpMarketData();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const { markPrice, oraclePrice } = assetCtx?.ctx || {
+    markPrice: '0',
+    oraclePrice: '0',
+  };
   const aggregatedData = useAggregatedBook(
     bids,
     asks,

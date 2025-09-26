@@ -8,3 +8,4 @@ export * from './layouts';
 export * from './primitives';
 export * from './utils';
 export * from './types';
+export * from './utils/DebugRenderTracker';

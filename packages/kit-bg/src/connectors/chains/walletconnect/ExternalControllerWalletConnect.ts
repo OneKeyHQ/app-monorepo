@@ -118,10 +118,13 @@ export class ExternalControllerWalletConnect extends ExternalControllerBase {
       );
     }
     if (!connectedAddresses[networkId]) {
+      const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
+        networkId,
+      });
       throw new OneKeyLocalError(
         `${appLocale.intl.formatMessage({
           id: ETranslations.feedback_external_wallet_does_not_approve_network,
-        })}: ${networkId}`,
+        })}: ${network?.name || network?.shortname || networkId}`,
       );
     }
     // TODO checksum compare

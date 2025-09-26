@@ -6,8 +6,10 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-
-import { useCurrentTokenData } from './usePerpMarketData';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -23,12 +25,13 @@ export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
   const [formData] = useTradingFormAtom();
-  const tokenInfo = useCurrentTokenData();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
 
   const handleConfirm = useCallback(async () => {
-    if (tokenInfo?.assetId === undefined) {
+    if (activeAsset?.assetId === undefined) {
       Toast.error({
         title: 'Order Failed',
         message: 'Token information not available',
@@ -39,13 +42,13 @@ export function useOrderConfirm(
     try {
       if (formData.type === 'market') {
         await hyperliquidActions.current.orderOpen({
-          assetId: tokenInfo.assetId,
+          assetId: activeAsset.assetId,
           formData,
-          price: tokenInfo.markPx || '0',
+          price: activeAssetCtx?.ctx?.markPrice || '0',
         });
       } else {
         await hyperliquidActions.current.orderOpen({
-          assetId: tokenInfo.assetId,
+          assetId: activeAsset.assetId,
           formData,
           price: formData.price || '0',
         });
@@ -58,7 +61,13 @@ export function useOrderConfirm(
     } catch (error) {
       options?.onError?.(error);
     }
-  }, [tokenInfo, formData, hyperliquidActions, options]);
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeAsset.assetId,
+    formData,
+    hyperliquidActions,
+    options,
+  ]);
 
   return {
     isSubmitting,

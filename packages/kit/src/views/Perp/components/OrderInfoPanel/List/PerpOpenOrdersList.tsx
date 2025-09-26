@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { isNil, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useCurrentUserAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList, useTradingGuard } from '../../../hooks';
-import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
+import { useTradingGuard } from '../../../hooks';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -20,22 +22,25 @@ interface IPerpOpenOrdersListProps {
 
 function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const orders = usePerpOrders();
-  const [currentUser] = useCurrentUserAtom();
+  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
-  const { getTokenInfo } = useTokenList();
   const { ensureTradingEnabled } = useTradingGuard();
-
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
+    noop(currentUser?.accountAddress);
     setCurrentListPage(1);
-  }, [currentUser]);
-  const handleCancelAll = useCallback(() => {
+  }, [currentUser?.accountAddress]);
+  const handleCancelAll = useCallback(async () => {
     ensureTradingEnabled();
+    const symbolsMetaMap =
+      await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+        coins: orders.map((o) => o.coin),
+      });
     const ordersToCancel = orders
       .map((order) => {
-        const tokenInfo = getTokenInfo(order.coin);
-        if (!tokenInfo) {
+        const tokenInfo = symbolsMetaMap[order.coin];
+        if (!tokenInfo || isNil(tokenInfo?.assetId)) {
           console.warn(`Token info not found for coin: ${order.coin}`);
           return null;
         }
@@ -52,7 +57,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     }
 
     void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, getTokenInfo, actions, ensureTradingEnabled]);
+  }, [orders, actions, ensureTradingEnabled]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -143,9 +148,13 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   );
 
   const handleCancelOrder = useCallback(
-    (order: FrontendOrder) => {
+    async (order: FrontendOrder) => {
       ensureTradingEnabled();
-      const tokenInfo = getTokenInfo(order.coin);
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: order.coin,
+        });
+      const tokenInfo = symbolMeta;
       if (!tokenInfo) {
         console.warn(`Token info not found for coin: ${order.coin}`);
         return;
@@ -159,7 +168,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         ],
       });
     },
-    [getTokenInfo, actions, ensureTradingEnabled],
+    [actions, ensureTradingEnabled],
   );
 
   const totalMinWidth = useMemo(

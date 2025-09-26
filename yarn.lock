@@ -7545,7 +7545,7 @@ __metadata:
     "@types/text-encoding": "npm:^0"
     "@types/validator": "npm:^13"
     "@types/w3c-web-usb": "npm:^1.0.10"
-    "@types/web": "npm:0.0.151"
+    "@types/web": "npm:0.0.269"
     "@types/zxcvbn": "npm:^4"
     "@typescript-eslint/eslint-plugin": "npm:5.62.0"
     "@typescript-eslint/parser": "npm:5.62.0"
@@ -15899,10 +15899,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/web@npm:0.0.151":
-  version: 0.0.151
-  resolution: "@types/web@npm:0.0.151"
-  checksum: 10/ea330b718e3c75f65d2015dd88f07feea431b58aa860e0ba20eed5ca62da0aa51e40b7d873af9070640296db79a6b79e64877001067a7c185679317c66a99edb
+"@types/web@npm:0.0.269":
+  version: 0.0.269
+  resolution: "@types/web@npm:0.0.269"
+  checksum: 10/8003f221e8ea67c5e6b020c164f9cf9b063c93907550bfdd8642ed07b82efd0e7d1e00b90f87151f9cd96e53874732cc543e0323c7e4ac04e65ccd3aeafe4f4c
   languageName: node
   linkType: hard
 

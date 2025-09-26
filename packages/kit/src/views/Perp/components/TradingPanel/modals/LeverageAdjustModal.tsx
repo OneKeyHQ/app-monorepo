@@ -16,24 +16,22 @@ import {
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  useActiveAssetDataAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsSelectedAccountAtom,
-  usePerpsSelectedSymbolAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList } from '../../../hooks/usePerpMarketData';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
 interface ILeverageContentProps {
   initialValue: number;
   maxLeverage: number;
-  tokenInfo: { assetId: number; name: string };
+  tokenInfo: IPerpsActiveAssetAtom;
   activeAssetData: { leverage?: { type: string } };
   isMobile?: boolean;
 }
@@ -80,7 +78,7 @@ const LeverageContent = memo(
       void dialogInstance.close();
       try {
         await actions.current.updateLeverage({
-          asset: tokenInfo.assetId,
+          asset: tokenInfo.assetId ?? -1,
           isCross: activeAssetData?.leverage?.type === 'cross',
           leverage: value,
         });
@@ -151,7 +149,7 @@ const LeverageContent = memo(
               id: ETranslations.perp_leverage_desc_warning,
             },
             {
-              token: tokenInfo.name,
+              token: tokenInfo.coin,
               leverage: maxLeverage,
             },
           )}
@@ -174,21 +172,21 @@ LeverageContent.displayName = 'LeverageContent';
 
 export const LeverageAdjustModal = memo(
   ({ isMobile = false }: { isMobile?: boolean }) => {
-    const [selectedAccount] = usePerpsSelectedAccountAtom();
+    const [selectedAccount] = usePerpsActiveAccountAtom();
     const userAddress = selectedAccount.accountAddress;
 
-    const [currentToken] = usePerpsSelectedSymbolAtom();
-    const { getTokenInfo } = useTokenList();
-    const [activeAssetData] = useActiveAssetDataAtom();
+    const [currentToken] = usePerpsActiveAssetAtom();
+    const [activeAssetData] = usePerpsActiveAssetDataAtom();
 
-    const tokenInfo = getTokenInfo(currentToken.coin);
     const intl = useIntl();
     const showLeverageDialog = useCallback(() => {
-      if (!userAddress || !tokenInfo || !activeAssetData) return;
+      if (!userAddress || !currentToken || !activeAssetData) return;
 
       const initialValue =
-        activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
-      const maxLeverage = tokenInfo.maxLeverage || 25;
+        activeAssetData?.leverage?.value ||
+        currentToken?.universe?.maxLeverage ||
+        1;
+      const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
       Dialog.show({
         title: intl.formatMessage({
@@ -200,16 +198,17 @@ export const LeverageAdjustModal = memo(
             <LeverageContent
               initialValue={initialValue}
               maxLeverage={maxLeverage}
-              tokenInfo={tokenInfo}
+              // tokenInfo={tokenInfo}
+              tokenInfo={currentToken}
               activeAssetData={activeAssetData}
             />
           </PerpsProviderMirror>
         ),
         showFooter: false,
       });
-    }, [tokenInfo, userAddress, activeAssetData, intl]);
+    }, [userAddress, currentToken, activeAssetData, intl]);
 
-    if (!userAddress || !tokenInfo) return null;
+    if (!userAddress || !currentToken) return null;
 
     return (
       <Badge
@@ -228,7 +227,10 @@ export const LeverageAdjustModal = memo(
         cursor="pointer"
       >
         <SizableText size="$bodyMdMedium">
-          {activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1}x
+          {activeAssetData?.leverage?.value ||
+            currentToken?.universe?.maxLeverage ||
+            1}
+          x
         </SizableText>
       </Badge>
     );

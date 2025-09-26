@@ -6,7 +6,7 @@ import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
 import { getTokenValue } from 'tamagui';
 
-import { DebugRenderTracker } from '../../utils';
+import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
 
 import type { StackStyle, Tokens } from '@tamagui/web';
 import type {
@@ -127,7 +127,7 @@ function BaseListView<T>(
 
   const ListViewComponent = useFlashList ? FlashList<T> : FlatList<T>;
   return (
-    <DebugRenderTracker>
+    <DebugRenderTracker timesBadgePosition="top-right" name="ListView">
       <ListViewComponent
         ref={ref}
         style={style as StyleProp<ViewStyle>}
