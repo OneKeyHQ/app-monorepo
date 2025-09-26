@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
@@ -25,14 +26,15 @@ function MobileTokenSelectorModal({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { searchQuery, setSearchQuery, filteredTokens, selectToken } =
+  const actions = useHyperliquidActions();
+  const { searchQuery, setSearchQuery, filteredTokens } =
     usePerpTokenSelector();
 
   const handleSelectToken = async (symbol: string) => {
     try {
       onLoadingChange(true);
       navigation.popStack();
-      await selectToken(symbol);
+      await actions.current.changeActiveAsset({ coin: symbol });
     } catch (error) {
       console.error('Failed to switch token:', error);
     } finally {
@@ -52,7 +54,7 @@ function MobileTokenSelectorModal({
             const afterTrim = nativeEvent.text.trim();
             setSearchQuery(afterTrim);
           },
-          searchBarInputValue: searchQuery,
+          searchBarInputValue: undefined, // keep value undefined to make SearchBar Input debounce works
         }}
       />
       <XStack

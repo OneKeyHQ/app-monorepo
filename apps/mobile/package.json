@@ -9,6 +9,7 @@
     "android:huawei": "SENTRY_DISABLE_AUTO_UPLOAD=true ANDROID_CHANNEL=huawei expo run:android --variant=ProdDebug",
     "android:google": "SENTRY_DISABLE_AUTO_UPLOAD=true ANDROID_CHANNEL=google expo run:android --variant=GoogleDebug",
     "android:build": "cd android && ./gradlew assembleDebug",
+    "ios": "SENTRY_DISABLE_AUTO_UPLOAD=true expo run:ios",
     "ios:device": "SENTRY_DISABLE_AUTO_UPLOAD=true expo run:ios --device",
     "ios:build": "cd ios && xcodebuild -workspace OneKeyWallet.xcworkspace -scheme OneKeyWallet -configuration Release -archivePath ./build/OneKeyWallet.xcarchive",
     "ios:pod-install": "cd ios && pod install && cd ..",

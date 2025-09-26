@@ -17,7 +17,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useCurrentTokenPriceAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -35,17 +35,24 @@ function PerpTickerBar() {
   const navigation = useAppNavigation();
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
-  const [priceData] = useCurrentTokenPriceAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
 
   const {
     markPrice,
     oraclePrice,
-    funding: fundingRate,
+    fundingRate,
     openInterest,
     volume24h,
     change24hPercent,
-    coin,
-  } = priceData;
+  } = assetCtx?.ctx || {
+    markPrice: '0',
+    oraclePrice: '0',
+    fundingRate: '0',
+    openInterest: '0',
+    volume24h: '0',
+    change24hPercent: 0,
+  };
+  const coin = assetCtx?.coin || '';
 
   const formattedMarkPrice = markPrice;
   const formattedOraclePrice = oraclePrice;

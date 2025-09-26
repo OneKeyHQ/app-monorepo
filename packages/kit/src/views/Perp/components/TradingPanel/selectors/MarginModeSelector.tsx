@@ -3,8 +3,10 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import { useActiveAssetDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetDataAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { showMarginModeDialog } from '../modals/MarginModeModal';
@@ -19,8 +21,8 @@ const MarginModeSelector = ({
   isMobile = false,
 }: IMarginModeSelectorProps) => {
   const intl = useIntl();
-  const [activeAssetData] = useActiveAssetDataAtom();
-  const [selectedSymbol] = usePerpsSelectedSymbolAtom();
+  const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const [selectedSymbol] = usePerpsActiveAssetAtom();
 
   const currentModeLabel = useMemo(() => {
     const currentMode = activeAssetData?.leverage?.type || 'isolated';

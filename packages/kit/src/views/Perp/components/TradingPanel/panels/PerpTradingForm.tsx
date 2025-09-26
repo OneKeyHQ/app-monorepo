@@ -14,14 +14,16 @@ import {
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
-  useActiveAssetDataAtom,
   useHyperliquidActions,
+  usePerpsActivePositionAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsSelectedSymbolAtom,
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -57,11 +59,12 @@ function PerpTradingForm({
   const [formData] = useTradingFormAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
-  const tokenInfo = useCurrentTokenData();
-  const currentTokenName = tokenInfo?.name;
-  const perpsPositions = usePerpPositions();
-  const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
-  const [activeAssetData] = useActiveAssetDataAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const currentTokenName = activeAsset?.coin;
+  const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
+  const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
@@ -78,12 +81,23 @@ function PerpTradingForm({
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (prevType !== 'limit' && currentType === 'limit' && tokenInfo?.markPx) {
-      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
+    if (
+      prevType !== 'limit' &&
+      currentType === 'limit' &&
+      activeAssetCtx?.ctx?.markPrice
+    ) {
+      updateForm({
+        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+      });
     }
 
     prevTypeRef.current = currentType;
-  }, [formData.type, formData.price, tokenInfo?.markPx, updateForm]);
+  }, [
+    formData.type,
+    formData.price,
+    activeAssetCtx?.ctx?.markPrice,
+    updateForm,
+  ]);
 
   useEffect(() => {
     const prevToken = prevTokenRef.current;
@@ -94,7 +108,7 @@ function PerpTradingForm({
       tokenSwitchingRef.current === currentTokenName &&
       formData.type === 'limit' &&
       currentTokenName &&
-      tokenInfo?.markPx &&
+      activeAssetCtx?.ctx?.markPrice &&
       isDataSynced;
 
     // Handle token switch
@@ -105,33 +119,50 @@ function PerpTradingForm({
     }
 
     // Update price after token switch when data is synchronized
-    if (shouldUpdatePrice && tokenInfo.markPx) {
-      updateForm({ price: formatPriceToSignificantDigits(tokenInfo.markPx) });
+    if (shouldUpdatePrice && activeAssetCtx?.ctx?.markPrice) {
+      updateForm({
+        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+      });
       tokenSwitchingRef.current = false;
     }
 
     if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
-  }, [currentTokenName, tokenInfo?.markPx, formData.type, updateForm]);
+  }, [
+    currentTokenName,
+    activeAssetCtx?.ctx?.markPrice,
+    formData.type,
+    updateForm,
+  ]);
 
   const leverage = useMemo(() => {
-    return activeAssetData?.leverage?.value || tokenInfo?.maxLeverage;
-  }, [activeAssetData?.leverage?.value, tokenInfo?.maxLeverage]);
+    return (
+      activeAssetData?.leverage?.value || activeAsset?.universe?.maxLeverage
+    );
+  }, [activeAssetData?.leverage?.value, activeAsset?.universe?.maxLeverage]);
 
   const [referencePrice, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
     }
-    if (formData.type === 'market' && tokenInfo?.markPx) {
-      price = new BigNumber(tokenInfo.markPx);
+    if (formData.type === 'market' && activeAssetCtx?.ctx?.markPrice) {
+      price = new BigNumber(activeAssetCtx?.ctx?.markPrice);
     }
     return [
       price,
-      formatPriceToSignificantDigits(price, tokenInfo?.szDecimals ?? 2),
+      formatPriceToSignificantDigits(
+        price,
+        activeAsset?.universe?.szDecimals ?? 2,
+      ),
     ];
-  }, [formData.type, formData.price, tokenInfo?.markPx, tokenInfo?.szDecimals]);
+  }, [
+    formData.type,
+    formData.price,
+    activeAssetCtx?.ctx?.markPrice,
+    activeAsset?.universe?.szDecimals,
+  ]);
 
   const availableToTrade = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
@@ -225,9 +256,11 @@ function PerpTradingForm({
         {formData.type === 'limit' ? (
           <PriceInput
             onUseMarketPrice={() => {
-              if (tokenInfo?.markPx) {
+              if (activeAssetCtx?.ctx?.markPrice) {
                 updateForm({
-                  price: formatPriceToSignificantDigits(tokenInfo.markPx),
+                  price: formatPriceToSignificantDigits(
+                    activeAssetCtx?.ctx?.markPrice,
+                  ),
                 });
               }
             }}
@@ -239,9 +272,11 @@ function PerpTradingForm({
         ) : (
           <PriceInput
             onUseMarketPrice={() => {
-              if (tokenInfo?.markPx) {
+              if (activeAssetCtx?.ctx?.markPrice) {
                 updateForm({
-                  price: formatPriceToSignificantDigits(tokenInfo.markPx),
+                  price: formatPriceToSignificantDigits(
+                    activeAssetCtx?.ctx?.markPrice,
+                  ),
                 });
               }
             }}
@@ -256,7 +291,8 @@ function PerpTradingForm({
         )}
         <SizeInput
           side={formData.side}
-          tokenInfo={tokenInfo}
+          activeAsset={activeAsset}
+          activeAssetCtx={activeAssetCtx}
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
@@ -284,7 +320,7 @@ function PerpTradingForm({
             <TpslInput
               price={referencePrice.toFixed()}
               side={formData.side}
-              szDecimals={tokenInfo?.szDecimals ?? 2}
+              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
               leverage={leverage}
               tpsl={{
                 tpPrice: formData.tpTriggerPx,
@@ -405,9 +441,11 @@ function PerpTradingForm({
         {formData.type === 'limit' ? (
           <PriceInput
             onUseMarketPrice={() => {
-              if (tokenInfo?.markPx) {
+              if (activeAssetCtx?.ctx?.markPrice) {
                 updateForm({
-                  price: formatPriceToSignificantDigits(tokenInfo.markPx),
+                  price: formatPriceToSignificantDigits(
+                    activeAssetCtx?.ctx?.markPrice,
+                  ),
                 });
               }
             }}
@@ -419,7 +457,8 @@ function PerpTradingForm({
 
         <SizeInput
           side={formData.side}
-          tokenInfo={tokenInfo}
+          activeAsset={activeAsset}
+          activeAssetCtx={activeAssetCtx}
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
@@ -446,7 +485,7 @@ function PerpTradingForm({
             <TpslInput
               price={referencePriceString}
               side={formData.side}
-              szDecimals={tokenInfo?.szDecimals ?? 2}
+              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
               leverage={leverage}
               tpsl={{
                 tpPrice: formData.tpTriggerPx,

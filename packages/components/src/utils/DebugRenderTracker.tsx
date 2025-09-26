@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
 import type { ComponentType, FC, ReactNode } from 'react';
 import { useRef } from 'react';
 
@@ -5,12 +7,23 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 
+import { Toast } from '../actions';
+
 const css1 = 'debug-render-tracker-animated-bg';
 const css2 = 'debug-render-tracker-animated-bg0';
 
 function DebugRenderTracker(props: {
+  name?: string;
   children: ReactNode;
-  timesBadgePosition?: 'top-right' | 'top-left';
+  timesBadgePosition?:
+    | 'top-right'
+    | 'top-left'
+    | 'top-center'
+    | 'right-center'
+    | 'bottom-right'
+    | 'bottom-center'
+    | 'bottom-left'
+    | 'left-center';
 }): ReactNode {
   const { children, timesBadgePosition = 'top-left' } = props;
   const classRef = useRef<typeof css1 | typeof css2>(css1);
@@ -27,6 +40,14 @@ function DebugRenderTracker(props: {
         const divElement = (
           <div className={classRef.current}>
             <div
+              onClick={() => {
+                Toast.message({
+                  title: props.name || 'unknown tracker name',
+                });
+              }}
+              style={{
+                cursor: 'zoom-in',
+              }}
               className={`debug-render-tracker-times-badge ${timesBadgePosition}`}
             >
               {renderTimesRef.current}

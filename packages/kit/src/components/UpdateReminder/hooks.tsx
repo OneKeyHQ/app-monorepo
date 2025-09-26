@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { isEmpty, noop, throttle } from 'lodash';
+import { noop, throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -44,6 +44,12 @@ import { whenAppUnlocked } from '../../utils/passwordUtils';
 import type { IntlShape } from 'react-intl';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
+const isShowToastError = (updateStrategy: EUpdateStrategy) => {
+  return (
+    updateStrategy !== EUpdateStrategy.silent &&
+    updateStrategy !== EUpdateStrategy.seamless
+  );
+};
 
 export const isAutoUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
   return (
@@ -59,6 +65,9 @@ export const isShowAppUpdateUIWhenUpdating = ({
   updateStrategy: EUpdateStrategy;
   updateStatus: EAppUpdateStatus;
 }) => {
+  if (updateStrategy === EUpdateStrategy.seamless) {
+    return false;
+  }
   if (
     updateStrategy === EUpdateStrategy.manual ||
     updateStrategy === EUpdateStrategy.force
@@ -219,6 +228,7 @@ export const useDownloadPackage = () => {
     async (onSuccess: () => void, onFail: () => void) => {
       const data = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       const fileType = await getFileTypeFromUpdateInfo();
+      const showToastError = isShowToastError(data.updateStrategy);
       try {
         defaultLogger.app.appUpdate.startInstallPackage({ fileType, data });
         if (fileType === EUpdateFileType.jsBundle) {
@@ -236,7 +246,7 @@ export const useDownloadPackage = () => {
         defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
         if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
           onFail();
-        } else {
+        } else if (showToastError) {
           Toast.error({ title: (e as Error).message });
         }
       }
@@ -342,13 +352,14 @@ export const useDownloadPackage = () => {
 
   const downloadPackage = useCallback(async () => {
     const fileType = await getFileTypeFromUpdateInfo();
+    const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    defaultLogger.app.appUpdate.startCheckForUpdates(
+      fileType,
+      params.updateStrategy,
+    );
+    const showToastError = isShowToastError(params.updateStrategy);
     try {
       await backgroundApiProxy.serviceAppUpdate.downloadPackage();
-      const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      defaultLogger.app.appUpdate.startCheckForUpdates(
-        fileType,
-        params.updateStrategy,
-      );
       const { latestVersion, jsBundleVersion, jsBundle, downloadUrl } = params;
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
       const updateEvent =
@@ -380,11 +391,13 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(
         e as Error,
       );
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.global_update_failed,
-        }),
-      });
+      if (showToastError) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_update_failed,
+          }),
+        });
+      }
     }
   }, [downloadASC, getFileTypeFromUpdateInfo, intl]);
 

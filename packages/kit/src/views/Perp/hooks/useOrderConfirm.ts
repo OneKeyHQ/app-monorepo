@@ -6,12 +6,14 @@ import {
   useTradingFormAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-
-import { useCurrentTokenData } from './usePerpMarketData';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
-  onError?: (error: Error) => void;
+  onError?: (error: unknown) => void;
 }
 
 export interface IUseOrderConfirmReturn {
@@ -23,12 +25,13 @@ export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
   const [formData] = useTradingFormAtom();
-  const tokenInfo = useCurrentTokenData();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
 
   const handleConfirm = useCallback(async () => {
-    if (tokenInfo?.assetId === undefined) {
+    if (activeAsset?.assetId === undefined) {
       Toast.error({
         title: 'Order Failed',
         message: 'Token information not available',
@@ -39,13 +42,13 @@ export function useOrderConfirm(
     try {
       if (formData.type === 'market') {
         await hyperliquidActions.current.orderOpen({
-          assetId: tokenInfo.assetId,
+          assetId: activeAsset.assetId,
           formData,
-          price: tokenInfo.markPx || '0',
+          price: activeAssetCtx?.ctx?.markPrice || '0',
         });
       } else {
         await hyperliquidActions.current.orderOpen({
-          assetId: tokenInfo.assetId,
+          assetId: activeAsset.assetId,
           formData,
           price: formData.price || '0',
         });
@@ -54,29 +57,17 @@ export function useOrderConfirm(
       // Reset form after successful order
       hyperliquidActions.current.resetTradingForm();
 
-      Toast.success({
-        title: 'Order Placed Successfully',
-        message: 'Your order has been submitted successfully',
-      });
-
       options?.onSuccess?.();
     } catch (error) {
-      console.error(
-        '[useOrderConfirm.handleConfirm] Failed to place order:',
-        error,
-      );
-      Toast.error({
-        title: 'Order Failed',
-        message:
-          error instanceof Error ? error.message : 'Failed to place order',
-      });
-
-      options?.onError?.(
-        error instanceof Error ? error : new Error('Unknown error'),
-      );
-      throw error;
+      options?.onError?.(error);
     }
-  }, [tokenInfo, formData, hyperliquidActions, options]);
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeAsset.assetId,
+    formData,
+    hyperliquidActions,
+    options,
+  ]);
 
   return {
     isSubmitting,

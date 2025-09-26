@@ -5,7 +5,7 @@ import { Button, SizableText } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsSelectedAccountAtom,
+  usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -26,7 +26,7 @@ function TradingGuardWrapperInternal({
   disabled = false,
 }: ITradingGuardWrapperProps) {
   const { isAgentReady } = useTradingGuard();
-  const [perpsAccount] = usePerpsSelectedAccountAtom();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
 
   // Memoize account info to optimize callback dependencies
@@ -43,7 +43,7 @@ function TradingGuardWrapperInternal({
       const status =
         await backgroundApiProxy.serviceHyperliquid.enableTrading();
       if (
-        !status.details.activatedOk &&
+        status?.details?.activatedOk === false &&
         accountInfo.accountAddress &&
         accountInfo.accountId
       ) {
