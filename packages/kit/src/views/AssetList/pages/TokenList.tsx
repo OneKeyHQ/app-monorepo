@@ -198,6 +198,9 @@ function TokenList() {
       />
       <Page.Body>
         <TokenListView
+          accountId={accountId}
+          networkId={networkId}
+          indexedAccountId={indexedAccountId}
           onPressToken={onPressToken ?? handleOnPressToken}
           withPrice
           isAllNetworks={isAllNetworks}

@@ -351,7 +351,7 @@ const SetTpslForm = memo(
         </YStack>
         <TradingGuardWrapper>
           <Button
-            size="medium"
+            size="large"
             variant="primary"
             onPress={handleSubmit}
             disabled={isSubmitting}

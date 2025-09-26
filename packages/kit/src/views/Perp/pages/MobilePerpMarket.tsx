@@ -25,7 +25,7 @@ import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
-import { getTradingButtonStyleProps } from '../utils/styleUtils';
+import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const actionsRef = useHyperliquidActions();
@@ -33,8 +33,8 @@ function MobilePerpMarket() {
   const { coin } = currentToken;
   const themeVariant = useThemeVariant();
   const navigation = useAppNavigation();
-  const longButtonStyle = getTradingButtonStyleProps('long');
-  const shortButtonStyle = getTradingButtonStyleProps('short');
+  const longButtonStyle = GetTradingButtonStyleProps('long');
+  const shortButtonStyle = GetTradingButtonStyleProps('short');
 
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
