@@ -28,7 +28,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { useCurrentTokenData, usePerpPositions } from '../../../hooks';
 import {
   type ITradeSide,
   getTradingSideTextColor,
