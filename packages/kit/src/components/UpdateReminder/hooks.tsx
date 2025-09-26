@@ -65,6 +65,9 @@ export const isShowAppUpdateUIWhenUpdating = ({
   updateStrategy: EUpdateStrategy;
   updateStatus: EAppUpdateStatus;
 }) => {
+  if (updateStrategy === EUpdateStrategy.seamless) {
+    return false;
+  }
   if (
     updateStrategy === EUpdateStrategy.manual ||
     updateStrategy === EUpdateStrategy.force
