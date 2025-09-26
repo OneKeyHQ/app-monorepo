@@ -157,6 +157,7 @@ const LeverageContent = memo(
             disabled={isDisabled}
             loading={loading}
             size="medium"
+            variant="primary"
           >
             {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>

@@ -331,17 +331,6 @@ function PerpTradingForm({
               {totalValue.toNumber()}
             </NumberSizeableText>
           </XStack>
-
-          <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_margin_required,
-              })}
-            </SizableText>
-            <SizableText fontSize={10} fontWeight={500}>
-              ${marginRequired.toFixed(2)}
-            </SizableText>
-          </XStack>
         </YStack>
       </YStack>
     );
