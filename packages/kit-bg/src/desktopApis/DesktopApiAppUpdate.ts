@@ -23,8 +23,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IDesktopApi } from './base/types';
 import type { UpdateCheckResult } from 'electron-updater';
 
-const isMas = !!process.mas;
-
 function isNetworkError(errorObject: Error) {
   return (
     errorObject.message === 'net::ERR_NETWORK_CHANGED' ||
@@ -79,6 +77,7 @@ export interface IUpdateProgressUpdate {
 
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
 
 class DesktopApiAppUpdate {
@@ -100,7 +99,7 @@ class DesktopApiAppUpdate {
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    if (!isMas) {
+    if (!process.mas) {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
     }

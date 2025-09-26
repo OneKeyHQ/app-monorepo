@@ -26,6 +26,8 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
   const { tokenAddress, networkId, isNative } = route.params;
+  const isNativeBoolean =
+    typeof isNative === 'string' ? isNative === 'true' : isNative;
   const media = useMedia();
 
   // Track market entry analytics
@@ -39,13 +41,13 @@ function MarketDetail({
 
   return (
     <Page>
-      <MarketDetailHeader isNative={isNative} />
+      <MarketDetailHeader isNative={isNativeBoolean} />
 
       <Page.Body>
         {media.gtLg ? (
-          <DesktopLayout isNative={isNative} />
+          <DesktopLayout isNative={isNativeBoolean} />
         ) : (
-          <MobileLayout isNative={isNative} />
+          <MobileLayout isNative={isNativeBoolean} />
         )}
       </Page.Body>
     </Page>
