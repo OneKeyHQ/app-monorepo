@@ -1,6 +1,6 @@
-import { LayoutChangeEvent } from 'react-native';
 import type { IFormFieldProps } from '../types';
 import type { StackStyle } from '@tamagui/web';
+import type { LayoutChangeEvent } from 'react-native';
 
 type INonGestureStackStyleProps = Omit<
   StackStyle,
