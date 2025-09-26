@@ -107,15 +107,21 @@ class ServiceAppUpdate extends ServiceBase {
     syncTimerId = setTimeout(() => {
       void this.fetchAppUpdateInfo();
     }, timeout);
+    const now = Date.now();
     if (platformEnv.isExtension) {
       return (
-        Date.now() - updateAt >
+        now - updateAt >
         timerUtils.getTimeDurationMs({
           day: 1,
         })
       );
     }
-    return true;
+    return (
+      now - updateAt >
+      timerUtils.getTimeDurationMs({
+        hour: 1,
+      })
+    );
   }
 
   @backgroundMethod()
