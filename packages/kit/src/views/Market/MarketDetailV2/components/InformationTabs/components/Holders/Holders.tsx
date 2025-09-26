@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { SizableText, Stack, Tabs, useMedia } from '@onekeyhq/components';
 import { useMarketHolders } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useMarketHolders';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenHolder } from '@onekeyhq/shared/types/marketV2';
 
 import { HoldersSkeleton } from './components/HoldersSkeleton';
@@ -41,6 +42,9 @@ function HoldersBase({ tokenAddress, networkId }: IHoldersProps) {
   return (
     <Tabs.FlatList<IMarketTokenHolder>
       data={holders}
+      contentContainerStyle={{
+        paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
+      }}
       renderItem={renderItem}
       keyExtractor={(item: IMarketTokenHolder) =>
         item.accountAddress + item.fiatValue + item.amount
