@@ -34,6 +34,9 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
     onSuccess: () => {
       onClose?.();
     },
+    onError: () => {
+      onClose?.();
+    },
   });
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
@@ -69,6 +72,12 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
     },
     [perpsCustomSettings, setPerpsCustomSettings],
   );
+
+  const handleConfirm = useCallback(() => {
+    onClose?.();
+    void confirmOrder();
+  }, [confirmOrder, onClose]);
+
   return (
     <YStack gap="$4" p="$1">
       {/* Order Details */}
@@ -147,7 +156,7 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
           size="medium"
           disabled={isSubmitting}
           loading={isSubmitting}
-          onPress={confirmOrder}
+          onPress={handleConfirm}
           {...buttonStyleProps}
         >
           {buttonText}

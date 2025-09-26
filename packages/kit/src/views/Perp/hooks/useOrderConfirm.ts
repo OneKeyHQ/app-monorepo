@@ -11,7 +11,7 @@ import { useCurrentTokenData } from './usePerpMarketData';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
-  onError?: (error: Error) => void;
+  onError?: (error: unknown) => void;
 }
 
 export interface IUseOrderConfirmReturn {
@@ -54,27 +54,9 @@ export function useOrderConfirm(
       // Reset form after successful order
       hyperliquidActions.current.resetTradingForm();
 
-      Toast.success({
-        title: 'Order Placed Successfully',
-        message: 'Your order has been submitted successfully',
-      });
-
       options?.onSuccess?.();
     } catch (error) {
-      console.error(
-        '[useOrderConfirm.handleConfirm] Failed to place order:',
-        error,
-      );
-      Toast.error({
-        title: 'Order Failed',
-        message:
-          error instanceof Error ? error.message : 'Failed to place order',
-      });
-
-      options?.onError?.(
-        error instanceof Error ? error : new Error('Unknown error'),
-      );
-      throw error;
+      options?.onError?.(error);
     }
   }, [tokenInfo, formData, hyperliquidActions, options]);
 

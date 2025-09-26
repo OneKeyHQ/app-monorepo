@@ -1,6 +1,5 @@
 import { useRef } from 'react';
 
-import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { perpsSelectedAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -25,6 +24,7 @@ import {
   tradingLoadingAtom,
   webData2Atom,
 } from './atoms';
+import { EActionType, withToast } from './utils';
 
 import type { ITradingFormData } from './atoms';
 
@@ -302,46 +302,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  // setCurrentUser = contextAtomMethod(async (get, set, user: HL.IHex | null) => {
-  //   const currentUser = get(currentUserAtom());
-  //   if (currentUser === user) return;
-  //   set(currentUserAtom(), user);
-  //   if (user !== currentUser) {
-  //     set(webData2Atom(), null);
-  //     set(activeAssetDataAtom(), null);
-  //   }
-  //   await this.updateSubscriptions.call(set);
-  // });
-
-  // TODO why
-  setupTradingSession = contextAtomMethod(
-    async (
-      get,
-      set,
-      payload: { userAddress: HL.IHex; userAccountId: string },
-    ) => {
-      try {
-        // await this.setCurrentUser.call(set, payload.userAddress);
-        //   if (user !== currentUser) {
-        //     set(webData2Atom(), null);
-        //     set(activeAssetDataAtom(), null);
-        //   }
-        //   await this.updateSubscriptions.call(set);
-
-        await backgroundApiProxy.serviceHyperliquidExchange.setup({
-          userAddress: payload.userAddress,
-          userAccountId: payload.userAccountId,
-        });
-
-        return true;
-      } catch (error) {
-        console.error('Failed to setup trading session:', error);
-        return false;
-      }
-    },
-  );
-
-  enableTrading = contextAtomMethod(async (get, set) => {
+  enableTrading = contextAtomMethod(async (_get, _set) => {
     try {
       return await backgroundApiProxy.serviceHyperliquid.enableTrading();
     } catch (error) {
@@ -407,32 +368,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const slippage = params.slippage;
 
-      try {
-        set(tradingLoadingAtom(), true);
-
-        const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
-            assetId: params.assetId,
-            isBuy: formData.side === 'long',
-            sz: formData.size,
-            limitPx: formData.price,
-            orderType:
-              formData.type === 'limit'
-                ? { limit: { tif: 'Gtc' } }
-                : { market: {} },
-            slippage,
-          });
-
-        return result;
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.placeOrder] Failed to place order:',
-          error,
-        );
-        throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
-      }
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                sz: formData.size,
+                limitPx: formData.price,
+                orderType:
+                  formData.type === 'limit'
+                    ? { limit: { tif: 'Gtc' } }
+                    : { market: {} },
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.PLACE_ORDER,
+      });
     },
   );
 
@@ -450,31 +408,32 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       const formData = params.formData || get(tradingFormAtom());
       const slippage = params.slippage;
 
-      try {
-        set(tradingLoadingAtom(), true);
-
-        const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
-            assetId: params.assetId,
-            isBuy: formData.side === 'long',
-            size: formData.size,
-            price: params.price,
-            type: formData.type,
-            tpTriggerPx: formData.hasTpsl ? formData.tpTriggerPx : undefined,
-            slTriggerPx: formData.hasTpsl ? formData.slTriggerPx : undefined,
-            slippage,
-          });
-
-        return result;
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.orderOpen] Failed to place market order:',
-          error,
-        );
-        throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
-      }
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
+                assetId: params.assetId,
+                isBuy: formData.side === 'long',
+                size: formData.size,
+                price: params.price,
+                type: formData.type,
+                tpTriggerPx: formData.hasTpsl
+                  ? formData.tpTriggerPx
+                  : undefined,
+                slTriggerPx: formData.hasTpsl
+                  ? formData.slTriggerPx
+                  : undefined,
+                slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.ORDER_OPEN,
+      });
     },
   );
 
@@ -487,25 +446,25 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         leverage: number;
         isCross: boolean;
       },
-    ) => {
-      try {
-        void (await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
-          {
-            asset: params.asset,
-            leverage: params.leverage,
-            isCross: params.isCross,
-          },
-        ));
+    ): Promise<{ leverage: number; isCross: boolean }> => {
+      return withToast({
+        asyncFn: async () => {
+          void (await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
+            {
+              asset: params.asset,
+              leverage: params.leverage,
+              isCross: params.isCross,
+            },
+          ));
 
-        const formData = get(tradingFormAtom());
-        set(tradingFormAtom(), { ...formData, leverage: params.leverage });
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.updateLeverage] Failed to update leverage:',
-          error,
-        );
-        throw error;
-      }
+          const formData = get(tradingFormAtom());
+          set(tradingFormAtom(), { ...formData, leverage: params.leverage });
+
+          return { leverage: params.leverage, isCross: params.isCross };
+        },
+        actionType: EActionType.UPDATE_LEVERAGE,
+        args: [params.leverage, params.isCross ? 'Cross' : 'Isolated'],
+      });
     },
   );
 
@@ -521,28 +480,25 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         slippage?: number;
       },
     ) => {
-      try {
-        set(tradingLoadingAtom(), true);
-
-        const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.orderClose({
-            assetId: params.assetId,
-            isBuy: params.isBuy,
-            size: params.size,
-            midPx: params.midPx,
-            slippage: params.slippage,
-          });
-
-        return result;
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.orderClose] Failed to close position:',
-          error,
-        );
-        throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
-      }
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.orderClose({
+                assetId: params.assetId,
+                isBuy: params.isBuy,
+                size: params.size,
+                midPx: params.midPx,
+                slippage: params.slippage,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.ORDER_CLOSE,
+      });
     },
   );
 
@@ -557,30 +513,26 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         limitPrice: string;
       },
     ) => {
-      try {
-        set(tradingLoadingAtom(), true);
-
-        // Place a reduce-only limit order to close position
-        const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
-            assetId: params.assetId,
-            isBuy: !params.isBuy, // Opposite direction to close
-            sz: params.size,
-            limitPx: params.limitPrice,
-            orderType: { limit: { tif: 'Gtc' } },
-            reduceOnly: true, // Important: reduce-only flag for closing
-          });
-
-        return result;
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.limitOrderClose] Failed to place limit close order:',
-          error,
-        );
-        throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
-      }
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
+                assetId: params.assetId,
+                isBuy: !params.isBuy,
+                sz: params.size,
+                limitPx: params.limitPrice,
+                orderType: { limit: { tif: 'Gtc' } },
+                reduceOnly: true,
+              });
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.LIMIT_ORDER_CLOSE,
+      });
     },
   );
 
@@ -596,34 +548,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         showToast?: boolean;
       },
     ) => {
-      try {
-        const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
-            params.orders.map((order) => ({
-              assetId: order.assetId,
-              oid: order.oid,
-            })),
-          );
-
-        // Show success toast by default
-        if (params.showToast !== false) {
-          Toast.success({
-            title: 'Orders Canceled',
-            message: `Successfully canceled ${params.orders.length} order${
-              params.orders.length > 1 ? 's' : ''
-            }`,
-          });
-        }
-
-        return result;
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.cancelOrder] Failed to cancel orders:',
-          error,
-        );
-
-        throw error;
-      }
+      return withToast({
+        asyncFn: async () => {
+          const result =
+            await backgroundApiProxy.serviceHyperliquidExchange.cancelOrder(
+              params.orders.map((order) => ({
+                assetId: order.assetId,
+                oid: order.oid,
+              })),
+            );
+          return result;
+        },
+        actionType: EActionType.CANCEL_ORDER,
+        args: [params.orders.length],
+      });
     },
   );
 
@@ -641,38 +579,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         showToast?: boolean;
       },
     ) => {
-      try {
-        set(tradingLoadingAtom(), true);
-
-        const result =
-          await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl({
-            assetId: params.assetId,
-            positionSize: params.positionSize,
-            isBuy: params.isBuy,
-            tpTriggerPx: params.tpTriggerPx,
-            slTriggerPx: params.slTriggerPx,
-            slippage: params.slippage,
-          });
-
-        // Show success toast by default
-        if (params.showToast !== false) {
-          Toast.success({
-            title: 'TP/SL Set Successfully',
-            message: 'Position TP/SL orders have been placed',
-          });
-        }
-
-        return result;
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.setPositionTpsl] Failed to set position TP/SL:',
-          error,
-        );
-
-        throw error;
-      } finally {
-        set(tradingLoadingAtom(), false);
-      }
+      return withToast({
+        asyncFn: async () => {
+          set(tradingLoadingAtom(), true);
+          try {
+            const result =
+              await backgroundApiProxy.serviceHyperliquidExchange.setPositionTpsl(
+                {
+                  assetId: params.assetId,
+                  positionSize: params.positionSize,
+                  isBuy: params.isBuy,
+                  tpTriggerPx: params.tpTriggerPx,
+                  slTriggerPx: params.slTriggerPx,
+                  slippage: params.slippage,
+                },
+              );
+            return result;
+          } finally {
+            set(tradingLoadingAtom(), false);
+          }
+        },
+        actionType: EActionType.SET_POSITION_TPSL,
+      });
     },
   );
 
@@ -686,25 +614,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         destination: `0x${string}`;
       },
     ) => {
-      try {
-        await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
-          userAccountId: params.userAccountId,
-          amount: params.amount,
-          destination: params.destination,
-        });
-
-        Toast.success({
-          title: 'Withdraw Initiated',
-          message: `${params.amount} USD withdrawal has been submitted`,
-        });
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.withdraw] Failed to withdraw:',
-          error,
-        );
-
-        throw error;
-      }
+      return withToast({
+        asyncFn: async () => {
+          await backgroundApiProxy.serviceHyperliquidExchange.withdraw({
+            userAccountId: params.userAccountId,
+            amount: params.amount,
+            destination: params.destination,
+          });
+        },
+        actionType: EActionType.WITHDRAW,
+        args: [params.amount],
+      });
     },
   );
 }
@@ -728,7 +648,6 @@ export function useHyperliquidActions() {
   const stopSubscriptions = actions.stopSubscriptions.use();
   const reconnectSubscriptions = actions.reconnectSubscriptions.use();
 
-  const setupTradingSession = actions.setupTradingSession.use();
   const enableTrading = actions.enableTrading.use();
 
   const clearUserData = actions.clearUserData.use();
@@ -764,7 +683,6 @@ export function useHyperliquidActions() {
     startSubscriptions,
     stopSubscriptions,
     reconnectSubscriptions,
-    setupTradingSession,
     enableTrading,
     clearUserData,
     clearAllData,

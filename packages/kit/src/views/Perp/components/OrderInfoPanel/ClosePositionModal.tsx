@@ -273,13 +273,6 @@ const ClosePositionForm = memo(
             size: closeAmount,
             midPx: latestMarkPrice,
           });
-
-          if (isMountedRef.current) {
-            Toast.success({
-              title: 'Position Closed Successfully',
-              message: `Market close for ${closeAmount} ${position.coin} has been submitted`,
-            });
-          }
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
           if (!formData.limitPrice || limitPriceBN.lte(0)) {
@@ -294,13 +287,6 @@ const ClosePositionForm = memo(
             size: closeAmount,
             limitPrice: formData.limitPrice,
           });
-
-          if (isMountedRef.current) {
-            Toast.success({
-              title: 'Limit Close Order Placed',
-              message: `Limit close for ${closeAmount} ${position.coin} at $${formData.limitPrice} has been submitted`,
-            });
-          }
         }
 
         hyperliquidActions.current.resetTradingForm();
@@ -331,7 +317,6 @@ const ClosePositionForm = memo(
       assetId,
       getMidPrice,
       isLongPosition,
-      position.coin,
       hyperliquidActions,
       onClose,
     ]);

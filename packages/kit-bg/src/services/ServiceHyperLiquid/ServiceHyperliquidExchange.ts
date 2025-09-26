@@ -217,7 +217,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     await this.checkAccountCanTrade();
 
@@ -262,7 +261,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async placeOrderRaw({
     orders,
     grouping,
@@ -469,7 +467,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
     await this.checkAccountCanTrade();
 
@@ -596,7 +593,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
     const wallet =

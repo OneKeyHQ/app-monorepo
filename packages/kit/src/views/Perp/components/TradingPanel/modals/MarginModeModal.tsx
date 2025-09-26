@@ -44,6 +44,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
     const currentLeverage = activeAssetData?.leverage?.value || 1;
     const isCross = selectedMode === 'cross';
 
+    void onClose?.();
     try {
       setLoading(true);
       await actions.current.updateLeverage({
@@ -51,7 +52,6 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
         leverage: currentLeverage,
         isCross,
       });
-      onClose?.();
     } catch (error) {
       console.error('[MarginModeModal] Failed to update margin mode:', error);
     } finally {
