@@ -99,8 +99,10 @@ class DesktopApiAppUpdate {
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    this.initAppAutoUpdateEvents();
-    this.initBundleAutoUpdateEvents();
+    if (!process.mas) {
+      this.initAppAutoUpdateEvents();
+      this.initBundleAutoUpdateEvents();
+    }
     if (isDev) {
       Object.defineProperty(app, 'isPackaged', {
         get() {
