@@ -388,9 +388,9 @@ function AggregateTokenSelector() {
   const renderAggregateTokensList = useCallback(() => {
     if (!filteredAggregateTokens || filteredAggregateTokens.length === 0) {
       if (searchKey) {
-        return <EmptySearch />;
+        return <EmptySearch mt="24%" />;
       }
-      return <Empty />;
+      return <Empty mt="24%" />;
     }
 
     return filteredAggregateTokens.map((token) => (
