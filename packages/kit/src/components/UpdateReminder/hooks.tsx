@@ -246,7 +246,6 @@ export const useDownloadPackage = () => {
 
   const showSilentUpdateDialog = useCallback(() => {
     setTimeout(async () => {
-      await whenAppUnlocked();
       const currentUpdateInfo =
         await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
       await whenAppUnlocked();
