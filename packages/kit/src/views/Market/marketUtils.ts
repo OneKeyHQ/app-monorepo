@@ -19,11 +19,11 @@ export function buildMarketFullUrl({ coinGeckoId }: { coinGeckoId: string }) {
 }
 
 export function buildMarketFullUrlV2({
-  networkId,
+  network,
   address,
   isNative,
 }: {
-  networkId: string;
+  network: string;
   address: string;
   isNative?: boolean;
 }) {
@@ -31,13 +31,14 @@ export function buildMarketFullUrlV2({
     platformEnv.isWeb && !platformEnv.isDev
       ? globalThis.location.origin
       : WEB_APP_URL;
-  const searchParams = new URLSearchParams({ tokenAddress: address });
 
+  let path = `/market/tokens/${network}/${address}`;
+
+  // Add isNative as query parameter if needed
   if (typeof isNative === 'boolean' && isNative) {
-    searchParams.set('isNative', String(isNative));
+    path += `?isNative=${String(isNative)}`;
   }
 
-  const path = `/market/tokens/v2/${networkId}?${searchParams.toString()}`;
   return `${origin}${path}`;
 }
 

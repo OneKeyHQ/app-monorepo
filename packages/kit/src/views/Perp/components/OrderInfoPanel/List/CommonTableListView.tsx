@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
 
+import type { IInputProps, IXStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
@@ -42,13 +43,13 @@ const TradesHistoryLoadingView = () => {
 
 const PaginationInputAccessoryViewID = 'pagination-input-accessory-view';
 
-const PaginationPercentageStageOnKeyboard = ({
+const PaginationDoneOnKeyboard = ({
   inputAmount,
   totalAmount,
   onDone,
 }: {
-  inputAmount: string;
-  totalAmount: string;
+  inputAmount?: string;
+  totalAmount?: string;
   onDone: () => void;
 }) => {
   const intl = useIntl();
@@ -66,9 +67,18 @@ const PaginationPercentageStageOnKeyboard = ({
       borderTopWidth="$px"
       borderTopColor="$borderSubduedLight"
     >
-      <SizableText size="$bodyLg" color="$textSubdued">
-        {inputAmount} / {totalAmount}
-      </SizableText>
+      <XStack>
+        {totalAmount ? (
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {inputAmount ?? ''} / {totalAmount}
+          </SizableText>
+        ) : null}
+        {inputAmount && !totalAmount ? (
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {inputAmount}
+          </SizableText>
+        ) : null}
+      </XStack>
       <Button
         variant="tertiary"
         onPress={() => {
@@ -81,6 +91,46 @@ const PaginationPercentageStageOnKeyboard = ({
     </XStack>
   ) : null;
 };
+
+type IInputWithAccessoryDoneViewProps = IInputProps & {
+  xStackProps?: IXStackProps;
+  totalPages?: number;
+  onDone: () => void;
+};
+export const InputWithAccessoryDoneView = ({
+  xStackProps,
+  totalPages,
+  onDone,
+  ...props
+}: IInputWithAccessoryDoneViewProps) => {
+  return (
+    <XStack {...(xStackProps ?? {})}>
+      <Input
+        {...props}
+        onBlur={(e) => {
+          if (props.onBlur) {
+            props.onBlur(e);
+          }
+        }}
+        onFocus={(e) => {
+          if (props.onFocus) {
+            props.onFocus(e);
+          }
+        }}
+      />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={PaginationInputAccessoryViewID}>
+          <PaginationDoneOnKeyboard
+            inputAmount={props.value}
+            totalAmount={totalPages?.toString()}
+            onDone={onDone}
+          />
+        </InputAccessoryView>
+      ) : null}
+    </XStack>
+  );
+};
+
 const PaginationFooter = ({
   currentPage,
   totalPages,
@@ -119,18 +169,17 @@ const PaginationFooter = ({
     }
   };
 
+  if (totalPages <= 1) return null;
   const handleInputBlur = () => {
     handleInputSubmit();
   };
-
-  if (totalPages <= 1) return null;
 
   return (
     <XStack
       py="$3"
       px="$4"
       gap="$4"
-      justifyContent={isMobile ? 'center' : 'flex-end'}
+      justifyContent={isMobile ? 'center' : 'flex-start'}
       alignItems="center"
       bg={headerBgColor}
     >
@@ -145,23 +194,26 @@ const PaginationFooter = ({
         icon="ChevronLeftOutline"
       />
       <XStack gap="$2" alignItems="center">
-        <XStack w={isMobile ? 40 : undefined}>
-          <Input
-            value={inputValue}
-            inputAccessoryViewID={PaginationInputAccessoryViewID}
-            onChangeText={handleInputChange}
-            onSubmitEditing={handleInputSubmit}
-            onBlur={handleInputBlur}
-            keyboardType="numeric"
-            w={isMobile ? undefined : '$12'}
-            h="$7"
-            p="$1"
-            textAlign="center"
-            borderColor="$borderStrong"
-            borderRadius="$2"
-            maxLength={totalPages.toString().length}
-          />
-        </XStack>
+        <InputWithAccessoryDoneView
+          value={inputValue}
+          inputAccessoryViewID={PaginationInputAccessoryViewID}
+          onChangeText={handleInputChange}
+          onSubmitEditing={handleInputSubmit}
+          onBlur={handleInputBlur}
+          keyboardType="numeric"
+          w={isMobile ? undefined : '$12'}
+          h="$7"
+          p="$1"
+          textAlign="center"
+          borderColor="$borderStrong"
+          borderRadius="$2"
+          maxLength={totalPages.toString().length}
+          onDone={handleInputSubmit}
+          xStackProps={{
+            w: isMobile ? 40 : undefined,
+          }}
+          totalPages={totalPages}
+        />
         <SizableText size="$bodyMd" color={headerTextColor}>
           /
         </SizableText>
@@ -179,15 +231,6 @@ const PaginationFooter = ({
         onPress={onNextPage}
         icon="ChevronRightOutline"
       />
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={PaginationInputAccessoryViewID}>
-          <PaginationPercentageStageOnKeyboard
-            inputAmount={inputValue}
-            totalAmount={totalPages.toString()}
-            onDone={handleInputSubmit}
-          />
-        </InputAccessoryView>
-      ) : null}
     </XStack>
   );
 };
