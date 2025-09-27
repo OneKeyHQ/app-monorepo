@@ -1,5 +1,5 @@
 import { Toast } from '@onekeyhq/components';
-import { perpsActiveAccountStatusInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { ERROR_MESSAGES, ERROR_PATTERNS, TOAST_CONFIGS } from './config';
 import { EErrorType } from './types';
@@ -37,15 +37,7 @@ async function handleError(error: unknown): Promise<void> {
   if (errorType) {
     switch (errorType) {
       case EErrorType.INVALID_AGENT: {
-        const accountStatus = await perpsActiveAccountStatusInfoAtom.get();
-        void perpsActiveAccountStatusInfoAtom.set({
-          ...accountStatus,
-          canTrade: false,
-          details: {
-            ...accountStatus.details,
-            agentOk: false,
-          },
-        });
+        void backgroundApiProxy.serviceHyperliquid.checkPerpsAccountStatus();
         break;
       }
       default:

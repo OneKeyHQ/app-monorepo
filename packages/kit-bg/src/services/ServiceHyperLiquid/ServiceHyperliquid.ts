@@ -513,6 +513,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async enableTrading() {
     await this.checkPerpsAccountStatus({
       isEnableTradingTrigger: true,
@@ -932,16 +933,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async disposeExchangeClients() {
     await this.exchangeService.dispose();
-    await perpsActiveAccountStatusInfoAtom.set({
-      accountAddress: null,
-      canTrade: false,
-      details: {
-        activatedOk: false,
-        agentOk: false,
-        builderFeeOk: false,
-        referralCodeOk: false,
-      },
-    });
+    await perpsActiveAccountStatusInfoAtom.set(
+      (_prev): IPerpsActiveAccountStatusInfoAtom => ({
+        accountAddress: null,
+        details: {
+          activatedOk: false,
+          agentOk: false,
+          builderFeeOk: false,
+          referralCodeOk: false,
+        },
+      }),
+    );
   }
 
   @backgroundMethod()
