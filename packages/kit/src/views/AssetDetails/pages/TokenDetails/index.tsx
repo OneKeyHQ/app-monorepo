@@ -136,8 +136,6 @@ function TokenDetailsView() {
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
-  const activeTabNameRef = useRef('');
-
   const {
     result: { tokens, lastActiveTabName },
     isLoading: isLoadingTokens,
@@ -150,8 +148,9 @@ function TokenDetailsView() {
         const allAggregateTokenMap =
           aggregateTokenRawData?.allAggregateTokenMap ?? {};
         const _lastActiveTabName =
-          aggregateTokenRawData?.tokenDetails?.[accountId]?.[tokenInfo.$key]
-            ?.lastActiveTabName;
+          aggregateTokenRawData?.tokenDetails?.[
+            indexedAccountId ?? accountId
+          ]?.[tokenInfo.$key]?.lastActiveTabName;
         const aggregateTokens: IAccountToken[] = [];
 
         const { unavailableItems } =
@@ -585,11 +584,16 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
-      setActiveTabIndex(index);
-
       if (isAllNetworks && tokens.length > 1 && tokens[index]) {
         const activeToken = tokens[index];
-        activeTabNameRef.current = activeToken.networkName ?? '';
+
+        await backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
+          {
+            accountId: indexedAccountId ?? accountId,
+            aggregateTokenId: tokenInfo.$key,
+            lastActiveTabName: activeToken.networkName ?? '',
+          },
+        );
 
         if (
           activeToken.accountId &&
@@ -613,10 +617,15 @@ function TokenDetailsView() {
           void refreshAllNetworkState();
         }
       }
+
+      setActiveTabIndex(index);
     },
     [
       isAllNetworks,
       tokens,
+      indexedAccountId,
+      accountId,
+      tokenInfo.$key,
       allNetworksState.disabledNetworks,
       allNetworksState.enabledNetworks,
       intl,
@@ -759,30 +768,8 @@ function TokenDetailsView() {
     }
   }, [tokens, tokenMap, accountId, networkId, batchUpdateTokenDetails]);
 
-  const handleOnClose = useCallback(() => {
-    if (
-      isAllNetworks &&
-      tokenInfo.isAggregateToken &&
-      activeTabNameRef.current
-    ) {
-      void backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
-        {
-          accountId,
-          aggregateTokenId: tokenInfo.$key,
-          lastActiveTabName: activeTabNameRef.current,
-        },
-      );
-    }
-  }, [
-    accountId,
-    tokenInfo.$key,
-    activeTabNameRef,
-    isAllNetworks,
-    tokenInfo.isAggregateToken,
-  ]);
-
   return (
-    <Page lazyLoad safeAreaEnabled={false} onClose={handleOnClose}>
+    <Page lazyLoad safeAreaEnabled={false}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter networkId={networkId} />
