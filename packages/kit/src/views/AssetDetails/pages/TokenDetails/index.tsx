@@ -136,7 +136,7 @@ function TokenDetailsView() {
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
-  const tabInitRef = useRef(false);
+  const activeTabNameRef = useRef('');
 
   const {
     result: { tokens, lastActiveTabName },
@@ -589,16 +589,7 @@ function TokenDetailsView() {
 
       if (isAllNetworks && tokens.length > 1 && tokens[index]) {
         const activeToken = tokens[index];
-
-        if (!tabInitRef.current) {
-          void backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
-            {
-              accountId,
-              aggregateTokenId: tokenInfo.$key,
-              lastActiveTabName: activeToken.networkName ?? '',
-            },
-          );
-        }
+        activeTabNameRef.current = activeToken.networkName ?? '';
 
         if (
           activeToken.accountId &&
@@ -622,14 +613,10 @@ function TokenDetailsView() {
           void refreshAllNetworkState();
         }
       }
-
-      tabInitRef.current = true;
     },
     [
       isAllNetworks,
       tokens,
-      accountId,
-      tokenInfo.$key,
       allNetworksState.disabledNetworks,
       allNetworksState.enabledNetworks,
       intl,
@@ -772,8 +759,30 @@ function TokenDetailsView() {
     }
   }, [tokens, tokenMap, accountId, networkId, batchUpdateTokenDetails]);
 
+  const handleOnClose = useCallback(() => {
+    if (
+      isAllNetworks &&
+      tokenInfo.isAggregateToken &&
+      activeTabNameRef.current
+    ) {
+      void backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
+        {
+          accountId,
+          aggregateTokenId: tokenInfo.$key,
+          lastActiveTabName: activeTabNameRef.current,
+        },
+      );
+    }
+  }, [
+    accountId,
+    tokenInfo.$key,
+    activeTabNameRef,
+    isAllNetworks,
+    tokenInfo.isAggregateToken,
+  ]);
+
   return (
-    <Page lazyLoad safeAreaEnabled={false}>
+    <Page lazyLoad safeAreaEnabled={false} onClose={handleOnClose}>
       <Page.Header headerRight={headerRight} headerTitle={headerTitle} />
       <Page.Body>{tokenDetailsViewElement}</Page.Body>
       <TokenDetailsFooter networkId={networkId} />
