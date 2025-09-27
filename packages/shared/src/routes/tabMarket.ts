@@ -13,8 +13,7 @@ export type ITabMarketParamList = {
   };
   [ETabMarketRoutes.MarketDetailV2]: {
     tokenAddress: string;
-    networkId: string;
-    symbol?: string;
+    network: string;
     isNative?: boolean;
     from?: EEnterWay;
   };

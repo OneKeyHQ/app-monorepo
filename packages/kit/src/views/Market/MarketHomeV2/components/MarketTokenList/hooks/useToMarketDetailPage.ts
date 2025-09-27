@@ -12,6 +12,7 @@ import {
   ETabRoutes,
   type ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 interface IMarketToken {
   tokenAddress: string;
@@ -37,10 +38,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
   const toMarketDetailPage = useCallback(
     (item: IMarketToken) => {
+      const shortCode = networkUtils.getNetworkShortCode({
+        networkId: item.networkId,
+      });
+
       const params = {
         tokenAddress: item.tokenAddress,
-        networkId: item.networkId,
-        symbol: item.symbol,
+        network: shortCode || item.networkId,
         isNative: item.isNative,
         from: options?.from,
       };

@@ -35,6 +35,6 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
     name: ETabMarketRoutes.MarketDetailV2,
     component: MarketDetailV2,
     headerShown: !platformEnv.isNative,
-    rewrite: '/tokens/v2/:networkId',
+    rewrite: '/tokens/:network/:tokenAddress',
   },
 ];
