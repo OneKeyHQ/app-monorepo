@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useFocusEffect } from '@react-navigation/native';
+
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
   Dialog,
   Image,
-  Portal,
+  ScrollView,
   SizableText,
   Stack,
   Swiper,
@@ -15,8 +17,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
@@ -26,10 +27,12 @@ interface ISlideData {
   content: React.ReactNode;
 }
 
-function HyperliquidIntroDialogContent({
+export function HyperliquidTermsContent({
   onConfirm,
+  renderDelay = 0,
 }: {
   onConfirm: () => void;
+  renderDelay?: number;
 }) {
   const { gtMd } = useMedia();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -113,6 +116,7 @@ function HyperliquidIntroDialogContent({
             testID="hyperliquid-intro-confirmation-slide"
             alignItems="center"
             justifyContent="center"
+            px="$4"
           >
             <YStack gap="$6">
               <YStack alignItems="center" gap="$4">
@@ -185,17 +189,19 @@ function HyperliquidIntroDialogContent({
 
   const renderItem = useCallback(({ item }: { item: ISlideData }) => {
     return (
-      <Stack alignItems="center" justifyContent="center">
+      <Stack
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        height="100%"
+        pb="$4"
+      >
         {item.content}
       </Stack>
     );
   }, []);
 
-  const showPaginationButton = !platformEnv.isNative;
-
-  const portalContainerName = useMemo(() => {
-    return `hyperliquid-intro-swiper-controls--${stringUtils.generateUUID()}`;
-  }, []);
+  const showPaginationButton = true;
 
   const isConfirmationSlide = currentIndex === slidesData.length - 1;
   const canConfirm = isAccountActivatedChecked && isNotResponsibleChecked;
@@ -206,7 +212,7 @@ function HyperliquidIntroDialogContent({
       goToNextIndex,
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
-      <Portal.Body container={portalContainerName as any}>
+      <Stack>
         {slidesData.length > 1 ? (
           <XStack
             testID="hyperliquid-intro-pagination"
@@ -214,7 +220,7 @@ function HyperliquidIntroDialogContent({
             position="absolute"
             right={0}
             left={0}
-            bottom={30}
+            bottom={40}
             jc="center"
             zIndex={1}
           >
@@ -264,23 +270,27 @@ function HyperliquidIntroDialogContent({
             </XStack>
           </>
         ) : null}
-      </Portal.Body>
+      </Stack>
     ),
     [
       canConfirm,
       currentIndex,
       isConfirmationSlide,
       onConfirm,
-      portalContainerName,
       showPaginationButton,
       slidesData,
     ],
   );
 
   return (
-    <Stack>
-      <Stack minHeight={200}>
-        <DelayedRender delay={300}>
+    <Stack p="$6">
+      <Stack
+        minHeight={200}
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <DelayedRender delay={renderDelay}>
           <Swiper
             height="100%"
             position="relative"
@@ -296,8 +306,67 @@ function HyperliquidIntroDialogContent({
           />
         </DelayedRender>
       </Stack>
+    </Stack>
+  );
+}
 
-      <Portal.Container name={portalContainerName} />
+export function HyperliquidTermsOverlay() {
+  const [isVisible, setIsVisible] = useState(false);
+
+  const handleConfirm = useCallback(() => {
+    setIsVisible(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const checkTermsAccepted = async () => {
+        const isTermsAccepted =
+          await backgroundApiProxy.simpleDb.perp.getHyperliquidTermsAccepted();
+        if (!isTermsAccepted) {
+          setTimeout(() => {
+            setIsVisible(true);
+          }, 600);
+        }
+      };
+      void checkTermsAccepted();
+    }, []),
+  );
+
+  if (!isVisible) {
+    return null;
+  }
+
+  return (
+    <Stack
+      position="absolute"
+      top={0}
+      left={0}
+      right={0}
+      bottom={0}
+      bg="$bgBackdrop"
+      zIndex={PERPS_TERMS_OVERLAY_Z_INDEX}
+      alignItems="center"
+      justifyContent="center"
+      p="$6"
+    >
+      <Stack
+        maxWidth={500}
+        maxHeight={500}
+        width="100%"
+        bg="$bgApp"
+        borderRadius="$4"
+      >
+        <ScrollView>
+          <HyperliquidTermsContent
+            onConfirm={async () => {
+              await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
+                true,
+              );
+              handleConfirm();
+            }}
+          />
+        </ScrollView>
+      </Stack>
     </Stack>
   );
 }
@@ -312,7 +381,8 @@ export async function showHyperliquidTermsDialog() {
   const dialog = Dialog.show({
     // title: 'Hyperliquid Introduction',
     renderContent: (
-      <HyperliquidIntroDialogContent
+      <HyperliquidTermsContent
+        renderDelay={300}
         onConfirm={async () => {
           await dialog.close();
           await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
