@@ -1355,14 +1355,17 @@ class ServiceAccount extends ServiceBase {
     return parts[1]; // userAddress
   }
 
-  private async shouldDeleteCredential(
-    addressRecord: IDBAddress | null,
+  private async shouldDeleteCredential({
+    addressRecord,
+    deletedInfo,
+  }: {
+    addressRecord: IDBAddress | null;
     deletedInfo: {
       walletId?: string;
       indexedAccountId?: string;
       accountId?: string;
-    },
-  ): Promise<boolean> {
+    };
+  }): Promise<boolean> {
     if (!addressRecord) {
       return false;
     }
@@ -1389,12 +1392,26 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanupOrphanedHyperLiquidAgentCredentials(deletedInfo: {
+  async cleanupOrphanedHyperLiquidAgentCredentials({
+    walletId,
+    indexedAccountId,
+    accountId,
+  }: {
     walletId?: string;
     indexedAccountId?: string;
     accountId?: string;
   }): Promise<void> {
     try {
+      await timerUtils.wait(1000);
+      if (indexedAccountId || accountId) {
+        // eslint-disable-next-line no-param-reassign
+        walletId = undefined;
+      }
+      const deletedInfo = {
+        walletId,
+        indexedAccountId,
+        accountId,
+      };
       // Get all HyperLiquid agent credentials
       const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
 
@@ -1414,7 +1431,12 @@ class ServiceAccount extends ServiceBase {
           });
 
           // Check if this credential should be deleted
-          if (await this.shouldDeleteCredential(addressRecord, deletedInfo)) {
+          if (
+            await this.shouldDeleteCredential({
+              addressRecord,
+              deletedInfo,
+            })
+          ) {
             credentialsToDelete.push(credential);
           }
         } catch (error) {
@@ -3159,7 +3181,6 @@ class ServiceAccount extends ServiceBase {
 
     // Cleanup orphaned HyperLiquid agent credentials
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
-      walletId,
       accountId: account?.id,
       indexedAccountId: indexedAccount?.id,
     });
