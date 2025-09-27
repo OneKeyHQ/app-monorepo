@@ -2589,6 +2589,69 @@ const joystream: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const hydradx: IServerNetwork = {
+  'chainId': 'hydradx',
+  'code': 'hdx',
+  'decimals': 12,
+  'id': 'dot--hydradx',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hydradx.png',
+  'name': 'Hydration',
+  'shortcode': 'hdx',
+  'shortname': 'HDX',
+  'symbol': 'HDX',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'HDX',
+  },
+  'defaultEnabled': true,
+  'isCustomNetwork': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubPolkadot: IServerNetwork = {
+  'chainId': 'polkadot-assethub',
+  'code': 'dot-assethub',
+  'decimals': 10,
+  'id': 'dot--polkadot-assethub',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot-assethub.png',
+  'name': 'Assethub Polkadot',
+  'shortcode': 'dot-assethub',
+  'shortname': 'DOT',
+  'symbol': 'DOT',
+  'feeMeta': {
+    'decimals': 10,
+    'symbol': 'DOT',
+  },
+  'defaultEnabled': true,
+  'isCustomNetwork': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bifrost: IServerNetwork = {
+  'chainId': 'bifrost',
+  'code': 'bnc',
+  'decimals': 12,
+  'id': 'dot--bifrost',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bifrost.png',
+  'name': 'Bifrost',
+  'shortcode': 'bnc',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
+  },
+  'defaultEnabled': true,
+  'isCustomNetwork': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const kaspa: IServerNetwork = {
   'chainId': 'kaspa',
   'code': 'kaspa',
@@ -2953,6 +3016,9 @@ export const presetNetworksMap = {
   kusama,
   manta,
   joystream,
+  hydradx,
+  bifrost,
+  assethubPolkadot,
 
   aptos,
   lightning,
@@ -3149,6 +3215,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     kusama,
     manta,
     joystream,
+    hydradx,
+    bifrost,
+    assethubPolkadot,
 
     aptos,
     lightning,
