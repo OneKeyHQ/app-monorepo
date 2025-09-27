@@ -354,12 +354,7 @@ function DepositWithdrawContent({
       }
     } catch (error) {
       console.error(`[DepositWithdrawModal.${selectedAction}] Failed:`, error);
-      Toast.error({
-        title: `${
-          selectedAction === 'deposit' ? 'Deposit' : 'Withdraw'
-        } Failed`,
-        message: error instanceof Error ? error.message : 'Transaction failed',
-      });
+      throw error;
     } finally {
       setIsSubmitting(false);
     }

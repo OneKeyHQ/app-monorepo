@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
@@ -13,6 +15,8 @@ import {
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -184,6 +188,8 @@ function useHyperliquidAccountSelect() {
   const isFocused = useRouteIsFocused();
   const [indexedAccountAddressCreationState] =
     useIndexedAccountAddressCreationStateAtom();
+  const perpsAccountAddressRef = useRef(currentPerpsAccount?.accountAddress);
+  perpsAccountAddressRef.current = currentPerpsAccount?.accountAddress;
 
   // const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
   // const perpsAccountStatusRef = useRef(perpsAccountStatus);
@@ -225,6 +231,10 @@ function useHyperliquidAccountSelect() {
       return;
     }
     noop(activeAccount.account?.address);
+    console.log(
+      'selectPerpsAccount______555_address',
+      activeAccount.account?.address,
+    );
     const _account =
       await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
         indexedAccountId: activeAccount?.indexedAccount?.id || null,
@@ -246,6 +256,23 @@ function useHyperliquidAccountSelect() {
   useEffect(() => {
     void selectPerpsAccount();
   }, [selectPerpsAccount]);
+
+  useEffect(() => {
+    const fn = async (
+      payload: IAppEventBusPayload[EAppEventBusNames.AddDBAccountsToWallet],
+    ) => {
+      await timerUtils.wait(600);
+      if (!perpsAccountAddressRef.current) {
+        if (payload?.accounts?.find((item) => item.coinType === COINTYPE_ETH)) {
+          await selectPerpsAccountRef.current();
+        }
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
+    };
+  }, []);
 
   useUpdateEffect(() => {
     if (!accountIsAutoCreating && !indexedAccountAddressCreationState) {
