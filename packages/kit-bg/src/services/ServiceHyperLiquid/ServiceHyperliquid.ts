@@ -466,14 +466,18 @@ export default class ServiceHyperliquid extends ServiceBase {
       console.log('selectPerpsAccount______111', indexedAccountId, accountId);
       if (indexedAccountId || accountId) {
         const ethNetworkId = PERPS_NETWORK_ID;
+        const getNetworkAccountParams = {
+          indexedAccountId: indexedAccountId ?? undefined,
+          accountId: indexedAccountId ? undefined : accountId ?? undefined,
+          networkId: ethNetworkId,
+          deriveType: deriveType || 'default',
+        };
+        console.log('selectPerpsAccount______222', getNetworkAccountParams);
         const account =
-          await this.backgroundApi.serviceAccount.getNetworkAccount({
-            indexedAccountId: indexedAccountId ?? undefined,
-            accountId: indexedAccountId ? undefined : accountId ?? undefined,
-            networkId: ethNetworkId,
-            deriveType: deriveType || 'default',
-          });
-        console.log('selectPerpsAccount______222', account);
+          await this.backgroundApi.serviceAccount.getNetworkAccount(
+            getNetworkAccountParams,
+          );
+        console.log('selectPerpsAccount______333', account);
         perpsAccount.accountAddress =
           (account.address?.toLowerCase() as IHex) || null;
         if (perpsAccount.accountAddress) {
@@ -485,6 +489,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         });
       }
     } catch (error) {
+      console.log('selectPerpsAccount______444_error', error);
       console.error(error);
     } finally {
       clearTimeout(this.hideSelectAccountLoadingTimer);
@@ -495,7 +500,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             selectAccountLoading: false,
           }),
         );
-      }, 0);
+      }, 300);
     }
 
     await perpsActiveAccountAtom.set(perpsAccount);
