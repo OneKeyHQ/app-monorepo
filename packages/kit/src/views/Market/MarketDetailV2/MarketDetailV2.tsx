@@ -11,6 +11,7 @@ import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
@@ -25,19 +26,26 @@ import { MobileLayout } from './layouts/MobileLayout';
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, networkId, isNative } = route.params;
+  const { tokenAddress, network, isNative } = route.params;
+
+  // Convert shortcode back to full networkId if needed
+  // network is a shortcode like 'bsc', convert it to 'evm--56'
+  const networkId =
+    networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
   const isNativeBoolean =
     typeof isNative === 'string' ? isNative === 'true' : isNative;
-  const media = useMedia();
 
   // Track market entry analytics
   useMarketEnterAnalytics();
 
   // Start auto-refresh for token details every 5 seconds
+  // Use actualNetworkId (converted from shortcode if needed) for API calls
   useAutoRefreshTokenDetail({
     tokenAddress,
     networkId,
   });
+
+  const media = useMedia();
 
   return (
     <Page>
