@@ -1,3 +1,6 @@
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
 import { EActionType, EErrorType } from './types';
 
 import type { IToastConfig } from './types';
@@ -7,59 +10,99 @@ export const ERROR_PATTERNS: Record<EErrorType, string[]> = {
 };
 
 export const ERROR_MESSAGES: Record<EErrorType, string> = {
-  [EErrorType.INVALID_AGENT]: 'Please enable trading to continue',
+  [EErrorType.INVALID_AGENT]: appLocale.intl.formatMessage({
+    id: ETranslations.perp_error_enable,
+  }),
 };
 
 export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   [EActionType.PLACE_ORDER]: {
-    loading: 'Placing order...',
-    successTitle: 'Order Submitted',
-    successMessage: 'Your order has been placed successfully',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_opening_order,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_order_submitted,
+    }),
   },
 
   [EActionType.ORDER_OPEN]: {
-    loading: 'Opening position...',
-    successTitle: 'Position Order Submitted',
-    successMessage: 'Your position order has been placed successfully',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_placing_order,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_order_submitted,
+    }),
   },
 
   [EActionType.ORDER_CLOSE]: {
-    loading: 'Closing position...',
-    successTitle: 'Close Order Submitted',
-    successMessage: 'Your close order has been placed successfully',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_closing_position,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_order_submitted,
+    }),
   },
 
   [EActionType.LIMIT_ORDER_CLOSE]: {
-    loading: 'Placing limit close order...',
-    successTitle: 'Limit Close Order Submitted',
-    successMessage: 'Your limit close order has been placed successfully',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_placing_limit_close,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_placing_limit_close_submit,
+    }),
   },
 
   [EActionType.UPDATE_LEVERAGE]: {
-    loading: 'Updating leverage...',
-    successTitle: 'Leverage Updated',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_upadating_leverage,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_upadating_leverage_sucess,
+    }),
     successMessage: (leverage: number, mode: string) =>
-      `${mode} leverage set to ${leverage}x successfully`,
+      appLocale.intl.formatMessage(
+        {
+          id: ETranslations.perp_toast_upadating_leverage_sucess_msg,
+        },
+        { mode, leverage },
+      ),
   },
 
   [EActionType.SET_POSITION_TPSL]: {
-    loading: 'Setting TP/SL...',
-    successTitle: 'TP/SL Set Successfully',
-    successMessage: 'Position TP/SL orders have been placed',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_setting_tp_sl,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_setting_tp_sl_sucess,
+    }),
   },
 
   [EActionType.CANCEL_ORDER]: {
     loading: (count: number) =>
-      `Canceling ${count} order${count > 1 ? 's' : ''}...`,
-    successTitle: 'Orders Canceled',
-    successMessage: (count: number) =>
-      `Successfully canceled ${count} order${count > 1 ? 's' : ''}`,
+      appLocale.intl.formatMessage(
+        {
+          id: ETranslations.perp_toast_canceling_order,
+        },
+        { count },
+      ),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_canceling_order_sucess,
+    }),
   },
 
   [EActionType.WITHDRAW]: {
-    loading: 'Processing withdrawal...',
-    successTitle: 'Withdraw Initiated',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_withdraw_loading,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_toast_withdraw_success,
+    }),
     successMessage: (amount: string) =>
-      `${amount} USD withdrawal has been submitted`,
+      appLocale.intl.formatMessage(
+        {
+          id: ETranslations.perp_toast_withdraw_success_msg,
+        },
+        { amount },
+      ),
   },
 };

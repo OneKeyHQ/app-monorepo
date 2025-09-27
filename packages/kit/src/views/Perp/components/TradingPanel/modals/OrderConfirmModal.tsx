@@ -159,7 +159,9 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
           onPress={handleConfirm}
           {...buttonStyleProps}
         >
-          {buttonText}
+          <SizableText size="$bodyMdMedium" color="$textOnColor">
+            {buttonText}
+          </SizableText>
         </Button>
       </TradingGuardWrapper>
     </YStack>
