@@ -6,7 +6,6 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -40,12 +39,6 @@ export function usePerpsMessageHandler({
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
-  const [allMids] = useAllMidsAtom();
-  const allMidsRef = useRef(allMids);
-
-  useEffect(() => {
-    allMidsRef.current = allMids;
-  }, [allMids]);
 
   // Shared utility to convert fill data to TradingView mark
   const convertFillToMark = useCallback((fill: IFill): ITradingMark => {
@@ -169,18 +162,16 @@ export function usePerpsMessageHandler({
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
 
-      const getValidMidValue = () => {
-        const value = allMidsRef.current?.mids?.[requestSymbol];
-        if (!value) return undefined;
-        const numericValue = Number(value);
-        if (Number.isNaN(numericValue) || numericValue <= 0) return undefined;
-        return value;
+      const getValidMidValue = async () => {
+        return backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
+          coin: requestSymbol,
+        });
       };
 
       const WAIT_TIMEOUT_MS = timerUtils.getTimeDurationMs({ seconds: 3 });
       const WAIT_INTERVAL_MS = 200;
 
-      let midValue = getValidMidValue();
+      let midValue = await getValidMidValue();
       let calculatedPriceScale = 100; // default 2 decimal places
       let persistedPriceScale: number | undefined;
       let priceScaleSource: 'calculated' | 'persisted' | 'default' = 'default';
@@ -203,7 +194,7 @@ export function usePerpsMessageHandler({
         const deadline = Date.now() + WAIT_TIMEOUT_MS;
         while (Date.now() < deadline) {
           await new Promise((resolve) => setTimeout(resolve, WAIT_INTERVAL_MS));
-          midValue = getValidMidValue();
+          midValue = await getValidMidValue();
           if (midValue) {
             break;
           }
@@ -249,7 +240,7 @@ export function usePerpsMessageHandler({
         payload: response,
       });
     },
-    [webRef, allMidsRef],
+    [webRef],
   );
 
   const customReceiveHandler = useCallback(

@@ -16,20 +16,22 @@ import {
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useActiveAssetDataAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  usePerpsSelectedAccountAtom,
-  usePerpsSelectedSymbolAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList } from '../../../hooks/usePerpMarketData';
+import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 
 interface ILeverageContentProps {
   initialValue: number;
   maxLeverage: number;
-  tokenInfo: { assetId: number; name: string };
+  tokenInfo: IPerpsActiveAssetAtom;
   activeAssetData: { leverage?: { type: string } };
   isMobile?: boolean;
 }
@@ -44,6 +46,7 @@ const LeverageContent = memo(
     const [value, setValue] = useState(initialValue);
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
+    const actions = useHyperliquidActions();
 
     const handleSliderChange = useCallback((newValue: number) => {
       const roundedValue = Math.round(newValue);
@@ -72,13 +75,13 @@ const LeverageContent = memo(
 
     const handleConfirm = useCallback(async () => {
       setLoading(true);
+      void dialogInstance.close();
       try {
-        await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
-          asset: tokenInfo.assetId,
+        await actions.current.updateLeverage({
+          asset: tokenInfo.assetId ?? -1,
           isCross: activeAssetData?.leverage?.type === 'cross',
           leverage: value,
         });
-        void dialogInstance.close();
       } catch (error) {
         console.error(
           '[LeverageAdjustModal] Failed to update leverage:',
@@ -88,6 +91,7 @@ const LeverageContent = memo(
         setLoading(false);
       }
     }, [
+      actions,
       value,
       tokenInfo.assetId,
       activeAssetData?.leverage?.type,
@@ -97,8 +101,8 @@ const LeverageContent = memo(
     const intl = useIntl();
     const { gtSm } = useMedia();
     return (
-      <YStack>
-        <YStack p="$1" my="$3" gap="$3" flex={1}>
+      <YStack gap="$3" flex={1}>
+        <YStack p="$1" mb="$6" gap="$3" flex={1}>
           <XStack flex={1} alignItems="center" gap="$4">
             <Slider
               value={value || 1}
@@ -145,7 +149,7 @@ const LeverageContent = memo(
               id: ETranslations.perp_leverage_desc_warning,
             },
             {
-              token: tokenInfo.name,
+              token: tokenInfo.coin,
               leverage: maxLeverage,
             },
           )}
@@ -156,6 +160,8 @@ const LeverageContent = memo(
             onPress={handleConfirm}
             disabled={isDisabled}
             loading={loading}
+            size="medium"
+            variant="primary"
           >
             {intl.formatMessage({ id: ETranslations.global_confirm })}
           </Button>
@@ -168,21 +174,21 @@ LeverageContent.displayName = 'LeverageContent';
 
 export const LeverageAdjustModal = memo(
   ({ isMobile = false }: { isMobile?: boolean }) => {
-    const [selectedAccount] = usePerpsSelectedAccountAtom();
+    const [selectedAccount] = usePerpsActiveAccountAtom();
     const userAddress = selectedAccount.accountAddress;
 
-    const [currentToken] = usePerpsSelectedSymbolAtom();
-    const { getTokenInfo } = useTokenList();
-    const [activeAssetData] = useActiveAssetDataAtom();
+    const [currentToken] = usePerpsActiveAssetAtom();
+    const [activeAssetData] = usePerpsActiveAssetDataAtom();
 
-    const tokenInfo = getTokenInfo(currentToken.coin);
     const intl = useIntl();
     const showLeverageDialog = useCallback(() => {
-      if (!userAddress || !tokenInfo || !activeAssetData) return;
+      if (!userAddress || !currentToken || !activeAssetData) return;
 
       const initialValue =
-        activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1;
-      const maxLeverage = tokenInfo.maxLeverage || 25;
+        activeAssetData?.leverage?.value ||
+        currentToken?.universe?.maxLeverage ||
+        1;
+      const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
       Dialog.show({
         title: intl.formatMessage({
@@ -190,18 +196,21 @@ export const LeverageAdjustModal = memo(
         }),
 
         renderContent: (
-          <LeverageContent
-            initialValue={initialValue}
-            maxLeverage={maxLeverage}
-            tokenInfo={tokenInfo}
-            activeAssetData={activeAssetData}
-          />
+          <PerpsProviderMirror>
+            <LeverageContent
+              initialValue={initialValue}
+              maxLeverage={maxLeverage}
+              // tokenInfo={tokenInfo}
+              tokenInfo={currentToken}
+              activeAssetData={activeAssetData}
+            />
+          </PerpsProviderMirror>
         ),
         showFooter: false,
       });
-    }, [tokenInfo, userAddress, activeAssetData, intl]);
+    }, [userAddress, currentToken, activeAssetData, intl]);
 
-    if (!userAddress || !tokenInfo) return null;
+    if (!userAddress || !currentToken) return null;
 
     return (
       <Badge
@@ -220,7 +229,10 @@ export const LeverageAdjustModal = memo(
         cursor="pointer"
       >
         <SizableText size="$bodyMdMedium">
-          {activeAssetData?.leverage?.value || tokenInfo.maxLeverage || 1}x
+          {activeAssetData?.leverage?.value ||
+            currentToken?.universe?.maxLeverage ||
+            1}
+          x
         </SizableText>
       </Badge>
     );

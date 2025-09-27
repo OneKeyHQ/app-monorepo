@@ -304,7 +304,7 @@ function WebviewPerpTradeView() {
 const PageWebviewPerpTrade = () => {
   useDebugComponentRemountLog({ name: 'PageWebviewPerpTrade' });
   useFocusEffect(() => {
-    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
   });
   return (
     <AccountSelectorProviderMirror

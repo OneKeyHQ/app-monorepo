@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import type {
+  IPerpsActiveAssetAtom,
+  IPerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatWithPrecision,
@@ -13,7 +17,6 @@ import {
 
 import { TradingFormInput } from './TradingFormInput';
 
-import type { ICurrentTokenData } from '../../../hooks/usePerpMarketData';
 import type { ISide } from '../selectors/TradeSideToggle';
 
 interface ISizeInputProps {
@@ -21,7 +24,8 @@ interface ISizeInputProps {
   side: ISide;
   symbol: string;
   onChange: (value: string) => void;
-  tokenInfo?: ICurrentTokenData | null;
+  activeAsset: IPerpsActiveAssetAtom;
+  activeAssetCtx: IPerpsActiveAssetCtxAtom;
   error?: string;
   disabled?: boolean;
   label?: string;
@@ -33,7 +37,8 @@ export const SizeInput = memo(
     value,
     onChange,
     symbol,
-    tokenInfo,
+    activeAsset,
+    activeAssetCtx,
     error,
     disabled = false,
     side,
@@ -41,8 +46,8 @@ export const SizeInput = memo(
     isMobile = false,
   }: ISizeInputProps) => {
     const intl = useIntl();
-    const szDecimals = tokenInfo?.szDecimals ?? 2;
-    const isDisabled = disabled || !tokenInfo;
+    const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
+    const isDisabled = disabled || !activeAssetCtx || !activeAsset;
 
     const [inputMode, setInputMode] = useState<'token' | 'usd'>('token');
     const [tokenAmount, setTokenAmount] = useState('');
@@ -51,7 +56,7 @@ export const SizeInput = memo(
 
     const prevValueRef = useRef(value);
 
-    const currentPrice = tokenInfo?.markPx || '0';
+    const currentPrice = activeAssetCtx?.ctx?.markPrice || '0';
 
     const priceBN = useMemo(() => new BigNumber(currentPrice), [currentPrice]);
     const hasValidPrice = useMemo(

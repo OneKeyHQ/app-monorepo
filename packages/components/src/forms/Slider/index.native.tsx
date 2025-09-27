@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import RNSlider from '@react-native-community/slider';
 import { usePropsAndStyle } from '@tamagui/core';
@@ -6,9 +6,25 @@ import { usePropsAndStyle } from '@tamagui/core';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../hooks';
+import { XStack, YStack } from '../../primitives';
 
 import type { IBaseSliderProps } from './type';
-import type { ViewStyle } from 'react-native';
+import type { LayoutChangeEvent, ViewStyle } from 'react-native';
+
+function SliderSegment({ marked }: { marked: boolean }) {
+  const [bgPrimaryColor, neutral5Color] = useThemeValue([
+    'bgPrimary',
+    'neutral5',
+  ]);
+  return (
+    <XStack
+      w={8}
+      h={8}
+      borderRadius={100}
+      bg={marked ? bgPrimaryColor : neutral5Color}
+    />
+  );
+}
 
 export type ISliderProps = IBaseSliderProps;
 
@@ -20,10 +36,15 @@ export function Slider({
   onSlideStart,
   onSlideMove,
   onSlideEnd,
+  onLayout,
+  segments,
   ...props
 }: ISliderProps) {
   const isSlidingRef = useRef(false);
   const isSlideEndRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const [layout, setLayout] = useState<
+    LayoutChangeEvent['nativeEvent']['layout'] | undefined
+  >(undefined);
 
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',
@@ -32,6 +53,14 @@ export function Slider({
     'bgPrimary',
     'neutral5',
   ]);
+
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      setLayout?.(event.nativeEvent.layout);
+      onLayout?.(event);
+    },
+    [onLayout],
+  );
 
   const handleSlideEnd = useCallback(() => {
     isSlidingRef.current = false;
@@ -58,7 +87,7 @@ export function Slider({
     [handleSlideEnd, onChange, onSlideMove, onSlideStart],
   );
 
-  return (
+  const sliderContent = (
     <RNSlider
       tapToSeek
       // The style type annotation returned by the usePropsAndStyle function is incorrect, it needs to be fixed by Tamagui.
@@ -78,5 +107,42 @@ export function Slider({
       }
       {...restProps}
     />
+  );
+
+  const value = props.value ?? props.defaultValue;
+  console.log('value', value, min, max);
+  return segments ? (
+    <YStack position="relative" onLayout={handleLayout}>
+      {sliderContent}
+      {layout?.width && layout?.height ? (
+        <XStack
+          pointerEvents="none"
+          gap="$0.5"
+          flex={1}
+          zIndex={-1}
+          justifyContent="space-between"
+          top={-layout.height / 2}
+        >
+          <XStack left={platformEnv.isNativeAndroid ? 12 : 2}>
+            <SliderSegment key={-1} marked />
+          </XStack>
+          {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
+            <SliderSegment
+              key={index}
+              marked={
+                value
+                  ? ((index + 1) / segments) * (max - min) + min <= value
+                  : false
+              }
+            />
+          ))}
+          <XStack right={platformEnv.isNativeAndroid ? 12 : 2}>
+            <SliderSegment key={segments ?? 1} marked={value === max} />
+          </XStack>
+        </XStack>
+      ) : null}
+    </YStack>
+  ) : (
+    sliderContent
   );
 }

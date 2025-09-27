@@ -1,13 +1,11 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { YStack } from '@onekeyhq/components';
-import {
-  useAccountPanelDataAtom,
-  useActiveAssetDataAtom,
-  useTradingFormAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountSummaryAtom,
+  usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -19,9 +17,8 @@ import { PerpTradingButton } from './PerpTradingButton';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [accountPanelData] = useAccountPanelDataAtom();
-  const { accountSummary } = accountPanelData;
-  const [activeAssetData] = useActiveAssetDataAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [formData] = useTradingFormAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
 
@@ -72,7 +69,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   return (
-    <YStack gap="$4">
+    <YStack gap="$4" pt="$3" px="$2.5">
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       <PerpTradingButton
         loading={universalLoading}

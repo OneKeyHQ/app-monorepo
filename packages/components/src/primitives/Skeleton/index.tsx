@@ -149,3 +149,17 @@ export const Skeleton = withStaticProperties(
     Heading5Xl: Heading5XlSkeleton,
   },
 );
+
+export function SkeletonContainer({
+  isLoading,
+  children,
+  ...props
+}: Omit<ISkeletonProps, 'children'> & {
+  isLoading: boolean;
+  children: React.ReactNode;
+}) {
+  if (isLoading) {
+    return <Skeleton {...props} />;
+  }
+  return children;
+}

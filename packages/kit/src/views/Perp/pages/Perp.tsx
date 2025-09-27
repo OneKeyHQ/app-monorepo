@@ -21,8 +21,10 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { showHyperliquidTermsDialog } from '../components/HyperliquidTermsDialog';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
-import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
+import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
+import { usePerpsLogo } from '../hooks/usePerpsLogo';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -90,7 +92,7 @@ function PerpNetworkStatus() {
 
 function PerpContentFooter() {
   const { gtSm } = useMedia();
-  const themeVariant = useThemeVariant();
+  const { poweredByHyperliquidLogo } = usePerpsLogo();
   return gtSm ? (
     <Page.Footer>
       <XStack
@@ -104,11 +106,7 @@ function PerpContentFooter() {
       >
         <PerpNetworkStatus />
         <Image
-          source={
-            themeVariant === 'light'
-              ? require('../../../../assets/PoweredByHyperliquidLight.svg')
-              : require('../../../../assets/PoweredByHyperliquidDark.svg')
-          }
+          source={poweredByHyperliquidLogo}
           size={170}
           resizeMode="contain"
         />
@@ -116,6 +114,8 @@ function PerpContentFooter() {
     </Page.Footer>
   ) : null;
 }
+
+console.log('PerpContent js loaded');
 
 function PerpContent() {
   console.log('PerpContent render');
@@ -127,6 +127,7 @@ function PerpContent() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
+
   return (
     <Page>
       {platformEnv.isNative ? (
@@ -138,7 +139,7 @@ function PerpContent() {
           customHeaderRightItems={
             <PerpsAccountSelectorProviderMirror>
               <PerpsProviderMirror>
-                <PerpAccountPanel ifOnHeader />
+                <PerpsHeaderRight />
               </PerpsProviderMirror>
             </PerpsAccountSelectorProviderMirror>
           }
@@ -164,7 +165,7 @@ function PerpContent() {
             customHeaderRightItems={
               <PerpsAccountSelectorProviderMirror>
                 <PerpsProviderMirror>
-                  <PerpAccountPanel ifOnHeader />
+                  <PerpsHeaderRight />
                 </PerpsProviderMirror>
               </PerpsAccountSelectorProviderMirror>
             }
@@ -177,7 +178,11 @@ function PerpContent() {
 
 export default function Perp() {
   useFocusEffect(() => {
-    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+    const timer = setTimeout(() => {
+      void showHyperliquidTermsDialog();
+    }, 600);
+    return () => clearTimeout(timer);
   });
   return (
     <PerpsAccountSelectorProviderMirror>

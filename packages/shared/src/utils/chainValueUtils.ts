@@ -151,14 +151,16 @@ function convertBtcToSats(btc: string | number): string {
   if (btc === '' || btc === undefined) {
     return '';
   }
-  return new BigNumber(btc).times(SATS_PER_BTC).toFixed();
+  const result = new BigNumber(btc).times(SATS_PER_BTC);
+  return result.isNaN() ? '0' : result.toFixed();
 }
 
 function convertSatsToBtc(sats: string | number): string {
   if (sats === '' || sats === undefined) {
     return '';
   }
-  return new BigNumber(sats).dividedBy(SATS_PER_BTC).toFixed();
+  const result = new BigNumber(sats).dividedBy(SATS_PER_BTC);
+  return result.isNaN() ? '0' : result.toFixed();
 }
 
 function getLightningAmountDecimals({

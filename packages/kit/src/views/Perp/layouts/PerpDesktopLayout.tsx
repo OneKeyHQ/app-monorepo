@@ -23,6 +23,7 @@ function PerpDesktopLayout() {
             flex={1}
             borderRightWidth="$px"
             borderRightColor="$borderSubdued"
+            width="80%"
           >
             {/* Charts Section */}
             <XStack
@@ -38,7 +39,7 @@ function PerpDesktopLayout() {
                 <YStack
                   borderLeftWidth="$px"
                   borderLeftColor="$borderSubdued"
-                  w={300}
+                  w={270}
                 >
                   <PerpOrderBook />
                 </YStack>
@@ -49,7 +50,7 @@ function PerpDesktopLayout() {
               <PerpOrderInfoPanel />
             </YStack>
           </YStack>
-          <YStack w={360} p="$3" gap="$4">
+          <YStack minWidth={340} gap="$4" width="20%">
             <PerpTradingPanel />
             <YStack borderTopWidth="$px" borderTopColor="$borderSubdued">
               <PerpAccountPanel />
