@@ -23,7 +23,6 @@ import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewV2Props {
   symbol: string;
-  tradingViewUrl?: string;
   tokenAddress?: string;
   networkId?: string;
   decimal: number;
@@ -41,7 +40,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const isVisible = useRouteIsFocused();
 
   const {
-    tradingViewUrl,
     tokenAddress = '',
     networkId = '',
     symbol,
@@ -59,7 +57,6 @@ export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   });
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    tradingViewUrl,
     additionalParams: {
       symbol,
       decimal: decimal?.toString(),
