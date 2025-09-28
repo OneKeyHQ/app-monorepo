@@ -381,6 +381,7 @@ function PerpTradingForm({
           />
         )}
         <SizeInput
+          referencePrice={referencePriceString}
           side={formData.side}
           activeAsset={activeAsset}
           activeAssetCtx={activeAssetCtx}
@@ -558,6 +559,7 @@ function PerpTradingForm({
         ) : null}
 
         <SizeInput
+          referencePrice={referencePriceString}
           side={formData.side}
           activeAsset={activeAsset}
           activeAssetCtx={activeAssetCtx}
