@@ -3,7 +3,10 @@ import { useMemo } from 'react';
 import { useCalendars } from 'expo-localization';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
@@ -28,9 +31,15 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       return tradingViewUrl;
     }
 
-    return devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
-      ? 'http://localhost:5173/'
-      : TRADING_VIEW_URL;
+    if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
+      return 'http://localhost:5173/';
+    }
+
+    if (devSettings.enabled) {
+      return TRADING_VIEW_URL_TEST;
+    }
+
+    return TRADING_VIEW_URL;
   }, [
     tradingViewUrl,
     devSettings.enabled,
