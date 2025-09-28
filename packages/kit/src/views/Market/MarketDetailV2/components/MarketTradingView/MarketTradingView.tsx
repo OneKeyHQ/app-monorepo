@@ -2,8 +2,6 @@ import { memo } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 
-import { useTokenDetail } from '../../hooks/useTokenDetail';
-
 interface IMarketTradingViewProps {
   tokenAddress: string;
   networkId: string;
@@ -11,6 +9,7 @@ interface IMarketTradingViewProps {
   decimal?: number;
   onPanesCountChange?: (count: number) => void;
   isNative?: boolean;
+  dataSource: 'websocket' | 'polling';
 }
 
 export const MarketTradingView = memo(
@@ -19,10 +18,8 @@ export const MarketTradingView = memo(
     networkId,
     tokenSymbol = '',
     decimal = 8,
+    dataSource,
   }: IMarketTradingViewProps) => {
-    const { websocketConfig } = useTokenDetail();
-    const dataSource = websocketConfig?.kline ? 'websocket' : 'polling';
-
     return (
       <TradingViewV2
         symbol={tokenSymbol}
@@ -33,7 +30,6 @@ export const MarketTradingView = memo(
       />
     );
   },
-  (prevProps, nextProps) => prevProps.tokenSymbol === nextProps.tokenSymbol,
 );
 
 MarketTradingView.displayName = 'MarketTradingView';

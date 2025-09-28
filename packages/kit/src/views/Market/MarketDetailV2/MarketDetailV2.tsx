@@ -33,7 +33,7 @@ function MarketDetail({
   const networkId =
     networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
   const isNativeBoolean =
-    typeof isNative === 'string' ? isNative === 'true' : isNative;
+    typeof isNative === 'string' ? isNative === 'true' : isNative ?? false;
 
   // Track market entry analytics
   useMarketEnterAnalytics();
@@ -43,21 +43,16 @@ function MarketDetail({
   useAutoRefreshTokenDetail({
     tokenAddress,
     networkId,
+    isNative: isNativeBoolean,
   });
 
   const media = useMedia();
 
   return (
     <Page>
-      <MarketDetailHeader isNative={isNativeBoolean} />
+      <MarketDetailHeader />
 
-      <Page.Body>
-        {media.gtLg ? (
-          <DesktopLayout isNative={isNativeBoolean} />
-        ) : (
-          <MobileLayout isNative={isNativeBoolean} />
-        )}
-      </Page.Body>
+      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );
 }
