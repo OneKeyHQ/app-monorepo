@@ -77,6 +77,7 @@ class ServiceAppUpdate extends ServiceBase {
     if (isFirstLaunchAfterUpdated(appInfo)) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
+        updateAt: 0,
         updateStrategy: EUpdateStrategy.manual,
         errorText: undefined,
         status: EAppUpdateStatus.done,
