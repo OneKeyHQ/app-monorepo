@@ -893,6 +893,8 @@ export function sortTokensCommon({
       if (zeroIndex > -1) {
         tokensWithNonZeroBalance = tokensWithBalance.slice(0, zeroIndex);
         tokensWithZeroBalance = tokensWithBalance.slice(zeroIndex);
+      } else {
+        tokensWithNonZeroBalance = tokensWithBalance;
       }
     } else if (zeroIndex > -1) {
       tokensWithNonZeroBalance = sortedTokens.slice(0, zeroIndex);

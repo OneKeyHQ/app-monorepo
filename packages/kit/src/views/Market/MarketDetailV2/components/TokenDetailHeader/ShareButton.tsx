@@ -1,4 +1,5 @@
 import { HeaderIconButton, useShare } from '@onekeyhq/components';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { buildMarketFullUrlV2 } from '../../../marketUtils';
 
@@ -16,8 +17,12 @@ export function ShareButton({
   const { shareText } = useShare();
 
   const handleShare = async () => {
+    // Convert full networkId back to shortcode for URL
+    const shortCode =
+      networkUtils.getNetworkShortCode({ networkId }) || networkId;
+
     const url = buildMarketFullUrlV2({
-      networkId,
+      network: shortCode,
       address,
       isNative,
     });
