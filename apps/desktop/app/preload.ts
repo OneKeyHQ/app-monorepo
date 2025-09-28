@@ -133,7 +133,6 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
-  ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
 ];
 
 const getChannel = () => {

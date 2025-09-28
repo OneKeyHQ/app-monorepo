@@ -44,7 +44,10 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
       });
   });
 
-const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
+const downloadPackage: IDownloadPackage = async ({
+  downloadedFile,
+  headers,
+}) => {
   const isDownloading =
     await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
   if (isDownloading) {
@@ -60,7 +63,14 @@ const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
     }
   }
   const result = await withUpdateError(async () => {
-    await globalThis.desktopApiProxy.appUpdate.checkForUpdates();
+    const updateInfo =
+      await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
+        false,
+        headers,
+      );
+    if (!updateInfo) {
+      return null;
+    }
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {
