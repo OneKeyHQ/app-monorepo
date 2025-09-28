@@ -142,6 +142,18 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       showUrl: true,
       showParams: true,
     },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}`]: {
+      showUrl: true,
+      showParams: true,
+    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+      showUrl: true,
+      showParams: true,
+    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.WebviewPerpTrade}`]: {
+      showUrl: true,
+      showParams: true,
+    },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.StakingModal}${EModalStakingRoutes.ProtocolDetails}`]:
       {
         showUrl: true,

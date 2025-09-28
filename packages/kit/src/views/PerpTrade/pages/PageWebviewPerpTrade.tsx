@@ -9,6 +9,7 @@ import {
   IconButton,
   Page,
   Tooltip,
+  XStack,
   useShortcuts,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
@@ -35,6 +36,7 @@ import { WebViewWithFeatures } from '../../../components/WebView/WebViewWithFeat
 import { useShortcutsRouteStatus } from '../../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { SingleAccountAndNetworkSelectorTrigger } from '../../Discovery/components/HeaderRightToolBar';
+import { ExtPerp, shouldOpenExpandExtPerp } from '../../Perp/pages/ExtPerp';
 
 import type {
   IElectronWebView,
@@ -75,18 +77,6 @@ function usePerpPageShortcuts({
   );
 
   useShortcuts(undefined, handleShortcuts);
-}
-
-function WebviewPerpTradeViewExt() {
-  useEffect(() => {
-    if (platformEnv.isExtension) {
-      void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-      setTimeout(() => {
-        window.close();
-      }, 300);
-    }
-  }, []);
-  return null;
 }
 
 function WebviewPerpTradeView() {
@@ -222,26 +212,30 @@ function WebviewPerpTradeView() {
             },
           }}
         >
-          <SingleAccountAndNetworkSelectorTrigger
-            origin={origin}
-            num={accountInfo.num}
-            account={accountInfo}
-            afterChangeAccount={afterChangeAccount}
-          />
+          <XStack gap="$6">
+            <SingleAccountAndNetworkSelectorTrigger
+              origin={origin}
+              num={accountInfo.num}
+              account={accountInfo}
+              afterChangeAccount={afterChangeAccount}
+            />
 
-          <Tooltip
-            renderTrigger={
-              <IconButton
-                icon="BrokenLinkOutline"
-                onPress={() => {
-                  void backgroundApiProxy.serviceWebviewPerp.disconnectFromDapp();
-                }}
-              />
-            }
-            renderContent={intl.formatMessage({
-              id: ETranslations.explore_disconnect,
-            })}
-          />
+            <Tooltip
+              renderTrigger={
+                <IconButton
+                  icon="BrokenLinkOutline"
+                  size={platformEnv.isNative ? 'small' : undefined}
+                  variant={platformEnv.isNative ? 'tertiary' : undefined}
+                  onPress={() => {
+                    void backgroundApiProxy.serviceWebviewPerp.disconnectFromDapp();
+                  }}
+                />
+              }
+              renderContent={intl.formatMessage({
+                id: ETranslations.explore_disconnect,
+              })}
+            />
+          </XStack>
         </AccountSelectorProviderMirror>
       </>
     );
@@ -314,11 +308,7 @@ const PageWebviewPerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      {platformEnv.isExtension ? (
-        <WebviewPerpTradeViewExt />
-      ) : (
-        <WebviewPerpTradeView />
-      )}
+      {shouldOpenExpandExtPerp() ? <ExtPerp /> : <WebviewPerpTradeView />}
     </AccountSelectorProviderMirror>
   );
 };

@@ -18,6 +18,9 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes/firmwareUpdate';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -673,10 +676,11 @@ class ServiceWebviewPerp extends ServiceBase {
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,
     } = await this.getBuilderFeeConfig();
-    let currentMaxBuilderFee = 0;
+    let currentMaxBuilderFee: number | null = null;
     let isApprovedDone = false;
     let canSetBuilderFee = false;
     let accountValue: string | null = null;
+    // let isGetApprovedMaxBuilderFeeTimeout = false;
 
     if (expectBuilderAddress) {
       try {
@@ -685,7 +689,7 @@ class ServiceWebviewPerp extends ServiceBase {
           builderAddress: expectBuilderAddress,
         });
         currentMaxBuilderFee = await pTimeout(p, {
-          milliseconds: 5000,
+          milliseconds: 8000,
         });
         // const shouldModifyPlaceOrderPayload = false;
         if (currentMaxBuilderFee === expectMaxBuilderFee) {
@@ -694,7 +698,7 @@ class ServiceWebviewPerp extends ServiceBase {
           accountValue = null;
         }
       } catch (error) {
-        console.error(error);
+        console.error('getUserApprovedMaxBuilderFeeWithCache ERROR: ', error);
       }
     }
 
@@ -711,7 +715,7 @@ class ServiceWebviewPerp extends ServiceBase {
         // TODO new address value check
         canSetBuilderFee = Number(accountValue) >= 0;
       } catch (error) {
-        console.error(error);
+        console.error('getAccountBalance ERROR: ', error);
       }
     }
 
@@ -731,12 +735,17 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async openExtPerpTab() {
     if (platformEnv.isExtension) {
-      this.lastExtPerpTab = await extUtils.openUrlInTab(
-        HYPER_LIQUID_WEBVIEW_TRADE_URL,
-        {
-          tabId: this.lastExtPerpTab?.id,
-        },
-      );
+      // this.lastExtPerpTab = await extUtils.openUrlInTab(
+      //   HYPER_LIQUID_WEBVIEW_TRADE_URL,
+      //   {
+      //     tabId: this.lastExtPerpTab?.id,
+      //   },
+      // );
+      this.lastExtPerpTab =
+        await this.backgroundApi.serviceApp.openExtensionExpandTab({
+          // routes: [ERootRoutes.Main, ETabRoutes.Perp], // not working for extension
+          path: '/perp',
+        });
     }
   }
 
