@@ -13,7 +13,6 @@ import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
@@ -542,8 +541,8 @@ class DesktopApiAppUpdate {
       })
       .then((selection) => {
         if (selection.response === 0) {
-          setUpdateBuildNumber(buildNumber);
-          logger.info('auto-update', 'button[0] was clicked');
+          store.setUpdateBuildNumber(buildNumber);
+          logger.info('auto-update', 'button[0] was clicked', buildNumber);
           app.removeAllListeners('window-all-closed');
           this.getMainWindow()?.removeAllListeners('close');
           for (const window of BrowserWindow.getAllWindows()) {
