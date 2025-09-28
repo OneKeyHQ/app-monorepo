@@ -293,14 +293,20 @@ function DepositWithdrawContent({
 
     if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
       setShowMinAmountError(true);
-      const message = `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
+      const message = intl.formatMessage(
+        { id: ETranslations.perp_mini_deposit },
+        { num: MIN_DEPOSIT_AMOUNT, token: 'USDC' },
+      );
       Toast.error({ title: message });
       return false;
     }
 
     if (selectedAction === 'withdraw' && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
       setShowMinAmountError(true);
-      const message = `Minimum withdraw is ${MIN_WITHDRAW_AMOUNT} USDC`;
+      const message = intl.formatMessage(
+        { id: ETranslations.perp_mini_withdraw },
+        { num: MIN_WITHDRAW_AMOUNT, token: 'USDC' },
+      );
       Toast.error({ title: message });
       return false;
     }
