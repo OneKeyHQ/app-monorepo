@@ -436,27 +436,31 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async orderClose(params: IOrderCloseParams): Promise<IOrderResponse> {
+  async ordersClose(params: IOrderCloseParams[]): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
-    const midPx = params.midPx;
-    const price = this._calculateSlippagePrice({
-      markPrice: midPx,
-      isBuy: !params.isBuy,
-      slippage: params.slippage || this.slippage,
-    });
+    const ordersParam = params.map((param) => {
+      const midPx = param.midPx;
+      const price = this._calculateSlippagePrice({
+        markPrice: midPx,
+        isBuy: !param.isBuy,
+        slippage: param.slippage || this.slippage,
+      });
 
-    const orderParams: IOrderParams = {
-      a: params.assetId,
-      b: !params.isBuy,
-      p: price,
-      s: params.size,
-      r: true,
-      t: { limit: { tif: 'Gtc' } },
-    };
+      const orderParams: IOrderParams = {
+        a: param.assetId,
+        b: !param.isBuy,
+        p: price,
+        s: param.size,
+        r: true,
+        t: { limit: { tif: 'Gtc' } },
+      };
+
+      return orderParams;
+    });
 
     try {
       return await this.placeOrderRaw({
-        orders: [orderParams],
+        orders: ordersParam,
         grouping: 'na',
       });
     } catch (error) {

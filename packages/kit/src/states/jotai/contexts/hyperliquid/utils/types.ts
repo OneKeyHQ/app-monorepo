@@ -3,7 +3,7 @@
 export enum EActionType {
   PLACE_ORDER = 'placeOrder',
   ORDER_OPEN = 'orderOpen',
-  ORDER_CLOSE = 'orderClose',
+  ORDERS_CLOSE = 'ordersClose',
   LIMIT_ORDER_CLOSE = 'limitOrderClose',
   UPDATE_LEVERAGE = 'updateLeverage',
   SET_POSITION_TPSL = 'setPositionTpsl',
