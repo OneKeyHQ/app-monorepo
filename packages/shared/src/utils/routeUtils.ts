@@ -138,6 +138,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetailV2}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
       showUrl: true,
       showParams: true,
