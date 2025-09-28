@@ -226,7 +226,9 @@ export const SizeInput = memo(
           items={selectItems}
           value={inputMode}
           onChange={handleModeChange}
-          title="Select Unit"
+          title={intl.formatMessage({
+            id: ETranslations.perp_unit_preferrence,
+          })}
           floatingPanelProps={{
             width: selectWidth,
           }}
@@ -244,7 +246,7 @@ export const SizeInput = memo(
           )}
         />
       ),
-      [selectItems, inputMode, handleModeChange, selectWidth],
+      [selectItems, inputMode, handleModeChange, selectWidth, intl],
     );
 
     const displayValue = inputMode === 'token' ? tokenAmount : usdAmount;

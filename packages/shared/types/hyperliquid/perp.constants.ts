@@ -27,3 +27,8 @@ export const USDC_TOKEN_INFO = {
 
 export const HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS = 60_000;
 export const MIN_WITHDRAW_AMOUNT = 2; // Minimum withdraw amount is 2 USDC
+
+export const TERMS_OF_SERVICE_URL =
+  'https://help.onekey.so/articles/11461297-user-service-agreement';
+export const PRIVACY_POLICY_URL =
+  'https://help.onekey.so/articles/11461298-privacy-policy';

@@ -77,6 +77,7 @@ class ServiceAppUpdate extends ServiceBase {
     if (isFirstLaunchAfterUpdated(appInfo)) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
+        updateAt: 0,
         updateStrategy: EUpdateStrategy.manual,
         errorText: undefined,
         status: EAppUpdateStatus.done,
@@ -340,7 +341,7 @@ class ServiceAppUpdate extends ServiceBase {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
     if (!(await this.isNeedSyncAppUpdateInfo())) {
-      return;
+      return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
