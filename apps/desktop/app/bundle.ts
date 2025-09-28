@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import logger from 'electron-log/main';
 import { readCleartextMessage, readKey } from 'openpgp';
 import semver from 'semver';
@@ -213,4 +213,21 @@ export const testExtractedSha256FromVerifyAscFile = async () => {
     result ===
     '2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba'
   );
+};
+
+export const unmatchedFileDialog = (): void => {
+  setTimeout(() => {
+    void dialog
+      .showMessageBox({
+        type: 'error',
+        message:
+          'File tampering detected, please contact customer service to update the client',
+        buttons: ['exit it'],
+      })
+      .then((selection) => {
+        if (selection.response === 0) {
+          app.exit();
+        }
+      });
+  });
 };
