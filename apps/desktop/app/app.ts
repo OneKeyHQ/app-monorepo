@@ -35,7 +35,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
-import { checkFileSha512, getBundleIndexHtmlPath, getMetadata } from './bundle';
+import { checkFileSha512, getBundleIndexHtmlPath, getMetadata, unmatchedFileDialog } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
@@ -750,14 +750,17 @@ async function createMainWindow() {
       }
       const key = url.replace(/^\/+/, '');
       if (!key) {
+        unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
       }
       const sha512 = metadata[key];
       const filePath = path.join(bundleDirPath, key);
       if (!sha512) {
+        unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
       }
       if (!checkFileSha512(filePath, sha512)) {
+        unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
       }
       return filePath;
