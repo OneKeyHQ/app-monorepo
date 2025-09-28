@@ -32,6 +32,7 @@ import {
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -364,6 +365,7 @@ export const useDownloadPackage = () => {
       const isJsBundle = fileType === EUpdateFileType.jsBundle;
       const updateEvent =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+      const headers = await getRequestHeaders();
       const downloadParams: IDownloadPackageParams = {
         ...updateEvent,
         signature: isJsBundle ? jsBundle?.signature : undefined,
@@ -372,13 +374,14 @@ export const useDownloadPackage = () => {
         downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
         fileSize: isJsBundle ? jsBundle?.fileSize : undefined,
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
+        headers,
       };
       defaultLogger.app.appUpdate.endDownload(downloadParams);
       const result =
         fileType === EUpdateFileType.jsBundle
           ? await BundleUpdate.downloadBundle(downloadParams)
           : await AppUpdate.downloadPackage(downloadParams);
-      defaultLogger.app.appUpdate.endDownload(result);
+      defaultLogger.app.appUpdate.endDownload(result || {});
       if (!result) {
         return;
       }
