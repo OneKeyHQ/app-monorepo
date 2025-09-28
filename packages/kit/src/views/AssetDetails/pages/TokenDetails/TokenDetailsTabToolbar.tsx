@@ -89,7 +89,12 @@ function TokenDetailsTabToolbar(props: IProps) {
         if (zeroIndex > -1) {
           tokensWithNonZeroBalance = tokensWithBalance.slice(0, zeroIndex);
           tokensWithZeroBalance = tokensWithBalance.slice(zeroIndex);
+        } else {
+          tokensWithNonZeroBalance = tokensWithBalance;
         }
+      } else if (zeroIndex > -1) {
+        tokensWithNonZeroBalance = sortedTokens.slice(0, zeroIndex);
+        tokensWithZeroBalance = sortedTokens.slice(zeroIndex);
       }
 
       tokensWithZeroBalance = sortTokensByOrder({

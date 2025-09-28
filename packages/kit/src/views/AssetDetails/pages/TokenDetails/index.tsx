@@ -136,8 +136,6 @@ function TokenDetailsView() {
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
-  const tabInitRef = useRef(false);
-
   const {
     result: { tokens, lastActiveTabName },
     isLoading: isLoadingTokens,
@@ -150,8 +148,9 @@ function TokenDetailsView() {
         const allAggregateTokenMap =
           aggregateTokenRawData?.allAggregateTokenMap ?? {};
         const _lastActiveTabName =
-          aggregateTokenRawData?.tokenDetails?.[accountId]?.[tokenInfo.$key]
-            ?.lastActiveTabName;
+          aggregateTokenRawData?.tokenDetails?.[
+            indexedAccountId ?? accountId
+          ]?.[tokenInfo.$key]?.lastActiveTabName;
         const aggregateTokens: IAccountToken[] = [];
 
         const { unavailableItems } =
@@ -585,20 +584,16 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
-      setActiveTabIndex(index);
-
       if (isAllNetworks && tokens.length > 1 && tokens[index]) {
         const activeToken = tokens[index];
 
-        if (!tabInitRef.current) {
-          void backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
-            {
-              accountId,
-              aggregateTokenId: tokenInfo.$key,
-              lastActiveTabName: activeToken.networkName ?? '',
-            },
-          );
-        }
+        await backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
+          {
+            accountId: indexedAccountId ?? accountId,
+            aggregateTokenId: tokenInfo.$key,
+            lastActiveTabName: activeToken.networkName ?? '',
+          },
+        );
 
         if (
           activeToken.accountId &&
@@ -623,11 +618,12 @@ function TokenDetailsView() {
         }
       }
 
-      tabInitRef.current = true;
+      setActiveTabIndex(index);
     },
     [
       isAllNetworks,
       tokens,
+      indexedAccountId,
       accountId,
       tokenInfo.$key,
       allNetworksState.disabledNetworks,
