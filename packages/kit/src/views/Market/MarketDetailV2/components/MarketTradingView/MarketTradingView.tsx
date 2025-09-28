@@ -2,8 +2,6 @@ import { memo } from 'react';
 
 import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 
-import { useTokenDetail } from '../../hooks/useTokenDetail';
-
 interface IMarketTradingViewProps {
   tokenAddress: string;
   networkId: string;
@@ -32,7 +30,6 @@ export const MarketTradingView = memo(
       />
     );
   },
-  (prevProps, nextProps) => prevProps.tokenSymbol === nextProps.tokenSymbol,
 );
 
 MarketTradingView.displayName = 'MarketTradingView';
