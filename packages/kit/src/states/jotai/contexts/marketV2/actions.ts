@@ -23,6 +23,7 @@ import type {
 
 import {
   contextAtomMethod,
+  isNativeAtom,
   marketWatchListV2Atom,
   networkIdAtom,
   showWatchlistOnlyAtom,
@@ -62,6 +63,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(networkIdAtom(), payload);
   });
 
+  setIsNative = contextAtomMethod((_, set, payload: boolean) => {
+    set(isNativeAtom(), payload);
+  });
+
   setTokenDetailWebsocket = contextAtomMethod(
     (_, set, payload: IMarketTokenDetailWebsocket | undefined) => {
       set(tokenDetailWebsocketAtom(), payload);
@@ -73,6 +78,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
     set(tokenDetailLoadingAtom(), false);
     set(tokenAddressAtom(), '');
     set(networkIdAtom(), '');
+    set(isNativeAtom(), false);
     set(tokenDetailWebsocketAtom(), undefined);
   });
 
@@ -341,6 +347,7 @@ export function useTokenDetailActions() {
   const setTokenDetailLoading = actions.setTokenDetailLoading.use();
   const setTokenAddress = actions.setTokenAddress.use();
   const setNetworkId = actions.setNetworkId.use();
+  const setIsNative = actions.setIsNative.use();
   const setTokenDetailWebsocket = actions.setTokenDetailWebsocket.use();
   const fetchTokenDetail = actions.fetchTokenDetail.use();
   const clearTokenDetail = actions.clearTokenDetail.use();
@@ -350,6 +357,7 @@ export function useTokenDetailActions() {
     setTokenDetailLoading,
     setTokenAddress,
     setNetworkId,
+    setIsNative,
     setTokenDetailWebsocket,
     fetchTokenDetail,
     clearTokenDetail,

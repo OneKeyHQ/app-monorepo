@@ -11,6 +11,7 @@ interface IMarketTradingViewProps {
   decimal?: number;
   onPanesCountChange?: (count: number) => void;
   isNative?: boolean;
+  dataSource: 'websocket' | 'polling';
 }
 
 export const MarketTradingView = memo(
@@ -19,10 +20,8 @@ export const MarketTradingView = memo(
     networkId,
     tokenSymbol = '',
     decimal = 8,
+    dataSource,
   }: IMarketTradingViewProps) => {
-    const { websocketConfig } = useTokenDetail();
-    const dataSource = websocketConfig?.kline ? 'websocket' : 'polling';
-
     return (
       <TradingViewV2
         symbol={tokenSymbol}
