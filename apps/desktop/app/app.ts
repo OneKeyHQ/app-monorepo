@@ -35,7 +35,12 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
-import { checkFileSha512, getBundleIndexHtmlPath, getMetadata, unmatchedFileDialog } from './bundle';
+import {
+  checkFileSha512,
+  getBundleIndexHtmlPath,
+  getMetadata,
+  unmatchedFileDialog,
+} from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
