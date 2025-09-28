@@ -11,6 +11,7 @@ export interface IDownloadPackageParams {
   sha256?: string;
   signature?: string;
   downloadedFile?: string;
+  headers?: Record<string, string>;
 }
 
 export type IUpdateDownloadedEvent =

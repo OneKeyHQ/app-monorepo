@@ -42,6 +42,7 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import type { IntlShape } from 'react-intl';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 
 const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 const isShowToastError = (updateStrategy: EUpdateStrategy) => {
@@ -374,9 +375,13 @@ export const useDownloadPackage = () => {
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
       };
       defaultLogger.app.appUpdate.endDownload(downloadParams);
+      const headers = await getRequestHeaders();
       const result =
         fileType === EUpdateFileType.jsBundle
-          ? await BundleUpdate.downloadBundle(downloadParams)
+          ? await BundleUpdate.downloadBundle({
+              ...downloadParams,
+              headers,
+            })
           : await AppUpdate.downloadPackage(downloadParams);
       defaultLogger.app.appUpdate.endDownload(result || {});
       if (!result) {

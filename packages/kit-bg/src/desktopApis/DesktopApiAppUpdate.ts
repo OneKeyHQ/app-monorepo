@@ -296,6 +296,7 @@ class DesktopApiAppUpdate {
 
   async checkForUpdates(
     isManual = false,
+    headers = {},
   ): Promise<UpdateCheckResult['updateInfo'] | null> {
     if (isManual) {
       this.isManualCheck = true;
@@ -309,6 +310,8 @@ class DesktopApiAppUpdate {
 
     const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl);
     autoUpdater.setFeedURL(feedUrl);
+    autoUpdater.requestHeaders = headers;
+    logger.info('auto-updater', 'request headers: ', headers);
     logger.info('current feed url: ', feedUrl);
     try {
       const result = await autoUpdater.checkForUpdates();
