@@ -8,6 +8,7 @@ import {
   NumberSizeableText,
   SizableText,
   Skeleton,
+  Slider,
   XStack,
   YStack,
   getFontSize,
@@ -98,6 +99,8 @@ function PerpTradingForm({
     updateForm,
   ]);
 
+  // Token Switch Effect: Handle price updates when user switches tokens
+  // This prevents stale price data from being used during token transitions
   useEffect(() => {
     const prevToken = prevTokenRef.current;
     const hasTokenChanged =
@@ -110,14 +113,14 @@ function PerpTradingForm({
       activeAssetCtx?.ctx?.markPrice &&
       isDataSynced;
 
-    // Handle token switch
+    // Step 1: Detect token switch and mark switching state
     if (hasTokenChanged) {
       tokenSwitchingRef.current = currentTokenName;
       prevTokenRef.current = currentTokenName;
       return; // Early return to avoid price update with stale data
     }
 
-    // Update price after token switch when data is synchronized
+    // Step 2: Update price after token data is synchronized (prevents stale price)
     if (shouldUpdatePrice && activeAssetCtx?.ctx?.markPrice) {
       updateForm({
         price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
@@ -125,6 +128,7 @@ function PerpTradingForm({
       tokenSwitchingRef.current = false;
     }
 
+    // Step 3: Initialize token reference on first load
     if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
@@ -141,6 +145,7 @@ function PerpTradingForm({
     );
   }, [activeAssetData?.leverage?.value, activeAsset?.universe?.maxLeverage]);
 
+  // Reference Price: Get the effective trading price (limit price or market price)
   const [referencePrice, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
@@ -163,10 +168,14 @@ function PerpTradingForm({
     activeAsset?.universe?.szDecimals,
   ]);
 
-  const availableToTrade = useMemo(() => {
+  const { availableToTradeDisplay, availableToTradeValue } = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
     const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
-    return new BigNumber(value).toFixed(2, BigNumber.ROUND_DOWN);
+    const valueBN = new BigNumber(value);
+    return {
+      availableToTradeDisplay: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
+      availableToTradeValue: valueBN.toNumber(),
+    };
   }, [formData.side, activeAssetData?.availableToTrade]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
@@ -181,16 +190,99 @@ function PerpTradingForm({
       return [Math.abs(value), side];
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
+  // Order calculations: Total value and required margin
   const totalValue = useMemo(() => {
     const size = new BigNumber(formData.size || 0);
-    return size.multipliedBy(referencePrice);
+    return size.multipliedBy(referencePrice); // Size × Price = Total Value
   }, [formData.size, referencePrice]);
 
   const marginRequired = useMemo(() => {
     return new BigNumber(formData.size || 0)
       .multipliedBy(referencePrice)
-      .dividedBy(leverage || 1);
+      .dividedBy(leverage || 1); // (Size × Price) ÷ Leverage = Required Margin
   }, [formData.size, referencePrice, leverage]);
+
+  // Slider Configuration: Calculate price, leverage, max value and current value for size slider
+  const sliderConfig = useMemo(() => {
+    // Get effective price for slider calculation (limit price or market price)
+    const getEffectivePrice = (): BigNumber | null => {
+      if (referencePrice.gt(0)) return referencePrice;
+      if (activeAssetCtx?.ctx?.markPrice) {
+        const markPx = new BigNumber(activeAssetCtx.ctx.markPrice);
+        return markPx.isFinite() && markPx.gt(0) ? markPx : null;
+      }
+      return null;
+    };
+
+    // Get safe leverage value (fallback to 1x if invalid)
+    const getSafeLeverage = (): BigNumber => {
+      if (!leverage) return new BigNumber(1);
+      const leverageBN = new BigNumber(leverage);
+      return leverageBN.isFinite() && leverageBN.gt(0)
+        ? leverageBN
+        : new BigNumber(1);
+    };
+
+    const effectivePrice = getEffectivePrice();
+    const safeLeverage = getSafeLeverage();
+    const currentValue = new BigNumber(formData.size || 0);
+
+    // Calculate maximum trade size: Available Balance × Leverage ÷ Price
+    const calculateMaxSize = (): number => {
+      if (!effectivePrice || effectivePrice.lte(0)) return 0;
+      if (!Number.isFinite(availableToTradeValue) || availableToTradeValue <= 0)
+        return 0;
+
+      const maxTokens = new BigNumber(availableToTradeValue)
+        .multipliedBy(safeLeverage)
+        .dividedBy(effectivePrice)
+        .decimalPlaces(
+          activeAsset?.universe?.szDecimals ?? 2,
+          BigNumber.ROUND_FLOOR,
+        );
+
+      return maxTokens.isFinite() && maxTokens.gt(0) ? maxTokens.toNumber() : 0;
+    };
+
+    const maxSize = calculateMaxSize();
+    const currentValueNum = currentValue.isFinite()
+      ? currentValue.toNumber()
+      : 0;
+
+    return {
+      price: effectivePrice,
+      leverage: safeLeverage,
+      maxSize,
+      currentValue: currentValueNum,
+      controlledValue: maxSize > 0 ? Math.min(currentValueNum, maxSize) : 0,
+      isValid: !!effectivePrice && effectivePrice.gt(0) && maxSize > 0,
+    };
+  }, [
+    referencePrice,
+    activeAssetCtx?.ctx?.markPrice,
+    activeAsset?.universe?.szDecimals,
+    leverage,
+    availableToTradeValue,
+    formData.size,
+  ]);
+
+  const sliderStep = useMemo(() => {
+    const decimals = Math.min(activeAsset?.universe?.szDecimals ?? 2, 6);
+    return Number((10 ** -decimals).toFixed(decimals));
+  }, [activeAsset?.universe?.szDecimals]);
+
+  const handleSizeSliderChange = useCallback(
+    (value?: number) => {
+      if (value === undefined) return;
+      if (!sliderConfig.isValid) return;
+      const decimals = activeAsset?.universe?.szDecimals ?? 2;
+      const formatted = new BigNumber(value)
+        .decimalPlaces(decimals, BigNumber.ROUND_FLOOR)
+        .toFixed();
+      updateForm({ size: formatted });
+    },
+    [sliderConfig.isValid, activeAsset?.universe?.szDecimals, updateForm],
+  );
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
@@ -231,7 +323,7 @@ function PerpTradingForm({
           </SizableText>
           <XStack alignItems="center" gap="$1">
             <SizableText size="$bodySmMedium" color="$text">
-              ${availableToTrade}
+              ${availableToTradeDisplay}
             </SizableText>
             <PerpAccountPanel isTradingPanel />
           </XStack>
@@ -296,6 +388,17 @@ function PerpTradingForm({
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
           isMobile={isMobile}
+        />
+        <Slider
+          mt="$2"
+          min={0}
+          max={sliderConfig.maxSize}
+          value={sliderConfig.controlledValue}
+          onChange={handleSizeSliderChange}
+          disabled={
+            isSubmitting || !sliderConfig.isValid || Number.isNaN(sliderStep)
+          }
+          step={sliderStep}
         />
         <YStack gap="$1">
           <Checkbox
@@ -411,7 +514,7 @@ function PerpTradingForm({
             </SizableText>
             {activeAssetData ? (
               <SizableText size="$bodySmMedium" color="$text">
-                ${availableToTrade}
+                ${availableToTradeDisplay}
               </SizableText>
             ) : (
               <Skeleton width={70} height={16} />
@@ -461,6 +564,18 @@ function PerpTradingForm({
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
           onChange={(value) => updateForm({ size: value })}
+        />
+        <Slider
+          width="100%"
+          mt="$3"
+          min={0}
+          max={sliderConfig.maxSize}
+          value={sliderConfig.controlledValue}
+          onChange={handleSizeSliderChange}
+          disabled={
+            isSubmitting || !sliderConfig.isValid || Number.isNaN(sliderStep)
+          }
+          step={sliderStep}
         />
 
         <YStack p="$0">
