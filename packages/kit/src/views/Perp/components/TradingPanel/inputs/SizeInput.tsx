@@ -26,6 +26,7 @@ interface ISizeInputProps {
   onChange: (value: string) => void;
   activeAsset: IPerpsActiveAssetAtom;
   activeAssetCtx: IPerpsActiveAssetCtxAtom;
+  referencePrice: string;
   error?: string;
   disabled?: boolean;
   label?: string;
@@ -39,6 +40,7 @@ export const SizeInput = memo(
     symbol,
     activeAsset,
     activeAssetCtx,
+    referencePrice,
     error,
     disabled = false,
     side,
@@ -49,16 +51,17 @@ export const SizeInput = memo(
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
     const isDisabled = disabled || !activeAssetCtx || !activeAsset;
 
-    const [inputMode, setInputMode] = useState<'token' | 'usd'>('token');
+    const [inputMode, setInputMode] = useState<'token' | 'usd'>('usd');
     const [tokenAmount, setTokenAmount] = useState('');
     const [usdAmount, setUsdAmount] = useState('');
     const [isUserTyping, setIsUserTyping] = useState(false);
 
     const prevValueRef = useRef(value);
 
-    const currentPrice = activeAssetCtx?.ctx?.markPrice || '0';
-
-    const priceBN = useMemo(() => new BigNumber(currentPrice), [currentPrice]);
+    const priceBN = useMemo(
+      () => new BigNumber(referencePrice),
+      [referencePrice],
+    );
     const hasValidPrice = useMemo(
       () => priceBN.isFinite() && priceBN.gt(0),
       [priceBN],
