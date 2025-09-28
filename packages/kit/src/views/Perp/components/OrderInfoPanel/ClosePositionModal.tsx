@@ -12,8 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { usePerpsAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -38,18 +37,6 @@ type IPosition =
 
 type ICloseType = 'market' | 'limit';
 
-const DIALOG_TITLES = {
-  market: appLocale.intl.formatMessage({
-    id: ETranslations.perp_close_position_button_market,
-  }),
-  limit: appLocale.intl.formatMessage({
-    id: ETranslations.perp_close_position_button_limit,
-  }),
-};
-
-const getClosePositionDialogTitle = (currentType: ICloseType) =>
-  DIALOG_TITLES[currentType];
-
 interface IClosePositionFormData {
   type: ICloseType;
   amount: string;
@@ -64,12 +51,14 @@ interface IClosePositionParams {
   assetId: number;
   hyperliquidActions: {
     current: {
-      orderClose: (params: {
-        assetId: number;
-        isBuy: boolean;
-        size: string;
-        midPx: string;
-      }) => Promise<IOrderResponse>;
+      ordersClose: (
+        params: {
+          assetId: number;
+          isBuy: boolean;
+          size: string;
+          midPx: string;
+        }[],
+      ) => Promise<IOrderResponse>;
       limitOrderClose: (params: {
         assetId: number;
         isBuy: boolean;
@@ -94,17 +83,11 @@ const ClosePositionForm = memo(
     hyperliquidActions,
     onClose,
   }: IClosePositionFormProps) => {
-    // TODO should refresh UI realtime
-    const { result: midPrice } = usePromiseResult(async () => {
-      return backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
-        coin: position.coin,
-      });
-    }, [position.coin]);
+    const [allMids] = usePerpsAllMidsAtom();
 
-    const markPrice = useMemo(() => {
-      const currentMidPrice = midPrice || '0';
-      return currentMidPrice;
-    }, [midPrice]);
+    const midPrice = useMemo(() => {
+      return allMids?.mids?.[position.coin] || '0';
+    }, [allMids?.mids, position.coin]);
 
     const positionSize = useMemo(() => {
       const size = new BigNumber(position.szi || '0').abs();
@@ -128,16 +111,16 @@ const ClosePositionForm = memo(
     const isMountedRef = useRef(true);
 
     useEffect(() => {
-      if (!markPrice) return;
+      if (!midPrice) return;
 
       if (!initPriceRef.current && !userSetPrice && isMountedRef.current) {
         setFormData((prev) => ({
           ...prev,
-          limitPrice: formatPriceToSignificantDigits(markPrice),
+          limitPrice: formatPriceToSignificantDigits(midPrice),
         }));
         initPriceRef.current = true;
       }
-    }, [markPrice, userSetPrice]);
+    }, [midPrice, userSetPrice]);
 
     useEffect(() => {
       return () => {
@@ -226,11 +209,11 @@ const ClosePositionForm = memo(
     );
 
     const handleUseMid = useCallback(() => {
-      const latestMarkPrice = midPrice;
-      if (latestMarkPrice && latestMarkPrice !== '0') {
+      const latestMidPrice = midPrice;
+      if (latestMidPrice && latestMidPrice !== '0') {
         setFormData((prev) => ({
           ...prev,
-          limitPrice: formatPriceToSignificantDigits(latestMarkPrice),
+          limitPrice: formatPriceToSignificantDigits(latestMidPrice),
         }));
         setUserSetPrice(false);
         initPriceRef.current = true;
@@ -260,19 +243,21 @@ const ClosePositionForm = memo(
         }
 
         if (formData.type === 'market') {
-          const latestMarkPrice = midPrice;
-          if (!latestMarkPrice || latestMarkPrice === '0') {
+          const latestMidPrice = midPrice;
+          if (!latestMidPrice || latestMidPrice === '0') {
             throw new OneKeyLocalError({
               message: 'Unable to get current market price',
             });
           }
 
-          await hyperliquidActions.current.orderClose({
-            assetId,
-            isBuy: isLongPosition,
-            size: closeAmount,
-            midPx: latestMarkPrice,
-          });
+          await hyperliquidActions.current.ordersClose([
+            {
+              assetId,
+              isBuy: isLongPosition,
+              size: closeAmount,
+              midPx: latestMidPrice,
+            },
+          ]);
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
           if (!formData.limitPrice || limitPriceBN.lte(0)) {
@@ -322,7 +307,8 @@ const ClosePositionForm = memo(
     ]);
 
     const estimatedProfit = useMemo(() => {
-      const exitPrice = formData.limitPrice;
+      const exitPrice =
+        formData.type === 'market' ? midPrice : formData.limitPrice;
       if (!exitPrice || !position.entryPx) return '$0.00';
 
       const amount = formData.amount || Math.abs(+position.szi);
@@ -340,6 +326,8 @@ const ClosePositionForm = memo(
         },
       });
     }, [
+      formData.type,
+      midPrice,
       formData.amount,
       formData.limitPrice,
       position.entryPx,
@@ -359,7 +347,7 @@ const ClosePositionForm = memo(
 
     const isPriceValid = useMemo(() => {
       if (formData.type === 'market') {
-        return Boolean(markPrice);
+        return Boolean(midPrice);
       }
 
       const limitPrice = new BigNumber(formData.limitPrice || '0');
@@ -379,7 +367,7 @@ const ClosePositionForm = memo(
     }, [
       formData.type,
       formData.limitPrice,
-      markPrice,
+      midPrice,
       isLongPosition,
       position.liquidationPx,
     ]);
@@ -452,7 +440,7 @@ const ClosePositionForm = memo(
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
             onUseMarketPrice={handleUseMid}
-            disabled={!markPrice}
+            disabled={!midPrice}
             szDecimals={szDecimals}
             ifOnDialog
           />
