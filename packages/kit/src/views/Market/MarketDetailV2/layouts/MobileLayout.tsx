@@ -26,8 +26,9 @@ import {
 import { MobileInformationTabs } from '../components/InformationTabs/layout/MobileInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+export function MobileLayout() {
+  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
+    useTokenDetail();
   const intl = useIntl();
   const tabNames = useMemo(
     () => [
@@ -83,6 +84,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
             networkId={networkId}
             tokenSymbol={tokenDetail?.symbol}
             isNative={isNative}
+            dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
           />
         </Stack>
       </YStack>
@@ -93,6 +95,7 @@ export function MobileLayout({ isNative = false }: { isNative?: boolean }) {
     tokenAddress,
     tokenDetail?.symbol,
     tradingViewHeight,
+    websocketConfig,
   ]);
 
   const renderInformationHeader = useCallback(

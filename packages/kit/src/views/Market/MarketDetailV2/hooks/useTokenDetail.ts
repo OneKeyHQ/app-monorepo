@@ -1,4 +1,5 @@
 import {
+  useIsNativeAtom,
   useNetworkIdAtom,
   useTokenAddressAtom,
   useTokenDetailAtom,
@@ -11,6 +12,7 @@ export function useTokenDetail() {
   const [isLoading] = useTokenDetailLoadingAtom();
   const [tokenAddress] = useTokenAddressAtom();
   const [networkId] = useNetworkIdAtom();
+  const [isNative] = useIsNativeAtom();
   const [websocketConfig] = useTokenDetailWebsocketAtom();
 
   const isReady = !isLoading && !!tokenDetail;
@@ -20,6 +22,7 @@ export function useTokenDetail() {
     isLoading,
     tokenAddress,
     networkId,
+    isNative,
     websocketConfig,
     isReady,
   };
