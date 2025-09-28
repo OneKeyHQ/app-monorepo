@@ -21,7 +21,6 @@ interface IBaseTradingViewProps {
    */
   tokenAddress?: string;
   networkId?: string;
-  tradingViewUrl?: string;
   interval?: string;
   timeFrom?: number;
   timeTo?: number;
@@ -39,7 +38,6 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
     // Strip out TradingViewV2-specific optional props so they are not forwarded to the inner WebView.
     tokenAddress: _tokenAddress,
     networkId: _networkId,
-    tradingViewUrl: _tradingViewUrl,
     interval: _interval,
     timeFrom: _timeFrom,
     timeTo: _timeTo,
