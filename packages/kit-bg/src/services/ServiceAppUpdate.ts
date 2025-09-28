@@ -340,7 +340,7 @@ class ServiceAppUpdate extends ServiceBase {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
     if (!(await this.isNeedSyncAppUpdateInfo())) {
-      return;
+      return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
