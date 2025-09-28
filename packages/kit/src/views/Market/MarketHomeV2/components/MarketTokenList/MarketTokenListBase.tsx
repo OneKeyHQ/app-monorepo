@@ -228,7 +228,9 @@ function MarketTokenListBase({
               columns={marketTokenColumns}
               onEndReached={handleEndReached}
               dataSource={data}
-              keyExtractor={(item) => JSON.stringify(item)}
+              keyExtractor={(item) =>
+                item.address + item.symbol + item.networkId
+              }
               extraData={networkId}
               onHeaderRow={handleHeaderRow}
               TableFooterComponent={TableFooterComponent}
