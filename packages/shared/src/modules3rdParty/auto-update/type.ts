@@ -22,7 +22,7 @@ export type IUpdateDownloadedEvent =
 
 export type IDownloadPackage = (
   params: IDownloadPackageParams,
-) => Promise<IUpdateDownloadedEvent>;
+) => Promise<IUpdateDownloadedEvent | null>;
 
 export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
 

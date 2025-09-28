@@ -60,7 +60,11 @@ const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
     }
   }
   const result = await withUpdateError(async () => {
-    await globalThis.desktopApiProxy.appUpdate.checkForUpdates();
+    const updateInfo =
+      await globalThis.desktopApiProxy.appUpdate.checkForUpdates();
+    if (!updateInfo) {
+      return null;
+    }
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {

@@ -378,7 +378,7 @@ export const useDownloadPackage = () => {
         fileType === EUpdateFileType.jsBundle
           ? await BundleUpdate.downloadBundle(downloadParams)
           : await AppUpdate.downloadPackage(downloadParams);
-      defaultLogger.app.appUpdate.endDownload(result);
+      defaultLogger.app.appUpdate.endDownload(result || {});
       if (!result) {
         return;
       }
