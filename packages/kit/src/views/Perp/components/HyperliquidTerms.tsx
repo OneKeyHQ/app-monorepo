@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
   Dialog,
+  Divider,
   Image,
   ScrollView,
   SizableText,
@@ -18,6 +20,12 @@ import {
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
@@ -35,6 +43,7 @@ export function HyperliquidTermsContent({
   renderDelay?: number;
 }) {
   const { gtMd } = useMedia();
+  const intl = useIntl();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
     useState(false);
@@ -123,33 +132,35 @@ export function HyperliquidTermsContent({
                 <Image source={hyperliquidLogo} height={70} width={200} />
 
                 <SizableText size="$bodyLgMedium" textAlign="center">
-                  Trade perpetual futures securely through our trusted partner.
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_title,
+                  })}
                 </SizableText>
               </YStack>
 
-              <YStack gap="$2">
-                <XStack alignItems="flex-start" gap="$3">
+              <YStack bg="$bgSubdued" borderRadius="$3">
+                <XStack alignItems="flex-start" gap="$3" p="$4">
                   <Checkbox
                     value={isAccountActivatedChecked}
                     onChange={(value) => setIsAccountActivatedChecked(!!value)}
-                    label="I understand that once my account is activated, everything
-                      I deposit and trade in the perpetuals account will be
-                      managed by Hyperliquid ↗"
+                    label={intl.formatMessage({
+                      id: ETranslations.perp_term_content_1,
+                    })}
                     labelProps={{
-                      variant: '$bodySm',
+                      variant: '$bodyMd',
                     }}
                   />
                 </XStack>
-
-                <XStack alignItems="flex-start" gap="$3">
+                <Divider />
+                <XStack alignItems="flex-start" gap="$3" p="$4">
                   <Checkbox
                     value={isNotResponsibleChecked}
                     onChange={(value) => setIsNotResponsibleChecked(!!value)}
-                    label="OneKey is not responsible for any losses from your trades
-                      or Hyperliquid. We only provide market data and order
-                      tools."
+                    label={intl.formatMessage({
+                      id: ETranslations.perp_term_content_2,
+                    })}
                     labelProps={{
-                      variant: '$bodySm',
+                      variant: '$bodyMd',
                     }}
                   />
                 </XStack>
@@ -161,15 +172,52 @@ export function HyperliquidTermsContent({
                   color="$textSubdued"
                   textAlign="center"
                 >
-                  By clicking Agree, you accept our{' '}
-                  <SizableText size="$bodySm" color="$textInteractive">
-                    Terms of Service
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_content_3,
+                  })}{' '}
+                  <SizableText
+                    size="$bodySm"
+                    color="$textInteractive"
+                    cursor="pointer"
+                    onPress={() => {
+                      openUrlExternal(TERMS_OF_SERVICE_URL);
+                    }}
+                    hoverStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    pressStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.settings_user_agreement,
+                    })}
                   </SizableText>{' '}
-                  and{' '}
-                  <SizableText size="$bodySm" color="$textInteractive">
-                    Privacy Policy
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_content_4,
+                  })}{' '}
+                  <SizableText
+                    cursor="pointer"
+                    hoverStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    pressStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    size="$bodySm"
+                    color="$textInteractive"
+                    onPress={() => {
+                      openUrlExternal(PRIVACY_POLICY_URL);
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_privacy_policy,
+                    })}
                   </SizableText>
-                  .
                 </SizableText>
               </XStack>
             </YStack>
@@ -183,6 +231,7 @@ export function HyperliquidTermsContent({
     hyperliquidLogo,
     isAccountActivatedChecked,
     isNotResponsibleChecked,
+    intl,
   ]);
 
   const keyExtractor = useCallback((item: ISlideData) => item.id, []);
@@ -212,7 +261,7 @@ export function HyperliquidTermsContent({
       goToNextIndex,
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
-      <Stack>
+      <YStack>
         {slidesData.length > 1 ? (
           <XStack
             testID="hyperliquid-intro-pagination"
@@ -239,17 +288,18 @@ export function HyperliquidTermsContent({
             ))}
           </XStack>
         ) : null}
-
         {showPaginationButton ? (
           <>
-            <XStack gap="$3" pt="$4" justifyContent="flex-end">
+            <XStack gap="$3" pt="$4" justifyContent="center">
               <Button
                 variant="tertiary"
                 size="small"
                 onPress={gotToPrevIndex}
                 disabled={currentIndex === 0}
               >
-                Previous
+                {intl.formatMessage({
+                  id: ETranslations.perp_term_previous,
+                })}
               </Button>
               <Button
                 variant={isConfirmationSlide ? 'primary' : 'tertiary'}
@@ -265,12 +315,18 @@ export function HyperliquidTermsContent({
                 }}
                 disabled={isConfirmationSlide ? !canConfirm : null}
               >
-                {isConfirmationSlide ? 'Confirm' : 'Next'}
+                {isConfirmationSlide
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_term_agree,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.global_next,
+                    })}
               </Button>
             </XStack>
           </>
         ) : null}
-      </Stack>
+      </YStack>
     ),
     [
       canConfirm,
@@ -279,11 +335,12 @@ export function HyperliquidTermsContent({
       onConfirm,
       showPaginationButton,
       slidesData,
+      intl,
     ],
   );
 
   return (
-    <Stack p="$6">
+    <Stack p="$4">
       <Stack
         minHeight={200}
         display="flex"
@@ -351,7 +408,7 @@ export function HyperliquidTermsOverlay() {
     >
       <Stack
         maxWidth={500}
-        maxHeight={500}
+        maxHeight={600}
         width="100%"
         bg="$bgApp"
         borderRadius="$4"
