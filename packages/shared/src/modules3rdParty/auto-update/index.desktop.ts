@@ -44,7 +44,10 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
       });
   });
 
-const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
+const downloadPackage: IDownloadPackage = async ({
+  downloadedFile,
+  headers,
+}) => {
   const isDownloading =
     await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
   if (isDownloading) {
@@ -61,7 +64,10 @@ const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
   }
   const result = await withUpdateError(async () => {
     const updateInfo =
-      await globalThis.desktopApiProxy.appUpdate.checkForUpdates();
+      await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
+        false,
+        headers,
+      );
     if (!updateInfo) {
       return null;
     }
