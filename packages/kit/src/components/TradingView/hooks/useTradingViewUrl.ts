@@ -31,12 +31,12 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
       return tradingViewUrl;
     }
 
-    if (devSettings.enabled) {
-      return TRADING_VIEW_URL_TEST;
-    }
-
     if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
       return 'http://localhost:5173/';
+    }
+
+    if (devSettings.enabled) {
+      return TRADING_VIEW_URL_TEST;
     }
 
     return TRADING_VIEW_URL;
