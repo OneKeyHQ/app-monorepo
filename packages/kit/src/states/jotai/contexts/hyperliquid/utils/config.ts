@@ -34,7 +34,7 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
     }),
   },
 
-  [EActionType.ORDER_CLOSE]: {
+  [EActionType.ORDERS_CLOSE]: {
     loading: appLocale.intl.formatMessage({
       id: ETranslations.perp_toast_closing_position,
     }),

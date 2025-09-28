@@ -689,6 +689,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           num={num}
           isOthersUniversal={isOthersUniversal}
           focusedWalletInfo={focusedWalletInfo}
+          editable={editable}
         />
       ) : null}
 
