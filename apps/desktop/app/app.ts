@@ -46,7 +46,11 @@ import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess from './process';
-import { getResourcesPath, getStaticPath } from './resoucePath';
+import {
+  getAppStaticResourcesPath,
+  getResourcesPath,
+  getStaticPath,
+} from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
 
@@ -82,6 +86,7 @@ const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
+const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
 const resourcesPath = getResourcesPath();
 // static path
@@ -487,7 +492,7 @@ async function createMainWindow() {
       nodeIntegrationInWorker: false,
       autoplayPolicy: 'user-gesture-required',
     },
-    icon: path.join(staticPath, 'images/icons/512x512.png'),
+    icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
 
