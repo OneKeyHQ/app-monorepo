@@ -33,10 +33,7 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  IDesktopAppState,
-  IDesktopSubModuleInitParams,
-} from '@onekeyhq/shared/types/desktop';
+import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import { checkFileSha512, getBundleIndexHtmlPath, getMetadata } from './bundle';
 import { ipcMessageKeys } from './config';
@@ -599,11 +596,6 @@ async function createMainWindow() {
     app.exit(0);
     disposeContextMenu?.();
   });
-
-  const subModuleInitParams: IDesktopSubModuleInitParams = {
-    APP_NAME,
-    getSafelyMainWindow,
-  };
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
