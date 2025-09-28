@@ -51,8 +51,6 @@ export const ipcMessageKeys = {
   UPDATE_DOWNLOAD_ASC_DONE: 'update/download-asc-done',
   UPDATE_VERIFY_ASC_DONE: 'update/verify-asc-done',
   UPDATE_MANUAL_INSTALLATION: 'update/manual-installation',
-  UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER:
-    'update/getPreviousUpdateBuildNumber',
   CHECK_FOR_UPDATES: 'update/checkForUpdates',
   TOUCH_UPDATE_RES_SUCCESS: 'touch/update-res-success',
   TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
