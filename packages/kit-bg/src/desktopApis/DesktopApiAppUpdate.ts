@@ -335,6 +335,12 @@ class DesktopApiAppUpdate {
     if (this.isDownloading) {
       return;
     }
+    store.setUpdateBuildNumber('');
+    logger.info(
+      'auto-updater',
+      'Update build number: ',
+      store.getUpdateBuildNumber(),
+    );
     this.isDownloading = true;
     const mainWindow = this.getMainWindow();
     if (!mainWindow) {
@@ -588,7 +594,9 @@ class DesktopApiAppUpdate {
   }
 
   async getPreviousUpdateBuildNumber(): Promise<string> {
-    return store.getUpdateBuildNumber() || '';
+    const previousBuildNumber = store.getUpdateBuildNumber() || '';
+    logger.info('auto-updater', 'Update build number: ', previousBuildNumber);
+    return previousBuildNumber;
   }
 }
 
