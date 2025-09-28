@@ -87,14 +87,14 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
-    // Check for updated bundle in Documents directory first
-    // let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
+    Check for updated bundle in Documents directory first
+    let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
 
-    // if bundlePath != nil {
-    //   return URL(string: bundlePath!)
-    // }
+    if bundlePath != nil {
+      return URL(string: bundlePath!)
+    }
 
-    // Fallback to main bundle
+    Fallback to main bundle
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
