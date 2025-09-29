@@ -758,18 +758,33 @@ async function createMainWindow() {
       if (!bundleDirPath) {
         throw new OneKeyLocalError('Bundle directory path not found');
       }
-      const key = url.replace(/^\/+/, '');
+      const replacedKey = url.replace(/^\/+/, '').trim();
+      const key = replacedKey || 'index.html';
       if (!key) {
+        logger.info(
+          'checkFileHash error:',
+          `${key}: File ${url} not found in metadata.json`,
+        );
         unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
       }
       const sha512 = metadata[key];
       const filePath = path.join(bundleDirPath, key);
       if (!sha512) {
+        logger.info(
+          'checkFileHash error:',
+          `${key}: ${url}, sha512 not found in metadata.json`,
+        );
         unmatchedFileDialog();
-        throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
+        throw new OneKeyLocalError(
+          `File ${url}, sha512 not found in metadata.json`,
+        );
       }
       if (!checkFileSha512(filePath, sha512)) {
+        logger.info(
+          'checkFileHash error:',
+          `${key}:  ${url} not matched ${filePath}: ${sha512}`,
+        );
         unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
       }
