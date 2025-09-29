@@ -15,6 +15,7 @@ import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
@@ -64,7 +65,7 @@ const PerpTokenSelectorRow = memo(
                 size="lg"
                 borderRadius="$full"
                 bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-                tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
+                tokenImageUri={getHyperliquidTokenImageUrl(token.name)}
                 fallbackIcon="CryptoCoinOutline"
               />
               <YStack gap="$1">
@@ -163,7 +164,7 @@ const PerpTokenSelectorRow = memo(
               size="xs"
               borderRadius="$full"
               bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
+              tokenImageUri={getHyperliquidTokenImageUrl(token.name)}
               fallbackIcon="CryptoCoinOutline"
             />
             <SizableText size="$bodySmMedium">{token.name}</SizableText>
