@@ -94,7 +94,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
       return URL(string: bundlePath!)
     }
 
-    Fallback to main bundle
+    // Fallback to main bundle
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
   }
