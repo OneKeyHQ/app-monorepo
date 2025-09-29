@@ -698,7 +698,12 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
 
 RCT_EXPORT_METHOD(getWebEmbedPath:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *webEmbedPath = [BundleUpdateModule.bundleDir stringByAppendingPathComponent:@"web-embed"];
+    NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
+    if (currentBundleDir == nil) {
+        resolve(@"");
+        return;
+    }
+    NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
     resolve(webEmbedPath);
 }
 
