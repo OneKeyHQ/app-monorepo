@@ -139,7 +139,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
       return {
         ...prev,
-        ...tokensMap,
+        tokens: tokensMap,
       };
     });
   }
@@ -152,7 +152,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     customLocalStorageV2,
     commonConfig,
     bannerConfig,
-    depositConfig,
+    depositTokenConfig,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
     await perpsCommonConfigPersistAtom.set(
@@ -172,7 +172,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return newVal;
       },
     );
-    await this.parseDepositConfig(depositConfig);
+    await this.parseDepositConfig(depositTokenConfig);
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -224,7 +224,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       // TODO remove
       // resData.data.referrerRate = 65;
     }
-
     await this.updatePerpConfig({
       referrerConfig: resData?.data?.referrerConfig,
       customSettings: resData?.data?.customSettings,
@@ -235,7 +234,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
       commonConfig: resData?.data?.commonConfig,
       bannerConfig: resData?.data?.bannerConfig,
-      depositConfig: resData?.data?.depositConfig,
+      depositTokenConfig: resData?.data?.depositTokenConfig,
     });
     return resData;
   }

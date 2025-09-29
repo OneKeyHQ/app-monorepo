@@ -208,6 +208,7 @@ export interface IPerpsDepositNetwork {
 
 export interface IPerpsDepositNetworksAtom {
   networks: IPerpsDepositNetwork[];
+  currentPerpsDepositSelectedNetwork?: IPerpsDepositNetwork;
 }
 export const {
   target: perpsDepositNetworksAtom,
@@ -225,20 +226,25 @@ export interface IPerpsDepositToken {
   symbol: string;
   decimals: number;
   networkImageURI: string;
-  price?: number;
+  price?: string;
   balanceParsed?: string;
   fiatValue?: string;
   isNative?: boolean;
   logoURI?: string;
 }
 
-export type IPerpsDepositTokensAtom = Map<string, IPerpsDepositToken[]>;
+export interface IPerpsDepositTokensAtom {
+  tokens: Map<string, IPerpsDepositToken[]>;
+  currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+}
 export const {
   target: perpsDepositTokensAtom,
   use: usePerpsDepositTokensAtom,
 } = globalAtom<IPerpsDepositTokensAtom>({
   name: EAtomNames.perpsDepositTokensAtom,
-  initialValue: new Map(),
+  initialValue: {
+    tokens: new Map(),
+  },
 });
 
 export interface IPerpsUserConfigPersistAtom {

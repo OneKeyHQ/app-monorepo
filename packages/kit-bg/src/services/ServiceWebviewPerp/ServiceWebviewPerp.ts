@@ -186,7 +186,7 @@ export interface IPerpServerConfigResponse {
   >;
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
-  depositConfig?: IPerpServerDepositConfig[];
+  depositTokenConfig?: IPerpServerDepositConfig[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {

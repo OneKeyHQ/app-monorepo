@@ -20,10 +20,7 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Swap,
       env: 'test',
     }),
-    utility: buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.Utility,
-      env: 'test',
-    }),
+    utility: 'http://localhost:9010',
     lightning: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Lightning,
       env: 'test',

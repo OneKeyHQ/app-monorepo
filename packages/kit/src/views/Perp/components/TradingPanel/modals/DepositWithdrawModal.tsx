@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,8 +12,12 @@ import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
+  Icon,
   Input,
+  ListView,
+  Popover,
   SegmentControl,
+  Select,
   SizableText,
   Skeleton,
   Toast,
@@ -24,16 +28,24 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import {
+  perpsActiveAccountAtom,
+  usePerpsDepositNetworksAtom,
+  usePerpsDepositTokensAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IPerpsActiveAccountAtom,
+  IPerpsDepositToken,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -43,6 +55,8 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+
+import type { ListRenderItem } from 'react-native';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
@@ -98,6 +112,29 @@ function DepositWithdrawContent({
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
+  const [
+    { currentPerpsDepositSelectedNetwork, networks },
+    setPerpsDepositNetworksAtom,
+  ] = usePerpsDepositNetworksAtom();
+  const [
+    { tokens, currentPerpsDepositSelectedToken },
+    setPerpsDepositTokensAtom,
+  ] = usePerpsDepositTokensAtom();
+
+  const currentPerpsDepositSelectedTokenRef = useRef<
+    IPerpsDepositToken | undefined
+  >(currentPerpsDepositSelectedToken);
+  if (
+    currentPerpsDepositSelectedTokenRef.current?.contractAddress !==
+    currentPerpsDepositSelectedToken?.contractAddress
+  ) {
+    currentPerpsDepositSelectedTokenRef.current =
+      currentPerpsDepositSelectedToken;
+  }
+
+  const [depositTokensWithPrice, setDepositTokensWithPrice] = useState<
+    IPerpsDepositToken[]
+  >([]);
 
   const { serviceAccount } = backgroundApiProxy;
   const { result: accountResult } = usePromiseResult(async () => {
@@ -114,7 +151,7 @@ function DepositWithdrawContent({
     if (isOtherAccount && selectedAccount.accountId) {
       account = await serviceAccount.getAccount({
         accountId: selectedAccount.accountId,
-        networkId: PERPS_NETWORK_ID,
+        networkId: currentPerpsDepositSelectedNetwork?.networkId || '',
       });
     } else if (selectedAccount.indexedAccountId) {
       indexedAccount = await serviceAccount.getIndexedAccount({
@@ -139,51 +176,113 @@ function DepositWithdrawContent({
     selectedAccount.indexedAccountId,
     selectedAccount.accountId,
     serviceAccount,
+    currentPerpsDepositSelectedNetwork?.networkId,
   ]);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
-    networkId: PERPS_NETWORK_ID,
+    networkId: currentPerpsDepositSelectedNetwork?.networkId || '',
   });
 
   const hyperliquidActions = useHyperliquidActions();
   const { withdraw } = hyperliquidActions.current;
 
-  const { result: usdcBalance, isLoading: balanceLoading } = usePromiseResult(
+  const { result, isLoading: balanceLoading } = usePromiseResult(
     async () => {
       if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
-        return '0';
+        return [];
       }
 
       try {
+        const tokensList =
+          tokens.get(currentPerpsDepositSelectedNetwork?.networkId || '') || [];
         const tokenDetails =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: PERPS_NETWORK_ID,
-            contractAddress: USDC_TOKEN_INFO.address,
+            networkId: currentPerpsDepositSelectedNetwork?.networkId || '',
+            contractAddress:
+              tokensList?.map((token) => token.contractAddress).join(',') || '',
             accountId: selectedAccount.accountId,
             accountAddress: selectedAccount.accountAddress,
           });
-        return tokenDetails?.[0]?.balanceParsed || '0';
+        if (tokenDetails) {
+          const depositTokensWithPriceRes = tokensList.map((token) => ({
+            ...token,
+            balanceParsed: tokenDetails.find(
+              (t) => t.contractAddress === token.contractAddress,
+            )?.balanceParsed,
+            price: tokenDetails.find(
+              (t) => t.contractAddress === token.contractAddress,
+            )?.price,
+            fiatValue: tokenDetails.find(
+              (t) => t.contractAddress === token.contractAddress,
+            )?.fiatValue,
+          }));
+          setDepositTokensWithPrice(depositTokensWithPriceRes);
+          return depositTokensWithPriceRes;
+        }
       } catch (error) {
         console.error(
           '[DepositWithdrawModal] Failed to fetch USDC balance:',
           error,
         );
-        return '0';
+        return [];
       }
     },
-    [selectedAccount.accountId, selectedAccount.accountAddress],
+    [
+      selectedAccount.accountId,
+      selectedAccount.accountAddress,
+      currentPerpsDepositSelectedNetwork?.networkId,
+      tokens,
+    ],
     {
+      watchLoading: true,
       checkIsMounted: true,
       debounced: 1000,
     },
   );
+
+  useEffect(() => {
+    if (result) {
+      const findToken = result.find((t) =>
+        equalTokenNoCaseSensitive({
+          token1: t,
+          token2: currentPerpsDepositSelectedTokenRef.current,
+        }),
+      );
+      if (currentPerpsDepositSelectedTokenRef.current && findToken) {
+        setPerpsDepositTokensAtom((prev) => ({
+          ...prev,
+          currentPerpsDepositSelectedToken: {
+            ...currentPerpsDepositSelectedTokenRef.current,
+            networkId: findToken?.networkId,
+            contractAddress: findToken?.contractAddress,
+            name: findToken?.name,
+            symbol: findToken?.symbol,
+            decimals: findToken?.decimals,
+            networkImageURI: findToken?.networkImageURI,
+            logoURI: findToken?.logoURI,
+            isNative: findToken?.isNative,
+            balanceParsed: findToken?.balanceParsed,
+            fiatValue: findToken?.fiatValue,
+            price: findToken?.price,
+          },
+        }));
+      }
+    }
+  }, [result, setPerpsDepositTokensAtom]);
+
   const availableBalance = useMemo(() => {
     if (selectedAction === 'withdraw') {
       return new BigNumber(params.withdrawable || '0').toFixed(2);
     }
-    return new BigNumber(usdcBalance || '0').toFixed(2);
-  }, [selectedAction, params.withdrawable, usdcBalance]);
+    return new BigNumber(currentPerpsDepositSelectedToken?.balanceParsed || '0')
+      .decimalPlaces(2, BigNumber.ROUND_DOWN)
+      .toFixed();
+  }, [
+    selectedAction,
+    params.withdrawable,
+    currentPerpsDepositSelectedToken?.balanceParsed,
+  ]);
   const isValidAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
     const balanceBN = new BigNumber(availableBalance || '0');
@@ -406,6 +505,149 @@ function DepositWithdrawContent({
       : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
   }, [isInsufficientBalance, selectedAction, intl]);
 
+  useEffect(() => {
+    if (networks.length > 0 && !currentPerpsDepositSelectedNetwork) {
+      setPerpsDepositNetworksAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedNetwork: networks[0],
+      }));
+    }
+  }, [
+    networks,
+    currentPerpsDepositSelectedNetwork,
+    setPerpsDepositNetworksAtom,
+  ]);
+
+  useEffect(() => {
+    if (
+      currentPerpsDepositSelectedNetwork?.networkId &&
+      tokens.get(currentPerpsDepositSelectedNetwork?.networkId)?.length &&
+      !currentPerpsDepositSelectedToken
+    ) {
+      setPerpsDepositTokensAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedToken: tokens.get(
+          currentPerpsDepositSelectedNetwork?.networkId,
+        )?.[0],
+      }));
+    }
+    if (
+      currentPerpsDepositSelectedNetwork?.networkId &&
+      currentPerpsDepositSelectedToken?.networkId &&
+      currentPerpsDepositSelectedToken?.networkId !==
+        currentPerpsDepositSelectedNetwork?.networkId
+    ) {
+      const newTokens = tokens.get(
+        currentPerpsDepositSelectedNetwork?.networkId,
+      );
+      setPerpsDepositTokensAtom((prev) => ({
+        ...prev,
+        currentPerpsDepositSelectedToken: newTokens?.[0],
+      }));
+    }
+  }, [
+    tokens,
+    currentPerpsDepositSelectedToken,
+    setPerpsDepositTokensAtom,
+    networks,
+    currentPerpsDepositSelectedNetwork?.networkId,
+  ]);
+
+  const depositNetworkSelectComponent = useMemo(() => {
+    return (
+      <Select
+        items={networks.map((network) => ({
+          label: network.name,
+          value: network.networkId,
+          leading: <NetworkAvatar networkId={network.networkId} size="$5" />,
+        }))}
+        value={currentPerpsDepositSelectedNetwork?.networkId}
+        onChange={(value) => {
+          setPerpsDepositNetworksAtom((prev) => ({
+            ...prev,
+            currentPerpsDepositSelectedNetwork: networks.find(
+              (network) => network.networkId === value,
+            ),
+          }));
+        }}
+        title={intl.formatMessage({
+          id: ETranslations.perp_deposit_chain,
+        })}
+        renderTrigger={({ value, label }) => {
+          return (
+            <XStack alignItems="center" gap="$1" cursor="pointer">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {label}
+              </SizableText>
+              <Icon
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+                size="$5"
+              />
+            </XStack>
+          );
+        }}
+      />
+    );
+  }, [
+    currentPerpsDepositSelectedNetwork?.networkId,
+    intl,
+    networks,
+    setPerpsDepositNetworksAtom,
+  ]);
+  const renderTokenItem = useCallback<ListRenderItem<IPerpsDepositToken>>(
+    ({ item }) => {
+      return (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {item.name}
+        </SizableText>
+      );
+    },
+    [],
+  );
+  const depositTokenSelectComponent = useMemo(() => {
+    if (!currentPerpsDepositSelectedNetwork?.networkId) return undefined;
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.swap_page_button_select_token,
+        })}
+        renderTrigger={
+          <XStack alignItems="center" gap="$1" cursor="pointer">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {currentPerpsDepositSelectedToken?.symbol ?? '-'}
+            </SizableText>
+            <Icon
+              name="ChevronDownSmallOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
+          </XStack>
+        }
+        renderContent={() => (
+          <ListView
+            data={depositTokensWithPrice}
+            renderItem={renderTokenItem}
+            ListFooterComponent={
+              <XStack h="$2">
+                <SizableText size="$bodySm" color="$textSubdued">
+                  if you wish to trade other tokens, switch to
+                </SizableText>
+                <SizableText size="$bodySm">Trade</SizableText>
+              </XStack>
+            }
+          />
+        )}
+      />
+    );
+  }, [
+    currentPerpsDepositSelectedNetwork?.networkId,
+    intl,
+    currentPerpsDepositSelectedToken?.symbol,
+    depositTokensWithPrice,
+    renderTokenItem,
+  ]);
+
   const content = (
     <YStack
       gap="$4"
@@ -482,11 +724,19 @@ function DepositWithdrawContent({
         </SizableText>
         <Input
           flex={1}
-          value="Arbitrum One"
           onChangeText={() => {}}
           keyboardType="default"
           readonly
           borderWidth={0}
+          addOns={[
+            {
+              renderContent: depositNetworkSelectComponent,
+            },
+          ]}
+          addOnsContainerProps={{
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+          }}
           size="medium"
           fontSize={getFontSize('$bodyMd')}
           containerProps={{
@@ -546,10 +796,17 @@ function DepositWithdrawContent({
             }}
             textAlign="right"
             maxLength={12}
+            addOns={[
+              {
+                renderContent: depositTokenSelectComponent,
+              },
+            ]}
+            addOnsContainerProps={{
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              ml: '$2',
+            }}
           />
-          <XStack alignItems="center">
-            <SizableText size="$bodyMd">USDC</SizableText>
-          </XStack>
         </XStack>
 
         {errorMessage ? (
