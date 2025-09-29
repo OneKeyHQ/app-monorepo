@@ -134,7 +134,7 @@ runs:
       shell: bash
       run: |
         # Generate build number ------- start
-        build_number=20250930800
+        build_number=20251030800
         echo "\$build_number=$build_number"
         echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
         # Generate build number ------- end
@@ -144,7 +144,7 @@ runs:
       shell: bash
       run: |
         # Generate build number ------- start
-        build_number=20250930800
+        build_number=20251030800
         echo "\$build_number=$build_number"
         echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
         # Generate build number ------- end
