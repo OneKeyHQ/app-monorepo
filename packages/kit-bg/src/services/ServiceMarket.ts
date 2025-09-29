@@ -46,7 +46,7 @@ class ServiceMarket extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 45 }),
     },
   );
 
@@ -60,18 +60,28 @@ class ServiceMarket extends ServiceBase {
       : data;
   }
 
+  _fetchSearchTrending = memoizee(
+    async () => {
+      const categories = await this.fetchCategories([]);
+      const searchTrendingCategory = categories.find(
+        (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
+      );
+      return searchTrendingCategory
+        ? this.fetchCategory(
+            searchTrendingCategory.categoryId,
+            searchTrendingCategory.coingeckoIds,
+          )
+        : [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
+    },
+  );
+
   @backgroundMethod()
   async fetchSearchTrending() {
-    const categories = await this.fetchCategories([]);
-    const searchTrendingCategory = categories.find(
-      (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
-    );
-    return searchTrendingCategory
-      ? this.fetchCategory(
-          searchTrendingCategory.categoryId,
-          searchTrendingCategory.coingeckoIds,
-        )
-      : [];
+    return this._fetchSearchTrending();
   }
 
   @backgroundMethod()
