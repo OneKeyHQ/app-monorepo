@@ -185,3 +185,8 @@ export type IPerpsFormattedAssetCtx = {
   change24h: string;
   change24hPercent: number;
 };
+
+export enum EPerpsSizeInputMode {
+  MANUAL = 'manual',
+  SLIDER = 'slider',
+}

@@ -14,6 +14,7 @@ import {
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { TradingFormInput } from './TradingFormInput';
 
@@ -27,6 +28,9 @@ interface ISizeInputProps {
   activeAsset: IPerpsActiveAssetAtom;
   activeAssetCtx: IPerpsActiveAssetCtxAtom;
   referencePrice: string;
+  sizeInputMode: EPerpsSizeInputMode;
+  sliderPercent: number;
+  onRequestManualMode?: () => void;
   error?: string;
   disabled?: boolean;
   label?: string;
@@ -41,6 +45,9 @@ export const SizeInput = memo(
     activeAsset,
     activeAssetCtx,
     referencePrice,
+    sizeInputMode,
+    sliderPercent,
+    onRequestManualMode,
     error,
     disabled = false,
     side,
@@ -58,6 +65,14 @@ export const SizeInput = memo(
 
     const prevValueRef = useRef(value);
 
+    const isSliderMode = sizeInputMode === 'slider';
+
+    const sliderDisplay = useMemo(() => {
+      if (!isSliderMode) return '';
+      if (!Number.isFinite(sliderPercent)) return '0%';
+      return `${new BigNumber(sliderPercent || 0).toFixed()}%`;
+    }, [isSliderMode, sliderPercent]);
+
     const priceBN = useMemo(
       () => new BigNumber(referencePrice),
       [referencePrice],
@@ -68,6 +83,15 @@ export const SizeInput = memo(
     );
 
     useEffect(() => {
+      if (isSliderMode) {
+        setTokenAmount('');
+        setUsdAmount('');
+        prevValueRef.current = '';
+        setIsUserTyping(false);
+      }
+    }, [isSliderMode]);
+
+    useEffect(() => {
       if (value !== prevValueRef.current) {
         setTokenAmount(value);
         prevValueRef.current = value;
@@ -75,6 +99,7 @@ export const SizeInput = memo(
     }, [value]);
 
     useEffect(() => {
+      if (isSliderMode) return;
       if (inputMode === 'token' && hasValidPrice && tokenAmount) {
         const tokenBN = new BigNumber(tokenAmount);
         if (tokenBN.isFinite()) {
@@ -86,9 +111,10 @@ export const SizeInput = memo(
           setUsdAmount(usdValue);
         }
       }
-    }, [inputMode, tokenAmount, hasValidPrice, priceBN]);
+    }, [inputMode, tokenAmount, hasValidPrice, priceBN, isSliderMode]);
 
     useEffect(() => {
+      if (isSliderMode) return;
       if (inputMode === 'usd' && hasValidPrice && usdAmount && !isUserTyping) {
         const usdBN = new BigNumber(usdAmount);
         if (usdBN.isFinite()) {
@@ -114,10 +140,12 @@ export const SizeInput = memo(
       onChange,
       isUserTyping,
       priceBN,
+      isSliderMode,
     ]);
 
     const validator = useCallback(
       (text: string) => {
+        if (isSliderMode) return true;
         if (!validateSizeInput(text, inputMode === 'token' ? szDecimals : 2)) {
           return false;
         }
@@ -131,7 +159,7 @@ export const SizeInput = memo(
 
         return true;
       },
-      [szDecimals, inputMode],
+      [szDecimals, inputMode, isSliderMode],
     );
 
     const formatLabel = useMemo(() => {
@@ -158,6 +186,8 @@ export const SizeInput = memo(
       (newValue: string) => {
         setIsUserTyping(true);
 
+        onRequestManualMode?.();
+
         if (inputMode === 'token') {
           setTokenAmount(newValue);
           onChange(newValue);
@@ -181,7 +211,14 @@ export const SizeInput = memo(
           }
         }
       },
-      [inputMode, hasValidPrice, szDecimals, onChange, priceBN],
+      [
+        inputMode,
+        hasValidPrice,
+        szDecimals,
+        onChange,
+        priceBN,
+        onRequestManualMode,
+      ],
     );
 
     const selectItems = useMemo((): ISelectItem[] => {
@@ -202,6 +239,7 @@ export const SizeInput = memo(
         const mode = newMode as 'token' | 'usd';
         if (mode === inputMode) return;
 
+        onRequestManualMode?.();
         setInputMode(mode);
         setIsUserTyping(false);
 
@@ -217,7 +255,14 @@ export const SizeInput = memo(
           }
         }
       },
-      [inputMode, hasValidPrice, tokenAmount, priceBN, setUsdAmount],
+      [
+        inputMode,
+        hasValidPrice,
+        tokenAmount,
+        priceBN,
+        setUsdAmount,
+        onRequestManualMode,
+      ],
     );
 
     const customSuffix = useMemo(
@@ -249,7 +294,12 @@ export const SizeInput = memo(
       [selectItems, inputMode, handleModeChange, selectWidth, intl],
     );
 
-    const displayValue = inputMode === 'token' ? tokenAmount : usdAmount;
+    const displayValue = useMemo(() => {
+      if (isSliderMode) {
+        return sliderDisplay;
+      }
+      return inputMode === 'token' ? tokenAmount : usdAmount;
+    }, [isSliderMode, sliderDisplay, inputMode, tokenAmount, usdAmount]);
 
     return (
       <TradingFormInput
@@ -260,6 +310,7 @@ export const SizeInput = memo(
         error={error}
         validator={validator}
         customSuffix={customSuffix}
+        onFocus={onRequestManualMode}
         isMobile={isMobile}
         placeholder={
           isMobile
