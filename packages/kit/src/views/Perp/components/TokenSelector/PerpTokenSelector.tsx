@@ -20,6 +20,7 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -216,7 +217,7 @@ function BasePerpTokenSelector() {
               size="md"
               borderRadius="$full"
               bg={themeVariant === 'light' ? null : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${coin}.svg`}
+              tokenImageUri={getHyperliquidTokenImageUrl(coin)}
               fallbackIcon="CryptoCoinOutline"
             />
 
