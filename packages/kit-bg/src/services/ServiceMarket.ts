@@ -6,8 +6,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -34,13 +36,23 @@ class ServiceMarket extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _fetchCategories = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: IMarketCategory[];
+      }>('/utility/v1/market/category/list');
+      return response.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
   @backgroundMethod()
   async fetchCategories(filters = [ONEKEY_SEARCH_TRANDING]) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketCategory[];
-    }>('/utility/v1/market/category/list');
-    const { data } = response.data;
+    const data = await this._fetchCategories();
     return filters.length
       ? data
           .filter((i) => !filters.includes(i.categoryId))
