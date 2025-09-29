@@ -1,10 +1,11 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   IconButton,
   SizableText,
   Tooltip,
@@ -68,12 +69,21 @@ const PositionRow = memo(
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
     }, [pos.szi]);
     const assetInfo = useMemo(() => {
+      const leverageType =
+        pos.leverage?.type === 'cross'
+          ? intl.formatMessage({
+              id: ETranslations.perp_trade_cross,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_trade_isolated,
+            });
       return {
         assetSymbol: pos.coin,
         leverage: pos.leverage?.value ?? '',
         assetColor: side === 'long' ? '$green11' : '$red11',
+        leverageType,
       };
-    }, [pos.coin, side, pos.leverage?.value]);
+    }, [pos.coin, side, pos.leverage?.value, pos.leverage?.type, intl]);
     const decimals = useMemo(
       () => getValidPriceDecimals(pos.entryPx || '0'),
       [pos.entryPx],
@@ -206,6 +216,11 @@ const PositionRow = memo(
       return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
     }, [tpslOrders]);
 
+    const [isSizeViewChange, setIsSizeViewChange] = useState(false);
+    const handleSizeViewChange = useCallback(() => {
+      setIsSizeViewChange(!isSizeViewChange);
+    }, [isSizeViewChange]);
+
     if (isMobile) {
       return (
         <ListItem
@@ -238,6 +253,9 @@ const PositionRow = memo(
             </XStack>
             <SizableText size="$bodyMdMedium" color="$text">
               {assetInfo.assetSymbol}
+            </SizableText>
+            <SizableText size="$bodySm" color={assetInfo.assetColor}>
+              {assetInfo.leverageType}
             </SizableText>
             <SizableText size="$bodySm" color={assetInfo.assetColor}>
               {`${side === 'long' ? 'Long' : 'Sell'} ${assetInfo.leverage}X`}
@@ -276,9 +294,21 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySmMedium">
-                {`${sizeInfo.sizeAbsFormatted as string}`}
-              </SizableText>
+              <XStack
+                alignItems="center"
+                gap="$1"
+                cursor="pointer"
+                onPress={handleSizeViewChange}
+              >
+                <SizableText size="$bodySmMedium">
+                  {`${
+                    isSizeViewChange
+                      ? (sizeInfo.sizeValue as string)
+                      : (sizeInfo.sizeAbsFormatted as string)
+                  }`}
+                </SizableText>
+                <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
+              </XStack>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -435,6 +465,14 @@ const PositionRow = memo(
             color={assetInfo.assetColor}
           >
             {assetInfo.assetSymbol}
+          </SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={assetInfo.assetColor}
+          >
+            {assetInfo.leverageType}
           </SizableText>
           <SizableText
             numberOfLines={1}

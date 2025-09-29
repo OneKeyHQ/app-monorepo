@@ -620,6 +620,7 @@ export function useSpeedSwapActions(props: {
           !netAccountRes.result?.address ||
           amountBN.isZero() ||
           amountBN.isNaN() ||
+          fromToken.isNative ||
           isWrapped
         ) {
           return;
@@ -652,6 +653,7 @@ export function useSpeedSwapActions(props: {
       }
     },
     [
+      fromToken.isNative,
       fromToken.contractAddress,
       fromToken.networkId,
       netAccountRes.result?.address,
