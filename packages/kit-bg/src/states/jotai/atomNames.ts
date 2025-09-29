@@ -68,6 +68,8 @@ export enum EAtomNames {
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',
   perpsNetworkStatusAtom = 'perpsNetworkStatusAtom',
+  perpsDepositNetworksAtom = 'perpsDepositNetworksAtom',
+  perpsDepositTokensAtom = 'perpsDepositTokensAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
