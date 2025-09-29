@@ -23,6 +23,7 @@ export function AccountSelectorTriggerBase({
   showWalletName = true,
   showConnectWalletModalInDappMode,
   linkNetworkId,
+  linkNetwork,
   ...others
 }: {
   num: number;
@@ -40,6 +41,7 @@ export function AccountSelectorTriggerBase({
     num,
     showConnectWalletModalInDappMode,
     linkNetworkId,
+    linkNetwork: linkNetwork || !!linkNetworkId,
     ...others,
   });
   const intl = useIntl();
