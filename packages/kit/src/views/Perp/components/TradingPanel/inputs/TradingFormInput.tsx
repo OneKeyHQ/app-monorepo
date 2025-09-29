@@ -119,8 +119,17 @@ export const TradingFormInput = memo(
           bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
           borderRadius="$2"
           borderWidth={ifOnDialog ? '$px' : 0}
-          borderColor={ifOnDialog ? '$borderSubdued' : undefined}
+          borderColor={ifOnDialog ? '$borderSubdued' : '$transparent'}
           px="$3"
+          hoverStyle={
+            ifOnDialog || disabled
+              ? undefined
+              : {
+                  outlineWidth: '$px',
+                  outlineColor: '$border',
+                  outlineStyle: 'solid',
+                }
+          }
         >
           <Input
             flex={1}
@@ -168,7 +177,7 @@ export const TradingFormInput = memo(
     }
     return (
       <YStack
-        bg="$bgSubdued"
+        bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
         borderRadius="$3"
         py="$1"
         pl="$1"
@@ -206,7 +215,7 @@ export const TradingFormInput = memo(
             keyboardType={keyboardType}
             size="small"
             containerProps={{
-              bg: '$bgSubdued',
+              bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
               borderRadius: '$2',
               borderWidth: '$0',
             }}
