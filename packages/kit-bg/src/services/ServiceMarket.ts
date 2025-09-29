@@ -46,7 +46,7 @@ class ServiceMarket extends ServiceBase {
     },
     {
       promise: true,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 45 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
     },
   );
 
