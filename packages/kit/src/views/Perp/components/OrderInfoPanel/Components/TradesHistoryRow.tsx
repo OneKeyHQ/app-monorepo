@@ -49,9 +49,9 @@ const TradesHistoryRow = memo(
     const directionInfo = useMemo(() => {
       const directionStr = fill.dir;
       const side = fill.side;
-      let directionColor = '#18794E';
+      let directionColor = '$green11';
       if (side === 'A') {
-        directionColor = '#C62A2F';
+        directionColor = '$red11';
       }
       return { directionStr, directionColor };
     }, [fill.dir, fill.side]);
@@ -85,9 +85,9 @@ const TradesHistoryRow = memo(
       const closePnl = fill.closedPnl;
       const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
       let closePnlPlusOrMinus = '';
-      let closePnlColor = '#18794E';
+      let closePnlColor = '$green11';
       if (closePnlBN.lt(0)) {
-        closePnlColor = '#C62A2F';
+        closePnlColor = '$red11';
         closePnlPlusOrMinus = '-';
       }
       const closePnlStr = closePnlBN.abs().toFixed();
