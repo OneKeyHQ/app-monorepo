@@ -34,7 +34,7 @@ import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
-import type { IOBLevel } from './types';
+import type { IFormattedOBLevel } from './types';
 import type {
   DimensionValue,
   PressableStateCallbackType,
@@ -297,7 +297,7 @@ function OrderBookVerticalRow({
   sizeColor,
   isHovered = false,
 }: {
-  item: IOBLevel;
+  item: IFormattedOBLevel;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -318,7 +318,7 @@ function OrderBookVerticalRow({
           numberOfLines={1}
           style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
         >
-          {item.size}
+          {item.displaySize}
         </Text>
       </View>
       <View style={styles.verticalRowCellTotal}>
@@ -326,7 +326,7 @@ function OrderBookVerticalRow({
           numberOfLines={1}
           style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
         >
-          {item.cumSize}
+          {item.displayCumSize}
         </Text>
       </View>
     </View>
@@ -437,7 +437,7 @@ export function OrderBook({
   const intl = useIntl();
 
   const handleSelectLevel = useCallback(
-    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+    (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
       }
@@ -588,7 +588,7 @@ export function OrderBook({
                                 isHovered ? styles.monospaceTextBold : null,
                               ]}
                             >
-                              {item.size}
+                              {item.displaySize}
                             </Text>
                             <Text
                               style={[
@@ -638,7 +638,7 @@ export function OrderBook({
                                 isHovered ? styles.monospaceTextBold : null,
                               ]}
                             >
-                              {item.size}
+                              {item.displaySize}
                             </Text>
                           </View>
                         );
@@ -835,7 +835,7 @@ function OrderBookPairRow({
   sizeColor,
   isHovered = false,
 }: {
-  item: IOBLevel;
+  item: IFormattedOBLevel;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -859,7 +859,7 @@ function OrderBookPairRow({
       <Text
         style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
       >
-        {item.size}
+        {item.displaySize}
       </Text>
     </View>
   );
@@ -904,7 +904,7 @@ export function OrderPairBook({
   const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
-    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+    (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
       }
@@ -1033,7 +1033,7 @@ const MobileRow = ({
   sizeColor,
   isHovered = false,
 }: {
-  item: IOBLevel;
+  item: IFormattedOBLevel;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -1073,7 +1073,7 @@ const MobileRow = ({
         isHovered ? styles.monospaceTextBold : null,
       ]}
     >
-      {item.size}
+      {item.displaySize}
     </Text>
   </View>
 );
@@ -1139,7 +1139,7 @@ export function OrderBookMobile({
   const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
-    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+    (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
       }
