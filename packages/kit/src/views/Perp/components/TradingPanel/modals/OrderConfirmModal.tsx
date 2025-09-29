@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Checkbox,
@@ -48,7 +50,15 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
   const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
-  const actionText = formData.side === 'long' ? 'Long' : 'Short';
+  const intl = useIntl();
+  const actionText =
+    formData.side === 'long'
+      ? intl.formatMessage({
+          id: ETranslations.perp_trade_long,
+        })
+      : intl.formatMessage({
+          id: ETranslations.perp_trade_short,
+        });
 
   const sizeDisplay = useMemo(() => {
     if (selectedSymbol?.coin) {
