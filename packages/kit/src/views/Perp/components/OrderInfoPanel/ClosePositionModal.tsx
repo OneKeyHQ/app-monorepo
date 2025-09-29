@@ -101,7 +101,7 @@ const ClosePositionForm = memo(
 
     const [formData, setFormData] = useState<IClosePositionFormData>({
       type,
-      amount: formatWithPrecision(position.szi, szDecimals, true),
+      amount: formatWithPrecision(positionSize, szDecimals, true),
       limitPrice: '',
       percentage: 100,
     });
