@@ -2,10 +2,15 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { ONEKEY_BLOCK_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  ONEKEY_BLOCK_EXPLORER_TEST_URL,
+  ONEKEY_BLOCK_EXPLORER_URL,
+} from '@onekeyhq/shared/src/config/appConfig';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IBuildExplorerUrlParams } from '@onekeyhq/shared/types/explorer';
+
+import { devSettingsPersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
@@ -46,7 +51,11 @@ class ServiceExplorer extends ServiceBase {
     const oldUrl = client.getUri({
       url: `/v1/${network.code}/${type}/${params.param}`,
     });
-    const newUrl = `${ONEKEY_BLOCK_EXPLORER_URL}/${network.code}/${type}/${params.param}`;
+    const devSettings = await devSettingsPersistAtom.get();
+    const exploreBaseUrl = devSettings.enabled
+      ? ONEKEY_BLOCK_EXPLORER_TEST_URL
+      : ONEKEY_BLOCK_EXPLORER_URL;
+    const newUrl = `${exploreBaseUrl}/${network.code}/${type}/${params.param}`;
     return newUrl;
   }
 
