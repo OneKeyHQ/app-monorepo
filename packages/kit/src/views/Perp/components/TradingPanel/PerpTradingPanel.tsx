@@ -10,8 +10,8 @@ import {
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountSummaryAtom,
-  usePerpsActiveAssetDataAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -66,11 +66,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       .multipliedBy(priceBN)
       .multipliedBy(leverageBN);
     return orderValue.lt(10);
-  }, [
-    tradingComputed.computedSizeBN,
-    effectivePriceBN,
-    formData.leverage,
-  ]);
+  }, [tradingComputed.computedSizeBN, effectivePriceBN, formData.leverage]);
 
   const isNoEnoughMargin = useMemo(() => {
     if (!tradingComputed.computedSizeBN.isFinite()) return false;
