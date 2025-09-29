@@ -454,9 +454,12 @@ export function CommonTableListView({
                         renderTrigger={
                           <SizableText
                             size="$bodySm"
-                            textDecorationLine="underline"
-                            textDecorationStyle="dashed"
-                            textDecorationColor="$textSubdued"
+                            borderBottomWidth="$px"
+                            borderTopWidth={0}
+                            borderLeftWidth={0}
+                            borderRightWidth={0}
+                            borderBottomColor="$border"
+                            borderStyle="dashed"
                             color={
                               column.onPress ? '$textSuccess' : headerTextColor
                             }
