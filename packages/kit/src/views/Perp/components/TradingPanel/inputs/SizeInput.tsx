@@ -83,6 +83,15 @@ export const SizeInput = memo(
     );
 
     useEffect(() => {
+      if (isSliderMode) {
+        setTokenAmount('');
+        setUsdAmount('');
+        prevValueRef.current = '';
+        setIsUserTyping(false);
+      }
+    }, [isSliderMode]);
+
+    useEffect(() => {
       if (value !== prevValueRef.current) {
         setTokenAmount(value);
         prevValueRef.current = value;

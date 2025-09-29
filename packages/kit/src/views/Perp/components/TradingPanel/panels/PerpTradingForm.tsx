@@ -242,7 +242,7 @@ function PerpTradingForm({
       updateForm({
         sizeInputMode: EPerpsSizeInputMode.MANUAL,
         sizePercent: 0,
-        size: '0',
+        size: '',
       });
     }
   }, [tradingComputed.sizeInputMode, updateForm]);
