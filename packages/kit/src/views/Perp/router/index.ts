@@ -27,6 +27,7 @@ const MobileSetTpslModal = LazyLoadPage(
 
 export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
+    rewrite: '/',
     name: ETabRoutes.Perp,
     component: PagePerp,
   },

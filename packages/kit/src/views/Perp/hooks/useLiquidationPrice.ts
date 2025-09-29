@@ -5,6 +5,7 @@ import { BigNumber } from 'bignumber.js';
 import {
   usePerpsActivePositionAtom,
   useTradingFormAtom,
+  useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountSummaryAtom,
@@ -16,6 +17,7 @@ import { calculateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils
 
 export function useLiquidationPrice(): BigNumber | null {
   const [formData] = useTradingFormAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -46,9 +48,8 @@ export function useLiquidationPrice(): BigNumber | null {
   }, [formData.type, formData.price, activeAssetCtx?.ctx?.markPrice]);
 
   const totalValue = useMemo(() => {
-    const size = new BigNumber(formData.size || 0);
-    return size.multipliedBy(referencePrice);
-  }, [formData.size, referencePrice]);
+    return tradingComputed.computedSizeBN.multipliedBy(referencePrice);
+  }, [tradingComputed.computedSizeBN, referencePrice]);
 
   const leverage = useMemo(() => {
     return (
@@ -64,7 +65,7 @@ export function useLiquidationPrice(): BigNumber | null {
   const liquidationPrice: BigNumber | null = useMemo(() => {
     if (!leverage || !activeAssetData?.leverage.type) return null;
 
-    const positionSize = new BigNumber(formData.size || 0);
+    const positionSize = tradingComputed.computedSizeBN;
     if (positionSize.isZero()) return null;
 
     // Use unified function - it will automatically choose the optimal calculation path
@@ -100,7 +101,7 @@ export function useLiquidationPrice(): BigNumber | null {
     activeAssetData?.leverage.type,
     currentCoinPosition,
     formData.side,
-    formData.size,
+    tradingComputed.computedSizeBN,
     leverage,
     margin?.marginTiers,
     referencePrice,

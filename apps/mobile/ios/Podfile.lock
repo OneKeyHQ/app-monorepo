@@ -298,6 +298,7 @@ PODS:
     - React-RCTText (= 0.79.5)
     - React-RCTVibration (= 0.79.5)
   - React-callinvoker (0.79.5)
+  - React-Codegen (0.1.0)
   - React-Core (0.79.5):
     - glog
     - hermes-engine
@@ -1785,29 +1786,12 @@ PODS:
     - Yoga
   - react-native-performance-stats (0.2.3):
     - CocoaLumberjack
-    - DoubleConversion
-    - glog
-    - hermes-engine
-    - RCT-Folly (= 2024.11.18.00)
+    - RCT-Folly
     - RCTRequired
     - RCTTypeSafety
+    - React-Codegen
     - React-Core
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-hermes
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
-    - Yoga
   - react-native-safe-area-context (5.4.1):
     - DoubleConversion
     - glog
@@ -3055,6 +3039,7 @@ SPEC REPOS:
     - lottie-ios
     - MultiplatformBleAdapter
     - PurchasesHybridCommon
+    - React-Codegen
     - RevenueCat
     - SDWebImage
     - SDWebImageAVIFCoder
@@ -3364,7 +3349,7 @@ SPEC CHECKSUMS:
   CheckBiometricAuthChanged: 9744da7f2c19b2f99fb1e94308a874a5c0df5d7d
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 6a459bc897d6d80bd1b8c78482ec7ad05dffc3f0
-  DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
+  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 63b87ca5204304007fac6b1be432f8afa3731c17
   EXConstants: 9f310f44bfedba09087042756802040e464323c0
   EXImageLoader: 4d3d3284141f1a45006cc4d0844061c182daf7ee
@@ -3399,7 +3384,7 @@ SPEC CHECKSUMS:
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
   FBLazyVector: d2a9cd223302b6c9aa4aa34c1a775e9db609eb52
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
-  glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
+  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
   hermes-engine: f03b0e06d3882d71e67e45b073bb827da1a21aae
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JCore: 4707d226b452782383a401bea8ee2518565017e6
@@ -3417,6 +3402,7 @@ SPEC CHECKSUMS:
   RCTTypeSafety: cc4740278c2a52cbf740592b0a0a40df1587c9ab
   React: 6393ae1807614f017a84805bf2417e3497f518a6
   React-callinvoker: c34f666f551f05a325b87e7e3e6df0e082fa3d99
+  React-Codegen: 4b8b4817cea7a54b83851d4c1f91f79aa73de30a
   React-Core: 1ba9acdf7accbd46ccaae99999443ae2722c82b7
   React-CoreModules: 3c3cf4a91257f138e3feb47169a2d7fe341b5495
   React-cxxreact: 444d518a5d3a933e029b5e5ca6d8127c2e43255c
@@ -3452,7 +3438,7 @@ SPEC CHECKSUMS:
   react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd
   react-native-mmkv: 69af18f435f8978ed3e7b8c1b23bba35350ddcd8
   react-native-pager-view: e52266cedb6b1312af2f17b1620e045238495a30
-  react-native-performance-stats: 088634dc35ead1dfcd371be67bd94dd0f2f104ac
+  react-native-performance-stats: a45aa22f574c01d00bc5cadd0a3b8d34b308ae2e
   react-native-safe-area-context: 8cf8caf5fc0f5a5d3581b650579af9c85c16be04
   react-native-slider: 12778ca3d8719cfc13035a8b56853e45b6cc9862
   react-native-tcp-socket: 120072c8020262032773f80f0daaf3964aaa08a1

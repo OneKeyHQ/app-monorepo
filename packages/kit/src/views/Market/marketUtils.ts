@@ -32,7 +32,7 @@ export function buildMarketFullUrlV2({
       ? globalThis.location.origin
       : WEB_APP_URL;
 
-  let path = `/market/tokens/${network}/${address}`;
+  let path = `/market/token/${network}/${address}`;
 
   // Add isNative as query parameter if needed
   if (typeof isNative === 'boolean' && isNative) {

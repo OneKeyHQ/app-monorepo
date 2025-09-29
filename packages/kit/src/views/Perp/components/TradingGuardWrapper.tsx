@@ -84,7 +84,7 @@ function TradingGuardWrapperInternal({
     return (
       <Button
         variant="primary"
-        size="large"
+        size="medium"
         disabled={disabled || isEnableTradingLoading}
         loading={isEnableTradingLoading}
         onPress={disabled ? undefined : enableTrading}

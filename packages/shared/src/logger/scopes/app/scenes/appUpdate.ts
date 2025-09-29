@@ -95,4 +95,12 @@ export class AppUpdateScene extends BaseScene {
   }) {
     return result;
   }
+
+  @LogToLocal({ level: 'info' })
+  public isInstallFailed(
+    previousBuildNumber: string,
+    currentBuildNumber: string,
+  ) {
+    return { previousBuildNumber, currentBuildNumber };
+  }
 }
