@@ -1064,6 +1064,10 @@ const resolveTradingSize = (params: ITradingSizeParams): string => {
   return sizeBN.toFixed();
 };
 
+function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
+  return `https://uni.onekey-asset.com/static/hyperliquid/${tokenSymbol}.png`;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1092,6 +1096,7 @@ export {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  getHyperliquidTokenImageUrl,
 };
 export default {
   formatAssetCtx,
@@ -1121,4 +1126,5 @@ export default {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  getHyperliquidTokenImageUrl,
 };
