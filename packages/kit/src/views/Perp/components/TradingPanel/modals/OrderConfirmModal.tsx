@@ -8,7 +8,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useTradingFormAtom,
+  useTradingFormComputedAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsCustomSettingsAtom,
@@ -41,16 +44,18 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
   const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
   const sizeDisplay = useMemo(() => {
-    if (formData.size && selectedSymbol?.coin)
-      return `${formData.size} ${selectedSymbol.coin}`;
-    return '0';
-  }, [formData.size, selectedSymbol?.coin]);
+    if (selectedSymbol?.coin) {
+      return `${tradingComputed.computedSizeString} ${selectedSymbol.coin}`;
+    }
+    return tradingComputed.computedSizeString;
+  }, [tradingComputed.computedSizeString, selectedSymbol?.coin]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {

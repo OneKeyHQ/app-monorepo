@@ -36,12 +36,16 @@ export function PerpTradingButton({
   loading,
   handleShowConfirm,
   formData,
+  computedSize,
+  isMinimumOrderNotMet,
   isSubmitting,
   isNoEnoughMargin,
 }: {
   loading: boolean;
   handleShowConfirm: () => void;
   formData: ITradingFormData;
+  computedSize: BigNumber;
+  isMinimumOrderNotMet: boolean;
   isSubmitting: boolean;
   isNoEnoughMargin: boolean;
 }) {
@@ -76,22 +80,9 @@ export function PerpTradingButton({
     }
   }, [perpsAccount.accountAddress, perpsAccount.accountId]);
 
-  const isMinimumOrderNotMet = useMemo(() => {
-    const size = BigNumber(formData.size);
-    const price = BigNumber(formData.price);
-    const leverage = BigNumber(formData.leverage || 1);
-
-    if (!size || !price || size.lte(0) || price.lte(0)) {
-      return false;
-    }
-
-    const orderValue = size.multipliedBy(price).multipliedBy(leverage);
-    return orderValue.lt(10);
-  }, [formData.size, formData.price, formData.leverage]);
-
   const buttonDisabled = useMemo(() => {
     return (
-      !(Number(formData.size) > 0) ||
+      !computedSize.gt(0) ||
       !perpsAccountStatus.canTrade ||
       isSubmitting ||
       isNoEnoughMargin ||
@@ -102,7 +93,7 @@ export function PerpTradingButton({
           perpConfigCommon?.ipDisablePerp))
     );
   }, [
-    formData.size,
+    computedSize,
     perpsAccountStatus.canTrade,
     isSubmitting,
     isNoEnoughMargin,
