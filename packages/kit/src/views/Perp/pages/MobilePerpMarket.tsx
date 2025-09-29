@@ -1,6 +1,9 @@
 import { useCallback, useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
+  Badge,
   Icon,
   NavBackButton,
   Page,
@@ -13,6 +16,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -29,6 +33,7 @@ import { PerpsProviderMirror } from '../PerpsProviderMirror';
 import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
+  const intl = useIntl();
   const actionsRef = useHyperliquidActions();
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
@@ -48,7 +53,7 @@ function MobilePerpMarket() {
   }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const pairLabel = coin ? `${coin} - USD` : '--';
+    const pairLabel = coin ? `${coin}USD` : '--';
     return (
       <XStack alignItems="center" gap="$2">
         <NavBackButton
@@ -72,11 +77,18 @@ function MobilePerpMarket() {
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$headingLg">{pairLabel}</SizableText>
+          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+            <SizableText color="$textSubdued" fontSize={11}>
+              {intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
+            </SizableText>
+          </Badge>
           <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
         </XStack>
       </XStack>
     );
-  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack]);
+  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack, intl]);
 
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
