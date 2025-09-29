@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, noop } from 'lodash';
 import TronWeb from 'tronweb';
 
 import {
@@ -90,6 +90,8 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -1059,5 +1061,70 @@ export default class Vault extends VaultBase {
         txid: uploadResult?.tx_ids?.[0] ?? '',
       },
     };
+  }
+
+  override async preActionsBeforeConfirm() {
+    // 1. 检查地址是否在 24 小时内尝试领取过补贴
+    const accountAddress = await this.getAccountAddress();
+    const tronClaimResourceInfo =
+      await this.backgroundApi.simpleDb.chainResource.getTronClaimResourceInfo({
+        accountAddress,
+      });
+
+    if (
+      tronClaimResourceInfo &&
+      tronClaimResourceInfo.lastClaimTime &&
+      Date.now() - tronClaimResourceInfo.lastClaimTime <
+        timerUtils.getTimeDurationMs({ hour: 24 })
+    ) {
+      return;
+    }
+
+    // 2. 距离上次尝试领取时间已超过 24 小时，则尝试领取补贴
+    const { timestamp, signed, claimSource } =
+      chainResourceUtils.buildTronClaimResourceParams({
+        accountAddress,
+        isTestnet: (await this.getNetwork()).isTestnet,
+      });
+
+    try {
+      const resp =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+          resCode: number;
+          resMsg: string;
+          success: boolean;
+          error?: string;
+        }>({
+          networkId: this.networkId,
+          body: {
+            method: 'post',
+            url: '/api/tronRent/addFreeTronRentRecor',
+            data: {
+              fromAddress: accountAddress,
+              sourceFlag: claimSource,
+              timestamp,
+              signed,
+            },
+            params: {},
+          },
+        });
+
+      // 3. 不论领取是否成功，只要调用接口成功，则更新本地状态
+      await this.backgroundApi.simpleDb.chainResource.updateTronClaimResourceInfo(
+        {
+          accountAddress,
+          lastClaimTime: timestamp,
+        },
+      );
+      // TODO: event log
+
+      // 4. 返回领取 flag，提供给后续交易确认页做特殊展示
+      return {
+        isTronResourceAutoClaimed: resp.resCode === 100,
+      };
+    } catch (error) {
+      console.log(JSON.stringify(error));
+      noop();
+    }
   }
 }

@@ -49,6 +49,7 @@ import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetw
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+import { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();
@@ -152,4 +153,6 @@ export class SimpleDb {
   approval = new SimpleDbEntityApproval();
 
   aggregateToken = new SimpleDbEntityAggregateToken();
+
+  chainResource = new SimpleDbEntityChainResource();
 }

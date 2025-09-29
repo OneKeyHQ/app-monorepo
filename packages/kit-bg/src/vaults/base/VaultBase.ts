@@ -467,6 +467,10 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({});
   }
 
+  async preActionsBeforeConfirm(): Promise<any> {
+    return Promise.resolve({});
+  }
+
   async buildEstimateFeeParams({
     encodedTx,
   }: {

@@ -358,6 +358,16 @@ class ServiceSignatureConfirm extends ServiceBase {
   }
 
   @backgroundMethod()
+  async preActionsBeforeConfirm(params: {
+    accountId: string;
+    networkId: string;
+  }) {
+    const { accountId, networkId } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.preActionsBeforeConfirm();
+  }
+
+  @backgroundMethod()
   async afterSendTxAction(
     params: IAfterSendTxActionParams & {
       networkId: string;
