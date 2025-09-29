@@ -12,6 +12,7 @@ import {
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { EWebEmbedPostMessageType } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -117,23 +118,35 @@ export function WebViewWebEmbed({
     return undefined;
   }, [config?.url, devSettingsPersistAtom.enabled]);
 
-  const nativeWebviewSource = useMemo(() => {
+  const [nativeWebviewSource, setNativeWebviewSource] = useState<
+    { uri: string } | undefined
+  >(undefined);
+
+  useEffect(() => {
+    void BundleUpdate.getWebEmbedPath().then((path) => {
+      console.log('WebViewWebEmbed getWebEmbedPath', path);
+      if (path) {
+        return setNativeWebviewSource({
+          uri: path,
+        });
+      }
+      // Android
+      if (platformEnv.isNativeAndroid) {
+        return setNativeWebviewSource({
+          uri: 'file:///android_asset/web-embed/index.html',
+        });
+      }
+      // iOS
+      if (platformEnv.isNativeIOS) {
+        setNativeWebviewSource({
+          uri: 'web-embed/index.html',
+        });
+      }
+      return undefined;
+    });
     if (remoteUrl) {
       return undefined;
     }
-    // Android
-    if (platformEnv.isNativeAndroid) {
-      return {
-        uri: 'file:///android_asset/web-embed/index.html',
-      };
-    }
-    // iOS
-    if (platformEnv.isNativeIOS) {
-      return {
-        uri: 'web-embed/index.html',
-      };
-    }
-    return undefined;
   }, [remoteUrl]);
 
   // Handle messages from WebView - only works in native environments

@@ -696,6 +696,17 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
     resolve(nil);
 }
 
+RCT_EXPORT_METHOD(getWebEmbedPath:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
+    if (currentBundleDir == nil) {
+        resolve(@"");
+        return;
+    }
+    NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
+    resolve(webEmbedPath);
+}
+
 RCT_EXPORT_METHOD(testVerification:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     BOOL result = [Verification testExtractedSha256FromVerifyAscFile];
