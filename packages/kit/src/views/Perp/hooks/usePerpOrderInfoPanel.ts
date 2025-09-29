@@ -62,9 +62,7 @@ export function usePerpTradesHistory() {
 
       if (data.isSnapshot) return;
 
-      const relevantFills = data.fills.filter(
-        (fill: IFill) => fill.coin === coin,
-      );
+      const relevantFills = [...data.fills];
 
       if (relevantFills.length === 0) return;
 
