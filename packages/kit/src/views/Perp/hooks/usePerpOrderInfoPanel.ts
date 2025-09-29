@@ -15,7 +15,6 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 interface INewTradesHistory {
   fill: IFill;
   userId: string | null;
-  coinId: string;
 }
 
 export function usePerpTradesHistory() {
@@ -35,12 +34,10 @@ export function usePerpTradesHistory() {
       return;
     }
     const filterNewTradesHistory = newTradesHistoryRef.current.filter(
-      (trade) =>
-        trade.coinId === coin &&
-        trade.userId === currentAccount?.accountAddress,
+      (trade) => trade.userId === currentAccount?.accountAddress,
     );
     setNewTradesHistory(filterNewTradesHistory);
-  }, [currentAccount?.accountAddress, coin]);
+  }, [currentAccount?.accountAddress]);
   useEffect(() => {
     if (!currentAccount?.accountAddress) return;
 
@@ -76,7 +73,6 @@ export function usePerpTradesHistory() {
         ...relevantFills.map((fill) => ({
           fill,
           userId: currentAccount?.accountAddress,
-          coinId: coin,
         })),
       ]);
     };
@@ -120,7 +116,6 @@ export function usePerpTradesHistory() {
         .filter(
           (trade) =>
             !existingOrderIds.has(trade.fill.oid) &&
-            trade.coinId === coin &&
             trade.userId === currentAccount?.accountAddress,
         )
         .map((trade) => trade.fill);
@@ -132,7 +127,7 @@ export function usePerpTradesHistory() {
     }
     const filteredTrades = mergedTrades.filter((t) => !t.coin.startsWith('@'));
     return filteredTrades?.sort((a, b) => b.time - a.time);
-  }, [currentAccount?.accountAddress, coin, newTradesHistory, result]);
+  }, [currentAccount?.accountAddress, newTradesHistory, result]);
 
   return {
     trades: mergeTradesHistory,
