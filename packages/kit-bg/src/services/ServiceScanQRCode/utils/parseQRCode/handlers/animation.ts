@@ -52,6 +52,7 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
       animationData.parts.length > 0 &&
       animationData.progress === 0
     ) {
+      // When the data is very little, the hardware returns a static code, at this time, you need to manually set the progress to 100%
       animationData.progress = 1;
     }
     return {

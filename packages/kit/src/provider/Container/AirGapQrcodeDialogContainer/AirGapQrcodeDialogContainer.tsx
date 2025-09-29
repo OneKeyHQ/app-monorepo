@@ -14,7 +14,7 @@ import { SecureQRToast } from '../../../components/SecureQRToast';
 import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
 export function AirGapQrcodeDialogContainer() {
-  const { start: startScan, close: closeScan } = useScanQrCode();
+  const { start: startScan } = useScanQrCode();
 
   useEffect(() => {
     let hideQrToast: (extra?: { flag?: string }) => Promise<void>;
