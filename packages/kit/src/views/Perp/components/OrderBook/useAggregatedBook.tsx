@@ -202,7 +202,12 @@ export function useAggregatedBook(
     activeTickOption.targetTick !== activeTickOption.apiTick;
 
   if (!needsAggregation) {
-    const { bids: rawBids, asks: rawAsks, maxBidSize, maxAskSize } = sumAndSlice(
+    const {
+      bids: rawBids,
+      asks: rawAsks,
+      maxBidSize,
+      maxAskSize,
+    } = sumAndSlice(
       convertedBids,
       convertedAsks,
       maxLevelsPerSide,
