@@ -84,6 +84,13 @@ function ReceiveToken() {
       walletId,
     });
 
+  const { result: nativeToken } = usePromiseResult(async () => {
+    return backgroundApiProxy.serviceToken.getNativeToken({
+      accountId,
+      networkId,
+    });
+  }, [accountId, networkId]);
+
   const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
@@ -653,7 +660,7 @@ function ReceiveToken() {
                 >
                   <Token
                     size="lg"
-                    tokenImageUri={token?.logoURI}
+                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
                     networkImageUri={network.logoURI}
                     networkId={networkId}
                   />
@@ -691,6 +698,7 @@ function ReceiveToken() {
     token?.logoURI,
     networkId,
     intl,
+    nativeToken?.logoURI,
   ]);
 
   return (
