@@ -31,6 +31,7 @@ export type IModalApprovalManagementParamList = {
   [EModalApprovalManagementRoutes.RevokeSuggestion]: {
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
     approvals: IContractApproval[];
     contractMap: Record<string, IAddressInfo>;
     tokenMap: Record<
@@ -47,6 +48,7 @@ export type IModalApprovalManagementParamList = {
     walletId: string;
     accountId: string;
     networkId: string;
+    indexedAccountId?: string;
     isBulkRevokeMode?: boolean;
   };
   [EModalApprovalManagementRoutes.BulkRevoke]: {

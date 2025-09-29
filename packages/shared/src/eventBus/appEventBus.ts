@@ -4,7 +4,6 @@ import { cloneDeep } from 'lodash';
 
 import type {
   IDialogLoadingProps,
-  IDialogShowProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
 import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';
@@ -375,7 +374,12 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
-    localParams: Record<string, string | undefined>;
+  };
+  [EAppEventBusNames.ShowNotificationPageNavigation]: {
+    payload: {
+      screen: string;
+      params: Record<string, any>;
+    };
   };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
 }

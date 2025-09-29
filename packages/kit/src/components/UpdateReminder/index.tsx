@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -21,7 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DownloadProgress } from './DownloadProgress';
-import { useAppUpdateInfo } from './hooks';
+import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from './hooks';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();
@@ -292,8 +292,19 @@ function BasicUpdateReminder() {
     await closePopover?.();
     onUpdateAction?.();
   }, [closePopover, onUpdateAction]);
+
+  const showUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, data.status]);
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   if (!appUpdateInfo.isNeedUpdate || !style) {
+    return null;
+  }
+
+  if (!showUpdateUI) {
     return null;
   }
 

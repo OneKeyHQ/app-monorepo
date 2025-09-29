@@ -2,10 +2,10 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { type IProps } from '.';
 
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Alert,
   DebugRenderTracker,
   Divider,
   Icon,
@@ -106,11 +106,18 @@ function TokenDetailsHeader(props: IProps) {
           priceChange24h: tokensDetails[0]?.price24h ?? 0,
           coingeckoId: tokensDetails[0]?.info?.coingeckoId ?? '',
         });
+
+        const data = tokensDetails[0];
+
+        if (isNil(data.fiatValue)) {
+          data.fiatValue = '0';
+        }
+
         updateTokenDetails({
           accountId,
           networkId,
           isInit: true,
-          data: tokensDetails[0],
+          data,
         });
         return tokensDetails[0];
       },
@@ -240,21 +247,11 @@ function TokenDetailsHeader(props: IProps) {
   }, [wallet?.type, networkId, wallet?.backuped]);
 
   return (
-    <DebugRenderTracker timesBadgePosition="top-right">
+    <DebugRenderTracker
+      timesBadgePosition="top-right"
+      name="TokenDetailsHeader"
+    >
       <>
-        {isAllNetworks &&
-        !tokenInfo.isAggregateToken &&
-        !tokenInfo.isNative &&
-        tokenInfo.hasSameSymbolToken ? (
-          <Alert
-            icon="InfoCircleOutline"
-            type="critical"
-            title={intl.formatMessage({
-              id: ETranslations.identical_name_asset_alert,
-            })}
-            fullBleed
-          />
-        ) : null}
         {/* Overview */}
         <Stack px="$5" py="$5">
           {/* Balance */}
@@ -397,6 +394,7 @@ function TokenDetailsHeader(props: IProps) {
                 <SizableText
                   size="$bodyMd"
                   color="$text"
+                  flexShrink={1}
                   $platform-web={{
                     wordBreak: 'break-word',
                   }}

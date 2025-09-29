@@ -15,10 +15,19 @@ const SENTRY_ORG = 'onekey-bb';
 const SENTRY_PROJECT = process.env.SENTRY_PROJECT;
 const SENTRY_AUTH_TOKEN = process.env.SENTRY_TOKEN;
 
+const HERMES_COMMAND = path.join(
+  projectRootPath,
+  'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
+);
+
 const webEmbedOutputPath = path.join(
   projectRootPath,
   'apps/web-embed/web-build',
 );
+
+const log = (...messages) => {
+  console.log(`>>>> ${messages.join(' ')}`);
+};
 
 const buildZipOutputAssetPath = (zipName) => {
   return path.join(zipOutputPath, zipName);
@@ -30,10 +39,6 @@ const buildIOSOutputAssetPath = (assetName) => {
 
 const buildAndroidOutputAssetPath = (assetName) => {
   return path.join(bundleOutputPath, 'android', assetName);
-};
-
-const buildAndroidOutputBundlePath = (bundleName) => {
-  return path.join(bundleOutputPath, 'android', bundleName);
 };
 
 const cleanBundleOutput = async () => {
@@ -53,6 +58,10 @@ const ensureZipOutputPath = async () => {
     fs.mkdirSync(zipOutputPath, { recursive: true });
   }
 };
+
+// Get the Node.js executable path
+const nodeExecutablePath = process.execPath;
+console.log(`Node.js executable path: ${nodeExecutablePath}`);
 
 const ignoreFiles = ['.DS_Store'];
 
@@ -98,8 +107,8 @@ const generateMetadataJson = async (dirPath) => {
     // Write metadata.json
     const metadataPath = path.join(dirPath, 'metadata.json');
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-    console.log(`Generated metadata.json at: ${metadataPath}`);
-    console.log(`Total files processed: ${Object.keys(metadata).length}`);
+    log(`Generated metadata.json at: ${metadataPath}`);
+    log(`Total files processed: ${Object.keys(metadata).length}`);
   } else {
     console.warn(`Directory not found: ${dirPath}`);
   }
@@ -128,15 +137,15 @@ const generateFileInfo = async (filePath, outputFilePath) => {
   };
 
   fs.writeFileSync(infoFilePath, JSON.stringify(fileInfo, null, 2));
-  console.log(`Generated info file: ${infoFilePath}`);
-  console.log(`SHA256: ${sha256}`);
-  console.log(`Size: ${size} bytes`);
+  log(`Generated info file: ${infoFilePath}`);
+  log(`SHA256: ${sha256}`);
+  log(`Size: ${size} bytes`);
 };
 
 const buildIOSBundle = async () => {
+  log('build ios bundle start');
   ensureBundleOutputPath();
   ensureZipOutputPath();
-  console.log('build ios bundle');
   execSync(
     `npx react-native bundle \
     --dev false \
@@ -157,81 +166,82 @@ const buildIOSBundle = async () => {
       },
     },
   );
-  console.log('build ios bundle done');
+  log('build ios bundle done');
 
-  console.log('build ios bundle hbc');
+  log('build ios bundle hbc');
   execSync(
-    `${path.join(
-      mobileDirPath,
-      'ios/Pods/hermes-engine/destroot/bin/hermesc',
-    )} -O -emit-binary -output-source-map -out=${buildIOSOutputAssetPath(
+    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${buildIOSOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildIOSOutputAssetPath('main.jsbundle')}`,
     { stdio: 'inherit' },
   );
-  console.log('build ios bundle hbc done');
+  log('build ios bundle hbc done');
 
-  console.log('build ios bundle packager map');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: mv',
+  );
   fs.moveSync(
     buildIOSOutputAssetPath('main.jsbundle.map'),
     buildIOSOutputAssetPath('main.jsbundle.packager.map'),
   );
-  console.log('build ios bundle packager map done');
-
-  console.log('build ios bundle compose source maps');
-  execSync(
-    `node \
-  ${path.join(
-    projectRootPath,
-    'node_modules/react-native/scripts/compose-source-maps.js',
-  )} \
-  ${buildIOSOutputAssetPath('main.jsbundle.packager.map')} \
-  ${buildIOSOutputAssetPath('main.jsbundle.hbc.map')} \
-  -o ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
-    { stdio: 'inherit' },
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: done',
   );
-  console.log('build ios bundle compose source maps done');
 
-  console.log('build ios bundle compose source maps');
-  execSync(
-    `node \
-  ${path.join(
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map',
+  );
+  const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
     projectRootPath,
     'node_modules/react-native/scripts/compose-source-maps.js',
-  )} \
-  ${buildIOSOutputAssetPath(
+  )} ${buildIOSOutputAssetPath(
     'main.jsbundle.packager.map',
-  )} ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
+  )} ${buildIOSOutputAssetPath(
+    'main.jsbundle.hbc.map',
+  )} -o ${buildIOSOutputAssetPath('main.jsbundle.map')}`;
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: command',
+    composeSourceMapsCommand,
+  );
+  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: done',
+  );
+
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid',
+  );
+  execSync(
+    `${nodeExecutablePath} ${path.join(
+      projectRootPath,
+      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
+    )} ${buildIOSOutputAssetPath(
+      'main.jsbundle.packager.map',
+    )} ${buildIOSOutputAssetPath('main.jsbundle.map')}`,
     { stdio: 'inherit' },
   );
-  console.log('build ios bundle compose source maps done');
-
-  console.log('build ios bundle remove packager map');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid done',
+  );
   fs.rmSync(buildIOSOutputAssetPath('main.jsbundle.packager.map'));
-  console.log('build ios bundle remove packager map done');
+  log(
+    'Compose Hermes bytecode and (React Native Packager) Metro source maps: main.jsbundle.map: copy debugid done',
+  );
 
-  if (SENTRY_AUTH_TOKEN) {
-    console.log('build ios bundle upload source maps');
+  if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
+    log('build ios bundle upload source maps');
     execSync(
-      `${path.join(
-        projectRootPath,
-        'node_modules/@sentry/cli/bin/sentry-cli',
-      )}  sourcemaps upload \
-  --debug-id-reference \
-  --strip-prefix ${projectRootPath} \
-  ${buildIOSOutputAssetPath('main.jsbundle')} ${buildIOSOutputAssetPath(
+      `${nodeExecutablePath} node_modules/@sentry/cli/bin/sentry-cli sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildIOSOutputAssetPath(
+        'main.jsbundle',
+      )} ${buildIOSOutputAssetPath(
         'main.jsbundle.map',
-      )}`,
+      )} --org=${SENTRY_ORG} --project=${SENTRY_PROJECT} --auth-token=${SENTRY_AUTH_TOKEN}`,
       {
         stdio: 'inherit',
-        env: {
-          SENTRY_AUTH_TOKEN,
-          SENTRY_ORG,
-          SENTRY_PROJECT,
-        },
+        cwd: projectRootPath,
       },
     );
-    console.log('build ios bundle upload source maps done');
+    log('build ios bundle upload source maps done');
   }
   const distPath = buildIOSOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
@@ -245,7 +255,7 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('main.jsbundle.hbc'),
     buildIOSOutputAssetPath('dist/main.jsbundle.hbc'),
   );
-  console.log('build ios bundle compress dist to zip');
+  log('build ios bundle compress dist to zip');
 
   const webEmbedIOSPath = path.join(distPath, 'web-embed');
   if (!fs.existsSync(webEmbedIOSPath)) {
@@ -266,11 +276,12 @@ const buildIOSBundle = async () => {
     buildIOSOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('ios.metadata.json.info'),
   );
-  console.log('build ios bundle compress dist to zip done');
-  console.log('build ios bundle done');
+  log('build ios bundle compress dist to zip done');
+  log('build ios bundle done');
 };
 
 const buildAndroidBundle = async () => {
+  log('build android bundle start');
   ensureBundleOutputPath();
   ensureZipOutputPath();
   execSync(
@@ -293,44 +304,71 @@ const buildAndroidBundle = async () => {
       },
     },
   );
-  console.log('build android bundle done');
+  log('build android bundle done');
 
-  console.log('build android bundle compress to hbc');
+  log('build android bundle compress to hbc');
   execSync(
-    `${path.join(
-      projectRootPath,
-      'node_modules/react-native/sdks/hermesc/osx-bin/hermesc',
-    )} -emit-binary -out ${buildAndroidOutputAssetPath(
+    `${HERMES_COMMAND} -O -emit-binary -output-source-map -out=${buildAndroidOutputAssetPath(
       'main.jsbundle.hbc',
     )} ${buildAndroidOutputAssetPath('main.jsbundle')}`,
     {
       stdio: 'inherit',
     },
   );
-  console.log('build android bundle compress to hbc done');
+  log('build android bundle compress to hbc done');
+
+  fs.moveSync(
+    buildAndroidOutputAssetPath('main.jsbundle.map'),
+    buildAndroidOutputAssetPath('main.jsbundle.packager.map'),
+  );
+
+  const composeSourceMapsCommand = `${nodeExecutablePath} ${path.join(
+    projectRootPath,
+    'node_modules/react-native/scripts/compose-source-maps.js',
+  )} ${buildAndroidOutputAssetPath(
+    'main.jsbundle.packager.map',
+  )} ${buildAndroidOutputAssetPath(
+    'main.jsbundle.hbc.map',
+  )} -o ${buildAndroidOutputAssetPath('main.jsbundle.map')}`;
+  log(
+    'build android bundle compose source maps command',
+    composeSourceMapsCommand,
+  );
+  execSync(composeSourceMapsCommand, { stdio: 'inherit' });
+  log('build android bundle compose source maps done');
+
+  log('build android bundle compose source maps: copy debugid');
+  execSync(
+    `${nodeExecutablePath} ${path.join(
+      projectRootPath,
+      'node_modules/@sentry/react-native/scripts/copy-debugid.js',
+    )} ${buildAndroidOutputAssetPath(
+      'main.jsbundle.packager.map',
+    )} ${buildAndroidOutputAssetPath('main.jsbundle.map')}`,
+    { stdio: 'inherit' },
+  );
+  log('build android bundle compose source maps: copy debugid done');
+
+  log('build android bundle compose source maps: remove packager map');
+  fs.rmSync(buildAndroidOutputAssetPath('main.jsbundle.packager.map'));
+  log('build android bundle compose source maps: remove packager map done');
 
   if (SENTRY_AUTH_TOKEN && SENTRY_ORG && SENTRY_PROJECT) {
-    console.log('build android bundle upload source maps');
-    execSync(
-      `${path.join(
-        projectRootPath,
-        'node_modules/@sentry/cli/bin/sentry-cli',
-      )}  sourcemaps upload \
-  --debug-id-reference \
-  --strip-prefix ${projectRootPath} \
-  ${buildAndroidOutputAssetPath('main.jsbundle')} ${buildAndroidOutputAssetPath(
-        'main.jsbundle.map',
-      )}`,
-      {
-        stdio: 'inherit',
-        env: {
-          SENTRY_AUTH_TOKEN,
-          SENTRY_ORG,
-          SENTRY_PROJECT,
-        },
-      },
-    );
-    console.log('build android bundle upload source maps done');
+    log('build android bundle upload source maps');
+    const uploadSourceMapsCommand = `${path.join(
+      projectRootPath,
+      'node_modules/@sentry/cli/bin/sentry-cli',
+    )} sourcemaps upload --debug-id-reference --strip-prefix ${projectRootPath} ${buildAndroidOutputAssetPath(
+      'main.jsbundle.hbc',
+    )} ${buildAndroidOutputAssetPath(
+      'main.jsbundle.map',
+    )} --org=${SENTRY_ORG} --project=${SENTRY_PROJECT} --auth-token=${SENTRY_AUTH_TOKEN}`;
+    console.log(uploadSourceMapsCommand);
+    execSync(uploadSourceMapsCommand, {
+      stdio: 'inherit',
+      cwd: projectRootPath,
+    });
+    log('build android bundle upload source maps done');
   }
   const distPath = buildAndroidOutputAssetPath('dist');
   if (!fs.existsSync(distPath)) {
@@ -353,7 +391,7 @@ const buildAndroidBundle = async () => {
     stdio: 'inherit',
   });
 
-  console.log('build android bundle compress dist to zip');
+  log('build android bundle compress dist to zip');
   generateMetadataJson(distPath);
   execSync(`cd ${distPath} && zip -r dist.zip .`, {
     stdio: 'inherit',
@@ -366,12 +404,12 @@ const buildAndroidBundle = async () => {
     buildAndroidOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('android.metadata.json.info'),
   );
-  console.log('build android bundle compress dist to zip done');
-  console.log('build android bundle done');
+  log('build android bundle compress dist to zip done');
+  log('build android bundle done');
 };
 
 const buildWebEmbed = async () => {
-  console.log('build web embed');
+  log('build web embed');
   execSync(
     `cd ${path.join(projectRootPath, 'apps/web-embed')} &&  webpack build`,
     {
@@ -383,7 +421,7 @@ const buildWebEmbed = async () => {
       },
     },
   );
-  console.log('build web embed done');
+  log('build web embed done');
 };
 
 cleanBundleOutput();

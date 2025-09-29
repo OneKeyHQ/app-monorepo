@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -35,13 +36,21 @@ function TokenDetailsTabToolbar(props: IProps) {
   const { tokens, onSelected } = props;
   const themeVariant = useThemeVariant();
   const intl = useIntl();
-  const { tokenDetails } = useTokenDetailsContext();
+  const { tokenDetails, tokenAccountMap } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
 
   const sortedTokensByFiatValue = useMemo(() => {
     let sortedTokens = tokens?.sort((a, b) => {
-      const aKey = `${a.accountId ?? ''}_${a.networkId ?? ''}`;
-      const bKey = `${b.accountId ?? ''}_${b.networkId ?? ''}`;
+      const aKey = `${
+        a.accountId ||
+        tokenAccountMap[`${a.networkId || ''}_${a.address}`] ||
+        ''
+      }_${a.networkId || ''}`;
+      const bKey = `${
+        b.accountId ||
+        tokenAccountMap[`${b.networkId || ''}_${b.address}`] ||
+        ''
+      }_${b.networkId || ''}`;
       const aFiat = new BigNumber(tokenDetails[aKey]?.data?.fiatValue ?? -1);
       const bFiat = new BigNumber(tokenDetails[bKey]?.data?.fiatValue ?? -1);
 
@@ -49,33 +58,62 @@ function TokenDetailsTabToolbar(props: IProps) {
         new BigNumber(aFiat.isNaN() ? -1 : aFiat),
       );
     });
-    let index = sortedTokens.findIndex((t) => {
-      const key = `${t.accountId ?? ''}_${t.networkId ?? ''}`;
+    const negativeIndex = sortedTokens.findIndex((t) => {
+      const key = `${
+        t.accountId ||
+        tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
+        ''
+      }_${t.networkId || ''}`;
       return new BigNumber(
         tokenDetails[key]?.data?.fiatValue ?? -1,
       ).isNegative();
     });
 
-    if (index === -1) {
-      index = sortedTokens.findIndex((t) => {
-        const key = `${t.accountId ?? ''}_${t.networkId ?? ''}`;
-        return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
-      });
-    }
+    const zeroIndex = sortedTokens.findIndex((t) => {
+      const key = `${
+        t.accountId ||
+        tokenAccountMap[`${t.networkId || ''}_${t.address}`] ||
+        ''
+      }_${t.networkId || ''}`;
+      return new BigNumber(tokenDetails[key]?.data?.fiatValue ?? -1).isZero();
+    });
 
-    if (index > -1) {
-      const tokensWithBalance = sortedTokens.slice(0, index);
-      let tokensWithZeroBalance = sortedTokens.slice(index);
+    if (negativeIndex > -1 || zeroIndex > -1) {
+      let tokensWithNonZeroBalance: IAccountToken[] = [];
+      let tokensWithZeroBalance: IAccountToken[] = [];
+      let tokensWithoutBalance: IAccountToken[] = [];
+
+      if (negativeIndex > -1) {
+        const tokensWithBalance = sortedTokens.slice(0, negativeIndex);
+        tokensWithoutBalance = sortedTokens.slice(negativeIndex);
+        if (zeroIndex > -1) {
+          tokensWithNonZeroBalance = tokensWithBalance.slice(0, zeroIndex);
+          tokensWithZeroBalance = tokensWithBalance.slice(zeroIndex);
+        } else {
+          tokensWithNonZeroBalance = tokensWithBalance;
+        }
+      } else if (zeroIndex > -1) {
+        tokensWithNonZeroBalance = sortedTokens.slice(0, zeroIndex);
+        tokensWithZeroBalance = sortedTokens.slice(zeroIndex);
+      }
 
       tokensWithZeroBalance = sortTokensByOrder({
         tokens: tokensWithZeroBalance,
       });
 
-      sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+      tokensWithoutBalance = sortTokensByOrder({
+        tokens: tokensWithoutBalance,
+      });
+
+      sortedTokens = [
+        ...tokensWithNonZeroBalance,
+        ...tokensWithZeroBalance,
+        ...tokensWithoutBalance,
+      ];
     }
 
     return sortedTokens;
-  }, [tokens, tokenDetails]);
+  }, [tokens, tokenAccountMap, tokenDetails]);
 
   const renderContent = useCallback(
     ({ closePopover }: { closePopover: () => void }) => {
@@ -88,9 +126,11 @@ function TokenDetailsTabToolbar(props: IProps) {
           }}
         >
           {sortedTokensByFiatValue?.map((token) => {
-            const tokenDetailKey = `${token.accountId ?? ''}_${
-              token.networkId ?? ''
-            }`;
+            const tokenDetailKey = `${
+              token.accountId ||
+              tokenAccountMap[`${token.networkId || ''}_${token.address}`] ||
+              ''
+            }_${token.networkId || ''}`;
             const tokenDetail = tokenDetails[tokenDetailKey]?.data;
 
             return (
@@ -124,7 +164,20 @@ function TokenDetailsTabToolbar(props: IProps) {
                 >
                   {token.networkName}
                 </SizableText>
-                {tokenDetail?.fiatValue ? (
+                {isNil(tokenDetail?.fiatValue) ? (
+                  <Tooltip
+                    renderTrigger={
+                      <Icon
+                        name="RefreshCcwOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    }
+                    renderContent={intl.formatMessage({
+                      id: ETranslations.network_enable_or_create_address,
+                    })}
+                  />
+                ) : (
                   <ListItem.Text
                     align="right"
                     primary={
@@ -144,19 +197,6 @@ function TokenDetailsTabToolbar(props: IProps) {
                       </NumberSizeableTextWrapper>
                     }
                   />
-                ) : (
-                  <Tooltip
-                    renderTrigger={
-                      <Icon
-                        name="RefreshCcwOutline"
-                        size="$4"
-                        color="$iconSubdued"
-                      />
-                    }
-                    renderContent={intl.formatMessage({
-                      id: ETranslations.network_enable_or_create_address,
-                    })}
-                  />
                 )}
               </ListItem>
             );
@@ -165,12 +205,13 @@ function TokenDetailsTabToolbar(props: IProps) {
       );
     },
     [
+      sortedTokensByFiatValue,
+      tokenAccountMap,
       tokenDetails,
       gtMd,
       settings.currencyInfo.symbol,
-      onSelected,
-      sortedTokensByFiatValue,
       intl,
+      onSelected,
     ],
   );
 

@@ -1,9 +1,10 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  DebugRenderTracker,
   Icon,
   ListView,
   Popover,
@@ -16,12 +17,68 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import { useCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+
+function TokenListHeader() {
+  const intl = useIntl();
+  return (
+    <XStack
+      px="$5"
+      py="$3"
+      borderBottomWidth="$px"
+      borderBottomColor="$borderSubdued"
+    >
+      <XStack width={150} justifyContent="flex-start">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_asset,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack width={100} justifyContent="flex-start">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_last_price,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack width={120} justifyContent="flex-start">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_24h_change,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack width={100} justifyContent="flex-start">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_position_funding,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack width={100} justifyContent="flex-start">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_token_selector_volume,
+          })}
+        </SizableText>
+      </XStack>
+      <XStack flex={1} justifyContent="flex-end">
+        <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
+          {intl.formatMessage({
+            id: ETranslations.perp_token_bar_open_Interest,
+          })}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
 
 function BasePerpTokenSelectorContent({
   onLoadingChange,
@@ -29,29 +86,27 @@ function BasePerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   const intl = useIntl();
+  const { searchQuery, setSearchQuery, filteredTokens } =
+    usePerpTokenSelector();
   const { closePopover } = usePopoverContext();
-  const {
-    searchQuery,
-    setSearchQuery,
-    filteredTokens,
-    selectToken,
-    isLoading,
-  } = usePerpTokenSelector();
+  const actions = useHyperliquidActions();
 
-  useEffect(() => {
-    onLoadingChange(isLoading);
-  }, [isLoading, onLoadingChange]);
+  const handleSelectToken = useCallback(
+    async (symbol: string) => {
+      try {
+        onLoadingChange(true);
+        void closePopover?.();
+        await actions.current.changeActiveAsset({ coin: symbol });
+      } catch (error) {
+        console.error('Failed to switch token:', error);
+      } finally {
+        onLoadingChange(false);
+      }
+    },
+    [closePopover, actions, onLoadingChange],
+  );
 
-  const handleSelectToken = async (symbol: string) => {
-    try {
-      void closePopover?.();
-      await selectToken(symbol);
-    } catch (error) {
-      console.error('Failed to switch token:', error);
-    }
-  };
-
-  return (
+  const content = (
     <YStack>
       <YStack gap="$2">
         <XStack px="$5" pt="$5">
@@ -60,60 +115,14 @@ function BasePerpTokenSelectorContent({
               borderRadius: '$2',
             }}
             autoFocus
-            placeholder="Search"
-            value={searchQuery}
+            placeholder={intl.formatMessage({
+              id: ETranslations.global_search_asset,
+            })}
             onChangeText={setSearchQuery}
+            // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
-        <XStack
-          px="$5"
-          py="$3"
-          borderBottomWidth="$px"
-          borderBottomColor="$borderSubdued"
-        >
-          <XStack width={150} justifyContent="flex-start">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_token_selector_asset,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack width={100} justifyContent="flex-start">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_token_selector_last_price,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack width={120} justifyContent="flex-start">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_token_selector_24h_change,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack width={100} justifyContent="flex-start">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_funding,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack width={100} justifyContent="flex-start">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_token_selector_volume,
-              })}
-            </SizableText>
-          </XStack>
-          <XStack flex={1} justifyContent="flex-end">
-            <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-              {intl.formatMessage({
-                id: ETranslations.perp_token_bar_open_Interest,
-              })}
-            </SizableText>
-          </XStack>
-        </XStack>
+        <TokenListHeader />
       </YStack>
 
       {/* Token List */}
@@ -147,6 +156,14 @@ function BasePerpTokenSelectorContent({
       </YStack>
     </YStack>
   );
+  return (
+    <DebugRenderTracker
+      timesBadgePosition="top-right"
+      name="PerpTokenSelectorContent"
+    >
+      {content}
+    </DebugRenderTracker>
+  );
 }
 
 function PerpTokenSelectorContent({
@@ -166,7 +183,8 @@ const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
 function BasePerpTokenSelector() {
   const themeVariant = useThemeVariant();
   const [isOpen, setIsOpen] = useState(false);
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsActiveAssetAtom();
+  const { coin } = currentToken;
   const [isLoading, setIsLoading] = useState(false);
   return useMemo(
     () => (
@@ -198,12 +216,12 @@ function BasePerpTokenSelector() {
               size="md"
               borderRadius="$full"
               bg={themeVariant === 'light' ? null : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${currentToken}.svg`}
+              tokenImageUri={`https://app.hyperliquid.xyz/coins/${coin}.svg`}
               fallbackIcon="CryptoCoinOutline"
             />
 
             {/* Token Name */}
-            <SizableText size="$heading2xl">{currentToken}</SizableText>
+            <SizableText size="$heading2xl">{coin}</SizableText>
             <Icon name="ChevronBottomOutline" size="$4" />
             {isLoading ? <Spinner size="small" /> : null}
           </Badge>
@@ -216,7 +234,7 @@ function BasePerpTokenSelector() {
         )}
       />
     ),
-    [isOpen, currentToken, isLoading, themeVariant],
+    [isOpen, coin, isLoading, themeVariant],
   );
 }
 

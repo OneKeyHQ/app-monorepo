@@ -478,6 +478,13 @@ function TokenListContainer({
     },
   );
 
+  const { result: allAggregateTokenInfo } = usePromiseResult(
+    async () => backgroundApiProxy.serviceToken.getAllAggregateTokenInfo(),
+    [],
+  );
+
+  const { allAggregateTokenMap } = allAggregateTokenInfo ?? {};
+
   const isAllNetworkManualRefresh = useRef(false);
 
   const updateAllNetworkData = useThrottledCallback(() => {
@@ -882,7 +889,7 @@ function TokenListContainer({
       perfTokenListView.markEnd('allNetworkRequestsStarted_getRawData');
 
       if (!a?.aggregateTokenConfigMap) {
-        await backgroundApiProxy.serviceToken.syncAggregateTokenConfigMap();
+        await backgroundApiProxy.serviceSetting.syncWalletConfig();
         a = await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
       }
 
@@ -1463,7 +1470,7 @@ function TokenListContainer({
       });
       refreshAllTokenList({
         keys: `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`,
-        tokens: [...tokenList.tokens, ...riskyTokenList.riskyTokens],
+        tokens: [...mergedTokens, ...riskyTokenList.riskyTokens],
         accountId: account?.id,
         networkId: network?.id,
       });
@@ -1756,6 +1763,7 @@ function TokenListContainer({
         params: {
           accountId: token.accountId ?? account?.id ?? '',
           networkId: token.networkId ?? network.id,
+          accountAddress: account?.address ?? '',
           walletId: wallet.id,
           isAllNetworks: network.isAllNetworks,
           indexedAccountId: indexedAccount?.id ?? '',
@@ -1766,6 +1774,7 @@ function TokenListContainer({
       });
     },
     [
+      account?.address,
       account?.id,
       aggregateTokenListMapAtom,
       deriveInfo,
@@ -1921,6 +1930,11 @@ function TokenListContainer({
       inTabList
       hideValue
       withSwapAction
+      accountId={account?.id ?? ''}
+      networkId={network?.id ?? ''}
+      indexedAccountId={indexedAccount?.id ?? ''}
+      allAggregateTokenMap={allAggregateTokenMap}
+      showNetworkIcon={!!network?.isAllNetworks}
       hideZeroBalanceTokens={!!network?.isAllNetworks}
       onRefresh={onHomePageRefresh}
       manageTokenEnabled={manageTokenEnabled}

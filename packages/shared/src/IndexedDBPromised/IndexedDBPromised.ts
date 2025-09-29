@@ -98,7 +98,7 @@ export class IndexedDBPromised<DBTypes extends DBSchema | unknown = unknown>
 
   get objectStoreNames(): TypedDOMStringList<StoreNames<DBTypes>> {
     this.ensureDBOpened();
-    return this.nativeDB?.objectStoreNames as TypedDOMStringList<
+    return this.nativeDB?.objectStoreNames as unknown as TypedDOMStringList<
       StoreNames<DBTypes>
     >;
   }

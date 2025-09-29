@@ -1,53 +1,83 @@
 import { useCallback, useEffect } from 'react';
 
-import { Page, SizableText, XStack, YStack } from '@onekeyhq/components';
-import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  Icon,
+  NavBackButton,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { Token } from '../../../components/Token';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
-import {
-  useCurrentTokenAtom,
-  useHyperliquidActions,
-} from '../../../states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { PerpCandles } from '../components/PerpCandles';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { MobilePerpMarketHeader } from '../components/TickerBar/MobilePerpMarketHeader';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
-import { getTradingButtonStyleProps } from '../utils/styleUtils';
+import { GetTradingButtonStyleProps } from '../utils/styleUtils';
 
 function MobilePerpMarket() {
   const actionsRef = useHyperliquidActions();
-  const [currentToken] = useCurrentTokenAtom();
+  const [currentToken] = usePerpsActiveAssetAtom();
+  const { coin } = currentToken;
   const themeVariant = useThemeVariant();
-  const longButtonStyle = getTradingButtonStyleProps('long');
-  const shortButtonStyle = getTradingButtonStyleProps('short');
+  const navigation = useAppNavigation();
+  const longButtonStyle = GetTradingButtonStyleProps('long');
+  const shortButtonStyle = GetTradingButtonStyleProps('short');
+
+  const onPressTokenSelector = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
+  }, [navigation]);
+
+  const onPageGoBack = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
 
   const renderHeaderTitle = useCallback(() => {
-    const pairLabel = currentToken ? `${currentToken} - USD` : '--';
+    const pairLabel = coin ? `${coin} - USD` : '--';
     return (
       <XStack alignItems="center" gap="$2">
-        <Token
-          size="sm"
-          borderRadius="$full"
-          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-          tokenImageUri={
-            currentToken
-              ? `https://app.hyperliquid.xyz/coins/${currentToken}.svg`
-              : undefined
-          }
-          fallbackIcon="CryptoCoinOutline"
+        <NavBackButton
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+          onPress={onPageGoBack}
         />
-        <SizableText size="$headingLg">{pairLabel}</SizableText>
+        <XStack
+          alignItems="center"
+          gap="$2"
+          onPress={onPressTokenSelector}
+          cursor="pointer"
+          hoverStyle={{ opacity: 0.8 }}
+          pressStyle={{ opacity: 0.6 }}
+        >
+          <Token
+            size="sm"
+            borderRadius="$full"
+            bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+            tokenImageUri={
+              coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
+            }
+            fallbackIcon="CryptoCoinOutline"
+          />
+          <SizableText size="$headingLg">{pairLabel}</SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        </XStack>
       </XStack>
     );
-  }, [currentToken, themeVariant]);
+  }, [coin, themeVariant, onPressTokenSelector, onPageGoBack]);
 
   useEffect(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
@@ -59,16 +89,16 @@ function MobilePerpMarket() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerTitle={renderHeaderTitle} />
+      <Page.Header headerLeft={renderHeaderTitle} />
       <Page.Body px="$0" py="$0">
         <YStack flex={1} bg="$bgApp" gap="$2.5">
           <MobilePerpMarketHeader />
 
-          <YStack flex={1} minHeight={364}>
+          <YStack flex={1} minHeight={450}>
             <PerpCandles />
           </YStack>
 
-          <YStack flexShrink={0} bg="$bgApp" px="$5">
+          <YStack flexShrink={0} bg="$bgApp" px={2}>
             <PerpOrderBook entry="perpMobileMarket" />
           </YStack>
         </YStack>
@@ -116,7 +146,7 @@ function MobilePerpMarket() {
 function MobilePerpMarketWithProvider() {
   return (
     <PerpsAccountSelectorProviderMirror>
-      <PerpsProviderMirror storeName={EJotaiContextStoreNames.perps}>
+      <PerpsProviderMirror>
         <MobilePerpMarket />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>

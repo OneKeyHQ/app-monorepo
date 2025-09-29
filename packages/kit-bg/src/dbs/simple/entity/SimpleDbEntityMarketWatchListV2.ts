@@ -1,3 +1,4 @@
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -23,12 +24,45 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
     return { data: [] };
   }
 
+  async getMarketWatchListItemV2({
+    chainId,
+    contractAddress,
+  }: {
+    chainId: string;
+    contractAddress: string;
+  }): Promise<IMarketWatchListItemV2 | undefined> {
+    try {
+      const watchList = await this.getMarketWatchListV2();
+      return watchList.data.find((item) =>
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: chainId,
+            contractAddress,
+          },
+          token2: {
+            networkId: item.chainId,
+            contractAddress: item.contractAddress,
+          },
+        }),
+      );
+    } catch (error) {
+      console.error('Failed to get market watch list item:', error);
+      return undefined;
+    }
+  }
+
   // addOrEdit
   async addMarketWatchListV2({
     watchList,
+    callerName,
   }: {
     watchList: IMarketWatchListItemV2[];
+    callerName: string;
   }) {
+    defaultLogger.cloudSync.market.simpleDbAddWatchListItems({
+      callerName,
+      items: watchList,
+    });
     await this.setRawData((data) => {
       const oldList: IMarketWatchListItemV2[] = data?.data ?? [];
 
@@ -47,9 +81,15 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
 
   async removeMarketWatchListV2({
     items,
+    callerName,
   }: {
     items: Array<{ chainId: string; contractAddress: string }>;
+    callerName: string;
   }) {
+    defaultLogger.cloudSync.market.simpleDbRemoveWatchListItems({
+      callerName,
+      items,
+    });
     await this.setRawData((data) => {
       const oldList = data?.data ?? [];
 
@@ -79,6 +119,7 @@ export class SimpleDbEntityMarketWatchListV2 extends SimpleDbEntityBase<IMarketW
   }
 
   async clearAllMarketWatchListV2() {
+    defaultLogger.cloudSync.market.simpleDbClearAllWatchListItems();
     await this.setRawData(() => {
       const newData: IMarketWatchListDataV2 = {
         data: [],

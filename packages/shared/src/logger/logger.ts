@@ -6,6 +6,7 @@ import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
 import { ApprovalScope } from './scopes/approval';
 import { CloudBackupScope } from './scopes/cloudBackup';
+import { CloudSyncScope } from './scopes/cloudSync';
 import { DemoScope } from './scopes/demo';
 import { DexScope } from './scopes/dex';
 import { DiscoveryScope } from './scopes/discovery';
@@ -32,6 +33,8 @@ export class DefaultLogger {
   account = new AccountScope();
 
   cloudBackup = new CloudBackupScope();
+
+  cloudSync = new CloudSyncScope();
 
   accountSelector = new AccountSelectorScope();
 

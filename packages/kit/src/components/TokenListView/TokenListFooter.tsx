@@ -46,6 +46,8 @@ import {
   useSmallBalanceTokensFiatValueAtom,
 } from '../../states/jotai/contexts/tokenList';
 
+import { useTokenListViewContext } from './TokenListViewContext';
+
 type IProps = {
   tableLayout?: boolean;
   hideZeroBalanceTokens?: boolean;
@@ -72,6 +74,8 @@ function TokenListFooter(props: IProps) {
   const [settings] = useSettingsPersistAtom();
 
   const [{ hideValue }] = useSettingsValuePersistAtom();
+
+  const { allAggregateTokenMap } = useTokenListViewContext();
 
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
 
@@ -177,6 +181,8 @@ function TokenListFooter(props: IProps) {
         isAllNetworks: network.isAllNetworks,
         aggregateTokensListMap,
         aggregateTokensMap,
+        accountAddress: account.address,
+        allAggregateTokenMap,
       },
     });
   }, [
@@ -195,6 +201,7 @@ function TokenListFooter(props: IProps) {
     hideValue,
     aggregateTokensListMap,
     aggregateTokensMap,
+    allAggregateTokenMap,
   ]);
 
   const handleOnPressRiskyTokens = useCallback(() => {
@@ -215,6 +222,7 @@ function TokenListFooter(props: IProps) {
         deriveInfo,
         isAllNetworks: network.isAllNetworks,
         hideValue,
+        accountAddress: account.address,
       },
     });
   }, [

@@ -9,6 +9,7 @@ import {
   getDefaultEnabledNetworksInAllNetworks,
   getPresetNetworks,
 } from '../config/presetNetworks';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -171,6 +172,14 @@ function isAllNetwork({
   return Boolean(networkId && networkId === getNetworkIdsMap().onekeyall);
 }
 
+function isAggregateNetwork({
+  networkId,
+}: {
+  networkId: string | undefined;
+}): boolean {
+  return Boolean(networkId && networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID);
+}
+
 function getDefaultDeriveTypeVisibleNetworks() {
   return platformEnv.isE2E
     ? [
@@ -220,6 +229,24 @@ function getLocalNetworkInfo(networkId: string) {
   return networks.find((network) => network.id === networkId);
 }
 
+function getNetworkShortCode({
+  networkId,
+}: {
+  networkId: string;
+}): string | undefined {
+  const networkInfo = getLocalNetworkInfo(networkId);
+  return networkInfo?.shortcode;
+}
+
+function getNetworkIdFromShortCode({
+  shortCode,
+}: {
+  shortCode: string;
+}): string | undefined {
+  const networkIdsMap = getNetworkIdsMap();
+  return networkIdsMap[shortCode as keyof typeof networkIdsMap];
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -238,5 +265,8 @@ export default {
   toNetworkIdFallback,
   getBtcDappUniSetChainName,
   getLocalNetworkInfo,
+  getNetworkShortCode,
+  getNetworkIdFromShortCode,
   isViewInExplorerDisabled,
+  isAggregateNetwork,
 };

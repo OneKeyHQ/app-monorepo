@@ -27,6 +27,7 @@ export function AccountSearchBar({
   num,
   isOthersUniversal,
   focusedWalletInfo,
+  editable,
 }: {
   searchText: string;
   onSearchTextChange: (text: string) => void;
@@ -38,6 +39,7 @@ export function AccountSearchBar({
         device: IDBDevice | undefined;
       }
     | undefined;
+  editable: boolean;
 }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
@@ -97,39 +99,41 @@ export function AccountSearchBar({
         onChangeText={handleSearch}
       />
 
-      <ActionList
-        title={intl.formatMessage({ id: ETranslations.global_add_account })}
-        renderTrigger={
-          <IconButton
-            testID="account-search-bar-add-button"
-            icon="PlusSmallOutline"
-            size="small"
-          />
-        }
-        renderItems={({ handleActionListClose }) => (
-          <>
-            <ActionList.Item
-              testID="add-account-button"
+      {editable ? (
+        <ActionList
+          title={intl.formatMessage({ id: ETranslations.global_add_account })}
+          renderTrigger={
+            <IconButton
+              testID="account-search-bar-add-button"
               icon="PlusSmallOutline"
-              label={intl.formatMessage({
-                id: ETranslations.global_add_account,
-              })}
-              onClose={handleActionListClose}
-              onPress={() => {
-                void handleAddAccount();
-                handleActionListClose();
-              }}
+              size="small"
             />
-            {canBatchCreateAccount ? (
-              <BatchCreateAccountButton
-                focusedWalletInfo={focusedWalletInfo}
-                activeAccount={activeAccount}
+          }
+          renderItems={({ handleActionListClose }) => (
+            <>
+              <ActionList.Item
+                testID="add-account-button"
+                icon="PlusSmallOutline"
+                label={intl.formatMessage({
+                  id: ETranslations.global_add_account,
+                })}
                 onClose={handleActionListClose}
+                onPress={() => {
+                  void handleAddAccount();
+                  handleActionListClose();
+                }}
               />
-            ) : null}
-          </>
-        )}
-      />
+              {canBatchCreateAccount ? (
+                <BatchCreateAccountButton
+                  focusedWalletInfo={focusedWalletInfo}
+                  activeAccount={activeAccount}
+                  onClose={handleActionListClose}
+                />
+              ) : null}
+            </>
+          )}
+        />
+      ) : null}
     </XStack>
   );
 }

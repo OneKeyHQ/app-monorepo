@@ -1,12 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { isNil, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTokenList } from '../../../hooks';
-import { usePerpOrders } from '../../../hooks/usePerpOrderInfoPanel';
+import { useTradingGuard } from '../../../hooks';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -19,9 +22,42 @@ interface IPerpOpenOrdersListProps {
 
 function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const intl = useIntl();
-  const orders = usePerpOrders();
+  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
+  const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
-  const { getTokenInfo } = useTokenList();
+  const { ensureTradingEnabled } = useTradingGuard();
+  const [currentListPage, setCurrentListPage] = useState(1);
+  useEffect(() => {
+    noop(currentUser?.accountAddress);
+    setCurrentListPage(1);
+  }, [currentUser?.accountAddress]);
+  const handleCancelAll = useCallback(async () => {
+    ensureTradingEnabled();
+    const symbolsMetaMap =
+      await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+        coins: orders.map((o) => o.coin),
+      });
+    const ordersToCancel = orders
+      .map((order) => {
+        const tokenInfo = symbolsMetaMap[order.coin];
+        if (!tokenInfo || isNil(tokenInfo?.assetId)) {
+          console.warn(`Token info not found for coin: ${order.coin}`);
+          return null;
+        }
+        return {
+          assetId: tokenInfo.assetId,
+          oid: order.oid,
+        };
+      })
+      .filter(Boolean);
+
+    if (ordersToCancel.length === 0) {
+      console.warn('No valid orders to cancel or token info unavailable');
+      return;
+    }
+
+    void actions.current.cancelOrder({ orders: ordersToCancel });
+  }, [orders, actions, ensureTradingEnabled]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -105,14 +141,20 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         minWidth: 100,
         align: 'right',
         flex: 1,
+        onPress: handleCancelAll,
       },
     ],
-    [intl],
+    [intl, handleCancelAll],
   );
 
   const handleCancelOrder = useCallback(
-    (order: FrontendOrder) => {
-      const tokenInfo = getTokenInfo(order.coin);
+    async (order: FrontendOrder) => {
+      ensureTradingEnabled();
+      const symbolMeta =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: order.coin,
+        });
+      const tokenInfo = symbolMeta;
       if (!tokenInfo) {
         console.warn(`Token info not found for coin: ${order.coin}`);
         return;
@@ -126,31 +168,8 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         ],
       });
     },
-    [getTokenInfo, actions],
+    [actions, ensureTradingEnabled],
   );
-
-  const handleCancelAll = useCallback(() => {
-    const ordersToCancel = orders
-      .map((order) => {
-        const tokenInfo = getTokenInfo(order.coin);
-        if (!tokenInfo) {
-          console.warn(`Token info not found for coin: ${order.coin}`);
-          return null;
-        }
-        return {
-          assetId: tokenInfo.assetId,
-          oid: order.oid,
-        };
-      })
-      .filter(Boolean);
-
-    if (ordersToCancel.length === 0) {
-      console.warn('No valid orders to cancel or token info unavailable');
-      return;
-    }
-
-    void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, getTokenInfo, actions]);
 
   const totalMinWidth = useMemo(
     () =>
@@ -174,6 +193,10 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
+      useTabsList
+      enablePagination={!isMobile}
+      currentListPage={currentListPage}
+      setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}
       minTableWidth={totalMinWidth}
       data={orders}

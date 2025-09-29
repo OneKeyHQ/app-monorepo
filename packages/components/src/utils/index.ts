@@ -34,5 +34,3 @@ export { getFontSize } from 'tamagui';
 export const NATIVE_HIT_SLOP = platformEnv.isNative
   ? { top: 8, left: 8, right: 8, bottom: 8 }
   : undefined;
-
-export * from './DebugRenderTracker';

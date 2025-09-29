@@ -7,7 +7,6 @@ import {
   Input,
   Radio,
   SizableText,
-  Toast,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -15,7 +14,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { buildChangeHistoryInputAddon } from '@onekeyhq/kit/src/components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -34,7 +32,6 @@ function ServerConfigContent() {
   const [customServer, setCustomServer] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { gtMd } = useMedia();
-  const [, setPrimeTransferAtom] = usePrimeTransferAtom();
   const customServerTrimmed = useMemo(
     () => customServer?.trim()?.replace(/\/+$/, '') || '',
     [customServer],

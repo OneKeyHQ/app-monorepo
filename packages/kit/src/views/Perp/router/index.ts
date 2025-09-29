@@ -17,14 +17,31 @@ const MobilePerpMarketPage = LazyLoadPage(
   () => import('../pages/MobilePerpMarket'),
 );
 
+const MobileTokenSelectorPage = LazyLoadPage(
+  () => import('../components/TokenSelector/MoblieTokenSelector'),
+);
+
+const MobileSetTpslModal = LazyLoadPage(
+  () => import('../components/OrderInfoPanel/SetTpslModal'),
+);
+
 export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
+    rewrite: '/',
     name: ETabRoutes.Perp,
     component: PagePerp,
   },
   {
     name: EModalPerpRoutes.MobilePerpMarket,
     component: MobilePerpMarketPage,
+  },
+  {
+    name: EModalPerpRoutes.MobileTokenSelector,
+    component: MobileTokenSelectorPage,
+  },
+  {
+    name: EModalPerpRoutes.MobileSetTpsl,
+    component: MobileSetTpslModal,
   },
 ];
 
@@ -39,5 +56,14 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobilePerpMarket,
     component: MobilePerpMarketPage,
+  },
+  {
+    name: EModalPerpRoutes.MobileTokenSelector,
+    component: MobileTokenSelectorPage,
+    options: {},
+  },
+  {
+    name: EModalPerpRoutes.MobileSetTpsl,
+    component: MobileSetTpslModal,
   },
 ];

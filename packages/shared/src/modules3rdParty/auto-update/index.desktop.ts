@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
@@ -44,7 +44,10 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
       });
   });
 
-const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
+const downloadPackage: IDownloadPackage = async ({
+  downloadedFile,
+  headers,
+}) => {
   const isDownloading =
     await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
   if (isDownloading) {
@@ -60,7 +63,14 @@ const downloadPackage: IDownloadPackage = async ({ downloadedFile }) => {
     }
   }
   const result = await withUpdateError(async () => {
-    await globalThis.desktopApiProxy.appUpdate.checkForUpdates();
+    const updateInfo =
+      await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
+        false,
+        headers,
+      );
+    if (!updateInfo) {
+      return null;
+    }
     return new Promise<IUpdateDownloadedEvent>((resolve) => {
       const onDownloadedSubscription = electronUpdateListeners.onDownloaded?.(
         (params) => {
@@ -118,13 +128,21 @@ export const useDownloadProgress: IUseDownloadProgress = () => {
     10,
   );
 
+  const updatedDownloaded = useCallback(() => {
+    defaultLogger.update.app.log('downloaded');
+    setPercent(100);
+  }, []);
+
   useEffect(() => {
     const onProgressUpdateSubscription =
       electronUpdateListeners.onProgressUpdate?.(updatePercent);
+    const updateDownloadedSubscription =
+      electronUpdateListeners.onDownloaded?.(updatedDownloaded);
     return () => {
       onProgressUpdateSubscription?.();
+      updateDownloadedSubscription?.();
     };
-  }, [updatePercent]);
+  }, [updatedDownloaded, updatePercent]);
   return percent;
 };
 
@@ -162,4 +180,28 @@ export const BundleUpdate: IBundleUpdate = {
   installBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
+  clearAllJSBundleData: () =>
+    globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
+  testVerification: () =>
+    globalThis.desktopApiProxy.bundleUpdate.testVerification(),
+  testDeleteJsBundle: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.testDeleteJsBundle(
+      appVersion,
+      bundleVersion,
+    ),
+  testDeleteJsRuntimeDir: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.testDeleteJsRuntimeDir(
+      appVersion,
+      bundleVersion,
+    ),
+  testDeleteMetadataJson: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.testDeleteMetadataJson(
+      appVersion,
+      bundleVersion,
+    ),
+  testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
+    globalThis.desktopApiProxy.bundleUpdate.testWriteEmptyMetadataJson(
+      appVersion,
+      bundleVersion,
+    ),
 };

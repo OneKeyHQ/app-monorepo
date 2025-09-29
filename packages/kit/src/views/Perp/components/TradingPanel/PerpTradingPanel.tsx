@@ -1,116 +1,130 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { BigNumber } from 'bignumber.js';
+
+import { YStack } from '@onekeyhq/components';
 import {
-  useHyperliquidActions,
   useTradingFormAtom,
-  useTradingLoadingAtom,
+  useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
-  usePerpsSelectedAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
+  usePerpsActiveAssetDataAtom,
+  usePerpsActiveAssetCtxAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  useCurrentTokenData,
-  useHyperliquidAccount,
-  useHyperliquidTrading,
-} from '../../hooks';
+import { useOrderConfirm } from '../../hooks';
 
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
 
-function PerpTradingPanel() {
-  const { canTrade, loading, currentUser } = useHyperliquidTrading();
+function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const hlAccount = useHyperliquidAccount();
-  const tokenInfo = useCurrentTokenData();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [activeAssetData] = usePerpsActiveAssetDataAtom();
+  const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [formData] = useTradingFormAtom();
-  const [isSubmitting] = useTradingLoadingAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
+  const { isSubmitting, handleConfirm } = useOrderConfirm();
 
-  const [selectedAccount] = usePerpsSelectedAccountAtom();
+  const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
   const universalLoading = useMemo(() => {
-    return perpsAccountLoading?.selectAccountLoading || loading;
-  }, [perpsAccountLoading?.selectAccountLoading, loading]);
+    return perpsAccountLoading?.selectAccountLoading;
+  }, [perpsAccountLoading?.selectAccountLoading]);
 
   const leverage = useMemo(() => {
-    return tokenInfo?.leverage?.value || tokenInfo?.maxLeverage || 1;
-  }, [tokenInfo]);
+    return activeAssetData?.leverage?.value || 1;
+  }, [activeAssetData?.leverage?.value]);
 
   const maxTradeSz = useMemo(() => {
-    const maxTradeSzs = tokenInfo?.maxTradeSzs || [0, 0];
-    return maxTradeSzs[formData.side === 'long' ? 0 : 1];
-  }, [tokenInfo?.maxTradeSzs, formData.side]);
+    const maxTradeSzs = activeAssetData?.maxTradeSzs || [0, 0];
+    return Number(maxTradeSzs[formData.side === 'long' ? 0 : 1]);
+  }, [activeAssetData?.maxTradeSzs, formData.side]);
+
+  const effectivePriceBN = useMemo(() => {
+    if (formData.type === 'limit') {
+      return new BigNumber(formData.price || 0);
+    }
+    return new BigNumber(activeAssetCtx?.ctx?.markPrice || 0);
+  }, [formData.type, formData.price, activeAssetCtx?.ctx?.markPrice]);
+
+  const isMinimumOrderNotMet = useMemo(() => {
+    if (!tradingComputed.computedSizeBN.isFinite()) return false;
+    if (tradingComputed.computedSizeBN.lte(0)) return false;
+
+    const priceBN = effectivePriceBN;
+    if (!priceBN.isFinite() || priceBN.lte(0)) return false;
+
+    const leverageBN = new BigNumber(formData.leverage || 1);
+    if (!leverageBN.isFinite() || leverageBN.lte(0)) return false;
+
+    const orderValue = tradingComputed.computedSizeBN
+      .multipliedBy(priceBN)
+      .multipliedBy(leverageBN);
+    return orderValue.lt(10);
+  }, [
+    tradingComputed.computedSizeBN,
+    effectivePriceBN,
+    formData.leverage,
+  ]);
 
   const isNoEnoughMargin = useMemo(() => {
+    if (!tradingComputed.computedSizeBN.isFinite()) return false;
+    if (tradingComputed.computedSizeBN.lte(0)) return false;
+
     if (formData.type === 'limit') {
-      return (
-        (+formData.price * +formData.size) / leverage >
-        +(hlAccount?.accountSummary?.withdrawable || 0)
-      );
+      if (!effectivePriceBN.isFinite() || effectivePriceBN.lte(0)) {
+        return false;
+      }
+      const leverageBN = new BigNumber(leverage || 1);
+      const safeLeverage =
+        leverageBN.isFinite() && leverageBN.gt(0)
+          ? leverageBN
+          : new BigNumber(1);
+      const withdrawableBN = new BigNumber(accountSummary?.withdrawable || 0);
+      const requiredMargin = tradingComputed.computedSizeBN
+        .multipliedBy(effectivePriceBN)
+        .dividedBy(safeLeverage);
+      if (!requiredMargin.isFinite()) return false;
+      return requiredMargin.gt(withdrawableBN);
     }
-    return +formData.size > maxTradeSz;
+    return tradingComputed.computedSizeBN.gt(maxTradeSz);
   }, [
-    hlAccount?.accountSummary?.withdrawable,
-    formData.size,
+    accountSummary?.withdrawable,
+    tradingComputed.computedSizeBN,
     maxTradeSz,
     formData.type,
-    formData.price,
+    effectivePriceBN,
     leverage,
   ]);
 
-  const actions = useHyperliquidActions();
   const handleShowConfirm = useCallback(() => {
-    if (!tokenInfo) {
+    if (!activeAssetData) {
       console.error(
         '[PerpTradingPanel.handleShowConfirm] No token info available',
       );
       return;
     }
-    const liquidationPrice = '';
-
-    showOrderConfirmDialog({
-      formData,
-      tokenName: tokenInfo.name,
-      liquidationPrice,
-      onConfirm: async () => {
-        try {
-          if (formData.type === 'market') {
-            await actions.current.orderOpen({
-              assetId: tokenInfo.assetId,
-              formData,
-              midPx: tokenInfo.markPx || '0',
-            });
-          } else {
-            await actions.current.placeOrder({
-              assetId: tokenInfo.assetId,
-              formData,
-            });
-          }
-
-          // Reset form after successful order
-          actions.current.resetTradingForm();
-        } catch (error) {
-          console.error(
-            '[PerpTradingPanel.handleConfirm] Failed to place order:',
-            error,
-          );
-          throw error;
-        }
-      },
-    });
-  }, [tokenInfo, formData, actions]);
+    if (perpsCustomSettings.skipOrderConfirm) {
+      void handleConfirm();
+      return;
+    }
+    showOrderConfirmDialog();
+  }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   return (
-    <YStack gap="$4" p="$4">
-      <PerpTradingForm isSubmitting={isSubmitting} />
+    <YStack gap="$4" pt="$3" px="$2.5">
+      <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       <PerpTradingButton
         loading={universalLoading}
         handleShowConfirm={handleShowConfirm}
         formData={formData}
+        computedSize={tradingComputed.computedSizeBN}
+        isMinimumOrderNotMet={isMinimumOrderNotMet}
         isSubmitting={isSubmitting}
         isNoEnoughMargin={isNoEnoughMargin}
       />

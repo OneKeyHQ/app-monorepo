@@ -5,11 +5,13 @@ export interface IWalletBanner {
   title: string;
   description: string;
   button: string;
-  hrefType: 'internal' | 'external';
-  href: string;
+  hrefType?: 'internal' | 'external';
+  href?: string;
   rank: number;
   closeable: boolean;
   closeForever: boolean;
   useSystemBrowser: boolean;
   theme: 'light' | 'dark';
+  position?: 'home' | 'receive';
+  networkId?: string;
 }

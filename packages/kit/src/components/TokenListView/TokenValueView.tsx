@@ -2,7 +2,7 @@ import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import {
@@ -26,7 +26,7 @@ function TokenValueView(props: IProps) {
   const fiatValue = new BigNumber(token?.fiatValue || 0);
 
   if (!token) {
-    return null;
+    return <SizableText {...rest}>-</SizableText>;
   }
 
   return (

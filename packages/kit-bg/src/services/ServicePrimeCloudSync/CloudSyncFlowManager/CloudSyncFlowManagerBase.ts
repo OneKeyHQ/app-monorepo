@@ -1,3 +1,5 @@
+import { Semaphore, withTimeout } from 'async-mutex';
+
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -27,6 +29,19 @@ import {
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
+import type { SemaphoreInterface } from 'async-mutex';
+
+const mutexMap: Partial<Record<EPrimeCloudSyncDataType, SemaphoreInterface>> =
+  {};
+
+function getMutexByDataType(
+  dataType: EPrimeCloudSyncDataType,
+): SemaphoreInterface {
+  if (!mutexMap[dataType]) {
+    mutexMap[dataType] = withTimeout(new Semaphore(1), 60_000);
+  }
+  return mutexMap[dataType];
+}
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
@@ -61,6 +76,17 @@ export abstract class CloudSyncFlowManagerBase<
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
   }): Promise<boolean>;
+
+  async syncToSceneEachItemByMutex(params: {
+    item: IDBCloudSyncItem;
+    target: ICloudSyncTargetMap[T]; // local db target
+    payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
+  }): Promise<boolean> {
+    const mutex = getMutexByDataType(params.item.dataType);
+    return mutex.runExclusive(async () => {
+      return this.syncToSceneEachItem(params);
+    });
+  }
 
   abstract getDBRecordBySyncPayload(params: {
     payload: ICloudSyncPayloadMap[T];
@@ -520,7 +546,7 @@ export abstract class CloudSyncFlowManagerBase<
                 // TODO server data may be incorrect, how to remove it from server?
                 if (keyInfo.key === item.id) {
                   // TODO batch update
-                  const isSuccess = await this.syncToSceneEachItem({
+                  const isSuccess = await this.syncToSceneEachItemByMutex({
                     item,
                     target,
                     payload: payload as any,

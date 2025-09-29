@@ -1,32 +1,29 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo } from 'react';
 
-import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
-  Icon,
-  NumberSizeableText,
+  IconButton,
   SizableText,
-  Skeleton,
-  Spinner,
   Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import {
-  usePerpsAccountLoadingInfoAtom,
-  usePerpsSelectedAccountAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useHyperliquidAccount } from '../../../hooks';
+import { PerpSettingsButton } from '../../PerpSettingsButton';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 export function PerpAccountDebugInfo() {
-  const { currentUser } = useHyperliquidAccount();
-  const [perpsSelectedAccount] = usePerpsSelectedAccountAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [perpsSelectedAccount] = usePerpsActiveAccountAtom();
 
   if (!platformEnv.isDev) {
     return null;
@@ -35,61 +32,87 @@ export function PerpAccountDebugInfo() {
   return (
     <>
       <SizableText>S:{perpsSelectedAccount.accountAddress}</SizableText>
-      <SizableText>W:{currentUser}</SizableText>
+      <SizableText>W:{accountSummary?.accountAddress}</SizableText>
     </>
   );
 }
 
-function PerpAccountPanel() {
-  const { userWebData2, accountSummary } = useHyperliquidAccount();
-  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [selectedAccount] = usePerpsSelectedAccountAtom();
+function PerpAccountPanel({
+  isTradingPanel = false,
+}: {
+  isTradingPanel?: boolean;
+}) {
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
-  const userAccountId = selectedAccount.accountId;
 
-  const accountDataInfo = useMemo(() => {
-    const withdrawableBalance = accountSummary.withdrawable;
-    const accountValue = accountSummary.accountValue;
-    if (userWebData2) {
-      const maintenanceMargin =
-        userWebData2.clearinghouseState.crossMaintenanceMarginUsed || '0';
-    }
-    return {
-      withdrawableBalance,
-      accountValue,
-      maintenanceMargin: userWebData2
-        ? userWebData2.clearinghouseState.crossMaintenanceMarginUsed || '0'
-        : '0',
-    };
-  }, [accountSummary.withdrawable, userWebData2, accountSummary.accountValue]);
   const intl = useIntl();
-  const handleDepositOrWithdraw = useCallback(
-    async (actionType: 'deposit' | 'withdraw') => {
-      if (!userAccountId || !userAddress) {
-        return;
-      }
 
-      const params = {
-        withdrawable: accountSummary.withdrawable || '0',
-        actionType,
-      };
+  //     if (!userWebData2) {
+  //       return (
+  //         <SizableText size={textSize} color="$textSubdued">
+  //           N/A
+  //         </SizableText>
+  //       );
+  //     }
 
-      await showDepositWithdrawModal(params);
-    },
-    [userAccountId, userAddress, accountSummary.withdrawable],
-  );
+  //     return (
+  //       <NumberSizeableText
+  //         size={textSize}
+  //         formatter="value"
+  //         formatterOptions={{ currency: '$' }}
+  //       >
+  //         {value}
+  //       </NumberSizeableText>
+  //     );
+  //   },
+  //   [perpsAccountLoading?.selectAccountLoading, userWebData2],
+  // );
+  // const handleDepositOrWithdraw = useCallback(
+  //   async (actionType: 'deposit' | 'withdraw') => {
+  //     if (!userAccountId || !userAddress) {
+  //       return;
+  //     }
 
+  //     const params = {
+  //       withdrawable: accountSummary.withdrawable || '0',
+  //       actionType,
+  //     };
+
+  //     await showDepositWithdrawModal(params);
+  //   },
+  //   [userAccountId, userAddress, accountSummary.withdrawable],
+  // );
+
+  if (isTradingPanel) {
+    return (
+      <IconButton
+        size="small"
+        variant="tertiary"
+        iconSize="$3.5"
+        icon="PlusCircleSolid"
+        onPress={() =>
+          showDepositWithdrawModal({
+            actionType: 'deposit',
+            withdrawable: accountSummary?.withdrawable || '0',
+          })
+        }
+        color="$iconSubdued"
+        cursor="pointer"
+      />
+    );
+  }
   return (
-    <YStack flex={1} gap="$1.5">
+    <YStack flex={1} gap="$4" pt="$4" px="$2.5">
       {/* Header */}
-      <XStack p="$4" justifyContent="space-between" alignItems="center">
+      <XStack justifyContent="space-between" alignItems="center">
         <SizableText size="$headingSm">
           {intl.formatMessage({
             id: ETranslations.perp_trade_account_overview,
           })}
         </SizableText>
       </XStack>
-      <YStack flex={1} px="$4" gap="$2.5">
+      <YStack flex={1} gap="$2.5">
         {/* Available Balance */}
         <XStack justifyContent="space-between">
           <Tooltip
@@ -105,17 +128,10 @@ function PerpAccountPanel() {
               </SizableText>
             }
           />
-          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
-            <Skeleton width={70} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {accountDataInfo.accountValue}
-            </NumberSizeableText>
-          )}
+          <PerpsAccountNumberValue
+            value={accountSummary?.accountValue ?? ''}
+            skeletonWidth={70}
+          />
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
@@ -123,17 +139,10 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_panel_withrawable_value,
             })}
           </SizableText>
-          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
-            <Skeleton width={60} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {accountDataInfo.withdrawableBalance}
-            </NumberSizeableText>
-          )}
+          <PerpsAccountNumberValue
+            value={accountSummary?.withdrawable ?? ''}
+            skeletonWidth={60}
+          />
         </XStack>
         <XStack justifyContent="space-between">
           <Tooltip
@@ -149,28 +158,26 @@ function PerpAccountPanel() {
               </SizableText>
             }
           />
-          {perpsAccountLoading?.selectAccountLoading || !userWebData2 ? (
-            <Skeleton width={60} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$bodySmMedium"
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-            >
-              {accountDataInfo.maintenanceMargin}
-            </NumberSizeableText>
-          )}
+          <PerpsAccountNumberValue
+            value={accountSummary?.crossMaintenanceMarginUsed ?? ''}
+            skeletonWidth={70}
+          />
         </XStack>
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
-        <XStack px="$4" pb="$4" gap="$2.5" mt="$3">
+        <XStack gap="$2.5">
           <Button
             borderRadius="$3"
             flex={1}
             size="medium"
             variant="secondary"
-            onPress={() => handleDepositOrWithdraw('deposit')}
+            onPress={() =>
+              showDepositWithdrawModal({
+                actionType: 'deposit',
+                withdrawable: accountSummary?.withdrawable || '0',
+              })
+            }
             alignItems="center"
             justifyContent="center"
           >
@@ -183,7 +190,12 @@ function PerpAccountPanel() {
             flex={1}
             size="medium"
             variant="secondary"
-            onPress={() => handleDepositOrWithdraw('withdraw')}
+            onPress={() =>
+              showDepositWithdrawModal({
+                actionType: 'withdraw',
+                withdrawable: accountSummary?.withdrawable || '0',
+              })
+            }
             alignItems="center"
             justifyContent="center"
           >

@@ -455,6 +455,20 @@ export function mergeDeriveTokenList({
   return newTokens;
 }
 
+export function normalizeTokenContractAddress({
+  networkId,
+  contractAddress,
+}: {
+  networkId: string;
+  contractAddress: string | undefined;
+}): string | undefined {
+  const impl = networkUtils.getNetworkImpl({ networkId });
+  if (caseSensitiveNetworkImpl.includes(impl)) {
+    return contractAddress;
+  }
+  return contractAddress?.toLowerCase();
+}
+
 export function equalTokenNoCaseSensitive({
   token1,
   token2,
@@ -466,14 +480,15 @@ export function equalTokenNoCaseSensitive({
     return false;
   }
   if (token1?.networkId !== token2?.networkId) return false;
-  const impl = networkUtils.getNetworkImpl({ networkId: token1.networkId });
-  if (caseSensitiveNetworkImpl.includes(impl)) {
-    return token1?.contractAddress === token2?.contractAddress;
-  }
-  return (
-    token1?.contractAddress?.toLowerCase() ===
-    token2?.contractAddress?.toLowerCase()
-  );
+  const token1ContractAddress = normalizeTokenContractAddress({
+    networkId: token1.networkId,
+    contractAddress: token1.contractAddress,
+  });
+  const token2ContractAddress = normalizeTokenContractAddress({
+    networkId: token2.networkId,
+    contractAddress: token2.contractAddress,
+  });
+  return token1ContractAddress === token2ContractAddress;
 }
 
 export const checkWrappedTokenPair = ({
@@ -858,27 +873,79 @@ export function sortTokensCommon({
     map: tokenListMap,
   });
 
-  let index = sortedTokens.findIndex((t) =>
+  const negativeIndex = sortedTokens.findIndex((t) =>
     new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isNegative(),
   );
 
-  if (index === -1) {
-    index = sortedTokens.findIndex((t) =>
-      new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isZero(),
-    );
-  }
+  const zeroIndex = sortedTokens.findIndex((t) =>
+    new BigNumber(tokenListMap[t.$key]?.fiatValue ?? -1).isZero(),
+  );
 
-  // sort zero fiat value tokens by order
-  if (index > -1) {
-    const tokensWithBalance = sortedTokens.slice(0, index);
-    let tokensWithZeroBalance = sortedTokens.slice(index);
+  // sort zero/none fiat value tokens by order
+  if (negativeIndex > -1 || zeroIndex > -1) {
+    let tokensWithNonZeroBalance: IAccountToken[] = [];
+    let tokensWithZeroBalance: IAccountToken[] = [];
+    let tokensWithoutBalance: IAccountToken[] = [];
+
+    if (negativeIndex > -1) {
+      const tokensWithBalance = sortedTokens.slice(0, negativeIndex);
+      tokensWithoutBalance = sortedTokens.slice(negativeIndex);
+      if (zeroIndex > -1) {
+        tokensWithNonZeroBalance = tokensWithBalance.slice(0, zeroIndex);
+        tokensWithZeroBalance = tokensWithBalance.slice(zeroIndex);
+      } else {
+        tokensWithNonZeroBalance = tokensWithBalance;
+      }
+    } else if (zeroIndex > -1) {
+      tokensWithNonZeroBalance = sortedTokens.slice(0, zeroIndex);
+      tokensWithZeroBalance = sortedTokens.slice(zeroIndex);
+    }
 
     tokensWithZeroBalance = sortTokensByOrder({
       tokens: tokensWithZeroBalance,
     });
 
-    sortedTokens = [...tokensWithBalance, ...tokensWithZeroBalance];
+    tokensWithoutBalance = sortTokensByOrder({
+      tokens: tokensWithoutBalance,
+    });
+
+    sortedTokens = [
+      ...tokensWithNonZeroBalance,
+      ...tokensWithZeroBalance,
+      ...tokensWithoutBalance,
+    ];
   }
 
   return sortedTokens;
+}
+
+export function checkIsOnlyOneTokenHasBalance({
+  aggregateTokenList,
+  allAggregateTokenList,
+  tokenMap,
+}: {
+  tokenMap: Record<string, ITokenFiat>;
+  aggregateTokenList: IAccountToken[];
+  allAggregateTokenList: IAccountToken[];
+}) {
+  let tokenHasBalance: IAccountToken | undefined;
+  let tokenHasBalanceCount = 0;
+
+  if (
+    tokenMap &&
+    aggregateTokenList.length > 1 &&
+    allAggregateTokenList.length === 0
+  ) {
+    aggregateTokenList.forEach((t) => {
+      if (new BigNumber(tokenMap[t.$key]?.fiatValue ?? -1).gt(0)) {
+        tokenHasBalance = t;
+        tokenHasBalanceCount += 1;
+      }
+    });
+  }
+
+  return {
+    tokenHasBalance: tokenHasBalanceCount > 1 ? undefined : tokenHasBalance,
+    tokenHasBalanceCount,
+  };
 }

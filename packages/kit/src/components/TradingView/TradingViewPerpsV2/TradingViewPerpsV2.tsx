@@ -7,7 +7,7 @@ import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useTradingViewUrl } from '../hooks';
+import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { useTradeUpdates } from './hooks';
 import { usePerpsMessageHandler } from './messageHandlers';
@@ -15,13 +15,13 @@ import { usePerpsMessageHandler } from './messageHandlers';
 import type { ITradeEvent } from './types';
 import type { IWebViewRef } from '../../WebView/types';
 import type { WebViewProps } from 'react-native-webview';
+import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewPerpsV2Props {
   symbol: string;
   userAddress: IHex | undefined | null;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
-  tradingViewUrl?: string;
 }
 
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
@@ -67,17 +67,20 @@ const WebViewMemoized = memo(
     src,
     customReceiveHandler,
     onWebViewRef,
+    onShouldStartLoadWithRequest,
     ...otherProps
   }: {
     src: string;
     customReceiveHandler: (data: any) => Promise<void>;
     onWebViewRef: (ref: IWebViewRef | null) => void;
+    onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
     [key: string]: any;
   }) => (
     <WebView
       src={src}
       customReceiveHandler={customReceiveHandler}
       onWebViewRef={onWebViewRef}
+      onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       {...otherProps}
     />
   ),
@@ -85,7 +88,9 @@ const WebViewMemoized = memo(
     // Only re-render if critical props change
     return (
       prevProps.src === nextProps.src &&
-      prevProps.customReceiveHandler === nextProps.customReceiveHandler
+      prevProps.customReceiveHandler === nextProps.customReceiveHandler &&
+      prevProps.onShouldStartLoadWithRequest ===
+        nextProps.onShouldStartLoadWithRequest
     );
   },
 );
@@ -100,12 +105,12 @@ export function TradingViewPerpsV2(
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
 
-  const { symbol, userAddress, onLoadEnd, onTradeUpdate, tradingViewUrl } =
-    props;
+  const { symbol, userAddress, onLoadEnd, onTradeUpdate } = props;
+
+  const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
-    tradingViewUrl,
     additionalParams: {
       symbol,
       type: 'perps',
@@ -134,6 +139,11 @@ export function TradingViewPerpsV2(
     webRef.current = ref;
   }, []);
 
+  const onShouldStartLoadWithRequest = useCallback(
+    (event: WebViewNavigation) => handleNavigation(event),
+    [handleNavigation],
+  );
+
   return (
     <Stack position="relative" flex={1}>
       <WebViewMemoized
@@ -142,6 +152,8 @@ export function TradingViewPerpsV2(
         customReceiveHandler={customReceiveHandler}
         onWebViewRef={onWebViewRef}
         onLoadEnd={onLoadEnd}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        allowsBackForwardNavigationGestures={false}
         displayProgressBar={false}
         pullToRefreshEnabled={false}
         scrollEnabled={false}

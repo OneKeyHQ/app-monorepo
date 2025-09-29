@@ -12,7 +12,10 @@ import type {
 import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -22,6 +25,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
+  usePerpsCommonConfigPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -116,6 +120,12 @@ export type ISettingsConfig = (
 )[];
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const intl = useIntl();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -132,6 +142,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
   const { isLoggedIn } = usePrimeAuthV2();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
@@ -364,10 +375,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
-            !settings.perpConfigCommon.disablePerp
+            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
               ? {
-                  icon: 'LabOutline',
-                  title: 'Perp Config',
+                  icon: 'BrowserOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.perp_setting_interface,
+                  }),
                   onPress: (navigation) => {
                     navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
                   },
@@ -590,7 +603,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
-        showDot: !!appUpdateInfo.isNeedUpdate,
+        showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
         configs: [
           [
             {
@@ -788,12 +801,16 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     [
       intl,
       isPrimeAvailable,
-      isLoggedIn,
+      perpConfigCommon.disablePerp,
+      perpConfigCommon.usePerpWeb,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
+      isLoggedIn,
+      settings.hardwareTransportType,
+      isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
       onPressAddressBook,
@@ -801,8 +818,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       userAgreementUrl,
       privacyPolicyUrl,
       copyText,
-      settings.hardwareTransportType,
-      settings.perpConfigCommon.disablePerp,
     ],
   );
 };

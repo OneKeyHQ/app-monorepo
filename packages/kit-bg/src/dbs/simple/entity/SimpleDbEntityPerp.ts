@@ -5,8 +5,11 @@ import {
 } from '@onekeyhq/shared/src/consts/perp';
 import type {
   IMarginTables,
+  IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
+  IPerpsUniverseRaw,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -14,6 +17,7 @@ export type IHyperliquidCustomSettings = {
   hideNavBar?: boolean;
   hideNavBarConnectButton?: boolean;
   hideNotOneKeyWalletConnectButton?: boolean;
+  skipOrderConfirm?: boolean;
 };
 export interface ISimpleDbPerpData {
   hyperliquidBuilderAddress?: string;
@@ -28,10 +32,16 @@ export interface ISimpleDbPerpData {
     }
   >;
   hyperliquidCurrentToken?: string;
-  tradingUniverse: IPerpsUniverse[] | undefined;
-  marginTables: IMarginTables | undefined;
+  hyperliquidOrderBookTickOptions?: Record<
+    string,
+    IPerpOrderBookTickOptionPersist
+  >;
+  tradingUniverse?: IPerpsUniverse[] | undefined;
+  marginTablesMap?: IMarginTablesMap;
   agentTTL?: number; // in milliseconds
   referralCode?: string;
+  tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
+  hyperliquidTermsAccepted?: boolean;
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -40,14 +50,32 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   override enableCache = true;
 
   @backgroundMethod()
+  async getHyperliquidTermsAccepted(): Promise<boolean> {
+    const config = await this.getPerpData();
+    return config.hyperliquidTermsAccepted ?? false;
+  }
+
+  @backgroundMethod()
+  async setHyperliquidTermsAccepted(termsAccepted: boolean) {
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        hyperliquidTermsAccepted: termsAccepted,
+      }),
+    );
+  }
+
+  @backgroundMethod()
   async getPerpData(): Promise<ISimpleDbPerpData> {
     const config = await this.getRawData();
     const result = config || {
       tradingUniverse: [],
-      marginTables: [],
     };
     result.agentTTL = result.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
     result.referralCode = result.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
+    result.hyperliquidCustomSettings = result.hyperliquidCustomSettings ?? {
+      skipOrderConfirm: false,
+    };
     return result;
   }
 
@@ -61,30 +89,35 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   }
 
   @backgroundMethod()
-  async getTradingUniverse(): Promise<IPerpsUniverse[] | undefined> {
+  async getTradingUniverse(): Promise<{
+    universeItems: IPerpsUniverse[];
+    marginTablesMap: IMarginTablesMap | undefined;
+  }> {
     const config = await this.getPerpData();
-    return config.tradingUniverse;
-  }
-
-  @backgroundMethod()
-  async getMarginTables(): Promise<IMarginTables | undefined> {
-    const config = await this.getPerpData();
-    return config.marginTables;
+    return {
+      universeItems: config.tradingUniverse || [],
+      marginTablesMap: config.marginTablesMap,
+    };
   }
 
   @backgroundMethod()
   async setTradingUniverse({
     universe,
-    marginTables,
+    marginTablesMap,
   }: {
-    universe: IPerpsUniverse[];
-    marginTables: IMarginTables;
+    universe: IPerpsUniverseRaw[];
+    marginTablesMap: IMarginTablesMap;
   }) {
     await this.setPerpData(
       (prev): ISimpleDbPerpData => ({
         ...prev,
-        marginTables,
-        tradingUniverse: universe,
+        marginTablesMap,
+        tradingUniverse: universe.map((item, index) => {
+          return {
+            ...item,
+            assetId: index,
+          };
+        }),
       }),
     );
   }
@@ -112,10 +145,88 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     await this.setPerpData(
       (prevConfig): ISimpleDbPerpData => ({
         ...prevConfig,
-        tradingUniverse: prevConfig?.tradingUniverse,
-        marginTables: prevConfig?.marginTables,
         hyperliquidCurrentToken: token,
       }),
     );
+  }
+
+  @backgroundMethod()
+  async getPerpCustomSettings(): Promise<IHyperliquidCustomSettings> {
+    const config = await this.getPerpData();
+    return config.hyperliquidCustomSettings ?? {};
+  }
+
+  @backgroundMethod()
+  async setPerpCustomSettings(settings: IHyperliquidCustomSettings) {
+    await this.setPerpData(
+      (prevConfig): ISimpleDbPerpData => ({
+        ...prevConfig,
+        hyperliquidCustomSettings: {
+          ...(prevConfig?.hyperliquidCustomSettings ?? {}),
+          ...settings,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getOrderBookTickOptions(): Promise<
+    Record<string, IPerpOrderBookTickOptionPersist>
+  > {
+    const config = await this.getPerpData();
+    return config.hyperliquidOrderBookTickOptions ?? {};
+  }
+
+  @backgroundMethod()
+  async setOrderBookTickOption({
+    symbol,
+    option,
+  }: {
+    symbol: string;
+    option: IPerpOrderBookTickOptionPersist | null;
+  }) {
+    await this.setPerpData((prevConfig): ISimpleDbPerpData => {
+      const nextOptions = {
+        ...(prevConfig?.hyperliquidOrderBookTickOptions ?? {}),
+      };
+      if (!option) {
+        delete nextOptions[symbol];
+      } else {
+        nextOptions[symbol] = option;
+      }
+
+      return {
+        ...prevConfig,
+        hyperliquidOrderBookTickOptions: nextOptions,
+      };
+    });
+  }
+
+  async updateTradingviewDisplayPriceScale({
+    symbol,
+    priceScale,
+  }: {
+    symbol: string;
+    priceScale: number;
+  }) {
+    await this.setPerpData(
+      (prev): ISimpleDbPerpData => ({
+        ...prev,
+        tradingUniverse: prev?.tradingUniverse,
+        marginTablesMap: prev?.marginTablesMap,
+        tradingviewDisplayPriceScale: {
+          ...(prev?.tradingviewDisplayPriceScale || {}),
+          [symbol]: priceScale,
+        },
+      }),
+    );
+  }
+
+  @backgroundMethod()
+  async getTradingviewDisplayPriceScale(
+    symbol: string,
+  ): Promise<number | undefined> {
+    const config = await this.getPerpData();
+    return config.tradingviewDisplayPriceScale?.[symbol];
   }
 }

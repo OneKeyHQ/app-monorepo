@@ -75,7 +75,7 @@ export interface IOrderOpenParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  price: string;
   type: 'market' | 'limit';
   tpTriggerPx?: string;
   slTriggerPx?: string;
@@ -150,10 +150,16 @@ export interface IL2BookOptions {
   mantissa?: 2 | 5 | null;
 }
 
+export interface IPerpOrderBookTickOptionPersist {
+  value: string;
+  nSigFigs: IL2BookOptions['nSigFigs'];
+  mantissa: IL2BookOptions['mantissa'];
+}
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
-  disablePerpActionButton?: boolean;
+  disablePerpActionPerp?: boolean;
   perpBannerConfig?: IPerpServerBannerConfig;
   ipDisablePerp?: boolean;
   perpBannerClosedIds?: string[];
@@ -165,4 +171,22 @@ export enum EPerpUserType {
 }
 export interface IPerpUserConfig {
   currentUserType?: EPerpUserType;
+}
+
+export type IPerpsFormattedAssetCtx = {
+  midPrice: string;
+  lastPrice: string;
+  markPrice: string;
+  oraclePrice: string;
+  prevDayPrice: string;
+  fundingRate: string;
+  openInterest: string;
+  volume24h: string;
+  change24h: string;
+  change24hPercent: number;
+};
+
+export enum EPerpsSizeInputMode {
+  MANUAL = 'manual',
+  SLIDER = 'slider',
 }

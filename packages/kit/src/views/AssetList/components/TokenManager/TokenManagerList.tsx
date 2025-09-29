@@ -229,9 +229,11 @@ function TokenManagerList({
       renderItem={({ item }: { item: ICustomTokenItem }) => (
         <ListItem>
           <TokenIconView
+            $key={item.$key}
             icon={item.logoURI}
             networkId={item.networkId ?? networkId}
             isAllNetworks
+            showNetworkIcon={isAllNetwork || item.isAggregateToken}
           />
           <YStack flex={1}>
             <XStack gap="$2" alignItems="center" flexShrink={1}>

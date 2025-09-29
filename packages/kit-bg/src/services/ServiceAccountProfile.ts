@@ -310,6 +310,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAllowListValidation,
     skipValidateAddress,
     enableAddressDeriveInfo,
+    walletAccountItem,
   }: IQueryCheckAddressArgs): Promise<IAddressQueryResult> {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
@@ -401,6 +402,7 @@ class ServiceAccountProfile extends ServiceBase {
         accountName: string;
         accountId: string;
       }[] = [];
+
       try {
         // handleWalletAccountName
         walletAccountItems =
@@ -410,6 +412,16 @@ class ServiceAccountProfile extends ServiceBase {
           });
       } catch (e) {
         console.error(e);
+      }
+
+      if (
+        walletAccountItems.length === 0 &&
+        walletAccountItem &&
+        walletAccountItem.accountId &&
+        walletAccountItem.walletName &&
+        walletAccountItem.accountName
+      ) {
+        walletAccountItems = [walletAccountItem];
       }
 
       if (walletAccountItems.length > 0) {

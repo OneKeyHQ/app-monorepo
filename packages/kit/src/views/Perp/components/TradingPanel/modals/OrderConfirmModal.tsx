@@ -1,46 +1,90 @@
+import { useCallback, useMemo } from 'react';
+
 import {
+  Button,
+  Checkbox,
   Dialog,
-  NumberSizeableText,
   SizableText,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useTradingFormAtom,
+  useTradingFormComputedAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
+import { useOrderConfirm } from '../../../hooks';
+import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  getTradingButtonStyleProps,
+  GetTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { TradingGuardWrapper } from '../../TradingGuardWrapper';
+import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
-interface IShowOrderConfirmParams {
-  formData: ITradingFormData;
-  tokenName?: string;
-  liquidationPrice?: string;
-  onConfirm: () => Promise<void>;
+interface IOrderConfirmContentProps {
+  onClose?: () => void;
 }
 
-export function showOrderConfirmDialog({
-  formData,
-  tokenName = '',
-  liquidationPrice,
-  onConfirm,
-}: IShowOrderConfirmParams) {
+function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
+  const { isSubmitting, handleConfirm: confirmOrder } = useOrderConfirm({
+    onSuccess: () => {
+      onClose?.();
+    },
+    onError: () => {
+      onClose?.();
+    },
+  });
+  const [perpsCustomSettings, setPerpsCustomSettings] =
+    usePerpsCustomSettingsAtom();
+  const [formData] = useTradingFormAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
+  const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
-  const buttonStyleProps = getTradingButtonStyleProps(formData.side, false);
+  const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
   const actionText = formData.side === 'long' ? 'Long' : 'Short';
 
-  const getSizeDisplay = () => {
-    if (formData.size && tokenName) return `${formData.size} ${tokenName}`;
-    return '0';
-  };
+  const sizeDisplay = useMemo(() => {
+    if (selectedSymbol?.coin) {
+      return `${tradingComputed.computedSizeString} ${selectedSymbol.coin}`;
+    }
+    return tradingComputed.computedSizeString;
+  }, [tradingComputed.computedSizeString, selectedSymbol?.coin]);
 
-  const sizeDisplay = getSizeDisplay();
+  const buttonText = useMemo(() => {
+    if (isSubmitting) {
+      return appLocale.intl.formatMessage({
+        id: ETranslations.perp_trading_button_placing,
+      });
+    }
+    return appLocale.intl.formatMessage({
+      id: ETranslations.perp_confirm_order,
+    });
+  }, [isSubmitting]);
 
-  const OrderContent = () => (
-    <YStack gap="$4">
+  const setSkipOrderConfirm = useCallback(
+    (value: boolean) => {
+      setPerpsCustomSettings({
+        ...perpsCustomSettings,
+        skipOrderConfirm: value,
+      });
+    },
+    [perpsCustomSettings, setPerpsCustomSettings],
+  );
+
+  const handleConfirm = useCallback(() => {
+    onClose?.();
+    void confirmOrder();
+  }, [confirmOrder, onClose]);
+
+  return (
+    <YStack gap="$4" p="$1">
       {/* Order Details */}
       <YStack gap="$3">
         {/* Action */}
@@ -79,13 +123,7 @@ export function showOrderConfirmDialog({
               })}
             </SizableText>
           ) : (
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {formData.price}
-            </NumberSizeableText>
+            <SizableText size="$bodyMd">$ {formData.price}</SizableText>
           )}
         </XStack>
 
@@ -96,51 +134,64 @@ export function showOrderConfirmDialog({
               id: ETranslations.perp_position_liq_price,
             })}
           </SizableText>
-          {!liquidationPrice ? (
-            <SizableText size="$bodyMdMedium">N/A</SizableText>
-          ) : (
-            <NumberSizeableText
-              size="$bodyMdMedium"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-            >
-              {liquidationPrice}
-            </NumberSizeableText>
-          )}
+          <SizableText size="$bodyMd">
+            <LiquidationPriceDisplay textSize="$bodyMdMedium" />
+          </SizableText>
+        </XStack>
+
+        {/* skip order confirm checkbox */}
+        <XStack justifyContent="space-between" alignItems="center" gap="$2">
+          <Checkbox
+            labelProps={{
+              fontSize: '$bodyMdMedium',
+              color: '$textSubdued',
+            }}
+            label={appLocale.intl.formatMessage({
+              id: ETranslations.perp_confirm_not_show,
+            })}
+            value={perpsCustomSettings.skipOrderConfirm}
+            onChange={(checked) => setSkipOrderConfirm(!!checked)}
+          />
         </XStack>
       </YStack>
+
+      <TradingGuardWrapper>
+        <Button
+          variant="primary"
+          size="medium"
+          disabled={isSubmitting}
+          loading={isSubmitting}
+          onPress={handleConfirm}
+          {...buttonStyleProps}
+        >
+          <SizableText size="$bodyMdMedium" color="$textOnColor">
+            {buttonText}
+          </SizableText>
+        </Button>
+      </TradingGuardWrapper>
     </YStack>
   );
+}
 
-  Dialog.confirm({
+export function showOrderConfirmDialog() {
+  const dialogInstance = Dialog.show({
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_confirm_order,
     }),
-    description: appLocale.intl.formatMessage({
-      id: ETranslations.perp_confirm_order_desc,
-    }),
-    renderContent: <OrderContent />,
-    confirmButtonProps: {
-      bg: buttonStyleProps.bg,
-      hoverStyle: buttonStyleProps.hoverStyle,
-      pressStyle: buttonStyleProps.pressStyle,
-      color: buttonStyleProps.textColor,
-    },
-    onConfirm: async () => {
-      try {
-        await onConfirm();
-        Toast.success({
-          title: 'Order Placed Successfully',
-          message: `${actionText} order for ${sizeDisplay} has been submitted`,
-        });
-      } catch (error) {
-        Toast.error({
-          title: 'Order Failed',
-          message:
-            error instanceof Error ? error.message : 'Failed to place order',
-        });
-        throw error;
-      }
+    renderContent: (
+      <PerpsProviderMirror>
+        <OrderConfirmContent
+          onClose={() => {
+            void dialogInstance.close();
+          }}
+        />
+      </PerpsProviderMirror>
+    ),
+    showFooter: false,
+    onClose: () => {
+      void dialogInstance.close();
     },
   });
+
+  return dialogInstance;
 }

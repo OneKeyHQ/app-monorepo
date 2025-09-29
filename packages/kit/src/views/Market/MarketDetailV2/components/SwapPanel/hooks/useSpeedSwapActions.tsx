@@ -37,6 +37,7 @@ import { wrappedTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constant
 import type {
   ISwapApproveTransaction,
   ISwapNativeTokenReserveGas,
+  ISwapToken,
   ISwapTokenBase,
   ISwapTxHistory,
   ISwapTxInfo,
@@ -55,7 +56,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { ESwapDirection } from './useTradeType';
 
 export function useSpeedSwapActions(props: {
-  marketToken: ISwapTokenBase;
+  marketToken: ISwapToken;
   tradeToken: ISwapTokenBase;
   tradeType: ESwapDirection;
   fromTokenAmount: string;
@@ -89,7 +90,6 @@ export function useSpeedSwapActions(props: {
   const [speedSwapBuildTxLoading, setSpeedSwapBuildTxLoading] = useState(false);
   const [checkTokenAllowanceLoading, setCheckTokenAllowanceLoading] =
     useState(false);
-  const [baseToken, setBaseToken] = useState<ISwapTokenBase | undefined>();
   const [fetchBalanceLoading, setFetchBalanceLoading] = useState(false);
   const [swapNativeTokenReserveGas, setSwapNativeTokenReserveGas] = useState<
     ISwapNativeTokenReserveGas[]
@@ -131,20 +131,74 @@ export function useSpeedSwapActions(props: {
     leading: true,
   });
 
+  const [tradeTokenDetail, setTradeTokenDetail] =
+    useState<ISwapToken>(tradeToken);
+
+  useEffect(() => {
+    void (async () => {
+      if (tradeType === ESwapDirection.BUY) {
+        const tokenDetail =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: tradeToken?.networkId ?? '',
+            contractAddress: tradeToken?.contractAddress ?? '',
+          });
+        if (tokenDetail?.length) {
+          setTradeTokenDetail({
+            ...tokenDetail[0],
+            symbol: tradeToken?.symbol,
+            logoURI: tokenDetail[0]?.logoURI
+              ? tokenDetail[0]?.logoURI
+              : tradeToken?.logoURI,
+          });
+        }
+      } else {
+        const sellTradeToken = defaultTradeTokens?.find(
+          (item) => item.isNative,
+        ) ?? {
+          networkId: tradeToken?.networkId,
+          contractAddress: tradeToken?.contractAddress,
+          symbol: tradeToken?.symbol,
+          logoURI: tradeToken?.logoURI,
+        };
+        const tokenDetail =
+          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+            networkId: sellTradeToken?.networkId ?? '',
+            contractAddress: sellTradeToken?.contractAddress ?? '',
+          });
+        if (tokenDetail?.length) {
+          setTradeTokenDetail({
+            ...tokenDetail[0],
+            symbol: sellTradeToken?.symbol ?? '',
+            logoURI: tokenDetail[0]?.logoURI
+              ? tokenDetail[0]?.logoURI
+              : sellTradeToken?.logoURI,
+          });
+        }
+      }
+    })();
+  }, [
+    tradeType,
+    defaultTradeTokens,
+    tradeToken?.contractAddress,
+    tradeToken?.logoURI,
+    tradeToken?.networkId,
+    tradeToken?.symbol,
+  ]);
+
   const { fromToken, toToken, balanceToken } = useMemo(() => {
     if (tradeType === ESwapDirection.BUY) {
       return {
-        fromToken: tradeToken,
-        toToken: baseToken ?? marketToken,
-        balanceToken: tradeToken,
+        fromToken: tradeTokenDetail,
+        toToken: marketToken,
+        balanceToken: tradeTokenDetail,
       };
     }
     return {
-      fromToken: baseToken ?? marketToken,
-      toToken: defaultTradeTokens?.find((item) => item.isNative) ?? tradeToken,
-      balanceToken: baseToken ?? marketToken,
+      fromToken: marketToken,
+      toToken: tradeTokenDetail,
+      balanceToken: marketToken,
     };
-  }, [tradeType, baseToken, marketToken, defaultTradeTokens, tradeToken]);
+  }, [tradeType, marketToken, tradeTokenDetail]);
 
   // --- build tx
 
@@ -566,6 +620,7 @@ export function useSpeedSwapActions(props: {
           !netAccountRes.result?.address ||
           amountBN.isZero() ||
           amountBN.isNaN() ||
+          fromToken.isNative ||
           isWrapped
         ) {
           return;
@@ -598,6 +653,7 @@ export function useSpeedSwapActions(props: {
       }
     },
     [
+      fromToken.isNative,
       fromToken.contractAddress,
       fromToken.networkId,
       netAccountRes.result?.address,
@@ -830,19 +886,9 @@ export function useSpeedSwapActions(props: {
       ...(prev ?? {}),
       loading: true,
     }));
-    const [fromTokenPrice, toTokenPrice] = await Promise.all([
-      backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: fromToken.networkId ?? '',
-        contractAddress: fromToken.contractAddress ?? '',
-      }),
-      backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-        networkId: toToken.networkId ?? '',
-        contractAddress: toToken.contractAddress ?? '',
-      }),
-    ]);
-    if (fromTokenPrice?.length && toTokenPrice?.length) {
-      const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
-      const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+    if (fromToken.price && toToken.price) {
+      const fromTokenPriceBN = new BigNumber(fromToken.price || 0);
+      const toTokenPriceBN = new BigNumber(toToken.price || 0);
       setPriceRate({
         rate: toTokenPriceBN.isZero()
           ? 0
@@ -852,17 +898,42 @@ export function useSpeedSwapActions(props: {
         loading: false,
       });
     } else {
-      setPriceRate((prev) => ({
-        ...(prev ?? {}),
-        loading: false,
-      }));
+      const [fromTokenPrice, toTokenPrice] = await Promise.all([
+        backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: fromToken.networkId ?? '',
+          contractAddress: fromToken.contractAddress ?? '',
+        }),
+        backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+          networkId: toToken.networkId ?? '',
+          contractAddress: toToken.contractAddress ?? '',
+        }),
+      ]);
+      if (fromTokenPrice?.length && toTokenPrice?.length) {
+        const fromTokenPriceBN = new BigNumber(fromTokenPrice[0].price || 0);
+        const toTokenPriceBN = new BigNumber(toTokenPrice[0].price || 0);
+        setPriceRate({
+          rate: toTokenPriceBN.isZero()
+            ? 0
+            : fromTokenPriceBN.dividedBy(toTokenPriceBN).toNumber(),
+          fromTokenSymbol: fromToken.symbol,
+          toTokenSymbol: toToken.symbol,
+          loading: false,
+        });
+      } else {
+        setPriceRate((prev) => ({
+          ...(prev ?? {}),
+          loading: false,
+        }));
+      }
     }
   }, [
+    fromToken.price,
     fromToken.symbol,
-    toToken.symbol,
     fromToken.networkId,
-    toToken.networkId,
     fromToken.contractAddress,
+    toToken.price,
+    toToken.symbol,
+    toToken.networkId,
     toToken.contractAddress,
   ]);
 
@@ -953,30 +1024,6 @@ export function useSpeedSwapActions(props: {
     checkTokenApproveAllowance,
     inAppNotificationAtom.speedSwapApprovingTransaction?.status,
     netAccountRes?.result?.address,
-  ]);
-
-  useEffect(() => {
-    void (async () => {
-      const tokenInfo =
-        await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-          networkId: marketToken?.networkId,
-          contractAddress: marketToken?.contractAddress,
-        });
-      if (tokenInfo?.length) {
-        setBaseToken({
-          ...tokenInfo[0],
-          symbol: marketToken?.symbol,
-          logoURI: tokenInfo[0]?.logoURI
-            ? tokenInfo[0]?.logoURI
-            : marketToken?.logoURI,
-        });
-      }
-    })();
-  }, [
-    marketToken?.contractAddress,
-    marketToken?.logoURI,
-    marketToken?.networkId,
-    marketToken?.symbol,
   ]);
 
   useEffect(() => {

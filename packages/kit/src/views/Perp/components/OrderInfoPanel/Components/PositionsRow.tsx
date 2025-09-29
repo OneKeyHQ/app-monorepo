@@ -1,9 +1,11 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   IconButton,
   SizableText,
   Tooltip,
@@ -11,8 +13,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
+import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -20,64 +26,81 @@ import type { AssetPosition, FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
   pos: AssetPosition['position'];
-  mid?: string;
+  coin: string;
   handleClosePosition: (type: 'market' | 'limit') => void;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
   tpslOrders: FrontendOrder[];
   handleViewTpslOrders: () => void;
-  onAllClose: () => void;
   setTpsl: () => void;
   isMobile?: boolean;
   index: number;
 }
 
+function MarkPrice({ coin, decimals }: { coin: string; decimals: number }) {
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    szDecimals: decimals,
+  });
+
+  return (
+    <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+      {midFormattedByDecimals}
+    </SizableText>
+  );
+}
+
 const PositionRow = memo(
   ({
     pos,
-    mid,
+    coin,
     tpslOrders,
     cellMinWidth,
     columnConfigs,
     isMobile,
     handleClosePosition,
     handleViewTpslOrders,
-    onAllClose,
     setTpsl,
     index,
   }: IPositionRowProps) => {
+    const actions = useHyperliquidActions();
+    const intl = useIntl();
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
     }, [pos.szi]);
     const assetInfo = useMemo(() => {
+      const leverageType =
+        pos.leverage?.type === 'cross'
+          ? intl.formatMessage({
+              id: ETranslations.perp_trade_cross,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_trade_isolated,
+            });
       return {
         assetSymbol: pos.coin,
         leverage: pos.leverage?.value ?? '',
-        assetColor: side === 'long' ? '$textSuccess' : '$textCritical',
+        assetColor: side === 'long' ? '$green11' : '$red11',
+        leverageType,
       };
-    }, [pos.coin, side, pos.leverage?.value]);
+    }, [pos.coin, side, pos.leverage?.value, pos.leverage?.type, intl]);
+    const decimals = useMemo(
+      () => getValidPriceDecimals(pos.entryPx || '0'),
+      [pos.entryPx],
+    );
 
     const priceInfo = useMemo(() => {
-      const entryPrice = new BigNumber(pos.entryPx || '0').toFixed();
-      const markPrice = new BigNumber(mid || '0').toFixed();
+      const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
-      const entryPriceFormatted = numberFormat(entryPrice, {
-        formatter: 'price',
-      });
-      const markPriceFormatted = numberFormat(markPrice, {
-        formatter: 'price',
-      });
+      const entryPriceFormatted = entryPrice;
       const liquidationPriceFormatted = liquidationPrice.isZero()
         ? 'N/A'
-        : numberFormat(liquidationPrice.toFixed(), {
-            formatter: 'price',
-          });
+        : liquidationPrice.toFixed(decimals);
       return {
         entryPriceFormatted,
-        markPriceFormatted,
         liquidationPriceFormatted,
       };
-    }, [pos.entryPx, mid, pos.liquidationPx]);
+    }, [decimals, pos.entryPx, pos.liquidationPx]);
 
     const sizeInfo = useMemo(() => {
       const sizeBN = new BigNumber(pos.szi || '0');
@@ -90,7 +113,7 @@ const PositionRow = memo(
       });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
       const sizeValueFormatted = numberFormat(sizeValue, {
-        formatter: 'price',
+        formatter: 'balance',
         formatterOptions: {
           currency: '$',
         },
@@ -110,10 +133,10 @@ const PositionRow = memo(
           currency: '$',
         },
       });
-      let pnlColor = '$textSuccess';
+      let pnlColor = '$green11';
       let pnlPlusOrMinus = '+';
       if (pnlBn.lt(0)) {
-        pnlColor = '$textCritical';
+        pnlColor = '$red11';
         pnlPlusOrMinus = '-';
       }
       const marginUsedBN = new BigNumber(pos.marginUsed || '0');
@@ -123,29 +146,34 @@ const PositionRow = memo(
           currency: '$',
         },
       });
-      const fundingFormatted = numberFormat(pos.cumFunding.allTime, {
-        formatter: 'value',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
-      const fundingFormattedSinceChange = numberFormat(
-        pos.cumFunding.sinceChange,
-        {
-          formatter: 'value',
-          formatterOptions: {
-            currency: '$',
-          },
-        },
-      );
+
+      const fundingAllTimeBN = new BigNumber(pos.cumFunding.allTime);
+      const fundingSinceOpenBN = new BigNumber(pos.cumFunding.sinceOpen);
+      const fundingSinceChangeBN = new BigNumber(pos.cumFunding.sinceChange);
+      const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '+';
+      const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '+';
+      const fundingSinceOpenColor = fundingSinceOpenBN.gt(0)
+        ? '$textCritical'
+        : '$textSuccess';
+      const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
+        ? '-'
+        : '+';
+      const fundingAllTimeFormatted = fundingAllTimeBN.abs().toFixed(2);
+      const fundingSinceOpenFormatted = fundingSinceOpenBN.abs().toFixed(2);
+      const fundingSinceChangeFormatted = fundingSinceChangeBN.abs().toFixed(2);
       const roiPercent = marginUsedBN.gt(0)
         ? pnlBn.div(marginUsedBN).times(100).abs().toFixed(2)
         : '0';
       return {
         unrealizedPnl: pnlFormatted,
         marginUsedFormatted,
-        fundingFormatted,
-        fundingFormattedSinceChange,
+        fundingAllTimeFormatted,
+        fundingSinceOpenFormatted,
+        fundingSinceChangeFormatted,
+        fundingAllPlusOrMinus,
+        fundingSinceOpenPlusOrMinus,
+        fundingSinceChangePlusOrMinus,
+        fundingSinceOpenColor,
         roiPercent,
         pnlColor,
         pnlPlusOrMinus,
@@ -188,24 +216,46 @@ const PositionRow = memo(
       return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
     }, [tpslOrders]);
 
+    const [isSizeViewChange, setIsSizeViewChange] = useState(false);
+    const handleSizeViewChange = useCallback(() => {
+      setIsSizeViewChange(!isSizeViewChange);
+    }, [isSizeViewChange]);
+
     if (isMobile) {
       return (
-        <ListItem flex={1} flexDirection="column" alignItems="flex-start">
-          <XStack gap="$2">
+        <ListItem
+          flex={1}
+          mt="$1.5"
+          flexDirection="column"
+          alignItems="flex-start"
+        >
+          <XStack
+            gap="$2"
+            alignItems="center"
+            cursor="pointer"
+            onPress={() =>
+              actions.current.changeActiveAsset({
+                coin: assetInfo.assetSymbol,
+              })
+            }
+          >
             <XStack
-              w="$5"
-              h="$5"
+              w="$4"
+              h="$4"
               justifyContent="center"
               alignItems="center"
               borderRadius="$1"
               backgroundColor={assetInfo.assetColor}
             >
-              <SizableText size="$bodyMdMedium" color="$textOnColor">
+              <SizableText size="$bodySmMedium" color="$textOnColor">
                 {side === 'long' ? 'B' : 'S'}
               </SizableText>
             </XStack>
             <SizableText size="$bodyMdMedium" color="$text">
               {assetInfo.assetSymbol}
+            </SizableText>
+            <SizableText size="$bodySm" color={assetInfo.assetColor}>
+              {assetInfo.leverageType}
             </SizableText>
             <SizableText size="$bodySm" color={assetInfo.assetColor}>
               {`${side === 'long' ? 'Long' : 'Sell'} ${assetInfo.leverage}X`}
@@ -218,96 +268,145 @@ const PositionRow = memo(
           >
             <YStack gap="$1">
               <SizableText size="$bodySm" color="$textSubdued">
-                PNL
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_pnl_mobile,
+                })}
               </SizableText>
-              <SizableText size="$bodySm" color={otherInfo.pnlColor}>
-                {`${otherInfo.unrealizedPnl as string}`}
+              <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+                {`${otherInfo.pnlPlusOrMinus}${
+                  otherInfo.unrealizedPnl as string
+                }`}
               </SizableText>
             </YStack>
             <YStack gap="$1" alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
                 ROE
               </SizableText>
-              <SizableText size="$bodySm" color={otherInfo.pnlColor}>
-                {`${otherInfo.roiPercent}%`}
+              <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
+                {`${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%`}
               </SizableText>
             </YStack>
           </XStack>
           <XStack width="100%" flex={1} alignItems="center">
             <YStack gap="$1" width={120}>
               <SizableText size="$bodySm" color="$textSubdued">
-                Positon Size
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_position_size,
+                })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${sizeInfo.sizeAbsFormatted as string}`}
-              </SizableText>
+              <XStack
+                alignItems="center"
+                gap="$1"
+                cursor="pointer"
+                onPress={handleSizeViewChange}
+              >
+                <SizableText size="$bodySmMedium">
+                  {`${
+                    isSizeViewChange
+                      ? (sizeInfo.sizeValue as string)
+                      : (sizeInfo.sizeAbsFormatted as string)
+                  }`}
+                </SizableText>
+                <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
+              </XStack>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                Margin
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_margin,
+                })}
               </SizableText>
-              <SizableText size="$bodySm">
+              <SizableText size="$bodySmMedium">
                 {`${otherInfo.marginUsedFormatted as string}`}
               </SizableText>
             </YStack>
             <YStack gap="$1" width={120} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
-                Entry Price
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_entry_price,
+                })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${priceInfo.entryPriceFormatted as string}`}
+              <SizableText size="$bodySmMedium">
+                {`${priceInfo.entryPriceFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
           <XStack width="100%" flex={1} alignItems="center">
             <YStack gap="$1" width={120}>
               <SizableText size="$bodySm" color="$textSubdued">
-                Funding
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_funding,
+                })}
               </SizableText>
               <Tooltip
+                placement="top"
                 renderTrigger={
-                  <SizableText size="$bodySm" color="$textCritical">
-                    {`-${otherInfo.fundingFormatted as string}`}
+                  <SizableText
+                    size="$bodySmMedium"
+                    color={otherInfo.fundingSinceOpenColor}
+                  >
+                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 }
-                renderContent={`allTime: -${
-                  otherInfo.fundingFormatted as string
-                } sinceChange: -${
-                  otherInfo.fundingFormattedSinceChange as string
-                }`}
+                renderContent={
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_all_time,
+                    })}
+                    {': '}
+                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_since_change,
+                    })}
+                    {': '}
+                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
+                  </SizableText>
+                }
               />
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
-                TPSL
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
               </SizableText>
-              <SizableText size="$bodySm">{`${tpslInfo.tpsl}`}</SizableText>
+              <SizableText size="$bodySmMedium">{`${tpslInfo.tpsl}`}</SizableText>
             </YStack>
             <YStack gap="$1" width={120} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
-                Liq. Price
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_liq_price,
+                })}
               </SizableText>
-              <SizableText size="$bodySm">
-                {`${priceInfo.liquidationPriceFormatted as string}`}
+              <SizableText size="$bodySmMedium">
+                {`${priceInfo.liquidationPriceFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
-          <XStack width="100%" justifyContent="space-between">
+          <XStack width="100%" gap="$2.5" justifyContent="space-between">
             <Button
-              width={160}
-              size="small"
+              size="medium"
               variant="secondary"
               onPress={setTpsl}
+              flex={1}
             >
-              Set TP/SL
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_trade_set_tp_sl,
+                })}
+              </SizableText>
             </Button>
             <Button
-              width={160}
-              size="small"
+              size="medium"
               variant="secondary"
-              onPress={onAllClose}
+              onPress={() => handleClosePosition('market')}
+              flex={1}
             >
-              Close
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_close_position_title,
+                })}
+              </SizableText>
             </Button>
           </XStack>
         </ListItem>
@@ -333,7 +432,31 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[0].align)}
           gap="$2"
           pl="$2"
+          cursor="pointer"
+          onPress={() =>
+            actions.current.changeActiveAsset({
+              coin: assetInfo.assetSymbol,
+            })
+          }
         >
+          <XStack
+            w="$4"
+            h="$4"
+            justifyContent="center"
+            alignItems="center"
+            borderRadius="$1"
+            backgroundColor={assetInfo.assetColor}
+            cursor="pointer"
+            onPress={() =>
+              actions.current.changeActiveAsset({
+                coin: assetInfo.assetSymbol,
+              })
+            }
+          >
+            <SizableText size="$bodySmMedium" color="$textOnColor">
+              {side === 'long' ? 'B' : 'S'}
+            </SizableText>
+          </XStack>
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -342,6 +465,14 @@ const PositionRow = memo(
             color={assetInfo.assetColor}
           >
             {assetInfo.assetSymbol}
+          </SizableText>
+          <SizableText
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            size="$bodySm"
+            color={assetInfo.assetColor}
+          >
+            {assetInfo.leverageType}
           </SizableText>
           <SizableText
             numberOfLines={1}
@@ -382,7 +513,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${priceInfo.entryPriceFormatted as string}`}</SizableText>
+          >{`${priceInfo.entryPriceFormatted}`}</SizableText>
         </XStack>
 
         {/* Mark Price */}
@@ -391,11 +522,7 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.markPriceFormatted as string}`}</SizableText>
+          <MarkPrice coin={coin} decimals={decimals} />
         </XStack>
         {/* Liq. Price */}
         <XStack
@@ -407,7 +534,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${priceInfo.liquidationPriceFormatted as string}`}</SizableText>
+          >{`${priceInfo.liquidationPriceFormatted}`}</SizableText>
         </XStack>
         {/* Unrealized PnL */}
         <XStack
@@ -452,12 +579,23 @@ const PositionRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
-                color="$textCritical"
-              >{`-${otherInfo.fundingFormatted as string}`}</SizableText>
+                color={otherInfo.fundingSinceOpenColor}
+              >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
-            renderContent={`allTime: -${
-              otherInfo.fundingFormatted as string
-            } sinceChange: -${otherInfo.fundingFormattedSinceChange as string}`}
+            renderContent={
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_funding_all_time,
+                })}
+                {': '}
+                {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_funding_since_change,
+                })}
+                {': '}
+                {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
+              </SizableText>
+            }
           />
         </XStack>
 
@@ -468,23 +606,37 @@ const PositionRow = memo(
           alignItems="center"
         >
           {tpslInfo.showOrder ? (
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={handleViewTpslOrders}
-            >
-              <SizableText color="$textSuccess" size="$bodySm">
-                View Order
+            <XStack alignItems="center" gap="$1">
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="HighlightOutline"
+                iconSize="$3"
+                onPress={setTpsl}
+                cursor="pointer"
+              />
+
+              <SizableText
+                cursor="pointer"
+                hoverStyle={{ size: '$bodySmMedium' }}
+                color="$green11"
+                size="$bodySm"
+                onPress={handleViewTpslOrders}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_view_orders,
+                })}
               </SizableText>
-            </Button>
+            </XStack>
           ) : (
             <XStack alignItems="center" gap="$1">
               <IconButton
                 variant="tertiary"
                 size="small"
                 icon="HighlightOutline"
-                iconSize="$2.5"
+                iconSize="$3"
                 onPress={setTpsl}
+                cursor="pointer"
               />
               <SizableText
                 numberOfLines={1}
@@ -509,20 +661,28 @@ const PositionRow = memo(
             onPress={() => handleClosePosition('market')}
           >
             <SizableText
+              cursor="pointer"
+              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$textSuccess"
-              size="$bodySmMedium"
-              fontWeight={600}
+              size="$bodySm"
+              fontWeight={400}
             >
-              Market
+              {intl.formatMessage({
+                id: ETranslations.perp_position_market,
+              })}
             </SizableText>
           </XStack>
           <XStack cursor="pointer" onPress={() => handleClosePosition('limit')}>
             <SizableText
+              cursor="pointer"
+              hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
               color="$textSuccess"
-              size="$bodySmMedium"
-              fontWeight={600}
+              size="$bodySm"
+              fontWeight={400}
             >
-              Limit
+              {intl.formatMessage({
+                id: ETranslations.perp_position_limit,
+              })}
             </SizableText>
           </XStack>
         </XStack>

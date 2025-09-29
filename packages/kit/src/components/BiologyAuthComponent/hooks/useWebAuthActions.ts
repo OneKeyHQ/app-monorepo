@@ -28,10 +28,7 @@ const checkExtWebAuth = async (type: EPassKeyWindowType) => {
   // Bug:
   // In macOS's Chrome, the passkey window from Chrome password manager cannot be opened in a popup or sidebar window,
   //  so a separate pop-up window needs to be opened.
-  if (
-    (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) &&
-    platformEnv.isRuntimeMacOSBrowser
-  ) {
+  if (platformEnv.isExtensionUiSidePanel && platformEnv.isRuntimeMacOSBrowser) {
     await extUtils.openPassKeyWindow(type);
     return new Promise(() => {});
   }

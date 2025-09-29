@@ -1,5 +1,7 @@
 import { EXT_UI_TO_BG_PORT_NAME } from '@onekeyhq/shared/types';
 
+import { closeWindow } from '../closePasskeyWIndow';
+
 const setupExtUIEventBase = (
   onDisconnect: (port: chrome.runtime.Port) => void,
 ) => {
@@ -22,4 +24,6 @@ export const setupExtUIEvent = () =>
   });
 
 export const setupExtUIEventOnPassKeyPage = () =>
-  setupExtUIEventBase((port: chrome.runtime.Port) => window.close());
+  setupExtUIEventBase((port: chrome.runtime.Port) => {
+    closeWindow();
+  });

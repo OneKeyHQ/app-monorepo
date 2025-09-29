@@ -75,6 +75,7 @@ function RiskTokenManager() {
     deriveType,
     deriveInfo,
     hideValue,
+    accountAddress,
   } = route.params;
 
   const { tokens, map: tokenMap } = tokenList;
@@ -310,6 +311,7 @@ function RiskTokenManager() {
         deriveType,
         isAllNetworks,
         tokenMap,
+        accountAddress,
       });
     },
     [
@@ -321,6 +323,7 @@ function RiskTokenManager() {
       deriveType,
       isAllNetworks,
       tokenMap,
+      accountAddress,
     ],
   );
 
@@ -373,9 +376,11 @@ function RiskTokenManager() {
             >
               <XStack alignItems="center" gap="$3" maxWidth="60%">
                 <TokenIconView
+                  $key={token.$key}
                   networkId={token.networkId}
                   icon={token.logoURI}
                   isAllNetworks={isAllNetworks}
+                  showNetworkIcon={isAllNetworks}
                 />
                 <YStack flex={1}>
                   <TokenNameView

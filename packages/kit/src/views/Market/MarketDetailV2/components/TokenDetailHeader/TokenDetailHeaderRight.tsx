@@ -14,6 +14,7 @@ import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketStarV2 } from '../../../components/MarketStarV2';
+import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { ShareButton } from './ShareButton';
 
@@ -39,15 +40,14 @@ interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   showStats: boolean;
-  isNative?: boolean;
 }
 
 export function TokenDetailHeaderRight({
   tokenDetail,
   networkId,
   showStats,
-  isNative = false,
 }: ITokenDetailHeaderRightProps) {
+  const { isNative } = useTokenDetail();
   const intl = useIntl();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
@@ -73,7 +73,7 @@ export function TokenDetailHeaderRight({
   ) : null;
 
   const shareButton = networkId ? (
-    <ShareButton networkId={networkId} address={address} />
+    <ShareButton networkId={networkId} address={address} isNative={isNative} />
   ) : null;
 
   if (!showStats) {

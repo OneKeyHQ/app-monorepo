@@ -36,6 +36,7 @@ export enum EScopeName {
   dex = 'dex',
   perp = 'perp',
   prime = 'prime',
+  cloudSync = 'cloudSync',
 }
 export interface IScope {
   getName: () => EScopeName;

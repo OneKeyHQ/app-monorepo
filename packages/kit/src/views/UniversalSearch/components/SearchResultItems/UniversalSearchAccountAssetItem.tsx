@@ -22,13 +22,16 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { getTokenPriceChangeStyle } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IUniversalSearchAccountAssets } from '@onekeyhq/shared/types/search';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 interface IUniversalSearchAccountAssetItemProps {
   item: IUniversalSearchAccountAssets;
+  allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
 }
 
 export function UniversalSearchAccountAssetItem({
   item,
+  allAggregateTokenMap,
 }: IUniversalSearchAccountAssetItemProps) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num: 0 });
@@ -68,6 +71,7 @@ export function UniversalSearchAccountAssetItem({
         isAllNetworks: activeAccount.network?.isAllNetworks,
         indexedAccountId: activeAccount.indexedAccount?.id ?? '',
         tokenMap: allTokenListMapAtom,
+        accountAddress: activeAccount.account?.address ?? '',
       },
     });
 
@@ -126,6 +130,7 @@ export function UniversalSearchAccountAssetItem({
             flexShrink: 0,
           }}
           withAggregateBadge
+          allAggregateTokenMap={allAggregateTokenMap}
         />
         <NumberSizeableTextWrapper
           formatter="balance"

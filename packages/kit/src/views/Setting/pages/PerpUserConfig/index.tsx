@@ -1,13 +1,16 @@
 import { useCallback } from 'react';
 
-import { Page, Radio, XStack, startViewTransition } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, Radio, YStack, startViewTransition } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsUserConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 function PerpUserConfig() {
-  const [settings] = useSettingsPersistAtom();
-
+  const intl = useIntl();
+  const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();
   const setPerpUserConfig = useCallback(async (type: EPerpUserType) => {
     startViewTransition(() => {
       void backgroundApiProxy.serviceWebviewPerp.setPerpUserConfig(type);
@@ -16,26 +19,38 @@ function PerpUserConfig() {
 
   return (
     <Page>
-      <Page.Header title="Perp User Config" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.perp_setting_interface,
+        })}
+      />
       <Page.Body>
-        <XStack px="$5">
+        <YStack px="$5">
           <Radio
-            value={settings.perpUserConfig.currentUserType}
+            value={perpUserConfig.currentUserType}
             onChange={(value) => setPerpUserConfig(value as EPerpUserType)}
             options={[
               {
-                label: 'Native',
+                label: intl.formatMessage({
+                  id: ETranslations.perp_setting_interface_native_title,
+                }),
                 value: EPerpUserType.PERP_NATIVE,
-                description: 'Perp Native',
+                description: intl.formatMessage({
+                  id: ETranslations.perp_setting_interface_native_desc,
+                }),
               },
               {
-                label: 'Web',
+                label: intl.formatMessage({
+                  id: ETranslations.perp_setting_interface_web_title,
+                }),
                 value: EPerpUserType.PERP_WEB,
-                description: 'Perp Web',
+                description: intl.formatMessage({
+                  id: ETranslations.perp_setting_interface_web_desc,
+                }),
               },
             ]}
           />
-        </XStack>
+        </YStack>
       </Page.Body>
     </Page>
   );

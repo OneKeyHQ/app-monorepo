@@ -5,6 +5,7 @@ export enum EUpdateStrategy {
   silent = 0,
   force = 1,
   manual = 2,
+  seamless = 3,
 }
 
 export enum EUpdateFileType {
@@ -56,7 +57,6 @@ export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
   status: EAppUpdateStatus;
   errorText?: ETranslations;
   downloadedEvent?: IUpdateDownloadedEvent;
-  isShowUpdateDialog?: boolean;
   summary?: string;
 }
 

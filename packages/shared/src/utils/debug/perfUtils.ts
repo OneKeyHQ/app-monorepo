@@ -1,6 +1,5 @@
 import { isEqual, isNil } from 'lodash';
 
-import { OneKeyLocalError } from '../../errors';
 import errorUtils from '../../errors/utils/errorUtils';
 import appStorage from '../../storage/appStorage';
 import { EAppSyncStorageKeys } from '../../storage/syncStorage';

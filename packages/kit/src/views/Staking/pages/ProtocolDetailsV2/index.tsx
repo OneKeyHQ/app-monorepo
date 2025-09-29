@@ -8,10 +8,8 @@ import type { IButtonProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
-  Dialog,
   Divider,
   Image,
-  Input,
   Page,
   Toast,
   XStack,

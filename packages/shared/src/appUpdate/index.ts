@@ -24,6 +24,9 @@ export const getUpdateFileType: (
   latestVersion,
   jsBundleVersion,
 }: IIsNeedUpdateParams) => {
+  if (!latestVersion || !jsBundleVersion) {
+    return EUpdateFileType.appShell;
+  }
   if (
     latestVersion &&
     semver.eq(latestVersion, APP_VERSION) &&
@@ -56,7 +59,7 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   if (
     jsBundleVersion &&
     latestVersion &&
-    semver.eq(latestVersion, APP_VERSION)
+    semver.gte(latestVersion, APP_VERSION)
   ) {
     return {
       shouldUpdate: !!(

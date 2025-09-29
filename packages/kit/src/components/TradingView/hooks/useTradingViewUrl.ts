@@ -3,7 +3,10 @@ import { useMemo } from 'react';
 import { useCalendars } from 'expo-localization';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
-import { TRADING_VIEW_URL } from '@onekeyhq/shared/src/config/appConfig';
+import {
+  TRADING_VIEW_URL,
+  TRADING_VIEW_URL_TEST,
+} from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useLocaleVariant } from '../../../hooks/useLocaleVariant';
@@ -11,12 +14,11 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { getTradingViewTimezone } from '../utils/tradingViewTimezone';
 
 interface IUseTradingViewUrlOptions {
-  tradingViewUrl?: string;
   additionalParams?: Record<string, string>;
 }
 
 export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
-  const { tradingViewUrl, additionalParams } = options;
+  const { additionalParams } = options;
 
   const calendars = useCalendars();
   const systemLocale = useLocaleVariant();
@@ -24,18 +26,16 @@ export function useTradingViewUrl(options: IUseTradingViewUrlOptions = {}) {
   const [devSettings] = useDevSettingsPersistAtom();
 
   const baseUrl = useMemo(() => {
-    if (tradingViewUrl) {
-      return tradingViewUrl;
+    if (devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl) {
+      return 'http://localhost:5173/';
     }
 
-    return devSettings.enabled && devSettings.settings?.useLocalTradingViewUrl
-      ? 'http://localhost:5173/'
-      : TRADING_VIEW_URL;
-  }, [
-    tradingViewUrl,
-    devSettings.enabled,
-    devSettings.settings?.useLocalTradingViewUrl,
-  ]);
+    if (devSettings.enabled) {
+      return TRADING_VIEW_URL_TEST;
+    }
+
+    return TRADING_VIEW_URL;
+  }, [devSettings.enabled, devSettings.settings?.useLocalTradingViewUrl]);
 
   const finalUrl = useMemo(() => {
     const timezone = getTradingViewTimezone(calendars);

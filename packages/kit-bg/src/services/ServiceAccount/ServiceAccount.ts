@@ -43,7 +43,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import type { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
-import { PERPS_CHAIN_ID } from '@onekeyhq/shared/src/consts/perp';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_ALLNETWORKS,
@@ -217,6 +217,7 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
+    this.getAccountNameFromAddressMemo.clear();
     localDb.clearStoreCachedData();
   }
 
@@ -1354,14 +1355,17 @@ class ServiceAccount extends ServiceBase {
     return parts[1]; // userAddress
   }
 
-  private async shouldDeleteCredential(
-    addressRecord: IDBAddress | null,
+  private async shouldDeleteCredential({
+    addressRecord,
+    deletedInfo,
+  }: {
+    addressRecord: IDBAddress | null;
     deletedInfo: {
       walletId?: string;
       indexedAccountId?: string;
       accountId?: string;
-    },
-  ): Promise<boolean> {
+    };
+  }): Promise<boolean> {
     if (!addressRecord) {
       return false;
     }
@@ -1388,12 +1392,26 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async cleanupOrphanedHyperLiquidAgentCredentials(deletedInfo: {
+  async cleanupOrphanedHyperLiquidAgentCredentials({
+    walletId,
+    indexedAccountId,
+    accountId,
+  }: {
     walletId?: string;
     indexedAccountId?: string;
     accountId?: string;
   }): Promise<void> {
     try {
+      await timerUtils.wait(1000);
+      if (indexedAccountId || accountId) {
+        // eslint-disable-next-line no-param-reassign
+        walletId = undefined;
+      }
+      const deletedInfo = {
+        walletId,
+        indexedAccountId,
+        accountId,
+      };
       // Get all HyperLiquid agent credentials
       const allCredentials = await localDb.getAllHyperLiquidAgentCredentials();
 
@@ -1408,12 +1426,17 @@ class ServiceAccount extends ServiceBase {
 
           // Use existing address lookup table to check if address still exists
           const addressRecord = await localDb.getAddressByNetworkImpl({
-            networkId: PERPS_CHAIN_ID,
+            networkId: PERPS_NETWORK_ID,
             normalizedAddress: userAddress.toLowerCase(),
           });
 
           // Check if this credential should be deleted
-          if (await this.shouldDeleteCredential(addressRecord, deletedInfo)) {
+          if (
+            await this.shouldDeleteCredential({
+              addressRecord,
+              deletedInfo,
+            })
+          ) {
             credentialsToDelete.push(credential);
           }
         } catch (error) {
@@ -3158,7 +3181,6 @@ class ServiceAccount extends ServiceBase {
 
     // Cleanup orphaned HyperLiquid agent credentials
     void this.cleanupOrphanedHyperLiquidAgentCredentials({
-      walletId,
       accountId: account?.id,
       indexedAccountId: indexedAccount?.id,
     });

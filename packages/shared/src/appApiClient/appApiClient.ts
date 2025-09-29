@@ -5,6 +5,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { EServiceEndpointEnum } from '../../types/endpoint';
 import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
+import { REQUEST_TIMEOUT } from '../request/requestConst';
 import timerUtils from '../utils/timerUtils';
 
 import type { IEndpointInfo } from '../../types/endpoint';
@@ -62,7 +63,7 @@ const getBasicClient = async ({
     throw new OneKeyError('Invalid endpoint, https only');
   }
 
-  const timeout = 30 * 1000;
+  const timeout = REQUEST_TIMEOUT;
   const options =
     platformEnv.isDev && process.env.ONEKEY_PROXY
       ? {

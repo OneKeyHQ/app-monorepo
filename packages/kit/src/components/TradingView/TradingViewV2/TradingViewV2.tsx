@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
@@ -7,12 +7,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import WebView from '../../WebView';
-import { useTradingViewUrl } from '../hooks';
+import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import {
   useAutoKLineUpdate,
   useAutoTokenDetailUpdate,
-  useNavigationHandler,
   useTradingViewV2WebSocket,
 } from './hooks';
 import { useTradingViewMessageHandler } from './messageHandlers';
@@ -23,24 +22,17 @@ import type { WebViewProps } from 'react-native-webview';
 import type { WebViewNavigation } from 'react-native-webview/lib/WebViewTypes';
 
 interface IBaseTradingViewV2Props {
-  identifier: string;
   symbol: string;
-  targetToken: string;
-  onLoadEnd: () => void;
-  tradingViewUrl?: string;
   tokenAddress?: string;
   networkId?: string;
-  interval?: string;
-  timeFrom?: number;
-  timeTo?: number;
   decimal: number;
   onPanesCountChange?: (count: number) => void;
-  isNative?: boolean;
+  dataSource?: 'websocket' | 'polling';
 }
 
 export type ITradingViewV2Props = IBaseTradingViewV2Props & IStackStyle;
 
-export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
+export const TradingViewV2 = (props: ITradingViewV2Props & WebViewProps) => {
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
@@ -48,14 +40,12 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   const isVisible = useRouteIsFocused();
 
   const {
-    onLoadEnd,
-    tradingViewUrl,
     tokenAddress = '',
     networkId = '',
     symbol,
     decimal,
     onPanesCountChange,
-    isNative = false,
+    dataSource,
   } = props;
 
   const { handleNavigation } = useNavigationHandler();
@@ -67,7 +57,6 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
   });
 
   const { finalUrl: tradingViewUrlWithParams } = useTradingViewUrl({
-    tradingViewUrl,
     additionalParams: {
       symbol,
       decimal: decimal?.toString(),
@@ -76,14 +65,11 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     },
   });
 
-  // Use different data update strategies based on token type
-  // For native tokens (main coins), use traditional K-line updates
-  // For other tokens, use WebSocket for better real-time data
   useAutoKLineUpdate({
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && isNative,
+    enabled: isVisible && dataSource !== 'websocket',
   });
 
   useAutoTokenDetailUpdate({
@@ -98,7 +84,7 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     tokenAddress,
     networkId,
     webRef,
-    enabled: isVisible && !isNative,
+    enabled: isVisible && dataSource === 'websocket',
     chartType: '1m',
     currency: 'usd',
   });
@@ -108,14 +94,13 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
     [handleNavigation],
   );
 
-  return (
-    <Stack position="relative" flex={1}>
+  const webView = useMemo(
+    () => (
       <WebView
         key={theme}
         customReceiveHandler={async (data) => {
           await customReceiveHandler(data as ICustomReceiveHandlerData);
         }}
-        onLoadEnd={onLoadEnd}
         onWebViewRef={(ref) => {
           webRef.current = ref;
         }}
@@ -131,6 +116,19 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
         decelerationRate="normal"
         src={tradingViewUrlWithParams}
       />
+    ),
+    [
+      customReceiveHandler,
+      onShouldStartLoadWithRequest,
+      theme,
+      tradingViewUrlWithParams,
+      webRef,
+    ],
+  );
+
+  return (
+    <Stack position="relative" flex={1}>
+      {webView}
 
       {platformEnv.isNativeIOS || isIPadPortrait ? (
         <Stack
@@ -145,4 +143,4 @@ export function TradingViewV2(props: ITradingViewV2Props & WebViewProps) {
       ) : null}
     </Stack>
   );
-}
+};

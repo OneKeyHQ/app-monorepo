@@ -18,6 +18,9 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes/firmwareUpdate';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
@@ -32,14 +35,18 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid';
 import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { settingsPersistAtom } from '../../states/jotai/atoms';
+import {
+  perpsCommonConfigPersistAtom,
+  perpsUserConfigPersistAtom,
+  settingsPersistAtom,
+} from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
 import type {
   IHyperliquidCustomSettings,
   ISimpleDbPerpData,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type { ISettingsPersistAtom } from '../../states/jotai/atoms';
+import type { IPerpsCommonConfigPersistAtom } from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -166,7 +173,7 @@ export interface IPerpServerReferrerConfig {
 export interface IPerpServerCommonConfig {
   usePerpWeb?: boolean;
   disablePerp?: boolean;
-  disablePerpActionButton?: boolean;
+  disablePerpActionPerp?: boolean;
   ipDisablePerp?: boolean;
 }
 
@@ -193,69 +200,6 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async initializePerpConfig() {
     // TODO init by server api
-  }
-
-  @backgroundMethod()
-  async updatePerpConfig({
-    referrerConfig,
-    customSettings,
-    customLocalStorage,
-    customLocalStorageV2,
-    commonConfig,
-    bannerConfig,
-  }: IPerpServerConfigResponse) {
-    let shouldNotifyToDapp = false;
-    await settingsPersistAtom.set((prev): ISettingsPersistAtom => {
-      const newVal = perfUtils.buildNewValueIfChanged(prev, {
-        ...prev,
-        perpConfigCommon: {
-          ...prev.perpConfigCommon,
-          // usePerpWeb: true,
-          usePerpWeb: commonConfig?.usePerpWeb,
-          disablePerp: commonConfig?.disablePerp,
-          disablePerpActionButton: commonConfig?.disablePerpActionButton,
-          perpBannerConfig: bannerConfig,
-          ipDisablePerp: commonConfig?.ipDisablePerp,
-        },
-      });
-      return newVal;
-    });
-    await this.backgroundApi.simpleDb.perp.setPerpData(
-      (prev): ISimpleDbPerpData => {
-        const newConfig: ISimpleDbPerpData = {
-          tradingUniverse: prev?.tradingUniverse,
-          marginTables: prev?.marginTables,
-          ...prev,
-          hyperliquidBuilderAddress:
-            referrerConfig?.referrerAddress || prev?.hyperliquidBuilderAddress,
-          hyperliquidMaxBuilderFee: isNil(referrerConfig?.referrerRate)
-            ? prev?.hyperliquidMaxBuilderFee
-            : referrerConfig?.referrerRate,
-          agentTTL: referrerConfig.agentTTL ?? prev?.agentTTL,
-          referralCode: referrerConfig.referralCode || prev?.referralCode,
-          hyperliquidCustomSettings:
-            customSettings || prev?.hyperliquidCustomSettings,
-          hyperliquidCustomLocalStorage:
-            customLocalStorage || prev?.hyperliquidCustomLocalStorage,
-          hyperliquidCustomLocalStorageV2:
-            customLocalStorageV2 || prev?.hyperliquidCustomLocalStorageV2,
-        };
-        if (isEqual(newConfig, prev)) {
-          return (
-            prev || { tradingUniverse: undefined, marginTables: undefined }
-          );
-        }
-        shouldNotifyToDapp = true;
-        return newConfig;
-      },
-    );
-    if (shouldNotifyToDapp) {
-      const config = await this.backgroundApi.simpleDb.perp.getPerpData();
-      await this.backgroundApi.serviceDApp.notifyHyperliquidPerpConfigChanged({
-        hyperliquidBuilderAddress: config.hyperliquidBuilderAddress,
-        hyperliquidMaxBuilderFee: config.hyperliquidMaxBuilderFee,
-      });
-    }
   }
 
   private async hyperliquidRequestBase<T>(
@@ -658,50 +602,11 @@ class ServiceWebviewPerp extends ServiceBase {
     });
   }
 
-  @backgroundMethod()
-  async updateBuilderFeeConfigByServer() {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const resp = await client.get<
-      IApiClientResponse<IPerpServerConfigResponse>
-    >('/utility/v1/perp-config');
-    const resData = resp.data;
-
-    if (process.env.NODE_ENV !== 'production') {
-      // TODO devSettings ignore server config 11
-      // TODO remove
-      // resData.data.referrerRate = 65;
-    }
-
-    await this.updatePerpConfig({
-      referrerConfig: resData?.data?.referrerConfig,
-      customSettings: resData?.data?.customSettings,
-      customLocalStorage: resData?.data?.customLocalStorage,
-      customLocalStorageV2: {
-        ...HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
-        ...resData?.data?.customLocalStorageV2,
-      },
-      commonConfig: resData?.data?.commonConfig,
-      bannerConfig: resData?.data?.bannerConfig,
-    });
-    return resData;
-  }
-
-  updateBuilderFeeConfigByServerWithCache = cacheUtils.memoizee(
-    async () => {
-      return this.updateBuilderFeeConfigByServer();
-    },
-    {
-      max: 20,
-      maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
-      promise: true,
-    },
-  );
-
   isLocaleUpdatedByDappDone = false;
 
   @backgroundMethod()
   async getBuilderFeeConfig() {
-    void this.updateBuilderFeeConfigByServerWithCache();
+    void this.backgroundApi.serviceHyperliquid.updatePerpsConfigByServerWithCache();
     // try {
     //   const p = this.updateBuilderFeeConfigByServer();
     //   await pTimeout(p, {
@@ -771,10 +676,11 @@ class ServiceWebviewPerp extends ServiceBase {
       expectMaxBuilderFee,
       shouldModifyPlaceOrderPayload,
     } = await this.getBuilderFeeConfig();
-    let currentMaxBuilderFee = 0;
+    let currentMaxBuilderFee: number | null = null;
     let isApprovedDone = false;
     let canSetBuilderFee = false;
     let accountValue: string | null = null;
+    // let isGetApprovedMaxBuilderFeeTimeout = false;
 
     if (expectBuilderAddress) {
       try {
@@ -783,7 +689,7 @@ class ServiceWebviewPerp extends ServiceBase {
           builderAddress: expectBuilderAddress,
         });
         currentMaxBuilderFee = await pTimeout(p, {
-          milliseconds: 5000,
+          milliseconds: 8000,
         });
         // const shouldModifyPlaceOrderPayload = false;
         if (currentMaxBuilderFee === expectMaxBuilderFee) {
@@ -792,7 +698,7 @@ class ServiceWebviewPerp extends ServiceBase {
           accountValue = null;
         }
       } catch (error) {
-        console.error(error);
+        console.error('getUserApprovedMaxBuilderFeeWithCache ERROR: ', error);
       }
     }
 
@@ -809,7 +715,7 @@ class ServiceWebviewPerp extends ServiceBase {
         // TODO new address value check
         canSetBuilderFee = Number(accountValue) >= 0;
       } catch (error) {
-        console.error(error);
+        console.error('getAccountBalance ERROR: ', error);
       }
     }
 
@@ -829,18 +735,23 @@ class ServiceWebviewPerp extends ServiceBase {
   @backgroundMethod()
   async openExtPerpTab() {
     if (platformEnv.isExtension) {
-      this.lastExtPerpTab = await extUtils.openUrlInTab(
-        HYPER_LIQUID_WEBVIEW_TRADE_URL,
-        {
-          tabId: this.lastExtPerpTab?.id,
-        },
-      );
+      // this.lastExtPerpTab = await extUtils.openUrlInTab(
+      //   HYPER_LIQUID_WEBVIEW_TRADE_URL,
+      //   {
+      //     tabId: this.lastExtPerpTab?.id,
+      //   },
+      // );
+      this.lastExtPerpTab =
+        await this.backgroundApi.serviceApp.openExtensionExpandTab({
+          // routes: [ERootRoutes.Main, ETabRoutes.Perp], // not working for extension
+          path: '/perp',
+        });
     }
   }
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
-    await settingsPersistAtom.set((prev) => ({
+    await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
     }));

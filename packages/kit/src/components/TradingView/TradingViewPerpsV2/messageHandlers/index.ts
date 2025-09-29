@@ -6,12 +6,12 @@ import {
 } from '@onekeyfe/cross-inpage-provider-types';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { calculateDisplayPriceScale } from '@onekeyhq/shared/src/utils/perpsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IFill,
   IHex,
@@ -39,7 +39,6 @@ export function usePerpsMessageHandler({
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
-  const [allMids] = useAllMidsAtom();
 
   // Shared utility to convert fill data to TradingView mark
   const convertFillToMark = useCallback((fill: IFill): ITradingMark => {
@@ -163,13 +162,64 @@ export function usePerpsMessageHandler({
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
 
-      // Get price from allMids directly
-      const midValue = allMids?.mids?.[requestSymbol];
-      let calculatedPriceScale = 100; // default 2 decimal places
+      const getValidMidValue = async () => {
+        return backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
+          coin: requestSymbol,
+        });
+      };
 
-      if (midValue && Number(midValue) > 0) {
-        // Use HyperLiquid precision rules to calculate price scale
+      const WAIT_TIMEOUT_MS = timerUtils.getTimeDurationMs({ seconds: 3 });
+      const WAIT_INTERVAL_MS = 200;
+
+      let midValue = await getValidMidValue();
+      let calculatedPriceScale = 100; // default 2 decimal places
+      let persistedPriceScale: number | undefined;
+      let priceScaleSource: 'calculated' | 'persisted' | 'default' = 'default';
+
+      if (!midValue) {
+        try {
+          persistedPriceScale =
+            await backgroundApiProxy.serviceHyperliquid.getTradingviewDisplayPriceScale(
+              requestSymbol,
+            );
+        } catch (error) {
+          console.error(
+            '[MessageHandler] Failed to load stored price scale:',
+            error,
+          );
+        }
+      }
+
+      if (!midValue && persistedPriceScale === undefined) {
+        const deadline = Date.now() + WAIT_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, WAIT_INTERVAL_MS));
+          midValue = await getValidMidValue();
+          if (midValue) {
+            break;
+          }
+        }
+      }
+
+      if (midValue) {
         calculatedPriceScale = calculateDisplayPriceScale(midValue);
+        priceScaleSource = 'calculated';
+        try {
+          await backgroundApiProxy.serviceHyperliquid.setTradingviewDisplayPriceScale(
+            {
+              symbol: requestSymbol,
+              priceScale: calculatedPriceScale,
+            },
+          );
+        } catch (error) {
+          console.error(
+            '[MessageHandler] Failed to persist price scale:',
+            error,
+          );
+        }
+      } else if (persistedPriceScale !== undefined) {
+        calculatedPriceScale = persistedPriceScale;
+        priceScaleSource = 'persisted';
       }
 
       const response = {
@@ -182,6 +232,7 @@ export function usePerpsMessageHandler({
         symbol: requestSymbol,
         midValue,
         priceScale: calculatedPriceScale,
+        priceScaleSource,
       });
 
       webRef.current?.sendMessageViaInjectedScript({
@@ -189,7 +240,7 @@ export function usePerpsMessageHandler({
         payload: response,
       });
     },
-    [webRef, allMids],
+    [webRef],
   );
 
   const customReceiveHandler = useCallback(

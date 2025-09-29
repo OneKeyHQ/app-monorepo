@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
+import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
 
 import {
   useAggregateTokensMapAtom,
@@ -21,7 +21,7 @@ function TokenBalanceView(props: IProps) {
   const token = tokenListMap[$key || ''] ?? aggregateTokensMap[$key || ''];
 
   if (!token) {
-    return null;
+    return <SizableText {...rest}>-</SizableText>;
   }
 
   return (
