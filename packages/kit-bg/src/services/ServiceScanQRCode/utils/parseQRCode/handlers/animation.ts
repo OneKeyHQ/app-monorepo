@@ -46,6 +46,14 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
     animationData.parts = parts;
     animationData.fullUr = airGapUrUtils.urToJson({ ur });
     animationData.fullData = UREncoder.encodeSinglePart(ur).toUpperCase();
+    if (
+      animationData.partSize === 0 &&
+      animationData.partIndexes.length === 0 &&
+      animationData.parts.length > 0 &&
+      animationData.progress === 0
+    ) {
+      animationData.progress = 1;
+    }
     return {
       type: EQRCodeHandlerType.ANIMATION_CODE,
       data: animationData,
