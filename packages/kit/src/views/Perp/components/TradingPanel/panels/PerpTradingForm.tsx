@@ -6,9 +6,11 @@ import { useIntl } from 'react-intl';
 import {
   Checkbox,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
   Slider,
+  Tooltip,
   XStack,
   YStack,
   getFontSize,
@@ -440,11 +442,33 @@ function PerpTradingForm({
           borderRadius="$2"
         >
           <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_liq_price,
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
               })}
-            </SizableText>
+              renderTrigger={
+                <SizableText
+                  fontSize={10}
+                  color="$textSubdued"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dashed"
+                  textDecorationColor="$border"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_liq_price,
+                  })}
+                </SizableText>
+              }
+              renderContent={
+                <XStack px="$5" pb="$3">
+                  <SizableText size="$bodyMd" color="$text">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                  </SizableText>
+                </XStack>
+              }
+            />
             <SizableText fontSize={10} color="$text" fontWeight={500}>
               <LiquidationPriceDisplay isMobile={isMobile} />
             </SizableText>
@@ -613,11 +637,30 @@ function PerpTradingForm({
 
       <YStack gap="$2" mt="$5">
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
+          <Tooltip
+            placement="top"
+            renderContent={intl.formatMessage({
+              id: ETranslations.perp_est_liq_price_tooltip,
             })}
-          </SizableText>
+            renderTrigger={
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="default"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+              </SizableText>
+            }
+          />
+
           <SizableText size="$bodySmMedium">
             <LiquidationPriceDisplay />
           </SizableText>
@@ -637,11 +680,30 @@ function PerpTradingForm({
           </NumberSizeableText>
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_margin_required,
+          <Tooltip
+            placement="top"
+            renderContent={intl.formatMessage({
+              id: ETranslations.perp_trade_margin_tooltip,
             })}
-          </SizableText>
+            renderTrigger={
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="default"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+              </SizableText>
+            }
+          />
+
           <NumberSizeableText
             size="$bodySmMedium"
             formatter="value"

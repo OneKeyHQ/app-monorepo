@@ -121,7 +121,17 @@ function PerpAccountPanel({
               id: ETranslations.perp_account_panel_account_value_tooltip,
             })}
             renderTrigger={
-              <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="default"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_value,
                 })}
@@ -151,7 +161,17 @@ function PerpAccountPanel({
               id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
             })}
             renderTrigger={
-              <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="default"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_maintenance_margin,
                 })}

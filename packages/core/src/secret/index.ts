@@ -316,6 +316,9 @@ async function encryptHyperLiquidAgentCredential({
   if (!credential || !credential.privateKey) {
     throw new OneKeyLocalError('Invalid credential object');
   }
+  if (!password) {
+    throw new OneKeyLocalError('Invalid password');
+  }
   const encrypted = await encryptStringAsync({
     allowRawPassword,
     password,
