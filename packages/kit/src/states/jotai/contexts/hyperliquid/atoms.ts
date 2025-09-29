@@ -1,14 +1,19 @@
 import { createJotaiContext } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import {
+  computeMaxTradeSize,
+  resolveTradingSizeBN,
+  sanitizeManualSize,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IConnectionState,
   IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
+import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 const {
   Provider: ProviderJotaiContextHyperliquid,
   contextAtom,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   contextAtomComputed,
   contextAtomMethod,
 } = createJotaiContext();
@@ -47,6 +52,8 @@ export interface ITradingFormData {
   type: 'market' | 'limit';
   price: string;
   size: string;
+  sizeInputMode: EPerpsSizeInputMode;
+  sizePercent: number;
   leverage?: number;
 
   // Take Profit / Stop Loss
@@ -63,6 +70,8 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     type: 'market',
     price: '',
     size: '',
+    sizeInputMode: EPerpsSizeInputMode.MANUAL,
+    sizePercent: 0,
     leverage: 1,
     hasTpsl: false,
     tpTriggerPx: '',
@@ -96,4 +105,70 @@ export const {
 } = contextAtom<IPerpsActiveOpenOrdersAtom>({
   accountAddress: undefined,
   openOrders: [],
+});
+
+export interface ITradingFormEnv {
+  markPrice?: string;
+  availableToTrade?: Array<number | string>;
+  leverageValue?: number;
+  fallbackLeverage?: number;
+  szDecimals?: number;
+}
+
+export const { atom: tradingFormEnvAtom, use: useTradingFormEnvAtom } =
+  contextAtom<ITradingFormEnv>({});
+
+export const {
+  atom: tradingFormComputedAtom,
+  use: useTradingFormComputedAtom,
+} = contextAtomComputed((get) => {
+  const form = get(tradingFormAtom());
+  const env = get(tradingFormEnvAtom());
+
+  const mode = form.sizeInputMode ?? EPerpsSizeInputMode.MANUAL;
+  const percent = form.sizePercent ?? 0;
+
+  const price = form.type === 'limit' ? form.price : '';
+
+  const maxSizeBN = computeMaxTradeSize({
+    side: form.side,
+    price,
+    markPrice: env.markPrice,
+    availableToTrade: env.availableToTrade,
+    leverageValue: env.leverageValue,
+    fallbackLeverage: env.fallbackLeverage,
+    szDecimals: env.szDecimals,
+  });
+
+  const computedSizeBN = resolveTradingSizeBN({
+    sizeInputMode: mode,
+    manualSize: form.size,
+    sizePercent: percent,
+    side: form.side,
+    price,
+    markPrice: env.markPrice,
+    availableToTrade: env.availableToTrade,
+    leverageValue: env.leverageValue,
+    fallbackLeverage: env.fallbackLeverage,
+    szDecimals: env.szDecimals,
+  });
+
+  let computedSizeString = '0';
+  if (mode === 'slider') {
+    computedSizeString = computedSizeBN.isFinite()
+      ? computedSizeBN.toFixed()
+      : '0';
+  } else {
+    computedSizeString = sanitizeManualSize(form.size);
+  }
+
+  return {
+    sizeInputMode: mode,
+    sizePercent: percent,
+    computedSizeBN,
+    computedSizeString,
+    maxSizeBN,
+    maxSize: maxSizeBN.isFinite() ? maxSizeBN.toNumber() : 0,
+    sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gt(0),
+  };
 });

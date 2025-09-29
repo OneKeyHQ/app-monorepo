@@ -5,7 +5,10 @@
 
 import BigNumber from 'bignumber.js';
 
-import type { IPerpsFormattedAssetCtx } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  EPerpsSizeInputMode,
+  IPerpsFormattedAssetCtx,
+} from '@onekeyhq/shared/types/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
   MAX_PRICE_INTEGER_DIGITS,
@@ -923,6 +926,144 @@ function formatLargeNumber(
   return num.toFixed(6);
 }
 
+interface ITradingSizeContext {
+  side: 'long' | 'short';
+  price?: string;
+  markPrice?: string;
+  availableToTrade?: Array<number | string>;
+  leverageValue?: number | string | null;
+  fallbackLeverage?: number | string | null;
+  szDecimals?: number;
+}
+
+interface ITradingSizeParams extends ITradingSizeContext {
+  sizeInputMode: EPerpsSizeInputMode;
+  manualSize?: string;
+  sizePercent?: number;
+}
+
+const computeEffectivePrice = (
+  price?: string,
+  markPrice?: string,
+): BigNumber | null => {
+  if (price) {
+    const priceBN = new BigNumber(price);
+    if (priceBN.isFinite() && priceBN.gt(0)) {
+      return priceBN;
+    }
+  }
+
+  if (markPrice) {
+    const markPriceBN = new BigNumber(markPrice);
+    if (markPriceBN.isFinite() && markPriceBN.gt(0)) {
+      return markPriceBN;
+    }
+  }
+
+  return null;
+};
+
+const sanitizeManualSize = (size?: string): string => {
+  const trimmed = size?.trim();
+  if (!trimmed || trimmed === '.' || trimmed === '-') {
+    return '0';
+  }
+  return trimmed;
+};
+
+const computeMaxTradeSize = ({
+  side,
+  price,
+  markPrice,
+  availableToTrade,
+  leverageValue,
+  fallbackLeverage,
+  szDecimals,
+}: ITradingSizeContext): BigNumber => {
+  const effectivePrice = computeEffectivePrice(price, markPrice);
+  if (!effectivePrice) {
+    return new BigNumber(0);
+  }
+
+  const availableIndex = side === 'long' ? 0 : 1;
+  const availableValue = availableToTrade?.[availableIndex] ?? 0;
+  const availableBN = new BigNumber(availableValue);
+  if (!availableBN.isFinite() || availableBN.lte(0)) {
+    return new BigNumber(0);
+  }
+
+  const leverageCandidate = leverageValue ?? fallbackLeverage ?? 1;
+  const leverageBN = new BigNumber(leverageCandidate);
+  const leverageSafe =
+    leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : new BigNumber(1);
+
+  const maxTokens = availableBN
+    .multipliedBy(leverageSafe)
+    .dividedBy(effectivePrice);
+  if (!maxTokens.isFinite() || maxTokens.lte(0)) {
+    return new BigNumber(0);
+  }
+
+  const decimals = szDecimals ?? 2;
+  return maxTokens.decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+};
+
+const resolveTradingSizeBN = ({
+  sizeInputMode,
+  manualSize,
+  sizePercent,
+  side,
+  price,
+  markPrice,
+  availableToTrade,
+  leverageValue,
+  fallbackLeverage,
+  szDecimals,
+}: ITradingSizeParams): BigNumber => {
+  if (sizeInputMode !== 'slider') {
+    const sanitized = sanitizeManualSize(manualSize);
+    const manualBN = new BigNumber(sanitized);
+    return manualBN.isFinite() && manualBN.gte(0) ? manualBN : new BigNumber(0);
+  }
+
+  const percentValue = Number.isFinite(sizePercent)
+    ? Math.max(0, Math.min(100, sizePercent ?? 0))
+    : 0;
+
+  if (percentValue <= 0) {
+    return new BigNumber(0);
+  }
+
+  const maxSize = computeMaxTradeSize({
+    side,
+    price,
+    markPrice,
+    availableToTrade,
+    leverageValue,
+    fallbackLeverage,
+    szDecimals,
+  });
+
+  if (!maxSize.isFinite() || maxSize.lte(0)) {
+    return new BigNumber(0);
+  }
+
+  const percentBN = new BigNumber(percentValue);
+  const decimals = szDecimals ?? 2;
+  return maxSize
+    .multipliedBy(percentBN)
+    .dividedBy(100)
+    .decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+};
+
+const resolveTradingSize = (params: ITradingSizeParams): string => {
+  const sizeBN = resolveTradingSizeBN(params);
+  if (!sizeBN.isFinite() || sizeBN.lte(0)) {
+    return '0';
+  }
+  return sizeBN.toFixed();
+};
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -947,6 +1088,10 @@ export {
   calculateLiquidationPrice,
   calculateLiquidationPriceCore,
   combinePositionWithOrder,
+  sanitizeManualSize,
+  computeMaxTradeSize,
+  resolveTradingSize,
+  resolveTradingSizeBN,
 };
 export default {
   formatAssetCtx,
@@ -972,4 +1117,8 @@ export default {
   calculateLiquidationPrice,
   calculateLiquidationPriceCore,
   combinePositionWithOrder,
+  sanitizeManualSize,
+  computeMaxTradeSize,
+  resolveTradingSize,
+  resolveTradingSizeBN,
 };

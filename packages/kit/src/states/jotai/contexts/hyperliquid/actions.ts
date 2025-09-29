@@ -5,13 +5,17 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import {
   perpsActiveAccountAtom,
   perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { resolveTradingSize } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IL2BookOptions,
-  IOrderCloseParams,
-  IPerpOrderBookTickOptionPersist,
+import {
+  EPerpsSizeInputMode,
+  type IL2BookOptions,
+  type IOrderCloseParams,
+  type IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
@@ -406,6 +410,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(tradingFormAtom(), {
       ...current,
       size: '',
+      sizeInputMode: EPerpsSizeInputMode.MANUAL,
+      sizePercent: 0,
       hasTpsl: false,
       tpTriggerPx: '',
       tpGainPercent: '',
@@ -435,11 +441,34 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           set(tradingLoadingAtom(), true);
           try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: formData.type === 'limit' ? formData.price : '',
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              availableToTrade: activeAssetDataValue?.availableToTrade,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
                 assetId: params.assetId,
                 isBuy: formData.side === 'long',
-                sz: formData.size,
+                sz: resolvedSize,
                 limitPx: formData.price,
                 orderType:
                   formData.type === 'limit'
@@ -475,11 +504,34 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           set(tradingLoadingAtom(), true);
           try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: params.price,
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              availableToTrade: activeAssetDataValue?.availableToTrade,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
                 assetId: params.assetId,
                 isBuy: formData.side === 'long',
-                size: formData.size,
+                size: resolvedSize,
                 price: params.price,
                 type: formData.type,
                 tpTriggerPx: formData.hasTpsl

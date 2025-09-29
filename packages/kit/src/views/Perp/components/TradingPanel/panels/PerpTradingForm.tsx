@@ -18,6 +18,8 @@ import {
   useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
+  useTradingFormComputedAtom,
+  useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
@@ -28,6 +30,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import {
   type ITradeSide,
@@ -57,6 +60,8 @@ function PerpTradingForm({
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [formData] = useTradingFormAtom();
+  const [, setTradingFormEnv] = useTradingFormEnvAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -97,6 +102,38 @@ function PerpTradingForm({
     formData.price,
     activeAssetCtx?.ctx?.markPrice,
     updateForm,
+  ]);
+
+  useEffect(() => {
+    const nextEnv = {
+      markPrice: activeAssetCtx?.ctx?.markPrice,
+      availableToTrade: activeAssetData?.availableToTrade,
+      leverageValue: activeAssetData?.leverage?.value,
+      fallbackLeverage: activeAsset?.universe?.maxLeverage,
+      szDecimals: activeAsset?.universe?.szDecimals,
+    };
+    setTradingFormEnv((prev) => {
+      const prevAvailable = prev.availableToTrade ?? [];
+      const nextAvailable = nextEnv.availableToTrade ?? [];
+      if (
+        prev.markPrice === nextEnv.markPrice &&
+        prev.leverageValue === nextEnv.leverageValue &&
+        prev.fallbackLeverage === nextEnv.fallbackLeverage &&
+        prev.szDecimals === nextEnv.szDecimals &&
+        prevAvailable[0] === nextAvailable[0] &&
+        prevAvailable[1] === nextAvailable[1]
+      ) {
+        return prev;
+      }
+      return nextEnv;
+    });
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeAssetData?.availableToTrade,
+    activeAssetData?.leverage?.value,
+    activeAsset?.universe?.maxLeverage,
+    activeAsset?.universe?.szDecimals,
+    setTradingFormEnv,
   ]);
 
   // Token Switch Effect: Handle price updates when user switches tokens
@@ -168,13 +205,12 @@ function PerpTradingForm({
     activeAsset?.universe?.szDecimals,
   ]);
 
-  const { availableToTradeDisplay, availableToTradeValue } = useMemo(() => {
+  const { availableToTradeDisplay } = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
     const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
     const valueBN = new BigNumber(value);
     return {
       availableToTradeDisplay: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
-      availableToTradeValue: valueBN.toNumber(),
     };
   }, [formData.side, activeAssetData?.availableToTrade]);
 
@@ -192,97 +228,55 @@ function PerpTradingForm({
 
   // Order calculations: Total value and required margin
   const totalValue = useMemo(() => {
-    const size = new BigNumber(formData.size || 0);
-    return size.multipliedBy(referencePrice); // Size × Price = Total Value
-  }, [formData.size, referencePrice]);
+    return tradingComputed.computedSizeBN.multipliedBy(referencePrice); // Size × Price = Total Value
+  }, [tradingComputed.computedSizeBN, referencePrice]);
 
   const marginRequired = useMemo(() => {
-    return new BigNumber(formData.size || 0)
+    return tradingComputed.computedSizeBN
       .multipliedBy(referencePrice)
       .dividedBy(leverage || 1); // (Size × Price) ÷ Leverage = Required Margin
-  }, [formData.size, referencePrice, leverage]);
+  }, [tradingComputed.computedSizeBN, referencePrice, leverage]);
 
-  // Slider Configuration: Calculate price, leverage, max value and current value for size slider
-  const sliderConfig = useMemo(() => {
-    // Get effective price for slider calculation (limit price or market price)
-    const getEffectivePrice = (): BigNumber | null => {
-      if (referencePrice.gt(0)) return referencePrice;
-      if (activeAssetCtx?.ctx?.markPrice) {
-        const markPx = new BigNumber(activeAssetCtx.ctx.markPrice);
-        return markPx.isFinite() && markPx.gt(0) ? markPx : null;
-      }
-      return null;
-    };
+  const switchToManual = useCallback(() => {
+    if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+      updateForm({
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        sizePercent: 0,
+        size: '',
+      });
+    }
+  }, [tradingComputed.sizeInputMode, updateForm]);
 
-    // Get safe leverage value (fallback to 1x if invalid)
-    const getSafeLeverage = (): BigNumber => {
-      if (!leverage) return new BigNumber(1);
-      const leverageBN = new BigNumber(leverage);
-      return leverageBN.isFinite() && leverageBN.gt(0)
-        ? leverageBN
-        : new BigNumber(1);
-    };
-
-    const effectivePrice = getEffectivePrice();
-    const safeLeverage = getSafeLeverage();
-    const currentValue = new BigNumber(formData.size || 0);
-
-    // Calculate maximum trade size: Available Balance × Leverage ÷ Price
-    const calculateMaxSize = (): number => {
-      if (!effectivePrice || effectivePrice.lte(0)) return 0;
-      if (!Number.isFinite(availableToTradeValue) || availableToTradeValue <= 0)
-        return 0;
-
-      const maxTokens = new BigNumber(availableToTradeValue)
-        .multipliedBy(safeLeverage)
-        .dividedBy(effectivePrice)
-        .decimalPlaces(
-          activeAsset?.universe?.szDecimals ?? 2,
-          BigNumber.ROUND_FLOOR,
-        );
-
-      return maxTokens.isFinite() && maxTokens.gt(0) ? maxTokens.toNumber() : 0;
-    };
-
-    const maxSize = calculateMaxSize();
-    const currentValueNum = currentValue.isFinite()
-      ? currentValue.toNumber()
-      : 0;
-
-    return {
-      price: effectivePrice,
-      leverage: safeLeverage,
-      maxSize,
-      currentValue: currentValueNum,
-      controlledValue: maxSize > 0 ? Math.min(currentValueNum, maxSize) : 0,
-      isValid: !!effectivePrice && effectivePrice.gt(0) && maxSize > 0,
-    };
-  }, [
-    referencePrice,
-    activeAssetCtx?.ctx?.markPrice,
-    activeAsset?.universe?.szDecimals,
-    leverage,
-    availableToTradeValue,
-    formData.size,
-  ]);
-
-  const sliderStep = useMemo(() => {
-    const decimals = Math.min(activeAsset?.universe?.szDecimals ?? 2, 6);
-    return Number((10 ** -decimals).toFixed(decimals));
-  }, [activeAsset?.universe?.szDecimals]);
-
-  const handleSizeSliderChange = useCallback(
-    (value?: number) => {
-      if (value === undefined) return;
-      if (!sliderConfig.isValid) return;
-      const decimals = activeAsset?.universe?.szDecimals ?? 2;
-      const formatted = new BigNumber(value)
-        .decimalPlaces(decimals, BigNumber.ROUND_FLOOR)
-        .toFixed();
-      updateForm({ size: formatted });
+  const handleManualSizeChange = useCallback(
+    (value: string) => {
+      updateForm({
+        size: value,
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        sizePercent: 0,
+      });
     },
-    [sliderConfig.isValid, activeAsset?.universe?.szDecimals, updateForm],
+    [updateForm],
   );
+
+  const handleSliderPercentChange = useCallback(
+    (nextValue: number | number[]) => {
+      const raw = Array.isArray(nextValue) ? nextValue[0] : nextValue;
+      const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+      const clamped = Math.max(0, Math.min(100, value));
+      updateForm({
+        sizeInputMode: EPerpsSizeInputMode.SLIDER,
+        sizePercent: clamped,
+        size: '',
+      });
+    },
+    [updateForm],
+  );
+
+  const sliderValue =
+    tradingComputed.sizeInputMode === 'slider'
+      ? tradingComputed.sizePercent
+      : 0;
+  const sliderDisabled = isSubmitting || !tradingComputed.sliderEnabled;
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
@@ -387,19 +381,20 @@ function PerpTradingForm({
           activeAssetCtx={activeAssetCtx}
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
-          onChange={(value) => updateForm({ size: value })}
+          onChange={handleManualSizeChange}
+          sizeInputMode={tradingComputed.sizeInputMode}
+          sliderPercent={tradingComputed.sizePercent}
+          onRequestManualMode={switchToManual}
           isMobile={isMobile}
         />
         <Slider
           mt="$2"
           min={0}
-          max={sliderConfig.maxSize}
-          value={sliderConfig.controlledValue}
-          onChange={handleSizeSliderChange}
-          disabled={
-            isSubmitting || !sliderConfig.isValid || Number.isNaN(sliderStep)
-          }
-          step={sliderStep}
+          max={100}
+          value={sliderValue}
+          onChange={handleSliderPercentChange}
+          disabled={sliderDisabled}
+          step={1}
         />
         <YStack gap="$1">
           <Checkbox
@@ -432,7 +427,7 @@ function PerpTradingForm({
               onChange={handleTpslChange}
               disabled={isSubmitting}
               isMobile={isMobile}
-              amount={formData.size}
+              amount={tradingComputed.computedSizeString}
             />
           ) : null}
         </YStack>
@@ -565,19 +560,20 @@ function PerpTradingForm({
           activeAssetCtx={activeAssetCtx}
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
-          onChange={(value) => updateForm({ size: value })}
+          onChange={handleManualSizeChange}
+          sizeInputMode={tradingComputed.sizeInputMode}
+          sliderPercent={tradingComputed.sizePercent}
+          onRequestManualMode={switchToManual}
         />
         <Slider
           width="100%"
           mt="$3"
           min={0}
-          max={sliderConfig.maxSize}
-          value={sliderConfig.controlledValue}
-          onChange={handleSizeSliderChange}
-          disabled={
-            isSubmitting || !sliderConfig.isValid || Number.isNaN(sliderStep)
-          }
-          step={sliderStep}
+          max={100}
+          value={sliderValue}
+          onChange={handleSliderPercentChange}
+          disabled={sliderDisabled}
+          step={1}
         />
 
         <YStack p="$0">
@@ -609,7 +605,7 @@ function PerpTradingForm({
               }}
               onChange={handleTpslChange}
               disabled={isSubmitting}
-              amount={formData.size}
+              amount={tradingComputed.computedSizeString}
             />
           ) : null}
         </YStack>

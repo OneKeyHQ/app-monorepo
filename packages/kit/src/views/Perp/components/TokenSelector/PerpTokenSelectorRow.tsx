@@ -88,11 +88,7 @@ const PerpTokenSelectorRow = memo(
                     </SizableText>
                   </XStack>
                 </XStack>
-                <SkeletonContainer
-                  isLoading={isLoading}
-                  width="80%"
-                  height={16}
-                >
+                <SkeletonContainer isLoading={isLoading} width={80} height={16}>
                   <SizableText size="$bodySm" color="$text">
                     $
                     {formatDisplayNumber(
