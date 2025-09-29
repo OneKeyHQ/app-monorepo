@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { Token } from '../../../components/Token';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -67,9 +68,7 @@ function MobilePerpMarket() {
             size="sm"
             borderRadius="$full"
             bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-            tokenImageUri={
-              coin ? `https://app.hyperliquid.xyz/coins/${coin}.svg` : undefined
-            }
+            tokenImageUri={coin ? getHyperliquidTokenImageUrl(coin) : undefined}
             fallbackIcon="CryptoCoinOutline"
           />
           <SizableText size="$headingLg">{pairLabel}</SizableText>
