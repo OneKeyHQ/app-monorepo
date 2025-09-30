@@ -403,24 +403,25 @@ class ServiceAccountProfile extends ServiceBase {
         accountId: string;
       }[] = [];
 
+      try {
+        // handleWalletAccountName
+        walletAccountItems =
+          await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: resolveAddress,
+          });
+      } catch (e) {
+        console.error(e);
+      }
+
       if (
+        walletAccountItems.length === 0 &&
         walletAccountItem &&
         walletAccountItem.accountId &&
         walletAccountItem.walletName &&
         walletAccountItem.accountName
       ) {
         walletAccountItems = [walletAccountItem];
-      } else {
-        try {
-          // handleWalletAccountName
-          walletAccountItems =
-            await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
-              networkId,
-              address: resolveAddress,
-            });
-        } catch (e) {
-          console.error(e);
-        }
       }
 
       if (walletAccountItems.length > 0) {

@@ -20,6 +20,7 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -157,10 +158,7 @@ function BasePerpTokenSelectorContent({
     </YStack>
   );
   return (
-    <DebugRenderTracker
-      timesBadgePosition="top-right"
-      name="PerpTokenSelectorContent"
-    >
+    <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
       {content}
     </DebugRenderTracker>
   );
@@ -186,7 +184,7 @@ function BasePerpTokenSelector() {
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const [isLoading, setIsLoading] = useState(false);
-  return useMemo(
+  const content = useMemo(
     () => (
       <Popover
         title="Select Token"
@@ -216,7 +214,7 @@ function BasePerpTokenSelector() {
               size="md"
               borderRadius="$full"
               bg={themeVariant === 'light' ? null : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${coin}.svg`}
+              tokenImageUri={getHyperliquidTokenImageUrl(coin)}
               fallbackIcon="CryptoCoinOutline"
             />
 
@@ -235,6 +233,9 @@ function BasePerpTokenSelector() {
       />
     ),
     [isOpen, coin, isLoading, themeVariant],
+  );
+  return (
+    <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
   );
 }
 

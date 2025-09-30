@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Checkbox,
@@ -8,7 +10,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  useTradingFormAtom,
+  useTradingFormComputedAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAssetAtom,
   usePerpsCustomSettingsAtom,
@@ -41,16 +46,26 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
   const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
-  const actionText = formData.side === 'long' ? 'Long' : 'Short';
+  const intl = useIntl();
+  const actionText =
+    formData.side === 'long'
+      ? intl.formatMessage({
+          id: ETranslations.perp_trade_long,
+        })
+      : intl.formatMessage({
+          id: ETranslations.perp_trade_short,
+        });
 
   const sizeDisplay = useMemo(() => {
-    if (formData.size && selectedSymbol?.coin)
-      return `${formData.size} ${selectedSymbol.coin}`;
-    return '0';
-  }, [formData.size, selectedSymbol?.coin]);
+    if (selectedSymbol?.coin) {
+      return `${tradingComputed.computedSizeString} ${selectedSymbol.coin}`;
+    }
+    return tradingComputed.computedSizeString;
+  }, [tradingComputed.computedSizeString, selectedSymbol?.coin]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -159,7 +174,9 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
           onPress={handleConfirm}
           {...buttonStyleProps}
         >
-          {buttonText}
+          <SizableText size="$bodyMdMedium" color="$textOnColor">
+            {buttonText}
+          </SizableText>
         </Button>
       </TradingGuardWrapper>
     </YStack>

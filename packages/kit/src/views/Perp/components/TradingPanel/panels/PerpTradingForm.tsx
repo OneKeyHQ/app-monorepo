@@ -5,9 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
+  IconButton,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
+  Slider,
+  Tooltip,
   XStack,
   YStack,
   getFontSize,
@@ -17,16 +21,20 @@ import {
   useHyperliquidActions,
   usePerpsActivePositionAtom,
   useTradingFormAtom,
+  useTradingFormComputedAtom,
+  useTradingFormEnvAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
+import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import {
   type ITradeSide,
@@ -36,6 +44,7 @@ import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpslInput } from '../inputs/TpslInput';
+import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
@@ -50,12 +59,35 @@ interface IPerpTradingFormProps {
   isMobile?: boolean;
 }
 
+function MobileDepositButton() {
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  return (
+    <IconButton
+      testID="perp-trading-form-mobile-deposit-button"
+      size="small"
+      variant="tertiary"
+      iconSize="$3.5"
+      icon="PlusCircleSolid"
+      onPress={() =>
+        showDepositWithdrawModal({
+          actionType: 'deposit',
+          withdrawable: accountSummary?.withdrawable || '0',
+        })
+      }
+      color="$iconSubdued"
+      cursor="pointer"
+    />
+  );
+}
+
 function PerpTradingForm({
   isSubmitting = false,
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [formData] = useTradingFormAtom();
+  const [, setTradingFormEnv] = useTradingFormEnvAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -99,6 +131,40 @@ function PerpTradingForm({
   ]);
 
   useEffect(() => {
+    const nextEnv = {
+      markPrice: activeAssetCtx?.ctx?.markPrice,
+      availableToTrade: activeAssetData?.availableToTrade,
+      leverageValue: activeAssetData?.leverage?.value,
+      fallbackLeverage: activeAsset?.universe?.maxLeverage,
+      szDecimals: activeAsset?.universe?.szDecimals,
+    };
+    setTradingFormEnv((prev) => {
+      const prevAvailable = prev.availableToTrade ?? [];
+      const nextAvailable = nextEnv.availableToTrade ?? [];
+      if (
+        prev.markPrice === nextEnv.markPrice &&
+        prev.leverageValue === nextEnv.leverageValue &&
+        prev.fallbackLeverage === nextEnv.fallbackLeverage &&
+        prev.szDecimals === nextEnv.szDecimals &&
+        prevAvailable[0] === nextAvailable[0] &&
+        prevAvailable[1] === nextAvailable[1]
+      ) {
+        return prev;
+      }
+      return nextEnv;
+    });
+  }, [
+    activeAssetCtx?.ctx?.markPrice,
+    activeAssetData?.availableToTrade,
+    activeAssetData?.leverage?.value,
+    activeAsset?.universe?.maxLeverage,
+    activeAsset?.universe?.szDecimals,
+    setTradingFormEnv,
+  ]);
+
+  // Token Switch Effect: Handle price updates when user switches tokens
+  // This prevents stale price data from being used during token transitions
+  useEffect(() => {
     const prevToken = prevTokenRef.current;
     const hasTokenChanged =
       currentTokenName && prevToken && prevToken !== currentTokenName;
@@ -110,14 +176,14 @@ function PerpTradingForm({
       activeAssetCtx?.ctx?.markPrice &&
       isDataSynced;
 
-    // Handle token switch
+    // Step 1: Detect token switch and mark switching state
     if (hasTokenChanged) {
       tokenSwitchingRef.current = currentTokenName;
       prevTokenRef.current = currentTokenName;
       return; // Early return to avoid price update with stale data
     }
 
-    // Update price after token switch when data is synchronized
+    // Step 2: Update price after token data is synchronized (prevents stale price)
     if (shouldUpdatePrice && activeAssetCtx?.ctx?.markPrice) {
       updateForm({
         price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
@@ -125,6 +191,7 @@ function PerpTradingForm({
       tokenSwitchingRef.current = false;
     }
 
+    // Step 3: Initialize token reference on first load
     if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
@@ -141,6 +208,7 @@ function PerpTradingForm({
     );
   }, [activeAssetData?.leverage?.value, activeAsset?.universe?.maxLeverage]);
 
+  // Reference Price: Get the effective trading price (limit price or market price)
   const [referencePrice, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
@@ -163,10 +231,13 @@ function PerpTradingForm({
     activeAsset?.universe?.szDecimals,
   ]);
 
-  const availableToTrade = useMemo(() => {
+  const { availableToTradeDisplay } = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
     const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
-    return new BigNumber(value).toFixed(2, BigNumber.ROUND_DOWN);
+    const valueBN = new BigNumber(value);
+    return {
+      availableToTradeDisplay: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
+    };
   }, [formData.side, activeAssetData?.availableToTrade]);
 
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
@@ -181,16 +252,57 @@ function PerpTradingForm({
       return [Math.abs(value), side];
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
+  // Order calculations: Total value and required margin
   const totalValue = useMemo(() => {
-    const size = new BigNumber(formData.size || 0);
-    return size.multipliedBy(referencePrice);
-  }, [formData.size, referencePrice]);
+    return tradingComputed.computedSizeBN.multipliedBy(referencePrice); // Size × Price = Total Value
+  }, [tradingComputed.computedSizeBN, referencePrice]);
 
   const marginRequired = useMemo(() => {
-    return new BigNumber(formData.size || 0)
+    return tradingComputed.computedSizeBN
       .multipliedBy(referencePrice)
-      .dividedBy(leverage || 1);
-  }, [formData.size, referencePrice, leverage]);
+      .dividedBy(leverage || 1); // (Size × Price) ÷ Leverage = Required Margin
+  }, [tradingComputed.computedSizeBN, referencePrice, leverage]);
+
+  const switchToManual = useCallback(() => {
+    if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
+      updateForm({
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        sizePercent: 0,
+        size: '',
+      });
+    }
+  }, [tradingComputed.sizeInputMode, updateForm]);
+
+  const handleManualSizeChange = useCallback(
+    (value: string) => {
+      updateForm({
+        size: value,
+        sizeInputMode: EPerpsSizeInputMode.MANUAL,
+        sizePercent: 0,
+      });
+    },
+    [updateForm],
+  );
+
+  const handleSliderPercentChange = useCallback(
+    (nextValue: number | number[]) => {
+      const raw = Array.isArray(nextValue) ? nextValue[0] : nextValue;
+      const value = typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+      const clamped = Math.max(0, Math.min(100, value));
+      updateForm({
+        sizeInputMode: EPerpsSizeInputMode.SLIDER,
+        sizePercent: clamped,
+        size: '',
+      });
+    },
+    [updateForm],
+  );
+
+  const sliderValue =
+    tradingComputed.sizeInputMode === 'slider'
+      ? tradingComputed.sizePercent
+      : 0;
+  const sliderDisabled = isSubmitting || !tradingComputed.sliderEnabled;
 
   const handleTpslCheckboxChange = useCallback(
     (checked: ICheckedState) => {
@@ -231,9 +343,9 @@ function PerpTradingForm({
           </SizableText>
           <XStack alignItems="center" gap="$1">
             <SizableText size="$bodySmMedium" color="$text">
-              ${availableToTrade}
+              ${availableToTradeDisplay}
             </SizableText>
-            <PerpAccountPanel isTradingPanel />
+            <MobileDepositButton />
           </XStack>
         </XStack>
         <XStack alignItems="center" flex={1} gap="$2.5">
@@ -289,13 +401,26 @@ function PerpTradingForm({
           />
         )}
         <SizeInput
+          referencePrice={referencePriceString}
           side={formData.side}
           activeAsset={activeAsset}
           activeAssetCtx={activeAssetCtx}
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
-          onChange={(value) => updateForm({ size: value })}
+          onChange={handleManualSizeChange}
+          sizeInputMode={tradingComputed.sizeInputMode}
+          sliderPercent={tradingComputed.sizePercent}
+          onRequestManualMode={switchToManual}
           isMobile={isMobile}
+        />
+        <Slider
+          mt="$2"
+          min={0}
+          max={100}
+          value={sliderValue}
+          onChange={handleSliderPercentChange}
+          disabled={sliderDisabled}
+          step={1}
         />
         <YStack gap="$1">
           <Checkbox
@@ -328,7 +453,7 @@ function PerpTradingForm({
               onChange={handleTpslChange}
               disabled={isSubmitting}
               isMobile={isMobile}
-              amount={formData.size}
+              amount={tradingComputed.computedSizeString}
             />
           ) : null}
         </YStack>
@@ -341,11 +466,33 @@ function PerpTradingForm({
           borderRadius="$2"
         >
           <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_liq_price,
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
               })}
-            </SizableText>
+              renderTrigger={
+                <SizableText
+                  fontSize={10}
+                  color="$textSubdued"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dashed"
+                  textDecorationColor="$border"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_liq_price,
+                  })}
+                </SizableText>
+              }
+              renderContent={
+                <XStack px="$5" pb="$3">
+                  <SizableText size="$bodyMd" color="$text">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                  </SizableText>
+                </XStack>
+              }
+            />
             <SizableText fontSize={10} color="$text" fontWeight={500}>
               <LiquidationPriceDisplay isMobile={isMobile} />
             </SizableText>
@@ -411,7 +558,7 @@ function PerpTradingForm({
             </SizableText>
             {activeAssetData ? (
               <SizableText size="$bodySmMedium" color="$text">
-                ${availableToTrade}
+                ${availableToTradeDisplay}
               </SizableText>
             ) : (
               <Skeleton width={70} height={16} />
@@ -455,12 +602,26 @@ function PerpTradingForm({
         ) : null}
 
         <SizeInput
+          referencePrice={referencePriceString}
           side={formData.side}
           activeAsset={activeAsset}
           activeAssetCtx={activeAssetCtx}
           symbol={perpsSelectedSymbol.coin}
           value={formData.size}
-          onChange={(value) => updateForm({ size: value })}
+          onChange={handleManualSizeChange}
+          sizeInputMode={tradingComputed.sizeInputMode}
+          sliderPercent={tradingComputed.sizePercent}
+          onRequestManualMode={switchToManual}
+        />
+        <Slider
+          width="100%"
+          mt="$3"
+          min={0}
+          max={100}
+          value={sliderValue}
+          onChange={handleSliderPercentChange}
+          disabled={sliderDisabled}
+          step={1}
         />
 
         <YStack p="$0">
@@ -492,7 +653,7 @@ function PerpTradingForm({
               }}
               onChange={handleTpslChange}
               disabled={isSubmitting}
-              amount={formData.size}
+              amount={tradingComputed.computedSizeString}
             />
           ) : null}
         </YStack>
@@ -500,11 +661,30 @@ function PerpTradingForm({
 
       <YStack gap="$2" mt="$5">
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
+          <Tooltip
+            placement="top"
+            renderContent={intl.formatMessage({
+              id: ETranslations.perp_est_liq_price_tooltip,
             })}
-          </SizableText>
+            renderTrigger={
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="default"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_est_liq_price,
+                })}
+              </SizableText>
+            }
+          />
+
           <SizableText size="$bodySmMedium">
             <LiquidationPriceDisplay />
           </SizableText>
@@ -524,11 +704,30 @@ function PerpTradingForm({
           </NumberSizeableText>
         </XStack>
         <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_margin_required,
+          <Tooltip
+            placement="top"
+            renderContent={intl.formatMessage({
+              id: ETranslations.perp_trade_margin_tooltip,
             })}
-          </SizableText>
+            renderTrigger={
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                cursor="default"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_trade_margin_required,
+                })}
+              </SizableText>
+            }
+          />
+
           <NumberSizeableText
             size="$bodySmMedium"
             formatter="value"

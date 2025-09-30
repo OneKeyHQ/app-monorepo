@@ -1,22 +1,80 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView, Keyboard } from 'react-native';
 
 import {
+  Button,
   Input,
   SizableText,
   XStack,
   YStack,
   getFontSize,
+  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   calculateProfitLoss,
   formatPercentage,
   formatPriceToSignificantDigits,
   validatePriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+
+// Done button component
+const TpslDoneButton = ({ onDone }: { onDone: () => void }) => {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+  const viewShow = platformEnv.isNativeIOS || isKeyboardShown;
+
+  if (!viewShow) return null;
+
+  return (
+    <XStack
+      p="$2.5"
+      px="$3.5"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          Keyboard.dismiss();
+          onDone();
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+};
+
+// Wrapper component similar to InputWithAccessoryDoneView but with unique ID support
+type ITpslInputWithDoneProps = ComponentProps<typeof Input> & {
+  accessoryViewId: string;
+  onDone?: () => void;
+};
+
+const TpslInputWithDone = ({
+  accessoryViewId,
+  onDone = () => {},
+  ...inputProps
+}: ITpslInputWithDoneProps) => {
+  return (
+    <>
+      <Input {...inputProps} inputAccessoryViewID={accessoryViewId} />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={accessoryViewId}>
+          <TpslDoneButton onDone={onDone} />
+        </InputAccessoryView>
+      ) : null}
+    </>
+  );
+};
 
 interface ITpslInputProps {
   price: string;
@@ -30,6 +88,8 @@ interface ITpslInputProps {
   onChange: (data: { tpPrice: string; slPrice: string }) => void;
   disabled?: boolean;
   ifOnDialog?: boolean;
+  hiddenTp?: boolean;
+  hiddenSl?: boolean;
   isMobile?: boolean;
   // Optional props for profit/loss calculation
   amount?: string | number;
@@ -45,6 +105,8 @@ export const TpslInput = memo(
     onChange,
     disabled = false,
     ifOnDialog = false,
+    hiddenTp = false,
+    hiddenSl = false,
     isMobile = false,
     amount,
   }: ITpslInputProps) => {
@@ -257,176 +319,221 @@ export const TpslInput = memo(
     if (isMobile) {
       return (
         <YStack gap="$3">
-          <YStack gap="$2">
-            <Input
-              h={32}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_tp_price,
-              })}
-              value={internalState.tpTriggerPx}
-              onChangeText={handleTpPriceChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              fontSize={getFontSize('$bodyMd')}
-              size="small"
-              containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
-              }}
-              InputComponentStyle={{
-                px: '$3',
-              }}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" justifyContent="center" pr="$3">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        USD
-                      </SizableText>
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
-            {expectedProfit ? (
+          {hiddenTp ? null : (
+            <YStack gap="$2">
+              <TpslInputWithDone
+                accessoryViewId="tpsl-tp-price-mobile"
+                onDone={() => {}}
+                h={32}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
+                value={internalState.tpTriggerPx}
+                onChangeText={handleTpPriceChange}
+                disabled={disabled}
+                keyboardType="decimal-pad"
+                fontSize={getFontSize('$bodyMd')}
+                size="small"
+                containerProps={{
+                  borderWidth: ifOnDialog ? '$px' : 0,
+                  borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                  bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
+                  borderRadius: '$2',
+                }}
+                InputComponentStyle={{
+                  px: '$3',
+                }}
+                addOns={[
+                  {
+                    renderContent: (
+                      <XStack
+                        alignItems="center"
+                        justifyContent="center"
+                        pr="$3"
+                      >
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          USD
+                        </SizableText>
+                      </XStack>
+                    ),
+                  },
+                ]}
+              />
+              {expectedProfit ? (
+                <XStack justifyContent="flex-start" pr="$0.5">
+                  <SizableText
+                    size="$bodySm"
+                    color={
+                      !expectedProfit.startsWith('-')
+                        ? '$green11'
+                        : '$textSubdued'
+                    }
+                  >
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_tp_sl_profit,
+                      })}
+                      {': '}
+                    </SizableText>
+                    {expectedProfit}
+                  </SizableText>
+                </XStack>
+              ) : null}
+            </YStack>
+          )}
+          {hiddenSl ? null : (
+            <YStack gap="$2">
+              <TpslInputWithDone
+                accessoryViewId="tpsl-sl-price-mobile"
+                onDone={() => {}}
+                h={32}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
+                value={internalState.slTriggerPx}
+                onChangeText={handleSlPriceChange}
+                disabled={disabled}
+                keyboardType="decimal-pad"
+                fontSize={getFontSize('$bodyMd')}
+                size="small"
+                containerProps={{
+                  borderWidth: ifOnDialog ? '$px' : 0,
+                  borderColor: ifOnDialog ? '$borderSubdued' : undefined,
+                  bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
+                  borderRadius: '$2',
+                }}
+                InputComponentStyle={{
+                  px: '$3',
+                }}
+                addOns={[
+                  {
+                    renderContent: (
+                      <XStack
+                        alignItems="center"
+                        justifyContent="center"
+                        pr="$3"
+                      >
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          USD
+                        </SizableText>
+                      </XStack>
+                    ),
+                  },
+                ]}
+              />
               <XStack justifyContent="flex-start" pr="$0.5">
                 <SizableText
                   size="$bodySm"
                   color={
-                    !expectedProfit.startsWith('-')
-                      ? '$green11'
+                    expectedLoss && expectedLoss.startsWith('-')
+                      ? '$red11'
                       : '$textSubdued'
                   }
                 >
                   <SizableText size="$bodySm" color="$textSubdued">
                     {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_profit,
+                      id: ETranslations.perp_tp_sl_loss,
                     })}
                     {': '}
                   </SizableText>
-                  {expectedProfit}
+                  {expectedLoss || '$0.00'}
                 </SizableText>
               </XStack>
-            ) : null}
-          </YStack>
-          <YStack gap="$2">
-            <Input
-              h={32}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_sl_price,
-              })}
-              value={internalState.slTriggerPx}
-              onChangeText={handleSlPriceChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              fontSize={getFontSize('$bodyMd')}
-              size="small"
-              containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
-              }}
-              InputComponentStyle={{
-                px: '$3',
-              }}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" justifyContent="center" pr="$3">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        USD
-                      </SizableText>
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
-          </YStack>
+            </YStack>
+          )}
         </YStack>
       );
     }
     return (
       <YStack gap="$3">
-        <XStack gap="$3">
-          <YStack
-            flex={1}
-            hoverStyle={
-              ifOnDialog
-                ? undefined
-                : {
-                    outlineWidth: '$px',
-                    outlineColor: '$border',
-                    outlineStyle: 'solid',
-                  }
-            }
-            borderWidth={ifOnDialog ? '$px' : 0}
-            borderColor={ifOnDialog ? '$border' : undefined}
-            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-            borderRadius="$2"
-          >
-            <Input
-              h={40}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_tp_price,
-              })}
-              value={internalState.tpTriggerPx}
-              onChangeText={handleTpPriceChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              size="small"
-              containerProps={{
-                borderWidth: 0,
-              }}
-            />
-          </YStack>
-          <YStack
-            width={120}
-            hoverStyle={
-              ifOnDialog
-                ? undefined
-                : {
-                    outlineWidth: '$px',
-                    outlineColor: '$border',
-                    outlineStyle: 'solid',
-                  }
-            }
-            borderWidth={ifOnDialog ? '$px' : 0}
-            borderColor={ifOnDialog ? '$border' : undefined}
-            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-            borderRadius="$2"
-          >
-            <Input
-              h={40}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_tp_price_gain,
-              })}
-              value={internalState.tpGainPercent}
-              onChangeText={handleTpPercentChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              size="small"
-              textAlign="right"
-              leftIconName="PlusSmallOutline"
-              containerProps={{
-                borderWidth: 0,
-              }}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" justifyContent="center" pr="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        %
-                      </SizableText>
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
-          </YStack>
-        </XStack>
+        {hiddenTp ? null : (
+          <XStack gap="$3">
+            <YStack
+              flex={1}
+              hoverStyle={
+                ifOnDialog
+                  ? undefined
+                  : {
+                      outlineWidth: '$px',
+                      outlineColor: '$border',
+                      outlineStyle: 'solid',
+                    }
+              }
+              borderWidth={ifOnDialog ? '$px' : 0}
+              borderColor={ifOnDialog ? '$border' : undefined}
+              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+              borderRadius="$2"
+            >
+              <TpslInputWithDone
+                accessoryViewId="tpsl-tp-price-desktop"
+                onDone={() => {}}
+                h={40}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
+                value={internalState.tpTriggerPx}
+                onChangeText={handleTpPriceChange}
+                disabled={disabled}
+                keyboardType="decimal-pad"
+                size="small"
+                containerProps={{
+                  borderWidth: 0,
+                }}
+              />
+            </YStack>
+
+            <YStack
+              width={120}
+              hoverStyle={
+                ifOnDialog
+                  ? undefined
+                  : {
+                      outlineWidth: '$px',
+                      outlineColor: '$border',
+                      outlineStyle: 'solid',
+                    }
+              }
+              borderWidth={ifOnDialog ? '$px' : 0}
+              borderColor={ifOnDialog ? '$border' : undefined}
+              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+              borderRadius="$2"
+            >
+              <TpslInputWithDone
+                accessoryViewId="tpsl-tp-gain-percent"
+                onDone={() => {}}
+                h={40}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price_gain,
+                })}
+                value={internalState.tpGainPercent}
+                onChangeText={handleTpPercentChange}
+                disabled={disabled}
+                keyboardType="decimal-pad"
+                size="small"
+                textAlign="right"
+                leftIconName="PlusSmallOutline"
+                containerProps={{
+                  borderWidth: 0,
+                }}
+                addOns={[
+                  {
+                    renderContent: (
+                      <XStack
+                        alignItems="center"
+                        justifyContent="center"
+                        pr="$2"
+                      >
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          %
+                        </SizableText>
+                      </XStack>
+                    ),
+                  },
+                ]}
+              />
+            </YStack>
+          </XStack>
+        )}
         {expectedProfit ? (
           <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText
@@ -445,83 +552,93 @@ export const TpslInput = memo(
             </SizableText>
           </XStack>
         ) : null}
-        <XStack gap="$2">
-          <YStack
-            flex={1}
-            hoverStyle={
-              ifOnDialog
-                ? undefined
-                : {
-                    outlineWidth: '$px',
-                    outlineColor: '$border',
-                    outlineStyle: 'solid',
-                  }
-            }
-            borderWidth={ifOnDialog ? '$px' : 0}
-            borderColor={ifOnDialog ? '$border' : undefined}
-            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-            borderRadius="$2"
-          >
-            <Input
-              h={40}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_sl_price,
-              })}
-              value={internalState.slTriggerPx}
-              onChangeText={handleSlPriceChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              size="small"
-              containerProps={{
-                borderWidth: 0,
-              }}
-            />
-          </YStack>
-          <YStack
-            width={120}
-            hoverStyle={
-              ifOnDialog
-                ? undefined
-                : {
-                    outlineWidth: '$px',
-                    outlineColor: '$border',
-                    outlineStyle: 'solid',
-                  }
-            }
-            borderRadius="$2"
-            borderWidth={ifOnDialog ? '$px' : 0}
-            borderColor={ifOnDialog ? '$border' : undefined}
-            bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
-          >
-            <Input
-              h={40}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_sl_price_loss,
-              })}
-              textAlign="right"
-              leftIconName="MinusSmallOutline"
-              value={internalState.slLossPercent}
-              onChangeText={handleSlPercentChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              size="small"
-              containerProps={{
-                borderWidth: 0,
-              }}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" justifyContent="center" pr="$2">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        %
-                      </SizableText>
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
-          </YStack>
-        </XStack>
+        {hiddenSl ? null : (
+          <XStack gap="$2">
+            <YStack
+              flex={1}
+              hoverStyle={
+                ifOnDialog
+                  ? undefined
+                  : {
+                      outlineWidth: '$px',
+                      outlineColor: '$border',
+                      outlineStyle: 'solid',
+                    }
+              }
+              borderWidth={ifOnDialog ? '$px' : 0}
+              borderColor={ifOnDialog ? '$border' : undefined}
+              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+              borderRadius="$2"
+            >
+              <TpslInputWithDone
+                accessoryViewId="tpsl-sl-price-desktop"
+                onDone={() => {}}
+                h={40}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
+                value={internalState.slTriggerPx}
+                onChangeText={handleSlPriceChange}
+                disabled={disabled}
+                keyboardType="decimal-pad"
+                size="small"
+                containerProps={{
+                  borderWidth: 0,
+                }}
+              />
+            </YStack>
+            <YStack
+              width={120}
+              hoverStyle={
+                ifOnDialog
+                  ? undefined
+                  : {
+                      outlineWidth: '$px',
+                      outlineColor: '$border',
+                      outlineStyle: 'solid',
+                    }
+              }
+              borderRadius="$2"
+              borderWidth={ifOnDialog ? '$px' : 0}
+              borderColor={ifOnDialog ? '$border' : undefined}
+              bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
+            >
+              <TpslInputWithDone
+                accessoryViewId="tpsl-sl-loss-percent"
+                onDone={() => {}}
+                h={40}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price_loss,
+                })}
+                textAlign="right"
+                leftIconName="MinusSmallOutline"
+                value={internalState.slLossPercent}
+                onChangeText={handleSlPercentChange}
+                disabled={disabled}
+                keyboardType="decimal-pad"
+                size="small"
+                containerProps={{
+                  borderWidth: 0,
+                }}
+                addOns={[
+                  {
+                    renderContent: (
+                      <XStack
+                        alignItems="center"
+                        justifyContent="center"
+                        pr="$2"
+                      >
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          %
+                        </SizableText>
+                      </XStack>
+                    ),
+                  },
+                ]}
+              />
+            </YStack>
+          </XStack>
+        )}
         {expectedLoss ? (
           <XStack justifyContent="flex-start" pr="$0.5">
             <SizableText

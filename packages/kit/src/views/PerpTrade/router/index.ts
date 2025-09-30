@@ -9,6 +9,7 @@ const PageWebviewPerpTrade = LazyLoadRootTabPage(
 
 export const perpTradeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
+    rewrite: '/',
     name: ETabRoutes.WebviewPerpTrade,
     component: PageWebviewPerpTrade,
   },

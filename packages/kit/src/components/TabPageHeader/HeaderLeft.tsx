@@ -3,6 +3,7 @@ import { type ReactNode, memo, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DebugRenderTracker,
   NavBackButton,
   Page,
   SizableText,
@@ -194,7 +195,9 @@ export function HeaderLeft({
         sceneUrl: '',
       }}
     >
-      {items}
+      <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
+        {items}
+      </DebugRenderTracker>
     </AccountSelectorProviderMirror>
   );
 }

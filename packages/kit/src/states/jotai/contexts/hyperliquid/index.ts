@@ -6,6 +6,8 @@ export {
   useOrderBookTickOptionsAtom,
   usePerpsActiveOpenOrdersAtom,
   useTradingFormAtom,
+  useTradingFormEnvAtom,
+  useTradingFormComputedAtom,
   useTradingLoadingAtom,
   usePerpsActivePositionAtom,
   useSubscriptionActiveAtom,

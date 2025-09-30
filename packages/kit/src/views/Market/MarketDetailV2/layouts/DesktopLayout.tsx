@@ -15,13 +15,14 @@ import {
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-export function DesktopLayout({ isNative = false }: { isNative?: boolean }) {
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+export function DesktopLayout() {
+  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
+    useTokenDetail();
 
   return (
     <>
       {/* Header */}
-      <TokenDetailHeader isNative={isNative} />
+      <TokenDetailHeader />
 
       {/* Main Content */}
       <XStack flex={1}>
@@ -35,6 +36,7 @@ export function DesktopLayout({ isNative = false }: { isNative?: boolean }) {
                 networkId={networkId}
                 tokenSymbol={tokenDetail?.symbol}
                 isNative={isNative}
+                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
               />
             ) : null}
           </Stack>

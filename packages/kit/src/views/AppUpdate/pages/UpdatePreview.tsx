@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
@@ -39,6 +41,9 @@ function UpdatePreview({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
   const intl = useIntl();
+  const headerLeft = useCallback(() => {
+    return null;
+  }, []);
   const {
     latestVersion,
     isForceUpdate,
@@ -47,6 +52,7 @@ function UpdatePreview({
   usePreventRemove(!!isForceUpdate, () => {});
   const response = useAppChangeLog(latestVersion);
   const { changeLog } = response ?? {};
+
   return (
     <Page>
       <Page.Header
@@ -54,6 +60,7 @@ function UpdatePreview({
           { id: ETranslations.update_changelog_title },
           { ver: latestVersion || '' },
         )}
+        headerLeft={isForceUpdate ? headerLeft : undefined}
       />
       <Page.Body mt={0}>
         <ExtPluginText />

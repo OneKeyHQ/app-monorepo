@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -14,14 +16,14 @@ import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 
+import { useTradingGuard } from '../../../hooks/useTradingGuard';
 import { showClosePositionDialog } from '../ClosePositionModal';
 import { PositionRow } from '../Components/PositionsRow';
 import { showSetTpslDialog } from '../SetTpslModal';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
-
-import type { AssetPosition } from '@nktkas/hyperliquid';
 
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
@@ -38,11 +40,88 @@ function PerpPositionsList({
   const [{ activePositions: positions }] = usePerpsActivePositionAtom();
   const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
   const actions = useHyperliquidActions();
+  const { ensureTradingEnabled } = useTradingGuard();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
+
+  const handleCloseAll = useCallback(async () => {
+    ensureTradingEnabled();
+
+    if (positions.length === 0) {
+      console.warn('No positions to close');
+      return;
+    }
+
+    try {
+      // Get symbol metadata for all positions
+      const symbolsMetaMap =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+          coins: positions.map((p) => p.position.coin),
+        });
+
+      // Get current mid prices for all positions
+      const midPrices = await Promise.all(
+        positions.map(async (p) => {
+          try {
+            const midPrice =
+              await backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
+                coin: p.position.coin,
+              });
+            return { coin: p.position.coin, midPrice };
+          } catch (error) {
+            console.warn(
+              `Failed to get mid price for ${p.position.coin}:`,
+              error,
+            );
+            return { coin: p.position.coin, midPrice: null };
+          }
+        }),
+      );
+
+      const midPriceMap = Object.fromEntries(
+        midPrices.map((item) => [item.coin, item.midPrice]),
+      );
+
+      // Prepare close orders for all positions
+      const positionsToClose = positions
+        .map((positionItem) => {
+          const position = positionItem.position;
+          const tokenInfo = symbolsMetaMap[position.coin];
+          const midPrice = midPriceMap[position.coin];
+
+          if (!tokenInfo || !midPrice) {
+            console.warn(`Missing data for position ${position.coin}`);
+            return null;
+          }
+
+          const positionSize = new BigNumber(position.szi || '0')
+            .abs()
+            .toFixed();
+          const isLongPosition = new BigNumber(position.szi || '0').gte(0);
+
+          return {
+            assetId: tokenInfo.assetId,
+            isBuy: isLongPosition,
+            size: positionSize,
+            midPx: midPrice,
+          };
+        })
+        .filter(Boolean);
+
+      if (positionsToClose.length === 0) {
+        console.warn('No valid positions to close or data unavailable');
+        return;
+      }
+
+      await actions.current.ordersClose(positionsToClose);
+    } catch (error) {
+      console.error('Failed to prepare close all positions:', error);
+    }
+  }, [positions, actions, ensureTradingEnabled]);
+
   const columnsConfig: IColumnConfig[] = useMemo(() => {
     return [
       {
@@ -50,7 +129,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         }),
-        width: 120,
+        width: 150,
         align: 'left',
       },
       {
@@ -132,16 +211,17 @@ function PerpPositionsList({
         flex: 1,
       },
       {
-        key: 'actions',
-        title: intl.formatMessage({
+        key: 'closeAll',
+        title: `${intl.formatMessage({
           id: ETranslations.perp_position_close,
-        }),
+        })}`,
         minWidth: 100,
         align: 'right',
         flex: 1,
+        onPress: handleCloseAll,
       },
     ];
-  }, [intl]);
+  }, [intl, handleCloseAll]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(
@@ -150,7 +230,7 @@ function PerpPositionsList({
       ),
     [columnsConfig],
   );
-  const positionSort = useMemo<AssetPosition[]>(() => {
+  const positionSort = useMemo<IPerpsAssetPosition[]>(() => {
     return positions.sort(
       (a, b) =>
         parseFloat(b.position.positionValue || '0') -
@@ -159,7 +239,7 @@ function PerpPositionsList({
   }, [positions]);
 
   const handleSetTpsl = useCallback(
-    async (position: AssetPosition['position']) => {
+    async ({ position }: { position: IPerpsAssetPosition['position'] }) => {
       const tokenInfo =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: position.coin,
@@ -171,26 +251,21 @@ function PerpPositionsList({
         );
         return;
       }
+      const params = {
+        coin: position.coin,
+        szDecimals: tokenInfo.universe?.szDecimals ?? 2,
+        assetId: tokenInfo.assetId,
+      };
       if (isMobile) {
         navigation.pushModal(EModalRoutes.PerpModal, {
           screen: EModalPerpRoutes.MobileSetTpsl,
-          params: {
-            position,
-            szDecimals: tokenInfo.universe?.szDecimals ?? 2,
-            assetId: tokenInfo.assetId,
-            hyperliquidActions: actions,
-          },
+          params,
         });
         return;
       }
-      showSetTpslDialog({
-        position,
-        szDecimals: tokenInfo.universe?.szDecimals ?? 2,
-        assetId: tokenInfo.assetId,
-        hyperliquidActions: actions,
-      });
+      showSetTpslDialog(params);
     },
-    [actions, isMobile, navigation],
+    [isMobile, navigation],
   );
 
   const handleClosePosition = useCallback(
@@ -198,7 +273,7 @@ function PerpPositionsList({
       position,
       type,
     }: {
-      position: AssetPosition['position'];
+      position: IPerpsAssetPosition['position'];
       type: 'market' | 'limit';
     }) => {
       const tokenInfo =
@@ -224,7 +299,7 @@ function PerpPositionsList({
     [actions],
   );
 
-  const renderPositionRow = (item: AssetPosition, _index: number) => {
+  const renderPositionRow = (item: IPerpsAssetPosition, _index: number) => {
     const position = item.position;
     const coin = position?.coin;
     const szi = position?.szi;
@@ -246,7 +321,7 @@ function PerpPositionsList({
         columnConfigs={columnsConfig}
         handleClosePosition={(type) => handleClosePosition({ position, type })}
         handleViewTpslOrders={handleViewTpslOrders}
-        setTpsl={() => handleSetTpsl(position)}
+        setTpsl={() => handleSetTpsl({ position })}
         index={_index}
       />
     );
@@ -254,6 +329,13 @@ function PerpPositionsList({
 
   return (
     <CommonTableListView
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpPositionsList',
+          position: 'top-left',
+        }),
+        [],
+      )}
       useTabsList
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

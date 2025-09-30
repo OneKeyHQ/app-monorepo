@@ -31,6 +31,8 @@ import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
 
+import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 function PerpLayout() {
@@ -182,8 +184,14 @@ export default function Perp() {
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        <PerpsGlobalEffects />
-        <PerpContent />
+        {shouldOpenExpandExtPerp() ? (
+          <ExtPerp />
+        ) : (
+          <>
+            <PerpsGlobalEffects />
+            <PerpContent />
+          </>
+        )}
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );

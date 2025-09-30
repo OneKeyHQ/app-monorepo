@@ -29,7 +29,7 @@ import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFrie
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 import { perpRouters } from '../../views/Perp/router';
-import { perpTradeRouters } from '../../views/PerpTrade/router';
+import { perpTradeRouters as perpWebviewRouters } from '../../views/PerpTrade/router';
 
 import { discoveryRouters } from './Discovery/router';
 import { earnRouters } from './Earn/router';
@@ -91,10 +91,20 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     if (perpConfigCommon?.disablePerp) {
       return null;
     }
+    // not working for extension
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const tabbarOnPress =
+      platformEnv.isExtension &&
+      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
+        ? async () => {
+            if (platformEnv.isExtension) {
+              await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+            }
+          }
+        : undefined;
     if (
-      (perpConfigCommon?.usePerpWeb ||
-        perpUserConfig.currentUserType === EPerpUserType.PERP_WEB) &&
-      platformEnv.isDesktop
+      perpConfigCommon?.usePerpWeb ||
+      perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
     ) {
       return {
         name: ETabRoutes.WebviewPerpTrade,
@@ -104,18 +114,12 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/perp',
         exact: true,
-        tabbarOnPress: platformEnv.isExtension
-          ? async () => {
-              if (platformEnv.isExtension) {
-                await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-              }
-            }
-          : undefined,
+        // tabbarOnPress,
         children: platformEnv.isExtension
           ? // small screen error: Cannot read properties of null (reading 'filter')
             // null
-            perpTradeRouters
-          : perpTradeRouters,
+            perpWebviewRouters
+          : perpWebviewRouters,
         trackId: 'global-perp',
       };
     }
@@ -126,6 +130,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       translationId: ETranslations.global_perp,
       freezeOnBlur: Boolean(params?.freezeOnBlur),
       children: perpRouters,
+      rewrite: '/perp',
+      exact: true,
+      // tabbarOnPress,
     };
   }, [
     perpConfigCommon?.disablePerp,

@@ -375,9 +375,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
             },
           ],
           [
-            !perpConfigCommon.disablePerp &&
-            !perpConfigCommon.usePerpWeb &&
-            platformEnv.isDesktop
+            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
               ? {
                   icon: 'BrowserOutline',
                   title: intl.formatMessage({

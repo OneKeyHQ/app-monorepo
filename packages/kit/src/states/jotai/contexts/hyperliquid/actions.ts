@@ -5,12 +5,17 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import {
   perpsActiveAccountAtom,
   perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { resolveTradingSize } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type {
-  IL2BookOptions,
-  IPerpOrderBookTickOptionPersist,
+import {
+  EPerpsSizeInputMode,
+  type IL2BookOptions,
+  type IOrderCloseParams,
+  type IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
@@ -405,6 +410,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     set(tradingFormAtom(), {
       ...current,
       size: '',
+      sizeInputMode: EPerpsSizeInputMode.MANUAL,
+      sizePercent: 0,
       hasTpsl: false,
       tpTriggerPx: '',
       tpGainPercent: '',
@@ -434,11 +441,34 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           set(tradingLoadingAtom(), true);
           try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: formData.type === 'limit' ? formData.price : '',
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              availableToTrade: activeAssetDataValue?.availableToTrade,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
                 assetId: params.assetId,
                 isBuy: formData.side === 'long',
-                sz: formData.size,
+                sz: resolvedSize,
                 limitPx: formData.price,
                 orderType:
                   formData.type === 'limit'
@@ -474,11 +504,34 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         asyncFn: async () => {
           set(tradingLoadingAtom(), true);
           try {
+            const [
+              activeAssetValue,
+              activeAssetCtxValue,
+              activeAssetDataValue,
+            ] = await Promise.all([
+              perpsActiveAssetAtom.get(),
+              perpsActiveAssetCtxAtom.get(),
+              perpsActiveAssetDataAtom.get(),
+            ]);
+
+            const resolvedSize = resolveTradingSize({
+              sizeInputMode: formData.sizeInputMode,
+              manualSize: formData.size,
+              sizePercent: formData.sizePercent,
+              side: formData.side,
+              price: params.price,
+              markPrice: activeAssetCtxValue?.ctx?.markPrice,
+              availableToTrade: activeAssetDataValue?.availableToTrade,
+              leverageValue: activeAssetDataValue?.leverage?.value,
+              fallbackLeverage: activeAssetValue?.universe?.maxLeverage,
+              szDecimals: activeAssetValue?.universe?.szDecimals,
+            });
+
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
                 assetId: params.assetId,
                 isBuy: formData.side === 'long',
-                size: formData.size,
+                size: resolvedSize,
                 price: params.price,
                 type: formData.type,
                 tpTriggerPx: formData.hasTpsl
@@ -511,13 +564,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ): Promise<{ leverage: number; isCross: boolean }> => {
       return withToast({
         asyncFn: async () => {
-          void (await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
-            {
-              asset: params.asset,
-              leverage: params.leverage,
-              isCross: params.isCross,
-            },
-          ));
+          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
+            asset: params.asset,
+            leverage: params.leverage,
+            isCross: params.isCross,
+          });
 
           const formData = get(tradingFormAtom());
           set(tradingFormAtom(), { ...formData, leverage: params.leverage });
@@ -530,7 +581,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  orderClose = contextAtomMethod(
+  ordersClose = contextAtomMethod(
     async (
       get,
       set,
@@ -540,26 +591,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         size: string;
         midPx: string;
         slippage?: number;
-      },
+      }[],
     ) => {
       return withToast({
         asyncFn: async () => {
-          set(tradingLoadingAtom(), true);
-          try {
-            const result =
-              await backgroundApiProxy.serviceHyperliquidExchange.orderClose({
-                assetId: params.assetId,
-                isBuy: params.isBuy,
-                size: params.size,
-                midPx: params.midPx,
-                slippage: params.slippage,
-              });
-            return result;
-          } finally {
-            set(tradingLoadingAtom(), false);
-          }
+          const result =
+            await backgroundApiProxy.serviceHyperliquidExchange.ordersClose(
+              params,
+            );
+          return result;
         },
-        actionType: EActionType.ORDER_CLOSE,
+        actionType: EActionType.ORDERS_CLOSE,
       });
     },
   );
@@ -721,7 +763,7 @@ export function useHyperliquidActions() {
   const placeOrder = actions.placeOrder.use();
   const orderOpen = actions.orderOpen.use();
   const updateLeverage = actions.updateLeverage.use();
-  const orderClose = actions.orderClose.use();
+  const ordersClose = actions.ordersClose.use();
   const limitOrderClose = actions.limitOrderClose.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
@@ -756,7 +798,7 @@ export function useHyperliquidActions() {
     placeOrder,
     orderOpen,
     updateLeverage,
-    orderClose,
+    ordersClose,
     limitOrderClose,
     cancelOrder,
     setPositionTpsl,

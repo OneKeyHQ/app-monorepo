@@ -2,11 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import {
-  InputAccessoryView,
-  Keyboard,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { InputAccessoryView } from 'react-native';
 
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import {
@@ -20,7 +16,6 @@ import {
   XStack,
   YStack,
   getFontSize,
-  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -43,38 +38,12 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
 const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
-
-function DepositWithdrawKeyboardAccessory({ onDone }: { onDone: () => void }) {
-  const intl = useIntl();
-  const isKeyboardShown = useIsKeyboardShown();
-
-  if (!platformEnv.isNative) return null;
-
-  const shouldShow = platformEnv.isNativeIOS || isKeyboardShown;
-
-  if (!shouldShow) return null;
-
-  return (
-    <XStack
-      px="$4"
-      py="$2"
-      w="100%"
-      justifyContent="flex-end"
-      bg="$bgSubdued"
-      borderTopWidth="$px"
-      borderTopColor="$borderSubdued"
-    >
-      <Button variant="tertiary" size="small" onPress={onDone}>
-        {intl.formatMessage({ id: ETranslations.global_done })}
-      </Button>
-    </XStack>
-  );
-}
 
 interface IDepositWithdrawParams {
   withdrawable: string;
@@ -293,14 +262,20 @@ function DepositWithdrawContent({
 
     if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
       setShowMinAmountError(true);
-      const message = `Minimum deposit is ${MIN_DEPOSIT_AMOUNT} USDC`;
+      const message = intl.formatMessage(
+        { id: ETranslations.perp_mini_deposit },
+        { num: MIN_DEPOSIT_AMOUNT, token: 'USDC' },
+      );
       Toast.error({ title: message });
       return false;
     }
 
     if (selectedAction === 'withdraw' && amountBN.lt(MIN_WITHDRAW_AMOUNT)) {
       setShowMinAmountError(true);
-      const message = `Minimum withdraw is ${MIN_WITHDRAW_AMOUNT} USDC`;
+      const message = intl.formatMessage(
+        { id: ETranslations.perp_mini_withdraw },
+        { num: MIN_WITHDRAW_AMOUNT, token: 'USDC' },
+      );
       Toast.error({ title: message });
       return false;
     }
@@ -370,19 +345,8 @@ function DepositWithdrawContent({
     validateAmountBeforeSubmit,
   ]);
 
-  const handleKeyboardDone = useCallback(() => {
-    Keyboard.dismiss();
-  }, []);
-
-  const nativeInputProps = platformEnv.isNative
-    ? {
-        inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID,
-        returnKeyType: 'done' as const,
-        blurOnSubmit: true,
-        onSubmitEditing: () => {
-          handleKeyboardDone();
-        },
-      }
+  const nativeInputProps = platformEnv.isNativeIOS
+    ? { inputAccessoryViewID: DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID }
     : {};
 
   const isInsufficientBalance = useMemo(() => {
@@ -605,26 +569,15 @@ function DepositWithdrawContent({
       >
         {buttonText}
       </Button>
-      {platformEnv.isNative && !platformEnv.isNativeIOS ? (
-        <DepositWithdrawKeyboardAccessory onDone={handleKeyboardDone} />
-      ) : null}
     </YStack>
-  );
-
-  const wrappedContent = platformEnv.isNative ? (
-    <TouchableWithoutFeedback onPress={handleKeyboardDone} accessible={false}>
-      {content}
-    </TouchableWithoutFeedback>
-  ) : (
-    content
   );
 
   return (
     <>
-      {wrappedContent}
+      {content}
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID}>
-          <DepositWithdrawKeyboardAccessory onDone={handleKeyboardDone} />
+          <InputAccessoryDoneButton />
         </InputAccessoryView>
       ) : null}
     </>
