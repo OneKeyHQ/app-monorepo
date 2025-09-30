@@ -18,6 +18,7 @@ export enum EParseTxComponentType {
   Divider = 'divider',
   InternalAssets = 'internalAssets',
   DateTime = 'datetime',
+  Simulation = 'simulation',
 }
 
 export enum EParseTxComponentRole {
@@ -85,7 +86,10 @@ export interface IDisplayComponentNFT {
   type: EParseTxComponentType.NFT;
   label: string;
   nft: IAccountNFT;
+  networkId: string;
   amount: string;
+  showNetwork: boolean;
+  isSmallSize?: boolean;
   transferDirection?: ETransferDirection;
 }
 
@@ -99,7 +103,18 @@ export interface IDisplayComponentToken {
   amountParsed: string;
   networkId: string;
   showNetwork: boolean;
+  isSmallSize?: boolean;
   transferDirection?: ETransferDirection;
+}
+
+export interface IDisplayComponentSimulation {
+  type: EParseTxComponentType.Simulation;
+  label: string;
+  assets: (
+    | IDisplayComponentInternalAssets
+    | IDisplayComponentNFT
+    | IDisplayComponentToken
+  )[];
 }
 
 export interface IDisplayComponentAssets {
@@ -122,6 +137,7 @@ export interface IDisplayComponentInternalAssets {
   amountParsed: string;
   networkId?: string;
   isNFT?: boolean;
+  isSmallSize?: boolean;
   transferDirection?: ETransferDirection;
   NFTType?: ENFTType;
 }
@@ -140,6 +156,7 @@ export interface IDisplayComponentApprove {
   isInfiniteAmount: boolean;
   networkId: string;
   showNetwork: boolean;
+  isSmallSize?: boolean;
 }
 
 export interface IDisplayComponentDefault {
@@ -149,6 +166,7 @@ export interface IDisplayComponentDefault {
 }
 
 export type IDisplayComponent =
+  | IDisplayComponentSimulation
   | IDisplayComponentDivider
   | IDisplayComponentAssets
   | IDisplayComponentInternalAssets
@@ -183,6 +201,7 @@ export interface IParseTransactionParams {
   accountId: string;
   encodedTx: IEncodedTx;
   accountAddress?: string;
+  origin?: string;
 }
 
 export interface IParseTransactionResp {
