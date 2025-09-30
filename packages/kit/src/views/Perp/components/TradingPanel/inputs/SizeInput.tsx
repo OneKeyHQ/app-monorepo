@@ -312,6 +312,7 @@ export const SizeInput = memo(
         customSuffix={customSuffix}
         onFocus={onRequestManualMode}
         isMobile={isMobile}
+        keyboardType="decimal-pad"
         placeholder={
           isMobile
             ? intl.formatMessage({
