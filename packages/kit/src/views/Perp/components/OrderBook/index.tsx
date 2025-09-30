@@ -1096,7 +1096,7 @@ export function OrderBookMobile({
 }: IOrderBookProps) {
   const intl = useIntl();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const { markPrice, oraclePrice } = assetCtx?.ctx || {
+  const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
     oraclePrice: '0',
   };

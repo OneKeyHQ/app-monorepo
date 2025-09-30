@@ -318,10 +318,10 @@ export function PerpOrderBook({
   ]);
 
   const foo = 3;
-  if (!hasOrderBook || !l2Book || foo === 2) {
+  if (!hasOrderBook || !l2Book || foo === 3) {
     return (
       <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
-        <DefaultLoadingNode />
+        <DefaultLoadingNode isMobileOrderBook={!gtMd} symbol={l2Book?.coin} />
       </YStack>
     );
   }
