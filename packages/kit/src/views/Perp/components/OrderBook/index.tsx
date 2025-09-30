@@ -35,7 +35,7 @@ import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
-import type { IOBLevel } from './types';
+import type { IFormattedOBLevel } from './types';
 import type {
   DimensionValue,
   PressableStateCallbackType,
@@ -167,15 +167,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   verticalHeaderPrice: {
-    width: '20%',
+    width: '33%',
     alignItems: 'flex-start',
   },
   verticalHeaderSize: {
-    width: '40%',
+    width: '30%',
     alignItems: 'flex-end',
   },
   verticalHeaderTotal: {
-    width: '40%',
+    width: '37%',
     alignItems: 'flex-end',
   },
   horizontalHeaderContainer: {
@@ -190,15 +190,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   verticalRowCellPrice: {
-    width: '20%',
+    width: '33%',
     alignItems: 'flex-start',
   },
   verticalRowCellSize: {
-    width: '40%',
+    width: '30%',
     alignItems: 'flex-end',
   },
   verticalRowCellTotal: {
-    width: '40%',
+    width: '37%',
     alignItems: 'flex-end',
   },
   bodySm: {
@@ -298,7 +298,7 @@ function OrderBookVerticalRow({
   sizeColor,
   isHovered = false,
 }: {
-  item: IOBLevel;
+  item: IFormattedOBLevel;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -328,7 +328,7 @@ function OrderBookVerticalRow({
               fontWeightStyle,
             ]}
           >
-            {item.size}
+            {item.displaySize}
           </Text>
         </View>
         <View style={styles.verticalRowCellTotal}>
@@ -340,7 +340,7 @@ function OrderBookVerticalRow({
               fontWeightStyle,
             ]}
           >
-            {item.cumSize}
+            {item.displayCumSize}
           </Text>
         </View>
       </View>
@@ -398,7 +398,7 @@ export function OrderBook({
   maxLevelsPerSide = 30,
   style,
   midPriceNode: _midPriceNode = defaultMidPriceNode,
-  loadingNode = <DefaultLoadingNode />,
+  loadingNode = <DefaultLoadingNode variant="desktop" />,
   horizontal = true,
   selectedTickOption,
   onTickOptionChange,
@@ -452,7 +452,7 @@ export function OrderBook({
   const intl = useIntl();
 
   const handleSelectLevel = useCallback(
-    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+    (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
       }
@@ -612,7 +612,7 @@ export function OrderBook({
                                 isHovered ? styles.monospaceTextBold : null,
                               ]}
                             >
-                              {item.size}
+                              {item.displaySize}
                             </Text>
                             <Text
                               style={[
@@ -662,7 +662,7 @@ export function OrderBook({
                                 isHovered ? styles.monospaceTextBold : null,
                               ]}
                             >
-                              {item.size}
+                              {item.displaySize}
                             </Text>
                           </View>
                         );
@@ -868,7 +868,7 @@ function OrderBookPairRow({
   sizeColor,
   isHovered = false,
 }: {
-  item: IOBLevel;
+  item: IFormattedOBLevel;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -893,7 +893,7 @@ function OrderBookPairRow({
         <Text
           style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
         >
-          {item.size}
+          {item.displaySize}
         </Text>
       </View>
     </DebugRenderTracker>
@@ -939,7 +939,7 @@ export function OrderPairBook({
   const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
-    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+    (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
       }
@@ -1071,13 +1071,15 @@ export function OrderPairBook({
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 40;
+const MOBILE_PRICE_FLEX = 0.6;
+const MOBILE_SIZE_FLEX = 0.4;
 const MobileRow = ({
   item,
   priceColor,
   sizeColor,
   isHovered = false,
 }: {
-  item: IOBLevel;
+  item: IFormattedOBLevel;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -1087,39 +1089,42 @@ const MobileRow = ({
       style={{
         flex: 1,
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         height: MOBILE_ROW_HEIGHT,
       }}
     >
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.monospaceText,
-          {
-            color: priceColor,
-            fontSize: 11,
-            lineHeight: 14,
-          },
-          isHovered ? styles.monospaceTextBold : null,
-        ]}
-      >
-        {item.price}
-      </Text>
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.monospaceText,
-          {
-            color: sizeColor,
-            fontSize: 11,
-            lineHeight: 14,
-          },
-          isHovered ? styles.monospaceTextBold : null,
-        ]}
-      >
-        {item.size}
-      </Text>
+      <View style={{ flex: MOBILE_PRICE_FLEX }}>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.monospaceText,
+            {
+              color: priceColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+            isHovered ? styles.monospaceTextBold : null,
+          ]}
+        >
+          {item.price}
+        </Text>
+      </View>
+      <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.monospaceText,
+            {
+              color: sizeColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+            isHovered ? styles.monospaceTextBold : null,
+          ]}
+        >
+          {item.displaySize}
+        </Text>
+      </View>
     </View>
   </DebugRenderTracker>
 );
@@ -1142,7 +1147,7 @@ export function OrderBookMobile({
 }: IOrderBookProps) {
   const intl = useIntl();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
-  const { markPrice, oraclePrice } = assetCtx?.ctx || {
+  const { markPrice } = assetCtx?.ctx || {
     markPrice: '0',
     oraclePrice: '0',
   };
@@ -1185,7 +1190,7 @@ export function OrderBookMobile({
   const isInteractive = Boolean(onSelectLevel);
 
   const handleSelectLevel = useCallback(
-    (side: 'bid' | 'ask', item: IOBLevel, index: number) => {
+    (side: 'bid' | 'ask', item: IFormattedOBLevel, index: number) => {
       if (!onSelectLevel) {
         return;
       }
@@ -1207,46 +1212,65 @@ export function OrderBookMobile({
     <View style={style}>
       <DebugRenderTracker name="OrderBookMobileHeader" position="right-center">
         <View style={styles.pairBookHeader}>
-          <YStack>
-            <Text
-              style={[
-                styles.headerText,
-                { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-              ]}
+          <View style={{ flexDirection: 'row', width: '100%' }}>
+            <View style={{ flex: MOBILE_PRICE_FLEX }}>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 11,
+                    lineHeight: 14,
+                  },
+                ]}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+              </Text>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 10,
+                    lineHeight: 12,
+                  },
+                ]}
+              >
+                (USD)
+              </Text>
+            </View>
+            <View
+              style={{
+                flex: MOBILE_SIZE_FLEX,
+                alignItems: 'flex-end',
+              }}
             >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-            </Text>
-            <Text
-              style={[
-                styles.headerText,
-                {
-                  color: textColor.textSubdued,
-                  fontSize: 10,
-                  lineHeight: 12,
-                },
-              ]}
-            >
-              (USD)
-            </Text>
-          </YStack>
-          <YStack alignItems="flex-end">
-            <Text
-              style={[
-                styles.headerText,
-                { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-              ]}
-            >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-            </Text>
-            <Text
-              style={[
-                styles.headerText,
-                { color: textColor.textSubdued, fontSize: 10, lineHeight: 12 },
-              ]}
-            >
-              ({_symbol ?? ''})
-            </Text>
-          </YStack>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 11,
+                    lineHeight: 14,
+                  },
+                ]}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+              </Text>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 10,
+                    lineHeight: 12,
+                  },
+                ]}
+              >
+                ({_symbol ?? ''})
+              </Text>
+            </View>
+          </View>
         </View>
       </DebugRenderTracker>
       <View style={styles.relativeContainer}>

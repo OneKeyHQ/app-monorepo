@@ -33,6 +33,7 @@ import {
   OrderBook,
   OrderBookMobile,
 } from './OrderBook';
+import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
@@ -291,6 +292,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          loadingNode={<DefaultLoadingNode variant="mobileHorizontal" />}
         />
       );
     }
@@ -327,11 +329,21 @@ export function PerpOrderBook({
   ]);
 
   if (!hasOrderBook || !l2Book) {
+    let loadingVariant = 'desktop';
+    if (!gtMd) {
+      loadingVariant =
+        entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
+    }
     return (
-      <YStack flex={1} p="$4" justifyContent="center" alignItems="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Loading order book...
-        </SizableText>
+      <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
+        <DefaultLoadingNode
+          variant={
+            loadingVariant as 'desktop' | 'mobileVertical' | 'mobileHorizontal'
+          }
+          symbol={
+            loadingVariant === 'mobileVertical' ? l2Book?.coin : undefined
+          }
+        />
       </YStack>
     );
   }
