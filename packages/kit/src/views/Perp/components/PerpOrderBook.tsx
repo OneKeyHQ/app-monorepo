@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DebugRenderTracker,
   Divider,
   Popover,
   SizableText,
@@ -73,7 +74,16 @@ function MobileHeader() {
       })}
       renderTrigger={
         <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-          <SizableText fontSize={10} color="$textSubdued">
+          <SizableText
+            fontSize={10}
+            color="$textSubdued"
+            borderBottomWidth="$px"
+            borderTopWidth={0}
+            borderLeftWidth={0}
+            borderRightWidth={0}
+            borderBottomColor="$border"
+            borderStyle="dashed"
+          >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
@@ -338,7 +348,7 @@ export function PerpOrderBook({
     );
   }
 
-  return (
+  const content = (
     <YStack flex={1} bg="$bgApp">
       {gtMd ? (
         <OrderBook
@@ -359,5 +369,10 @@ export function PerpOrderBook({
         mobileOrderBook
       )}
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpOrderBook" position="top-left">
+      {content}
+    </DebugRenderTracker>
   );
 }

@@ -33,18 +33,24 @@ import {
 } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
-import type {
-  IDesktopAppState,
-  IDesktopSubModuleInitParams,
-} from '@onekeyhq/shared/types/desktop';
+import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
-import { checkFileSha512, getBundleIndexHtmlPath, getMetadata } from './bundle';
+import {
+  checkFileSha512,
+  getBundleIndexHtmlPath,
+  getMetadata,
+  unmatchedFileDialog,
+} from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
 import { registerShortcuts, unregisterShortcuts } from './libs/shortcuts';
 import * as store from './libs/store';
 import initProcess from './process';
-import { getResourcesPath, getStaticPath } from './resoucePath';
+import {
+  getAppStaticResourcesPath,
+  getResourcesPath,
+  getStaticPath,
+} from './resoucePath';
 import { initSentry } from './sentry';
 import { startServices } from './service';
 
@@ -80,6 +86,7 @@ const APP_TITLE_NAME = 'OneKey';
 app.name = APP_NAME;
 let mainWindow: BrowserWindow | null;
 
+const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
 const resourcesPath = getResourcesPath();
 // static path
@@ -485,7 +492,7 @@ async function createMainWindow() {
       nodeIntegrationInWorker: false,
       autoplayPolicy: 'user-gesture-required',
     },
-    icon: path.join(staticPath, 'images/icons/512x512.png'),
+    icon: path.join(appStaticResourcesPath, 'images/icons/512x512.png'),
     ...savedWinBounds,
   });
 
@@ -599,11 +606,6 @@ async function createMainWindow() {
     app.exit(0);
     disposeContextMenu?.();
   });
-
-  const subModuleInitParams: IDesktopSubModuleInitParams = {
-    APP_NAME,
-    getSafelyMainWindow,
-  };
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
@@ -756,16 +758,34 @@ async function createMainWindow() {
       if (!bundleDirPath) {
         throw new OneKeyLocalError('Bundle directory path not found');
       }
-      const key = url.replace(/^\/+/, '');
+      const replacedKey = url.replace(/^\/+/, '').trim();
+      const key = replacedKey || 'index.html';
       if (!key) {
+        logger.info(
+          'checkFileHash error:',
+          `${key}: File ${url} not found in metadata.json`,
+        );
+        unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
       }
       const sha512 = metadata[key];
       const filePath = path.join(bundleDirPath, key);
       if (!sha512) {
-        throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
+        logger.info(
+          'checkFileHash error:',
+          `${key}: ${url}, sha512 not found in metadata.json`,
+        );
+        unmatchedFileDialog();
+        throw new OneKeyLocalError(
+          `File ${url}, sha512 not found in metadata.json`,
+        );
       }
       if (!checkFileSha512(filePath, sha512)) {
+        logger.info(
+          'checkFileHash error:',
+          `${key}:  ${url} not matched ${filePath}: ${sha512}`,
+        );
+        unmatchedFileDialog();
         throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
       }
       return filePath;

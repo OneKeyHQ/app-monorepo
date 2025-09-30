@@ -2,7 +2,7 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
-import { YStack } from '@onekeyhq/components';
+import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import {
   useTradingFormAtom,
   useTradingFormComputedAtom,
@@ -10,8 +10,8 @@ import {
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountSummaryAtom,
-  usePerpsActiveAssetDataAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -66,11 +66,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       .multipliedBy(priceBN)
       .multipliedBy(leverageBN);
     return orderValue.lt(10);
-  }, [
-    tradingComputed.computedSizeBN,
-    effectivePriceBN,
-    formData.leverage,
-  ]);
+  }, [tradingComputed.computedSizeBN, effectivePriceBN, formData.leverage]);
 
   const isNoEnoughMargin = useMemo(() => {
     if (!tradingComputed.computedSizeBN.isFinite()) return false;
@@ -116,7 +112,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     showOrderConfirmDialog();
   }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
-  return (
+  const content = (
     <YStack gap="$4" pt="$3" px="$2.5">
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       <PerpTradingButton
@@ -129,6 +125,11 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
         isNoEnoughMargin={isNoEnoughMargin}
       />
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpTradingPanel" position="top-right">
+      {content}
+    </DebugRenderTracker>
   );
 }
 

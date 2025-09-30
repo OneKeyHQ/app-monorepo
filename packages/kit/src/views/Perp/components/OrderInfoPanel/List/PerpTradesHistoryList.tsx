@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -117,6 +118,13 @@ function PerpTradesHistoryList({
   };
   return (
     <CommonTableListView
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpTradesHistoryList',
+          position: 'top-left',
+        }),
+        [],
+      )}
       useTabsList={useTabsList}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

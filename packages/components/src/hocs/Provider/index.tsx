@@ -14,7 +14,6 @@ import config from '../../../tamagui.config';
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
-import SidebarStateProvider from './SidebarStateProvider';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -65,13 +64,11 @@ export function ConfigProvider({
     <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
       <FontProvider>
         <SettingConfigContext.Provider value={providerValue}>
-          <SidebarStateProvider>
-            <SafeAreaProvider>
-              <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
-                {children}
-              </MemoizedTamaguiProvider>
-            </SafeAreaProvider>
-          </SidebarStateProvider>
+          <SafeAreaProvider>
+            <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
+              {children}
+            </MemoizedTamaguiProvider>
+          </SafeAreaProvider>
         </SettingConfigContext.Provider>
       </FontProvider>
     </AppIntlProvider>

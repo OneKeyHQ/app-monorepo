@@ -169,6 +169,6 @@ export const {
     computedSizeString,
     maxSizeBN,
     maxSize: maxSizeBN.isFinite() ? maxSizeBN.toNumber() : 0,
-    sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gt(0),
+    sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gte(0),
   };
 });
