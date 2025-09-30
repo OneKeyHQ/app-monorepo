@@ -72,6 +72,20 @@ const MOBILE_ROWS: { width: string; height: number }[] = [
   { width: '100%', height: MOBILE_ROW_HEIGHT },
 ];
 
+const MOBILE_HORIZONTAL_WIDTHS = [
+  '6.4%',
+  '11.3%',
+  '20.6%',
+  '32.6%',
+  '43.3%',
+  '56.7%',
+  '67.4%',
+  '73.0%',
+  '83.7%',
+  '91.5%',
+  '100%',
+];
+
 export type IDefaultLoadingNodeProps = {
   variant: 'desktop' | 'mobileVertical' | 'mobileHorizontal';
   symbol?: string;
@@ -82,6 +96,45 @@ export function DefaultLoadingNode({
   symbol,
 }: IDefaultLoadingNodeProps) {
   const intl = useIntl();
+
+  if (variant === 'mobileHorizontal') {
+    return (
+      <YStack flex={1} w="100%" gap="$2" p="0">
+        <XStack w="100%" alignItems="center" justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_buy })}
+          </SizableText>
+          <XStack alignItems="center" gap="$1">
+            <Skeleton w={50} h={16} />
+          </XStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.global_sell })}
+          </SizableText>
+        </XStack>
+
+        <XStack w="100%" gap="$1" alignItems="flex-start">
+          {[0, 1].map((columnIdx) => {
+            const widths = MOBILE_HORIZONTAL_WIDTHS;
+            const alignItems = columnIdx === 0 ? 'flex-end' : 'flex-start';
+            return (
+              <YStack key={columnIdx} flex={1} gap={1} alignItems={alignItems}>
+                {widths.map((width, index) => (
+                  <Stack
+                    key={`${columnIdx}-${index}`}
+                    h={MOBILE_ROW_HEIGHT}
+                    overflow="hidden"
+                    w={width}
+                  >
+                    <Skeleton w="100%" h="100%" radius="square" />
+                  </Stack>
+                ))}
+              </YStack>
+            );
+          })}
+        </XStack>
+      </YStack>
+    );
+  }
 
   if (variant === 'mobileVertical') {
     return (

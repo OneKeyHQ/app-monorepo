@@ -318,8 +318,7 @@ export function PerpOrderBook({
     sizeDecimals,
   ]);
 
-  const foo = 3;
-  if (!hasOrderBook || !l2Book || foo === 3) {
+  if (!hasOrderBook || !l2Book) {
     let loadingVariant = 'desktop';
     if (!gtMd) {
       loadingVariant =
