@@ -138,6 +138,7 @@ function TxConfirm() {
         accountId,
         networkId,
         transferPayload,
+        sourceInfo,
         updateExtraFeeInfo,
         updateDecodedTxsInit,
       ],
