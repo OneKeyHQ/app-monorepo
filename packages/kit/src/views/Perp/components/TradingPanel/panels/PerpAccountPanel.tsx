@@ -18,6 +18,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useMMR } from '../../../hooks/useMMR';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
@@ -40,6 +41,7 @@ export function PerpAccountDebugInfo() {
 
 function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const mmr = useMMR();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
 
@@ -133,6 +135,16 @@ function PerpAccountPanel() {
             skeletonWidth={60}
           />
         </XStack>
+        {mmr ? (
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+              Cross Margin Ratio
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {mmr.multipliedBy(100).toFixed(2)}%
+            </SizableText>
+          </XStack>
+        ) : null}
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"

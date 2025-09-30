@@ -211,15 +211,6 @@ function PerpPositionsList({
         flex: 1,
       },
       {
-        key: 'actions',
-        title: intl.formatMessage({
-          id: ETranslations.perp_position_close,
-        }),
-        minWidth: 100,
-        align: 'right',
-        flex: 1,
-      },
-      {
         key: 'closeAll',
         title: `${intl.formatMessage({
           id: ETranslations.perp_position_close,

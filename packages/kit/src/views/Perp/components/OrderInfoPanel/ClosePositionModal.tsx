@@ -101,7 +101,7 @@ const ClosePositionForm = memo(
 
     const [formData, setFormData] = useState<IClosePositionFormData>({
       type,
-      amount: formatWithPrecision(position.szi, szDecimals, true),
+      amount: formatWithPrecision(positionSize, szDecimals, true),
       limitPrice: '',
       percentage: 100,
     });
@@ -174,7 +174,7 @@ const ClosePositionForm = memo(
         if (numericValue.gt(positionSize)) {
           setFormData((prev) => ({
             ...prev,
-            amount: formatWithPrecision(position.szi, szDecimals, true),
+            amount: formatWithPrecision(positionSize, szDecimals, true),
             percentage: 100,
           }));
           return;
@@ -190,7 +190,7 @@ const ClosePositionForm = memo(
           percentage: Math.min(100, Math.max(0, percentage)),
         }));
       },
-      [positionSize, position.szi, szDecimals],
+      [positionSize, szDecimals],
     );
 
     const handleLimitPriceChange = useCallback(
@@ -311,7 +311,7 @@ const ClosePositionForm = memo(
         formData.type === 'market' ? midPrice : formData.limitPrice;
       if (!exitPrice || !position.entryPx) return '$0.00';
 
-      const amount = formData.amount || Math.abs(+position.szi);
+      const amount = formData.amount || positionSize.toFixed(szDecimals);
       if (!amount) return '$0.00';
 
       return calculateProfitLoss({
@@ -331,8 +331,9 @@ const ClosePositionForm = memo(
       formData.amount,
       formData.limitPrice,
       position.entryPx,
-      position.szi,
+      positionSize,
       isLongPosition,
+      szDecimals,
     ]);
 
     const isAmountValid = useMemo(() => {
