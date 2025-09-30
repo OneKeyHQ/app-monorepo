@@ -1,8 +1,6 @@
-import { Suspense, forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 
 import { styled, withStaticProperties } from 'tamagui';
-
-import { createSuspender } from '@onekeyhq/shared/src/modules3rdParty/use-suspender';
 
 import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';

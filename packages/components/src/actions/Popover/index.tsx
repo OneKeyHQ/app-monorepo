@@ -14,7 +14,7 @@ import {
   useState,
 } from 'react';
 
-import { Dimensions, useWindowDimensions } from 'react-native';
+import { Dimensions } from 'react-native';
 import { Popover as TMPopover, useMedia, withStaticProperties } from 'tamagui';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -42,7 +42,7 @@ import { PopoverContent } from './PopoverContent';
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
 import type { UseMediaState } from '@tamagui/core';
-import type { LayoutChangeEvent, View } from 'react-native';
+import type { View } from 'react-native';
 import type {
   PopoverContentTypeProps,
   SheetProps,

@@ -3,11 +3,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
-import {
-  EPerpUserType,
-  type IPerpCommonConfig,
-  type IPerpUserConfig,
-} from '@onekeyhq/shared/types/hyperliquid/types';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
