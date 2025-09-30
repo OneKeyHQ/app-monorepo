@@ -295,7 +295,24 @@ function TxFeeInfo(props: IProps) {
         });
 
         if (r.megafuelEligible) {
-          updateMegafuelEligible(r.megafuelEligible);
+          const customRpcInfo =
+            await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+              networkId,
+            );
+          // if custom rpc is enabled, disable megafuel eligible
+          if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
+            r.megafuelEligible = undefined;
+            r.gas = r.gas?.map((gas) => ({
+              ...gas,
+              gasPrice: gas.originalGasPrice ?? gas.gasPrice,
+            }));
+            updateMegafuelEligible({
+              sponsorable: false,
+              sponsorName: '',
+            });
+          } else {
+            updateMegafuelEligible(r.megafuelEligible);
+          }
         }
 
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
