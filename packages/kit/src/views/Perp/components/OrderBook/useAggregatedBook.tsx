@@ -1,12 +1,32 @@
 import BigNumber from 'bignumber.js';
 
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { type ITickParam } from './tickSizeUtils';
 import { ceilToTickFast, floorToTickFast } from './utils';
 
-import type { IOBLevel } from './types';
+import type {
+  IAggregatedBookResult,
+  IFormattedOBLevel,
+  IOBLevel,
+} from './types';
+
+const formatOrderBookValue = (value: string): string => {
+  if (!value) {
+    return '0';
+  }
+  const formatted = numberFormat(value, { formatter: 'marketCap' });
+  return (formatted as string) || '0';
+};
+
+const withDisplayFields = (levels: IOBLevel[]): IFormattedOBLevel[] =>
+  levels.map((level) => ({
+    ...level,
+    displaySize: formatOrderBookValue(level.size),
+    displayCumSize: formatOrderBookValue(level.cumSize),
+  }));
 
 // Aggregates in 1 iteration using BigNumber for precision
 export function aggregateLevels(
@@ -160,7 +180,7 @@ export function useAggregatedBook(
   activeTickOption: ITickParam | undefined,
   priceDecimals: number,
   sizeDecimals: number,
-) {
+): IAggregatedBookResult {
   // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
   const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
     convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
@@ -169,8 +189,8 @@ export function useAggregatedBook(
 
   if (!activeTickOption) {
     return {
-      bids: convertedBids,
-      asks: convertedAsks,
+      bids: withDisplayFields(convertedBids),
+      asks: withDisplayFields(convertedAsks),
       maxBidSize: '0',
       maxAskSize: '0',
     };
@@ -182,7 +202,12 @@ export function useAggregatedBook(
     activeTickOption.targetTick !== activeTickOption.apiTick;
 
   if (!needsAggregation) {
-    return sumAndSlice(
+    const {
+      bids: rawBids,
+      asks: rawAsks,
+      maxBidSize,
+      maxAskSize,
+    } = sumAndSlice(
       convertedBids,
       convertedAsks,
       maxLevelsPerSide,
@@ -190,6 +215,12 @@ export function useAggregatedBook(
       bidsPrefixMaxSizes,
       asksPrefixMaxSizes,
     );
+    return {
+      bids: withDisplayFields(rawBids),
+      asks: withDisplayFields(rawAsks),
+      maxBidSize,
+      maxAskSize,
+    };
   }
 
   const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
@@ -213,8 +244,8 @@ export function useAggregatedBook(
     );
 
   return {
-    bids: aggregatedBids,
-    asks: aggregatedAsks,
+    bids: withDisplayFields(aggregatedBids),
+    asks: withDisplayFields(aggregatedAsks),
     maxBidSize,
     maxAskSize,
   };
