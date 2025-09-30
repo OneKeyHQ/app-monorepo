@@ -4,18 +4,18 @@ import type { IYStackProps } from '../../primitives';
 
 export type IDotStyle = IYStackProps;
 
-export type IPaginationItemProps<T> = {
+export type IPaginationItemProps = {
   index: number;
   dotStyle?: IDotStyle;
   activeDotStyle?: IDotStyle;
   onPress: () => void;
 };
 
-export function PaginationItem<T>({
+export function PaginationItem({
   dotStyle,
   activeDotStyle,
   onPress,
-}: IPaginationItemProps<T>) {
+}: IPaginationItemProps) {
   return (
     <YStack
       onPress={onPress}
