@@ -362,7 +362,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
-          variant="desktop"
+          variant="web"
         />
       ) : (
         mobileOrderBook
