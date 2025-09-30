@@ -282,6 +282,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          loadingNode={<DefaultLoadingNode variant="mobileHorizontal" />}
         />
       );
     }
@@ -319,9 +320,21 @@ export function PerpOrderBook({
 
   const foo = 3;
   if (!hasOrderBook || !l2Book || foo === 3) {
+    let loadingVariant = 'desktop';
+    if (!gtMd) {
+      loadingVariant =
+        entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
+    }
     return (
       <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
-        <DefaultLoadingNode isMobileOrderBook={!gtMd} symbol={l2Book?.coin} />
+        <DefaultLoadingNode
+          variant={
+            loadingVariant as 'desktop' | 'mobileVertical' | 'mobileHorizontal'
+          }
+          symbol={
+            loadingVariant === 'mobileVertical' ? l2Book?.coin : undefined
+          }
+        />
       </YStack>
     );
   }

@@ -73,17 +73,17 @@ const MOBILE_ROWS: { width: string; height: number }[] = [
 ];
 
 export type IDefaultLoadingNodeProps = {
-  isMobileOrderBook?: boolean;
+  variant: 'desktop' | 'mobileVertical' | 'mobileHorizontal';
   symbol?: string;
 };
 
 export function DefaultLoadingNode({
-  isMobileOrderBook = false,
+  variant,
   symbol,
 }: IDefaultLoadingNodeProps) {
   const intl = useIntl();
 
-  if (isMobileOrderBook) {
+  if (variant === 'mobileVertical') {
     return (
       <YStack flex={1} w="100%" gap="$2">
         <XStack jc="space-between">

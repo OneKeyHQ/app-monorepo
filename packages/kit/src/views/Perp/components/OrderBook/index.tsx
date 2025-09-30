@@ -383,7 +383,7 @@ export function OrderBook({
   maxLevelsPerSide = 30,
   style,
   midPriceNode: _midPriceNode = defaultMidPriceNode,
-  loadingNode = <DefaultLoadingNode />,
+  loadingNode = <DefaultLoadingNode variant="desktop" />,
   horizontal = true,
   selectedTickOption,
   onTickOptionChange,
