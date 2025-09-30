@@ -39,10 +39,17 @@ const OpenOrdersRow = memo(
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
       const orderType = order.orderType;
-      const type = order.side === 'B' ? 'Long' : 'Short';
-      const typeColor = order.side === 'B' ? '$textSuccess' : '$textCritical';
+      const type =
+        order.side === 'B'
+          ? intl.formatMessage({
+              id: ETranslations.perp_trade_long,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_trade_short,
+            });
+      const typeColor = order.side === 'B' ? '$green11' : '$red11';
       return { assetSymbol, type, orderType, typeColor };
-    }, [order.coin, order.side, order.orderType]);
+    }, [order.coin, order.side, order.orderType, intl]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
@@ -301,7 +308,7 @@ const OpenOrdersRow = memo(
         >
           <SizableText
             size="$bodySm"
-            fontWeight={800}
+            fontWeight={600}
             numberOfLines={1}
             color={assetInfo.typeColor}
             ellipsizeMode="tail"
@@ -376,7 +383,9 @@ const OpenOrdersRow = memo(
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {order.orderType.includes('Market')
-              ? 'Market'
+              ? intl.formatMessage({
+                  id: ETranslations.perp_position_market,
+                })
               : orderBaseInfo.executePriceLimitFormatted}
           </SizableText>
         </XStack>

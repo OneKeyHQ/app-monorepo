@@ -178,7 +178,16 @@ function PerpTickerBar() {
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+                color="$textSubdued"
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_oracle_price,
                 })}
@@ -222,7 +231,16 @@ function PerpTickerBar() {
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_open_Interest,
                 })}
@@ -254,7 +272,16 @@ function PerpTickerBar() {
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText
+                size="$bodySm"
+                borderBottomWidth="$px"
+                borderTopWidth={0}
+                borderLeftWidth={0}
+                borderRightWidth={0}
+                borderBottomColor="$border"
+                borderStyle="dashed"
+                color="$textSubdued"
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_Funding,
                 })}
@@ -297,7 +324,7 @@ function PerpTickerBar() {
                   </XStack>
                 }
                 renderContent={
-                  <YStack bg="$bgSubdued" gap="$1">
+                  <YStack gap="$1">
                     <YStack py="$1" gap="$0.5" justifyContent="space-between">
                       <SizableText size="$bodySm" color="$textSubdued">
                         {intl.formatMessage({

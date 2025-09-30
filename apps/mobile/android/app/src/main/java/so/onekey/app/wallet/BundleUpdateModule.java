@@ -709,6 +709,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void getWebEmbedPath(Promise promise) {
+        String currentBundleDir = getCurrentBundleDir(reactContext, getCurrentBundleVersion(reactContext));
+        if (currentBundleDir == null) {
+            promise.resolve("");
+            return;
+        }
+        String webEmbedPath = new File(currentBundleDir, "web-embed").getAbsolutePath();
+        promise.resolve(webEmbedPath);
+    }
+
+    @ReactMethod
     public void clearAllJSBundleData(Promise promise) {
         File downloadBundleDir = new File(getDownloadBundleDir(reactContext));
         if (downloadBundleDir.exists()) {

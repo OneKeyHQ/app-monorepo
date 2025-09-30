@@ -153,8 +153,8 @@ const PositionRow = memo(
       const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '+';
       const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '+';
       const fundingSinceOpenColor = fundingSinceOpenBN.gt(0)
-        ? '$textCritical'
-        : '$textSuccess';
+        ? '$red11'
+        : '$green11';
       const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
         ? '-'
         : '+';
@@ -244,21 +244,30 @@ const PositionRow = memo(
               h="$4"
               justifyContent="center"
               alignItems="center"
-              borderRadius="$1"
+              borderRadius={2}
               backgroundColor={assetInfo.assetColor}
             >
               <SizableText size="$bodySmMedium" color="$textOnColor">
-                {side === 'long' ? 'B' : 'S'}
+                {side === 'long'
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_position_b,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_position_s,
+                    })}
               </SizableText>
             </XStack>
             <SizableText size="$bodyMdMedium" color="$text">
               {assetInfo.assetSymbol}
             </SizableText>
-            <SizableText size="$bodySm" color={assetInfo.assetColor}>
-              {assetInfo.leverageType}
-            </SizableText>
-            <SizableText size="$bodySm" color={assetInfo.assetColor}>
-              {`${side === 'long' ? 'Long' : 'Sell'} ${assetInfo.leverage}X`}
+            <SizableText
+              bg="$bgSubdued"
+              borderRadius={2}
+              px="$1"
+              color="$textSubdued"
+              fontSize={10}
+            >
+              {assetInfo.leverageType} {assetInfo.leverage}X
             </SizableText>
           </XStack>
           <XStack
@@ -444,7 +453,7 @@ const PositionRow = memo(
             h="$4"
             justifyContent="center"
             alignItems="center"
-            borderRadius="$1"
+            borderRadius={2}
             backgroundColor={assetInfo.assetColor}
             cursor="pointer"
             onPress={() =>
@@ -454,33 +463,34 @@ const PositionRow = memo(
             }
           >
             <SizableText size="$bodySmMedium" color="$textOnColor">
-              {side === 'long' ? 'B' : 'S'}
+              {side === 'long'
+                ? intl.formatMessage({
+                    id: ETranslations.perp_position_b,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.perp_position_s,
+                  })}
             </SizableText>
           </XStack>
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySmMedium"
-            fontWeight="900"
+            fontWeight={600}
             color={assetInfo.assetColor}
+            hoverStyle={{ fontWeight: 700 }}
+            pressStyle={{ fontWeight: 700 }}
           >
             {assetInfo.assetSymbol}
           </SizableText>
           <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color={assetInfo.assetColor}
+            bg="$bgSubdued"
+            borderRadius={2}
+            px="$1"
+            color="$textSubdued"
+            fontSize={12}
           >
-            {assetInfo.leverageType}
-          </SizableText>
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color={assetInfo.assetColor}
-          >
-            {assetInfo.leverage}X
+            {assetInfo.leverageType} {assetInfo.leverage}X
           </SizableText>
         </XStack>
 
@@ -663,7 +673,7 @@ const PositionRow = memo(
             <SizableText
               cursor="pointer"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$textSuccess"
+              color="$green11"
               size="$bodySm"
               fontWeight={400}
             >
@@ -676,7 +686,7 @@ const PositionRow = memo(
             <SizableText
               cursor="pointer"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$textSuccess"
+              color="$green11"
               size="$bodySm"
               fontWeight={400}
             >
