@@ -4,7 +4,11 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
 
-import type { IInputProps, IXStackProps } from '@onekeyhq/components';
+import type {
+  IDebugRenderTrackerProps,
+  IInputProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
   IconButton,
@@ -266,6 +270,7 @@ export interface ICommonTableListViewProps {
   useTabsList?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
+  listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
 }
 
 export function CommonTableListView({
@@ -286,6 +291,7 @@ export function CommonTableListView({
   borderColor = '$borderSubdued',
   enablePagination = false,
   pageSize = 20,
+  listViewDebugRenderTrackerProps,
 }: ICommonTableListViewProps) {
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -488,6 +494,7 @@ export function CommonTableListView({
               })}
             </XStack>
             <ListView
+              debugRenderTrackerProps={listViewDebugRenderTrackerProps}
               style={{
                 height: 400,
               }}

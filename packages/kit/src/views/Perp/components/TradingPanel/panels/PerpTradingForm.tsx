@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
+  IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -26,6 +27,7 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
@@ -42,6 +44,7 @@ import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpslInput } from '../inputs/TpslInput';
+import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
@@ -54,6 +57,27 @@ import type { ISide } from '../selectors/TradeSideToggle';
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
   isMobile?: boolean;
+}
+
+function MobileDepositButton() {
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  return (
+    <IconButton
+      testID="perp-trading-form-mobile-deposit-button"
+      size="small"
+      variant="tertiary"
+      iconSize="$3.5"
+      icon="PlusCircleSolid"
+      onPress={() =>
+        showDepositWithdrawModal({
+          actionType: 'deposit',
+          withdrawable: accountSummary?.withdrawable || '0',
+        })
+      }
+      color="$iconSubdued"
+      cursor="pointer"
+    />
+  );
 }
 
 function PerpTradingForm({
@@ -321,7 +345,7 @@ function PerpTradingForm({
             <SizableText size="$bodySmMedium" color="$text">
               ${availableToTradeDisplay}
             </SizableText>
-            <PerpAccountPanel isTradingPanel />
+            <MobileDepositButton />
           </XStack>
         </XStack>
         <XStack alignItems="center" flex={1} gap="$2.5">

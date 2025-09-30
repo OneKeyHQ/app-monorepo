@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DebugRenderTracker,
   Divider,
   Popover,
   SizableText,
@@ -335,7 +336,7 @@ export function PerpOrderBook({
     );
   }
 
-  return (
+  const content = (
     <YStack flex={1} bg="$bgApp">
       {gtMd ? (
         <OrderBook
@@ -356,5 +357,10 @@ export function PerpOrderBook({
         mobileOrderBook
       )}
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpOrderBook" position="top-left">
+      {content}
+    </DebugRenderTracker>
   );
 }
