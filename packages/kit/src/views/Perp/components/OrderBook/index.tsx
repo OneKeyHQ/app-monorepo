@@ -1071,6 +1071,8 @@ export function OrderPairBook({
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 40;
+const MOBILE_PRICE_FLEX = 0.6;
+const MOBILE_SIZE_FLEX = 0.4;
 const MobileRow = ({
   item,
   priceColor,
@@ -1087,39 +1089,42 @@ const MobileRow = ({
       style={{
         flex: 1,
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         height: MOBILE_ROW_HEIGHT,
       }}
     >
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.monospaceText,
-          {
-            color: priceColor,
-            fontSize: 11,
-            lineHeight: 14,
-          },
-          isHovered ? styles.monospaceTextBold : null,
-        ]}
-      >
-        {item.price}
-      </Text>
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.monospaceText,
-          {
-            color: sizeColor,
-            fontSize: 11,
-            lineHeight: 14,
-          },
-          isHovered ? styles.monospaceTextBold : null,
-        ]}
-      >
-        {item.displaySize}
-      </Text>
+      <View style={{ flex: MOBILE_PRICE_FLEX }}>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.monospaceText,
+            {
+              color: priceColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+            isHovered ? styles.monospaceTextBold : null,
+          ]}
+        >
+          {item.price}
+        </Text>
+      </View>
+      <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.monospaceText,
+            {
+              color: sizeColor,
+              fontSize: 11,
+              lineHeight: 14,
+            },
+            isHovered ? styles.monospaceTextBold : null,
+          ]}
+        >
+          {item.displaySize}
+        </Text>
+      </View>
     </View>
   </DebugRenderTracker>
 );
@@ -1207,46 +1212,65 @@ export function OrderBookMobile({
     <View style={style}>
       <DebugRenderTracker name="OrderBookMobileHeader" position="right-center">
         <View style={styles.pairBookHeader}>
-          <YStack>
-            <Text
-              style={[
-                styles.headerText,
-                { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-              ]}
+          <View style={{ flexDirection: 'row', width: '100%' }}>
+            <View style={{ flex: MOBILE_PRICE_FLEX }}>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 11,
+                    lineHeight: 14,
+                  },
+                ]}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+              </Text>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 10,
+                    lineHeight: 12,
+                  },
+                ]}
+              >
+                (USD)
+              </Text>
+            </View>
+            <View
+              style={{
+                flex: MOBILE_SIZE_FLEX,
+                alignItems: 'flex-end',
+              }}
             >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-            </Text>
-            <Text
-              style={[
-                styles.headerText,
-                {
-                  color: textColor.textSubdued,
-                  fontSize: 10,
-                  lineHeight: 12,
-                },
-              ]}
-            >
-              (USD)
-            </Text>
-          </YStack>
-          <YStack alignItems="flex-end">
-            <Text
-              style={[
-                styles.headerText,
-                { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-              ]}
-            >
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-            </Text>
-            <Text
-              style={[
-                styles.headerText,
-                { color: textColor.textSubdued, fontSize: 10, lineHeight: 12 },
-              ]}
-            >
-              ({_symbol ?? ''})
-            </Text>
-          </YStack>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 11,
+                    lineHeight: 14,
+                  },
+                ]}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+              </Text>
+              <Text
+                style={[
+                  styles.headerText,
+                  {
+                    color: textColor.textSubdued,
+                    fontSize: 10,
+                    lineHeight: 12,
+                  },
+                ]}
+              >
+                ({_symbol ?? ''})
+              </Text>
+            </View>
+          </View>
         </View>
       </DebugRenderTracker>
       <View style={styles.relativeContainer}>
