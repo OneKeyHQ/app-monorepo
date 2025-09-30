@@ -170,4 +170,16 @@ export const {
   },
 });
 
+export type IAppSideBarStatusAtom = {
+  collapsed: boolean;
+};
+export const { target: appSideBarStatusAtom, use: useAppSideBarStatusAtom } =
+  globalAtom<IAppSideBarStatusAtom>({
+    name: EAtomNames.appSideBarStatusAtom,
+    persist: true,
+    initialValue: {
+      collapsed: false,
+    },
+  });
+
 // extract high frequency refresh data to another atom

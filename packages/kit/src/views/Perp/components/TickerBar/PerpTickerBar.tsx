@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  DebugRenderTracker,
   Divider,
   Icon,
   IconButton,
@@ -69,7 +70,7 @@ function PerpTickerBar() {
   }, [navigation]);
 
   if (!gtMd) {
-    return (
+    const content = (
       <XStack
         flex={1}
         bg="$bgApp"
@@ -111,9 +112,14 @@ function PerpTickerBar() {
         </XStack>
       </XStack>
     );
+    return (
+      <DebugRenderTracker name="PerpTickerBarMobile" position="top-right">
+        {content}
+      </DebugRenderTracker>
+    );
   }
 
-  return (
+  const content = (
     <XStack
       bg="$bgApp"
       borderBottomWidth="$px"
@@ -389,6 +395,11 @@ function PerpTickerBar() {
         </YStack>
       </ScrollView>
     </XStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpTickerBarDesktop" position="top-right">
+      {content}
+    </DebugRenderTracker>
   );
 }
 

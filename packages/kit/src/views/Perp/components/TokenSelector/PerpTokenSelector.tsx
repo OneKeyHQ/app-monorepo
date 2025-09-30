@@ -158,10 +158,7 @@ function BasePerpTokenSelectorContent({
     </YStack>
   );
   return (
-    <DebugRenderTracker
-      timesBadgePosition="top-right"
-      name="PerpTokenSelectorContent"
-    >
+    <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
       {content}
     </DebugRenderTracker>
   );
