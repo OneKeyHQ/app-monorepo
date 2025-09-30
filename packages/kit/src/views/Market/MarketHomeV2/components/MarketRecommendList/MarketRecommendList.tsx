@@ -136,7 +136,7 @@ export function MarketRecommendList({
   const stackPaddingBottom = useMemo(() => {
     if (platformEnv.isNativeAndroid) return 80;
     if (platformEnv.isExtension) return 50;
-    if (platformEnv.isWeb && !gtMd) return 120;
+    if (platformEnv.isWeb && !gtMd) return 150;
     return 0;
   }, [gtMd]);
 
