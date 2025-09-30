@@ -5,12 +5,14 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
+  Divider,
   IconButton,
   NumberSizeableText,
   Popover,
   SizableText,
   Skeleton,
   Slider,
+  Tabs,
   Tooltip,
   XStack,
   YStack,
@@ -43,14 +45,12 @@ import {
 import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
-import { TpslInput } from '../inputs/TpslInput';
+import { TpSlFormInput } from '../inputs/TpSlFormInput';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
 import { TradeSideToggle } from '../selectors/TradeSideToggle';
-
-import { PerpAccountPanel } from './PerpAccountPanel';
 
 import type { ISide } from '../selectors/TradeSideToggle';
 
@@ -317,15 +317,59 @@ function PerpTradingForm({
     },
     [updateForm],
   );
-  const handleTpslChange = useCallback(
-    (data: { tpPrice: string; slPrice: string }) => {
-      updateForm({
-        tpTriggerPx: data.tpPrice,
-        slTriggerPx: data.slPrice,
-      });
+
+  const handleTpValueChange = useCallback(
+    (value: string) => {
+      updateForm({ tpValue: value });
     },
     [updateForm],
   );
+
+  const handleTpTypeChange = useCallback(
+    (type: 'price' | 'percentage') => {
+      updateForm({ tpType: type });
+    },
+    [updateForm],
+  );
+
+  const handleSlValueChange = useCallback(
+    (value: string) => {
+      updateForm({ slValue: value });
+    },
+    [updateForm],
+  );
+
+  const handleSlTypeChange = useCallback(
+    (type: 'price' | 'percentage') => {
+      updateForm({ slType: type });
+    },
+    [updateForm],
+  );
+
+  const orderTypeOptions = useMemo(
+    () => [
+      {
+        name: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+        value: 'market' as const,
+      },
+      {
+        name: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+        value: 'limit' as const,
+      },
+    ],
+    [intl],
+  );
+
+  const handleOrderTypeChange = useCallback(
+    (name: string) => {
+      const option = orderTypeOptions.find((o) => o.name === name);
+      if (option) {
+        updateForm({ type: option.value });
+      }
+    },
+    [orderTypeOptions, updateForm],
+  );
+
   if (isMobile) {
     return (
       <YStack gap="$3">
@@ -441,20 +485,36 @@ function PerpTradingForm({
           />
 
           {formData.hasTpsl ? (
-            <TpslInput
-              price={referencePrice.toFixed()}
-              side={formData.side}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-              leverage={leverage}
-              tpsl={{
-                tpPrice: formData.tpTriggerPx,
-                slPrice: formData.slTriggerPx,
-              }}
-              onChange={handleTpslChange}
-              disabled={isSubmitting}
-              isMobile={isMobile}
-              amount={tradingComputed.computedSizeString}
-            />
+            <YStack gap="$2">
+              <TpSlFormInput
+                type="tp"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
+                value={formData.tpValue || ''}
+                inputType={formData.tpType || 'price'}
+                referencePrice={referencePrice.toFixed()}
+                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                onChange={handleTpValueChange}
+                onTypeChange={handleTpTypeChange}
+                disabled={isSubmitting}
+                isMobile={isMobile}
+              />
+              <TpSlFormInput
+                type="sl"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
+                value={formData.slValue || ''}
+                inputType={formData.slType || 'price'}
+                referencePrice={referencePrice.toFixed()}
+                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                onChange={handleSlValueChange}
+                onTypeChange={handleSlTypeChange}
+                disabled={isSubmitting}
+                isMobile={isMobile}
+              />
+            </YStack>
           ) : null}
         </YStack>
         <YStack
@@ -516,24 +576,25 @@ function PerpTradingForm({
       </YStack>
     );
   }
+
   return (
     <>
       <YStack gap="$4">
-        <TradeSideToggle
-          value={formData.side}
-          onChange={(side: ISide) => updateForm({ side })}
-          disabled={isSubmitting}
-        />
+        <YStack>
+          <XStack>
+            {orderTypeOptions.map((option) => (
+              <Tabs.TabBarItem
+                key={option.value}
+                name={option.name}
+                isFocused={formData.type === option.value}
+                onPress={handleOrderTypeChange}
+              />
+            ))}
+          </XStack>
+          <Divider />
+        </YStack>
 
         <XStack alignItems="center" flex={1} gap="$3">
-          <YStack flex={1}>
-            <OrderTypeSelector
-              value={formData.type}
-              onChange={(type: 'market' | 'limit') => updateForm({ type })}
-              disabled={isSubmitting}
-            />
-          </YStack>
-
           <YStack flex={1}>
             <MarginModeSelector disabled={isSubmitting} />
           </YStack>
@@ -641,19 +702,34 @@ function PerpTradingForm({
           />
 
           {formData.hasTpsl ? (
-            <TpslInput
-              price={referencePriceString}
-              side={formData.side}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-              leverage={leverage}
-              tpsl={{
-                tpPrice: formData.tpTriggerPx,
-                slPrice: formData.slTriggerPx,
-              }}
-              onChange={handleTpslChange}
-              disabled={isSubmitting}
-              amount={tradingComputed.computedSizeString}
-            />
+            <YStack gap="$2">
+              <TpSlFormInput
+                type="tp"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
+                value={formData.tpValue || ''}
+                inputType={formData.tpType || 'price'}
+                referencePrice={referencePriceString}
+                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                onChange={handleTpValueChange}
+                onTypeChange={handleTpTypeChange}
+                disabled={isSubmitting}
+              />
+              <TpSlFormInput
+                type="sl"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
+                value={formData.slValue || ''}
+                inputType={formData.slType || 'price'}
+                referencePrice={referencePriceString}
+                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                onChange={handleSlValueChange}
+                onTypeChange={handleSlTypeChange}
+                disabled={isSubmitting}
+              />
+            </YStack>
           ) : null}
         </YStack>
       </YStack>

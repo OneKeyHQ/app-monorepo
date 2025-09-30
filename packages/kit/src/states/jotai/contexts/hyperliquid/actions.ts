@@ -417,6 +417,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       tpGainPercent: '',
       slTriggerPx: '',
       slLossPercent: '',
+      tpType: 'price',
+      tpValue: '',
+      slType: 'price',
+      slValue: '',
     });
   });
 

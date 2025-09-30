@@ -32,9 +32,13 @@ import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 
 interface IOrderConfirmContentProps {
   onClose?: () => void;
+  overrideSide?: 'long' | 'short';
 }
 
-function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
+function OrderConfirmContent({
+  onClose,
+  overrideSide,
+}: IOrderConfirmContentProps) {
   const { isSubmitting, handleConfirm: confirmOrder } = useOrderConfirm({
     onSuccess: () => {
       onClose?.();
@@ -48,11 +52,12 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const [selectedSymbol] = usePerpsActiveAssetAtom();
-  const actionColor = getTradingSideTextColor(formData.side);
-  const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
+  const effectiveSide = overrideSide || formData.side;
+  const actionColor = getTradingSideTextColor(effectiveSide);
+  const buttonStyleProps = GetTradingButtonStyleProps(effectiveSide, false);
   const intl = useIntl();
   const actionText =
-    formData.side === 'long'
+    effectiveSide === 'long'
       ? intl.formatMessage({
           id: ETranslations.perp_trade_long,
         })
@@ -90,8 +95,8 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
 
   const handleConfirm = useCallback(() => {
     onClose?.();
-    void confirmOrder();
-  }, [confirmOrder, onClose]);
+    void confirmOrder(overrideSide);
+  }, [confirmOrder, onClose, overrideSide]);
 
   return (
     <YStack gap="$4" p="$1">
@@ -183,7 +188,7 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
   );
 }
 
-export function showOrderConfirmDialog() {
+export function showOrderConfirmDialog(overrideSide?: 'long' | 'short') {
   const dialogInstance = Dialog.show({
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_confirm_order,
@@ -194,6 +199,7 @@ export function showOrderConfirmDialog() {
           onClose={() => {
             void dialogInstance.close();
           }}
+          overrideSide={overrideSide}
         />
       </PerpsProviderMirror>
     ),

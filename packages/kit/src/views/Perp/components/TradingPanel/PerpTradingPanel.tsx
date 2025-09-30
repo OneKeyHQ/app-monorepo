@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
@@ -20,6 +21,7 @@ import { useOrderConfirm } from '../../hooks';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
+import { TradingButtonGroup } from './TradingButtonGroup';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -29,6 +31,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
@@ -119,15 +122,19 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       px={isMobile ? undefined : '$2.5'}
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
-      <PerpTradingButton
-        loading={universalLoading}
-        handleShowConfirm={handleShowConfirm}
-        formData={formData}
-        computedSize={tradingComputed.computedSizeBN}
-        isMinimumOrderNotMet={isMinimumOrderNotMet}
-        isSubmitting={isSubmitting}
-        isNoEnoughMargin={isNoEnoughMargin}
-      />
+      {perpsAccountStatus.canTrade ? (
+        <TradingButtonGroup isSubmitting={isSubmitting} />
+      ) : (
+        <PerpTradingButton
+          loading={universalLoading}
+          handleShowConfirm={handleShowConfirm}
+          formData={formData}
+          computedSize={tradingComputed.computedSizeBN}
+          isMinimumOrderNotMet={isMinimumOrderNotMet}
+          isSubmitting={isSubmitting}
+          isNoEnoughMargin={isNoEnoughMargin}
+        />
+      )}
     </YStack>
   );
   return (
