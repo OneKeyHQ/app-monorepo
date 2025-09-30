@@ -166,15 +166,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   verticalHeaderPrice: {
-    width: '20%',
+    width: '33%',
     alignItems: 'flex-start',
   },
   verticalHeaderSize: {
-    width: '40%',
+    width: '30%',
     alignItems: 'flex-end',
   },
   verticalHeaderTotal: {
-    width: '40%',
+    width: '37%',
     alignItems: 'flex-end',
   },
   horizontalHeaderContainer: {
@@ -189,15 +189,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   verticalRowCellPrice: {
-    width: '20%',
+    width: '33%',
     alignItems: 'flex-start',
   },
   verticalRowCellSize: {
-    width: '40%',
+    width: '30%',
     alignItems: 'flex-end',
   },
   verticalRowCellTotal: {
-    width: '40%',
+    width: '37%',
     alignItems: 'flex-end',
   },
   bodySm: {

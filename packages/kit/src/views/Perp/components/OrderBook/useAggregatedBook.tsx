@@ -18,7 +18,7 @@ const formatOrderBookValue = (value: string): string => {
     return '0';
   }
   const formatted = numberFormat(value, { formatter: 'marketCap' });
-  return formatted || '0';
+  return (formatted as string) || '0';
 };
 
 const withDisplayFields = (levels: IOBLevel[]): IFormattedOBLevel[] =>
