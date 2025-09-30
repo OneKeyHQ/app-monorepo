@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DebugRenderTracker,
   IconButton,
   SizableText,
   Tooltip,
@@ -37,11 +38,7 @@ export function PerpAccountDebugInfo() {
   );
 }
 
-function PerpAccountPanel({
-  isTradingPanel = false,
-}: {
-  isTradingPanel?: boolean;
-}) {
+function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
@@ -84,25 +81,7 @@ function PerpAccountPanel({
   //   [userAccountId, userAddress, accountSummary.withdrawable],
   // );
 
-  if (isTradingPanel) {
-    return (
-      <IconButton
-        size="small"
-        variant="tertiary"
-        iconSize="$3.5"
-        icon="PlusCircleSolid"
-        onPress={() =>
-          showDepositWithdrawModal({
-            actionType: 'deposit',
-            withdrawable: accountSummary?.withdrawable || '0',
-          })
-        }
-        color="$iconSubdued"
-        cursor="pointer"
-      />
-    );
-  }
-  return (
+  const content = (
     <YStack flex={1} gap="$4" pt="$4" px="$2.5">
       {/* Header */}
       <XStack justifyContent="space-between" alignItems="center">
@@ -226,6 +205,11 @@ function PerpAccountPanel({
         </XStack>
       ) : null}
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpAccountPanel" position="top-right">
+      {content}
+    </DebugRenderTracker>
   );
 }
 
