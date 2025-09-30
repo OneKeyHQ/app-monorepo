@@ -4,7 +4,6 @@ import {
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
 import type {
-  IMarginTables,
   IMarginTableMap as IMarginTablesMap,
   IPerpsUniverse,
   IPerpsUniverseRaw,
