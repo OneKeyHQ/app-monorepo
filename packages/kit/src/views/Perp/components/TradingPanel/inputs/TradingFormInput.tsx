@@ -17,7 +17,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-const AccessoryDoneButton = () => {
+export const InputAccessoryDoneButton = () => {
   const intl = useIntl();
   const isKeyboardShown = useIsKeyboardShown();
   if (!platformEnv.isNativeIOS && !isKeyboardShown) return null;
@@ -215,7 +215,7 @@ export const TradingFormInput = memo(
           ) : null}
           {shouldShowAccessory ? (
             <InputAccessoryView nativeID={accessoryId}>
-              <AccessoryDoneButton />
+              <InputAccessoryDoneButton />
             </InputAccessoryView>
           ) : null}
         </YStack>
@@ -289,7 +289,7 @@ export const TradingFormInput = memo(
         </YStack>
         {shouldShowAccessory ? (
           <InputAccessoryView nativeID={accessoryId}>
-            <AccessoryDoneButton />
+            <InputAccessoryDoneButton />
           </InputAccessoryView>
         ) : null}
       </YStack>
