@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { useWindowDimensions } from 'react-native';
 
 import { getTokens, useMedia, useOrientation } from '@onekeyhq/components';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function useHomePageWidth() {
@@ -21,7 +21,7 @@ export default function useHomePageWidth() {
     return screenWidth;
   }, [isLandscape, screenHeight, screenWidth]);
   const sideBarWidth = useMemo(() => getTokens().size.sideBarWidth.val, []);
-  const { leftSidebarCollapsed } = useProviderSideBarValue();
+  const [{ collapsed: leftSidebarCollapsed }] = useAppSideBarStatusAtom();
   const pageWidth = useMemo(() => {
     if (md) {
       return calScreenWidth;

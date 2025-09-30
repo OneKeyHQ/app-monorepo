@@ -4,6 +4,7 @@ import { BigNumber } from 'bignumber.js';
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
@@ -210,15 +211,6 @@ function PerpPositionsList({
         flex: 1,
       },
       {
-        key: 'actions',
-        title: intl.formatMessage({
-          id: ETranslations.perp_position_close,
-        }),
-        minWidth: 100,
-        align: 'right',
-        flex: 1,
-      },
-      {
         key: 'closeAll',
         title: `${intl.formatMessage({
           id: ETranslations.perp_position_close,
@@ -337,6 +329,13 @@ function PerpPositionsList({
 
   return (
     <CommonTableListView
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpPositionsList',
+          position: 'top-left',
+        }),
+        [],
+      )}
       useTabsList
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

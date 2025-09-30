@@ -1,22 +1,80 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView, Keyboard } from 'react-native';
 
 import {
+  Button,
   Input,
   SizableText,
   XStack,
   YStack,
   getFontSize,
+  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   calculateProfitLoss,
   formatPercentage,
   formatPriceToSignificantDigits,
   validatePriceInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+
+// Done button component
+const TpslDoneButton = ({ onDone }: { onDone: () => void }) => {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+  const viewShow = platformEnv.isNativeIOS || isKeyboardShown;
+
+  if (!viewShow) return null;
+
+  return (
+    <XStack
+      p="$2.5"
+      px="$3.5"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <Button
+        variant="tertiary"
+        onPress={() => {
+          Keyboard.dismiss();
+          onDone();
+        }}
+      >
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+};
+
+// Wrapper component similar to InputWithAccessoryDoneView but with unique ID support
+type ITpslInputWithDoneProps = ComponentProps<typeof Input> & {
+  accessoryViewId: string;
+  onDone?: () => void;
+};
+
+const TpslInputWithDone = ({
+  accessoryViewId,
+  onDone = () => {},
+  ...inputProps
+}: ITpslInputWithDoneProps) => {
+  return (
+    <>
+      <Input {...inputProps} inputAccessoryViewID={accessoryViewId} />
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={accessoryViewId}>
+          <TpslDoneButton onDone={onDone} />
+        </InputAccessoryView>
+      ) : null}
+    </>
+  );
+};
 
 interface ITpslInputProps {
   price: string;
@@ -263,7 +321,9 @@ export const TpslInput = memo(
         <YStack gap="$3">
           {hiddenTp ? null : (
             <YStack gap="$2">
-              <Input
+              <TpslInputWithDone
+                accessoryViewId="tpsl-tp-price-mobile"
+                onDone={() => {}}
                 h={32}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
@@ -323,7 +383,9 @@ export const TpslInput = memo(
           )}
           {hiddenSl ? null : (
             <YStack gap="$2">
-              <Input
+              <TpslInputWithDone
+                accessoryViewId="tpsl-sl-price-mobile"
+                onDone={() => {}}
                 h={32}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
@@ -379,40 +441,6 @@ export const TpslInput = memo(
               </XStack>
             </YStack>
           )}
-          <YStack gap="$2">
-            <Input
-              h={32}
-              placeholder={intl.formatMessage({
-                id: ETranslations.perp_trade_sl_price,
-              })}
-              value={internalState.slTriggerPx}
-              onChangeText={handleSlPriceChange}
-              disabled={disabled}
-              keyboardType="decimal-pad"
-              fontSize={getFontSize('$bodyMd')}
-              size="small"
-              containerProps={{
-                borderWidth: ifOnDialog ? '$px' : 0,
-                borderColor: ifOnDialog ? '$borderSubdued' : undefined,
-                bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
-                borderRadius: '$2',
-              }}
-              InputComponentStyle={{
-                px: '$3',
-              }}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" justifyContent="center" pr="$3">
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        USD
-                      </SizableText>
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
-          </YStack>
         </YStack>
       );
     }
@@ -436,7 +464,9 @@ export const TpslInput = memo(
               bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
               borderRadius="$2"
             >
-              <Input
+              <TpslInputWithDone
+                accessoryViewId="tpsl-tp-price-desktop"
+                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price,
@@ -468,7 +498,9 @@ export const TpslInput = memo(
               bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
               borderRadius="$2"
             >
-              <Input
+              <TpslInputWithDone
+                accessoryViewId="tpsl-tp-gain-percent"
+                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_tp_price_gain,
@@ -538,7 +570,9 @@ export const TpslInput = memo(
               bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
               borderRadius="$2"
             >
-              <Input
+              <TpslInputWithDone
+                accessoryViewId="tpsl-sl-price-desktop"
+                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price,
@@ -569,7 +603,9 @@ export const TpslInput = memo(
               borderColor={ifOnDialog ? '$border' : undefined}
               bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
             >
-              <Input
+              <TpslInputWithDone
+                accessoryViewId="tpsl-sl-loss-percent"
+                onDone={() => {}}
                 h={40}
                 placeholder={intl.formatMessage({
                   id: ETranslations.perp_trade_sl_price_loss,
