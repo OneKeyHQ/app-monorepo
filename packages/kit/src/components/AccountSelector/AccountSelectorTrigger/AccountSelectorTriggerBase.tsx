@@ -2,7 +2,14 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  DebugRenderTracker,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IAccountSelectorRouteParamsExtraConfig } from '@onekeyhq/shared/src/routes';
@@ -53,7 +60,7 @@ export function AccountSelectorTriggerBase({
   const isWebDappModeWithNoWallet =
     platformEnv.isWebDappMode && !wallet && !accountName;
 
-  const content = useMemo(
+  const contentView = useMemo(
     () => (
       <XStack
         testID="AccountSelectorTriggerBase"
@@ -157,6 +164,15 @@ export function AccountSelectorTriggerBase({
       walletName,
       intl,
     ],
+  );
+
+  const content = (
+    <DebugRenderTracker
+      name="AccountSelectorTriggerBase"
+      position="bottom-center"
+    >
+      {contentView}
+    </DebugRenderTracker>
   );
 
   useShortcutsOnRouteFocused(
