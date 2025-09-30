@@ -475,8 +475,7 @@ function PerpTradingForm({
                   fontSize={10}
                   color="$textSubdued"
                   textDecorationLine="underline"
-                  textDecorationStyle="dashed"
-                  textDecorationColor="$border"
+                  textDecorationStyle="dotted"
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_position_liq_price,

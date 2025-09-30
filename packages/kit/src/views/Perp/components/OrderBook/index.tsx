@@ -1070,7 +1070,7 @@ export function OrderPairBook({
 // Compact row height for mobile
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
-const MOBILE_SPREAD_ROW_HEIGHT = 40;
+const MOBILE_SPREAD_ROW_HEIGHT = 54;
 const MOBILE_PRICE_FLEX = 0.6;
 const MOBILE_SIZE_FLEX = 0.4;
 const MobileRow = ({
@@ -1352,11 +1352,12 @@ export function OrderBookMobile({
           >
             <View
               style={{
-                flexDirection: 'row',
-                gap: 12,
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                justifyContent: 'flex-start',
                 height: MOBILE_SPREAD_ROW_HEIGHT,
+                paddingTop: 6,
+                paddingBottom: 6,
               }}
             >
               <Popover

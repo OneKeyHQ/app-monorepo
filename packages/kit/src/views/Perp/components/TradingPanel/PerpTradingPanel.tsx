@@ -113,7 +113,11 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
   const content = (
-    <YStack gap="$4" pt="$3" px="$2.5">
+    <YStack
+      gap="$4"
+      pt={isMobile ? undefined : '$3'}
+      px={isMobile ? undefined : '$2.5'}
+    >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       <PerpTradingButton
         loading={universalLoading}
