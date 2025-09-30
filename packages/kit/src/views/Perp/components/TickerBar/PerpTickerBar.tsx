@@ -11,7 +11,6 @@ import {
   NumberSizeableText,
   ScrollView,
   SizableText,
-  Skeleton,
   SkeletonContainer,
   Tooltip,
   XStack,
@@ -353,7 +352,6 @@ function PerpTickerBar() {
   const navigation = useAppNavigation();
   const [asset] = usePerpsActiveAssetAtom();
   const coin = asset?.coin || '';
-  const isLoading = useTickerBarIsLoading(); // TODO remove
   const intl = useIntl();
   const onPressCandleChart = useCallback(() => {
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
