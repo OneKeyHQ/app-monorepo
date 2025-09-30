@@ -3,6 +3,7 @@ import { memo, useCallback } from 'react';
 import { flatMap, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IAlertType } from '@onekeyhq/components';
 import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
@@ -177,29 +178,52 @@ function TxConfirmAlert(props: IProps) {
       );
     }
 
-    if (
-      networkUtils.isTronNetworkByNetworkId(networkId) &&
-      tronResourceRentalInfo.isResourceRentalNeeded &&
-      tronResourceRentalInfo.isResourceRentalEnabled &&
-      (accountUtils.isHwAccount({ accountId }) ||
-        accountUtils.isQrAccount({ accountId }))
-    ) {
-      return (
-        <Alert
-          type="warning"
-          title={intl.formatMessage({
+    if (networkUtils.isTronNetworkByNetworkId(networkId)) {
+      const alerts: {
+        title: string;
+        type: IAlertType;
+      }[] = [];
+      if (
+        tronResourceRentalInfo.isResourceRentalNeeded &&
+        tronResourceRentalInfo.isResourceRentalEnabled &&
+        (accountUtils.isHwAccount({ accountId }) ||
+          accountUtils.isQrAccount({ accountId }))
+      ) {
+        alerts.push({
+          title: intl.formatMessage({
             id: ETranslations.wallet_energy_confirmations_required,
-          })}
-        />
+          }),
+          type: 'warning',
+        });
+      }
+
+      if (transferPayload?.isTronResourceAutoClaimed) {
+        alerts.push({
+          title: intl.formatMessage({
+            id: ETranslations.sending_krc20_warning_text,
+          }),
+          type: 'info',
+        });
+      }
+
+      return (
+        <>
+          {alerts.map((alert, index) => (
+            <Alert key={index} type={alert.type} title={alert.title} />
+          ))}
+        </>
       );
     }
+
     return null;
   }, [
     accountId,
     intl,
     networkId,
+    transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.tokenInfo,
-    tronResourceRentalInfo,
+    tronResourceRentalInfo.isResourceRentalEnabled,
+    tronResourceRentalInfo.isResourceRentalNeeded,
   ]);
 
   return (

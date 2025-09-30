@@ -520,6 +520,7 @@ export type ITransferPayload = {
   note?: string;
   tokenInfo?: IToken;
   isCustomHexData?: boolean;
+  isTronResourceAutoClaimed?: boolean;
 };
 
 export type IWrappedInfo = {
