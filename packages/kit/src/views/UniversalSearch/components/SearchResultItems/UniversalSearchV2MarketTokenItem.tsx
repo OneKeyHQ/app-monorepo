@@ -166,7 +166,7 @@ export function UniversalSearchV2MarketTokenItem({
     rootNavigationRef.current?.goBack();
     setTimeout(async () => {
       // Use toMarketDetailPage hook for navigation
-      toMarketDetailPage({
+      void toMarketDetailPage({
         tokenAddress: address,
         networkId: network,
         symbol,
