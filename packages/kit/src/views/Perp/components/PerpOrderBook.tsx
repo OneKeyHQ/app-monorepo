@@ -37,6 +37,7 @@ import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
+import type { IOrderBookVariant } from './OrderBook/types';
 
 function MobileHeader() {
   const intl = useIntl();
@@ -336,9 +337,7 @@ export function PerpOrderBook({
     return (
       <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
         <DefaultLoadingNode
-          variant={
-            loadingVariant as 'desktop' | 'mobileVertical' | 'mobileHorizontal'
-          }
+          variant={loadingVariant as IOrderBookVariant}
           symbol={
             loadingVariant === 'mobileVertical' ? l2Book?.coin : undefined
           }
