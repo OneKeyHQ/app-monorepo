@@ -3,11 +3,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
-import {
-  useFocusEffect,
-  useIsFocused,
-  useNavigation,
-} from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useMedia, useTheme } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
