@@ -6,7 +6,6 @@ import type { ICoreHyperLiquidAgentCredential } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
-  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   type EHyperLiquidAgentName,
