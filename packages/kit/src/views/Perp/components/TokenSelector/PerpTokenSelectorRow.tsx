@@ -45,7 +45,7 @@ const PerpTokenSelectorRow = memo(
     if (isOnModal) {
       return (
         <DebugRenderTracker
-          timesBadgePosition="bottom-center"
+          position="bottom-center"
           name="PerpTokenSelectorRow-Modal"
         >
           <XStack
@@ -140,7 +140,7 @@ const PerpTokenSelectorRow = memo(
 
     return (
       <DebugRenderTracker
-        timesBadgePosition="bottom-center"
+        position="bottom-center"
         name="PerpTokenSelectorRow-Popover"
       >
         <XStack

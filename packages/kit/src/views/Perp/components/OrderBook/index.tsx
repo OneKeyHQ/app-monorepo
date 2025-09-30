@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import {
+  DebugRenderTracker,
   Haptics,
   Icon,
   Popover,
@@ -304,32 +305,46 @@ function OrderBookVerticalRow({
 }) {
   const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
   return (
-    <View style={styles.verticalRowContainer}>
-      <View style={styles.verticalRowCellPrice}>
-        <Text
-          style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
-          numberOfLines={1}
-        >
-          {item.price}
-        </Text>
+    <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
+      <View style={styles.verticalRowContainer}>
+        <View style={styles.verticalRowCellPrice}>
+          <Text
+            style={[
+              styles.monospaceText,
+              { color: priceColor },
+              fontWeightStyle,
+            ]}
+            numberOfLines={1}
+          >
+            {item.price}
+          </Text>
+        </View>
+        <View style={styles.verticalRowCellSize}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.monospaceText,
+              { color: sizeColor },
+              fontWeightStyle,
+            ]}
+          >
+            {item.size}
+          </Text>
+        </View>
+        <View style={styles.verticalRowCellTotal}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.monospaceText,
+              { color: sizeColor },
+              fontWeightStyle,
+            ]}
+          >
+            {item.cumSize}
+          </Text>
+        </View>
       </View>
-      <View style={styles.verticalRowCellSize}>
-        <Text
-          numberOfLines={1}
-          style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
-        >
-          {item.size}
-        </Text>
-      </View>
-      <View style={styles.verticalRowCellTotal}>
-        <Text
-          numberOfLines={1}
-          style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
-        >
-          {item.cumSize}
-        </Text>
-      </View>
-    </View>
+    </DebugRenderTracker>
   );
 }
 
@@ -458,69 +473,78 @@ export function OrderBook({
   if (horizontal) {
     return (
       <View style={[styles.container, style]}>
-        <View
-          style={{
-            gap: 4,
-            height: 16,
-            alignItems: 'center',
-            flexDirection: 'row',
-          }}
+        <DebugRenderTracker
+          name="OrderBookHorizontalHeader"
+          position="right-center"
         >
-          <View style={styles.horizontalHeaderContainer}>
-            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              {intl.formatMessage({ id: ETranslations.global_buy })}
-            </Text>
-            {showTickSelector ? (
-              <Select
-                floatingPanelProps={{
-                  width: 150,
-                }}
-                title={intl.formatMessage({
-                  id: ETranslations.perp_orderbook_spread,
-                })}
-                items={tickOptions}
-                value={selectedTickOption?.value}
-                onChange={handleTickOptionChange}
-                renderTrigger={({ onPress }) => (
-                  <TouchableOpacity
-                    style={{
-                      minWidth: 1,
-                      maxWidth: 150,
-                      height: 16,
-                      borderRadius: 4,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingHorizontal: 8,
-                      gap: 4,
-                    }}
-                    onPress={onPress}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      style={[styles.bodySm, { color: textColor.text }]}
+          <View
+            style={{
+              gap: 4,
+              height: 16,
+              alignItems: 'center',
+              flexDirection: 'row',
+            }}
+          >
+            <View style={styles.horizontalHeaderContainer}>
+              <Text
+                style={[styles.headerText, { color: textColor.textSubdued }]}
+              >
+                {intl.formatMessage({ id: ETranslations.global_buy })}
+              </Text>
+              {showTickSelector ? (
+                <Select
+                  floatingPanelProps={{
+                    width: 150,
+                  }}
+                  title={intl.formatMessage({
+                    id: ETranslations.perp_orderbook_spread,
+                  })}
+                  items={tickOptions}
+                  value={selectedTickOption?.value}
+                  onChange={handleTickOptionChange}
+                  renderTrigger={({ onPress }) => (
+                    <TouchableOpacity
+                      style={{
+                        minWidth: 1,
+                        maxWidth: 150,
+                        height: 16,
+                        borderRadius: 4,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingHorizontal: 8,
+                        gap: 4,
+                      }}
+                      onPress={onPress}
                     >
-                      {selectedTickOption?.label
-                        ? new BigNumber(selectedTickOption.label).toFixed(
-                            priceDecimals,
-                          )
-                        : '-'}
-                    </Text>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      size="$3"
-                      color="$iconSubdued"
-                    />
-                  </TouchableOpacity>
-                )}
-              />
-            ) : null}
-            <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-              {intl.formatMessage({ id: ETranslations.global_sell })}
-            </Text>
+                      <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        style={[styles.bodySm, { color: textColor.text }]}
+                      >
+                        {selectedTickOption?.label
+                          ? new BigNumber(selectedTickOption.label).toFixed(
+                              priceDecimals,
+                            )
+                          : '-'}
+                      </Text>
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        size="$3"
+                        color="$iconSubdued"
+                      />
+                    </TouchableOpacity>
+                  )}
+                />
+              ) : null}
+              <Text
+                style={[styles.headerText, { color: textColor.textSubdued }]}
+              >
+                {intl.formatMessage({ id: ETranslations.global_sell })}
+              </Text>
+            </View>
           </View>
-        </View>
+        </DebugRenderTracker>
         {isEmpty ? (
           loadingNode
         ) : (
@@ -655,38 +679,43 @@ export function OrderBook({
   }
   return (
     <View style={{ padding: 8 }}>
-      <View style={{ flexDirection: 'row' }}>
-        <View style={styles.verticalHeaderPrice}>
-          <Text
-            style={[
-              styles.verticalHeaderText,
-              { textAlign: 'left', color: textColor.textSubdued },
-            ]}
-          >
-            {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-          </Text>
+      <DebugRenderTracker
+        name="OrderBookVerticalHeader"
+        position="right-center"
+      >
+        <View style={{ flexDirection: 'row' }}>
+          <View style={styles.verticalHeaderPrice}>
+            <Text
+              style={[
+                styles.verticalHeaderText,
+                { textAlign: 'left', color: textColor.textSubdued },
+              ]}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+            </Text>
+          </View>
+          <View style={styles.verticalHeaderSize}>
+            <Text
+              style={[
+                styles.verticalHeaderText,
+                { textAlign: 'right', color: textColor.textSubdued },
+              ]}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+            </Text>
+          </View>
+          <View style={styles.verticalHeaderTotal}>
+            <Text
+              style={[
+                styles.verticalHeaderText,
+                { textAlign: 'right', color: textColor.textSubdued },
+              ]}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_total })}
+            </Text>
+          </View>
         </View>
-        <View style={styles.verticalHeaderSize}>
-          <Text
-            style={[
-              styles.verticalHeaderText,
-              { textAlign: 'right', color: textColor.textSubdued },
-            ]}
-          >
-            {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-          </Text>
-        </View>
-        <View style={styles.verticalHeaderTotal}>
-          <Text
-            style={[
-              styles.verticalHeaderText,
-              { textAlign: 'right', color: textColor.textSubdued },
-            ]}
-          >
-            {intl.formatMessage({ id: ETranslations.perp_orderbook_total })}
-          </Text>
-        </View>
-      </View>
+      </DebugRenderTracker>
       <View style={styles.relativeContainer}>
         <View style={styles.relativeContainer}>
           {aggregatedData.asks.toReversed().map((itemData, index) => (
@@ -743,66 +772,70 @@ export function OrderBook({
               </Pressable>
             );
           })}
-          <View
-            key="mid"
-            style={[
-              styles.spreadRow,
-              { backgroundColor: spreadColor.backgroundColor },
-            ]}
-          >
-            <Text style={[styles.bodySm, { color: textColor.text }]}>
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
-            </Text>
-            {showTickSelector ? (
-              <Select
-                floatingPanelProps={{
-                  width: 150,
-                }}
-                title={intl.formatMessage({
+          <DebugRenderTracker name="OrderBookSpreadRow" position="right-center">
+            <View
+              key="mid"
+              style={[
+                styles.spreadRow,
+                { backgroundColor: spreadColor.backgroundColor },
+              ]}
+            >
+              <Text style={[styles.bodySm, { color: textColor.text }]}>
+                {intl.formatMessage({
                   id: ETranslations.perp_orderbook_spread,
                 })}
-                items={tickOptions}
-                value={selectedTickOption?.value}
-                onChange={handleTickOptionChange}
-                renderTrigger={({ onPress }) => (
-                  <TouchableOpacity
-                    style={{
-                      minWidth: 56,
-                      maxWidth: 150,
-                      height: 24,
-                      borderRadius: 4,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingHorizontal: 8,
-                      gap: 4,
-                    }}
-                    onPress={onPress}
-                  >
-                    <Text
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      style={[styles.bodySm, { color: textColor.text }]}
+              </Text>
+              {showTickSelector ? (
+                <Select
+                  floatingPanelProps={{
+                    width: 150,
+                  }}
+                  title={intl.formatMessage({
+                    id: ETranslations.perp_orderbook_spread,
+                  })}
+                  items={tickOptions}
+                  value={selectedTickOption?.value}
+                  onChange={handleTickOptionChange}
+                  renderTrigger={({ onPress }) => (
+                    <TouchableOpacity
+                      style={{
+                        minWidth: 56,
+                        maxWidth: 150,
+                        height: 24,
+                        borderRadius: 4,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        paddingHorizontal: 8,
+                        gap: 4,
+                      }}
+                      onPress={onPress}
                     >
-                      {selectedTickOption?.label
-                        ? new BigNumber(selectedTickOption.label).toFixed(
-                            priceDecimals,
-                          )
-                        : '-'}
-                    </Text>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      size="$4"
-                      color="$iconSubdued"
-                    />
-                  </TouchableOpacity>
-                )}
-              />
-            ) : null}
-            <Text style={[styles.bodySm, { color: textColor.text }]}>
-              {spreadPercentage}
-            </Text>
-          </View>
+                      <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        style={[styles.bodySm, { color: textColor.text }]}
+                      >
+                        {selectedTickOption?.label
+                          ? new BigNumber(selectedTickOption.label).toFixed(
+                              priceDecimals,
+                            )
+                          : '-'}
+                      </Text>
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        size="$4"
+                        color="$iconSubdued"
+                      />
+                    </TouchableOpacity>
+                  )}
+                />
+              ) : null}
+              <Text style={[styles.bodySm, { color: textColor.text }]}>
+                {spreadPercentage}
+              </Text>
+            </View>
+          </DebugRenderTracker>
           {aggregatedData.bids.map((itemData, index) => (
             <Pressable
               key={index}
@@ -842,26 +875,28 @@ function OrderBookPairRow({
 }) {
   const fontWeightStyle = isHovered ? styles.monospaceTextBold : null;
   return (
-    <View
-      style={{
-        flex: 1,
-        flexDirection: 'row',
-        marginTop: 1,
-        justifyContent: 'space-between',
-        alignItems: 'center',
-      }}
-    >
-      <Text
-        style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
+    <DebugRenderTracker name="OrderBookPairRow" position="right-center">
+      <View
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          marginTop: 1,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
       >
-        {item.price}
-      </Text>
-      <Text
-        style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
-      >
-        {item.size}
-      </Text>
-    </View>
+        <Text
+          style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
+        >
+          {item.price}
+        </Text>
+        <Text
+          style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
+        >
+          {item.size}
+        </Text>
+      </View>
+    </DebugRenderTracker>
   );
 }
 
@@ -935,14 +970,16 @@ export function OrderPairBook({
   }, [aggregatedData.bids, aggregatedData.asks]);
   return (
     <View style={{ padding: 8 }}>
-      <View style={styles.pairBookHeader}>
-        <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-          {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-        </Text>
-        <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
-          {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-        </Text>
-      </View>
+      <DebugRenderTracker name="OrderPairBookHeader" position="right-center">
+        <View style={styles.pairBookHeader}>
+          <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+          </Text>
+          <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+            {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+          </Text>
+        </View>
+      </DebugRenderTracker>
       <View style={styles.relativeContainer}>
         <View style={styles.relativeContainer}>
           {aggregatedData.asks.map((itemData, index) => (
@@ -986,17 +1023,24 @@ export function OrderPairBook({
               )}
             </Pressable>
           ))}
-          <View style={styles.pairBookSpreadRow}>
-            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-              {intl.formatMessage({ id: ETranslations.perp_orderbook_spread })}
-            </Text>
-            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-              {midPrice}
-            </Text>
-            <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
-              {spreadPercentage}
-            </Text>
-          </View>
+          <DebugRenderTracker
+            name="OrderPairBookSpreadRow"
+            position="right-center"
+          >
+            <View style={styles.pairBookSpreadRow}>
+              <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_orderbook_spread,
+                })}
+              </Text>
+              <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+                {midPrice}
+              </Text>
+              <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+                {spreadPercentage}
+              </Text>
+            </View>
+          </DebugRenderTracker>
           {aggregatedData.bids.map((itemData, index) => (
             <Pressable
               key={index}
@@ -1038,44 +1082,46 @@ const MobileRow = ({
   sizeColor: string;
   isHovered?: boolean;
 }) => (
-  <View
-    style={{
-      flex: 1,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      height: MOBILE_ROW_HEIGHT,
-    }}
-  >
-    <Text
-      numberOfLines={1}
-      style={[
-        styles.monospaceText,
-        {
-          color: priceColor,
-          fontSize: 11,
-          lineHeight: 14,
-        },
-        isHovered ? styles.monospaceTextBold : null,
-      ]}
+  <DebugRenderTracker name="OrderBookMobileRow" position="right-center">
+    <View
+      style={{
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        height: MOBILE_ROW_HEIGHT,
+      }}
     >
-      {item.price}
-    </Text>
-    <Text
-      numberOfLines={1}
-      style={[
-        styles.monospaceText,
-        {
-          color: sizeColor,
-          fontSize: 11,
-          lineHeight: 14,
-        },
-        isHovered ? styles.monospaceTextBold : null,
-      ]}
-    >
-      {item.size}
-    </Text>
-  </View>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.monospaceText,
+          {
+            color: priceColor,
+            fontSize: 11,
+            lineHeight: 14,
+          },
+          isHovered ? styles.monospaceTextBold : null,
+        ]}
+      >
+        {item.price}
+      </Text>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.monospaceText,
+          {
+            color: sizeColor,
+            fontSize: 11,
+            lineHeight: 14,
+          },
+          isHovered ? styles.monospaceTextBold : null,
+        ]}
+      >
+        {item.size}
+      </Text>
+    </View>
+  </DebugRenderTracker>
 );
 
 // A compact, mobile-friendly order book: two columns (Price/Size),
@@ -1159,48 +1205,50 @@ export function OrderBookMobile({
 
   return (
     <View style={style}>
-      <View style={styles.pairBookHeader}>
-        <YStack>
-          <Text
-            style={[
-              styles.headerText,
-              { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-            ]}
-          >
-            {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-          </Text>
-          <Text
-            style={[
-              styles.headerText,
-              {
-                color: textColor.textSubdued,
-                fontSize: 10,
-                lineHeight: 12,
-              },
-            ]}
-          >
-            (USD)
-          </Text>
-        </YStack>
-        <YStack alignItems="flex-end">
-          <Text
-            style={[
-              styles.headerText,
-              { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
-            ]}
-          >
-            {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-          </Text>
-          <Text
-            style={[
-              styles.headerText,
-              { color: textColor.textSubdued, fontSize: 10, lineHeight: 12 },
-            ]}
-          >
-            ({_symbol ?? ''})
-          </Text>
-        </YStack>
-      </View>
+      <DebugRenderTracker name="OrderBookMobileHeader" position="right-center">
+        <View style={styles.pairBookHeader}>
+          <YStack>
+            <Text
+              style={[
+                styles.headerText,
+                { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
+              ]}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+            </Text>
+            <Text
+              style={[
+                styles.headerText,
+                {
+                  color: textColor.textSubdued,
+                  fontSize: 10,
+                  lineHeight: 12,
+                },
+              ]}
+            >
+              (USD)
+            </Text>
+          </YStack>
+          <YStack alignItems="flex-end">
+            <Text
+              style={[
+                styles.headerText,
+                { color: textColor.textSubdued, fontSize: 11, lineHeight: 14 },
+              ]}
+            >
+              {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
+            </Text>
+            <Text
+              style={[
+                styles.headerText,
+                { color: textColor.textSubdued, fontSize: 10, lineHeight: 12 },
+              ]}
+            >
+              ({_symbol ?? ''})
+            </Text>
+          </YStack>
+        </View>
+      </DebugRenderTracker>
       <View style={styles.relativeContainer}>
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
@@ -1274,76 +1322,81 @@ export function OrderBookMobile({
               </Pressable>
             );
           })}
-          <View
-            style={{
-              flexDirection: 'row',
-              gap: 12,
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              height: MOBILE_SPREAD_ROW_HEIGHT,
-            }}
+          <DebugRenderTracker
+            name="OrderBookMobileSpreadRow"
+            position="right-center"
           >
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.perp_order_mid_price_title,
-              })}
-              renderTrigger={
-                <Text
-                  style={[
-                    styles.monospaceText,
-                    {
-                      color: textColor.red,
-                      fontSize: 18,
-                      fontWeight: '600',
-                      lineHeight: 24,
-                    },
-                  ]}
-                >
-                  {midPrice}
-                </Text>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText>
-                    {intl.formatMessage({
-                      id: ETranslations.perp_order_mid_price_title_desc,
-                    })}
-                  </SizableText>
-                </YStack>
-              }
-            />
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.perp_position_mark_price,
-              })}
-              renderTrigger={
-                <Text
-                  style={[
-                    styles.monospaceText,
-                    {
-                      color: textColor.textSubdued,
-                      fontSize: 10,
-                      fontWeight: '400',
-                      lineHeight: 16,
-                      textDecorationLine: 'underline',
-                      textDecorationStyle: 'dotted',
-                    },
-                  ]}
-                >
-                  {markPrice}
-                </Text>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText>
-                    {intl.formatMessage({
-                      id: ETranslations.perp_mark_price_tooltip,
-                    })}
-                  </SizableText>
-                </YStack>
-              }
-            />
-          </View>
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 12,
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                height: MOBILE_SPREAD_ROW_HEIGHT,
+              }}
+            >
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_order_mid_price_title,
+                })}
+                renderTrigger={
+                  <Text
+                    style={[
+                      styles.monospaceText,
+                      {
+                        color: textColor.red,
+                        fontSize: 18,
+                        fontWeight: '600',
+                        lineHeight: 24,
+                      },
+                    ]}
+                  >
+                    {midPrice}
+                  </Text>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_order_mid_price_title_desc,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_mark_price,
+                })}
+                renderTrigger={
+                  <Text
+                    style={[
+                      styles.monospaceText,
+                      {
+                        color: textColor.textSubdued,
+                        fontSize: 10,
+                        fontWeight: '400',
+                        lineHeight: 16,
+                        textDecorationLine: 'underline',
+                        textDecorationStyle: 'dotted',
+                      },
+                    ]}
+                  >
+                    {markPrice}
+                  </Text>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText>
+                      {intl.formatMessage({
+                        id: ETranslations.perp_mark_price_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+            </View>
+          </DebugRenderTracker>
           {aggregatedData.bids.map((itemData, index) => (
             <Pressable
               key={index}

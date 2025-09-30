@@ -4,20 +4,24 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  DebugRenderTracker,
   Divider,
   Icon,
   IconButton,
   NumberSizeableText,
   ScrollView,
   SizableText,
-  Skeleton,
+  SkeletonContainer,
   Tooltip,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePerpsActiveAssetCtxAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -30,34 +34,325 @@ import { useFundingCountdown, usePerpSession } from '../../hooks';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
 
+function useTickerBarIsLoading() {
+  const { isReady, hasError } = usePerpSession();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const { markPrice } = assetCtx?.ctx || {
+    markPrice: '0',
+  };
+  return !isReady || hasError || parseFloat(markPrice) === 0;
+}
+
+function TickerBarMarkPrice() {
+  const intl = useIntl();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const formattedMarkPrice = assetCtx?.ctx?.markPrice || '';
+  const isLoading = useTickerBarIsLoading();
+  return (
+    <DebugRenderTracker
+      name="TickerBarMarkPrice"
+      position="bottom-left"
+      offsetY={10}
+    >
+      <SkeletonContainer isLoading={isLoading} width={80} height={28}>
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <SizableText size="$headingXl">{formattedMarkPrice}</SizableText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_mark_price_tooltip,
+              })}
+            </SizableText>
+          }
+        />
+      </SkeletonContainer>
+    </DebugRenderTracker>
+  );
+}
+
+function TickerBarChange24hPercent() {
+  const intl = useIntl();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
+  const isLoading = useTickerBarIsLoading();
+
+  return (
+    <DebugRenderTracker
+      name="TickerBarChange24hPercent"
+      position="bottom-right"
+      offsetY={10}
+    >
+      <SkeletonContainer isLoading={isLoading} width={50} height={16}>
+        <NumberSizeableText
+          size="$headingXs"
+          color={change24hPercent >= 0 ? '$green11' : '$red11'}
+          formatter="priceChange"
+          formatterOptions={{
+            showPlusMinusSigns: true,
+          }}
+        >
+          {change24hPercent}
+        </NumberSizeableText>
+      </SkeletonContainer>
+    </DebugRenderTracker>
+  );
+}
+
+function TickerBarOraclePrice() {
+  const intl = useIntl();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const formattedOraclePrice = assetCtx?.ctx?.oraclePrice || '';
+  const isLoading = useTickerBarIsLoading();
+
+  return (
+    <DebugRenderTracker name="TickerBarOraclePrice">
+      <YStack>
+        <Tooltip
+          renderTrigger={
+            <SizableText
+              size="$bodySm"
+              borderBottomWidth="$px"
+              borderTopWidth={0}
+              borderLeftWidth={0}
+              borderRightWidth={0}
+              borderBottomColor="$border"
+              borderStyle="dashed"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_oracle_price,
+              })}
+            </SizableText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_oracle_price_tooltip,
+              })}
+            </SizableText>
+          }
+          placement="top"
+        />
+        <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+          <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
+        </SkeletonContainer>
+      </YStack>
+    </DebugRenderTracker>
+  );
+}
+
+function TickerBar24hVolume() {
+  const intl = useIntl();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const volume24h = assetCtx?.ctx?.volume24h || '0';
+  const isLoading = useTickerBarIsLoading();
+
+  return (
+    <DebugRenderTracker name="TickerBar24hVolume">
+      <YStack>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_token_bar_24h_Volume,
+          })}
+        </SizableText>
+        <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+          <SizableText size="$headingXs">
+            $
+            {formatDisplayNumber(
+              NUMBER_FORMATTER.marketCap(volume24h.toString()),
+            )}
+          </SizableText>
+        </SkeletonContainer>
+      </YStack>
+    </DebugRenderTracker>
+  );
+}
+
+function TickerBarOpenInterest() {
+  const intl = useIntl();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const { openInterest = '0', markPrice = '0' } = assetCtx?.ctx || {};
+  const isLoading = useTickerBarIsLoading();
+
+  return (
+    <DebugRenderTracker name="TickerBarOpenInterest">
+      <YStack>
+        <Tooltip
+          renderTrigger={
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              borderBottomWidth="$px"
+              borderTopWidth={0}
+              borderLeftWidth={0}
+              borderRightWidth={0}
+              borderBottomColor="$border"
+              borderStyle="dashed"
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_open_Interest,
+              })}
+            </SizableText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_open_interest_tooltip,
+              })}
+            </SizableText>
+          }
+          placement="top"
+        />
+        <SkeletonContainer isLoading={isLoading} width={80} height={16}>
+          <SizableText size="$headingXs">
+            $
+            {formatDisplayNumber(
+              NUMBER_FORMATTER.marketCap(
+                (Number(openInterest) * Number(markPrice)).toString(),
+              ),
+            )}
+          </SizableText>
+        </SkeletonContainer>
+      </YStack>
+    </DebugRenderTracker>
+  );
+}
+
+function TickerBarFundingRate() {
+  const intl = useIntl();
+  const countdown = useFundingCountdown();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const fundingRate = assetCtx?.ctx?.fundingRate || '0';
+  const isLoading = useTickerBarIsLoading();
+  return (
+    <DebugRenderTracker name="TickerBarFundingRate">
+      <YStack>
+        <Tooltip
+          renderTrigger={
+            <SizableText
+              size="$bodySm"
+              borderBottomWidth="$px"
+              borderTopWidth={0}
+              borderLeftWidth={0}
+              borderRightWidth={0}
+              borderBottomColor="$border"
+              borderStyle="dashed"
+              color="$textSubdued"
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_Funding,
+              })}
+            </SizableText>
+          }
+          renderContent={
+            <YStack gap="$2">
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_rate_tip1,
+                })}
+              </SizableText>
+              <SizableText size="$bodySm">
+                {intl.formatMessage({
+                  id: ETranslations.perp_funding_rate_tip2,
+                })}
+              </SizableText>
+            </YStack>
+          }
+          placement="top"
+        />
+        <SkeletonContainer isLoading={isLoading} width={120} height={16}>
+          <XStack alignItems="center" gap="$2">
+            <Tooltip
+              renderTrigger={
+                <XStack alignItems="center" gap="$2">
+                  <SizableText
+                    size="$headingXs"
+                    color={parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'}
+                  >
+                    {(parseFloat(fundingRate) * 100).toFixed(4)}%
+                  </SizableText>
+                  <SizableText size="$headingXs" color="$text">
+                    {countdown}
+                  </SizableText>
+                </XStack>
+              }
+              renderContent={
+                <YStack gap="$1">
+                  <YStack py="$1" gap="$0.5" justifyContent="space-between">
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_ticker_annualized_funding_tooltip,
+                      })}
+                    </SizableText>
+                    <SizableText
+                      size="$bodySmMedium"
+                      color={
+                        parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'
+                      }
+                    >
+                      {(parseFloat(fundingRate) * 100 * 24 * 365).toFixed(2)}%
+                    </SizableText>
+                  </YStack>
+                  <Divider />
+                  <YStack py="$1" gap="$0.5" justifyContent="space-between">
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_trades_history_direction,
+                      })}
+                    </SizableText>
+                    {parseFloat(fundingRate) >= 0 ? (
+                      <SizableText size="$bodySmMedium" color="$text">
+                        <SizableText size="$bodySmMedium" color="$green11">
+                          {intl.formatMessage({
+                            id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                          })}
+                        </SizableText>{' '}
+                        {intl.formatMessage({
+                          id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                        })}{' '}
+                        <SizableText size="$bodySmMedium" color="$red11">
+                          {intl.formatMessage({
+                            id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                          })}
+                        </SizableText>
+                      </SizableText>
+                    ) : (
+                      <SizableText size="$bodySmMedium" color="$text">
+                        <SizableText size="$bodySmMedium" color="$red11">
+                          {intl.formatMessage({
+                            id: ETranslations.perp_ticker_direction_funding_tooltip_short,
+                          })}
+                        </SizableText>{' '}
+                        {intl.formatMessage({
+                          id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
+                        })}{' '}
+                        <SizableText size="$bodySmMedium" color="$green11">
+                          {intl.formatMessage({
+                            id: ETranslations.perp_ticker_direction_funding_tooltip_long,
+                          })}
+                        </SizableText>
+                      </SizableText>
+                    )}
+                  </YStack>
+                </YStack>
+              }
+            />
+          </XStack>
+        </SkeletonContainer>
+      </YStack>
+    </DebugRenderTracker>
+  );
+}
+
 function PerpTickerBar() {
   const { gtMd } = useMedia();
   const navigation = useAppNavigation();
-  const countdown = useFundingCountdown();
-  const { isReady, hasError } = usePerpSession();
-  const [assetCtx] = usePerpsActiveAssetCtxAtom();
-
-  const {
-    markPrice,
-    oraclePrice,
-    fundingRate,
-    openInterest,
-    volume24h,
-    change24hPercent,
-  } = assetCtx?.ctx || {
-    markPrice: '0',
-    oraclePrice: '0',
-    fundingRate: '0',
-    openInterest: '0',
-    volume24h: '0',
-    change24hPercent: 0,
-  };
-  const coin = assetCtx?.coin || '';
-
-  const formattedMarkPrice = markPrice;
-  const formattedOraclePrice = oraclePrice;
+  const [asset] = usePerpsActiveAssetAtom();
+  const coin = asset?.coin || '';
   const intl = useIntl();
-  const showSkeleton = !isReady || hasError || parseFloat(markPrice) === 0;
   const onPressCandleChart = useCallback(() => {
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
   }, [navigation]);
@@ -69,7 +364,7 @@ function PerpTickerBar() {
   }, [navigation]);
 
   if (!gtMd) {
-    return (
+    const content = (
       <XStack
         flex={1}
         bg="$bgApp"
@@ -111,9 +406,14 @@ function PerpTickerBar() {
         </XStack>
       </XStack>
     );
+    return (
+      <DebugRenderTracker name="PerpTickerBarMobile" position="top-right">
+        {content}
+      </DebugRenderTracker>
+    );
   }
 
-  return (
+  const content = (
     <XStack
       bg="$bgApp"
       borderBottomWidth="$px"
@@ -127,40 +427,8 @@ function PerpTickerBar() {
       <XStack gap="$4" alignItems="center">
         <PerpTokenSelector />
         <XStack alignItems="center" width={140} gap="$1.5" cursor="default">
-          {showSkeleton ? (
-            <Skeleton width={80} height={28} />
-          ) : (
-            <Tooltip
-              placement="top"
-              renderTrigger={
-                <SizableText size="$headingXl">
-                  {formattedMarkPrice}
-                </SizableText>
-              }
-              renderContent={
-                <SizableText size="$bodySm">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_mark_price_tooltip,
-                  })}
-                </SizableText>
-              }
-            />
-          )}
-
-          {showSkeleton ? (
-            <Skeleton width={50} height={16} />
-          ) : (
-            <NumberSizeableText
-              size="$headingXs"
-              color={change24hPercent >= 0 ? '$green11' : '$red11'}
-              formatter="priceChange"
-              formatterOptions={{
-                showPlusMinusSigns: true,
-              }}
-            >
-              {change24hPercent}
-            </NumberSizeableText>
-          )}
+          <TickerBarMarkPrice />
+          <TickerBarChange24hPercent />
         </XStack>
       </XStack>
 
@@ -175,220 +443,17 @@ function PerpTickerBar() {
           justifyContent: 'flex-start',
         }}
       >
-        <YStack>
-          <Tooltip
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-                color="$textSubdued"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_token_bar_oracle_price,
-                })}
-              </SizableText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_oracle_price_tooltip,
-                })}
-              </SizableText>
-            }
-            placement="top"
-          />
-
-          {showSkeleton ? (
-            <Skeleton width={80} height={16} />
-          ) : (
-            <SizableText size="$headingXs">{formattedOraclePrice}</SizableText>
-          )}
-        </YStack>
-
-        <YStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_token_bar_24h_Volume,
-            })}
-          </SizableText>
-          {showSkeleton ? (
-            <Skeleton width={80} height={16} />
-          ) : (
-            <SizableText size="$headingXs">
-              $
-              {formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(volume24h.toString()),
-              )}
-            </SizableText>
-          )}
-        </YStack>
-
-        <YStack>
-          <Tooltip
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_token_bar_open_Interest,
-                })}
-              </SizableText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_open_interest_tooltip,
-                })}
-              </SizableText>
-            }
-            placement="top"
-          />
-          {showSkeleton ? (
-            <Skeleton width={80} height={16} />
-          ) : (
-            <SizableText size="$headingXs">
-              $
-              {formatDisplayNumber(
-                NUMBER_FORMATTER.marketCap(
-                  (Number(openInterest) * Number(markPrice)).toString(),
-                ),
-              )}
-            </SizableText>
-          )}
-        </YStack>
-
-        <YStack>
-          <Tooltip
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-                color="$textSubdued"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_token_bar_Funding,
-                })}
-              </SizableText>
-            }
-            renderContent={
-              <YStack gap="$2">
-                <SizableText size="$bodySm">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip1,
-                  })}
-                </SizableText>
-                <SizableText size="$bodySm">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_funding_rate_tip2,
-                  })}
-                </SizableText>
-              </YStack>
-            }
-            placement="top"
-          />
-          {showSkeleton ? (
-            <Skeleton width={120} height={16} />
-          ) : (
-            <XStack alignItems="center" gap="$2">
-              <Tooltip
-                renderTrigger={
-                  <XStack alignItems="center" gap="$2">
-                    <SizableText
-                      size="$headingXs"
-                      color={
-                        parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'
-                      }
-                    >
-                      {(parseFloat(fundingRate) * 100).toFixed(4)}%
-                    </SizableText>
-                    <SizableText size="$headingXs" color="$text">
-                      {countdown}
-                    </SizableText>
-                  </XStack>
-                }
-                renderContent={
-                  <YStack gap="$1">
-                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.perp_ticker_annualized_funding_tooltip,
-                        })}
-                      </SizableText>
-                      <SizableText
-                        size="$bodySmMedium"
-                        color={
-                          parseFloat(fundingRate) >= 0 ? '$green11' : '$red11'
-                        }
-                      >
-                        {(parseFloat(fundingRate) * 100 * 24 * 365).toFixed(2)}%
-                      </SizableText>
-                    </YStack>
-                    <Divider />
-                    <YStack py="$1" gap="$0.5" justifyContent="space-between">
-                      <SizableText size="$bodySm" color="$textSubdued">
-                        {intl.formatMessage({
-                          id: ETranslations.perp_trades_history_direction,
-                        })}
-                      </SizableText>
-                      {parseFloat(fundingRate) >= 0 ? (
-                        <SizableText size="$bodySmMedium" color="$text">
-                          <SizableText size="$bodySmMedium" color="$green11">
-                            {intl.formatMessage({
-                              id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                            })}
-                          </SizableText>{' '}
-                          {intl.formatMessage({
-                            id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                          })}{' '}
-                          <SizableText size="$bodySmMedium" color="$red11">
-                            {intl.formatMessage({
-                              id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                            })}
-                          </SizableText>
-                        </SizableText>
-                      ) : (
-                        <SizableText size="$bodySmMedium" color="$text">
-                          <SizableText size="$bodySmMedium" color="$red11">
-                            {intl.formatMessage({
-                              id: ETranslations.perp_ticker_direction_funding_tooltip_short,
-                            })}
-                          </SizableText>{' '}
-                          {intl.formatMessage({
-                            id: ETranslations.perp_ticker_direction_funding_tooltip_pays,
-                          })}{' '}
-                          <SizableText size="$bodySmMedium" color="$green11">
-                            {intl.formatMessage({
-                              id: ETranslations.perp_ticker_direction_funding_tooltip_long,
-                            })}
-                          </SizableText>
-                        </SizableText>
-                      )}
-                    </YStack>
-                  </YStack>
-                }
-              />
-            </XStack>
-          )}
-        </YStack>
+        <TickerBarOraclePrice />
+        <TickerBar24hVolume />
+        <TickerBarOpenInterest />
+        <TickerBarFundingRate />
       </ScrollView>
     </XStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpTickerBarDesktop" position="top-right">
+      {content}
+    </DebugRenderTracker>
   );
 }
 

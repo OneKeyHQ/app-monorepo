@@ -8,6 +8,7 @@ import { getTokenValue } from 'tamagui';
 
 import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
 
+import type { IDebugRenderTrackerProps } from '../../utils/DebugRenderTracker';
 import type { StackStyle, Tokens } from '@tamagui/web';
 import type {
   FlatListProps,
@@ -59,6 +60,7 @@ export type IListViewProps<T> = Omit<
       offsetEnd: number;
       blankArea: number;
     }) => void;
+    debugRenderTrackerProps?: IDebugRenderTrackerProps;
   };
 
 function BaseListView<T>(
@@ -71,6 +73,7 @@ function BaseListView<T>(
     ListFooterComponentStyle = {},
     estimatedItemSize,
     useFlashList,
+    debugRenderTrackerProps,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -127,7 +130,11 @@ function BaseListView<T>(
 
   const ListViewComponent = useFlashList ? FlashList<T> : FlatList<T>;
   return (
-    <DebugRenderTracker timesBadgePosition="top-right" name="ListView">
+    <DebugRenderTracker
+      position="top-right"
+      name="ListView"
+      {...debugRenderTrackerProps}
+    >
       <ListViewComponent
         ref={ref}
         style={style as StyleProp<ViewStyle>}
