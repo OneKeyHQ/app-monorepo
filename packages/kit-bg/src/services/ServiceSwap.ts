@@ -60,6 +60,7 @@ import type {
   IFetchTokenListParams,
   IFetchTokensParams,
   IOKXTransactionObject,
+  IPerpDepositQuoteRes,
   ISpeedSwapConfig,
   ISwapApproveAllowanceResponse,
   ISwapApproveTransaction,
@@ -2285,6 +2286,52 @@ export default class ServiceSwap extends ServiceBase {
       return {
         swapMevNetConfig: null,
       };
+    }
+  }
+
+  @backgroundMethod()
+  async fetchPerpDepositQuote(params: {
+    fromNetworkId: string;
+    fromTokenAmount: string;
+    fromTokenAddress: string;
+    userAddress: string;
+    receivingAddress: string;
+    accountId?: string;
+  }) {
+    try {
+      const { accountId } = params;
+      let headers = await getRequestHeaders();
+      const walletType =
+        await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
+          accountId,
+        });
+      headers = {
+        ...headers,
+        ...(accountId
+          ? {
+              'X-OneKey-Wallet-Type': walletType,
+            }
+          : {}),
+      };
+      const fetchParams = {
+        fromNetworkId: params.fromNetworkId,
+        fromTokenAmount: params.fromTokenAmount,
+        fromTokenAddress: params.fromTokenAddress,
+        userAddress: params.userAddress,
+        receivingAddress: params.receivingAddress,
+      };
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const { data } = await client.post<{ data: IPerpDepositQuoteRes }>(
+        '/swap/v1/perp-deposit-quote',
+        fetchParams,
+        {
+          headers,
+        },
+      );
+      return data?.data;
+    } catch (e) {
+      console.error(e);
+      return undefined;
     }
   }
 }

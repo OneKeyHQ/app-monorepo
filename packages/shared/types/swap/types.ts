@@ -754,6 +754,18 @@ export interface IFetchBuildTxResponse {
   orderId?: string;
 }
 
+export interface IPerpDepositQuoteRes {
+  protocol?: EProtocolOfExchange;
+  info: IFetchQuoteInfo;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
+  fromAmount: string;
+  toAmount: string;
+  result: IFetchBuildTxResult;
+  tx?: ITransaction;
+  allowanceResult?: IAllowanceResult;
+}
+
 export interface ISwapTips {
   tipsId: string;
   title: string;

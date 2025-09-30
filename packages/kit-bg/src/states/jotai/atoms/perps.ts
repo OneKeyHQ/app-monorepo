@@ -225,7 +225,7 @@ export interface IPerpsDepositToken {
   name: string;
   symbol: string;
   decimals: number;
-  networkImageURI: string;
+  networkLogoURI: string;
   price?: string;
   balanceParsed?: string;
   fiatValue?: string;

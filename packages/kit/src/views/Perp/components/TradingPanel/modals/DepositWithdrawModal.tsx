@@ -28,7 +28,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
@@ -37,6 +39,7 @@ import {
   perpsActiveAccountAtom,
   usePerpsDepositNetworksAtom,
   usePerpsDepositTokensAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IPerpsActiveAccountAtom,
@@ -45,6 +48,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -112,6 +116,7 @@ function DepositWithdrawContent({
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMinAmountError, setShowMinAmountError] = useState(false);
+  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [
     { currentPerpsDepositSelectedNetwork, networks },
     setPerpsDepositNetworksAtom,
@@ -259,7 +264,7 @@ function DepositWithdrawContent({
             name: findToken?.name,
             symbol: findToken?.symbol,
             decimals: findToken?.decimals,
-            networkImageURI: findToken?.networkImageURI,
+            networkLogoURI: findToken?.networkLogoURI,
             logoURI: findToken?.logoURI,
             isNative: findToken?.isNative,
             balanceParsed: findToken?.balanceParsed,
@@ -275,9 +280,12 @@ function DepositWithdrawContent({
     if (selectedAction === 'withdraw') {
       return new BigNumber(params.withdrawable || '0').toFixed(2);
     }
-    return new BigNumber(currentPerpsDepositSelectedToken?.balanceParsed || '0')
-      .decimalPlaces(2, BigNumber.ROUND_DOWN)
-      .toFixed();
+    return numberFormat(
+      currentPerpsDepositSelectedToken?.balanceParsed || '0',
+      {
+        formatter: 'balance',
+      },
+    ) as string;
   }, [
     selectedAction,
     params.withdrawable,
@@ -597,13 +605,47 @@ function DepositWithdrawContent({
   ]);
   const renderTokenItem = useCallback<ListRenderItem<IPerpsDepositToken>>(
     ({ item }) => {
+      const balanceFormatted = numberFormat(item.balanceParsed ?? '0', {
+        formatter: 'balance',
+      });
+      const fiatValueFormatted = numberFormat(item.fiatValue ?? '0', {
+        formatter: 'value',
+        formatterOptions: { currency: settingsPersistAtom.currencyInfo.symbol },
+      });
       return (
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {item.name}
-        </SizableText>
+        <ListItem
+          justifyContent="space-between"
+          py="$2"
+          onPress={() => {
+            setPerpsDepositTokensAtom((prev) => ({
+              ...prev,
+              currentPerpsDepositSelectedToken: item,
+            }));
+          }}
+        >
+          <XStack>
+            <Token
+              tokenImageUri={item.logoURI}
+              networkImageUri={item.networkLogoURI}
+              showNetworkIcon
+            />
+            <YStack>
+              <SizableText size="$bodySm">{item.symbol}</SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
+                {item.name}
+              </SizableText>
+            </YStack>
+          </XStack>
+          <YStack alignItems="flex-end">
+            <SizableText size="$bodySm">{balanceFormatted}</SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {fiatValueFormatted}
+            </SizableText>
+          </YStack>
+        </ListItem>
       );
     },
-    [],
+    [settingsPersistAtom.currencyInfo.symbol, setPerpsDepositTokensAtom],
   );
   const depositTokenSelectComponent = useMemo(() => {
     if (!currentPerpsDepositSelectedNetwork?.networkId) return undefined;
@@ -612,6 +654,7 @@ function DepositWithdrawContent({
         title={intl.formatMessage({
           id: ETranslations.swap_page_button_select_token,
         })}
+        placement="bottom-end"
         renderTrigger={
           <XStack alignItems="center" gap="$1" cursor="pointer">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -625,18 +668,30 @@ function DepositWithdrawContent({
           </XStack>
         }
         renderContent={() => (
-          <ListView
-            data={depositTokensWithPrice}
-            renderItem={renderTokenItem}
-            ListFooterComponent={
-              <XStack h="$2">
-                <SizableText size="$bodySm" color="$textSubdued">
-                  if you wish to trade other tokens, switch to
-                </SizableText>
-                <SizableText size="$bodySm">Trade</SizableText>
-              </XStack>
-            }
-          />
+          <YStack>
+            <ListView
+              contentContainerStyle={{
+                borderRadius: 12,
+                py: '$2',
+              }}
+              data={depositTokensWithPrice}
+              renderItem={renderTokenItem}
+            />
+            <XStack
+              bg="$bgSubdued"
+              borderBottomLeftRadius={12}
+              borderBottomRightRadius={12}
+              justifyContent="center"
+              borderTopWidth={1}
+              borderTopColor="$borderSubdued"
+              p="$2"
+            >
+              <SizableText size="$bodySm" color="$textSubdued">
+                if you wish to trade other tokens, switch to
+              </SizableText>
+              <SizableText size="$bodySm">Trade</SizableText>
+            </XStack>
+          </YStack>
         )}
       />
     );
