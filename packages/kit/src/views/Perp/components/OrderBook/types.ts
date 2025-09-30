@@ -16,5 +16,19 @@ export interface IOBLevel {
   cumSize: string;
 }
 
+export interface IFormattedOBLevel extends IOBLevel {
+  /** Human readable representation of size for rendering */
+  displaySize: string;
+  /** Human readable representation of cumulative size for rendering */
+  displayCumSize: string;
+}
+
+export interface IAggregatedBookResult {
+  bids: IFormattedOBLevel[];
+  asks: IFormattedOBLevel[];
+  maxBidSize: string;
+  maxAskSize: string;
+}
+
 export type ITick<T> = [coord: number, value: T];
 export type INTick = ITick<number>;
