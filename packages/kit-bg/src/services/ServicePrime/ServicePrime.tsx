@@ -31,7 +31,6 @@ import type {
 
 import {
   primeLoginDialogAtom,
-  primeMasterPasswordPersistAtom,
   primePersistAtom,
   primeServerMasterPasswordStatusAtom,
 } from '../../states/jotai/atoms/prime';
@@ -40,7 +39,6 @@ import ServiceBase from '../ServiceBase';
 import type {
   IPrimeLoginDialogAtomData,
   IPrimeLoginDialogKeys,
-  IPrimeMasterPasswordPersistAtomData,
   IPrimePersistAtomData,
 } from '../../states/jotai/atoms/prime';
 

@@ -701,21 +701,28 @@ export default class ServiceHyperliquid extends ServiceBase {
       const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
       const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
 
-      const availableNames = [
+      const onekeyAgentNames = [
         EHyperLiquidAgentName.OneKeyAgent1,
         EHyperLiquidAgentName.OneKeyAgent2,
         EHyperLiquidAgentName.OneKeyAgent3,
       ];
       let agentNameToApprove: EHyperLiquidAgentName | undefined;
       if (extraAgents.length === 3) {
-        const agentToRemove = extraAgents.sort(
-          (a, b) => a.validUntil - b.validUntil,
-        )?.[0];
+        const nonOneKeyAgents = extraAgents.filter(
+          (agent) =>
+            !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
+        );
+        const agentToRemove = (
+          nonOneKeyAgents.length ? nonOneKeyAgents : extraAgents
+        ).sort((a, b) => a.validUntil - b.validUntil)?.[0];
         const agentNameToRemove = agentToRemove?.name as
           | EHyperLiquidAgentName
           | undefined;
         if (agentToRemove) {
-          if (agentNameToRemove && availableNames.includes(agentNameToRemove)) {
+          if (
+            agentNameToRemove &&
+            onekeyAgentNames.includes(agentNameToRemove)
+          ) {
             agentNameToApprove = agentNameToRemove;
           } else {
             const approveAgentResult = await this.exchangeService.removeAgent({
@@ -760,7 +767,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         }
       }
       if (!agentNameToApprove) {
-        for (const agentName of availableNames) {
+        for (const agentName of onekeyAgentNames) {
           if (!extraAgents.some((agent) => agent.name === agentName)) {
             agentNameToApprove = agentName;
             break;

@@ -9,7 +9,6 @@ import {
 
 import { debounce } from 'lodash';
 import { ScrollView } from 'react-native';
-import { useDebouncedCallback } from 'use-debounce';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import type PagerViewType from 'react-native-pager-view';
