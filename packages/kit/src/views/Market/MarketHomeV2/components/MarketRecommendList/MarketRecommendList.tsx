@@ -40,7 +40,7 @@ export function MarketRecommendList({
 }: IMarketRecommendListProps) {
   const intl = useIntl();
   const actions = useWatchListV2Action();
-
+  const { gtMd } = useMedia();
   const defaultTokens = useMemo(
     () => recommendedTokens?.slice(0, maxSize) || [],
     [recommendedTokens, maxSize],
@@ -106,8 +106,6 @@ export function MarketRecommendList({
     }
   }, [actions, selectedTokens, defaultTokens, showAddButton, enableSelection]);
 
-  const { gtMd } = useMedia();
-
   const confirmButton = useMemo(
     () =>
       showAddButton && enableSelection ? (
@@ -138,8 +136,9 @@ export function MarketRecommendList({
   const stackPaddingBottom = useMemo(() => {
     if (platformEnv.isNativeAndroid) return 80;
     if (platformEnv.isExtension) return 50;
+    if (platformEnv.isWeb && !gtMd) return 50;
     return 0;
-  }, []);
+  }, [gtMd]);
 
   if (!recommendedTokens?.length) {
     return null;
