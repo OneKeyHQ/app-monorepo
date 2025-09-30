@@ -32,6 +32,7 @@ import {
   OrderBook,
   OrderBookMobile,
 } from './OrderBook';
+import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
@@ -316,12 +317,11 @@ export function PerpOrderBook({
     sizeDecimals,
   ]);
 
-  if (!hasOrderBook || !l2Book) {
+  const foo = 3;
+  if (!hasOrderBook || !l2Book || foo === 2) {
     return (
-      <YStack flex={1} p="$4" justifyContent="center" alignItems="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Loading order book...
-        </SizableText>
+      <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
+        <DefaultLoadingNode />
       </YStack>
     );
   }
