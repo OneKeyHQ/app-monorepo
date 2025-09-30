@@ -2087,6 +2087,7 @@
   perp_market_price = 'perp.market_price',
   perp_mini_deposit = 'perp.mini_deposit',
   perp_mini_withdraw = 'perp.mini_withdraw',
+  perp_mmr = 'perp.mmr',
   perp_offline = 'perp.offline',
   perp_online = 'perp.online',
   perp_open_interest_tooltip = 'perp.open_interest_tooltip',

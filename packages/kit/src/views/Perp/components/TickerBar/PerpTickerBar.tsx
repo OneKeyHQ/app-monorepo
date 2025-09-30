@@ -483,6 +483,11 @@ function PerpTickerBar() {
                 <YStack gap="$2">
                   <SizableText size="$bodySmMedium">
                     {intl.formatMessage({
+                      id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodySmMedium">
+                    {intl.formatMessage({
                       id: ETranslations.perp_account_cross_margin_ration_tip,
                     })}
                   </SizableText>

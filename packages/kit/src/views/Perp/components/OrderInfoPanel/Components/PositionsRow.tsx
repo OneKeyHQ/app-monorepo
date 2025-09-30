@@ -109,9 +109,6 @@ const PositionRow = memo(
       const sizeAbs = sizeBN.abs().toFixed();
       const sizeAbsFormatted = numberFormat(sizeAbs, {
         formatter: 'balance',
-        formatterOptions: {
-          tokenSymbol: isMobile ? '' : assetInfo.assetSymbol || '',
-        },
       });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
       const sizeValueFormatted = numberFormat(sizeValue, {
@@ -124,7 +121,7 @@ const PositionRow = memo(
         sizeAbsFormatted,
         sizeValue: sizeValueFormatted,
       };
-    }, [pos.szi, pos.positionValue, assetInfo.assetSymbol, isMobile]);
+    }, [pos.szi, pos.positionValue, isMobile]);
 
     const otherInfo = useMemo(() => {
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
@@ -537,50 +534,37 @@ const PositionRow = memo(
             })
           }
         >
-          <XStack
-            w="$4"
-            h="$4"
-            justifyContent="center"
-            alignItems="center"
-            borderRadius={2}
-            backgroundColor={assetInfo.assetColor}
-            cursor="pointer"
-            onPress={() =>
-              actions.current.changeActiveAsset({
-                coin: assetInfo.assetSymbol,
-              })
-            }
-          >
-            <SizableText size="$bodySmMedium" color="$textOnColor">
-              {side === 'long'
-                ? intl.formatMessage({
-                    id: ETranslations.perp_position_b,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_position_s,
-                  })}
-            </SizableText>
+          <XStack alignItems="center" gap="$2">
+            <Divider
+              vertical
+              height={30}
+              borderWidth={2}
+              borderRadius={2}
+              borderColor={assetInfo.assetColor}
+            />
+            <YStack>
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySmMedium"
+                fontWeight={600}
+                color={assetInfo.assetColor}
+                hoverStyle={{ fontWeight: 700 }}
+                pressStyle={{ fontWeight: 700 }}
+              >
+                {assetInfo.assetSymbol}
+              </SizableText>
+
+              <SizableText
+                size="$bodySm"
+                lineHeight={20}
+                color="$textSubdued"
+                fontSize={12}
+              >
+                {assetInfo.leverageType} {assetInfo.leverage}X
+              </SizableText>
+            </YStack>
           </XStack>
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySmMedium"
-            fontWeight={600}
-            color={assetInfo.assetColor}
-            hoverStyle={{ fontWeight: 700 }}
-            pressStyle={{ fontWeight: 700 }}
-          >
-            {assetInfo.assetSymbol}
-          </SizableText>
-          <SizableText
-            bg="$bgSubdued"
-            borderRadius={2}
-            px="$1"
-            color="$textSubdued"
-            fontSize={12}
-          >
-            {assetInfo.leverageType} {assetInfo.leverage}X
-          </SizableText>
         </XStack>
 
         {/* Position Size */}
