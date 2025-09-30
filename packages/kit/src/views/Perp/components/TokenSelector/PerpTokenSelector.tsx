@@ -158,10 +158,7 @@ function BasePerpTokenSelectorContent({
     </YStack>
   );
   return (
-    <DebugRenderTracker
-      timesBadgePosition="top-right"
-      name="PerpTokenSelectorContent"
-    >
+    <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
       {content}
     </DebugRenderTracker>
   );
@@ -187,7 +184,7 @@ function BasePerpTokenSelector() {
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const [isLoading, setIsLoading] = useState(false);
-  return useMemo(
+  const content = useMemo(
     () => (
       <Popover
         title="Select Token"
@@ -236,6 +233,9 @@ function BasePerpTokenSelector() {
       />
     ),
     [isOpen, coin, isLoading, themeVariant],
+  );
+  return (
+    <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
   );
 }
 

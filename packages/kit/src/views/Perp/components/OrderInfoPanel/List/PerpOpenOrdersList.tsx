@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isNil, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
@@ -193,6 +194,13 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpOpenOrdersList',
+          position: 'top-left',
+        }),
+        [],
+      )}
       useTabsList
       enablePagination={!isMobile}
       currentListPage={currentListPage}
