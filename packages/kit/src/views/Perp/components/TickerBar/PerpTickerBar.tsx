@@ -75,6 +75,7 @@ function TickerBarMarkPrice() {
 
 function TickerBarChange24hPercent() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
   const isLoading = useTickerBarIsLoading();
@@ -87,7 +88,9 @@ function TickerBarChange24hPercent() {
     >
       <SkeletonContainer isLoading={isLoading} width={50} height={16}>
         <NumberSizeableText
-          size="$headingXs"
+          size={gtMd ? '$headingXs' : '$bodySmMedium'}
+          fontSize={gtMd ? undefined : 10}
+          mt={gtMd ? undefined : '$-2'}
           color={change24hPercent >= 0 ? '$green11' : '$red11'}
           formatter="priceChange"
           formatterOptions={{
@@ -371,19 +374,17 @@ function PerpTickerBar() {
         gap="$4"
         px="$4"
         py="$3"
-        alignItems="center"
+        alignItems="flex-start"
         justifyContent="space-between"
       >
-        <YStack gap="$1.5">
+        <YStack gap="$1">
           <XStack
-            gap="$1.5"
+            gap="$1"
             bg="$bgApp"
             onPress={onPressTokenSelector}
             justifyContent="center"
             alignItems="center"
           >
-            <Icon name="MenuOutline" size="$5" />
-
             <SizableText size="$headingXl">{coin}USD</SizableText>
             <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
               <SizableText color="$textSubdued" fontSize={11}>
@@ -392,7 +393,9 @@ function PerpTickerBar() {
                 })}
               </SizableText>
             </Badge>
+            <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
           </XStack>
+          <TickerBarChange24hPercent />
         </YStack>
         <XStack gap="$3" alignItems="center">
           <IconButton
