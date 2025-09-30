@@ -378,7 +378,7 @@ export const useFetchMarketBasicConfig = () => {
 
 export const useFetchPerpConfig = () => {
   useEffect(() => {
-    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
   }, []);
 };
 
