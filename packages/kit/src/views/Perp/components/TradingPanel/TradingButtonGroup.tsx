@@ -66,11 +66,18 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
     ) {
       return true;
     }
-    if (!formData.size || formData.size.trim() === '') {
-      return true;
+    const isSliderMode = formData.sizeInputMode === 'slider';
+    if (isSliderMode) {
+      return !formData.sizePercent || formData.sizePercent <= 0;
     }
-    return false;
-  }, [formData.type, formData.price, formData.size]);
+    return !formData.size || formData.size.trim() === '';
+  }, [
+    formData.type,
+    formData.price,
+    formData.size,
+    formData.sizeInputMode,
+    formData.sizePercent,
+  ]);
 
   const isMinimumOrderNotMetForSide = useMemo(() => {
     if (hasEmptyInputs) return false;
