@@ -23,6 +23,8 @@ export interface IFormattedOBLevel extends IOBLevel {
   displayCumSize: string;
 }
 
+export type IOrderBookVariant = 'web' | 'mobileVertical' | 'mobileHorizontal';
+
 export interface IAggregatedBookResult {
   bids: IFormattedOBLevel[];
   asks: IFormattedOBLevel[];

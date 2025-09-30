@@ -290,6 +290,7 @@ export function PerpOrderBook({
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
           loadingNode={<DefaultLoadingNode variant="mobileHorizontal" />}
+          variant="mobileHorizontal"
         />
       );
     }
@@ -308,6 +309,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          variant="mobileVertical"
         />
       </YStack>
     );
@@ -361,6 +363,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          variant="desktop"
         />
       ) : (
         mobileOrderBook
