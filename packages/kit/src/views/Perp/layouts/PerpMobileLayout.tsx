@@ -25,6 +25,7 @@ import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
 } from '../hooks';
+import { useMMR } from '../hooks/useMMR';
 
 const tabNameToTranslationKey = {
   'Positions': ETranslations.perp_position_title,
@@ -82,7 +83,7 @@ export function PerpMobileLayout() {
   const tabsRef = useRef<{
     switchTab: (tabName: string) => void;
   } | null>(null);
-
+  const mmr = useMMR();
   const handleViewTpslOrders = () => {
     tabsRef.current?.switchTab('Open Orders');
   };
@@ -99,7 +100,7 @@ export function PerpMobileLayout() {
       <YStack bg="$bgApp" pointerEvents="box-none">
         <PerpTickerBar />
 
-        <XStack alignItems="stretch" gap="$2" px="$4" pb="$4">
+        <XStack alignItems="stretch" gap="$3" px="$4" pb="$4">
           <YStack flex={4}>
             <PerpOrderBook />
           </YStack>
