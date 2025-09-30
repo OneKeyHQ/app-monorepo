@@ -118,9 +118,11 @@ textarea {
   /* left: 50%; */
   /* transform: translateX(-50%); */
   z-index: 999999;
-  font-size: 12px;
+}
+.debug-render-tracker-times-badge-text {
   color: #1f2937;
   background-color: #facc15; 
+  font-size: 12px;
   font-weight: bold;
   line-height: 1;
 }

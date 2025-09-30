@@ -24,13 +24,21 @@ export interface IDebugRenderTrackerProps {
   containerStyle?: React.HTMLAttributes<HTMLDivElement>['style'];
   name?: string;
   position?: IDebugRenderTrackerPosition;
+  offsetX?: number;
+  offsetY?: number;
 }
 function DebugRenderTracker(
   props: IDebugRenderTrackerProps & {
     children: ReactNode;
   },
 ): ReactNode {
-  const { children, position = 'top-left', containerStyle } = props;
+  const {
+    children,
+    position = 'top-left',
+    containerStyle,
+    offsetX,
+    offsetY,
+  } = props;
   const [, setRefresh] = useState(0);
   const classRef = useRef<typeof css1 | typeof css2>(css1);
   const renderTimesRef = useRef(0);
@@ -66,7 +74,14 @@ function DebugRenderTracker(
               }}
               className={`debug-render-tracker-times-badge ${position}`}
             >
-              {renderTimesRef.current}
+              <div
+                className="debug-render-tracker-times-badge-text"
+                style={{
+                  transform: `translate(${offsetX || 0}px, ${offsetY || 0}px)`,
+                }}
+              >
+                {renderTimesRef.current}
+              </div>
             </div>
             {children}
           </div>

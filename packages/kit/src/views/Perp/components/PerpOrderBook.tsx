@@ -359,7 +359,7 @@ export function PerpOrderBook({
     </YStack>
   );
   return (
-    <DebugRenderTracker name="PerpOrderBook" position="top-right">
+    <DebugRenderTracker name="PerpOrderBook" position="top-left">
       {content}
     </DebugRenderTracker>
   );
