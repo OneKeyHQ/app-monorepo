@@ -54,7 +54,7 @@ export function HyperliquidTermsContent({
   }, [gtMd]);
 
   const bannerWidth = useMemo(() => {
-    return gtMd ? 300 : 250;
+    return gtMd ? 400 : 300;
   }, [gtMd]);
 
   const { hyperliquidLogo } = usePerpsLogo();
@@ -64,57 +64,82 @@ export function HyperliquidTermsContent({
       {
         id: 'slide-1',
         content: (
-          <Stack alignItems="center" justifyContent="center">
-            <Stack
-              height={bannerHeight}
-              width={bannerWidth}
-              bg="$neutral3"
-              alignItems="center"
-              justifyContent="center"
-              borderRadius="$3"
+          <Stack alignItems="center" justifyContent="center" px="$6">
+            <Image
+              source={require('@onekeyhq/kit/assets/perps/HL_intro_1.png')}
+              height={400}
+              width={400}
+            />
+            <YStack
+              gap="$2"
+              justifyContent="flex-start"
+              mt="-$6"
+              w={bannerWidth}
             >
-              <SizableText size="$bodyLg" color="$textSubdued">
-                Sketch Placeholder 1
+              <SizableText size="$heading2xl">
+                Professional Experience
               </SizableText>
-            </Stack>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Master the charts with K-lines and real-time trading data at
+                your fingertips.
+              </SizableText>
+            </YStack>
           </Stack>
         ),
       },
       {
         id: 'slide-2',
         content: (
-          <Stack alignItems="center" justifyContent="center">
-            <Stack
-              height={bannerHeight}
-              width={bannerWidth}
-              bg="$neutral3"
-              alignItems="center"
-              justifyContent="center"
-              borderRadius="$3"
-            >
-              <SizableText size="$bodyLg" color="$textSubdued">
-                Sketch Placeholder 2
-              </SizableText>
+          <Stack alignItems="center" justifyContent="center" px="$6">
+            <Stack>
+              <Image
+                source={require('@onekeyhq/kit/assets/perps/HL_intro_2.png')}
+                height={400}
+                width={400}
+              />
             </Stack>
+            <YStack
+              gap="$2"
+              justifyContent="flex-start"
+              mt="-$6"
+              w={bannerWidth}
+            >
+              <SizableText size="$heading2xl">
+                Professional Experience
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Master the charts with K-lines and real-time trading data at
+                your fingertips.
+              </SizableText>
+            </YStack>
           </Stack>
         ),
       },
       {
         id: 'slide-3',
         content: (
-          <Stack alignItems="center" justifyContent="center">
-            <Stack
-              height={bannerHeight}
-              width={bannerWidth}
-              bg="$neutral3"
-              alignItems="center"
-              justifyContent="center"
-              borderRadius="$3"
-            >
-              <SizableText size="$bodyLg" color="$textSubdued">
-                Sketch Placeholder 3
-              </SizableText>
+          <Stack alignItems="center" justifyContent="center" px="$6">
+            <Stack height={300} width={300}>
+              <Image
+                source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
+                height={400}
+                width={400}
+              />
             </Stack>
+            <YStack
+              gap="$2"
+              justifyContent="flex-start"
+              mt="-$6"
+              w={bannerWidth}
+            >
+              <SizableText size="$heading2xl">
+                Professional Experience
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Master the charts with K-lines and real-time trading data at
+                your fingertips.
+              </SizableText>
+            </YStack>
           </Stack>
         ),
       },
@@ -226,7 +251,6 @@ export function HyperliquidTermsContent({
       },
     ];
   }, [
-    bannerHeight,
     bannerWidth,
     hyperliquidLogo,
     isAccountActivatedChecked,
