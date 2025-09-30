@@ -78,14 +78,14 @@ export function PerpApiTests() {
   const updatePerpConfig = async () => {
     try {
       if (newBuilderAddress) {
-        await backgroundApiProxy.serviceWebviewPerp.updatePerpConfig({
+        await backgroundApiProxy.serviceHyperliquid.updatePerpConfig({
           referrerConfig: {
             referrerAddress: newBuilderAddress,
           },
         });
       }
       if (newMaxBuilderFee) {
-        await backgroundApiProxy.serviceWebviewPerp.updatePerpConfig({
+        await backgroundApiProxy.serviceHyperliquid.updatePerpConfig({
           referrerConfig: {
             referrerRate: Number(newMaxBuilderFee),
           },
@@ -125,6 +125,17 @@ export function PerpApiTests() {
   return (
     <Stack gap="$4">
       <Stack gap="$3">
+        <Button
+          onPress={() => {
+            void backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
+              false,
+            );
+            Toast.success({ title: 'Terms Accepted Cleared' });
+          }}
+        >
+          Clear Terms Accepted
+        </Button>
+
         <SizableText size="$bodyLg" fontWeight="600">
           Perp Configuration (Stored Values)
         </SizableText>

@@ -84,6 +84,13 @@ function ReceiveToken() {
       walletId,
     });
 
+  const { result: nativeToken } = usePromiseResult(async () => {
+    return backgroundApiProxy.serviceToken.getNativeToken({
+      accountId,
+      networkId,
+    });
+  }, [accountId, networkId]);
+
   const { handleBannerOnPress } = useWalletBanner({
     account,
     network,
@@ -649,10 +656,11 @@ function ReceiveToken() {
                   borderWidth={4}
                   borderColor="white"
                   borderRadius="$full"
+                  bg="white"
                 >
                   <Token
                     size="lg"
-                    tokenImageUri={token?.logoURI}
+                    tokenImageUri={token?.logoURI ?? nativeToken?.logoURI}
                     networkImageUri={network.logoURI}
                     networkId={networkId}
                   />
@@ -690,6 +698,7 @@ function ReceiveToken() {
     token?.logoURI,
     networkId,
     intl,
+    nativeToken?.logoURI,
   ]);
 
   return (
@@ -711,31 +720,36 @@ function ReceiveToken() {
             bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
             borderRadius="$2"
             borderCurve="continuous"
-            {...{
-              userSelect: 'none',
-              focusable: true,
-              focusVisibleStyle: {
-                outlineColor: '$focusRing',
-                outlineWidth: 2,
-                outlineStyle: 'solid',
-                outlineOffset: 0,
-              },
-              hoverStyle: {
-                bg: networkLogoColor ? `${networkLogoColor}1A` : '$bgHover',
-              },
-              pressStyle: {
-                bg: networkLogoColor ? `${networkLogoColor}2A` : '$bgActive',
-              },
-              onPress: banner?.href
-                ? () => handleBannerOnPress(banner)
-                : undefined,
-            }}
+            userSelect="none"
+            {...(banner?.href
+              ? {
+                  focusable: true,
+                  focusVisibleStyle: {
+                    outlineColor: '$focusRing',
+                    outlineWidth: 2,
+                    outlineStyle: 'solid',
+                    outlineOffset: 0,
+                  },
+                  hoverStyle: {
+                    bg: networkLogoColor ? `${networkLogoColor}1A` : '$bgHover',
+                  },
+                  pressStyle: {
+                    bg: networkLogoColor
+                      ? `${networkLogoColor}2A`
+                      : '$bgActive',
+                  },
+                  onPress: () => handleBannerOnPress(banner),
+                }
+              : null)}
           >
             <Image
               size="$5"
+              source={{ uri: banner.src }}
               fallback={<NetworkAvatar size="$5" networkId={networkId} />}
             />
-            <SizableText size="$bodyMd">{banner.title}</SizableText>
+            <SizableText size="$bodyMd" flex={1}>
+              {banner.title}
+            </SizableText>
           </XStack>
         ) : null}
       </Page.Body>

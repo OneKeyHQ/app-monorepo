@@ -10,6 +10,7 @@ import { TokenListView } from '@onekeyhq/kit/src/components/TokenListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
   useTokenListActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -19,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAssetSelectorParamList } from '@onekeyhq/shared/src/routes';
 import { EAssetSelectorRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -76,6 +78,7 @@ function TokenSelector() {
   const { network, account } = useAccountData({ networkId, accountId });
 
   const [searchKey, setSearchKey] = useState('');
+  const [allTokenListMap] = useAllTokenListMapAtom();
   const [searchTokenState, setSearchTokenState] = useState({
     isSearching: false,
   });
@@ -95,6 +98,18 @@ function TokenSelector() {
           allAggregateTokenList.length === 0
         ) {
           void onSelect?.(aggregateTokenList[0]);
+          return;
+        }
+
+        const { tokenHasBalance, tokenHasBalanceCount } =
+          checkIsOnlyOneTokenHasBalance({
+            tokenMap: allTokenListMap,
+            aggregateTokenList,
+            allAggregateTokenList,
+          });
+
+        if (tokenHasBalance && tokenHasBalanceCount === 1) {
+          void onSelect?.(tokenHasBalance);
           return;
         }
 
@@ -243,16 +258,17 @@ function TokenSelector() {
       closeAfterSelect,
       allAggregateTokenMap,
       aggregateTokensListMap,
+      allTokenListMap,
       onSelect,
       navigation,
       aggregateTokenSelectorScreen,
       accountId,
       indexedAccountId,
       enableNetworkAfterSelect,
+      hideZeroBalanceTokens,
       account,
       updateCreateAccountState,
       createAddress,
-      hideZeroBalanceTokens,
     ],
   );
 
@@ -376,6 +392,9 @@ function TokenSelector() {
       />
       <Page.Body>
         <TokenListView
+          accountId={accountId}
+          networkId={networkId}
+          indexedAccountId={indexedAccountId}
           showActiveAccountTokenList={showActiveAccountTokenList}
           onPressToken={handleTokenOnPress}
           isAllNetworks={isAllNetworks ?? network?.isAllNetworks}
@@ -390,6 +409,9 @@ function TokenSelector() {
           hideZeroBalanceTokens={hideZeroBalanceTokens}
           keepDefaultZeroBalanceTokens={keepDefaultZeroBalanceTokens}
           showNetworkIcon={isAllNetworks ?? network?.isAllNetworks}
+          emptyProps={{
+            mt: '24%',
+          }}
         />
       </Page.Body>
     </Page>

@@ -32,6 +32,10 @@ const ToastGallery = () => (
                   duration: ONE_HOUR,
                   title: 'Address copied',
                 });
+                Toast.loading({
+                  duration: ONE_HOUR,
+                  title: 'Processing transaction',
+                });
               }}
             >
               All Types
@@ -140,6 +144,17 @@ const ToastGallery = () => (
               }}
             >
               Long Title
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.loading({
+                  duration: ONE_HOUR,
+                  title: 'Processing transaction...',
+                  message: 'Please wait while we process your transaction',
+                });
+              }}
+            >
+              Loading Toast
             </Button>
             <Button
               onPress={() => {
@@ -441,6 +456,48 @@ const ToastGallery = () => (
               }}
             >
               Toast with close button
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.loading({
+                  duration: 3000,
+                  title: 'Loading...',
+                  message: 'Please wait',
+                });
+              }}
+            >
+              Simple Loading Toast
+            </Button>
+            <Button
+              onPress={() => {
+                const loadingToast = Toast.loading({
+                  duration: ONE_HOUR,
+                  title: 'Processing transaction',
+                  message: 'This may take a few seconds...',
+                  actions: (
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onPress={() => {
+                        loadingToast?.close();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  ),
+                });
+
+                // Simulate async operation
+                setTimeout(() => {
+                  loadingToast?.close();
+                  Toast.success({
+                    title: 'Transaction completed',
+                    message: 'Your transaction has been processed successfully',
+                  });
+                }, 5000);
+              }}
+            >
+              Loading with Auto Complete
             </Button>
           </YStack>
         ),

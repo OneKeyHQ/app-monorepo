@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Dialog, SizableText, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePerpsSelectedAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAccountStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
@@ -12,7 +12,7 @@ interface IEnableTradingContentProps {
 
 function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
   const [loading, setLoading] = useState(false);
-  const [accountStatus] = usePerpsSelectedAccountStatusAtom();
+  const [accountStatus] = usePerpsActiveAccountStatusAtom();
 
   const isAgentNotReady = useMemo(
     () => !accountStatus?.details?.agentOk || !accountStatus?.canTrade,
@@ -39,18 +39,21 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
   const buttonText = useMemo(() => {
     if (loading) {
       return appLocale.intl.formatMessage({
-        id: ETranslations.global_connect,
+        id: ETranslations.transfer_transfer_server_status_connecting,
       });
     }
-    return 'Establish Connection';
+    return appLocale.intl.formatMessage({
+      id: ETranslations.perp_trade_button_enable_trading,
+    });
   }, [loading]);
 
   return (
     <YStack gap="$4" p="$1">
       <YStack gap="$3">
         <SizableText size="$bodyMd" color="$textSubdued">
-          This signature is gas-free to send. It opens a decentralized channel
-          for gas-free and instantaneous trading.
+          {appLocale.intl.formatMessage({
+            id: ETranslations.perp_enable_trading_desc,
+          })}
         </SizableText>
       </YStack>
 
@@ -73,7 +76,9 @@ function EnableTradingContent({ onClose }: IEnableTradingContentProps) {
 
 export function showEnableTradingDialog() {
   const dialogInstance = Dialog.show({
-    title: 'Establish Connection',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_trade_button_enable_trading,
+    }),
     renderContent: (
       <EnableTradingContent
         onClose={() => {

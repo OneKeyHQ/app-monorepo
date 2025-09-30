@@ -5,11 +5,16 @@
 
 import BigNumber from 'bignumber.js';
 
+import type {
+  EPerpsSizeInputMode,
+  IPerpsFormattedAssetCtx,
+} from '@onekeyhq/shared/types/hyperliquid';
 import {
   MAX_DECIMALS_PERP,
   MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IWsActiveAssetCtx } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 // Types for liquidation price calculation
 interface IMarginTier {
@@ -399,6 +404,12 @@ function formatWithPrecision(
 function validateSizeInput(input: string, szDecimals: number): boolean {
   if (!input) return true;
   if (input === '00') return false;
+
+  // Prevent leading zeros like "01", "001" but allow "0", "0.", "0.1"
+  if (input.length > 1 && input[0] === '0' && input[1] !== '.') {
+    return false;
+  }
+
   if (szDecimals === 0) return /^[0-9]*$/.test(input);
   if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
 
@@ -419,10 +430,14 @@ function validateSizeInput(input: string, szDecimals: number): boolean {
 function formatPercentage(percent: number): string {
   if (!percent || Number.isNaN(percent)) return '0';
 
-  const rounded = Math.round(percent * 100) / 100;
-  return Number.isInteger(rounded)
-    ? rounded.toString()
-    : rounded.toFixed(2).replace(/\.?0+$/, '');
+  const roundedBN = new BigNumber(percent)
+    .multipliedBy(100)
+    .integerValue(BigNumber.ROUND_HALF_UP)
+    .dividedBy(100);
+  if (roundedBN.isInteger()) {
+    return roundedBN.toFixed();
+  }
+  return roundedBN.toFixed(2).replace(/\.?0+$/, '');
 }
 
 /**
@@ -442,6 +457,12 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
 
   const text = input.replace(/。/g, '.');
   if (text === '00') return false;
+
+  // Prevent leading zeros like "01", "001" but allow "0", "0.", "0.1"
+  if (text.length > 1 && text[0] === '0' && text[1] !== '.') {
+    return false;
+  }
+
   const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
 
   if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
@@ -480,7 +501,7 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
  * @returns Formatted price string suitable for display
  */
 function formatPriceToSignificantDigits(
-  price: number | string | BigNumber,
+  price: number | string | BigNumber | undefined,
   szDecimals?: number,
 ): string {
   if (!price) return '0';
@@ -592,15 +613,15 @@ function calculateLiquidationPriceCore(
   entryPrice: BigNumber,
   marginAvailable: BigNumber,
   positionSize: BigNumber,
-  mmr: number,
+  mmr: BigNumber,
   side: 'long' | 'short',
 ): BigNumber {
-  const sideMultiplier = side === 'long' ? 1 : -1;
+  const sideMultiplier = side === 'long' ? '1' : '-1';
   return entryPrice.minus(
     new BigNumber(sideMultiplier)
       .multipliedBy(marginAvailable)
       .dividedBy(positionSize)
-      .dividedBy(1 - mmr * sideMultiplier),
+      .dividedBy(new BigNumber('1').minus(mmr.multipliedBy(sideMultiplier))),
   );
 }
 
@@ -777,8 +798,9 @@ function calculateLiquidationPrice(
       existingPositionValue,
       marginTiers || [],
     );
-    const existingMMR =
-      1 / (existingMarginTier?.maxLeverage || maxLeverage) / 2;
+    const existingMMR = new BigNumber(1)
+      .dividedBy(existingMarginTier?.maxLeverage || maxLeverage)
+      .dividedBy(2);
     const existingMaintenanceMarginRequired =
       existingPositionValue.multipliedBy(existingMMR);
 
@@ -802,8 +824,9 @@ function calculateLiquidationPrice(
       combinedPositionValue,
       marginTiers || [],
     );
-    const combinedMMR =
-      1 / (combinedMarginTier?.maxLeverage || maxLeverage) / 2;
+    const combinedMMR = new BigNumber(1)
+      .dividedBy(combinedMarginTier?.maxLeverage || maxLeverage)
+      .dividedBy(2);
     const combinedMaintenanceMarginRequired =
       combinedPositionValue.multipliedBy(combinedMMR);
 
@@ -829,7 +852,9 @@ function calculateLiquidationPrice(
 
   // Simple case without existing position
   const marginTier = findMarginTier(totalValue, marginTiers || []);
-  const mmr = 1 / (marginTier?.maxLeverage || maxLeverage) / 2;
+  const mmr = new BigNumber(1)
+    .dividedBy(marginTier?.maxLeverage || maxLeverage)
+    .dividedBy(2);
   const maintenanceMarginRequired = totalValue.multipliedBy(mmr);
 
   const marginAvailable =
@@ -848,7 +873,216 @@ function calculateLiquidationPrice(
   );
 }
 
+function formatAssetCtx(
+  assetCtx: IWsActiveAssetCtx['ctx'] | null,
+): IPerpsFormattedAssetCtx {
+  const midPrice = assetCtx?.midPx || '0';
+  const ctx: IPerpsFormattedAssetCtx = {
+    midPrice,
+    lastPrice: midPrice,
+    markPrice: assetCtx?.markPx || '0', // indexPrice
+    oraclePrice: assetCtx?.oraclePx || '0',
+    prevDayPrice: assetCtx?.prevDayPx || '0', // ctx.prevDayPx || markPrice;
+    fundingRate: assetCtx?.funding || '0', // funding8h
+    openInterest: assetCtx?.openInterest || '0',
+    volume24h: assetCtx?.dayNtlVlm || '0',
+    change24h: '0',
+    change24hPercent: 0,
+  };
+  const priceDecimals = getValidPriceDecimals(ctx.markPrice);
+
+  const markPriceBN = new BigNumber(ctx.markPrice);
+  const prevDayPriceBN = new BigNumber(ctx.prevDayPrice);
+  const change24hBN = markPriceBN.minus(prevDayPriceBN);
+
+  const change24h = change24hBN.toFixed(priceDecimals);
+  const change24hPercent = prevDayPriceBN.isZero()
+    ? 0
+    : change24hBN.dividedBy(prevDayPriceBN).multipliedBy(100).toNumber();
+
+  ctx.change24h = change24h;
+  ctx.change24hPercent = change24hPercent;
+
+  return ctx;
+}
+
+function formatLargeNumber(
+  value: string | number | undefined | null,
+  decimals = 2,
+): string {
+  if (value == null || value === undefined) return '0';
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (Number.isNaN(num) || num == null) return '0';
+
+  if (num >= 1e12) {
+    return `${(num / 1e12).toFixed(decimals)}T`;
+  }
+  if (num >= 1e9) {
+    return `${(num / 1e9).toFixed(decimals)}B`;
+  }
+  if (num >= 1e6) {
+    return `${(num / 1e6).toFixed(decimals)}M`;
+  }
+  if (num >= 1e3) {
+    return `${(num / 1e3).toFixed(decimals)}K`;
+  }
+
+  // For smaller numbers, show more precision
+  if (num >= 1) {
+    return num.toFixed(decimals);
+  }
+  if (num >= 0.01) {
+    return num.toFixed(decimals);
+  }
+  // For very small numbers, use more decimal places
+  return num.toFixed(6);
+}
+
+interface ITradingSizeContext {
+  side: 'long' | 'short';
+  price?: string;
+  markPrice?: string;
+  availableToTrade?: Array<number | string>;
+  leverageValue?: number | string | null;
+  fallbackLeverage?: number | string | null;
+  szDecimals?: number;
+}
+
+interface ITradingSizeParams extends ITradingSizeContext {
+  sizeInputMode: EPerpsSizeInputMode;
+  manualSize?: string;
+  sizePercent?: number;
+}
+
+const computeEffectivePrice = (
+  price?: string,
+  markPrice?: string,
+): BigNumber | null => {
+  if (price) {
+    const priceBN = new BigNumber(price);
+    if (priceBN.isFinite() && priceBN.gt(0)) {
+      return priceBN;
+    }
+  }
+
+  if (markPrice) {
+    const markPriceBN = new BigNumber(markPrice);
+    if (markPriceBN.isFinite() && markPriceBN.gt(0)) {
+      return markPriceBN;
+    }
+  }
+
+  return null;
+};
+
+const sanitizeManualSize = (size?: string): string => {
+  const trimmed = size?.trim();
+  if (!trimmed || trimmed === '.' || trimmed === '-') {
+    return '0';
+  }
+  return trimmed;
+};
+
+const computeMaxTradeSize = ({
+  side,
+  price,
+  markPrice,
+  availableToTrade,
+  leverageValue,
+  fallbackLeverage,
+  szDecimals,
+}: ITradingSizeContext): BigNumber => {
+  const effectivePrice = computeEffectivePrice(price, markPrice);
+  if (!effectivePrice) {
+    return new BigNumber(0);
+  }
+
+  const availableIndex = side === 'long' ? 0 : 1;
+  const availableValue = availableToTrade?.[availableIndex] ?? 0;
+  const availableBN = new BigNumber(availableValue);
+  if (!availableBN.isFinite() || availableBN.lte(0)) {
+    return new BigNumber(0);
+  }
+
+  const leverageCandidate = leverageValue ?? fallbackLeverage ?? 1;
+  const leverageBN = new BigNumber(leverageCandidate);
+  const leverageSafe =
+    leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : new BigNumber(1);
+
+  const maxTokens = availableBN
+    .multipliedBy(leverageSafe)
+    .dividedBy(effectivePrice);
+  if (!maxTokens.isFinite() || maxTokens.lte(0)) {
+    return new BigNumber(0);
+  }
+
+  const decimals = szDecimals ?? 2;
+  return maxTokens.decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+};
+
+const resolveTradingSizeBN = ({
+  sizeInputMode,
+  manualSize,
+  sizePercent,
+  side,
+  price,
+  markPrice,
+  availableToTrade,
+  leverageValue,
+  fallbackLeverage,
+  szDecimals,
+}: ITradingSizeParams): BigNumber => {
+  if (sizeInputMode !== 'slider') {
+    const sanitized = sanitizeManualSize(manualSize);
+    const manualBN = new BigNumber(sanitized);
+    return manualBN.isFinite() && manualBN.gte(0) ? manualBN : new BigNumber(0);
+  }
+
+  const percentValue = Number.isFinite(sizePercent)
+    ? Math.max(0, Math.min(100, sizePercent ?? 0))
+    : 0;
+
+  if (percentValue <= 0) {
+    return new BigNumber(0);
+  }
+
+  const maxSize = computeMaxTradeSize({
+    side,
+    price,
+    markPrice,
+    availableToTrade,
+    leverageValue,
+    fallbackLeverage,
+    szDecimals,
+  });
+
+  if (!maxSize.isFinite() || maxSize.lte(0)) {
+    return new BigNumber(0);
+  }
+
+  const percentBN = new BigNumber(percentValue);
+  const decimals = szDecimals ?? 2;
+  return maxSize
+    .multipliedBy(percentBN)
+    .dividedBy(100)
+    .decimalPlaces(decimals, BigNumber.ROUND_FLOOR);
+};
+
+const resolveTradingSize = (params: ITradingSizeParams): string => {
+  const sizeBN = resolveTradingSizeBN(params);
+  if (!sizeBN.isFinite() || sizeBN.lte(0)) {
+    return '0';
+  }
+  return sizeBN.toFixed();
+};
+
+function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
+  return `https://uni.onekey-asset.com/static/hyperliquid/${tokenSymbol}.png`;
+}
+
 export {
+  formatAssetCtx,
+  formatLargeNumber,
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
@@ -870,8 +1104,15 @@ export {
   calculateLiquidationPrice,
   calculateLiquidationPriceCore,
   combinePositionWithOrder,
+  sanitizeManualSize,
+  computeMaxTradeSize,
+  resolveTradingSize,
+  resolveTradingSizeBN,
+  getHyperliquidTokenImageUrl,
 };
 export default {
+  formatAssetCtx,
+  formatLargeNumber,
   MAX_DECIMALS_PERP,
   getValidPriceDecimals,
   getPriceScaleDecimals,
@@ -893,4 +1134,9 @@ export default {
   calculateLiquidationPrice,
   calculateLiquidationPriceCore,
   combinePositionWithOrder,
+  sanitizeManualSize,
+  computeMaxTradeSize,
+  resolveTradingSize,
+  resolveTradingSizeBN,
+  getHyperliquidTokenImageUrl,
 };

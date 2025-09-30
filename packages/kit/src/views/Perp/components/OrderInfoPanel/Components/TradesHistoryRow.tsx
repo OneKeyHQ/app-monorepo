@@ -5,13 +5,13 @@ import { useIntl } from 'react-intl';
 
 import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -32,7 +32,7 @@ const TradesHistoryRow = memo(
     isMobile,
     index,
   }: ITradesHistoryRowProps) => {
-    const { selectToken } = usePerpTokenSelector();
+    const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetSymbol = useMemo(() => fill.coin ?? '-', [fill.coin]);
     const dateInfo = useMemo(() => {
@@ -49,9 +49,9 @@ const TradesHistoryRow = memo(
     const directionInfo = useMemo(() => {
       const directionStr = fill.dir;
       const side = fill.side;
-      let directionColor = '#18794E';
+      let directionColor = '$green11';
       if (side === 'A') {
-        directionColor = '#C62A2F';
+        directionColor = '$red11';
       }
       return { directionStr, directionColor };
     }, [fill.dir, fill.side]);
@@ -85,9 +85,9 @@ const TradesHistoryRow = memo(
       const closePnl = fill.closedPnl;
       const closePnlBN = new BigNumber(closePnl).minus(new BigNumber(fill.fee));
       let closePnlPlusOrMinus = '';
-      let closePnlColor = '#18794E';
+      let closePnlColor = '$green11';
       if (closePnlBN.lt(0)) {
-        closePnlColor = '#C62A2F';
+        closePnlColor = '$red11';
         closePnlPlusOrMinus = '-';
       }
       const closePnlStr = closePnlBN.abs().toFixed();
@@ -121,9 +121,11 @@ const TradesHistoryRow = memo(
             <YStack gap="$1">
               <XStack
                 gap="$2"
-                cursor="pointer"
                 alignItems="center"
-                onPress={() => selectToken(assetSymbol)}
+                // cursor="pointer"
+                // onPress={() =>
+                //   actions.current.changeActiveAsset({ coin: assetSymbol })
+                // }
               >
                 <SizableText size="$bodyMdMedium">{assetSymbol}</SizableText>
                 <SizableText
@@ -240,7 +242,9 @@ const TradesHistoryRow = memo(
           justifyContent={calcCellAlign(columnConfigs[1].align)}
           alignItems="center"
           cursor="pointer"
-          onPress={() => selectToken(assetSymbol)}
+          onPress={() =>
+            actions.current.changeActiveAsset({ coin: assetSymbol })
+          }
         >
           <SizableText
             numberOfLines={1}

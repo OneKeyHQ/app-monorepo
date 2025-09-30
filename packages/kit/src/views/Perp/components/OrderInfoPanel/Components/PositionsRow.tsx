@@ -1,10 +1,11 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Icon,
   IconButton,
   SizableText,
   Tooltip,
@@ -12,11 +13,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { usePerpTokenSelector } from '../../../hooks';
+import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -24,7 +26,7 @@ import type { AssetPosition, FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPositionRowProps {
   pos: AssetPosition['position'];
-  mid?: string;
+  coin: string;
   handleClosePosition: (type: 'market' | 'limit') => void;
   cellMinWidth: number;
   columnConfigs: IColumnConfig[];
@@ -35,10 +37,23 @@ interface IPositionRowProps {
   index: number;
 }
 
+function MarkPrice({ coin, decimals }: { coin: string; decimals: number }) {
+  const { midFormattedByDecimals } = usePerpsMidPrice({
+    coin,
+    szDecimals: decimals,
+  });
+
+  return (
+    <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+      {midFormattedByDecimals}
+    </SizableText>
+  );
+}
+
 const PositionRow = memo(
   ({
     pos,
-    mid,
+    coin,
     tpslOrders,
     cellMinWidth,
     columnConfigs,
@@ -48,35 +63,44 @@ const PositionRow = memo(
     setTpsl,
     index,
   }: IPositionRowProps) => {
-    const { selectToken } = usePerpTokenSelector();
+    const actions = useHyperliquidActions();
     const intl = useIntl();
     const side = useMemo(() => {
       return parseFloat(pos.szi || '0') >= 0 ? 'long' : 'short';
     }, [pos.szi]);
     const assetInfo = useMemo(() => {
+      const leverageType =
+        pos.leverage?.type === 'cross'
+          ? intl.formatMessage({
+              id: ETranslations.perp_trade_cross,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_trade_isolated,
+            });
       return {
         assetSymbol: pos.coin,
         leverage: pos.leverage?.value ?? '',
         assetColor: side === 'long' ? '$green11' : '$red11',
+        leverageType,
       };
-    }, [pos.coin, side, pos.leverage?.value]);
+    }, [pos.coin, side, pos.leverage?.value, pos.leverage?.type, intl]);
+    const decimals = useMemo(
+      () => getValidPriceDecimals(pos.entryPx || '0'),
+      [pos.entryPx],
+    );
 
     const priceInfo = useMemo(() => {
-      const decimals = getValidPriceDecimals(pos.entryPx || '0');
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
-      const markPrice = new BigNumber(mid || '0').toFixed(decimals);
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
       const entryPriceFormatted = entryPrice;
-      const markPriceFormatted = markPrice;
       const liquidationPriceFormatted = liquidationPrice.isZero()
         ? 'N/A'
         : liquidationPrice.toFixed(decimals);
       return {
         entryPriceFormatted,
-        markPriceFormatted,
         liquidationPriceFormatted,
       };
-    }, [pos.entryPx, mid, pos.liquidationPx]);
+    }, [decimals, pos.entryPx, pos.liquidationPx]);
 
     const sizeInfo = useMemo(() => {
       const sizeBN = new BigNumber(pos.szi || '0');
@@ -126,14 +150,14 @@ const PositionRow = memo(
       const fundingAllTimeBN = new BigNumber(pos.cumFunding.allTime);
       const fundingSinceOpenBN = new BigNumber(pos.cumFunding.sinceOpen);
       const fundingSinceChangeBN = new BigNumber(pos.cumFunding.sinceChange);
-      const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '';
-      const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '';
+      const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '+';
+      const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '+';
       const fundingSinceOpenColor = fundingSinceOpenBN.gt(0)
-        ? '$textCritical'
-        : '$textSuccess';
+        ? '$red11'
+        : '$green11';
       const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
         ? '-'
-        : '';
+        : '+';
       const fundingAllTimeFormatted = fundingAllTimeBN.abs().toFixed(2);
       const fundingSinceOpenFormatted = fundingSinceOpenBN.abs().toFixed(2);
       const fundingSinceChangeFormatted = fundingSinceChangeBN.abs().toFixed(2);
@@ -192,6 +216,11 @@ const PositionRow = memo(
       return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
     }, [tpslOrders]);
 
+    const [isSizeViewChange, setIsSizeViewChange] = useState(false);
+    const handleSizeViewChange = useCallback(() => {
+      setIsSizeViewChange(!isSizeViewChange);
+    }, [isSizeViewChange]);
+
     if (isMobile) {
       return (
         <ListItem
@@ -200,26 +229,45 @@ const PositionRow = memo(
           flexDirection="column"
           alignItems="flex-start"
         >
-          <XStack gap="$2" alignItems="center">
+          <XStack
+            gap="$2"
+            alignItems="center"
+            cursor="pointer"
+            onPress={() =>
+              actions.current.changeActiveAsset({
+                coin: assetInfo.assetSymbol,
+              })
+            }
+          >
             <XStack
               w="$4"
               h="$4"
               justifyContent="center"
               alignItems="center"
-              borderRadius="$1"
+              borderRadius={2}
               backgroundColor={assetInfo.assetColor}
-              cursor="pointer"
-              onPress={() => selectToken(assetInfo.assetSymbol)}
             >
               <SizableText size="$bodySmMedium" color="$textOnColor">
-                {side === 'long' ? 'B' : 'S'}
+                {side === 'long'
+                  ? intl.formatMessage({
+                      id: ETranslations.perp_position_b,
+                    })
+                  : intl.formatMessage({
+                      id: ETranslations.perp_position_s,
+                    })}
               </SizableText>
             </XStack>
             <SizableText size="$bodyMdMedium" color="$text">
               {assetInfo.assetSymbol}
             </SizableText>
-            <SizableText size="$bodySm" color={assetInfo.assetColor}>
-              {`${side === 'long' ? 'Long' : 'Sell'} ${assetInfo.leverage}X`}
+            <SizableText
+              bg="$bgSubdued"
+              borderRadius={2}
+              px="$1"
+              color="$textSubdued"
+              fontSize={10}
+            >
+              {assetInfo.leverageType} {assetInfo.leverage}X
             </SizableText>
           </XStack>
           <XStack
@@ -255,9 +303,21 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_position_size,
                 })}
               </SizableText>
-              <SizableText size="$bodySmMedium">
-                {`${sizeInfo.sizeAbsFormatted as string}`}
-              </SizableText>
+              <XStack
+                alignItems="center"
+                gap="$1"
+                cursor="pointer"
+                onPress={handleSizeViewChange}
+              >
+                <SizableText size="$bodySmMedium">
+                  {`${
+                    isSizeViewChange
+                      ? (sizeInfo.sizeValue as string)
+                      : (sizeInfo.sizeAbsFormatted as string)
+                  }`}
+                </SizableText>
+                <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
+              </XStack>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -294,7 +354,7 @@ const PositionRow = memo(
                     size="$bodySmMedium"
                     color={otherInfo.fundingSinceOpenColor}
                   >
-                    {`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}
+                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
                   </SizableText>
                 }
                 renderContent={
@@ -303,12 +363,12 @@ const PositionRow = memo(
                       id: ETranslations.perp_position_funding_all_time,
                     })}
                     {': '}
-                    {`${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted}`}
+                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
                     {intl.formatMessage({
                       id: ETranslations.perp_position_funding_since_change,
                     })}
                     {': '}
-                    {`${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
                   </SizableText>
                 }
               />
@@ -353,7 +413,7 @@ const PositionRow = memo(
             >
               <SizableText size="$bodySm">
                 {intl.formatMessage({
-                  id: ETranslations.perp_position_close,
+                  id: ETranslations.perp_close_position_title,
                 })}
               </SizableText>
             </Button>
@@ -382,38 +442,55 @@ const PositionRow = memo(
           gap="$2"
           pl="$2"
           cursor="pointer"
-          onPress={() => selectToken(assetInfo.assetSymbol)}
+          onPress={() =>
+            actions.current.changeActiveAsset({
+              coin: assetInfo.assetSymbol,
+            })
+          }
         >
           <XStack
             w="$4"
             h="$4"
             justifyContent="center"
             alignItems="center"
-            borderRadius="$1"
+            borderRadius={2}
             backgroundColor={assetInfo.assetColor}
             cursor="pointer"
-            onPress={() => selectToken(assetInfo.assetSymbol)}
+            onPress={() =>
+              actions.current.changeActiveAsset({
+                coin: assetInfo.assetSymbol,
+              })
+            }
           >
             <SizableText size="$bodySmMedium" color="$textOnColor">
-              {side === 'long' ? 'B' : 'S'}
+              {side === 'long'
+                ? intl.formatMessage({
+                    id: ETranslations.perp_position_b,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.perp_position_s,
+                  })}
             </SizableText>
           </XStack>
           <SizableText
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySmMedium"
-            fontWeight="900"
+            fontWeight={600}
             color={assetInfo.assetColor}
+            hoverStyle={{ fontWeight: 700 }}
+            pressStyle={{ fontWeight: 700 }}
           >
             {assetInfo.assetSymbol}
           </SizableText>
           <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-            color={assetInfo.assetColor}
+            bg="$bgSubdued"
+            borderRadius={2}
+            px="$1"
+            color="$textSubdued"
+            fontSize={12}
           >
-            {assetInfo.leverage}X
+            {assetInfo.leverageType} {assetInfo.leverage}X
           </SizableText>
         </XStack>
 
@@ -455,11 +532,7 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[3].align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${priceInfo.markPriceFormatted}`}</SizableText>
+          <MarkPrice coin={coin} decimals={decimals} />
         </XStack>
         {/* Liq. Price */}
         <XStack
@@ -517,7 +590,7 @@ const PositionRow = memo(
                 ellipsizeMode="tail"
                 size="$bodySm"
                 color={otherInfo.fundingSinceOpenColor}
-              >{`${otherInfo.fundingSinceOpenPlusOrMinus}${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
+              >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -525,12 +598,12 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_funding_all_time,
                 })}
                 {': '}
-                {`${otherInfo.fundingAllPlusOrMinus}${otherInfo.fundingAllTimeFormatted}`}{' '}
+                {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
                 {intl.formatMessage({
                   id: ETranslations.perp_position_funding_since_change,
                 })}
                 {': '}
-                {`${otherInfo.fundingSinceChangePlusOrMinus}${otherInfo.fundingSinceChangeFormatted}`}
+                {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
               </SizableText>
             }
           />
@@ -600,7 +673,7 @@ const PositionRow = memo(
             <SizableText
               cursor="pointer"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$textSuccess"
+              color="$green11"
               size="$bodySm"
               fontWeight={400}
             >
@@ -613,7 +686,7 @@ const PositionRow = memo(
             <SizableText
               cursor="pointer"
               hoverStyle={{ size: '$bodySmMedium', fontWeight: 600 }}
-              color="$textSuccess"
+              color="$green11"
               size="$bodySm"
               fontWeight={400}
             >

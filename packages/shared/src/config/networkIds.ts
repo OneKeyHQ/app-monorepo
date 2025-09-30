@@ -1,9 +1,8 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { keyBy } from 'lodash';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { ENetworkStatus, IServerNetwork } from '../../types';
+import { ENetworkStatus } from '../../types';
 import { memoFn } from '../utils/cacheUtils';
 
 import { getPresetNetworks } from './presetNetworks';

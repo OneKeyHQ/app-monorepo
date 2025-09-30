@@ -38,6 +38,7 @@ export enum EAtomNames {
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
+  appSideBarStatusAtom = 'appSideBarStatusAtom',
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
@@ -56,10 +57,14 @@ export enum EAtomNames {
   desktopBluetoothAtom = 'desktopBluetoothAtom',
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
-  perpsSelectedAccountAtom = 'perpsSelectedAccountAtom',
+  perpsActiveAccountAtom = 'perpsActiveAccountAtom',
+  perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',
+  perpsActiveAccountStatusInfoAtom = 'perpsActiveAccountStatusInfoAtom',
   perpsAccountLoadingInfoAtom = 'perpsAccountLoadingInfoAtom',
-  perpsSelectedAccountStatusAtom = 'perpsSelectedAccountStatusAtom',
-  perpsSelectedSymbolAtom = 'perpsSelectedSymbolAtom',
+  perpsActiveAssetAtom = 'perpsActiveAssetAtom',
+  perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
+  perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
+  perpsCurrentMidAtom = 'perpsCurrentMidAtom', // TODO remove
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',

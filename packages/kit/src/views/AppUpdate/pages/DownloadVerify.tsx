@@ -154,12 +154,18 @@ function DownloadVerify({
     }
     return data.downloadedEvent?.downloadUrl || '';
   }, [data.downloadUrl, data.downloadedEvent?.downloadUrl]);
+
+  const headerLeft = useCallback(() => {
+    return null;
+  }, []);
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.update_download_and_verify_text,
         })}
+        headerLeft={isForceUpdate ? headerLeft : undefined}
       />
       <Page.Body px="$5" py="$2.5">
         <Stepper stepIndex={stepIndex} hasError={hasError}>
@@ -167,7 +173,7 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
             })}
-            badgeText={Number(percent) !== 0 ? `${percent}%` : undefined}
+            badgeText={Number(percent) > 0 ? `${percent}%` : undefined}
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return renderDownloadError();

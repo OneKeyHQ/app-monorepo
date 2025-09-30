@@ -11,10 +11,10 @@ import type {
   ETabMarketRoutes,
   ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
 import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
@@ -26,41 +26,33 @@ import { MobileLayout } from './layouts/MobileLayout';
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
-  const { tokenAddress, networkId, isNative } = route.params;
-  const media = useMedia();
-  const tokenDetailActions = useTokenDetailActions();
+  const { tokenAddress, network, isNative } = route.params;
+
+  // Convert shortcode back to full networkId if needed
+  // network is a shortcode like 'bsc', convert it to 'evm--56'
+  const networkId =
+    networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
+  const isNativeBoolean =
+    typeof isNative === 'string' ? isNative === 'true' : isNative ?? false;
 
   // Track market entry analytics
   useMarketEnterAnalytics();
 
-  // Clear all token detail content when unmount
-  useEffect(() => {
-    const actions = tokenDetailActions.current;
-    return () => {
-      actions.setTokenDetail(undefined);
-      actions.setTokenDetailLoading(false);
-      actions.setTokenAddress('');
-      actions.setNetworkId('');
-    };
-  }, [tokenDetailActions]);
-
   // Start auto-refresh for token details every 5 seconds
+  // Use actualNetworkId (converted from shortcode if needed) for API calls
   useAutoRefreshTokenDetail({
     tokenAddress,
     networkId,
+    isNative: isNativeBoolean,
   });
+
+  const media = useMedia();
 
   return (
     <Page>
-      <MarketDetailHeader isNative={isNative} />
+      <MarketDetailHeader />
 
-      <Page.Body>
-        {media.gtLg ? (
-          <DesktopLayout isNative={isNative} />
-        ) : (
-          <MobileLayout isNative={isNative} />
-        )}
-      </Page.Body>
+      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );
 }

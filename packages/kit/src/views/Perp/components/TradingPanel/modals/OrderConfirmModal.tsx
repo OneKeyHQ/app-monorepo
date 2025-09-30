@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Checkbox,
@@ -8,10 +10,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useTradingFormAtom,
+  useTradingFormComputedAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAssetAtom,
   usePerpsCustomSettingsAtom,
-  usePerpsSelectedSymbolAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -19,7 +24,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { useOrderConfirm } from '../../../hooks';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import {
-  getTradingButtonStyleProps,
+  GetTradingButtonStyleProps,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
@@ -34,20 +39,33 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
     onSuccess: () => {
       onClose?.();
     },
+    onError: () => {
+      onClose?.();
+    },
   });
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
-  const [selectedSymbol] = usePerpsSelectedSymbolAtom();
+  const [tradingComputed] = useTradingFormComputedAtom();
+  const [selectedSymbol] = usePerpsActiveAssetAtom();
   const actionColor = getTradingSideTextColor(formData.side);
-  const buttonStyleProps = getTradingButtonStyleProps(formData.side, false);
-  const actionText = formData.side === 'long' ? 'Long' : 'Short';
+  const buttonStyleProps = GetTradingButtonStyleProps(formData.side, false);
+  const intl = useIntl();
+  const actionText =
+    formData.side === 'long'
+      ? intl.formatMessage({
+          id: ETranslations.perp_trade_long,
+        })
+      : intl.formatMessage({
+          id: ETranslations.perp_trade_short,
+        });
 
   const sizeDisplay = useMemo(() => {
-    if (formData.size && selectedSymbol?.coin)
-      return `${formData.size} ${selectedSymbol.coin}`;
-    return '0';
-  }, [formData.size, selectedSymbol?.coin]);
+    if (selectedSymbol?.coin) {
+      return `${tradingComputed.computedSizeString} ${selectedSymbol.coin}`;
+    }
+    return tradingComputed.computedSizeString;
+  }, [tradingComputed.computedSizeString, selectedSymbol?.coin]);
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
@@ -69,6 +87,12 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
     },
     [perpsCustomSettings, setPerpsCustomSettings],
   );
+
+  const handleConfirm = useCallback(() => {
+    onClose?.();
+    void confirmOrder();
+  }, [confirmOrder, onClose]);
+
   return (
     <YStack gap="$4" p="$1">
       {/* Order Details */}
@@ -147,10 +171,12 @@ function OrderConfirmContent({ onClose }: IOrderConfirmContentProps) {
           size="medium"
           disabled={isSubmitting}
           loading={isSubmitting}
-          onPress={confirmOrder}
+          onPress={handleConfirm}
           {...buttonStyleProps}
         >
-          {buttonText}
+          <SizableText size="$bodyMdMedium" color="$textOnColor">
+            {buttonText}
+          </SizableText>
         </Button>
       </TradingGuardWrapper>
     </YStack>

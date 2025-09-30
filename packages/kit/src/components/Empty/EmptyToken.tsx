@@ -1,10 +1,10 @@
 import { useIntl } from 'react-intl';
 
-import { Empty } from '@onekeyhq/components';
+import { Empty, type IYStackProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-function EmptyToken() {
+function EmptyToken(props: IYStackProps) {
   const intl = useIntl();
 
   return (
@@ -13,6 +13,7 @@ function EmptyToken() {
       testID="Wallet-No-Token-Empty"
       icon="CoinsOutline"
       title={intl.formatMessage({ id: ETranslations.send_no_token_message })}
+      {...props}
     />
   );
 }

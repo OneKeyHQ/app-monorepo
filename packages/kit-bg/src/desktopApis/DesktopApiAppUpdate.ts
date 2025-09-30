@@ -10,9 +10,9 @@ import { readCleartextMessage, readKey } from 'openpgp';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import { PUBLIC_KEY } from '@onekeyhq/desktop/app/constant/gpg';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ETranslations, i18nText } from '@onekeyhq/desktop/app/i18n';
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import { setUpdateBuildNumber } from '@onekeyhq/desktop/app/libs/store';
 import { b2t, toHumanReadable } from '@onekeyhq/desktop/app/libs/utils';
 import type { IInstallUpdateParams } from '@onekeyhq/desktop/app/preload';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
@@ -22,8 +22,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import type { IDesktopApi } from './base/types';
 import type { UpdateCheckResult } from 'electron-updater';
-
-const isMas = !!process.mas;
 
 function isNetworkError(errorObject: Error) {
   return (
@@ -79,6 +77,7 @@ export interface IUpdateProgressUpdate {
 
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
 
 class DesktopApiAppUpdate {
@@ -100,7 +99,7 @@ class DesktopApiAppUpdate {
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    if (!isMas) {
+    if (!process.mas) {
       this.initAppAutoUpdateEvents();
       this.initBundleAutoUpdateEvents();
     }
@@ -296,6 +295,7 @@ class DesktopApiAppUpdate {
 
   async checkForUpdates(
     isManual = false,
+    requestHeaders = {},
   ): Promise<UpdateCheckResult['updateInfo'] | null> {
     if (isManual) {
       this.isManualCheck = true;
@@ -308,7 +308,13 @@ class DesktopApiAppUpdate {
     const updateSettings = store.getUpdateSettings();
 
     const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl);
-    autoUpdater.setFeedURL(feedUrl);
+    autoUpdater.setFeedURL({
+      url: feedUrl,
+      requestHeaders,
+      provider: 'generic',
+    });
+    autoUpdater.requestHeaders = requestHeaders;
+    logger.info('auto-updater', 'request headers: ', requestHeaders);
     logger.info('current feed url: ', feedUrl);
     try {
       const result = await autoUpdater.checkForUpdates();
@@ -332,6 +338,12 @@ class DesktopApiAppUpdate {
     if (this.isDownloading) {
       return;
     }
+    store.setUpdateBuildNumber('');
+    logger.info(
+      'auto-updater',
+      'Update build number: ',
+      store.getUpdateBuildNumber(),
+    );
     this.isDownloading = true;
     const mainWindow = this.getMainWindow();
     if (!mainWindow) {
@@ -533,8 +545,8 @@ class DesktopApiAppUpdate {
       })
       .then((selection) => {
         if (selection.response === 0) {
-          setUpdateBuildNumber(buildNumber);
-          logger.info('auto-update', 'button[0] was clicked');
+          store.setUpdateBuildNumber(buildNumber);
+          logger.info('auto-update', 'button[0] was clicked', buildNumber);
           app.removeAllListeners('window-all-closed');
           this.getMainWindow()?.removeAllListeners('close');
           for (const window of BrowserWindow.getAllWindows()) {
@@ -585,7 +597,9 @@ class DesktopApiAppUpdate {
   }
 
   async getPreviousUpdateBuildNumber(): Promise<string> {
-    return store.getUpdateBuildNumber() || '';
+    const previousBuildNumber = store.getUpdateBuildNumber() || '';
+    logger.info('auto-updater', 'Update build number: ', previousBuildNumber);
+    return previousBuildNumber;
   }
 }
 

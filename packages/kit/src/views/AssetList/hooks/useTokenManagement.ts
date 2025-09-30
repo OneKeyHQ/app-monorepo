@@ -112,45 +112,56 @@ export function useTokenManagement({
           }),
         ),
       );
-      const uniqueTokens = uniqBy(allTokens, (token) => token.$key);
 
-      const addedTokens = uniqueTokens
-        .map((token) => {
-          const aggregateTokenConfigKey =
-            buildAggregateTokenMapKeyForAggregateConfig({
-              networkId: token.networkId ?? '',
-              tokenAddress: token.address,
-            });
+      const uniqueTokens = uniqBy(
+        allTokens,
+        (token) =>
+          `${token.accountId ?? ''}_${token.networkId ?? ''}_${token.address}`,
+      );
 
-          const aggregateTokenConfig =
-            aggregateTokenConfigMap?.[aggregateTokenConfigKey];
+      const addedTokens = uniqBy(
+        uniqueTokens
+          .map((token) => {
+            const aggregateTokenConfigKey =
+              buildAggregateTokenMapKeyForAggregateConfig({
+                networkId: token.networkId ?? '',
+                tokenAddress: token.address,
+              });
 
-          if (token.isAggregateToken || !aggregateTokenConfig) {
-            return token;
-          }
+            const aggregateTokenConfig =
+              aggregateTokenConfigMap?.[aggregateTokenConfigKey];
 
-          const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList({
-            commonSymbol: aggregateTokenConfig?.commonSymbol ?? '',
-          });
+            if (token.isAggregateToken || !aggregateTokenConfig) {
+              return token;
+            }
 
-          return {
-            ...token,
-            $key: aggregateTokenKey,
-            address: aggregateTokenKey,
-            networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
-            commonSymbol: aggregateTokenConfig.commonSymbol,
-            logoURI: aggregateTokenConfig.logoURI,
-            name: aggregateTokenConfig.name,
-            isAggregateToken: true,
-          };
-        })
-        .filter(
-          (token) =>
-            !hiddenTokens.find(
-              (t) =>
-                t.address === token.address && t.networkId === token.networkId,
-            ),
-        );
+            const aggregateTokenKey = buildAggregateTokenListMapKeyForTokenList(
+              {
+                commonSymbol: aggregateTokenConfig?.commonSymbol ?? '',
+              },
+            );
+
+            return {
+              ...token,
+              $key: aggregateTokenKey,
+              address: aggregateTokenKey,
+              networkId: AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+              commonSymbol: aggregateTokenConfig.commonSymbol,
+              logoURI: aggregateTokenConfig.logoURI,
+              name: aggregateTokenConfig.name,
+              isAggregateToken: true,
+            };
+          })
+          .filter(
+            (token) =>
+              !hiddenTokens.find(
+                (t) =>
+                  t.address === token.address &&
+                  t.networkId === token.networkId,
+              ),
+          ),
+        (token) => token.$key,
+      );
       const sectionTokens = [
         {
           title: intl.formatMessage({
@@ -174,6 +185,7 @@ export function useTokenManagement({
       return {
         sectionTokens,
         addedTokens,
+        customTokens,
       };
     },
     [
@@ -218,6 +230,7 @@ export function useTokenManagement({
   return {
     sectionTokens: result?.sectionTokens,
     tokenList: result?.addedTokens,
+    customTokens: result?.customTokens,
     refreshTokenLists: run,
     isLoadingLocalData,
     networkMaps,

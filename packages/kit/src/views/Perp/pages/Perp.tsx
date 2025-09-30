@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
@@ -21,12 +22,16 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
+import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
-import { PerpAccountPanel } from '../components/TradingPanel/panels/PerpAccountPanel';
+import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
+import { usePerpsLogo } from '../hooks/usePerpsLogo';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+
+import { ExtPerp, shouldOpenExpandExtPerp } from './ExtPerp';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -90,7 +95,7 @@ function PerpNetworkStatus() {
 
 function PerpContentFooter() {
   const { gtSm } = useMedia();
-  const themeVariant = useThemeVariant();
+  const { poweredByHyperliquidLogo } = usePerpsLogo();
   return gtSm ? (
     <Page.Footer>
       <XStack
@@ -104,11 +109,7 @@ function PerpContentFooter() {
       >
         <PerpNetworkStatus />
         <Image
-          source={
-            themeVariant === 'light'
-              ? require('../../../../assets/PoweredByHyperliquidLight.svg')
-              : require('../../../../assets/PoweredByHyperliquidDark.svg')
-          }
+          source={poweredByHyperliquidLogo}
           size={170}
           resizeMode="contain"
         />
@@ -116,6 +117,8 @@ function PerpContentFooter() {
     </Page.Footer>
   ) : null;
 }
+
+console.log('PerpContent js loaded');
 
 function PerpContent() {
   console.log('PerpContent render');
@@ -127,63 +130,68 @@ function PerpContent() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
+
+  const header = (
+    <TabPageHeader
+      sceneName={EAccountSelectorSceneName.home}
+      tabRoute={ETabRoutes.Perp}
+      customHeaderRightItems={
+        <PerpsAccountSelectorProviderMirror>
+          <PerpsProviderMirror>
+            <PerpsHeaderRight />
+          </PerpsProviderMirror>
+        </PerpsAccountSelectorProviderMirror>
+      }
+    />
+  );
+
   return (
     <Page>
       {platformEnv.isNative ? (
-        <Stack h={tabPageHeight} />
+        <>
+          <Stack h={tabPageHeight} />
+          <YStack
+            position="absolute"
+            top={-20}
+            left={0}
+            bg="$bgApp"
+            pt="$5"
+            width="100%"
+            onLayout={handleTabPageLayout}
+            zIndex={FLOAT_NAV_BAR_Z_INDEX}
+          >
+            {header}
+          </YStack>
+        </>
       ) : (
-        <TabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Perp}
-          customHeaderRightItems={
-            <PerpsAccountSelectorProviderMirror>
-              <PerpsProviderMirror>
-                <PerpAccountPanel ifOnHeader />
-              </PerpsProviderMirror>
-            </PerpsAccountSelectorProviderMirror>
-          }
-        />
+        header
       )}
       <Page.Body>
-        <PerpLayout />
+        <Stack position="relative" flex={1}>
+          <PerpLayout />
+          <HyperliquidTermsOverlay />
+        </Stack>
       </Page.Body>
       <PerpContentFooter />
-      {platformEnv.isNative ? (
-        <YStack
-          position="absolute"
-          top={-20}
-          left={0}
-          bg="$bgApp"
-          pt="$5"
-          width="100%"
-          onLayout={handleTabPageLayout}
-        >
-          <TabPageHeader
-            sceneName={EAccountSelectorSceneName.home}
-            tabRoute={ETabRoutes.Perp}
-            customHeaderRightItems={
-              <PerpsAccountSelectorProviderMirror>
-                <PerpsProviderMirror>
-                  <PerpAccountPanel ifOnHeader />
-                </PerpsProviderMirror>
-              </PerpsAccountSelectorProviderMirror>
-            }
-          />
-        </YStack>
-      ) : null}
     </Page>
   );
 }
 
 export default function Perp() {
   useFocusEffect(() => {
-    void backgroundApiProxy.serviceWebviewPerp.updateBuilderFeeConfigByServer();
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
   });
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        <PerpsGlobalEffects />
-        <PerpContent />
+        {shouldOpenExpandExtPerp() ? (
+          <ExtPerp />
+        ) : (
+          <>
+            <PerpsGlobalEffects />
+            <PerpContent />
+          </>
+        )}
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );

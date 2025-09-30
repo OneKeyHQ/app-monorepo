@@ -1930,6 +1930,9 @@ function TokenListContainer({
       inTabList
       hideValue
       withSwapAction
+      accountId={account?.id ?? ''}
+      networkId={network?.id ?? ''}
+      indexedAccountId={indexedAccount?.id ?? ''}
       allAggregateTokenMap={allAggregateTokenMap}
       showNetworkIcon={!!network?.isAllNetworks}
       hideZeroBalanceTokens={!!network?.isAllNetworks}

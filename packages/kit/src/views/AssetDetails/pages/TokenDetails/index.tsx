@@ -136,11 +136,21 @@ function TokenDetailsView() {
 
   const { vaultSettings, network } = useAccountData({ networkId });
 
-  const { result: tokens, isLoading: isLoadingTokens } = usePromiseResult(
+  const {
+    result: { tokens, lastActiveTabName },
+    isLoading: isLoadingTokens,
+  } = usePromiseResult(
     async () => {
       if (tokenInfo.isAggregateToken) {
-        const { allAggregateTokenMap } =
-          await backgroundApiProxy.serviceToken.getAllAggregateTokenInfo();
+        const aggregateTokenRawData =
+          await backgroundApiProxy.simpleDb.aggregateToken.getRawData();
+
+        const allAggregateTokenMap =
+          aggregateTokenRawData?.allAggregateTokenMap ?? {};
+        const _lastActiveTabName =
+          aggregateTokenRawData?.tokenDetails?.[
+            indexedAccountId ?? accountId
+          ]?.[tokenInfo.$key]?.lastActiveTabName;
         const aggregateTokens: IAccountToken[] = [];
 
         const { unavailableItems } =
@@ -216,16 +226,22 @@ function TokenDetailsView() {
           }
         }
 
-        return uniqBy(
-          sortTokensCommon({
-            tokens: aggregateTokens,
-            tokenListMap: tokenMap ?? {},
-          }),
-          (token) => token.$key,
-        );
+        return {
+          tokens: uniqBy(
+            sortTokensCommon({
+              tokens: aggregateTokens,
+              tokenListMap: tokenMap ?? {},
+            }),
+            (token) => token.$key,
+          ),
+          lastActiveTabName: _lastActiveTabName,
+        };
       }
 
-      return [tokenInfo];
+      return {
+        tokens: [tokenInfo],
+        lastActiveTabName: undefined,
+      };
     },
     [
       tokenInfo,
@@ -238,7 +254,10 @@ function TokenDetailsView() {
     ],
     {
       watchLoading: true,
-      initResult: [],
+      initResult: {
+        tokens: [],
+        lastActiveTabName: undefined,
+      },
     },
   );
 
@@ -565,9 +584,16 @@ function TokenDetailsView() {
 
   const handleTabIndexChange = useCallback(
     async (index: number) => {
-      setActiveTabIndex(index);
       if (isAllNetworks && tokens.length > 1 && tokens[index]) {
         const activeToken = tokens[index];
+
+        await backgroundApiProxy.serviceToken.updateLastActiveTabNameInTokenDetails(
+          {
+            accountId: indexedAccountId ?? accountId,
+            aggregateTokenId: tokenInfo.$key,
+            lastActiveTabName: activeToken.networkName ?? '',
+          },
+        );
 
         if (
           activeToken.accountId &&
@@ -591,14 +617,19 @@ function TokenDetailsView() {
           void refreshAllNetworkState();
         }
       }
+
+      setActiveTabIndex(index);
     },
     [
+      isAllNetworks,
       tokens,
+      indexedAccountId,
+      accountId,
+      tokenInfo.$key,
       allNetworksState.disabledNetworks,
       allNetworksState.enabledNetworks,
       intl,
       refreshAllNetworkState,
-      isAllNetworks,
     ],
   );
 
@@ -624,6 +655,7 @@ function TokenDetailsView() {
           <Tabs.Container
             ref={tabsRef as any}
             onIndexChange={handleTabIndexChange}
+            initialTabName={lastActiveTabName}
             renderTabBar={(props) => (
               <Tabs.TabBar
                 {...props}
@@ -671,6 +703,7 @@ function TokenDetailsView() {
     listViewContentContainerStyle,
     tabs,
     handleTabIndexChange,
+    lastActiveTabName,
   ]);
 
   const headerTitle = useCallback(() => {

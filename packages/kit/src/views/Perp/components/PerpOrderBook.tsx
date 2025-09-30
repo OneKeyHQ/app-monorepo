@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DebugRenderTracker,
   Divider,
   Popover,
   SizableText,
@@ -12,13 +13,15 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import {
-  useCurrentTokenPriceAtom,
   useHyperliquidActions,
   useOrderBookTickOptionsAtom,
   useTradingFormAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsSelectedSymbolAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAssetAtom,
+  usePerpsActiveAssetCtxAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
@@ -38,9 +41,12 @@ function MobileHeader() {
   const intl = useIntl();
   const countdown = useFundingCountdown();
   const { isReady, hasError } = usePerpSession();
-  const [priceData] = useCurrentTokenPriceAtom();
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
 
-  const { funding: fundingRate, markPrice } = priceData;
+  const { fundingRate, markPrice } = assetCtx?.ctx || {
+    fundingRate: '0',
+    markPrice: '0',
+  };
   const fundingRateNumber = parseFloat(fundingRate);
   const hasFundingValue = Number.isFinite(fundingRateNumber);
   const fundingColor = useMemo(() => {
@@ -67,7 +73,16 @@ function MobileHeader() {
       })}
       renderTrigger={
         <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-          <SizableText fontSize={10} color="$textSubdued">
+          <SizableText
+            fontSize={10}
+            color="$textSubdued"
+            borderBottomWidth="$px"
+            borderTopWidth={0}
+            borderLeftWidth={0}
+            borderRightWidth={0}
+            borderBottomColor="$border"
+            borderStyle="dashed"
+          >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
@@ -204,7 +219,7 @@ export function PerpOrderBook({
   const actionsRef = useHyperliquidActions();
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
-  const [perpsSelectedSymbol] = usePerpsSelectedSymbolAtom();
+  const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = perpsSelectedSymbol?.coin;
@@ -321,7 +336,7 @@ export function PerpOrderBook({
     );
   }
 
-  return (
+  const content = (
     <YStack flex={1} bg="$bgApp">
       {gtMd ? (
         <OrderBook
@@ -329,7 +344,7 @@ export function PerpOrderBook({
           horizontal={false}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={12}
+          maxLevelsPerSide={14}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}
@@ -342,5 +357,10 @@ export function PerpOrderBook({
         mobileOrderBook
       )}
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpOrderBook" position="top-left">
+      {content}
+    </DebugRenderTracker>
   );
 }

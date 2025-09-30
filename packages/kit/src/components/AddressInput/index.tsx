@@ -416,6 +416,7 @@ export function AddressInput(props: IAddressInputProps) {
           inputTypeRef.current === EInputAddressChangeType.AccountSelector
         ) {
           params.walletAccountItem = walletItemRef.current;
+        } else {
           walletItemRef.current = undefined;
           inputTypeRef.current = undefined;
         }

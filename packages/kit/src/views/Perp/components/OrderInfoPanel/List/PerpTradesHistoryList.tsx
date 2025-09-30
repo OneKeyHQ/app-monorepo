@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -20,7 +21,7 @@ function PerpTradesHistoryList({
   useTabsList,
 }: IPerpTradesHistoryListProps) {
   const intl = useIntl();
-  const { trades, currentListPage, setCurrentListPage } =
+  const { trades, currentListPage, setCurrentListPage, isLoading } =
     usePerpTradesHistory();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -117,6 +118,13 @@ function PerpTradesHistoryList({
   };
   return (
     <CommonTableListView
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpTradesHistoryList',
+          position: 'top-left',
+        }),
+        [],
+      )}
       useTabsList={useTabsList}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
@@ -132,6 +140,8 @@ function PerpTradesHistoryList({
         id: ETranslations.perp_trade_history_empty_desc,
       })}
       enablePagination
+      paginationToBottom={isMobile}
+      listLoading={isLoading}
     />
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -13,7 +13,6 @@ import {
   useCurrentTabScrollY,
   useMedia,
 } from '@onekeyhq/components';
-import { useTabsScrollContext } from '@onekeyhq/components/src/composite/Tabs/context';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useTokenDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,8 +51,6 @@ const useScrollEnd = platformEnv.isNative
     }
   : () => {};
 
-const SCROLL_THRESHOLD = 50;
-
 export function TransactionsHistory({
   tokenAddress,
   networkId,
@@ -89,21 +86,9 @@ export function TransactionsHistory({
     onNewTransaction: addNewTransaction,
   });
 
-  const { scrollTop } = useTabsScrollContext() as {
-    scrollTop: number;
-  };
-
-  const [listKey, setListKey] = useState(0);
-
-  useEffect(() => {
-    if (transactions.length > 0) {
-      const shouldResetList = scrollTop < SCROLL_THRESHOLD;
-
-      if (shouldResetList) {
-        setListKey((prev) => prev + 1);
-      }
-    }
-  }, [transactions.length, scrollTop]);
+  const listKey = useMemo(() => {
+    return `${networkId}-${tokenAddress}`;
+  }, [networkId, tokenAddress]);
 
   const renderItem: FlatListProps<IMarketTokenTransaction>['renderItem'] =
     useCallback(
@@ -133,7 +118,7 @@ export function TransactionsHistory({
   return (
     <Tabs.FlatList<IMarketTokenTransaction>
       key={listKey}
-      onEndReached={platformEnv.isNative ? undefined : handleEndReached}
+      onEndReached={handleEndReached}
       onEndReachedThreshold={0.2}
       data={transactions}
       renderItem={renderItem}
@@ -160,7 +145,7 @@ export function TransactionsHistory({
         ) : null
       }
       contentContainerStyle={{
-        paddingBottom: platformEnv.isNativeAndroid ? 48 : 16,
+        paddingBottom: platformEnv.isNativeAndroid ? 84 : 16,
       }}
     />
   );

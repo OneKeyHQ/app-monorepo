@@ -1,14 +1,41 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
+import { useIntl } from 'react-intl';
+import { InputAccessoryView, Keyboard } from 'react-native';
+
 import {
+  Button,
   Icon,
   Input,
   SizableText,
   XStack,
   YStack,
   getFontSize,
+  useIsKeyboardShown,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+export const InputAccessoryDoneButton = () => {
+  const intl = useIntl();
+  const isKeyboardShown = useIsKeyboardShown();
+  if (!platformEnv.isNativeIOS && !isKeyboardShown) return null;
+  return (
+    <XStack
+      p="$2.5"
+      px="$3.5"
+      justifyContent="flex-end"
+      bg="$bgSubdued"
+      borderTopWidth="$px"
+      borderTopColor="$borderSubduedLight"
+    >
+      <Button variant="tertiary" onPress={() => Keyboard.dismiss()}>
+        {intl.formatMessage({ id: ETranslations.global_done })}
+      </Button>
+    </XStack>
+  );
+};
 
 interface IInputAction {
   labelColor: string;
@@ -29,6 +56,7 @@ interface ITradingFormInputProps {
   label: string;
   placeholder?: string;
   disabled?: boolean;
+  onFocus?: () => void;
   error?: string;
   suffix?: string;
   customSuffix?: ReactNode;
@@ -48,6 +76,7 @@ export const TradingFormInput = memo(
     label,
     placeholder,
     disabled = false,
+    onFocus,
     error,
     suffix,
     customSuffix,
@@ -58,6 +87,19 @@ export const TradingFormInput = memo(
     ifOnDialog = false,
     isMobile = false,
   }: ITradingFormInputProps) => {
+    const accessoryId = useMemo(
+      () =>
+        `trading-input-${label.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
+      [label],
+    );
+
+    const shouldShowAccessory = useMemo(
+      () =>
+        platformEnv.isNativeIOS &&
+        (keyboardType === 'decimal-pad' || keyboardType === 'numeric'),
+      [keyboardType],
+    );
+
     const handleInputChange = useCallback(
       (text: string) => {
         if (validator && !validator(text)) return;
@@ -117,8 +159,17 @@ export const TradingFormInput = memo(
           bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
           borderRadius="$2"
           borderWidth={ifOnDialog ? '$px' : 0}
-          borderColor={ifOnDialog ? '$borderSubdued' : undefined}
+          borderColor={ifOnDialog ? '$borderSubdued' : '$transparent'}
           px="$3"
+          hoverStyle={
+            ifOnDialog || disabled
+              ? undefined
+              : {
+                  outlineWidth: '$px',
+                  outlineColor: '$border',
+                  outlineStyle: 'solid',
+                }
+          }
         >
           <Input
             flex={1}
@@ -126,6 +177,7 @@ export const TradingFormInput = memo(
             size="medium"
             value={value}
             onChangeText={handleInputChange}
+            onFocus={onFocus}
             placeholder={placeholder}
             keyboardType={keyboardType}
             disabled={disabled}
@@ -142,6 +194,7 @@ export const TradingFormInput = memo(
               bg: 'transparent',
             }}
             addOns={disabled ? undefined : renderAddOns()}
+            inputAccessoryViewID={shouldShowAccessory ? accessoryId : undefined}
           />
           {error ? (
             <SizableText size="$bodySm" color="$red10" mt="$1">
@@ -160,12 +213,17 @@ export const TradingFormInput = memo(
               </SizableText>
             </XStack>
           ) : null}
+          {shouldShowAccessory ? (
+            <InputAccessoryView nativeID={accessoryId}>
+              <InputAccessoryDoneButton />
+            </InputAccessoryView>
+          ) : null}
         </YStack>
       );
     }
     return (
       <YStack
-        bg="$bgSubdued"
+        bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
         borderRadius="$3"
         py="$1"
         pl="$1"
@@ -198,15 +256,17 @@ export const TradingFormInput = memo(
             }}
             value={value}
             onChangeText={handleInputChange}
+            onFocus={onFocus}
             disabled={disabled}
-            keyboardType="decimal-pad"
+            keyboardType={keyboardType}
             size="small"
             containerProps={{
-              bg: '$bgSubdued',
+              bg: ifOnDialog ? '$bgApp' : '$bgSubdued',
               borderRadius: '$2',
               borderWidth: '$0',
             }}
             addOns={renderAddOns()}
+            inputAccessoryViewID={shouldShowAccessory ? accessoryId : undefined}
           />
 
           {error ? (
@@ -227,6 +287,11 @@ export const TradingFormInput = memo(
             </XStack>
           ) : null}
         </YStack>
+        {shouldShowAccessory ? (
+          <InputAccessoryView nativeID={accessoryId}>
+            <InputAccessoryDoneButton />
+          </InputAccessoryView>
+        ) : null}
       </YStack>
     );
   },

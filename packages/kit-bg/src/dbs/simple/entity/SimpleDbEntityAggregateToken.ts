@@ -10,11 +10,11 @@ import type {
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface ISimpleDBAggregateToken {
-  aggregateTokenConfigMap: Record<string, IAggregateToken>;
-  aggregateTokenSymbolMap: Record<string, boolean>;
-  homeDefaultTokenMap: Record<string, IHomeDefaultToken>;
-  aggregateTokenMap: Record<string, Record<string, ITokenFiat>>;
-  aggregateTokenListMap: Record<
+  aggregateTokenConfigMap?: Record<string, IAggregateToken>;
+  aggregateTokenSymbolMap?: Record<string, boolean>;
+  homeDefaultTokenMap?: Record<string, IHomeDefaultToken>;
+  aggregateTokenMap?: Record<string, Record<string, ITokenFiat>>;
+  aggregateTokenListMap?: Record<
     string,
     Record<
       string,
@@ -23,13 +23,22 @@ export interface ISimpleDBAggregateToken {
       }
     >
   >;
-  allAggregateTokenMap: Record<
+  allAggregateTokenMap?: Record<
     string,
     {
       tokens: IAccountToken[];
     }
   >;
-  allAggregateTokens: IAccountToken[];
+  allAggregateTokens?: IAccountToken[];
+  tokenDetails?: Record<
+    string, // all networks accountId
+    Record<
+      string, // aggregate token id
+      {
+        lastActiveTabName: string;
+      }
+    >
+  >;
 }
 
 export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAggregateToken> {
@@ -57,12 +66,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
-      aggregateTokenSymbolMap: rawData?.aggregateTokenSymbolMap ?? {},
-      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
-      allAggregateTokens: rawData?.allAggregateTokens ?? [],
-      aggregateTokenConfigMap: rawData?.aggregateTokenConfigMap ?? {},
-      aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
-      aggregateTokenListMap: rawData?.aggregateTokenListMap ?? {},
       homeDefaultTokenMap: merge
         ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
         : homeDefaultTokenMap,
@@ -101,12 +104,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     await this.setRawData((rawData) => {
       return {
         ...rawData,
-        aggregateTokenSymbolMap: rawData?.aggregateTokenSymbolMap ?? {},
-        allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
-        allAggregateTokens: rawData?.allAggregateTokens ?? [],
-        homeDefaultTokenMap: rawData?.homeDefaultTokenMap ?? {},
-        aggregateTokenConfigMap: rawData?.aggregateTokenConfigMap ?? {},
-        aggregateTokenListMap: rawData?.aggregateTokenListMap ?? {},
         aggregateTokenMap: {
           ...(rawData?.aggregateTokenMap ?? {}),
           [key]: aggregateTokenMap,
@@ -151,12 +148,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
     });
     await this.setRawData((rawData) => ({
       ...rawData,
-      aggregateTokenSymbolMap: rawData?.aggregateTokenSymbolMap ?? {},
-      aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
-      aggregateTokenConfigMap: rawData?.aggregateTokenConfigMap ?? {},
-      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
-      allAggregateTokens: rawData?.allAggregateTokens ?? [],
-      homeDefaultTokenMap: rawData?.homeDefaultTokenMap ?? {},
       aggregateTokenListMap: {
         ...(rawData?.aggregateTokenListMap ?? {}),
         [key]: {
@@ -177,12 +168,6 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
-      aggregateTokenSymbolMap: rawData?.aggregateTokenSymbolMap ?? {},
-      allAggregateTokenMap: rawData?.allAggregateTokenMap ?? {},
-      allAggregateTokens: rawData?.allAggregateTokens ?? [],
-      homeDefaultTokenMap: rawData?.homeDefaultTokenMap ?? {},
-      aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
-      aggregateTokenListMap: rawData?.aggregateTokenListMap ?? {},
       aggregateTokenConfigMap: merge
         ? { ...rawData?.aggregateTokenConfigMap, ...aggregateTokenConfigMap }
         : aggregateTokenConfigMap,
@@ -207,11 +192,9 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   }) {
     await this.setRawData((rawData) => ({
       ...rawData,
-      aggregateTokenMap: rawData?.aggregateTokenMap ?? {},
       aggregateTokenSymbolMap: merge
         ? { ...rawData?.aggregateTokenSymbolMap, ...aggregateTokenSymbolMap }
         : aggregateTokenSymbolMap,
-      aggregateTokenListMap: rawData?.aggregateTokenListMap ?? {},
       allAggregateTokenMap: merge
         ? { ...rawData?.allAggregateTokenMap, ...allAggregateTokenMap }
         : allAggregateTokenMap,
@@ -225,5 +208,52 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
         ? { ...rawData?.homeDefaultTokenMap, ...homeDefaultTokenMap }
         : homeDefaultTokenMap,
     }));
+  }
+
+  @backgroundMethod()
+  async updateLastActiveTabNameInTokenDetails({
+    accountId,
+    aggregateTokenId,
+    lastActiveTabName,
+  }: {
+    accountId: string;
+    aggregateTokenId: string;
+    lastActiveTabName: string;
+  }) {
+    await this.setRawData((rawData) => ({
+      ...rawData,
+      tokenDetails: {
+        ...rawData?.tokenDetails,
+        [accountId]: {
+          ...rawData?.tokenDetails?.[accountId],
+          [aggregateTokenId]: {
+            lastActiveTabName,
+          },
+        },
+      },
+    }));
+  }
+
+  @backgroundMethod()
+  async getLastActiveTabNameInTokenDetails({
+    accountId,
+    aggregateTokenId,
+  }: {
+    accountId: string;
+    aggregateTokenId: string;
+  }) {
+    return (await this.getRawData())?.tokenDetails?.[accountId]?.[
+      aggregateTokenId
+    ]?.lastActiveTabName;
+  }
+
+  @backgroundMethod()
+  async clearLastActiveTabNameData() {
+    await this.setRawData((rawData) => {
+      return {
+        ...rawData,
+        tokenDetails: {},
+      };
+    });
   }
 }

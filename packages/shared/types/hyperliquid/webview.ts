@@ -74,7 +74,7 @@ export type IHyperLiquidSignatureRSV = {
 export type IHyperLiquidUserBuilderFeeStatus = {
   isApprovedDone: boolean;
   canSetBuilderFee: boolean;
-  currentMaxBuilderFee: number;
+  currentMaxBuilderFee: number | null;
   expectMaxBuilderFee: number;
   expectBuilderAddress: string;
   accountValue: string | null;

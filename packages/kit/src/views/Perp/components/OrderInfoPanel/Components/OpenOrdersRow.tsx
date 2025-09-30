@@ -5,12 +5,12 @@ import { useIntl } from 'react-intl';
 
 import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-import { usePerpTokenSelector } from '../../../hooks';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -34,15 +34,22 @@ const OpenOrdersRow = memo(
     isMobile,
     index,
   }: IOpenOrdersRowProps) => {
-    const { selectToken } = usePerpTokenSelector();
+    const actions = useHyperliquidActions();
     const intl = useIntl();
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
       const orderType = order.orderType;
-      const type = order.side === 'B' ? 'Long' : 'Short';
-      const typeColor = order.side === 'B' ? '$textSuccess' : '$textCritical';
+      const type =
+        order.side === 'B'
+          ? intl.formatMessage({
+              id: ETranslations.perp_trade_long,
+            })
+          : intl.formatMessage({
+              id: ETranslations.perp_trade_short,
+            });
+      const typeColor = order.side === 'B' ? '$green11' : '$red11';
       return { assetSymbol, type, orderType, typeColor };
-    }, [order.coin, order.side, order.orderType]);
+    }, [order.coin, order.side, order.orderType, intl]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
@@ -148,7 +155,11 @@ const OpenOrdersRow = memo(
           >
             <YStack
               cursor="pointer"
-              onPress={() => selectToken(assetInfo.assetSymbol)}
+              onPress={() =>
+                actions.current.changeActiveAsset({
+                  coin: assetInfo.assetSymbol,
+                })
+              }
             >
               <SizableText
                 numberOfLines={1}
@@ -289,11 +300,15 @@ const OpenOrdersRow = memo(
           justifyContent="center"
           alignItems={calcCellAlign(columnConfigs[1].align)}
           cursor="pointer"
-          onPress={() => selectToken(assetInfo.assetSymbol)}
+          onPress={() =>
+            actions.current.changeActiveAsset({
+              coin: assetInfo.assetSymbol,
+            })
+          }
         >
           <SizableText
             size="$bodySm"
-            fontWeight={800}
+            fontWeight={600}
             numberOfLines={1}
             color={assetInfo.typeColor}
             ellipsizeMode="tail"
@@ -368,7 +383,9 @@ const OpenOrdersRow = memo(
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
             {order.orderType.includes('Market')
-              ? 'Market'
+              ? intl.formatMessage({
+                  id: ETranslations.perp_position_market,
+                })
               : orderBaseInfo.executePriceLimitFormatted}
           </SizableText>
         </XStack>

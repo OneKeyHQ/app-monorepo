@@ -234,7 +234,7 @@ function CreateInvoice() {
               $gtMd={{
                 size: 'medium',
               }}
-              keyboardType="number-pad"
+              keyboardType="decimal-pad"
               addOns={[
                 {
                   label: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',

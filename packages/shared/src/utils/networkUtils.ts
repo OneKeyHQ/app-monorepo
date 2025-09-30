@@ -229,6 +229,24 @@ function getLocalNetworkInfo(networkId: string) {
   return networks.find((network) => network.id === networkId);
 }
 
+function getNetworkShortCode({
+  networkId,
+}: {
+  networkId: string;
+}): string | undefined {
+  const networkInfo = getLocalNetworkInfo(networkId);
+  return networkInfo?.shortcode;
+}
+
+function getNetworkIdFromShortCode({
+  shortCode,
+}: {
+  shortCode: string;
+}): string | undefined {
+  const networkIdsMap = getNetworkIdsMap();
+  return networkIdsMap[shortCode as keyof typeof networkIdsMap];
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -247,6 +265,8 @@ export default {
   toNetworkIdFallback,
   getBtcDappUniSetChainName,
   getLocalNetworkInfo,
+  getNetworkShortCode,
+  getNetworkIdFromShortCode,
   isViewInExplorerDisabled,
   isAggregateNetwork,
 };

@@ -25,12 +25,18 @@ import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAssetListRoutes,
   IModalAssetListParamList,
 } from '@onekeyhq/shared/src/routes';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   buildAggregateTokenListMapKeyForTokenList,
   buildAggregateTokenMapKeyForAggregateConfig,
@@ -123,6 +129,26 @@ function AddCustomTokenModal() {
   const onSuccess = dappOnSuccess ?? routeOnSuccess;
 
   const isAllNetwork = networkUtils.isAllNetwork({ networkId });
+
+  const { result: allNetworksState, run: refreshAllNetworkState } =
+    usePromiseResult(
+      async () => {
+        if (isAllNetwork) {
+          return backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        }
+        return {
+          disabledNetworks: {},
+          enabledNetworks: {},
+        };
+      },
+      [isAllNetwork],
+      {
+        initResult: {
+          disabledNetworks: {},
+          enabledNetworks: {},
+        },
+      },
+    );
 
   const {
     form,
@@ -326,6 +352,27 @@ function AddCustomTokenModal() {
               tokenStatus: ECustomTokenStatus.Custom,
             },
           });
+
+          if (
+            accountIdForNetwork &&
+            selectedNetworkIdValue &&
+            !isEnabledNetworksInAllNetworks({
+              networkId: selectedNetworkIdValue,
+              disabledNetworks: allNetworksState.disabledNetworks,
+              enabledNetworks: allNetworksState.enabledNetworks,
+              isTestnet: false,
+            })
+          ) {
+            await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+              enabledNetworks: { [selectedNetworkIdValue]: true },
+            });
+            appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.network_also_enabled,
+              }),
+            });
+          }
         }
       } catch (error) {
         Toast.error({ title: (error as Error)?.message });
@@ -353,6 +400,8 @@ function AddCustomTokenModal() {
       dappApprove,
       selectedNetworkIdValue,
       indexedAccountId,
+      allNetworksState.disabledNetworks,
+      allNetworksState.enabledNetworks,
       onSuccess,
     ],
   );

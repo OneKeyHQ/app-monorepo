@@ -12,8 +12,7 @@ export enum EModalMarketRoutes {
 export type IModalMarketParamList = {
   [EModalMarketRoutes.MarketDetailV2]: {
     tokenAddress: string;
-    networkId: string;
-    symbol?: string;
+    network: string;
     isNative?: boolean;
   };
 };

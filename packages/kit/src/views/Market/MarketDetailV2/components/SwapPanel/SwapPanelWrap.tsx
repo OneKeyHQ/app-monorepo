@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { act, useCallback, useEffect, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -21,7 +26,7 @@ interface ISwapPanelWrapProps {
 
 export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
   const { networkId, tokenDetail } = useTokenDetail();
-
+  const intl = useIntl();
   const swapPanel = useSwapPanel({
     networkId: networkId || 'evm--1',
   });
@@ -44,20 +49,56 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
     swapMevNetConfig,
   } = useSpeedSwapInit(networkId || '');
 
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  const checkAccountNetworkSupport = useCallback(() => {
+    if (
+      accountUtils.isImportedAccount({
+        accountId: activeAccount?.account?.id ?? '',
+      }) ||
+      accountUtils.isWatchingAccount({
+        accountId: activeAccount?.account?.id ?? '',
+      }) ||
+      accountUtils.isExternalAccount({
+        accountId: activeAccount?.account?.id ?? '',
+      })
+    ) {
+      const { impl } = networkUtils.parseNetworkId({
+        networkId: activeAccount?.network?.id ?? '',
+      });
+      const { impl: networkImpl } = networkUtils.parseNetworkId({
+        networkId: networkId ?? '',
+      });
+      return impl === networkImpl;
+    }
+    return true;
+  }, [activeAccount?.account?.id, activeAccount?.network?.id, networkId]);
+
   const supportSpeedSwap = useMemo(() => {
     const speedSwapEnabled = originalSupportSpeedSwap;
     const tokenSwapEnabled = tokenDetail?.supportSwap?.enable !== false;
-    const isEnabled = speedSwapEnabled && tokenSwapEnabled;
+    const isEnabled =
+      speedSwapEnabled && tokenSwapEnabled && checkAccountNetworkSupport();
 
-    const warningMessage = !tokenSwapEnabled
+    let warningMessage = !tokenSwapEnabled
       ? tokenDetail?.supportSwap?.warningMessage
       : undefined;
-
+    if (!checkAccountNetworkSupport() && !warningMessage) {
+      warningMessage = intl.formatMessage({
+        id: ETranslations.swap_page_alert_account_does_not_support_swap,
+      });
+    }
     return {
       enabled: isEnabled,
       warningMessage,
     };
-  }, [originalSupportSpeedSwap, tokenDetail?.supportSwap]);
+  }, [
+    intl,
+    checkAccountNetworkSupport,
+    originalSupportSpeedSwap,
+    tokenDetail?.supportSwap?.enable,
+    tokenDetail?.supportSwap?.warningMessage,
+  ]);
 
   const useSpeedSwapActionsParams = {
     slippage,
@@ -68,6 +109,7 @@ export function SwapPanelWrap({ onCloseDialog }: ISwapPanelWrapProps) {
       symbol: tokenDetail?.symbol || '',
       decimals: tokenDetail?.decimals || 0,
       logoURI: tokenDetail?.logoUrl || '',
+      price: tokenDetail?.price || '',
     },
     tradeToken: {
       networkId: paymentToken?.networkId || '',

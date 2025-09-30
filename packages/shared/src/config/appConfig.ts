@@ -39,6 +39,7 @@ export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
 export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';
+export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekey-test.com';
 
 export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
@@ -80,8 +81,8 @@ export const CHAIN_SELECTOR_LOGO =
   'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png';
 export const defaultColorScheme = 'dark';
 
-export const TRADING_VIEW_URL =
-  process.env.TRADING_VIEW_URL || 'https://tradingview.onekeytest.com/';
+export const TRADING_VIEW_URL = 'https://tradingview.onekey.so';
+export const TRADING_VIEW_URL_TEST = 'https://tradingview.onekeytest.com';
 
 export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';

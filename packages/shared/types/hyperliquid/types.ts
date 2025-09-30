@@ -172,3 +172,21 @@ export enum EPerpUserType {
 export interface IPerpUserConfig {
   currentUserType?: EPerpUserType;
 }
+
+export type IPerpsFormattedAssetCtx = {
+  midPrice: string;
+  lastPrice: string;
+  markPrice: string;
+  oraclePrice: string;
+  prevDayPrice: string;
+  fundingRate: string;
+  openInterest: string;
+  volume24h: string;
+  change24h: string;
+  change24hPercent: number;
+};
+
+export enum EPerpsSizeInputMode {
+  MANUAL = 'manual',
+  SLIDER = 'slider',
+}

@@ -45,8 +45,8 @@ import type {
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
-  perpsSelectedAccountAtom,
-  perpsSelectedAccountStatusAtom,
+  perpsActiveAccountAtom,
+  perpsActiveAccountStatusAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -103,7 +103,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async setup(params: {
-    userAddress: IHex;
+    userAddress: IHex | undefined;
     userAccountId?: string;
     agentCredential?: ICoreHyperLiquidAgentCredential;
   }): Promise<void> {
@@ -191,7 +191,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
    * Check if agent is ready based on local status only
    */
   private async _ensureAgentReady(): Promise<boolean> {
-    const accountStatus = await perpsSelectedAccountStatusAtom.get();
+    const accountStatus = await perpsActiveAccountStatusAtom.get();
     return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
   }
 
@@ -217,7 +217,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
     await this.checkAccountCanTrade();
 
@@ -262,7 +261,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async placeOrderRaw({
     orders,
     grouping,
@@ -292,7 +290,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   async checkAccountCanTrade() {
-    const selectedAccount = await perpsSelectedAccountAtom.get();
+    const selectedAccount = await perpsActiveAccountAtom.get();
     if (selectedAccount.accountAddress && selectedAccount.accountId) {
       if (
         accountUtils.isWatchingAccount({ accountId: selectedAccount.accountId })
@@ -438,27 +436,31 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async orderClose(params: IOrderCloseParams): Promise<IOrderResponse> {
+  async ordersClose(params: IOrderCloseParams[]): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
-    const midPx = params.midPx;
-    const price = this._calculateSlippagePrice({
-      markPrice: midPx,
-      isBuy: !params.isBuy,
-      slippage: params.slippage || this.slippage,
-    });
+    const ordersParam = params.map((param) => {
+      const midPx = param.midPx;
+      const price = this._calculateSlippagePrice({
+        markPrice: midPx,
+        isBuy: !param.isBuy,
+        slippage: param.slippage || this.slippage,
+      });
 
-    const orderParams: IOrderParams = {
-      a: params.assetId,
-      b: !params.isBuy,
-      p: price,
-      s: params.size,
-      r: true,
-      t: { limit: { tif: 'Gtc' } },
-    };
+      const orderParams: IOrderParams = {
+        a: param.assetId,
+        b: !param.isBuy,
+        p: price,
+        s: param.size,
+        r: true,
+        t: { limit: { tif: 'Gtc' } },
+      };
+
+      return orderParams;
+    });
 
     try {
       return await this.placeOrderRaw({
-        orders: [orderParams],
+        orders: ordersParam,
         grouping: 'na',
       });
     } catch (error) {
@@ -469,7 +471,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async cancelOrder(cancels: ICancelOrderParams[]): Promise<ICancelResponse> {
     await this.checkAccountCanTrade();
 
@@ -596,7 +597,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  @toastIfError()
   async withdraw(params: IWithdrawParams): Promise<void> {
     await this.checkAccountCanTrade();
     const wallet =

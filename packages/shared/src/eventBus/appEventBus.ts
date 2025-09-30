@@ -4,7 +4,6 @@ import { cloneDeep } from 'lodash';
 
 import type {
   IDialogLoadingProps,
-  IDialogShowProps,
   IQrcodeDrawType,
 } from '@onekeyhq/components';
 import type { ISubSettingConfig } from '@onekeyhq/kit/src/views/Setting/pages/Tab/config';

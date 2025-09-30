@@ -34,7 +34,6 @@ import type {
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -690,6 +689,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           num={num}
           isOthersUniversal={isOthersUniversal}
           focusedWalletInfo={focusedWalletInfo}
+          editable={editable}
         />
       ) : null}
 

@@ -247,7 +247,7 @@ function TokenDetailsHeader(props: IProps) {
   }, [wallet?.type, networkId, wallet?.backuped]);
 
   return (
-    <DebugRenderTracker timesBadgePosition="top-right">
+    <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
         {/* Overview */}
         <Stack px="$5" py="$5">
@@ -391,6 +391,7 @@ function TokenDetailsHeader(props: IProps) {
                 <SizableText
                   size="$bodyMd"
                   color="$text"
+                  flexShrink={1}
                   $platform-web={{
                     wordBreak: 'break-word',
                   }}

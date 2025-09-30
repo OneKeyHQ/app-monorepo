@@ -22,7 +22,6 @@ interface IBaseTradingViewPerpsV2Props {
   userAddress: IHex | undefined | null;
   onLoadEnd?: () => void;
   onTradeUpdate?: (trade: ITradeEvent) => void;
-  tradingViewUrl?: string;
 }
 
 export type ITradingViewPerpsV2Props = IBaseTradingViewPerpsV2Props &
@@ -106,14 +105,12 @@ export function TradingViewPerpsV2(
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
 
-  const { symbol, userAddress, onLoadEnd, onTradeUpdate, tradingViewUrl } =
-    props;
+  const { symbol, userAddress, onLoadEnd, onTradeUpdate } = props;
 
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
-    tradingViewUrl,
     additionalParams: {
       symbol,
       type: 'perps',
