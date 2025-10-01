@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { useFocusEffect } from '@react-navigation/native';
@@ -10,9 +10,14 @@ import {
   useIndexedAccountAddressCreationStateAtom,
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   perpsActiveAssetAtom,
+  perpsActiveOrderBookOptionsAtom,
+  usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+  usePerpsActiveOrderBookOptionsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -37,7 +42,37 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
-import { useSubscriptionActiveAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import {
+  useOrderBookTickOptionsAtom,
+  useSubscriptionActiveAtom,
+} from '../../../states/jotai/contexts/hyperliquid/atoms';
+
+function useSyncContextOrderBookOptionsToGlobal() {
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+
+  const l2SubscriptionOptions = useMemo(() => {
+    const coin = activeAsset?.coin;
+    if (!coin) {
+      return { nSigFigs: null, mantissa: undefined };
+    }
+    const stored = orderBookTickOptions[coin];
+    const nSigFigs = stored?.nSigFigs ?? null;
+    const mantissa =
+      stored?.mantissa === undefined ? undefined : stored.mantissa;
+    return { nSigFigs, mantissa };
+  }, [orderBookTickOptions, activeAsset?.coin]);
+
+  useEffect(() => {
+    void perpsActiveOrderBookOptionsAtom.set(
+      (): IPerpsActiveOrderBookOptionsAtom => ({
+        coin: activeAsset?.coin,
+        assetId: activeAsset?.assetId,
+        ...l2SubscriptionOptions,
+      }),
+    );
+  }, [l2SubscriptionOptions, activeAsset?.coin, activeAsset?.assetId]);
+}
 
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -181,15 +216,16 @@ function useHyperliquidSession() {
 
 function useHyperliquidAccountSelect() {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [currentPerpsAccount] = usePerpsActiveAccountAtom();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const actions = useHyperliquidActions();
   const isFirstMountRef = useRef(true);
   const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
   const isFocused = useRouteIsFocused();
   const [indexedAccountAddressCreationState] =
     useIndexedAccountAddressCreationStateAtom();
-  const perpsAccountAddressRef = useRef(currentPerpsAccount?.accountAddress);
-  perpsAccountAddressRef.current = currentPerpsAccount?.accountAddress;
+  const perpsAccountAddressRef = useRef(activePerpsAccount?.accountAddress);
+  perpsAccountAddressRef.current = activePerpsAccount?.accountAddress;
 
   // const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
   // const perpsAccountStatusRef = useRef(perpsAccountStatus);
@@ -296,19 +332,42 @@ function useHyperliquidAccountSelect() {
       }
     })();
   }, [isFocused, checkPerpsAccountStatus]);
+}
+
+function useSubscriptionUpdate() {
+  const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
+  const actions = useHyperliquidActions();
+
+  const isLoading = !!loadingInfo?.selectAccountLoading;
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
 
   useEffect(() => {
-    noop(currentPerpsAccount?.accountAddress);
+    noop(activePerpsAccount?.accountAddress);
+    noop(activeAsset?.coin);
+    noop(activeOrderBookOptions?.coin);
+    noop(activeOrderBookOptions?.mantissa);
+    noop(activeOrderBookOptions?.nSigFigs);
 
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      if (currentPerpsAccount?.accountAddress) {
-        void actions.current.updateSubscriptions();
-      }
-    } else {
+    if (
+      !isLoading &&
+      activeAsset?.coin &&
+      activeOrderBookOptions?.coin === activeAsset?.coin
+    ) {
       void actions.current.updateSubscriptions();
     }
-  }, [actions, currentPerpsAccount?.accountAddress]);
+  }, [
+    isLoading,
+    actions,
+    activePerpsAccount?.accountAddress,
+    activeAsset?.coin,
+    activeOrderBookOptions?.mantissa,
+    activeOrderBookOptions?.nSigFigs,
+    activeOrderBookOptions?.coin,
+  ]);
 }
 
 function useHyperliquidSymbolSelect() {
@@ -362,6 +421,8 @@ function PerpsGlobalEffectsView() {
   useHyperliquidAccountSelect();
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
+  useSyncContextOrderBookOptionsToGlobal();
+  useSubscriptionUpdate();
 
   return null;
 }

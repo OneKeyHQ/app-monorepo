@@ -1,4 +1,4 @@
-import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IBook,
   IEventActiveAssetCtxParameters,
@@ -13,6 +13,7 @@ import type {
   IHex,
   IPerpsActiveAssetDataRaw,
   IPerpsSubscription,
+  IPerpsSubscriptionParams,
   ISubscriptionClient,
   IWsAllMids,
   IWsAllMidsParameters,
@@ -32,7 +33,7 @@ export const SUBSCRIPTION_TYPE_INFO: {
     keyGenerator: (params: any) => string;
     createSubscription: (
       client: ISubscriptionClient,
-      params: any,
+      params: IPerpsSubscriptionParams[type],
       handleData: (data: any) => void,
     ) => Promise<IPerpsSubscription>;
   };
@@ -74,11 +75,21 @@ export const SUBSCRIPTION_TYPE_INFO: {
     priority: 2,
     keyGenerator: (params: IEventUserFillsParameters) =>
       `account:userFills:${params.user}`,
-    createSubscription: (
+    createSubscription: async (
       client: ISubscriptionClient,
       params: IEventUserFillsParameters,
       handleData: (data: IWsUserFills) => void,
-    ) => client.userFills(params, handleData),
+    ) => {
+      console.log('createSubscription__userFills', params, handleData);
+      const sub = await client.userFills(params, handleData);
+      console.log(
+        'createSubscription__userFills__done',
+        sub,
+        params,
+        handleData,
+      );
+      return sub;
+    },
   },
   [ESubscriptionType.L2_BOOK]: {
     eventType: 'market',
@@ -97,11 +108,16 @@ export const SUBSCRIPTION_TYPE_INFO: {
 
       return `market:l2Book:${params.coin}:nSigFigs-${nSigFigs}:mantissa-${mantissa}`;
     },
-    createSubscription: (
+    createSubscription: async (
       client: ISubscriptionClient,
       params: IEventL2BookParameters,
       handleData: (data: IBook) => void,
-    ) => client.l2Book(params, handleData),
+    ) => {
+      console.log('createSubscription__l2Book', params, handleData);
+      const sub = await client.l2Book(params, handleData);
+      console.log('createSubscription__l2Book__done', sub, params, handleData);
+      return sub;
+    },
   },
   [ESubscriptionType.TRADES]: {
     eventType: 'market',
@@ -159,10 +175,10 @@ export const SUBSCRIPTION_TYPE_INFO: {
   },
 };
 
-export interface ISubscriptionSpec {
-  readonly type: ESubscriptionType;
+export interface ISubscriptionSpec<T extends ESubscriptionType> {
+  readonly type: T;
   readonly key: string;
-  readonly params: any;
+  readonly params: IPerpsSubscriptionParams[T];
   readonly priority: number;
 }
 
@@ -174,23 +190,28 @@ export interface ISubscriptionState {
 }
 
 export interface ISubscriptionDiff {
-  toSubscribe: ISubscriptionSpec[];
-  toUnsubscribe: ISubscriptionSpec[];
+  toUnsubscribe: ISubscriptionSpec<ESubscriptionType>[];
+  toSubscribe: ISubscriptionSpec<ESubscriptionType>[];
 }
 
-export function generateSubscriptionKey(
-  type: ESubscriptionType,
-  params: any,
+export function generateSubscriptionKey<T extends ESubscriptionType>(
+  type: T,
+  params: IPerpsSubscriptionParams[T],
 ): string {
-  return SUBSCRIPTION_TYPE_INFO[type].keyGenerator(params);
+  return stringUtils.stableStringify({
+    type,
+    params,
+  });
+  // return SUBSCRIPTION_TYPE_INFO[type].keyGenerator(params);
 }
 
-export function createSubscription(
-  type: ESubscriptionType,
+export function createSubscription<T extends ESubscriptionType>(
+  type: T,
   client: ISubscriptionClient,
-  params: any,
+  params: IPerpsSubscriptionParams[T],
   handleData: (data: any) => void,
-): Promise<unknown> {
+): Promise<IPerpsSubscription> {
+  console.log('createSubscription__call', type, params);
   return SUBSCRIPTION_TYPE_INFO[type].createSubscription(
     client,
     params,
@@ -258,91 +279,103 @@ export function validateSubscriptionParams(
   }
 }
 
+function buildSubscriptionSpec<T extends ESubscriptionType>({
+  type,
+  params,
+}: {
+  type: T;
+  params: IPerpsSubscriptionParams[T];
+}): ISubscriptionSpec<T> {
+  return {
+    type,
+    key: generateSubscriptionKey(type, params),
+    params,
+    priority: getSubscriptionPriority(type),
+  };
+}
+
 export function calculateRequiredSubscriptions(
   state: ISubscriptionState,
-): ISubscriptionSpec[] {
-  const specs: ISubscriptionSpec[] = [];
+): ISubscriptionSpec<ESubscriptionType>[] {
+  const specs: ISubscriptionSpec<ESubscriptionType>[] = [];
 
-  specs.push({
-    type: ESubscriptionType.ALL_MIDS,
-    key: generateSubscriptionKey(ESubscriptionType.ALL_MIDS, EMPTY_PARAMS),
-    params: EMPTY_PARAMS,
-    priority: getSubscriptionPriority(ESubscriptionType.ALL_MIDS),
-  });
+  specs.push(
+    buildSubscriptionSpec({
+      type: ESubscriptionType.ALL_MIDS,
+      params: EMPTY_PARAMS,
+    }),
+  );
 
   if (state.currentSymbol) {
-    specs.push({
-      type: ESubscriptionType.ACTIVE_ASSET_CTX,
-      key: generateSubscriptionKey(ESubscriptionType.ACTIVE_ASSET_CTX, {
-        coin: state.currentSymbol,
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.ACTIVE_ASSET_CTX,
+        params: { coin: state.currentSymbol },
       }),
-      params: { coin: state.currentSymbol },
-      priority: getSubscriptionPriority(ESubscriptionType.ACTIVE_ASSET_CTX),
-    });
-
-    // Create L2_BOOK subscription with default parameters if no custom params are provided
-    const l2BookParams = {
-      coin: state.currentSymbol,
-      ...(state.l2BookOptions || {}),
-    };
-    const l2BookKey = generateSubscriptionKey(
-      ESubscriptionType.L2_BOOK,
-      l2BookParams,
     );
-    specs.push({
-      type: ESubscriptionType.L2_BOOK,
-      key: l2BookKey,
-      params: l2BookParams,
-      priority: getSubscriptionPriority(ESubscriptionType.L2_BOOK),
-    });
+
+    if (state.l2BookOptions) {
+      // Create L2_BOOK subscription with default parameters if no custom params are provided
+      const l2BookParams: IEventL2BookParameters = {
+        coin: state.currentSymbol,
+        nSigFigs: state.l2BookOptions.nSigFigs ?? null,
+        mantissa: state.l2BookOptions.mantissa ?? null,
+      };
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.L2_BOOK,
+          params: l2BookParams,
+        }),
+      );
+    }
   }
 
-  const effectiveUser = state.currentUser || PERPS_EMPTY_ADDRESS;
+  if (state.currentUser) {
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.WEB_DATA2,
+        params: { user: state.currentUser },
+      }),
+    );
 
-  specs.push({
-    type: ESubscriptionType.WEB_DATA2,
-    key: generateSubscriptionKey(ESubscriptionType.WEB_DATA2, {
-      user: effectiveUser,
-    }),
-    params: { user: effectiveUser },
-    priority: getSubscriptionPriority(ESubscriptionType.WEB_DATA2),
-  });
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.USER_FILLS,
+        params: { user: state.currentUser, aggregateByTime: false },
+      }),
+    );
 
-  specs.push({
-    type: ESubscriptionType.USER_FILLS,
-    key: generateSubscriptionKey(ESubscriptionType.USER_FILLS, {
-      user: effectiveUser,
-    }),
-    params: { user: effectiveUser },
-    priority: getSubscriptionPriority(ESubscriptionType.USER_FILLS),
-  });
-
-  if (state.currentUser && state.currentUser !== PERPS_EMPTY_ADDRESS) {
     if (state.currentSymbol) {
-      specs.push({
-        type: ESubscriptionType.ACTIVE_ASSET_DATA,
-        key: generateSubscriptionKey(ESubscriptionType.ACTIVE_ASSET_DATA, {
-          user: state.currentUser,
-          coin: state.currentSymbol,
+      specs.push(
+        buildSubscriptionSpec({
+          type: ESubscriptionType.ACTIVE_ASSET_DATA,
+          params: { user: state.currentUser, coin: state.currentSymbol },
         }),
-        params: { user: state.currentUser, coin: state.currentSymbol },
-        priority: getSubscriptionPriority(ESubscriptionType.ACTIVE_ASSET_DATA),
-      });
+      );
     }
   }
 
   return specs.sort((a, b) => a.priority - b.priority);
 }
 
+export function calculateRequiredSubscriptionsMap(state: ISubscriptionState) {
+  const specs = calculateRequiredSubscriptions(state);
+  const map: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
+  for (const spec of specs) {
+    map[spec.key] = spec;
+  }
+  return map;
+}
+
 export function sortSubscriptionsByPriority(
-  specs: ISubscriptionSpec[],
-): ISubscriptionSpec[] {
+  specs: ISubscriptionSpec<ESubscriptionType>[],
+): ISubscriptionSpec<ESubscriptionType>[] {
   return [...specs].sort((a, b) => a.priority - b.priority);
 }
 
 export function calculateSubscriptionDiff(
-  currentSpecs: ISubscriptionSpec[],
-  newSpecs: ISubscriptionSpec[],
+  currentSpecs: ISubscriptionSpec<ESubscriptionType>[],
+  newSpecs: ISubscriptionSpec<ESubscriptionType>[],
 ): ISubscriptionDiff {
   const currentKeys = new Set(currentSpecs.map((spec) => spec.key));
   const newKeys = new Set(newSpecs.map((spec) => spec.key));
