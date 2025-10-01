@@ -118,18 +118,9 @@ const PerpTickerBarMMRInfoMobileView = memo(
 PerpTickerBarMMRInfoMobileView.displayName = 'PerpTickerBarMMRInfoMobileView';
 
 function PerpTickerBarMMRInfoMobile() {
-  const [{ mmr }] = usePerpsActiveAccountMmrAtom();
+  const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
   //   const mmr = 0.3724
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-
-  const { mmrPercent } = useMemo(() => {
-    if (!mmr) {
-      return { mmrPercent: null };
-    }
-    const mmrBN = new BigNumber(mmr);
-    const percent = mmrBN.multipliedBy(100).toFixed(2);
-    return { mmrPercent: percent };
-  }, [mmr]);
 
   if (!mmrPercent) {
     return null;

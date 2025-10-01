@@ -60,7 +60,7 @@ export const {
 export const {
   target: perpsActiveAccountMmrAtom,
   use: usePerpsActiveAccountMmrAtom,
-} = globalAtomComputedR<{ mmr: string | null }>({
+} = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
   read: (get) => {
     const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
 
@@ -68,7 +68,7 @@ export const {
       !accountSummary?.crossMaintenanceMarginUsed ||
       !accountSummary?.crossAccountValue
     ) {
-      return { mmr: null };
+      return { mmr: null, mmrPercent: null };
     }
 
     const maintenanceMarginUsed = new BigNumber(
@@ -78,11 +78,11 @@ export const {
 
     // Avoid division by zero
     if (accountValue.isZero()) {
-      return { mmr: null };
+      return { mmr: null, mmrPercent: null };
     }
 
     const mmr = maintenanceMarginUsed.dividedBy(accountValue);
-    return { mmr: mmr.toFixed() };
+    return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
   },
 });
 

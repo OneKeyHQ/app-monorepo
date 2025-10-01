@@ -39,40 +39,52 @@ export function PerpAccountDebugInfo() {
 }
 
 function PerpAccountMMRView() {
-  const [{ mmr }] = usePerpsActiveAccountMmrAtom();
+  const [{ mmrPercent }] = usePerpsActiveAccountMmrAtom();
   const intl = useIntl();
-  const mmrBN = useMemo(() => (mmr ? new BigNumber(mmr) : null), [mmr]);
-  return mmrBN ? (
-    <XStack justifyContent="space-between">
-      <Tooltip
-        placement="top"
-        renderContent={intl.formatMessage({
-          id: ETranslations.perp_account_cross_margin_ration_tip,
-        })}
-        renderTrigger={
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            cursor="default"
-            borderBottomWidth="$px"
-            borderTopWidth={0}
-            borderLeftWidth={0}
-            borderRightWidth={0}
-            borderBottomColor="$border"
-            borderStyle="dashed"
-          >
-            {intl.formatMessage({
-              id: ETranslations.perp_account_cross_margin_ration,
-            })}
-          </SizableText>
-        }
-      />
+  if (mmrPercent) {
+    // return (
+    //   <XStack justifyContent="space-between">
+    //     <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+    //       Cross Margin Ratio
+    //     </SizableText>
+    //     <SizableText size="$bodySmMedium" color="$textSubdued">
+    //       {mmrPercent}%
+    //     </SizableText>
+    //   </XStack>
+    // );
 
-      <SizableText size="$bodySmMedium" color="$text">
-        {mmrBN.multipliedBy(100).toFixed(2)}%
-      </SizableText>
-    </XStack>
-  ) : null;
+    return (
+      <XStack justifyContent="space-between">
+        <Tooltip
+          placement="top"
+          renderContent={intl.formatMessage({
+            id: ETranslations.perp_account_cross_margin_ration_tip,
+          })}
+          renderTrigger={
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              cursor="default"
+              borderBottomWidth="$px"
+              borderTopWidth={0}
+              borderLeftWidth={0}
+              borderRightWidth={0}
+              borderBottomColor="$border"
+              borderStyle="dashed"
+            >
+              {intl.formatMessage({
+                id: ETranslations.perp_account_cross_margin_ration,
+              })}
+            </SizableText>
+          }
+        />
+        <SizableText size="$bodySmMedium" color="$text">
+          {mmrPercent}%
+        </SizableText>
+      </XStack>
+    );
+  }
+  return null;
 }
 
 function PerpAccountPanel() {
@@ -170,16 +182,6 @@ function PerpAccountPanel() {
             skeletonWidth={60}
           />
         </XStack>
-        {mmr ? (
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued" cursor="default">
-              Cross Margin Ratio
-            </SizableText>
-            <SizableText size="$bodySmMedium" color="$textSubdued">
-              {mmr.multipliedBy(100).toFixed(2)}%
-            </SizableText>
-          </XStack>
-        ) : null}
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"
