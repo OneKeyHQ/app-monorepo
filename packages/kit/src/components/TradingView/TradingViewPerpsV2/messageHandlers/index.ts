@@ -40,6 +40,14 @@ export function usePerpsMessageHandler({
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
 
+  // Use refs to maintain stable references for callbacks
+  const symbolRef = useRef(symbol);
+  const userAddressRef = useRef(userAddress);
+
+  // Update refs on every render
+  symbolRef.current = symbol;
+  userAddressRef.current = userAddress;
+
   // Shared utility to convert fill data to TradingView mark
   const convertFillToMark = useCallback((fill: IFill): ITradingMark => {
     const isLong = fill.side === 'B'; // B = Buy, A = Sell (Ask)
@@ -107,12 +115,12 @@ export function usePerpsMessageHandler({
         type: MESSAGE_TYPES.MARKS_UPDATE,
         payload: {
           marks,
-          symbol,
+          symbol: symbolRef.current,
           operation,
         },
       });
     },
-    [webRef, symbol],
+    [webRef],
   );
 
   // Handle legacy MARKS_RESPONSE for backward compatibility
@@ -120,7 +128,7 @@ export function usePerpsMessageHandler({
     async (request: IGetMarksRequest) => {
       const { requestId } = request;
 
-      if (!userAddress) {
+      if (!userAddressRef.current) {
         webRef.current?.sendMessageViaInjectedScript({
           type: 'MARKS_RESPONSE',
           payload: {
@@ -132,7 +140,10 @@ export function usePerpsMessageHandler({
       }
 
       try {
-        const marks = await fetchAndFormatMarks(symbol, userAddress);
+        const marks = await fetchAndFormatMarks(
+          symbolRef.current,
+          userAddressRef.current,
+        );
 
         const response: IGetMarksResponse = {
           marks,
@@ -154,7 +165,7 @@ export function usePerpsMessageHandler({
         });
       }
     },
-    [webRef, userAddress, symbol, fetchAndFormatMarks],
+    [webRef, fetchAndFormatMarks],
   );
 
   // Handle HyperLiquid price scale requests
@@ -291,7 +302,7 @@ export function usePerpsMessageHandler({
         sendMarksUpdate([], EMarksUpdateOperationEnum.CLEAR);
       } else {
         // User changed or logged in, fetch fresh data
-        void fetchAndFormatMarks(symbol, currentUserAddress)
+        void fetchAndFormatMarks(symbolRef.current, currentUserAddress)
           .then((marks) => {
             sendMarksUpdate(marks, EMarksUpdateOperationEnum.REPLACE);
           })
@@ -303,7 +314,7 @@ export function usePerpsMessageHandler({
 
       previousUserAddressRef.current = currentUserAddress;
     }
-  }, [userAddress, symbol, fetchAndFormatMarks, sendMarksUpdate]);
+  }, [userAddress, fetchAndFormatMarks, sendMarksUpdate]);
 
   // Monitor real-time userFills updates
   useEffect(() => {
@@ -325,7 +336,7 @@ export function usePerpsMessageHandler({
       if (eventPayload.subType !== ESubscriptionType.USER_FILLS) return;
 
       // Verify the data is for the current user
-      if (eventPayload.metadata.userId !== userAddress) return;
+      if (eventPayload.metadata.userId !== userAddressRef.current) return;
 
       const { data } = eventPayload;
 
@@ -334,7 +345,7 @@ export function usePerpsMessageHandler({
 
       // Filter fills for the current symbol and convert to marks
       const relevantFills = data.fills.filter(
-        (fill: IFill) => fill.coin === symbol,
+        (fill: IFill) => fill.coin === symbolRef.current,
       );
 
       if (relevantFills.length === 0) return;
@@ -345,8 +356,8 @@ export function usePerpsMessageHandler({
 
       // Send incremental update to TradingView
       console.log('[UserFillsHandler] Sending incremental marks update:', {
-        symbol,
-        userAddress,
+        symbol: symbolRef.current,
+        userAddress: userAddressRef.current,
         newMarks,
       });
 
@@ -364,7 +375,7 @@ export function usePerpsMessageHandler({
         handleUserFillsUpdate,
       );
     };
-  }, [userAddress, symbol, sendMarksUpdate, convertFillToMark]);
+  }, [userAddress, sendMarksUpdate, convertFillToMark]);
 
   return {
     customReceiveHandler,
