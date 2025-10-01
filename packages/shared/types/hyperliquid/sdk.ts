@@ -54,6 +54,7 @@ export type ISpotBalance = HL.SpotBalance;
 export type IInfoClient = HL.InfoClient;
 export type IExchangeClient = HL.ExchangeClient;
 export type ISubscriptionClient = HL.SubscriptionClient;
+export type IPerpsSubscription = HL.Subscription;
 export type IHttpTransport = HL.HttpTransport;
 export type IWebSocketTransport = HL.WebSocketTransport;
 

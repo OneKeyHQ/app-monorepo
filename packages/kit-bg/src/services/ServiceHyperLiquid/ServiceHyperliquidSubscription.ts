@@ -133,7 +133,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async connect(): Promise<void> {
-    await this._ensureClient();
+    await this.getWebSocketClient();
     this._currentState.isConnected = true;
   }
 
@@ -260,7 +260,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
-  private async _ensureClient(): Promise<SubscriptionClient> {
+  private async getWebSocketClient(): Promise<SubscriptionClient> {
     if (!this._client) {
       const transport = new WebSocketTransport({
         url: 'wss://api.hyperliquid.xyz/ws',
@@ -297,8 +297,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async _createSubscriptionDirect(
     spec: ISubscriptionSpec,
-    client: SubscriptionClient,
   ): Promise<unknown> {
+    const client = await this.getWebSocketClient();
     const handleData = (data: unknown) => {
       this._handleSubscriptionData(spec.key, data, spec.type);
     };
@@ -315,13 +315,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
-    const client = await this._ensureClient();
-
     try {
-      const sdkSubscription = await this._createSubscriptionDirect(
-        spec,
-        client,
-      );
+      const sdkSubscription = await this._createSubscriptionDirect(spec);
 
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
