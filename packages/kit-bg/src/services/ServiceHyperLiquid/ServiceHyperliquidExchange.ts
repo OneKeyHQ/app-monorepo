@@ -16,6 +16,16 @@ import {
   OneKeyLocalError,
   WatchedAccountTradeError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  dispatchHyperLiquidOrderLog,
+  extractHyperLiquidErrorResponse,
+  serializeHyperLiquidError,
+} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
+import type {
+  IHyperLiquidOrderAction,
+  IHyperLiquidOrderRequestPayload,
+} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   MAX_DECIMALS_PERP,
@@ -23,6 +33,8 @@ import {
   getValidPriceDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
+  IApiErrorResponse,
+  IApiRequestResult,
   ICancelResponse,
   IHex,
   IOrderParams,
@@ -54,6 +66,12 @@ import type {
   WalletHyperliquidProxy,
 } from './ServiceHyperliquidWallet';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+
+interface IOrderLogOptions {
+  action?: IHyperLiquidOrderAction;
+  originalParams?: unknown;
+  extra?: Record<string, unknown>;
+}
 
 @backgroundClass()
 export default class ServiceHyperliquidExchange extends ServiceBase {
@@ -98,6 +116,24 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       +adjustedPrice.toFixed(validDecimals),
       MAX_DECIMALS_PERP - validDecimals,
     );
+  }
+
+  private async _buildLogContext() {
+    const activeAccount = await perpsActiveAccountAtom.get();
+    return {
+      accountAddress: activeAccount?.accountAddress ?? null,
+      exchangeAccountAddress: this._account,
+    };
+  }
+
+  private _composeOrderLogExtra(options: IOrderLogOptions) {
+    const extra: Record<string, unknown> = {
+      ...(options.extra ?? {}),
+    };
+    if (typeof options.originalParams !== 'undefined') {
+      extra.originalParams = options.originalParams;
+    }
+    return Object.keys(extra).length > 0 ? extra : undefined;
   }
 
   @backgroundMethod()
@@ -212,7 +248,26 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async setReferrerCode(params: ISetReferrerRequest) {
     await this.checkAccountCanTrade();
-    return this.exchangeClient.setReferrer(params);
+    const context = await this._buildLogContext();
+    try {
+      const response = await this.exchangeClient.setReferrer(params);
+      defaultLogger.perp.hyperliquid.setReferrer({
+        ...context,
+        request: params,
+        response,
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.setReferrer({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<
+          IApiRequestResult | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -220,15 +275,46 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
 
     const client = await this.getExchangeClientForTrading();
-    await client.updateLeverage(params);
+    const context = await this._buildLogContext();
+    try {
+      await client.updateLeverage(params);
+      defaultLogger.perp.hyperliquid.updateLeverage({
+        ...context,
+        request: params,
+        response: { success: true },
+      });
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.updateLeverage({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
   async approveBuilderFee(params: IBuilderFeeRequest) {
     await this.checkAccountCanTrade();
+    const context = await this._buildLogContext();
     try {
-      return await this.exchangeClient.approveBuilderFee(params);
+      const response = await this.exchangeClient.approveBuilderFee(params);
+      defaultLogger.perp.hyperliquid.approveBuilderFee({
+        ...context,
+        request: params,
+        response,
+      });
+      return response;
     } catch (error) {
+      defaultLogger.perp.hyperliquid.approveBuilderFee({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<
+          IApiRequestResult | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+      });
       throw new OneKeyLocalError(
         `Failed to approve builder fee: ${String(error)}`,
       );
@@ -238,20 +324,80 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async approveAgent(params: IAgentApprovalRequest) {
     await this.checkAccountCanTrade();
-    return this.exchangeClient.approveAgent({
+    const requestPayload = {
       agentAddress: params.agent,
       agentName: params.agentName || null,
-    });
+    };
+    const context = await this._buildLogContext();
+    try {
+      const response = await this.exchangeClient.approveAgent(requestPayload);
+      defaultLogger.perp.hyperliquid.approveAgent({
+        ...context,
+        request: params,
+        response,
+        extra: {
+          requestPayload,
+          operation: params.authorize ? 'authorize' : 'revoke',
+        },
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.approveAgent({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<
+          IApiRequestResult | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra: {
+          requestPayload,
+          operation: params.authorize ? 'authorize' : 'revoke',
+        },
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
   async removeAgent(params: { agentName: EHyperLiquidAgentName | undefined }) {
     await this.checkAccountCanTrade();
-    return this.approveAgent({
+    const request: IAgentApprovalRequest = {
       agent: PERPS_EMPTY_ADDRESS,
       agentName: params.agentName,
       authorize: true,
-    });
+    };
+    const requestPayload = {
+      agentAddress: PERPS_EMPTY_ADDRESS,
+      agentName: params.agentName || null,
+    };
+    const context = await this._buildLogContext();
+    try {
+      const response = await this.exchangeClient.approveAgent(requestPayload);
+      defaultLogger.perp.hyperliquid.removeAgent({
+        ...context,
+        request,
+        response,
+        extra: {
+          requestPayload,
+          operation: 'remove',
+        },
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.removeAgent({
+        ...context,
+        request,
+        response: extractHyperLiquidErrorResponse<
+          IApiRequestResult | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra: {
+          requestPayload,
+          operation: 'remove',
+        },
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -260,21 +406,59 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async placeOrderRaw({
-    orders,
-    grouping,
-  }: {
-    orders: IOrderParams[];
-    grouping: IOrderRequest['grouping'];
-  }): Promise<IOrderResponse> {
+  async placeOrderRaw(
+    {
+      orders,
+      grouping,
+    }: {
+      orders: IOrderParams[];
+      grouping: IOrderRequest['grouping'];
+    },
+    options: IOrderLogOptions = {},
+  ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
 
     const client = await this.getExchangeClientForTrading();
-    return client.order({
+    const requestPayload: IHyperLiquidOrderRequestPayload = {
       orders,
       grouping,
-      builder: this._builderFeeInfo,
-    });
+      builder: this._builderFeeInfo ?? null,
+    };
+    const context = await this._buildLogContext();
+    const extra = this._composeOrderLogExtra(options);
+    try {
+      const response = await client.order({
+        orders,
+        grouping,
+        builder: this._builderFeeInfo,
+      });
+      dispatchHyperLiquidOrderLog({
+        scene: defaultLogger.perp.hyperliquid,
+        action: options.action,
+        payload: {
+          ...context,
+          request: requestPayload,
+          response,
+          extra,
+        },
+      });
+      return response;
+    } catch (error) {
+      dispatchHyperLiquidOrderLog({
+        scene: defaultLogger.perp.hyperliquid,
+        action: options.action,
+        payload: {
+          ...context,
+          request: requestPayload,
+          response: extractHyperLiquidErrorResponse<
+            IOrderResponse | IApiErrorResponse
+          >(error),
+          error: serializeHyperLiquidError(error),
+          extra,
+        },
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -330,10 +514,20 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
               },
       };
 
-      return await this.placeOrderRaw({
-        orders: [orderParams],
-        grouping: 'na',
-      });
+      const response = await this.placeOrderRaw(
+        {
+          orders: [orderParams],
+          grouping: 'na',
+        },
+        {
+          action: 'placeOrder',
+          originalParams: params,
+          extra: {
+            reduceOnly: Boolean(params.reduceOnly),
+          },
+        },
+      );
+      return response;
     } catch (error) {
       throw new OneKeyLocalError(`Failed to place order: ${String(error)}`);
     }
@@ -423,10 +617,22 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         orders.push(slOrder);
       }
 
-      return await this.placeOrderRaw({
-        orders,
-        grouping: orders.length > 1 ? 'normalTpsl' : 'na',
-      });
+      const response = await this.placeOrderRaw(
+        {
+          orders,
+          grouping: orders.length > 1 ? 'normalTpsl' : 'na',
+        },
+        {
+          action: 'orderOpen',
+          originalParams: params,
+          extra: {
+            hasTp: Boolean(params.tpTriggerPx),
+            hasSl: Boolean(params.slTriggerPx),
+            isMarket,
+          },
+        },
+      );
+      return response;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to place market order open: ${String(error)}`,
@@ -458,10 +664,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     });
 
     try {
-      return await this.placeOrderRaw({
-        orders: ordersParam,
-        grouping: 'na',
-      });
+      const response = await this.placeOrderRaw(
+        {
+          orders: ordersParam,
+          grouping: 'na',
+        },
+        {
+          action: 'ordersClose',
+          originalParams: params,
+          extra: { orderCount: ordersParam.length },
+        },
+      );
+      return response;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to place market close order: ${String(error)}`,
@@ -479,9 +693,33 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }));
 
     const client = await this.getExchangeClientForTrading();
-    return client.cancel({
-      cancels: cancelParams,
-    });
+    const requestPayload = { cancels: cancelParams };
+    const context = await this._buildLogContext();
+    const extra = {
+      originalParams: cancels,
+      cancelCount: cancelParams.length,
+    };
+    try {
+      const response = await client.cancel(requestPayload);
+      defaultLogger.perp.hyperliquid.cancelOrder({
+        ...context,
+        request: requestPayload,
+        response,
+        extra,
+      });
+      return response;
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.cancelOrder({
+        ...context,
+        request: requestPayload,
+        response: extractHyperLiquidErrorResponse<
+          ICancelResponse | IApiErrorResponse
+        >(error),
+        error: serializeHyperLiquidError(error),
+        extra,
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -501,10 +739,18 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         return orderParam;
       });
 
-      return await this.placeOrderRaw({
-        orders: orderParams,
-        grouping: 'na',
-      });
+      const response = await this.placeOrderRaw(
+        {
+          orders: orderParams,
+          grouping: 'na',
+        },
+        {
+          action: 'multiOrder',
+          originalParams: params,
+          extra: { orderCount: orderParams.length },
+        },
+      );
+      return response;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to place multi orders: ${String(error)}`,
@@ -584,10 +830,21 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         );
       }
 
-      return await this.placeOrderRaw({
-        orders,
-        grouping: 'positionTpsl',
-      });
+      const response = await this.placeOrderRaw(
+        {
+          orders,
+          grouping: 'positionTpsl',
+        },
+        {
+          action: 'setPositionTpsl',
+          originalParams: params,
+          extra: {
+            hasTp: Boolean(tpTriggerPx),
+            hasSl: Boolean(slTriggerPx),
+          },
+        },
+      );
+      return response;
     } catch (error) {
       throw new OneKeyLocalError(
         `Failed to set position TP/SL: ${String(error)}`,
@@ -606,6 +863,22 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       transport: new HttpTransport(),
       wallet,
     });
-    await exchangeClient.withdraw3(params);
+    const context = await this._buildLogContext();
+    try {
+      await exchangeClient.withdraw3(params);
+      defaultLogger.perp.hyperliquid.withdraw({
+        ...context,
+        request: params,
+        response: { success: true },
+      });
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.withdraw({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
+    }
   }
 }
