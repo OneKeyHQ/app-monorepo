@@ -464,6 +464,7 @@ function PerpTradingForm({
           value={sliderValue}
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
+          segments={4}
           step={1}
         />
         <YStack gap="$1">
@@ -673,16 +674,18 @@ function PerpTradingForm({
           sliderPercent={tradingComputed.sizePercent}
           onRequestManualMode={switchToManual}
         />
-        <Slider
-          width="100%"
-          mt="$3"
-          min={0}
-          max={100}
-          value={sliderValue}
-          onChange={handleSliderPercentChange}
-          disabled={sliderDisabled}
-          step={1}
-        />
+        <YStack mt="$3">
+          <Slider
+            width="100%"
+            min={0}
+            max={100}
+            value={sliderValue}
+            onChange={handleSliderPercentChange}
+            disabled={sliderDisabled}
+            segments={4}
+            step={1}
+          />
+        </YStack>
 
         <YStack p="$0">
           <Checkbox
