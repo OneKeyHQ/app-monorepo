@@ -52,6 +52,10 @@ const sections = [
         shortcutKey: EShortcutEvents.TabSwap,
       },
       {
+        titleId: ETranslations.shortcuts_go_to_perps_tab,
+        shortcutKey: EShortcutEvents.TabPerps,
+      },
+      {
         titleId: ETranslations.shortcuts_go_to_earn_tab,
         shortcutKey: EShortcutEvents.TabEarn,
       },
