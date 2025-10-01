@@ -35,7 +35,7 @@ import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
-import type { IFormattedOBLevel } from './types';
+import type { IFormattedOBLevel, IOrderBookVariant } from './types';
 import type {
   DimensionValue,
   PressableStateCallbackType,
@@ -106,6 +106,8 @@ interface IOrderBookProps {
   sizeDecimals?: number;
   /** Callback when a price level is selected */
   onSelectLevel?: (payload: IOrderBookSelection) => void;
+  /** The current order book display variant */
+  variant: IOrderBookVariant;
 }
 
 const styles = StyleSheet.create({
@@ -401,13 +403,14 @@ const useBlockColorsMobile = () => {
 };
 
 export function OrderBook({
+  variant,
   symbol: _symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
   style,
   midPriceNode: _midPriceNode = defaultMidPriceNode,
-  loadingNode = <DefaultLoadingNode variant="desktop" />,
+  loadingNode = <DefaultLoadingNode variant="web" />,
   horizontal = true,
   selectedTickOption,
   onTickOptionChange,
@@ -430,6 +433,7 @@ export function OrderBook({
   );
 
   const aggregatedData = useAggregatedBook(
+    variant,
     bids,
     asks,
     maxLevelsPerSide,
@@ -910,6 +914,7 @@ function OrderBookPairRow({
 }
 
 export function OrderPairBook({
+  variant,
   symbol: _symbol,
   bids,
   asks,
@@ -917,6 +922,7 @@ export function OrderPairBook({
   selectedTickOption,
   onSelectLevel,
 }: {
+  variant: IOrderBookVariant;
   symbol?: string;
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
@@ -926,6 +932,7 @@ export function OrderPairBook({
 }) {
   const intl = useIntl();
   const aggregatedData = useAggregatedBook(
+    variant,
     bids,
     asks,
     maxLevelsPerSide,
@@ -1151,6 +1158,7 @@ const MobileRow = ({
 // A compact, mobile-friendly order book: two columns (Price/Size),
 // asks on top, bids at bottom, with a prominent spread row in the middle.
 export function OrderBookMobile({
+  variant,
   symbol: _symbol,
   bids,
   asks,
@@ -1171,6 +1179,7 @@ export function OrderBookMobile({
     oraclePrice: '0',
   };
   const aggregatedData = useAggregatedBook(
+    variant,
     bids,
     asks,
     maxLevelsPerSide,

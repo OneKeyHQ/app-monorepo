@@ -1,4 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
+
+import { BigNumber } from 'bignumber.js';
 
 import { Toast } from '@onekeyhq/components';
 import {
@@ -10,6 +12,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 interface IUseOrderConfirmOptions {
   onSuccess?: () => void;
@@ -18,7 +21,7 @@ interface IUseOrderConfirmOptions {
 
 export interface IUseOrderConfirmReturn {
   isSubmitting: boolean;
-  handleConfirm: () => Promise<void>;
+  handleConfirm: (overrideSide?: 'long' | 'short') => Promise<void>;
 }
 
 export function useOrderConfirm(
@@ -30,44 +33,103 @@ export function useOrderConfirm(
   const hyperliquidActions = useHyperliquidActions();
   const [isSubmitting] = useTradingLoadingAtom();
 
-  const handleConfirm = useCallback(async () => {
-    if (activeAsset?.assetId === undefined) {
-      Toast.error({
-        title: 'Order Failed',
-        message: 'Token information not available',
-      });
-      return;
-    }
-
-    try {
-      if (formData.type === 'market') {
-        await hyperliquidActions.current.orderOpen({
-          assetId: activeAsset.assetId,
-          formData,
-          price: activeAssetCtx?.ctx?.markPrice || '0',
+  const handleConfirm = useCallback(
+    async (overrideSide?: 'long' | 'short') => {
+      if (activeAsset?.assetId === undefined) {
+        Toast.error({
+          title: 'Order Failed',
+          message: 'Token information not available',
         });
-      } else {
-        await hyperliquidActions.current.orderOpen({
-          assetId: activeAsset.assetId,
-          formData,
-          price: formData.price || '0',
-        });
+        return;
       }
 
-      // Reset form after successful order
-      hyperliquidActions.current.resetTradingForm();
+      let effectiveFormData = overrideSide
+        ? { ...formData, side: overrideSide }
+        : formData;
 
-      options?.onSuccess?.();
-    } catch (error) {
-      options?.onError?.(error);
-    }
-  }, [
-    activeAssetCtx?.ctx?.markPrice,
-    activeAsset.assetId,
-    formData,
-    hyperliquidActions,
-    options,
-  ]);
+      if (formData.hasTpsl && (formData.tpValue || formData.slValue)) {
+        const entryPrice =
+          effectiveFormData.type === 'market'
+            ? new BigNumber(activeAssetCtx?.ctx?.markPrice || '0')
+            : new BigNumber(effectiveFormData.price || '0');
+
+        let calculatedTpTriggerPx = '';
+        let calculatedSlTriggerPx = '';
+
+        if (formData.tpValue) {
+          if (formData.tpType === 'price') {
+            calculatedTpTriggerPx = formData.tpValue;
+          } else {
+            const percent = new BigNumber(formData.tpValue);
+            if (percent.isFinite() && entryPrice.gt(0)) {
+              calculatedTpTriggerPx = entryPrice
+                .multipliedBy(percent)
+                .dividedBy(100)
+                .plus(entryPrice)
+                .toFixed();
+              calculatedTpTriggerPx = formatPriceToSignificantDigits(
+                calculatedTpTriggerPx,
+              );
+            }
+          }
+        }
+
+        if (formData.slValue) {
+          if (formData.slType === 'price') {
+            calculatedSlTriggerPx = formData.slValue;
+          } else {
+            const percent = new BigNumber(formData.slValue);
+            if (percent.isFinite() && entryPrice.gt(0)) {
+              calculatedSlTriggerPx = entryPrice
+                .multipliedBy(percent)
+                .dividedBy(100)
+                .plus(entryPrice)
+                .toFixed();
+              calculatedSlTriggerPx = formatPriceToSignificantDigits(
+                calculatedSlTriggerPx,
+              );
+            }
+          }
+        }
+
+        effectiveFormData = {
+          ...effectiveFormData,
+          tpTriggerPx: calculatedTpTriggerPx,
+          slTriggerPx: calculatedSlTriggerPx,
+        };
+      }
+
+      try {
+        if (effectiveFormData.type === 'market') {
+          await hyperliquidActions.current.orderOpen({
+            assetId: activeAsset.assetId,
+            formData: effectiveFormData,
+            price: activeAssetCtx?.ctx?.markPrice || '0',
+          });
+        } else {
+          await hyperliquidActions.current.orderOpen({
+            assetId: activeAsset.assetId,
+            formData: effectiveFormData,
+            price: effectiveFormData.price || '0',
+          });
+        }
+
+        // Reset form after successful order
+        hyperliquidActions.current.resetTradingForm();
+
+        options?.onSuccess?.();
+      } catch (error) {
+        options?.onError?.(error);
+      }
+    },
+    [
+      activeAssetCtx?.ctx?.markPrice,
+      activeAsset.assetId,
+      formData,
+      hyperliquidActions,
+      options,
+    ],
+  );
 
   return {
     isSubmitting,
