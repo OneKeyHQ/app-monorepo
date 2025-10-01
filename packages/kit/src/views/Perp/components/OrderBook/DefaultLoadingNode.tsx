@@ -9,6 +9,8 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IOrderBookVariant } from './types';
+
 const DESKTOP_ROW_HEIGHT = 18;
 const MOBILE_ROW_HEIGHT = 12;
 
@@ -87,7 +89,7 @@ const MOBILE_HORIZONTAL_WIDTHS = [
 ];
 
 export type IDefaultLoadingNodeProps = {
-  variant: 'desktop' | 'mobileVertical' | 'mobileHorizontal';
+  variant: IOrderBookVariant;
   symbol?: string;
 };
 

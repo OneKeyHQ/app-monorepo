@@ -115,8 +115,12 @@ function MobilePerpMarket() {
         </YStack>
       </Page.Body>
       <Page.Footer
-        onCancelText="Long"
-        onConfirmText="Short"
+        onCancelText={intl.formatMessage({
+          id: ETranslations.perp_trade_long,
+        })}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.perp_trade_short,
+        })}
         cancelButtonProps={{
           flex: 1,
           padding: 0,

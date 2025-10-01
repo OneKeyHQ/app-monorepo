@@ -4,7 +4,13 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
-import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Divider,
+  Icon,
+  Select,
+  SizableText,
+  XStack,
+} from '@onekeyhq/components';
 import type {
   IPerpsActiveAssetAtom,
   IPerpsActiveAssetCtxAtom,
@@ -164,14 +170,10 @@ export const SizeInput = memo(
 
     const formatLabel = useMemo(() => {
       if (label) return label;
-      return side === 'long'
-        ? intl.formatMessage({
-            id: ETranslations.perp_trade_buy_amount,
-          })
-        : intl.formatMessage({
-            id: ETranslations.perp_trade_sell_amount,
-          });
-    }, [side, label, intl]);
+      return intl.formatMessage({
+        id: ETranslations.dexmarket_details_history_amount,
+      });
+    }, [label, intl]);
 
     useEffect(() => {
       if (isUserTyping) {
@@ -278,12 +280,14 @@ export const SizeInput = memo(
             width: selectWidth,
           }}
           renderTrigger={({ label: selectedLabel }) => (
-            <XStack alignItems="center" gap="$1" cursor="pointer">
+            <XStack alignItems="center" gap="$2" cursor="pointer">
+              {isMobile ? <Divider vertical h={24} /> : null}
               <SizableText size="$bodyMdMedium" color="$textSubdued">
                 {selectedLabel}
               </SizableText>
               <Icon
-                name="ChevronDownSmallOutline"
+                ml="$-2"
+                name="ChevronTriangleDownSmallOutline"
                 size="$4"
                 color="$iconSubdued"
               />
@@ -291,7 +295,7 @@ export const SizeInput = memo(
           )}
         />
       ),
-      [selectItems, inputMode, handleModeChange, selectWidth, intl],
+      [selectItems, inputMode, handleModeChange, selectWidth, intl, isMobile],
     );
 
     const displayValue = useMemo(() => {

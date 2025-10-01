@@ -62,6 +62,12 @@ export interface ITradingFormData {
   tpGainPercent: string; // Gain %
   slTriggerPx: string; // SL Price
   slLossPercent: string; // Loss %
+
+  // New TPSL fields for form input
+  tpType?: 'price' | 'percentage';
+  tpValue?: string;
+  slType?: 'price' | 'percentage';
+  slValue?: string;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -78,6 +84,10 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     tpGainPercent: '',
     slTriggerPx: '',
     slLossPercent: '',
+    tpType: 'price',
+    tpValue: '',
+    slType: 'price',
+    slValue: '',
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
