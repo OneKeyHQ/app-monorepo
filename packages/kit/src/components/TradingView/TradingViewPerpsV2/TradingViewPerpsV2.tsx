@@ -42,11 +42,6 @@ const useSymbolSync = ({
     const hasSymbolChanged = prevSymbol !== symbol;
 
     if (hasSymbolChanged && webRef.current) {
-      console.log('🔄 Syncing symbol to WebView:', {
-        from: prevSymbol,
-        to: symbol,
-      });
-
       // Sync symbol changes via message communication instead of WebView reload
       webRef.current.sendMessageViaInjectedScript({
         type: 'SYMBOL_CHANGE',
@@ -100,19 +95,22 @@ WebViewMemoized.displayName = 'WebViewMemoized';
 export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
+  const { symbol, userAddress, onLoadEnd, onTradeUpdate } = props;
+
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
   const theme = useThemeVariant();
 
-  const { symbol, userAddress, onLoadEnd, onTradeUpdate } = props;
+  // Freeze initial symbol to prevent URL regeneration on symbol changes
+  const initialSymbolRef = useRef(symbol);
 
   const { handleNavigation } = useNavigationHandler();
 
   // Optimization: Static URL with only initialization params to avoid WebView reload
   const { finalUrl: staticTradingViewUrl } = useTradingViewUrl({
     additionalParams: {
-      symbol,
+      symbol: initialSymbolRef.current, // Use frozen initial symbol
       type: 'perps',
     },
   });
