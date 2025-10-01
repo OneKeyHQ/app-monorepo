@@ -47,55 +47,62 @@ export function useOrderConfirm(
         ? { ...formData, side: overrideSide }
         : formData;
 
-      if (formData.hasTpsl && (formData.tpValue || formData.slValue)) {
+      const { tpValue, slValue, tpType, slType, leverage = 1 } = formData;
+      const leverageBN = new BigNumber(leverage);
+      if (formData.hasTpsl && (tpValue || slValue)) {
         const entryPrice =
           effectiveFormData.type === 'market'
             ? new BigNumber(activeAssetCtx?.ctx?.markPrice || '0')
             : new BigNumber(effectiveFormData.price || '0');
 
-        let calculatedTpTriggerPx = '';
-        let calculatedSlTriggerPx = '';
+        let calculatedTpTriggerPx: BigNumber | null = null;
+        let calculatedSlTriggerPx: BigNumber | null = null;
+        const side = effectiveFormData.side;
 
-        if (formData.tpValue) {
-          if (formData.tpType === 'price') {
-            calculatedTpTriggerPx = formData.tpValue;
-          } else {
-            const percent = new BigNumber(formData.tpValue);
-            if (percent.isFinite() && entryPrice.gt(0)) {
-              calculatedTpTriggerPx = entryPrice
-                .multipliedBy(percent)
-                .dividedBy(100)
-                .plus(entryPrice)
-                .toFixed();
-              calculatedTpTriggerPx = formatPriceToSignificantDigits(
-                calculatedTpTriggerPx,
-              );
-            }
+        if (tpValue) {
+          const _tpValue = new BigNumber(tpValue);
+          if (tpType === 'price') {
+            calculatedTpTriggerPx = _tpValue;
+          }
+          if (tpType === 'percentage' && entryPrice.gt(0)) {
+            const percentChange = entryPrice
+              .multipliedBy(_tpValue)
+              .dividedBy(100)
+              .dividedBy(leverageBN);
+            const tpPrice =
+              side === 'long'
+                ? entryPrice.plus(percentChange)
+                : entryPrice.minus(percentChange);
+            calculatedTpTriggerPx = tpPrice;
           }
         }
 
-        if (formData.slValue) {
-          if (formData.slType === 'price') {
-            calculatedSlTriggerPx = formData.slValue;
-          } else {
-            const percent = new BigNumber(formData.slValue);
-            if (percent.isFinite() && entryPrice.gt(0)) {
-              calculatedSlTriggerPx = entryPrice
-                .multipliedBy(percent)
-                .dividedBy(100)
-                .plus(entryPrice)
-                .toFixed();
-              calculatedSlTriggerPx = formatPriceToSignificantDigits(
-                calculatedSlTriggerPx,
-              );
-            }
+        if (slValue) {
+          const _slValue = new BigNumber(slValue);
+          if (slType === 'price') {
+            calculatedSlTriggerPx = _slValue;
+          }
+          if (slType === 'percentage' && entryPrice.gt(0)) {
+            const percentChange = entryPrice
+              .multipliedBy(_slValue)
+              .dividedBy(100)
+              .dividedBy(leverageBN);
+            const slPrice =
+              side === 'long'
+                ? entryPrice.minus(percentChange)
+                : entryPrice.plus(percentChange);
+            calculatedSlTriggerPx = slPrice;
           }
         }
 
         effectiveFormData = {
           ...effectiveFormData,
-          tpTriggerPx: calculatedTpTriggerPx,
-          slTriggerPx: calculatedSlTriggerPx,
+          tpTriggerPx: calculatedTpTriggerPx
+            ? formatPriceToSignificantDigits(calculatedTpTriggerPx)
+            : '',
+          slTriggerPx: calculatedSlTriggerPx
+            ? formatPriceToSignificantDigits(calculatedSlTriggerPx)
+            : '',
         };
       }
 

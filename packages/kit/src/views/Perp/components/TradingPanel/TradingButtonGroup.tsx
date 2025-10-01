@@ -183,40 +183,48 @@ function SideButtonInternal({
 
   const handlePress = useCallback(() => {
     // Validate TPSL only if user has filled in values
-    const hasTpValue = formData.tpValue && formData.tpValue.trim() !== '';
-    const hasSlValue = formData.slValue && formData.slValue.trim() !== '';
+    const tpValue = formData.tpValue?.trim();
+    const slValue = formData.slValue?.trim();
+    const hasTpValue = Boolean(tpValue);
+    const hasSlValue = Boolean(slValue);
 
     if (formData.hasTpsl && (hasTpValue || hasSlValue)) {
       // Calculate trigger prices based on type
       let tpTriggerPrice: BigNumber | null = null;
       let slTriggerPrice: BigNumber | null = null;
 
-      if (hasTpValue) {
+      if (hasTpValue && tpValue) {
         if (formData.tpType === 'price') {
-          tpTriggerPrice = new BigNumber(formData.tpValue!);
+          tpTriggerPrice = new BigNumber(tpValue);
         } else {
           // percentage mode
-          const percent = new BigNumber(formData.tpValue!);
+          const percent = new BigNumber(tpValue);
           if (percent.isFinite()) {
-            tpTriggerPrice = effectivePriceBN
+            const percentChange = effectivePriceBN
               .multipliedBy(percent)
-              .dividedBy(100)
-              .plus(effectivePriceBN);
+              .dividedBy(100);
+            tpTriggerPrice =
+              side === 'long'
+                ? effectivePriceBN.plus(percentChange)
+                : effectivePriceBN.minus(percentChange);
           }
         }
       }
 
-      if (hasSlValue) {
+      if (hasSlValue && slValue) {
         if (formData.slType === 'price') {
-          slTriggerPrice = new BigNumber(formData.slValue!);
+          slTriggerPrice = new BigNumber(slValue);
         } else {
           // percentage mode
-          const percent = new BigNumber(formData.slValue!);
+          const percent = new BigNumber(slValue);
           if (percent.isFinite()) {
-            slTriggerPrice = effectivePriceBN
+            const percentChange = effectivePriceBN
               .multipliedBy(percent)
-              .dividedBy(100)
-              .plus(effectivePriceBN);
+              .dividedBy(100);
+            slTriggerPrice =
+              side === 'long'
+                ? effectivePriceBN.minus(percentChange)
+                : effectivePriceBN.plus(percentChange);
           }
         }
       }

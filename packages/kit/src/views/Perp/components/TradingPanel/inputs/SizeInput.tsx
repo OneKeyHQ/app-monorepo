@@ -101,8 +101,23 @@ export const SizeInput = memo(
       if (value !== prevValueRef.current) {
         setTokenAmount(value);
         prevValueRef.current = value;
+
+        if (!value) {
+          setUsdAmount('');
+          setIsUserTyping(false);
+        } else if (hasValidPrice && !isUserTyping) {
+          const valueBN = new BigNumber(value);
+          if (valueBN.isFinite()) {
+            const usdValue = formatWithPrecision(
+              valueBN.multipliedBy(priceBN),
+              2,
+              true,
+            );
+            setUsdAmount(usdValue);
+          }
+        }
       }
-    }, [value]);
+    }, [value, hasValidPrice, priceBN, isUserTyping]);
 
     useEffect(() => {
       if (isSliderMode) return;
