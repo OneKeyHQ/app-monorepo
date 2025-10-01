@@ -9,6 +9,7 @@ import {
   Icon,
   IconButton,
   NumberSizeableText,
+  Popover,
   ScrollView,
   SizableText,
   SkeletonContainer,
@@ -19,6 +20,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
+  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -31,8 +33,10 @@ import {
 } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { useMMR } from '../../hooks/useMMR';
 import { PerpSettingsButton } from '../PerpSettingsButton';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
+import { PerpsAccountNumberValue } from '../TradingPanel/components/PerpsAccountNumberValue';
 
 function useTickerBarIsLoading() {
   const { isReady, hasError } = usePerpSession();
@@ -75,6 +79,7 @@ function TickerBarMarkPrice() {
 
 function TickerBarChange24hPercent() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const change24hPercent = assetCtx?.ctx?.change24hPercent || 0;
   const isLoading = useTickerBarIsLoading();
@@ -87,7 +92,9 @@ function TickerBarChange24hPercent() {
     >
       <SkeletonContainer isLoading={isLoading} width={50} height={16}>
         <NumberSizeableText
-          size="$headingXs"
+          size={gtMd ? '$headingXs' : '$bodySmMedium'}
+          fontSize={gtMd ? undefined : 10}
+          mt={gtMd ? undefined : '$-2'}
           color={change24hPercent >= 0 ? '$green11' : '$red11'}
           formatter="priceChange"
           formatterOptions={{
@@ -356,7 +363,8 @@ function PerpTickerBar() {
   const onPressCandleChart = useCallback(() => {
     navigation.push(EModalPerpRoutes.MobilePerpMarket);
   }, [navigation]);
-
+  const mmr = useMMR();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const onPressTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -370,20 +378,19 @@ function PerpTickerBar() {
         bg="$bgApp"
         gap="$4"
         px="$4"
-        py="$3"
-        alignItems="center"
+        pt="$2"
+        pb="$1.5"
+        alignItems="flex-start"
         justifyContent="space-between"
       >
-        <YStack gap="$1.5">
+        <YStack gap="$1">
           <XStack
-            gap="$1.5"
+            gap="$1"
             bg="$bgApp"
             onPress={onPressTokenSelector}
             justifyContent="center"
             alignItems="center"
           >
-            <Icon name="MenuOutline" size="$5" />
-
             <SizableText size="$headingXl">{coin}USD</SizableText>
             <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
               <SizableText color="$textSubdued" fontSize={11}>
@@ -392,9 +399,102 @@ function PerpTickerBar() {
                 })}
               </SizableText>
             </Badge>
+            <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
           </XStack>
+          <TickerBarChange24hPercent />
         </YStack>
-        <XStack gap="$3" alignItems="center">
+
+        <XStack pt="$0.5" gap="$3" alignItems="center">
+          <Popover
+            title="MMR"
+            renderTrigger={
+              mmr ? (
+                <XStack
+                  borderRadius="$full"
+                  alignItems="center"
+                  gap="$1"
+                  px="$2"
+                  borderColor={
+                    parseFloat(mmr.multipliedBy(100).toFixed(2)) <= 50
+                      ? '$green11'
+                      : '$red11'
+                  }
+                  borderWidth="$px"
+                >
+                  <SizableText
+                    lineHeight={18}
+                    fontSize={10}
+                    color={
+                      parseFloat(mmr.multipliedBy(100).toFixed(2)) <= 50
+                        ? '$green11'
+                        : '$red11'
+                    }
+                  >
+                    {mmr.multipliedBy(100).toFixed(2)}%
+                  </SizableText>
+                </XStack>
+              ) : null
+            }
+            renderContent={
+              <YStack
+                bg="$bg"
+                justifyContent="center"
+                w="100%"
+                px="$5"
+                pt="$2"
+                pb="$5"
+                gap="$5"
+              >
+                <XStack alignItems="center" justifyContent="space-between">
+                  <YStack w="50%">
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_account_panel_account_maintenance_margin,
+                      })}
+                    </SizableText>
+
+                    <PerpsAccountNumberValue
+                      value={accountSummary?.crossMaintenanceMarginUsed ?? ''}
+                      skeletonWidth={70}
+                      textSize="$bodyMdMedium"
+                    />
+                  </YStack>
+                  <YStack w="50%">
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_account_cross_margin_ration,
+                      })}
+                    </SizableText>
+                    <SizableText
+                      size="$bodyMdMedium"
+                      color={
+                        parseFloat(mmr?.multipliedBy(100).toFixed(2) || '0') <=
+                        50
+                          ? '$green11'
+                          : '$red11'
+                      }
+                    >
+                      {mmr?.multipliedBy(100).toFixed(2)}%
+                    </SizableText>
+                  </YStack>
+                </XStack>
+
+                <Divider />
+                <YStack gap="$2">
+                  <SizableText size="$bodySmMedium">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodySmMedium">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_account_cross_margin_ration_tip,
+                    })}
+                  </SizableText>
+                </YStack>
+              </YStack>
+            }
+          />
           <IconButton
             icon="TradingViewCandlesOutline"
             size="small"

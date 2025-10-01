@@ -137,7 +137,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_position_position_size,
         }),
-        minWidth: 120,
+        minWidth: 140,
         align: 'left',
         flex: 1,
       },
