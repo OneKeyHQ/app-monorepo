@@ -264,13 +264,15 @@ export function Container({
 
   useEffect(() => {
     const index = tabNames.findIndex((name) => name === initialTabName);
-    if (initialTabName) {
-      const width = scrollElement?.clientWidth || 0;
-      listContainerRef.current?.scrollTo({
-        left: width * index,
-        behavior: 'instant',
-      });
-    }
+    setTimeout(() => {
+      if (initialTabName) {
+        const width = scrollElement?.clientWidth || 0;
+        listContainerRef.current?.scrollTo({
+          left: width * index,
+          behavior: 'instant',
+        });
+      }
+    }, 100);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
