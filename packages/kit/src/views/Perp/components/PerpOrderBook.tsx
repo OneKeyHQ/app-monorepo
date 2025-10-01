@@ -37,6 +37,7 @@ import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
+import type { IOrderBookVariant } from './OrderBook/types';
 
 function MobileHeader() {
   const intl = useIntl();
@@ -77,17 +78,14 @@ function MobileHeader() {
           <SizableText
             fontSize={10}
             color="$textSubdued"
-            borderBottomWidth="$px"
-            borderTopWidth={0}
-            borderLeftWidth={0}
-            borderRightWidth={0}
-            borderBottomColor="$border"
-            borderStyle="dashed"
+            textDecorationLine="underline"
+            textDecorationStyle="dotted"
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
           </SizableText>
+
           {showSkeleton ? (
             <Skeleton width={120} height={16} />
           ) : (
@@ -293,6 +291,7 @@ export function PerpOrderBook({
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
           loadingNode={<DefaultLoadingNode variant="mobileHorizontal" />}
+          variant="mobileHorizontal"
         />
       );
     }
@@ -311,6 +310,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          variant="mobileVertical"
         />
       </YStack>
     );
@@ -337,9 +337,7 @@ export function PerpOrderBook({
     return (
       <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
         <DefaultLoadingNode
-          variant={
-            loadingVariant as 'desktop' | 'mobileVertical' | 'mobileHorizontal'
-          }
+          variant={loadingVariant as IOrderBookVariant}
           symbol={
             loadingVariant === 'mobileVertical' ? l2Book?.coin : undefined
           }
@@ -364,6 +362,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          variant="web"
         />
       ) : (
         mobileOrderBook

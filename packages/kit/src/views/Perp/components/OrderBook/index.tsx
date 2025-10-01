@@ -35,13 +35,22 @@ import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { getMidPrice } from './utils';
 
-import type { IFormattedOBLevel } from './types';
+import type { IFormattedOBLevel, IOrderBookVariant } from './types';
 import type {
   DimensionValue,
   PressableStateCallbackType,
   StyleProp,
+  TextProps,
   ViewStyle,
 } from 'react-native';
+
+export function PerpBookText({ children, style, ...props }: TextProps) {
+  return (
+    <Text allowFontScaling={false} style={style} {...props}>
+      {children}
+    </Text>
+  );
+}
 
 export const rowHeight = 24;
 
@@ -55,7 +64,7 @@ const getPressableHoverState = (state: PressableStateCallbackType): boolean => {
 };
 
 export const defaultMidPriceNode = (midPrice: string) => (
-  <Text>{midPrice}</Text>
+  <PerpBookText>{midPrice}</PerpBookText>
 );
 
 // Helper function to calculate percentage with BigNumber precision
@@ -97,6 +106,8 @@ interface IOrderBookProps {
   sizeDecimals?: number;
   /** Callback when a price level is selected */
   onSelectLevel?: (payload: IOrderBookSelection) => void;
+  /** The current order book display variant */
+  variant: IOrderBookVariant;
 }
 
 const styles = StyleSheet.create({
@@ -308,7 +319,7 @@ function OrderBookVerticalRow({
     <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
       <View style={styles.verticalRowContainer}>
         <View style={styles.verticalRowCellPrice}>
-          <Text
+          <PerpBookText
             style={[
               styles.monospaceText,
               { color: priceColor },
@@ -317,10 +328,10 @@ function OrderBookVerticalRow({
             numberOfLines={1}
           >
             {item.price}
-          </Text>
+          </PerpBookText>
         </View>
         <View style={styles.verticalRowCellSize}>
-          <Text
+          <PerpBookText
             numberOfLines={1}
             style={[
               styles.monospaceText,
@@ -329,10 +340,10 @@ function OrderBookVerticalRow({
             ]}
           >
             {item.displaySize}
-          </Text>
+          </PerpBookText>
         </View>
         <View style={styles.verticalRowCellTotal}>
-          <Text
+          <PerpBookText
             numberOfLines={1}
             style={[
               styles.monospaceText,
@@ -341,7 +352,7 @@ function OrderBookVerticalRow({
             ]}
           >
             {item.displayCumSize}
-          </Text>
+          </PerpBookText>
         </View>
       </View>
     </DebugRenderTracker>
@@ -392,13 +403,14 @@ const useBlockColorsMobile = () => {
 };
 
 export function OrderBook({
+  variant,
   symbol: _symbol,
   bids,
   asks,
   maxLevelsPerSide = 30,
   style,
   midPriceNode: _midPriceNode = defaultMidPriceNode,
-  loadingNode = <DefaultLoadingNode variant="desktop" />,
+  loadingNode = <DefaultLoadingNode variant="web" />,
   horizontal = true,
   selectedTickOption,
   onTickOptionChange,
@@ -421,6 +433,7 @@ export function OrderBook({
   );
 
   const aggregatedData = useAggregatedBook(
+    variant,
     bids,
     asks,
     maxLevelsPerSide,
@@ -486,11 +499,11 @@ export function OrderBook({
             }}
           >
             <View style={styles.horizontalHeaderContainer}>
-              <Text
+              <PerpBookText
                 style={[styles.headerText, { color: textColor.textSubdued }]}
               >
                 {intl.formatMessage({ id: ETranslations.global_buy })}
-              </Text>
+              </PerpBookText>
               {showTickSelector ? (
                 <Select
                   floatingPanelProps={{
@@ -517,7 +530,7 @@ export function OrderBook({
                       }}
                       onPress={onPress}
                     >
-                      <Text
+                      <PerpBookText
                         numberOfLines={1}
                         ellipsizeMode="tail"
                         style={[styles.bodySm, { color: textColor.text }]}
@@ -527,7 +540,7 @@ export function OrderBook({
                               priceDecimals,
                             )
                           : '-'}
-                      </Text>
+                      </PerpBookText>
                       <Icon
                         name="ChevronDownSmallOutline"
                         size="$3"
@@ -537,11 +550,11 @@ export function OrderBook({
                   )}
                 />
               ) : null}
-              <Text
+              <PerpBookText
                 style={[styles.headerText, { color: textColor.textSubdued }]}
               >
                 {intl.formatMessage({ id: ETranslations.global_sell })}
-              </Text>
+              </PerpBookText>
             </View>
           </View>
         </DebugRenderTracker>
@@ -605,7 +618,7 @@ export function OrderBook({
                         const isHovered = getPressableHoverState(state);
                         return (
                           <View style={styles.interactiveRowContent}>
-                            <Text
+                            <PerpBookText
                               style={[
                                 styles.monospaceText,
                                 { color: textColor.textSubdued },
@@ -613,8 +626,8 @@ export function OrderBook({
                               ]}
                             >
                               {item.displaySize}
-                            </Text>
-                            <Text
+                            </PerpBookText>
+                            <PerpBookText
                               style={[
                                 styles.monospaceText,
                                 { color: textColor.green },
@@ -622,7 +635,7 @@ export function OrderBook({
                               ]}
                             >
                               {item.price}
-                            </Text>
+                            </PerpBookText>
                           </View>
                         );
                       }}
@@ -646,7 +659,7 @@ export function OrderBook({
                         const isHovered = getPressableHoverState(state);
                         return (
                           <View style={styles.interactiveRowContent}>
-                            <Text
+                            <PerpBookText
                               style={[
                                 styles.monospaceText,
                                 { color: textColor.red },
@@ -654,8 +667,8 @@ export function OrderBook({
                               ]}
                             >
                               {item.price}
-                            </Text>
-                            <Text
+                            </PerpBookText>
+                            <PerpBookText
                               style={[
                                 styles.monospaceText,
                                 { color: textColor.text },
@@ -663,7 +676,7 @@ export function OrderBook({
                               ]}
                             >
                               {item.displaySize}
-                            </Text>
+                            </PerpBookText>
                           </View>
                         );
                       }}
@@ -685,34 +698,34 @@ export function OrderBook({
       >
         <View style={{ flexDirection: 'row' }}>
           <View style={styles.verticalHeaderPrice}>
-            <Text
+            <PerpBookText
               style={[
                 styles.verticalHeaderText,
                 { textAlign: 'left', color: textColor.textSubdued },
               ]}
             >
               {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-            </Text>
+            </PerpBookText>
           </View>
           <View style={styles.verticalHeaderSize}>
-            <Text
+            <PerpBookText
               style={[
                 styles.verticalHeaderText,
                 { textAlign: 'right', color: textColor.textSubdued },
               ]}
             >
               {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-            </Text>
+            </PerpBookText>
           </View>
           <View style={styles.verticalHeaderTotal}>
-            <Text
+            <PerpBookText
               style={[
                 styles.verticalHeaderText,
                 { textAlign: 'right', color: textColor.textSubdued },
               ]}
             >
               {intl.formatMessage({ id: ETranslations.perp_orderbook_total })}
-            </Text>
+            </PerpBookText>
           </View>
         </View>
       </DebugRenderTracker>
@@ -780,11 +793,11 @@ export function OrderBook({
                 { backgroundColor: spreadColor.backgroundColor },
               ]}
             >
-              <Text style={[styles.bodySm, { color: textColor.text }]}>
+              <PerpBookText style={[styles.bodySm, { color: textColor.text }]}>
                 {intl.formatMessage({
                   id: ETranslations.perp_orderbook_spread,
                 })}
-              </Text>
+              </PerpBookText>
               {showTickSelector ? (
                 <Select
                   floatingPanelProps={{
@@ -811,7 +824,7 @@ export function OrderBook({
                       }}
                       onPress={onPress}
                     >
-                      <Text
+                      <PerpBookText
                         numberOfLines={1}
                         ellipsizeMode="tail"
                         style={[styles.bodySm, { color: textColor.text }]}
@@ -821,7 +834,7 @@ export function OrderBook({
                               priceDecimals,
                             )
                           : '-'}
-                      </Text>
+                      </PerpBookText>
                       <Icon
                         name="ChevronDownSmallOutline"
                         size="$4"
@@ -831,9 +844,9 @@ export function OrderBook({
                   )}
                 />
               ) : null}
-              <Text style={[styles.bodySm, { color: textColor.text }]}>
+              <PerpBookText style={[styles.bodySm, { color: textColor.text }]}>
                 {spreadPercentage}
-              </Text>
+              </PerpBookText>
             </View>
           </DebugRenderTracker>
           {aggregatedData.bids.map((itemData, index) => (
@@ -885,22 +898,23 @@ function OrderBookPairRow({
           alignItems: 'center',
         }}
       >
-        <Text
+        <PerpBookText
           style={[styles.monospaceText, { color: priceColor }, fontWeightStyle]}
         >
           {item.price}
-        </Text>
-        <Text
+        </PerpBookText>
+        <PerpBookText
           style={[styles.monospaceText, { color: sizeColor }, fontWeightStyle]}
         >
           {item.displaySize}
-        </Text>
+        </PerpBookText>
       </View>
     </DebugRenderTracker>
   );
 }
 
 export function OrderPairBook({
+  variant,
   symbol: _symbol,
   bids,
   asks,
@@ -908,6 +922,7 @@ export function OrderPairBook({
   selectedTickOption,
   onSelectLevel,
 }: {
+  variant: IOrderBookVariant;
   symbol?: string;
   maxLevelsPerSide?: number;
   bids: IBookLevel[];
@@ -917,6 +932,7 @@ export function OrderPairBook({
 }) {
   const intl = useIntl();
   const aggregatedData = useAggregatedBook(
+    variant,
     bids,
     asks,
     maxLevelsPerSide,
@@ -972,12 +988,16 @@ export function OrderPairBook({
     <View style={{ padding: 8 }}>
       <DebugRenderTracker name="OrderPairBookHeader" position="right-center">
         <View style={styles.pairBookHeader}>
-          <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+          <PerpBookText
+            style={[styles.headerText, { color: textColor.textSubdued }]}
+          >
             {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-          </Text>
-          <Text style={[styles.headerText, { color: textColor.textSubdued }]}>
+          </PerpBookText>
+          <PerpBookText
+            style={[styles.headerText, { color: textColor.textSubdued }]}
+          >
             {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-          </Text>
+          </PerpBookText>
         </View>
       </DebugRenderTracker>
       <View style={styles.relativeContainer}>
@@ -1028,17 +1048,23 @@ export function OrderPairBook({
             position="right-center"
           >
             <View style={styles.pairBookSpreadRow}>
-              <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              <PerpBookText
+                style={[styles.bodySm, { color: textColor.textSubdued }]}
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_orderbook_spread,
                 })}
-              </Text>
-              <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              </PerpBookText>
+              <PerpBookText
+                style={[styles.bodySm, { color: textColor.textSubdued }]}
+              >
                 {midPrice}
-              </Text>
-              <Text style={[styles.bodySm, { color: textColor.textSubdued }]}>
+              </PerpBookText>
+              <PerpBookText
+                style={[styles.bodySm, { color: textColor.textSubdued }]}
+              >
                 {spreadPercentage}
-              </Text>
+              </PerpBookText>
             </View>
           </DebugRenderTracker>
           {aggregatedData.bids.map((itemData, index) => (
@@ -1070,7 +1096,7 @@ export function OrderPairBook({
 // Compact row height for mobile
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
-const MOBILE_SPREAD_ROW_HEIGHT = 40;
+const MOBILE_SPREAD_ROW_HEIGHT = 54;
 const MOBILE_PRICE_FLEX = 0.6;
 const MOBILE_SIZE_FLEX = 0.4;
 const MobileRow = ({
@@ -1094,7 +1120,7 @@ const MobileRow = ({
       }}
     >
       <View style={{ flex: MOBILE_PRICE_FLEX }}>
-        <Text
+        <PerpBookText
           numberOfLines={1}
           style={[
             styles.monospaceText,
@@ -1107,10 +1133,10 @@ const MobileRow = ({
           ]}
         >
           {item.price}
-        </Text>
+        </PerpBookText>
       </View>
       <View style={{ flex: MOBILE_SIZE_FLEX, alignItems: 'flex-end' }}>
-        <Text
+        <PerpBookText
           numberOfLines={1}
           style={[
             styles.monospaceText,
@@ -1123,7 +1149,7 @@ const MobileRow = ({
           ]}
         >
           {item.displaySize}
-        </Text>
+        </PerpBookText>
       </View>
     </View>
   </DebugRenderTracker>
@@ -1132,6 +1158,7 @@ const MobileRow = ({
 // A compact, mobile-friendly order book: two columns (Price/Size),
 // asks on top, bids at bottom, with a prominent spread row in the middle.
 export function OrderBookMobile({
+  variant,
   symbol: _symbol,
   bids,
   asks,
@@ -1152,6 +1179,7 @@ export function OrderBookMobile({
     oraclePrice: '0',
   };
   const aggregatedData = useAggregatedBook(
+    variant,
     bids,
     asks,
     maxLevelsPerSide,
@@ -1214,7 +1242,7 @@ export function OrderBookMobile({
         <View style={styles.pairBookHeader}>
           <View style={{ flexDirection: 'row', width: '100%' }}>
             <View style={{ flex: MOBILE_PRICE_FLEX }}>
-              <Text
+              <PerpBookText
                 style={[
                   styles.headerText,
                   {
@@ -1225,8 +1253,8 @@ export function OrderBookMobile({
                 ]}
               >
                 {intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
-              </Text>
-              <Text
+              </PerpBookText>
+              <PerpBookText
                 style={[
                   styles.headerText,
                   {
@@ -1237,7 +1265,7 @@ export function OrderBookMobile({
                 ]}
               >
                 (USD)
-              </Text>
+              </PerpBookText>
             </View>
             <View
               style={{
@@ -1245,7 +1273,7 @@ export function OrderBookMobile({
                 alignItems: 'flex-end',
               }}
             >
-              <Text
+              <PerpBookText
                 style={[
                   styles.headerText,
                   {
@@ -1256,8 +1284,8 @@ export function OrderBookMobile({
                 ]}
               >
                 {intl.formatMessage({ id: ETranslations.perp_orderbook_size })}
-              </Text>
-              <Text
+              </PerpBookText>
+              <PerpBookText
                 style={[
                   styles.headerText,
                   {
@@ -1268,7 +1296,7 @@ export function OrderBookMobile({
                 ]}
               >
                 ({_symbol ?? ''})
-              </Text>
+              </PerpBookText>
             </View>
           </View>
         </View>
@@ -1352,11 +1380,12 @@ export function OrderBookMobile({
           >
             <View
               style={{
-                flexDirection: 'row',
-                gap: 12,
-                alignItems: 'center',
-                justifyContent: 'space-between',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                justifyContent: 'flex-start',
                 height: MOBILE_SPREAD_ROW_HEIGHT,
+                paddingTop: 6,
+                paddingBottom: 6,
               }}
             >
               <Popover
@@ -1364,7 +1393,7 @@ export function OrderBookMobile({
                   id: ETranslations.perp_order_mid_price_title,
                 })}
                 renderTrigger={
-                  <Text
+                  <PerpBookText
                     style={[
                       styles.monospaceText,
                       {
@@ -1376,7 +1405,7 @@ export function OrderBookMobile({
                     ]}
                   >
                     {midPrice}
-                  </Text>
+                  </PerpBookText>
                 }
                 renderContent={
                   <YStack px="$5" pb="$4">
@@ -1393,7 +1422,7 @@ export function OrderBookMobile({
                   id: ETranslations.perp_position_mark_price,
                 })}
                 renderTrigger={
-                  <Text
+                  <PerpBookText
                     style={[
                       styles.monospaceText,
                       {
@@ -1407,7 +1436,7 @@ export function OrderBookMobile({
                     ]}
                   >
                     {markPrice}
-                  </Text>
+                  </PerpBookText>
                 }
                 renderContent={
                   <YStack px="$5" pb="$4">
@@ -1475,7 +1504,7 @@ export function OrderBookMobile({
               }}
               onPress={onPress}
             >
-              <Text
+              <PerpBookText
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 style={[styles.bodySm, { color: textColor.text }]}
@@ -1485,7 +1514,7 @@ export function OrderBookMobile({
                       priceDecimals,
                     )
                   : '-'}
-              </Text>
+              </PerpBookText>
               <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
             </TouchableOpacity>
           )}

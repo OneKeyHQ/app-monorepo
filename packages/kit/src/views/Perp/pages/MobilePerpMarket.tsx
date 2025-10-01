@@ -102,10 +102,10 @@ function MobilePerpMarket() {
     <Page scrollEnabled>
       <Page.Header headerLeft={renderHeaderTitle} />
       <Page.Body px="$0" py="$0">
-        <YStack flex={1} bg="$bgApp" gap="$2.5">
+        <YStack flex={1} bg="$bgApp" gap="$1.5">
           <MobilePerpMarketHeader />
 
-          <YStack flex={1} minHeight={450}>
+          <YStack flex={1} minHeight={500}>
             <PerpCandles />
           </YStack>
 

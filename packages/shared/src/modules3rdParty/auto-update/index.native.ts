@@ -300,5 +300,8 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
     BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
-  getWebEmbedPath: () => BundleUpdateModule.getWebEmbedPath(),
+  getWebEmbedPath: () =>
+    BundleUpdateModule && BundleUpdateModule.getWebEmbedPath
+      ? BundleUpdateModule.getWebEmbedPath()
+      : Promise.resolve(''),
 };
