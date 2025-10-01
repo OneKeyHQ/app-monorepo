@@ -132,7 +132,15 @@ function SideButtonInternal({
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
       });
-    if (isMinimumOrderNotMetForSide) return 'Order must be at least $10';
+    if (isMinimumOrderNotMetForSide)
+      return intl.formatMessage(
+        {
+          id: ETranslations.perp_size_least,
+        },
+        {
+          amount: '$10',
+        },
+      );
     if (isNoEnoughMargin)
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
@@ -222,15 +230,23 @@ function SideButtonInternal({
       ) {
         if (side === 'long' && tpTriggerPrice.lte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'TP must be higher than entry price for long',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_desc_1,
+            }),
           });
           return;
         }
         if (side === 'short' && tpTriggerPrice.gte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'TP must be lower than entry price for short',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_desc_2,
+            }),
           });
           return;
         }
@@ -245,15 +261,23 @@ function SideButtonInternal({
       ) {
         if (side === 'long' && slTriggerPrice.gte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'SL must be lower than entry price for long',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_sl_desc_1,
+            }),
           });
           return;
         }
         if (side === 'short' && slTriggerPrice.lte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'SL must be higher than entry price for short',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_sl_desc_2,
+            }),
           });
           return;
         }
@@ -269,6 +293,7 @@ function SideButtonInternal({
   }, [
     side,
     formData,
+    intl,
     effectivePriceBN,
     perpsCustomSettings.skipOrderConfirm,
     handleConfirm,
