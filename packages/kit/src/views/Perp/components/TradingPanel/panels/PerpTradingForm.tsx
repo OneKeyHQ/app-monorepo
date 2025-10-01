@@ -458,38 +458,58 @@ function PerpTradingForm({
           isMobile={isMobile}
         />
         <Slider
-          mt="$2"
           min={0}
           max={100}
           value={sliderValue}
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
           step={1}
+          h="$1.5"
         />
-        <YStack gap="$1">
-          <Checkbox
-            label={intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl,
-            })}
-            value={formData.hasTpsl}
-            onChange={handleTpslCheckboxChange}
-            disabled={isSubmitting}
-            labelProps={{
-              fontSize: getFontSize('$bodySm'),
-              color: '$textSubdued',
-            }}
-            containerProps={{ p: 0, alignItems: 'center' }}
-            width="$3.5"
-            height="$3.5"
-            p="$0"
-          />
-
+        <YStack gap="$1" mt="$1">
+          <XStack alignItems="center" gap="$2">
+            <Checkbox
+              value={formData.hasTpsl}
+              onChange={handleTpslCheckboxChange}
+              disabled={isSubmitting}
+              containerProps={{ p: 0, alignItems: 'center' }}
+              width="$3.5"
+              height="$3.5"
+              p="$0"
+            />
+            <Popover
+              renderContent={() => (
+                <YStack px="$5" pt="$2" pb="$4">
+                  <SizableText size="$bodyMd">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              )}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  textDecorationColor="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </SizableText>
+              }
+              title={intl.formatMessage({
+                id: ETranslations.perp_position_tp_sl,
+              })}
+            />
+          </XStack>
           {formData.hasTpsl ? (
             <YStack gap="$2">
               <TpSlFormInput
                 type="tp"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_trade_tp_price,
+                  id: ETranslations.perp_tp,
                 })}
                 value={formData.tpValue || ''}
                 inputType={formData.tpType || 'price'}
@@ -503,7 +523,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="sl"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_trade_sl_price,
+                  id: ETranslations.perp_sl,
                 })}
                 value={formData.slValue || ''}
                 inputType={formData.slType || 'price'}
@@ -517,62 +537,6 @@ function PerpTradingForm({
             </YStack>
           ) : null}
         </YStack>
-        <YStack
-          flex={1}
-          px="$2"
-          py="$1"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          borderRadius="$2"
-        >
-          <XStack justifyContent="space-between">
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.perp_est_liq_price,
-              })}
-              renderTrigger={
-                <SizableText
-                  fontSize={10}
-                  color="$textSubdued"
-                  textDecorationLine="underline"
-                  textDecorationStyle="dotted"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_liq_price,
-                  })}
-                </SizableText>
-              }
-              renderContent={
-                <XStack px="$5" pb="$3">
-                  <SizableText size="$bodyMd" color="$text">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_est_liq_price_tooltip,
-                    })}
-                  </SizableText>
-                </XStack>
-              }
-            />
-            <SizableText fontSize={10} color="$text" fontWeight={500}>
-              <LiquidationPriceDisplay isMobile={isMobile} />
-            </SizableText>
-          </XStack>
-          <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_order_value,
-              })}
-            </SizableText>
-            <NumberSizeableText
-              fontSize={10}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-              color="$text"
-              fontWeight={500}
-            >
-              {totalValue.toNumber()}
-            </NumberSizeableText>
-          </XStack>
-        </YStack>
       </YStack>
     );
   }
@@ -583,12 +547,28 @@ function PerpTradingForm({
         <YStack>
           <XStack>
             {orderTypeOptions.map((option) => (
-              <Tabs.TabBarItem
+              <XStack
+                pb="$2.5"
                 key={option.value}
-                name={option.name}
-                isFocused={formData.type === option.value}
-                onPress={handleOrderTypeChange}
-              />
+                ml="$2.5"
+                mr="$2"
+                borderBottomWidth={
+                  formData.type === option.value ? '$0.5' : '$0'
+                }
+                borderBottomColor="$borderActive"
+                onPress={() => handleOrderTypeChange(option.name)}
+                cursor="pointer"
+              >
+                <SizableText
+                  size="$headingXs"
+                  fontSize={14}
+                  color={
+                    formData.type === option.value ? '$text' : '$textSubdued'
+                  }
+                >
+                  {option.name}
+                </SizableText>
+              </XStack>
             ))}
           </XStack>
           <Divider />
@@ -609,21 +589,6 @@ function PerpTradingForm({
           borderColor="$borderSubdued"
           borderRadius="$3"
         >
-          {/* Available Balance */}
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_account_overview_available,
-              })}
-            </SizableText>
-            {activeAssetData ? (
-              <SizableText size="$bodySmMedium" color="$text">
-                ${availableToTradeDisplay}
-              </SizableText>
-            ) : (
-              <Skeleton width={70} height={16} />
-            )}
-          </XStack>
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
@@ -685,28 +650,44 @@ function PerpTradingForm({
         />
 
         <YStack p="$0">
-          <Checkbox
-            label={intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl,
-            })}
-            value={formData.hasTpsl}
-            onChange={handleTpslCheckboxChange}
-            disabled={isSubmitting}
-            labelProps={{
-              fontSize: getFontSize('$bodyMd'),
-              color: '$textSubdued',
-            }}
-            containerProps={{ alignItems: 'center' }}
-            width="$4"
-            height="$4"
-          />
+          <XStack alignItems="center" gap="$2">
+            <Checkbox
+              value={formData.hasTpsl}
+              onChange={handleTpslCheckboxChange}
+              disabled={isSubmitting}
+              containerProps={{ alignItems: 'center', cursor: 'pointer' }}
+              width="$4"
+              height="$4"
+            />
+            <Tooltip
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_tp_sl_tooltip,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodyMd"
+                  borderBottomWidth="$px"
+                  borderTopWidth={0}
+                  borderLeftWidth={0}
+                  borderRightWidth={0}
+                  borderBottomColor="$border"
+                  borderStyle="dashed"
+                  cursor="help"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </SizableText>
+              }
+            />
+          </XStack>
 
           {formData.hasTpsl ? (
             <YStack gap="$2">
               <TpSlFormInput
                 type="tp"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_trade_tp_price,
+                  id: ETranslations.perp_tp,
                 })}
                 value={formData.tpValue || ''}
                 inputType={formData.tpType || 'price'}
@@ -719,7 +700,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="sl"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_trade_sl_price,
+                  id: ETranslations.perp_sl,
                 })}
                 value={formData.slValue || ''}
                 inputType={formData.slType || 'price'}
@@ -732,85 +713,6 @@ function PerpTradingForm({
             </YStack>
           ) : null}
         </YStack>
-      </YStack>
-
-      <YStack gap="$2" mt="$5">
-        <XStack justifyContent="space-between">
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_est_liq_price_tooltip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_est_liq_price,
-                })}
-              </SizableText>
-            }
-          />
-
-          <SizableText size="$bodySmMedium">
-            <LiquidationPriceDisplay />
-          </SizableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_order_value,
-            })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {totalValue.toNumber()}
-          </NumberSizeableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_trade_margin_tooltip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_margin_required,
-                })}
-              </SizableText>
-            }
-          />
-
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {marginRequired.toNumber()}
-          </NumberSizeableText>
-        </XStack>
       </YStack>
     </>
   );

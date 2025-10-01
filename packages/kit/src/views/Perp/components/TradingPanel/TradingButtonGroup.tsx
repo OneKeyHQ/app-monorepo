@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   NumberSizeableText,
+  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -30,14 +31,20 @@ import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 interface ITradingButtonGroupProps {
   isSubmitting: boolean;
+  isMobile: boolean;
 }
 
 interface ISideButtonProps {
   side: 'long' | 'short';
   isSubmitting: boolean;
+  isMobile: boolean;
 }
 
-function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
+function SideButtonInternal({
+  side,
+  isSubmitting,
+  isMobile,
+}: ISideButtonProps) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -269,8 +276,8 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
 
   return (
     <YStack gap="$2" flex={1}>
-      <YStack gap="$1">
-        <XStack justifyContent="space-between">
+      <YStack gap="$1.5">
+        {/* <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
           </SizableText>
@@ -282,32 +289,62 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
           >
             {orderValue.toNumber()}
           </NumberSizeableText>
-        </XStack>
+        </XStack> */}
 
         <XStack justifyContent="space-between">
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_trade_margin_tooltip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_margin_required,
-                })}
-              </SizableText>
-            }
-          />
+          {isMobile ? (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_margin_required,
+                  })}
+                </SizableText>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_trade_margin_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
+          ) : (
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  borderBottomWidth="$px"
+                  borderTopWidth={0}
+                  borderLeftWidth={0}
+                  borderRightWidth={0}
+                  borderBottomColor="$border"
+                  borderStyle="dashed"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_margin_required,
+                  })}
+                </SizableText>
+              }
+            />
+          )}
+
           <NumberSizeableText
             size="$bodySm"
             color="$text"
@@ -319,29 +356,58 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
         </XStack>
 
         <XStack justifyContent="space-between">
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_est_liq_price_tooltip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_est_liq_price,
-                })}
-              </SizableText>
-            }
-          />
+          {isMobile ? (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </SizableText>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
+          ) : (
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  borderBottomWidth="$px"
+                  borderTopWidth={0}
+                  borderLeftWidth={0}
+                  borderRightWidth={0}
+                  borderBottomColor="$border"
+                  borderStyle="dashed"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </SizableText>
+              }
+            />
+          )}
           {liquidationPrice ? (
             <NumberSizeableText
               size="$bodySm"
@@ -387,11 +453,18 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
 
 const SideButton = memo(SideButtonInternal);
 
-function TradingButtonGroup({ isSubmitting }: ITradingButtonGroupProps) {
+function TradingButtonGroup({
+  isSubmitting,
+  isMobile,
+}: ITradingButtonGroupProps) {
   return (
     <YStack gap="$3">
-      <SideButton side="long" isSubmitting={isSubmitting} />
-      <SideButton side="short" isSubmitting={isSubmitting} />
+      <SideButton side="long" isSubmitting={isSubmitting} isMobile={isMobile} />
+      <SideButton
+        side="short"
+        isSubmitting={isSubmitting}
+        isMobile={isMobile}
+      />
     </YStack>
   );
 }

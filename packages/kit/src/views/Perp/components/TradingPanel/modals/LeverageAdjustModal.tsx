@@ -227,7 +227,15 @@ export const LeverageAdjustModal = memo(
           bg: '$bgStrongActive',
         }}
         cursor="pointer"
+        gap="$1"
       >
+        {isMobile ? null : (
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage({
+              id: ETranslations.perp_leverage,
+            })}
+          </SizableText>
+        )}
         <SizableText size="$bodyMdMedium">
           {activeAssetData?.leverage?.value ||
             currentToken?.universe?.maxLeverage ||

@@ -302,7 +302,7 @@ export function PerpOrderBook({
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={formData.hasTpsl ? 8 : 6}
+          maxLevelsPerSide={formData.hasTpsl ? 10 : 8}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}
