@@ -21,11 +21,11 @@ import {
   dispatchHyperLiquidOrderLog,
   extractHyperLiquidErrorResponse,
   serializeHyperLiquidError,
-} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperLiquid';
+} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import type {
   IHyperLiquidOrderAction,
   IHyperLiquidOrderRequestPayload,
-} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperLiquid';
+} from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   MAX_DECIMALS_PERP,
