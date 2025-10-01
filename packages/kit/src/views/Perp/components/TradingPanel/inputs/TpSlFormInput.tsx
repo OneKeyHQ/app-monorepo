@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
 import {
+  Divider,
   Icon,
   Select,
   SizableText,
@@ -75,7 +76,7 @@ export const TpSlFormInput = memo(
     const selectItems = useMemo(
       (): ISelectItem[] => [
         {
-          label: 'Price',
+          label: 'USD',
           value: 'price',
         },
         {
@@ -113,9 +114,10 @@ export const TpSlFormInput = memo(
             width: 120,
           }}
           renderTrigger={({ label: triggerLabel }) => (
-            <XStack alignItems="center" gap="$1" cursor="pointer">
+            <XStack alignItems="center" gap="$2" cursor="pointer">
+              {isMobile ? <Divider vertical h={24} /> : null}
               <SizableText
-                size={isMobile ? '$bodySm' : '$bodyMdMedium'}
+                size="$bodyMdMedium"
                 color={disabled ? '$textDisabled' : '$textSubdued'}
                 cursor={disabled ? 'not-allowed' : 'pointer'}
                 userSelect="none"
@@ -123,8 +125,9 @@ export const TpSlFormInput = memo(
                 {triggerLabel}
               </SizableText>
               <Icon
-                name="ChevronDownSmallOutline"
-                size={isMobile ? '$3.5' : '$4'}
+                name="ChevronTriangleDownSmallOutline"
+                ml="$-2"
+                size="$4"
                 color={disabled ? '$iconDisabled' : '$iconSubdued'}
               />
             </XStack>
@@ -136,22 +139,26 @@ export const TpSlFormInput = memo(
 
     if (isMobile) {
       return (
-        <YStack gap="$1">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {label}
-          </SizableText>
-          <TradingFormInput
-            label={label}
-            value={internalValue}
-            onChange={handleChange}
-            validator={validator}
-            error={error}
-            disabled={disabled}
-            customSuffix={customSuffix}
-            keyboardType="decimal-pad"
-            isMobile={isMobile}
-          />
-        </YStack>
+        <TradingFormInput
+          placeholder={
+            _type === 'tp'
+              ? intl.formatMessage({
+                  id: ETranslations.perp_tp,
+                })
+              : intl.formatMessage({
+                  id: ETranslations.perp_sl,
+                })
+          }
+          label={label}
+          value={internalValue}
+          onChange={handleChange}
+          validator={validator}
+          error={error}
+          disabled={disabled}
+          customSuffix={customSuffix}
+          keyboardType="decimal-pad"
+          isMobile={isMobile}
+        />
       );
     }
 

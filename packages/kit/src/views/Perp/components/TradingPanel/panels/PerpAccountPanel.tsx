@@ -64,7 +64,7 @@ function PerpAccountMMRView() {
             <SizableText
               size="$bodySm"
               color="$textSubdued"
-              cursor="default"
+              cursor="help"
               borderBottomWidth="$px"
               borderTopWidth={0}
               borderLeftWidth={0}
@@ -152,7 +152,7 @@ function PerpAccountPanel() {
               <SizableText
                 size="$bodySm"
                 color="$textSubdued"
-                cursor="default"
+                cursor="help"
                 borderBottomWidth="$px"
                 borderTopWidth={0}
                 borderLeftWidth={0}
@@ -192,7 +192,7 @@ function PerpAccountPanel() {
               <SizableText
                 size="$bodySm"
                 color="$textSubdued"
-                cursor="default"
+                cursor="help"
                 borderBottomWidth="$px"
                 borderTopWidth={0}
                 borderLeftWidth={0}

@@ -466,6 +466,7 @@ export function CommonTableListView({
                             borderRightWidth={0}
                             borderBottomColor="$border"
                             borderStyle="dashed"
+                            cursor="help"
                             color={
                               column.onPress ? '$textSuccess' : headerTextColor
                             }
