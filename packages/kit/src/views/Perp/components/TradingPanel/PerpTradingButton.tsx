@@ -8,21 +8,16 @@ import { Button, SizableText, Spinner, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAssetCtxAtom,
-  usePerpsAccountLoadingInfoAtom,
-  usePerpsActiveAccountAtom,
-  usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { usePerpEnableTradingStatus } from '../../hooks';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
@@ -52,19 +47,14 @@ export function PerpTradingButton({
   const intl = useIntl();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
-  const [perpsAccount] = usePerpsActiveAccountAtom();
-  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const {
+    perpsAccount,
+    perpsAccountLoading,
+    perpsAccountStatus,
+    isAccountLoading,
+    shouldShowEnableTradingButton,
+  } = usePerpEnableTradingStatus();
   const themeVariant = useThemeVariant();
-  const isAccountLoading = useMemo<boolean>(() => {
-    return (
-      perpsAccountLoading.enableTradingLoading ||
-      perpsAccountLoading.selectAccountLoading
-    );
-  }, [
-    perpsAccountLoading.enableTradingLoading,
-    perpsAccountLoading.selectAccountLoading,
-  ]);
 
   const enableTrading = useCallback(async () => {
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
@@ -270,11 +260,7 @@ export function PerpTradingButton({
     );
   }
 
-  if (
-    isAccountLoading ||
-    !perpsAccountStatus.canTrade ||
-    !perpsAccount?.accountAddress
-  ) {
+  if (shouldShowEnableTradingButton) {
     return (
       <Button
         size="medium"

@@ -164,6 +164,19 @@ export const {
   },
 });
 
+export const {
+  target: perpsShouldShowEnableTradingButtonAtom,
+  use: usePerpsShouldShowEnableTradingButtonAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => {
+    const status = get(perpsActiveAccountStatusAtom.atom());
+    const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const isAccountLoading =
+      loading.enableTradingLoading || loading.selectAccountLoading;
+    return isAccountLoading || !status?.canTrade || !status?.accountAddress;
+  },
+});
+
 // #endregion
 
 // #region Active Asset
