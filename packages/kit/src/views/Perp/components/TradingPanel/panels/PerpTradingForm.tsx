@@ -513,7 +513,7 @@ function PerpTradingForm({
                 })}
                 value={formData.tpValue || ''}
                 inputType={formData.tpType || 'price'}
-                referencePrice={referencePrice.toFixed()}
+                referencePrice={referencePriceString}
                 szDecimals={activeAsset?.universe?.szDecimals ?? 2}
                 onChange={handleTpValueChange}
                 onTypeChange={handleTpTypeChange}
@@ -527,7 +527,7 @@ function PerpTradingForm({
                 })}
                 value={formData.slValue || ''}
                 inputType={formData.slType || 'price'}
-                referencePrice={referencePrice.toFixed()}
+                referencePrice={referencePriceString}
                 szDecimals={activeAsset?.universe?.szDecimals ?? 2}
                 onChange={handleSlValueChange}
                 onTypeChange={handleSlTypeChange}
