@@ -12,6 +12,7 @@ import type {
   IEventWebData2Parameters,
   IHex,
   IPerpsActiveAssetDataRaw,
+  IPerpsSubscription,
   ISubscriptionClient,
   IWsAllMids,
   IWsAllMidsParameters,
@@ -24,7 +25,18 @@ import type {
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-export const SUBSCRIPTION_TYPE_INFO = {
+export const SUBSCRIPTION_TYPE_INFO: {
+  [type in ESubscriptionType]: {
+    eventType: 'market' | 'account';
+    priority: number;
+    keyGenerator: (params: any) => string;
+    createSubscription: (
+      client: ISubscriptionClient,
+      params: any,
+      handleData: (data: any) => void,
+    ) => Promise<IPerpsSubscription>;
+  };
+} = {
   [ESubscriptionType.ALL_MIDS]: {
     eventType: 'market',
     priority: 1,

@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+
 import type {
   IHex,
   IMarginTable,
@@ -7,7 +9,6 @@ import type {
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
-  IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -54,6 +55,35 @@ export const {
 } = globalAtom<IPerpsActiveAccountSummaryAtom>({
   name: EAtomNames.perpsActiveAccountSummaryAtom,
   initialValue: undefined,
+});
+
+export const {
+  target: perpsActiveAccountMmrAtom,
+  use: usePerpsActiveAccountMmrAtom,
+} = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
+  read: (get) => {
+    const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
+
+    if (
+      !accountSummary?.crossMaintenanceMarginUsed ||
+      !accountSummary?.crossAccountValue
+    ) {
+      return { mmr: null, mmrPercent: null };
+    }
+
+    const maintenanceMarginUsed = new BigNumber(
+      accountSummary.crossMaintenanceMarginUsed,
+    );
+    const accountValue = new BigNumber(accountSummary.crossAccountValue);
+
+    // Avoid division by zero
+    if (accountValue.isZero()) {
+      return { mmr: null, mmrPercent: null };
+    }
+
+    const mmr = maintenanceMarginUsed.dividedBy(accountValue);
+    return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
+  },
 });
 
 export type IPerpsActiveAccountStatusDetails = {
