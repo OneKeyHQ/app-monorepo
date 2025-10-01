@@ -11,21 +11,36 @@ import type {
   IAggregatedBookResult,
   IFormattedOBLevel,
   IOBLevel,
+  IOrderBookVariant,
 } from './types';
 
-const formatOrderBookValue = (value: string): string => {
+const MARKET_CAP_UNIT_SUFFIX = /(K|M|B|T)$/;
+
+const formatOrderBookValue = (
+  value: string,
+  variant: IOrderBookVariant,
+): string => {
   if (!value) {
     return '0';
   }
   const formatted = numberFormat(value, { formatter: 'marketCap' });
-  return (formatted as string) || '0';
+  if (
+    typeof formatted === 'string' &&
+    (variant === 'mobileVertical' || MARKET_CAP_UNIT_SUFFIX.test(formatted))
+  ) {
+    return formatted;
+  }
+  return value;
 };
 
-const withDisplayFields = (levels: IOBLevel[]): IFormattedOBLevel[] =>
+const withDisplayFields = (
+  levels: IOBLevel[],
+  variant: IOrderBookVariant,
+): IFormattedOBLevel[] =>
   levels.map((level) => ({
     ...level,
-    displaySize: formatOrderBookValue(level.size),
-    displayCumSize: formatOrderBookValue(level.cumSize),
+    displaySize: formatOrderBookValue(level.size, variant),
+    displayCumSize: formatOrderBookValue(level.cumSize, variant),
   }));
 
 // Aggregates in 1 iteration using BigNumber for precision
@@ -174,6 +189,7 @@ function convertHLBookLevelsToIOBLevels(
 }
 
 export function useAggregatedBook(
+  variant: IOrderBookVariant,
   bids: IBookLevel[],
   asks: IBookLevel[],
   maxLevelsPerSide: number,
@@ -189,8 +205,8 @@ export function useAggregatedBook(
 
   if (!activeTickOption) {
     return {
-      bids: withDisplayFields(convertedBids),
-      asks: withDisplayFields(convertedAsks),
+      bids: withDisplayFields(convertedBids, variant),
+      asks: withDisplayFields(convertedAsks, variant),
       maxBidSize: '0',
       maxAskSize: '0',
     };
@@ -216,8 +232,8 @@ export function useAggregatedBook(
       asksPrefixMaxSizes,
     );
     return {
-      bids: withDisplayFields(rawBids),
-      asks: withDisplayFields(rawAsks),
+      bids: withDisplayFields(rawBids, variant),
+      asks: withDisplayFields(rawAsks, variant),
       maxBidSize,
       maxAskSize,
     };
@@ -244,8 +260,8 @@ export function useAggregatedBook(
     );
 
   return {
-    bids: withDisplayFields(aggregatedBids),
-    asks: withDisplayFields(aggregatedAsks),
+    bids: withDisplayFields(aggregatedBids, variant),
+    asks: withDisplayFields(aggregatedAsks, variant),
     maxBidSize,
     maxAskSize,
   };

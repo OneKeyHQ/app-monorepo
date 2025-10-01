@@ -23,7 +23,7 @@ const LiquidationPriceDisplay = memo(
       <NumberSizeableText
         size={textSize ?? '$bodySmMedium'}
         style={{
-          fontSize: isMobile ? '10px' : undefined,
+          fontSize: isMobile ? 10 : undefined,
         }}
         formatter="price"
         formatterOptions={{ currency: '$' }}
