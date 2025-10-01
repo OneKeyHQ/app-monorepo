@@ -55,6 +55,7 @@ export function useOrderConfirm(
 
         let calculatedTpTriggerPx = '';
         let calculatedSlTriggerPx = '';
+        const side = effectiveFormData.side;
 
         if (formData.tpValue) {
           if (formData.tpType === 'price') {
@@ -62,11 +63,14 @@ export function useOrderConfirm(
           } else {
             const percent = new BigNumber(formData.tpValue);
             if (percent.isFinite() && entryPrice.gt(0)) {
-              calculatedTpTriggerPx = entryPrice
+              const percentChange = entryPrice
                 .multipliedBy(percent)
-                .dividedBy(100)
-                .plus(entryPrice)
-                .toFixed();
+                .dividedBy(100);
+              const tpPrice =
+                side === 'long'
+                  ? entryPrice.plus(percentChange)
+                  : entryPrice.minus(percentChange);
+              calculatedTpTriggerPx = tpPrice.toFixed();
               calculatedTpTriggerPx = formatPriceToSignificantDigits(
                 calculatedTpTriggerPx,
               );
@@ -80,11 +84,14 @@ export function useOrderConfirm(
           } else {
             const percent = new BigNumber(formData.slValue);
             if (percent.isFinite() && entryPrice.gt(0)) {
-              calculatedSlTriggerPx = entryPrice
+              const percentChange = entryPrice
                 .multipliedBy(percent)
-                .dividedBy(100)
-                .plus(entryPrice)
-                .toFixed();
+                .dividedBy(100);
+              const slPrice =
+                side === 'long'
+                  ? entryPrice.minus(percentChange)
+                  : entryPrice.plus(percentChange);
+              calculatedSlTriggerPx = slPrice.toFixed();
               calculatedSlTriggerPx = formatPriceToSignificantDigits(
                 calculatedSlTriggerPx,
               );

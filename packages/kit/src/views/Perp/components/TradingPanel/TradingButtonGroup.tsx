@@ -200,10 +200,13 @@ function SideButtonInternal({
           // percentage mode
           const percent = new BigNumber(tpValue);
           if (percent.isFinite()) {
-            tpTriggerPrice = effectivePriceBN
+            const percentChange = effectivePriceBN
               .multipliedBy(percent)
-              .dividedBy(100)
-              .plus(effectivePriceBN);
+              .dividedBy(100);
+            tpTriggerPrice =
+              side === 'long'
+                ? effectivePriceBN.plus(percentChange)
+                : effectivePriceBN.minus(percentChange);
           }
         }
       }
@@ -215,10 +218,13 @@ function SideButtonInternal({
           // percentage mode
           const percent = new BigNumber(slValue);
           if (percent.isFinite()) {
-            slTriggerPrice = effectivePriceBN
+            const percentChange = effectivePriceBN
               .multipliedBy(percent)
-              .dividedBy(100)
-              .plus(effectivePriceBN);
+              .dividedBy(100);
+            slTriggerPrice =
+              side === 'long'
+                ? effectivePriceBN.minus(percentChange)
+                : effectivePriceBN.plus(percentChange);
           }
         }
       }
