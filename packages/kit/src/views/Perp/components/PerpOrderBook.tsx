@@ -275,8 +275,7 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (formData.hasTpsl && shouldShowEnableTradingButton) return 7;
-    if (shouldShowEnableTradingButton) return 5;
+    if (shouldShowEnableTradingButton) return 4;
     if (formData.hasTpsl) return 10;
     return 8;
   }, [formData.hasTpsl, shouldShowEnableTradingButton]);
