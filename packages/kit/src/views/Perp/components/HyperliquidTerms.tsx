@@ -10,6 +10,7 @@ import {
   Dialog,
   Divider,
   Image,
+  Progress,
   ScrollView,
   SizableText,
   Stack,
@@ -38,9 +39,11 @@ interface ISlideData {
 export function HyperliquidTermsContent({
   onConfirm,
   renderDelay = 0,
+  onPageIndexChange,
 }: {
   onConfirm: () => void;
   renderDelay?: number;
+  onPageIndexChange?: (index: number) => void;
 }) {
   const { gtMd } = useMedia();
   const intl = useIntl();
@@ -318,7 +321,10 @@ export function HyperliquidTermsContent({
               <Button
                 variant="tertiary"
                 size="small"
-                onPress={gotToPrevIndex}
+                onPress={() => {
+                  onPageIndexChange?.(paginationCurrentIndex - 1);
+                  gotToPrevIndex();
+                }}
                 disabled={currentIndex === 0}
               >
                 {intl.formatMessage({
@@ -335,6 +341,7 @@ export function HyperliquidTermsContent({
                     }
                     return;
                   }
+                  onPageIndexChange?.(paginationCurrentIndex + 1);
                   goToNextIndex();
                 }}
                 disabled={isConfirmationSlide ? !canConfirm : null}
@@ -353,13 +360,14 @@ export function HyperliquidTermsContent({
       </YStack>
     ),
     [
-      canConfirm,
-      currentIndex,
-      isConfirmationSlide,
-      onConfirm,
-      showPaginationButton,
       slidesData,
+      showPaginationButton,
+      currentIndex,
       intl,
+      isConfirmationSlide,
+      canConfirm,
+      onPageIndexChange,
+      onConfirm,
     ],
   );
 
@@ -393,6 +401,7 @@ export function HyperliquidTermsContent({
 
 export function HyperliquidTermsOverlay() {
   const [isVisible, setIsVisible] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const handleConfirm = useCallback(() => {
     setIsVisible(false);
@@ -412,6 +421,10 @@ export function HyperliquidTermsOverlay() {
       void checkTermsAccepted();
     }, []),
   );
+
+  const onPageIndexChange = useCallback((index: number) => {
+    setProgress(((index + 1) / 4) * 100);
+  }, []);
 
   if (!isVisible) {
     return null;
@@ -436,9 +449,12 @@ export function HyperliquidTermsOverlay() {
         width="100%"
         bg="$bgApp"
         borderRadius="$4"
+        overflow="hidden"
       >
+        <Progress value={progress} indicatorColor="$textSuccess" h={3} />
         <ScrollView>
           <HyperliquidTermsContent
+            onPageIndexChange={onPageIndexChange}
             onConfirm={async () => {
               await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
                 true,
