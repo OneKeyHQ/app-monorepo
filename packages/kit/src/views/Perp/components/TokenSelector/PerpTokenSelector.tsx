@@ -16,10 +16,13 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpTokenSelector } from '../../hooks';
@@ -240,3 +243,58 @@ function BasePerpTokenSelector() {
 }
 
 export const PerpTokenSelector = memo(BasePerpTokenSelector);
+
+const BasePerpTokenSelectorMobileView = memo(
+  ({
+    onPressTokenSelector,
+    coin,
+  }: {
+    onPressTokenSelector: () => void;
+    coin: string;
+  }) => {
+    const intl = useIntl();
+
+    return (
+      <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
+        <XStack
+          gap="$1"
+          bg="$bgApp"
+          onPress={onPressTokenSelector}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <SizableText size="$headingXl">{coin}USD</SizableText>
+          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+            <SizableText color="$textSubdued" fontSize={11}>
+              {intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
+            </SizableText>
+          </Badge>
+          <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
+        </XStack>
+      </DebugRenderTracker>
+    );
+  },
+);
+BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
+function BasePerpTokenSelectorMobile() {
+  const navigation = useAppNavigation();
+
+  const [asset] = usePerpsActiveAssetAtom();
+  const coin = asset?.coin || '';
+  const onPressTokenSelector = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
+  }, [navigation]);
+
+  return (
+    <BasePerpTokenSelectorMobileView
+      onPressTokenSelector={onPressTokenSelector}
+      coin={coin}
+    />
+  );
+}
+
+export const PerpTokenSelectorMobile = memo(BasePerpTokenSelectorMobile);

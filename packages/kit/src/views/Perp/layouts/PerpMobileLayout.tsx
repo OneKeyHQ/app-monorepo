@@ -25,7 +25,6 @@ import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
 } from '../hooks';
-import { useMMR } from '../hooks/useMMR';
 
 const tabNameToTranslationKey = {
   'Positions': ETranslations.perp_position_title,
@@ -83,7 +82,6 @@ export function PerpMobileLayout() {
   const tabsRef = useRef<{
     switchTab: (tabName: string) => void;
   } | null>(null);
-  const mmr = useMMR();
   const handleViewTpslOrders = () => {
     tabsRef.current?.switchTab('Open Orders');
   };

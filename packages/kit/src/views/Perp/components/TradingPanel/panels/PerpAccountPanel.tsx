@@ -1,11 +1,11 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   DebugRenderTracker,
-  IconButton,
   SizableText,
   Tooltip,
   XStack,
@@ -13,13 +13,12 @@ import {
 } from '@onekeyhq/components';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountMmrAtom,
   usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useMMR } from '../../../hooks/useMMR';
-import { PerpSettingsButton } from '../../PerpSettingsButton';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
@@ -39,9 +38,45 @@ export function PerpAccountDebugInfo() {
   );
 }
 
+function PerpAccountMMRView() {
+  const [{ mmr }] = usePerpsActiveAccountMmrAtom();
+  const intl = useIntl();
+  const mmrBN = useMemo(() => (mmr ? new BigNumber(mmr) : null), [mmr]);
+  return mmrBN ? (
+    <XStack justifyContent="space-between">
+      <Tooltip
+        placement="top"
+        renderContent={intl.formatMessage({
+          id: ETranslations.perp_account_cross_margin_ration_tip,
+        })}
+        renderTrigger={
+          <SizableText
+            size="$bodySm"
+            color="$textSubdued"
+            cursor="default"
+            borderBottomWidth="$px"
+            borderTopWidth={0}
+            borderLeftWidth={0}
+            borderRightWidth={0}
+            borderBottomColor="$border"
+            borderStyle="dashed"
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_account_cross_margin_ration,
+            })}
+          </SizableText>
+        }
+      />
+
+      <SizableText size="$bodySmMedium" color="$text">
+        {mmrBN.multipliedBy(100).toFixed(2)}%
+      </SizableText>
+    </XStack>
+  ) : null;
+}
+
 function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const mmr = useMMR();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
 
@@ -174,37 +209,7 @@ function PerpAccountPanel() {
             skeletonWidth={70}
           />
         </XStack>
-        {mmr ? (
-          <XStack justifyContent="space-between">
-            <Tooltip
-              placement="top"
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_account_cross_margin_ration_tip,
-              })}
-              renderTrigger={
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  cursor="default"
-                  borderBottomWidth="$px"
-                  borderTopWidth={0}
-                  borderLeftWidth={0}
-                  borderRightWidth={0}
-                  borderBottomColor="$border"
-                  borderStyle="dashed"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_account_cross_margin_ration,
-                  })}
-                </SizableText>
-              }
-            />
-
-            <SizableText size="$bodySmMedium" color="$text">
-              {mmr.multipliedBy(100).toFixed(2)}%
-            </SizableText>
-          </XStack>
-        ) : null}
+        <PerpAccountMMRView />
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (
