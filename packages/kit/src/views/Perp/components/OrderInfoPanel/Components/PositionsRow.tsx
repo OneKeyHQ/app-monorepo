@@ -5,8 +5,10 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Divider,
   Icon,
   IconButton,
+  Popover,
   SizableText,
   Tooltip,
   XStack,
@@ -107,22 +109,19 @@ const PositionRow = memo(
       const sizeAbs = sizeBN.abs().toFixed();
       const sizeAbsFormatted = numberFormat(sizeAbs, {
         formatter: 'balance',
-        formatterOptions: {
-          tokenSymbol: assetInfo.assetSymbol || '',
-        },
       });
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
       const sizeValueFormatted = numberFormat(sizeValue, {
         formatter: 'balance',
         formatterOptions: {
-          currency: '$',
+          currency: isMobile ? '' : '$',
         },
       });
       return {
         sizeAbsFormatted,
         sizeValue: sizeValueFormatted,
       };
-    }, [pos.szi, pos.positionValue, assetInfo.assetSymbol]);
+    }, [pos.szi, pos.positionValue, isMobile]);
 
     const otherInfo = useMemo(() => {
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
@@ -151,8 +150,14 @@ const PositionRow = memo(
       const fundingSinceOpenBN = new BigNumber(pos.cumFunding.sinceOpen);
       const fundingSinceChangeBN = new BigNumber(pos.cumFunding.sinceChange);
       const fundingAllPlusOrMinus = fundingAllTimeBN.gt(0) ? '-' : '+';
+      const fundingAllTimeColor = fundingAllTimeBN.gt(0)
+        ? '$red11'
+        : '$green11';
       const fundingSinceOpenPlusOrMinus = fundingSinceOpenBN.gt(0) ? '-' : '+';
       const fundingSinceOpenColor = fundingSinceOpenBN.gt(0)
+        ? '$red11'
+        : '$green11';
+      const fundingSinceChangeColor = fundingSinceChangeBN.gt(0)
         ? '$red11'
         : '$green11';
       const fundingSinceChangePlusOrMinus = fundingSinceChangeBN.gt(0)
@@ -171,9 +176,11 @@ const PositionRow = memo(
         fundingSinceOpenFormatted,
         fundingSinceChangeFormatted,
         fundingAllPlusOrMinus,
+        fundingAllTimeColor,
         fundingSinceOpenPlusOrMinus,
-        fundingSinceChangePlusOrMinus,
         fundingSinceOpenColor,
+        fundingSinceChangePlusOrMinus,
+        fundingSinceChangeColor,
         roiPercent,
         pnlColor,
         pnlPlusOrMinus,
@@ -298,17 +305,26 @@ const PositionRow = memo(
           </XStack>
           <XStack width="100%" flex={1} alignItems="center">
             <YStack gap="$1" width={120}>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_position_size,
-                })}
-              </SizableText>
               <XStack
                 alignItems="center"
                 gap="$1"
-                cursor="pointer"
                 onPress={handleSizeViewChange}
               >
+                <XStack alignItems="center" gap="$0.5">
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_position_size,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {`${
+                      isSizeViewChange ? '(USD)' : `(${assetInfo.assetSymbol})`
+                    }`}
+                  </SizableText>
+                </XStack>
+                <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
+              </XStack>
+              <XStack alignItems="center" gap="$1" cursor="pointer">
                 <SizableText size="$bodySmMedium">
                   {`${
                     isSizeViewChange
@@ -316,7 +332,6 @@ const PositionRow = memo(
                       : (sizeInfo.sizeAbsFormatted as string)
                   }`}
                 </SizableText>
-                <Icon name="RepeatOutline" size="$3" color="$textSubdued" />
               </XStack>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
@@ -342,36 +357,107 @@ const PositionRow = memo(
           </XStack>
           <XStack width="100%" flex={1} alignItems="center">
             <YStack gap="$1" width={120}>
-              <SizableText size="$bodySm" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding,
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_funding_2,
                 })}
-              </SizableText>
-              <Tooltip
-                placement="top"
                 renderTrigger={
                   <SizableText
-                    size="$bodySmMedium"
-                    color={otherInfo.fundingSinceOpenColor}
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textDecorationLine="underline"
+                    textDecorationStyle="dotted"
                   >
-                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_2,
+                    })}
                   </SizableText>
                 }
                 renderContent={
-                  <SizableText size="$bodySm">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_funding_all_time,
-                    })}
-                    {': '}
-                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_funding_since_change,
-                    })}
-                    {': '}
-                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-                  </SizableText>
+                  <YStack
+                    bg="$bg"
+                    justifyContent="center"
+                    w="100%"
+                    px="$5"
+                    pt="$2"
+                    pb="$5"
+                    gap="$4"
+                  >
+                    <XStack alignItems="center" justifyContent="space-between">
+                      <YStack w="50%">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.perp_position_funding_since_open,
+                          })}
+                        </SizableText>
+                        <SizableText
+                          size="$bodyMdMedium"
+                          color={otherInfo.fundingSinceOpenColor}
+                        >
+                          {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
+                        </SizableText>
+                      </YStack>
+
+                      <YStack w="50%">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage({
+                            id: ETranslations.perp_position_funding_since_change,
+                          })}
+                        </SizableText>
+                        <SizableText
+                          size="$bodyMdMedium"
+                          color={otherInfo.fundingSinceChangeColor}
+                        >
+                          {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
+                        </SizableText>
+                      </YStack>
+                    </XStack>
+                    <XStack alignItems="center" justifyContent="space-between">
+                      <YStack w="50%">
+                        <SizableText size="$bodyMd" color="$textSubdued">
+                          {intl.formatMessage(
+                            {
+                              id: ETranslations.perp_position_funding_all_time,
+                            },
+                            { token: assetInfo.assetSymbol },
+                          )}
+                        </SizableText>
+                        <SizableText
+                          size="$bodyMdMedium"
+                          color={otherInfo.fundingAllTimeColor}
+                        >
+                          {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}
+                        </SizableText>
+                      </YStack>
+                    </XStack>
+                    <Divider />
+                    <YStack gap="$2">
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_tip0,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodySmMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_tip1,
+                        })}
+                      </SizableText>
+                      <SizableText size="$bodySmMedium">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_funding_rate_tip2,
+                        })}
+                      </SizableText>
+                    </YStack>
+                  </YStack>
                 }
               />
+
+              <SizableText
+                size="$bodySmMedium"
+                color={otherInfo.fundingSinceOpenColor}
+              >
+                {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}
+              </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="center">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -448,50 +534,37 @@ const PositionRow = memo(
             })
           }
         >
-          <XStack
-            w="$4"
-            h="$4"
-            justifyContent="center"
-            alignItems="center"
-            borderRadius={2}
-            backgroundColor={assetInfo.assetColor}
-            cursor="pointer"
-            onPress={() =>
-              actions.current.changeActiveAsset({
-                coin: assetInfo.assetSymbol,
-              })
-            }
-          >
-            <SizableText size="$bodySmMedium" color="$textOnColor">
-              {side === 'long'
-                ? intl.formatMessage({
-                    id: ETranslations.perp_position_b,
-                  })
-                : intl.formatMessage({
-                    id: ETranslations.perp_position_s,
-                  })}
-            </SizableText>
+          <XStack alignItems="center" gap="$2">
+            <Divider
+              vertical
+              height={30}
+              borderWidth={2}
+              borderRadius={2}
+              borderColor={assetInfo.assetColor}
+            />
+            <YStack>
+              <SizableText
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                size="$bodySmMedium"
+                fontWeight={600}
+                color={assetInfo.assetColor}
+                hoverStyle={{ fontWeight: 700 }}
+                pressStyle={{ fontWeight: 700 }}
+              >
+                {assetInfo.assetSymbol}
+              </SizableText>
+
+              <SizableText
+                size="$bodySm"
+                lineHeight={20}
+                color="$textSubdued"
+                fontSize={12}
+              >
+                {assetInfo.leverageType} {assetInfo.leverage}X
+              </SizableText>
+            </YStack>
           </XStack>
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySmMedium"
-            fontWeight={600}
-            color={assetInfo.assetColor}
-            hoverStyle={{ fontWeight: 700 }}
-            pressStyle={{ fontWeight: 700 }}
-          >
-            {assetInfo.assetSymbol}
-          </SizableText>
-          <SizableText
-            bg="$bgSubdued"
-            borderRadius={2}
-            px="$1"
-            color="$textSubdued"
-            fontSize={12}
-          >
-            {assetInfo.leverageType} {assetInfo.leverage}X
-          </SizableText>
         </XStack>
 
         {/* Position Size */}
@@ -593,18 +666,56 @@ const PositionRow = memo(
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
             renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding_all_time,
-                })}
-                {': '}
-                {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_funding_since_change,
-                })}
-                {': '}
-                {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
-              </SizableText>
+              <YStack gap="$2">
+                <XStack>
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.perp_position_funding_since_open,
+                      },
+                      { token: assetInfo.assetSymbol },
+                    )}
+                    {': '}
+                  </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color={otherInfo.fundingAllTimeColor}
+                  >
+                    {`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}{' '}
+                  </SizableText>
+                </XStack>
+                <XStack>
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.perp_position_funding_all_time,
+                      },
+                      { token: assetInfo.assetSymbol },
+                    )}
+                    {': '}
+                  </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color={otherInfo.fundingAllTimeColor}
+                  >
+                    {`${otherInfo.fundingAllPlusOrMinus}$${otherInfo.fundingAllTimeFormatted}`}{' '}
+                  </SizableText>
+                </XStack>
+                <XStack>
+                  <SizableText size="$bodySm">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_funding_since_change,
+                    })}
+                    {': '}
+                  </SizableText>
+                  <SizableText
+                    size="$bodySm"
+                    color={otherInfo.fundingSinceChangeColor}
+                  >
+                    {`${otherInfo.fundingSinceChangePlusOrMinus}$${otherInfo.fundingSinceChangeFormatted}`}
+                  </SizableText>
+                </XStack>
+              </YStack>
             }
           />
         </XStack>

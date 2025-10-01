@@ -77,17 +77,14 @@ function MobileHeader() {
           <SizableText
             fontSize={10}
             color="$textSubdued"
-            borderBottomWidth="$px"
-            borderTopWidth={0}
-            borderLeftWidth={0}
-            borderRightWidth={0}
-            borderBottomColor="$border"
-            borderStyle="dashed"
+            textDecorationLine="underline"
+            textDecorationStyle="dotted"
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
           </SizableText>
+
           {showSkeleton ? (
             <Skeleton width={120} height={16} />
           ) : (

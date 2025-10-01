@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   NumberSizeableText,
+  Popover,
   SizableText,
   Skeleton,
   XStack,
@@ -122,30 +123,58 @@ function MobilePerpMarketHeader() {
   }, [markPrice, openInterest]);
 
   return (
-    <YStack bg="$bgApp" px="$5" py="$3" gap="$2.5">
+    <YStack bg="$bgApp" px="$5" pt="$3" gap="$2">
       <XStack alignItems="flex-start" gap="$4">
-        <YStack gap="$1" flex={1} minWidth={0} width="50%">
+        <YStack flex={1} minWidth={0} width="50%">
           {showSkeleton ? (
             <Skeleton width={120} height={28} />
           ) : (
-            <SizableText size="$heading3xl">{`$${markPrice}`}</SizableText>
+            <>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_mark_price,
+                })}
+                renderTrigger={
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textDecorationLine="underline"
+                    textDecorationStyle="dotted"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_mark_price,
+                    })}
+                  </SizableText>
+                }
+                renderContent={
+                  <YStack px="$5" pb="$4">
+                    <SizableText size="$bodyMd" color="$text">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_mark_price_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                }
+              />
+              <SizableText size="$heading2xl">{`$${markPrice}`}</SizableText>
+            </>
           )}
 
           {showSkeleton ? (
             <Skeleton width={72} height={16} />
           ) : (
-            <XStack alignItems="center" gap="$0.5">
+            <XStack alignItems="center" gap="$1" mt="$-1">
               <Icon
                 name={
                   change24hPercent >= 0
                     ? 'ArrowTriangleTopSolid'
                     : 'ArrowTriangleBottomSolid'
                 }
-                size="$3"
+                size="$2"
                 color={change24hPercent >= 0 ? '$green11' : '$red11'}
               />
               <NumberSizeableText
-                size="$bodySmMedium"
+                fontSize={10}
                 color={change24hPercent >= 0 ? '$green11' : '$red11'}
                 formatter="priceChange"
                 formatterOptions={{
@@ -156,26 +185,19 @@ function MobilePerpMarketHeader() {
               </NumberSizeableText>
             </XStack>
           )}
+          <XStack alignItems="center" gap="$1" mt="$-1">
+            <SizableText fontSize={10} color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_bar_oracle_price,
+              })}
+            </SizableText>
+            <SizableText fontSize={10} color="$text">
+              {oraclePriceDisplay}
+            </SizableText>
+          </XStack>
         </YStack>
 
         <YStack gap="$1.5" flex={1} minWidth={0} width="50%">
-          <StatRow
-            label={intl.formatMessage({
-              id: ETranslations.perp_token_bar_oracle_price,
-            })}
-            skeletonWidth={96}
-            showSkeleton={showSkeleton}
-          >
-            <SizableText
-              size="$bodySmMedium"
-              color="$text"
-              flex={1}
-              textAlign="right"
-            >
-              {oraclePriceDisplay}
-            </SizableText>
-          </StatRow>
-
           <StatRow
             label={intl.formatMessage({
               id: ETranslations.perp_token_bar_24h_Volume,
