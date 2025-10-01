@@ -53,7 +53,9 @@ const TickerBarMarkPriceView = memo(
           <Tooltip
             placement="top"
             renderTrigger={
-              <SizableText size="$headingXl">{formattedMarkPrice}</SizableText>
+              <SizableText size="$headingXl" cursor="help">
+                {formattedMarkPrice}
+              </SizableText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -154,6 +156,7 @@ const TickerBarOraclePriceView = memo(
                 borderBottomColor="$border"
                 borderStyle="dashed"
                 color="$textSubdued"
+                cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_oracle_price,
@@ -260,6 +263,7 @@ const TickerBarOpenInterestView = memo(
                 borderRightWidth={0}
                 borderBottomColor="$border"
                 borderStyle="dashed"
+                cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_open_Interest,
@@ -336,6 +340,7 @@ const TickerBarFundingRateView = memo(
                 borderBottomColor="$border"
                 borderStyle="dashed"
                 color="$textSubdued"
+                cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_Funding,
@@ -366,6 +371,7 @@ const TickerBarFundingRateView = memo(
                     <SizableText
                       size="$headingXs"
                       color={fundingRate >= 0 ? '$green11' : '$red11'}
+                      cursor="help"
                     >
                       {fundingRatePercent}%
                     </SizableText>

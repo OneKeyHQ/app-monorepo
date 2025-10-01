@@ -111,7 +111,15 @@ export function PerpTradingButton({
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
       });
-    if (isMinimumOrderNotMet) return 'Order must be at least $10'; // TODO: I18n
+    if (isMinimumOrderNotMet)
+      return intl.formatMessage(
+        {
+          id: ETranslations.perp_size_least,
+        },
+        {
+          num: '$10',
+        },
+      );
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });

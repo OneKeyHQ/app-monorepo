@@ -662,6 +662,7 @@ const PositionRow = memo(
                 numberOfLines={1}
                 ellipsizeMode="tail"
                 size="$bodySm"
+                cursor="help"
                 color={otherInfo.fundingSinceOpenColor}
               >{`${otherInfo.fundingSinceOpenPlusOrMinus}$${otherInfo.fundingSinceOpenFormatted}`}</SizableText>
             }
