@@ -103,7 +103,9 @@ export function Container({
     }).filter(Boolean);
   }, [children]);
   const sharedTabNames = useSharedValue<string[]>(tabNames);
-  const focusedTab = useSharedValue<string>(tabNames[0] || '');
+  const focusedTab = useSharedValue<string>(
+    initialTabName || tabNames[0] || '',
+  );
   const scrollTabElementDict = useMemo(() => {
     return tabNames.reduce((acc, name) => {
       acc[name] = {
@@ -260,6 +262,18 @@ export function Container({
     },
   );
 
+  useEffect(() => {
+    const index = tabNames.findIndex((name) => name === initialTabName);
+    if (initialTabName) {
+      const width = scrollElement?.clientWidth || 0;
+      listContainerRef.current?.scrollTo({
+        left: width * index,
+        behavior: 'instant',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onTabPress = useCallback(
     (tabName: string, emitEvents = true) => {
       if (!isEffectValid.current) {
@@ -299,15 +313,6 @@ export function Container({
       return tabNames.findIndex((name) => name === focusedTab.value);
     },
   }));
-
-  useEffect(() => {
-    if (initialTabName) {
-      setTimeout(() => {
-        onTabPress(initialTabName, false);
-      }, 100);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <YStack
