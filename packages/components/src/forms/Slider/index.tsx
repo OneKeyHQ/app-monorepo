@@ -12,9 +12,17 @@ import type { IBaseSliderProps } from './type';
 import type { GestureReponderEvent } from '@tamagui/core';
 import type { LayoutChangeEvent } from 'react-native';
 
-function SliderSegment() {
+function SliderSegment({ onPress }: { onPress: () => void }) {
   return (
-    <XStack w={8} h={8} borderRadius={100} bg="$gray11" ai="center" jc="center">
+    <XStack
+      w={8}
+      h={8}
+      borderRadius={100}
+      bg="$gray11"
+      ai="center"
+      jc="center"
+      onPress={onPress}
+    >
       <XStack w={6} h={6} borderRadius={100} bg="$bgApp" />
     </XStack>
   );
@@ -139,11 +147,28 @@ export const Slider = ({
           justifyContent="space-between"
           top={-layout.height / 2}
         >
-          <SliderSegment key={-1} />
+          <SliderSegment
+            key={-1}
+            onPress={() => {
+              handleValueChange([min]);
+            }}
+          />
           {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
-            <SliderSegment key={index} />
+            <SliderSegment
+              key={index}
+              onPress={() => {
+                handleValueChange([
+                  min + ((max - min) * (index + 1)) / segments,
+                ]);
+              }}
+            />
           ))}
-          <SliderSegment key={segments ?? 1} />
+          <SliderSegment
+            key={segments ?? 1}
+            onPress={() => {
+              handleValueChange([max]);
+            }}
+          />
         </XStack>
       ) : null}
     </YStack>
