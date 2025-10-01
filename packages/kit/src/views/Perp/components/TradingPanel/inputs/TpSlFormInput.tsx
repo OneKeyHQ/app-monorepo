@@ -172,7 +172,6 @@ export const TpSlFormInput = memo(
         disabled={disabled}
         customSuffix={customSuffix}
         keyboardType="decimal-pad"
-        isMobile={isMobile}
       />
     );
   },

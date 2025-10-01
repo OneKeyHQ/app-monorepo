@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 export const InputAccessoryDoneButton = () => {
   const intl = useIntl();
@@ -87,11 +88,7 @@ export const TradingFormInput = memo(
     ifOnDialog = false,
     isMobile = false,
   }: ITradingFormInputProps) => {
-    const accessoryId = useMemo(
-      () =>
-        `trading-input-${label.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`,
-      [label],
-    );
+    const accessoryId = useMemo(() => `trading-input-${generateUUID()}`, []);
 
     const shouldShowAccessory = useMemo(
       () =>
@@ -99,7 +96,6 @@ export const TradingFormInput = memo(
         (keyboardType === 'decimal-pad' || keyboardType === 'numeric'),
       [keyboardType],
     );
-
     const handleInputChange = useCallback(
       (text: string) => {
         if (validator && !validator(text)) return;
