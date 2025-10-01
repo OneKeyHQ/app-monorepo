@@ -135,6 +135,16 @@ function PerpAccountPanel() {
             skeletonWidth={60}
           />
         </XStack>
+        {mmr ? (
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+              Cross Margin Ratio
+            </SizableText>
+            <SizableText size="$bodySmMedium" color="$textSubdued">
+              {mmr.multipliedBy(100).toFixed(2)}%
+            </SizableText>
+          </XStack>
+        ) : null}
         <XStack justifyContent="space-between">
           <Tooltip
             placement="top"
