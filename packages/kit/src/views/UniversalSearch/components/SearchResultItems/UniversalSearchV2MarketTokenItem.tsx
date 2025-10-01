@@ -24,6 +24,7 @@ import {
   EEnterWay,
   EWatchlistFrom,
 } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IUniversalSearchV2MarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
@@ -154,11 +155,18 @@ export function UniversalSearchV2MarketTokenItem({
     isNative,
   } = item.payload;
 
+  // Hide favorite button in extension popup and side panel
+  const shouldShowFavoriteButton = useMemo(
+    () =>
+      !platformEnv.isExtensionUiPopup && !platformEnv.isExtensionUiSidePanel,
+    [],
+  );
+
   const handlePress = useCallback(() => {
     rootNavigationRef.current?.goBack();
     setTimeout(async () => {
       // Use toMarketDetailPage hook for navigation
-      toMarketDetailPage({
+      void toMarketDetailPage({
         tokenAddress: address,
         networkId: network,
         symbol,
@@ -221,15 +229,17 @@ export function UniversalSearchV2MarketTokenItem({
           />
           <MarketTokenLiquidity liquidity={liquidity} volume24h={volume24h} />
         </YStack>
-        <MarketStarV2
-          chainId={network}
-          contractAddress={address}
-          ml="$3"
-          from={EWatchlistFrom.Search}
-          tokenSymbol={symbol}
-          size="medium"
-          isNative={isNative}
-        />
+        {shouldShowFavoriteButton ? (
+          <MarketStarV2
+            chainId={network}
+            contractAddress={address}
+            ml="$3"
+            from={EWatchlistFrom.Search}
+            tokenSymbol={symbol}
+            size="medium"
+            isNative={isNative}
+          />
+        ) : null}
       </XStack>
     </ListItem>
   );
