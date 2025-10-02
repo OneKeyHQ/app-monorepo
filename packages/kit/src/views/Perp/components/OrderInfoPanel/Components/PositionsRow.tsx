@@ -21,6 +21,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
+import { showAdjustPositionMarginDialog } from '../AdjustPositionMarginModal';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
@@ -228,6 +229,14 @@ const PositionRow = memo(
       setIsSizeViewChange(!isSizeViewChange);
     }, [isSizeViewChange]);
 
+    const isIsolatedMode = useMemo(() => {
+      return pos.leverage?.type === 'isolated';
+    }, [pos.leverage?.type]);
+
+    const handleAdjustMargin = useCallback(() => {
+      showAdjustPositionMarginDialog({ coin });
+    }, [coin]);
+
     if (isMobile) {
       return (
         <ListItem
@@ -340,9 +349,21 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_margin,
                 })}
               </SizableText>
-              <SizableText size="$bodySmMedium">
-                {`${otherInfo.marginUsedFormatted as string}`}
-              </SizableText>
+              <XStack alignItems="center" gap="$1">
+                <SizableText size="$bodySmMedium">
+                  {`${otherInfo.marginUsedFormatted as string}`}
+                </SizableText>
+                {isIsolatedMode ? (
+                  <IconButton
+                    variant="tertiary"
+                    size="small"
+                    icon="PencilOutline"
+                    iconSize="$3"
+                    onPress={handleAdjustMargin}
+                    cursor="pointer"
+                  />
+                ) : null}
+              </XStack>
             </YStack>
             <YStack gap="$1" width={120} alignItems="flex-end">
               <SizableText size="$bodySm" color="$textSubdued">
@@ -643,11 +664,23 @@ const PositionRow = memo(
           justifyContent={calcCellAlign(columnConfigs[6].align)}
           alignItems="center"
         >
-          <SizableText
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            size="$bodySm"
-          >{`${otherInfo.marginUsedFormatted as string}`}</SizableText>
+          <XStack alignItems="center" gap="$1">
+            <SizableText
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              size="$bodySm"
+            >{`${otherInfo.marginUsedFormatted as string}`}</SizableText>
+            {isIsolatedMode ? (
+              <IconButton
+                variant="tertiary"
+                size="small"
+                icon="PencilOutline"
+                iconSize="$3"
+                onPress={handleAdjustMargin}
+                cursor="pointer"
+              />
+            ) : null}
+          </XStack>
         </XStack>
 
         {/* Funding */}

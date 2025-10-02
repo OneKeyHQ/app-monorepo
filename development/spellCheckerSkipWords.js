@@ -34,6 +34,7 @@ module.exports = [
   'mids',
   'Ctxs',
   'ctxs',
+  'ntli',
   'unfocus',
   'usdc',
   'USDC',
