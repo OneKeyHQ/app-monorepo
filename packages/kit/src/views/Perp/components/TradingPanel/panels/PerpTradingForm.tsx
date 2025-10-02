@@ -7,16 +7,13 @@ import {
   Checkbox,
   Divider,
   IconButton,
-  NumberSizeableText,
   Popover,
   SizableText,
   Skeleton,
   Slider,
-  Tabs,
   Tooltip,
   XStack,
   YStack,
-  getFontSize,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -33,6 +30,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -42,7 +40,6 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
-import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -97,6 +94,8 @@ function PerpTradingForm({
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
       actions.current.updateTradingForm(updates);
@@ -467,77 +466,79 @@ function PerpTradingForm({
           step={1}
           h="$1.5"
         />
-        <YStack gap="$1" mt="$1">
-          <XStack alignItems="center" gap="$2">
-            <Checkbox
-              value={formData.hasTpsl}
-              onChange={handleTpslCheckboxChange}
-              disabled={isSubmitting}
-              containerProps={{ p: 0, alignItems: 'center' }}
-              width="$3.5"
-              height="$3.5"
-              p="$0"
-            />
-            <Popover
-              renderContent={() => (
-                <YStack px="$5" pt="$2" pb="$4">
-                  <SizableText size="$bodyMd">
+        {shouldShowEnableTradingButton && isMobile ? null : (
+          <YStack gap="$1" mt="$1">
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                value={formData.hasTpsl}
+                onChange={handleTpslCheckboxChange}
+                disabled={isSubmitting}
+                containerProps={{ p: 0, alignItems: 'center' }}
+                width="$3.5"
+                height="$3.5"
+                p="$0"
+              />
+              <Popover
+                renderContent={() => (
+                  <YStack px="$5" pt="$2" pb="$4">
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_tp_sl_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                )}
+                renderTrigger={
+                  <SizableText
+                    size="$bodySm"
+                    textDecorationLine="underline"
+                    textDecorationStyle="dotted"
+                    textDecorationColor="$textSubdued"
+                  >
                     {intl.formatMessage({
-                      id: ETranslations.perp_tp_sl_tooltip,
+                      id: ETranslations.perp_position_tp_sl,
                     })}
                   </SizableText>
-                </YStack>
-              )}
-              renderTrigger={
-                <SizableText
-                  size="$bodySm"
-                  textDecorationLine="underline"
-                  textDecorationStyle="dotted"
-                  textDecorationColor="$textSubdued"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
+                }
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              />
+            </XStack>
+            {formData.hasTpsl ? (
+              <YStack gap="$2">
+                <TpSlFormInput
+                  type="tp"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_tp,
                   })}
-                </SizableText>
-              }
-              title={intl.formatMessage({
-                id: ETranslations.perp_position_tp_sl,
-              })}
-            />
-          </XStack>
-          {formData.hasTpsl ? (
-            <YStack gap="$2">
-              <TpSlFormInput
-                type="tp"
-                label={intl.formatMessage({
-                  id: ETranslations.perp_tp,
-                })}
-                value={formData.tpValue || ''}
-                inputType={formData.tpType || 'price'}
-                referencePrice={referencePriceString}
-                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-                onChange={handleTpValueChange}
-                onTypeChange={handleTpTypeChange}
-                disabled={isSubmitting}
-                isMobile={isMobile}
-              />
-              <TpSlFormInput
-                type="sl"
-                label={intl.formatMessage({
-                  id: ETranslations.perp_sl,
-                })}
-                value={formData.slValue || ''}
-                inputType={formData.slType || 'price'}
-                referencePrice={referencePriceString}
-                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-                onChange={handleSlValueChange}
-                onTypeChange={handleSlTypeChange}
-                disabled={isSubmitting}
-                isMobile={isMobile}
-              />
-            </YStack>
-          ) : null}
-        </YStack>
+                  value={formData.tpValue || ''}
+                  inputType={formData.tpType || 'price'}
+                  referencePrice={referencePriceString}
+                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                  onChange={handleTpValueChange}
+                  onTypeChange={handleTpTypeChange}
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+                <TpSlFormInput
+                  type="sl"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_sl,
+                  })}
+                  value={formData.slValue || ''}
+                  inputType={formData.slType || 'price'}
+                  referencePrice={referencePriceString}
+                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                  onChange={handleSlValueChange}
+                  onTypeChange={handleSlTypeChange}
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
+            ) : null}
+          </YStack>
+        )}
       </YStack>
     );
   }
