@@ -20,6 +20,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
@@ -79,10 +80,12 @@ export function HyperliquidTermsContent({
 
   const HEIGHT_RATIO = useHeightRatio();
 
+  const { gtMd } = useMedia();
+
   const slidesData = useMemo<ISlideData[]>(() => {
-    const slideImageMaxHeight = 400;
-    const slideImageHeight = slideImageMaxHeight * HEIGHT_RATIO;
-    const bannerWidth = Math.max(slideImageHeight, 340);
+    const slideImageMaxHeight = 300;
+    const slideImageHeight = 300;
+    const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
     const slide3StackHeight = 300 * HEIGHT_RATIO;
     const confirmationSlideStyle: IYStackProps | undefined =
       platformEnv.isNative
@@ -299,7 +302,7 @@ export function HyperliquidTermsContent({
                 </YStack>
               </Stack>
             </ScrollView>
-            <XStack justifyContent="center" paddingBottom={10}>
+            <XStack justifyContent="center" paddingBottom={gtMd ? 10 : 0}>
               <Button
                 variant="primary"
                 size="small"
@@ -319,6 +322,7 @@ export function HyperliquidTermsContent({
     ];
   }, [
     HEIGHT_RATIO,
+    gtMd,
     hyperliquidLogo,
     intl,
     isAccountActivatedChecked,
@@ -453,6 +457,8 @@ export function HyperliquidTermsOverlay() {
     setProgress(((index + 1) / 4) * 100);
   }, []);
   const HEIGHT_RATIO = useHeightRatio();
+  const { width, height } = useWindowDimensions();
+  const { gtMd } = useMedia();
   if (!isVisible) {
     return null;
   }
@@ -472,9 +478,9 @@ export function HyperliquidTermsOverlay() {
     >
       <Stack
         height={OVERLAY_HEIGHT}
-        minWidth={340}
-        maxWidth={500}
-        maxHeight={600}
+        minWidth={Math.min(gtMd ? 340 : 320, width)}
+        maxWidth={Math.min(gtMd ? 500 : 320, width)}
+        maxHeight={Math.min(gtMd ? 600 : 440, height)}
         bg="$bgApp"
         borderRadius="$4"
         overflow="hidden"
