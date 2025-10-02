@@ -1096,7 +1096,7 @@ export function OrderPairBook({
 // Compact row height for mobile
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
-const MOBILE_SPREAD_ROW_HEIGHT = 58;
+const MOBILE_SPREAD_ROW_HEIGHT = 60;
 const MOBILE_PRICE_FLEX = 0.6;
 const MOBILE_SIZE_FLEX = 0.4;
 const MobileRow = ({
@@ -1382,7 +1382,7 @@ export function OrderBookMobile({
               style={{
                 flexDirection: 'column',
                 alignItems: 'flex-start',
-                justifyContent: 'flex-start',
+                justifyContent: 'center',
                 height: MOBILE_SPREAD_ROW_HEIGHT,
                 paddingTop: 6,
                 paddingBottom: 6,
@@ -1398,7 +1398,7 @@ export function OrderBookMobile({
                       styles.monospaceText,
                       {
                         color: textColor.red,
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: '600',
                         lineHeight: 24,
                       },
@@ -1431,7 +1431,7 @@ export function OrderBookMobile({
                         fontWeight: '400',
                         lineHeight: 16,
                         textDecorationLine: 'underline',
-                        textDecorationStyle: 'dotted',
+                        textDecorationStyle: 'dashed',
                       },
                     ]}
                   >

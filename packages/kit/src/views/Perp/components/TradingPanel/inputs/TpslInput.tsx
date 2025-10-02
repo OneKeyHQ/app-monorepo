@@ -468,6 +468,9 @@ export const TpslInput = memo(
                 accessoryViewId="tpsl-tp-price-desktop"
                 onDone={() => {}}
                 h={40}
+                placeholder={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
                 value={internalState.tpTriggerPx}
                 onChangeText={handleTpPriceChange}
                 disabled={disabled}

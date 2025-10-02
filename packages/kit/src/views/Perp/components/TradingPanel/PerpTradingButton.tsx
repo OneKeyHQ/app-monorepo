@@ -10,6 +10,7 @@ import {
   Spinner,
   Toast,
   useInTabDialog,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -281,22 +282,31 @@ export function PerpTradingButton({
 
   if (shouldShowEnableTradingButton) {
     return (
-      <Button
-        size="medium"
-        borderRadius="$3"
-        variant="primary"
-        loading={isAccountLoading}
-        onPress={async () => {
-          await enableTrading();
-        }}
-        childrenAsText
-      >
-        <SizableText size="$bodyMdMedium" color="$textInverse">
-          {intl.formatMessage({
-            id: ETranslations.perp_trade_button_enable_trading,
-          })}
-        </SizableText>
-      </Button>
+      <YStack gap="$3" h={126} justifyContent="flex-end">
+        <YStack gap="$3" p="$3" borderRadius="$3" bg="$bgSubdued">
+          <SizableText size="$bodySm" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.perp_enable_trading_desc,
+            })}
+          </SizableText>
+        </YStack>
+        <Button
+          size="medium"
+          borderRadius="$3"
+          variant="primary"
+          loading={isAccountLoading}
+          onPress={async () => {
+            await enableTrading();
+          }}
+          childrenAsText
+        >
+          <SizableText size="$bodyMdMedium" color="$textInverse">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_button_enable_trading,
+            })}
+          </SizableText>
+        </Button>
+      </YStack>
     );
   }
 

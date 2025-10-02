@@ -69,8 +69,12 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
   },
 
   [EActionType.UPDATE_ISOLATED_MARGIN]: {
-    loading: 'Updating margin...',
-    successTitle: 'Margin updated',
+    loading: appLocale.intl.formatMessage({
+      id: ETranslations.perp_trading_adjust_margin_update,
+    }),
+    successTitle: appLocale.intl.formatMessage({
+      id: ETranslations.perp_trading_adjust_margin_updated,
+    }),
   },
 
   [EActionType.SET_POSITION_TPSL]: {

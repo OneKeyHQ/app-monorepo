@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   DebugRenderTracker,
   SizableText,
   Tooltip,
@@ -62,21 +63,17 @@ function PerpAccountMMRView() {
             id: ETranslations.perp_account_cross_margin_ration_tip,
           })}
           renderTrigger={
-            <SizableText
+            <DashText
               size="$bodySm"
               color="$textSubdued"
               cursor="help"
-              borderBottomWidth="$px"
-              borderTopWidth={0}
-              borderLeftWidth={0}
-              borderRightWidth={0}
-              borderBottomColor="$border"
-              borderStyle="dashed"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_account_cross_margin_ration,
               })}
-            </SizableText>
+            </DashText>
           }
         />
         <SizableText size="$bodySmMedium" color="$text">
@@ -150,21 +147,17 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_panel_account_value_tooltip,
             })}
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_value,
                 })}
-              </SizableText>
+              </DashText>
             }
           />
           <PerpsAccountNumberValue
@@ -190,21 +183,17 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
             })}
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_maintenance_margin,
                 })}
-              </SizableText>
+              </DashText>
             }
           />
           <PerpsAccountNumberValue

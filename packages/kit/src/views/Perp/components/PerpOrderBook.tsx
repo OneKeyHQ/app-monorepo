@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   DebugRenderTracker,
   Divider,
   Popover,
@@ -76,16 +77,17 @@ function MobileHeader() {
       })}
       renderTrigger={
         <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-          <SizableText
+          <DashText
             fontSize={10}
             color="$textSubdued"
-            textDecorationLine="underline"
-            textDecorationStyle="dotted"
+            dashColor="$textSubdued"
+            dashThickness={0.5}
+            lineHeight={16}
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
-          </SizableText>
+          </DashText>
 
           {showSkeleton ? (
             <Skeleton width={120} height={16} />
@@ -276,9 +278,9 @@ export function PerpOrderBook({
   );
 
   const mobileMaxLevelsPerSide = useMemo(() => {
-    if (shouldShowEnableTradingButton) return 4;
-    if (formData.hasTpsl) return 10;
-    return 8;
+    if (shouldShowEnableTradingButton) return 5;
+    if (formData.hasTpsl) return 9;
+    return 7;
   }, [formData.hasTpsl, shouldShowEnableTradingButton]);
 
   const mobileOrderBook = useMemo(() => {

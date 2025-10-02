@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
+  DashText,
   Divider,
   IconButton,
   Popover,
@@ -48,9 +49,6 @@ import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
-import { TradeSideToggle } from '../selectors/TradeSideToggle';
-
-import type { ISide } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
@@ -377,12 +375,12 @@ function PerpTradingForm({
   if (isMobile) {
     return (
       <YStack gap="$3">
-        <TradeSideToggle
-          value={formData.side}
-          onChange={(side: ISide) => updateForm({ side })}
-          disabled={isSubmitting}
-          isMobile={isMobile}
-        />
+        <XStack alignItems="center" flex={1} gap="$2.5">
+          <YStack flex={1}>
+            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+          </YStack>
+          <LeverageAdjustModal isMobile={isMobile} />
+        </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
@@ -396,12 +394,7 @@ function PerpTradingForm({
             <MobileDepositButton />
           </XStack>
         </XStack>
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-          </YStack>
-          <LeverageAdjustModal isMobile={isMobile} />
-        </XStack>
+
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
             <OrderTypeSelector
@@ -494,16 +487,15 @@ function PerpTradingForm({
                   </YStack>
                 )}
                 renderTrigger={
-                  <SizableText
+                  <DashText
                     size="$bodySm"
-                    textDecorationLine="underline"
-                    textDecorationStyle="dotted"
-                    textDecorationColor="$textSubdued"
+                    dashColor="$textSubdued"
+                    dashThickness={0.5}
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_position_tp_sl,
                     })}
-                  </SizableText>
+                  </DashText>
                 }
                 title={intl.formatMessage({
                   id: ETranslations.perp_position_tp_sl,
@@ -673,20 +665,16 @@ function PerpTradingForm({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
               renderTrigger={
-                <SizableText
+                <DashText
                   size="$bodyMd"
-                  borderBottomWidth="$px"
-                  borderTopWidth={0}
-                  borderLeftWidth={0}
-                  borderRightWidth={0}
-                  borderBottomColor="$border"
-                  borderStyle="dashed"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
                   cursor="help"
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_position_tp_sl,
                   })}
-                </SizableText>
+                </DashText>
               }
             />
           </XStack>
@@ -696,7 +684,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="tp"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_tp,
+                  id: ETranslations.perp_trade_tp_price,
                 })}
                 value={formData.tpValue || ''}
                 inputType={formData.tpType || 'price'}
@@ -709,7 +697,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="sl"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_sl,
+                  id: ETranslations.perp_trade_sl_price,
                 })}
                 value={formData.slValue || ''}
                 inputType={formData.slType || 'price'}
