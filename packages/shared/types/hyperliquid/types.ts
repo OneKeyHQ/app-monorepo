@@ -121,6 +121,12 @@ export interface ILeverageUpdateRequest {
   leverage: number;
 }
 
+export interface IUpdateIsolatedMarginRequest {
+  asset: number;
+  isBuy: boolean;
+  ntli: number; // Margin amount in USDC (multiplied by 1e6): positive to add, negative to remove
+}
+
 export interface ISetReferrerRequest {
   code: string;
 }

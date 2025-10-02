@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   DebugRenderTracker,
   Divider,
   Popover,
@@ -21,6 +22,7 @@ import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -75,16 +77,17 @@ function MobileHeader() {
       })}
       renderTrigger={
         <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-          <SizableText
+          <DashText
             fontSize={10}
             color="$textSubdued"
-            textDecorationLine="underline"
-            textDecorationStyle="dotted"
+            dashColor="$textSubdued"
+            dashThickness={0.5}
+            lineHeight={16}
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
-          </SizableText>
+          </DashText>
 
           {showSkeleton ? (
             <Skeleton width={120} height={16} />
@@ -219,6 +222,8 @@ export function PerpOrderBook({
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = perpsSelectedSymbol?.coin;
@@ -272,6 +277,12 @@ export function PerpOrderBook({
     [actionsRef, formData.type],
   );
 
+  const mobileMaxLevelsPerSide = useMemo(() => {
+    if (shouldShowEnableTradingButton) return 5;
+    if (formData.hasTpsl) return 9;
+    return 7;
+  }, [formData.hasTpsl, shouldShowEnableTradingButton]);
+
   const mobileOrderBook = useMemo(() => {
     if (!hasOrderBook || !l2Book) return null;
     if (gtMd) return null;
@@ -302,7 +313,7 @@ export function PerpOrderBook({
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={formData.hasTpsl ? 10 : 8}
+          maxLevelsPerSide={mobileMaxLevelsPerSide}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}
@@ -322,7 +333,7 @@ export function PerpOrderBook({
     handleLevelSelect,
     selectedTickOption,
     hasOrderBook,
-    formData.hasTpsl,
+    mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
     sizeDecimals,

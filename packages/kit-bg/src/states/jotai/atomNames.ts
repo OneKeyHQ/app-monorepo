@@ -65,6 +65,7 @@ export enum EAtomNames {
   perpsActiveAssetAtom = 'perpsActiveAssetAtom',
   perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
   perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
+  perpsActiveOrderBookOptionsAtom = 'perpsActiveOrderBookOptionsAtom',
   perpsCurrentMidAtom = 'perpsCurrentMidAtom', // TODO remove
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',

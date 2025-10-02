@@ -4,6 +4,7 @@ import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   DebugRenderTracker,
   Divider,
   NumberSizeableText,
@@ -147,21 +148,17 @@ const TickerBarOraclePriceView = memo(
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 color="$textSubdued"
                 cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_oracle_price,
                 })}
-              </SizableText>
+              </DashText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -254,21 +251,17 @@ const TickerBarOpenInterestView = memo(
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_open_Interest,
                 })}
-              </SizableText>
+              </DashText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -311,18 +304,31 @@ function TickerBarOpenInterest() {
   );
 }
 
+function TickerBarFundingRateCountdown() {
+  const countdown = useFundingCountdown();
+  return (
+    <DebugRenderTracker
+      name="TickerBarFundingRateCountdown"
+      position="bottom-right"
+      offsetX={10}
+    >
+      <SizableText size="$headingXs" color="$text">
+        {countdown}
+      </SizableText>
+    </DebugRenderTracker>
+  );
+}
+
 const TickerBarFundingRateView = memo(
   ({
     fundingRate,
     fundingRatePercent,
     annualizedFundingRate,
-    countdown,
     isLoading,
   }: {
     fundingRate: number;
     fundingRatePercent: string;
     annualizedFundingRate: string;
-    countdown: string;
     isLoading: boolean;
   }) => {
     const intl = useIntl();
@@ -331,21 +337,17 @@ const TickerBarFundingRateView = memo(
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 color="$textSubdued"
                 cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_Funding,
                 })}
-              </SizableText>
+              </DashText>
             }
             renderContent={
               <YStack gap="$2">
@@ -375,9 +377,7 @@ const TickerBarFundingRateView = memo(
                     >
                       {fundingRatePercent}%
                     </SizableText>
-                    <SizableText size="$headingXs" color="$text">
-                      {countdown}
-                    </SizableText>
+                    <TickerBarFundingRateCountdown />
                   </XStack>
                 }
                 renderContent={
@@ -449,7 +449,6 @@ const TickerBarFundingRateView = memo(
 TickerBarFundingRateView.displayName = 'TickerBarFundingRateView';
 
 function TickerBarFundingRate() {
-  const countdown = useFundingCountdown();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const fundingRateStr = assetCtx?.ctx?.fundingRate || '0';
   const fundingRate = parseFloat(fundingRateStr);
@@ -462,7 +461,6 @@ function TickerBarFundingRate() {
       fundingRate={fundingRate}
       fundingRatePercent={fundingRatePercent}
       annualizedFundingRate={annualizedFundingRate}
-      countdown={countdown}
       isLoading={isLoading}
     />
   );

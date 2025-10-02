@@ -1,4 +1,7 @@
+import type { ESubscriptionType } from './types';
 import type * as HL from '@nktkas/hyperliquid';
+
+// import type { WebSocketAsyncRequest } from '@nktkas/hyperliquid/esm/src/transports/websocket/_hyperliquid_event_target.js';
 
 // WebSocket data types
 export type IWsWebData2 = HL.WsWebData2;
@@ -7,6 +10,8 @@ export type IWsActiveAssetCtx = HL.WsActiveAssetCtx;
 export type IWsUserEvent = HL.WsUserEvent;
 export type IWsUserFills = HL.WsUserFills;
 export type IWsBbo = HL.WsBbo;
+export type IHyperliquidEventTarget = EventTarget; // HL.HyperliquidEventTarget;
+// export type IWebSocketAsyncRequest = WebSocketAsyncRequest; // HL.WebSocketAsyncRequest;
 
 export type IWsNotification = HL.WsNotification;
 export type IWsTrade = HL.WsTrade;
@@ -97,3 +102,16 @@ export type IErrorResponse = HL.ErrorResponse;
 // Basic types
 export type IHex = `0x${string}`;
 export type ISignature = HL.Signature;
+
+export type IPerpsSubscriptionParams = {
+  [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
+  [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
+  [ESubscriptionType.USER_EVENTS]: IEventUserEventsParameters;
+  [ESubscriptionType.USER_NOTIFICATIONS]: IEventNotificationParameters;
+  [ESubscriptionType.ACTIVE_ASSET_DATA]: IEventActiveAssetDataParameters;
+  [ESubscriptionType.WEB_DATA2]: IEventWebData2Parameters;
+  [ESubscriptionType.ALL_MIDS]: IWsAllMidsParameters;
+  [ESubscriptionType.ACTIVE_ASSET_CTX]: IEventActiveAssetCtxParameters;
+  [ESubscriptionType.TRADES]: IEventTradesParameters;
+  [ESubscriptionType.BBO]: IEventBboParameters;
+};

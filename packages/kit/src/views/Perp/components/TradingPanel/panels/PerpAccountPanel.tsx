@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   DebugRenderTracker,
   SizableText,
   Tooltip,
   XStack,
   YStack,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import {
   usePerpsActiveAccountAtom,
@@ -61,21 +63,17 @@ function PerpAccountMMRView() {
             id: ETranslations.perp_account_cross_margin_ration_tip,
           })}
           renderTrigger={
-            <SizableText
+            <DashText
               size="$bodySm"
               color="$textSubdued"
               cursor="help"
-              borderBottomWidth="$px"
-              borderTopWidth={0}
-              borderLeftWidth={0}
-              borderRightWidth={0}
-              borderBottomColor="$border"
-              borderStyle="dashed"
+              dashColor="$textDisabled"
+              dashThickness={0.5}
             >
               {intl.formatMessage({
                 id: ETranslations.perp_account_cross_margin_ration,
               })}
-            </SizableText>
+            </DashText>
           }
         />
         <SizableText size="$bodySmMedium" color="$text">
@@ -91,7 +89,7 @@ function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
-
+  const dialogInTab = useInTabDialog();
   const intl = useIntl();
 
   //     if (!userWebData2) {
@@ -149,21 +147,17 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_panel_account_value_tooltip,
             })}
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_value,
                 })}
-              </SizableText>
+              </DashText>
             }
           />
           <PerpsAccountNumberValue
@@ -189,21 +183,17 @@ function PerpAccountPanel() {
               id: ETranslations.perp_account_panel_account_maintenance_margin_tooltip,
             })}
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
                 color="$textSubdued"
                 cursor="help"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_account_panel_account_maintenance_margin,
                 })}
-              </SizableText>
+              </DashText>
             }
           />
           <PerpsAccountNumberValue
@@ -222,10 +212,13 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal({
-                actionType: 'deposit',
-                withdrawable: accountSummary?.withdrawable || '0',
-              })
+              showDepositWithdrawModal(
+                {
+                  actionType: 'deposit',
+                  withdrawable: accountSummary?.withdrawable || '0',
+                },
+                dialogInTab,
+              )
             }
             alignItems="center"
             justifyContent="center"
@@ -240,10 +233,13 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal({
-                actionType: 'withdraw',
-                withdrawable: accountSummary?.withdrawable || '0',
-              })
+              showDepositWithdrawModal(
+                {
+                  actionType: 'withdraw',
+                  withdrawable: accountSummary?.withdrawable || '0',
+                },
+                dialogInTab,
+              )
             }
             alignItems="center"
             justifyContent="center"

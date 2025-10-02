@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import type {
   IHex,
+  IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
   IPerpUserConfig,
@@ -163,6 +164,19 @@ export const {
   },
 });
 
+export const {
+  target: perpsShouldShowEnableTradingButtonAtom,
+  use: usePerpsShouldShowEnableTradingButtonAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => {
+    const status = get(perpsActiveAccountStatusAtom.atom());
+    const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const isAccountLoading =
+      loading.enableTradingLoading || loading.selectAccountLoading;
+    return isAccountLoading || !status?.canTrade || !status?.accountAddress;
+  },
+});
+
 // #endregion
 
 // #region Active Asset
@@ -205,6 +219,20 @@ export const {
   use: usePerpsActiveAssetDataAtom,
 } = globalAtom<IPerpsActiveAssetDataAtom>({
   name: EAtomNames.perpsActiveAssetDataAtom,
+  initialValue: undefined,
+});
+
+export type IPerpsActiveOrderBookOptionsAtom =
+  | (IL2BookOptions & {
+      coin: string;
+      assetId: number | undefined;
+    })
+  | undefined;
+export const {
+  target: perpsActiveOrderBookOptionsAtom,
+  use: usePerpsActiveOrderBookOptionsAtom,
+} = globalAtom<IPerpsActiveOrderBookOptionsAtom>({
+  name: EAtomNames.perpsActiveOrderBookOptionsAtom,
   initialValue: undefined,
 });
 
