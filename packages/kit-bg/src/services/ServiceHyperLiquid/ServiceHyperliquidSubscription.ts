@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
 import { SubscriptionClient, WebSocketTransport } from '@nktkas/hyperliquid';
-import { Semaphore } from 'async-mutex';
+import { cloneDeep, debounce } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -14,7 +15,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IHex,
+  IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
+  IPerpsSubscription,
+  IPerpsSubscriptionParams,
   IWsActiveAssetCtx,
   IWsAllMids,
   IWsWebData2,
@@ -22,29 +26,32 @@ import type {
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { perpsNetworkStatusAtom } from '../../states/jotai/atoms/perps';
+import {
+  perpsActiveAccountAtom,
+  perpsActiveAssetAtom,
+  perpsActiveOrderBookOptionsAtom,
+  perpsNetworkStatusAtom,
+} from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
 import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
-  calculateRequiredSubscriptions,
-  calculateSubscriptionDiff,
-  createSubscription,
-  getSubscriptionPriority,
+  calculateRequiredSubscriptionsMap,
 } from './utils/SubscriptionConfig';
 
 import type {
-  ISubscriptionDiff,
   ISubscriptionSpec,
   ISubscriptionState,
 } from './utils/SubscriptionConfig';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IPerpsActiveOrderBookOptionsAtom } from '../../states/jotai/atoms/perps';
 
 interface IActiveSubscription {
   key: string;
   type: ESubscriptionType;
-  sdkSubscription: any;
+  sdkSubscription: IPerpsSubscription | undefined;
+  unsubscribe: () => Promise<void>;
   createdAt: number;
   lastActivity: number;
   isActive: boolean;
@@ -63,10 +70,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private _client: SubscriptionClient | null = null;
-
-  // Ensure updateSubscriptions runs exclusively to avoid race conditions
-  private _updateSemaphore = new Semaphore(1);
+  private _client: {
+    innerClient: SubscriptionClient;
+    hlEventTarget: IHyperliquidEventTarget;
+    wsRequester: {
+      request: (method: string, payload: any) => Promise<void>;
+    };
+    subscribe: <T extends ESubscriptionType>(
+      type: T,
+      params: IPerpsSubscriptionParams[T],
+    ) => Promise<void>;
+    unsubscribe: <T extends ESubscriptionType>(
+      type: T,
+      params: IPerpsSubscriptionParams[T],
+    ) => Promise<void>;
+  } | null = null;
 
   private _currentState: ISubscriptionState = {
     currentUser: null,
@@ -75,31 +93,97 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     l2BookOptions: undefined,
   };
 
-  private _activeSubscriptions = new Map<string, IActiveSubscription>();
-
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
 
   private _lastMessageAt: number | null = null;
 
-  @backgroundMethod()
-  async updateSubscriptions(params: ISubscriptionUpdateParams): Promise<void> {
-    const [, release] = await this._updateSemaphore.acquire();
-    try {
-      const newState: ISubscriptionState = { ...this._currentState };
-      this._applyStateUpdates(newState, params);
+  allSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
-      const diff = this._calculateStateDiff(newState);
+  pendingSubSpecsMap: Record<string, ISubscriptionSpec<ESubscriptionType>> = {};
 
-      if (this._isDiffEmpty(diff)) {
+  private _activeSubscriptions = new Map<string, IActiveSubscription>();
+
+  updateSubscriptionsDebounced = debounce(
+    async () => {
+      const activeAccount = await perpsActiveAccountAtom.get();
+      const activeAsset = await perpsActiveAssetAtom.get();
+      const activeOrderBookOptions =
+        await perpsActiveOrderBookOptionsAtom.get();
+
+      if (
+        activeOrderBookOptions?.coin &&
+        activeOrderBookOptions?.coin !== activeAsset.coin
+      ) {
+        console.warn(
+          'updateSubscriptionsDebounced ERROR: orderbook coin not matched',
+        );
         return;
       }
+
+      // TODO update isConnected by websocket connect/disconnect event
+      const isConnected = this._currentState.isConnected;
+
+      // Validate parameters before proceeding
+      if (
+        activeOrderBookOptions?.mantissa !== undefined &&
+        activeOrderBookOptions?.mantissa !== null
+      ) {
+        if (![2, 5].includes(activeOrderBookOptions?.mantissa)) {
+          console.warn(
+            '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
+            activeOrderBookOptions?.mantissa,
+            'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
+          );
+        }
+      }
+
+      const l2BookOptions: IPerpsActiveOrderBookOptionsAtom | undefined =
+        activeOrderBookOptions
+          ? {
+              ...activeOrderBookOptions,
+            }
+          : undefined;
+      delete l2BookOptions?.assetId;
+      const params: ISubscriptionState = {
+        isConnected,
+        l2BookOptions,
+        currentSymbol: activeAsset?.coin,
+        currentUser: activeAccount?.accountAddress,
+      };
+
+      const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+      this.allSubSpecsMap = {
+        ...this.allSubSpecsMap,
+        ...requiredSubSpecsMap,
+      };
+      this.pendingSubSpecsMap = {
+        ...requiredSubSpecsMap,
+      };
+
+      const newState: ISubscriptionState = { ...this._currentState };
+
+      this._applyStateUpdates(newState, params);
+
+      console.log('updateSubscriptions', requiredSubSpecsMap, {
+        newState,
+        params,
+      });
+
       this._emitConnectionStatus();
-      await this._executeSubscriptionChanges(diff, newState);
+      this._executeSubscriptionChanges();
 
       this._currentState = newState;
-    } finally {
-      release();
-    }
+    },
+    300,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  @backgroundMethod()
+  async updateSubscriptions(): Promise<void> {
+    await this.updateSubscriptionsDebounced();
   }
 
   @backgroundMethod()
@@ -119,15 +203,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       currentUser: this._currentState.currentUser,
       currentSymbol: this._currentState.currentSymbol,
       isConnected: this._currentState.isConnected,
-      activeSubscriptions: Array.from(this._activeSubscriptions.values()).map(
-        (sub) => ({
+      activeSubscriptions: Array.from(this._activeSubscriptions.values())
+        .filter(Boolean)
+        .map((sub) => ({
           key: sub.key,
           type: sub.type,
           createdAt: sub.createdAt,
           lastActivity: sub.lastActivity,
           isActive: sub.isActive,
-        }),
-      ),
+        })),
     };
   }
 
@@ -158,35 +242,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._cleanupAllSubscriptions();
   }
 
-  @backgroundMethod()
-  async updateL2BookSubscription(
-    params: ISubscriptionUpdateParams,
-  ): Promise<void> {
-    // Validate parameters before proceeding
-    if (
-      params.l2BookOptions?.mantissa !== undefined &&
-      params.l2BookOptions?.mantissa !== null
-    ) {
-      if (![2, 5].includes(params.l2BookOptions?.mantissa)) {
-        console.warn(
-          '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
-          params.l2BookOptions?.mantissa,
-          'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
-        );
-      }
-    }
-
-    // Update the subscription with new L2Book parameters
-    // Important: Only update l2BookOptions, keep other state unchanged
-    await this.updateSubscriptions({
-      l2BookOptions: params.l2BookOptions,
-      // Preserve current state to avoid losing currentSymbol and currentUser
-      currentSymbol: params.currentSymbol,
-      currentUser: params.currentUser,
-      isConnected: this._currentState.isConnected,
-    });
-  }
-
   private _applyStateUpdates(
     state: ISubscriptionState,
     params: ISubscriptionUpdateParams,
@@ -205,76 +260,81 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
-  private _calculateStateDiff(newState: ISubscriptionState): ISubscriptionDiff {
-    const currentSpecs = this._getCurrentSubscriptionSpecs();
-    const newSpecs = calculateRequiredSubscriptions(newState);
-    const diff = calculateSubscriptionDiff(currentSpecs, newSpecs);
-    return diff;
-  }
+  // export interface ISubscriptionSpec<T extends ESubscriptionType> {
+  //   readonly type: T;
+  //   readonly key: string;
+  //   readonly params: IPerpsSubscriptionParams[T];
 
-  private _isDiffEmpty(diff: ISubscriptionDiff): boolean {
-    return diff.toUnsubscribe.length === 0 && diff.toSubscribe.length === 0;
-  }
-
-  private async _executeSubscriptionChanges(
-    diff: ISubscriptionDiff,
-    _newState: ISubscriptionState,
-  ): Promise<void> {
-    await this._executeUnsubscriptions(diff.toUnsubscribe);
-    await this._executeSubscriptions(diff.toSubscribe);
-  }
-
-  private async _executeUnsubscriptions(
-    toUnsubscribe: ISubscriptionSpec[],
-  ): Promise<void> {
-    if (toUnsubscribe.length === 0) return;
-    const unsubscribePromises = toUnsubscribe.map(async (spec) => {
-      try {
-        await this._destroySubscription(spec.key);
-      } catch (error) {
-        console.error(
-          `[ServiceHyperliquidSubscription.executeUnsubscriptions] Failed to unsubscribe ${spec.key}:`,
-          error,
-        );
-      }
-    });
-
-    await Promise.all(unsubscribePromises);
-  }
-
-  private async _executeSubscriptions(
-    toSubscribe: ISubscriptionSpec[],
-  ): Promise<void> {
-    if (toSubscribe.length) {
-      // Process subscriptions sequentially to avoid overwhelming the connection
-      for (const spec of toSubscribe) {
-        try {
-          await this._createSubscription(spec);
-        } catch (error) {
-          console.error(
-            `[ServiceHyperliquidSubscription.executeSubscriptions] Failed to subscribe ${spec.key}:`,
-            error,
-          );
-        }
-      }
-    }
-  }
-
-  private async getWebSocketClient(): Promise<SubscriptionClient> {
+  private async getWebSocketClient() {
     if (!this._client) {
       const transport = new WebSocketTransport({
         url: 'wss://api.hyperliquid.xyz/ws',
       });
 
-      this._client = new SubscriptionClient({ transport });
+      const innerClient = new SubscriptionClient({ transport });
+      // @ts-ignore
+      const hlEventTarget = innerClient.transport._hlEvents;
+
+      const registerEventHandler = (type: ESubscriptionType) => {
+        const handleData = (data: unknown) => {
+          this._handleSubscriptionData('', data as CustomEvent, type);
+        };
+        hlEventTarget.addEventListener(type, handleData);
+      };
+      registerEventHandler(ESubscriptionType.ACTIVE_ASSET_CTX);
+      registerEventHandler(ESubscriptionType.ACTIVE_ASSET_DATA);
+      registerEventHandler(ESubscriptionType.ALL_MIDS);
+      registerEventHandler(ESubscriptionType.L2_BOOK);
+      registerEventHandler(ESubscriptionType.USER_FILLS);
+      registerEventHandler(ESubscriptionType.WEB_DATA2);
+
+      // @ts-ignore
+      const wsRequester = innerClient.transport._wsRequester as {
+        request: (method: string, payload: any) => Promise<void>;
+      };
+      // const payload = { type: "activeAssetCtx", ...params };
+      console.log('getWebSocketClient__wsRequester', wsRequester);
+      const subscribe = async <T extends ESubscriptionType>(
+        type: T,
+        params: IPerpsSubscriptionParams[T],
+      ) => {
+        // for (let i = 0; i < 100; i += 1) {
+        //   void wsRequester.request('subscribe', {
+        //     type,
+        //     ...params,
+        //   });
+        // }
+        return wsRequester.request('subscribe', {
+          type,
+          ...params,
+        });
+      };
+      const unsubscribe = async <T extends ESubscriptionType>(
+        type: T,
+        params: IPerpsSubscriptionParams[T],
+      ) => {
+        return wsRequester.request('unsubscribe', {
+          type,
+          ...params,
+        });
+      };
+      this._client = {
+        innerClient,
+        hlEventTarget,
+        wsRequester,
+        subscribe,
+        unsubscribe,
+      };
     }
+
     return this._client;
   }
 
   private async _closeClient(): Promise<void> {
     if (this._client) {
       try {
-        await this._client[Symbol.asyncDispose]();
+        // TODO remove all eventListeners
+        await this._client.innerClient[Symbol.asyncDispose]();
       } catch (error) {
         console.error(
           '[ServiceHyperliquidSubscription.closeClient] Failed to close client:',
@@ -286,28 +346,51 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
-  private _getCurrentSubscriptionSpecs(): ISubscriptionSpec[] {
-    return Array.from(this._activeSubscriptions.values()).map((sub) => ({
-      type: sub.type,
-      key: sub.key,
-      params: this._parseKeyToParams(sub.key, sub.type),
-      priority: getSubscriptionPriority(sub.type),
-    }));
-  }
-
-  private async _createSubscriptionDirect(
-    spec: ISubscriptionSpec,
-  ): Promise<unknown> {
+  private async _createSubscriptionDirect<T extends ESubscriptionType>(
+    spec: ISubscriptionSpec<T>,
+  ): Promise<IPerpsSubscription | undefined> {
     const client = await this.getWebSocketClient();
-    const handleData = (data: unknown) => {
-      this._handleSubscriptionData(spec.key, data, spec.type);
-    };
-
-    // Use type-safe subscription creation function from mapping
-    return createSubscription(spec.type, client, spec.params, handleData);
+    // const handleData = (data: unknown) => {
+    //   this._handleSubscriptionData(spec.key, data, spec.type);
+    // };
+    // // Use type-safe subscription creation function from mapping
+    // return createSubscription(spec.type, client, spec.params, handleData);
+    await client.subscribe(spec.type, spec.params);
+    return undefined;
   }
 
-  private async _createSubscription(spec: ISubscriptionSpec): Promise<void> {
+  destroyUnusedSubscriptions(): void {
+    Object.values(this.allSubSpecsMap).forEach((spec) => {
+      if (!this.pendingSubSpecsMap[spec.key]) {
+        console.log('destroyUnusedSubscriptions', spec.key);
+        if (this._activeSubscriptions.has(spec.key)) {
+          void this._destroySubscription(spec.key);
+        }
+      }
+    });
+  }
+
+  private _executeSubscriptionChanges(): void {
+    this.destroyUnusedSubscriptions();
+
+    Object.values(this.pendingSubSpecsMap).forEach((spec) => {
+      if (!this._activeSubscriptions.has(spec.key)) {
+        void this._createSubscription(spec);
+      }
+    });
+
+    // this.destroyUnusedSubscriptions();
+  }
+
+  private async _createSubscription<T extends ESubscriptionType>(
+    spec: ISubscriptionSpec<T>,
+  ): Promise<void> {
+    // eslint-disable-next-line no-param-reassign
+    spec = cloneDeep(spec);
+    if (spec.key.includes('l2Book')) {
+      // debugger;
+    }
+
     if (this._activeSubscriptions.has(spec.key)) {
       console.warn(
         `[ServiceHyperliquidSubscription.createSubscription] Subscription already exists: ${spec.key}`,
@@ -316,42 +399,66 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
 
     try {
+      console.log('createSubscription', spec.key);
       const sdkSubscription = await this._createSubscriptionDirect(spec);
-
       this._activeSubscriptions.set(spec.key, {
         key: spec.key,
         type: spec.type,
         sdkSubscription,
+        unsubscribe: async () => {
+          const client = await this.getWebSocketClient();
+          await client.unsubscribe(spec.type, spec.params);
+        },
         createdAt: Date.now(),
         lastActivity: Date.now(),
         isActive: true,
       });
+      if (spec.key.includes('l2Book')) {
+        console.log(
+          'createSubscription__done',
+          sdkSubscription,
+          this._activeSubscriptions,
+        );
+      }
     } catch (error) {
       console.error(
         `[ServiceHyperliquidSubscription.createSubscription] Failed to create subscription ${spec.type}:`,
         error,
       );
-      throw error;
+    } finally {
+      // this.destroyUnusedSubscriptions();
     }
   }
 
   private async _destroySubscription(key: string): Promise<void> {
+    if (key.includes('l2Book')) {
+      // debugger;
+    }
     const subscription = this._activeSubscriptions.get(key);
     if (!subscription) {
       return;
     }
 
     try {
-      const sdkSub = subscription.sdkSubscription;
-      if (sdkSub?.unsubscribe && typeof sdkSub.unsubscribe === 'function') {
+      if (subscription) {
+        const removeSub = () => {
+          delete this.allSubSpecsMap[key];
+          this._activeSubscriptions.delete(key);
+        };
         try {
-          await sdkSub.unsubscribe();
+          console.log('destroyUnusedSubscriptions__destroy', key);
+          // await sdkSub.unsubscribe();
+          await subscription.unsubscribe();
+          removeSub();
         } catch (error) {
+          const e = error as OneKeyError | undefined;
           console.error(
             `[HyperLiquid WebSocket] unsubscribe() failed for ${key}:`,
             error,
           );
-          throw error;
+          if (e?.message.includes('Already unsubscribed')) {
+            removeSub();
+          }
         }
       }
     } catch (error) {
@@ -360,8 +467,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         error,
       );
     }
-
-    this._activeSubscriptions.delete(key);
   }
 
   private async _cleanupAllSubscriptions(): Promise<void> {
@@ -379,15 +484,19 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _handleSubscriptionData(
     key: string,
-    data: unknown,
+    event: CustomEvent,
     subscriptionType: ESubscriptionType,
   ): void {
     try {
-      const subscription = this._activeSubscriptions.get(key);
-      if (subscription) {
-        subscription.lastActivity = Date.now();
-        this._activeSubscriptions.set(key, subscription);
+      if (key) {
+        const subscription = this._activeSubscriptions.get(key);
+        if (subscription) {
+          subscription.lastActivity = Date.now();
+          this._activeSubscriptions.set(key, subscription);
+        }
       }
+
+      const data = event?.detail as unknown;
 
       if (data == null) {
         console.warn(
@@ -408,7 +517,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         subscriptionType === ESubscriptionType.TRADES ||
         subscriptionType === ESubscriptionType.BBO
       ) {
-        metadata.coin = parts[2];
+        metadata.coin = parts?.[2];
       } else if (
         subscriptionType === ESubscriptionType.WEB_DATA2 ||
         subscriptionType === ESubscriptionType.USER_FILLS ||
@@ -416,9 +525,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         subscriptionType === ESubscriptionType.USER_NOTIFICATIONS ||
         subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA
       ) {
-        metadata.userId = parts[2];
+        metadata.userId = parts?.[2];
         if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
-          metadata.coin = parts[3];
+          metadata.coin = parts?.[3];
         }
       }
 

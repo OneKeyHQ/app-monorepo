@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 
 import type {
   IHex,
+  IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
   IPerpUserConfig,
@@ -205,6 +206,20 @@ export const {
   use: usePerpsActiveAssetDataAtom,
 } = globalAtom<IPerpsActiveAssetDataAtom>({
   name: EAtomNames.perpsActiveAssetDataAtom,
+  initialValue: undefined,
+});
+
+export type IPerpsActiveOrderBookOptionsAtom =
+  | (IL2BookOptions & {
+      coin: string;
+      assetId: number | undefined;
+    })
+  | undefined;
+export const {
+  target: perpsActiveOrderBookOptionsAtom,
+  use: usePerpsActiveOrderBookOptionsAtom,
+} = globalAtom<IPerpsActiveOrderBookOptionsAtom>({
+  name: EAtomNames.perpsActiveOrderBookOptionsAtom,
   initialValue: undefined,
 });
 

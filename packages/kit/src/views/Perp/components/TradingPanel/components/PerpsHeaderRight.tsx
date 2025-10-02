@@ -24,6 +24,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsActiveOrderBookOptionsAtom,
   usePerpsCurrentMidAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -51,6 +52,7 @@ function DebugButton() {
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [activeOpenOrders] = usePerpsActiveOpenOrdersAtom();
   const [activePositions] = usePerpsActivePositionAtom();
+  const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
 
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DebugButton">
@@ -79,6 +81,7 @@ function DebugButton() {
             activeAssetData,
             activeOpenOrders,
             activePositions,
+            activeOrderBookOptions,
           });
         }}
       />
