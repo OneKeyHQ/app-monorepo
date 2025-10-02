@@ -1,3 +1,4 @@
+import { HYPERLIQUID_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -77,5 +78,22 @@ export const openTokenDetailsUrl = async ({
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
+  }
+};
+
+export const openHyperLiquidExplorerUrl = async ({
+  address,
+  openInExternal,
+}: {
+  address?: string;
+  openInExternal?: boolean;
+}) => {
+  if (address) {
+    const url = `${HYPERLIQUID_EXPLORER_URL}${address}`;
+    if (openInExternal) {
+      openUrlExternal(url);
+    } else {
+      openUrlInApp(url);
+    }
   }
 };
