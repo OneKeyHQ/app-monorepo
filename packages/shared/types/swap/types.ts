@@ -79,6 +79,7 @@ export enum ESwapSource {
   MARKET = 'market',
   TAB = 'tab',
   APPROVING_SUCCESS = 'approving_success',
+  PERP = 'perp',
 }
 
 export enum ESwapSelectTokenSource {

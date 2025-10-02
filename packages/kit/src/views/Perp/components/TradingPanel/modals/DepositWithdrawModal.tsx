@@ -4,7 +4,10 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
 
-import type { ISegmentControlProps } from '@onekeyhq/components';
+import type {
+  ISegmentControlProps,
+  useInTabDialog,
+} from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -16,9 +19,12 @@ import {
   XStack,
   YStack,
   getFontSize,
+  useDialogInstance,
+  useInModalDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
@@ -28,7 +34,9 @@ import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -36,6 +44,11 @@ import {
   MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
@@ -62,6 +75,7 @@ function DepositWithdrawContent({
   onClose,
 }: IDepositWithdrawContentProps) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [selectedAction, setSelectedAction] =
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');
@@ -149,13 +163,23 @@ function DepositWithdrawContent({
   );
   const availableBalance = useMemo(() => {
     if (selectedAction === 'withdraw') {
-      return new BigNumber(params.withdrawable || '0').toFixed(2);
+      return {
+        balance: new BigNumber(params.withdrawable || '0').toFixed(),
+        displayBalance: numberFormat(params.withdrawable || '0', {
+          formatter: 'balance',
+        }),
+      };
     }
-    return new BigNumber(usdcBalance || '0').toFixed(2);
+    return {
+      balance: new BigNumber(usdcBalance || '0').toFixed(),
+      displayBalance: numberFormat(usdcBalance || '0', {
+        formatter: 'balance',
+      }),
+    };
   }, [selectedAction, params.withdrawable, usdcBalance]);
   const isValidAmount = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(availableBalance || '0');
+    const balanceBN = new BigNumber(availableBalance.balance || '0');
 
     if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
@@ -236,13 +260,26 @@ function DepositWithdrawContent({
 
   const handleMaxPress = useCallback(() => {
     if (availableBalance) {
-      setAmount(availableBalance);
+      setAmount(availableBalance.balance);
     }
   }, [availableBalance]);
 
+  const handleTrade = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapMainLand,
+      params: {
+        importNetworkId: PERPS_NETWORK_ID,
+        importFromToken: swapDefaultSetTokens[PERPS_NETWORK_ID].fromToken,
+        importToToken: swapDefaultSetTokens[PERPS_NETWORK_ID].toToken,
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapSource: ESwapSource.PERP,
+      },
+    });
+  }, [navigation]);
+
   const validateAmountBeforeSubmit = useCallback(() => {
     const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(availableBalance || '0');
+    const balanceBN = new BigNumber(availableBalance.balance || '0');
 
     if (amountBN.isNaN() || amountBN.lte(0)) {
       Toast.error({
@@ -351,7 +388,7 @@ function DepositWithdrawContent({
 
   const isInsufficientBalance = useMemo(() => {
     const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(availableBalance || '0');
+    const balanceBN = new BigNumber(availableBalance.balance || '0');
     return amountBN.gt(balanceBN) && amountBN.gt(0);
   }, [amount, availableBalance]);
   const buttonText = useMemo(() => {
@@ -515,6 +552,24 @@ function DepositWithdrawContent({
             {errorMessage}
           </SizableText>
         ) : null}
+        {isInsufficientBalance ? (
+          <XStack gap="$1">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage(
+                { id: ETranslations.earn_not_enough_token },
+                { token: 'USDC' },
+              )}
+            </SizableText>
+            <SizableText
+              size="$bodySm"
+              color="$green11"
+              onPress={handleTrade}
+              cursor="pointer"
+            >
+              {intl.formatMessage({ id: ETranslations.global_trade })}
+            </SizableText>
+          </XStack>
+        ) : null}
       </YStack>
       {/* Available Balance & You Will Get */}
       <YStack gap="$3">
@@ -535,17 +590,21 @@ function DepositWithdrawContent({
               <SizableText
                 cursor="pointer"
                 onPress={handleMaxPress}
-                color="$text"
                 size="$bodyMd"
               >
-                {availableBalance || '0.00'}{' '}
-                <SizableText size="$bodyMd" color="$green11">
-                  {intl.formatMessage({
-                    id: ETranslations.dexmarket_custom_filters_max,
-                  })}
-                </SizableText>
+                {availableBalance.displayBalance || '0.00'}{' '}
               </SizableText>
             )}
+            <SizableText
+              size="$bodyMd"
+              color="$green11"
+              cursor="pointer"
+              onPress={handleTrade}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_trade,
+              })}
+            </SizableText>
           </XStack>
         </XStack>
 
@@ -584,7 +643,10 @@ function DepositWithdrawContent({
   );
 }
 
-export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
+export async function showDepositWithdrawModal(
+  params: IDepositWithdrawParams,
+  dialogInTab: ReturnType<typeof useInTabDialog>,
+) {
   const selectedAccount = await perpsActiveAccountAtom.get();
   if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
     console.error('[DepositWithdrawModal] Missing required parameters');
@@ -594,23 +656,23 @@ export async function showDepositWithdrawModal(params: IDepositWithdrawParams) {
     return;
   }
 
-  const dialogInstance = Dialog.show({
+  const dialogInTabRef = dialogInTab.show({
     renderContent: (
       <PerpsProviderMirror>
         <DepositWithdrawContent
           params={params}
           selectedAccount={selectedAccount}
           onClose={() => {
-            void dialogInstance.close();
+            void dialogInTabRef.close();
           }}
         />
       </PerpsProviderMirror>
     ),
     showFooter: false,
     onClose: () => {
-      void dialogInstance.close();
+      void dialogInTabRef.close();
     },
   });
 
-  return dialogInstance;
+  return dialogInTabRef;
 }

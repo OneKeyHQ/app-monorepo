@@ -14,6 +14,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -58,6 +59,7 @@ interface IPerpTradingFormProps {
 
 function MobileDepositButton() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const dialogInTab = useInTabDialog();
   return (
     <IconButton
       testID="perp-trading-form-mobile-deposit-button"
@@ -66,10 +68,13 @@ function MobileDepositButton() {
       iconSize="$3.5"
       icon="PlusCircleSolid"
       onPress={() =>
-        showDepositWithdrawModal({
-          actionType: 'deposit',
-          withdrawable: accountSummary?.withdrawable || '0',
-        })
+        showDepositWithdrawModal(
+          {
+            actionType: 'deposit',
+            withdrawable: accountSummary?.withdrawable || '0',
+          },
+          dialogInTab,
+        )
       }
       color="$iconSubdued"
       cursor="pointer"

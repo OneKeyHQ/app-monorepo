@@ -10,6 +10,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import {
   usePerpsActiveAccountAtom,
@@ -91,7 +92,7 @@ function PerpAccountPanel() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const [selectedAccount] = usePerpsActiveAccountAtom();
   const userAddress = selectedAccount.accountAddress;
-
+  const dialogInTab = useInTabDialog();
   const intl = useIntl();
 
   //     if (!userWebData2) {
@@ -222,10 +223,13 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal({
-                actionType: 'deposit',
-                withdrawable: accountSummary?.withdrawable || '0',
-              })
+              showDepositWithdrawModal(
+                {
+                  actionType: 'deposit',
+                  withdrawable: accountSummary?.withdrawable || '0',
+                },
+                dialogInTab,
+              )
             }
             alignItems="center"
             justifyContent="center"
@@ -240,10 +244,13 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal({
-                actionType: 'withdraw',
-                withdrawable: accountSummary?.withdrawable || '0',
-              })
+              showDepositWithdrawModal(
+                {
+                  actionType: 'withdraw',
+                  withdrawable: accountSummary?.withdrawable || '0',
+                },
+                dialogInTab,
+              )
             }
             alignItems="center"
             justifyContent="center"

@@ -9,6 +9,7 @@ import {
   IconButton,
   SizableText,
   XStack,
+  useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -96,17 +97,20 @@ function DepositButton() {
   const accountValue = accountSummary?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
-
+  const dialogInTab = useInTabDialog();
   const content = activeAccount.accountAddress ? (
     <Badge
       borderRadius="$full"
       size="medium"
       variant="secondary"
       onPress={() =>
-        showDepositWithdrawModal({
-          actionType: 'deposit',
-          withdrawable: accountSummary?.withdrawable || '0',
-        })
+        showDepositWithdrawModal(
+          {
+            actionType: 'deposit',
+            withdrawable: accountSummary?.withdrawable || '0',
+          },
+          dialogInTab,
+        )
       }
       alignItems="center"
       justifyContent="center"
