@@ -65,7 +65,6 @@ export function HyperliquidTermsContent({
     height: 0,
   });
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    console.log('handleLayout', e.nativeEvent.layout);
     setLayout(e.nativeEvent.layout);
   }, []);
 
