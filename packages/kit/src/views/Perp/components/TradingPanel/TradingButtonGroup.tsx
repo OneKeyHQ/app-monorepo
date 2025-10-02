@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   NumberSizeableText,
+  Popover,
   SizableText,
   Toast,
   Tooltip,
@@ -30,14 +31,20 @@ import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 interface ITradingButtonGroupProps {
   isSubmitting: boolean;
+  isMobile: boolean;
 }
 
 interface ISideButtonProps {
   side: 'long' | 'short';
   isSubmitting: boolean;
+  isMobile: boolean;
 }
 
-function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
+function SideButtonInternal({
+  side,
+  isSubmitting,
+  isMobile,
+}: ISideButtonProps) {
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
@@ -125,7 +132,15 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_placing,
       });
-    if (isMinimumOrderNotMetForSide) return 'Order must be at least $10';
+    if (isMinimumOrderNotMetForSide)
+      return intl.formatMessage(
+        {
+          id: ETranslations.perp_size_least,
+        },
+        {
+          amount: '$10',
+        },
+      );
     if (isNoEnoughMargin)
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
@@ -168,40 +183,48 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
 
   const handlePress = useCallback(() => {
     // Validate TPSL only if user has filled in values
-    const hasTpValue = formData.tpValue && formData.tpValue.trim() !== '';
-    const hasSlValue = formData.slValue && formData.slValue.trim() !== '';
+    const tpValue = formData.tpValue?.trim();
+    const slValue = formData.slValue?.trim();
+    const hasTpValue = Boolean(tpValue);
+    const hasSlValue = Boolean(slValue);
 
     if (formData.hasTpsl && (hasTpValue || hasSlValue)) {
       // Calculate trigger prices based on type
       let tpTriggerPrice: BigNumber | null = null;
       let slTriggerPrice: BigNumber | null = null;
 
-      if (hasTpValue) {
+      if (hasTpValue && tpValue) {
         if (formData.tpType === 'price') {
-          tpTriggerPrice = new BigNumber(formData.tpValue!);
+          tpTriggerPrice = new BigNumber(tpValue);
         } else {
           // percentage mode
-          const percent = new BigNumber(formData.tpValue!);
+          const percent = new BigNumber(tpValue);
           if (percent.isFinite()) {
-            tpTriggerPrice = effectivePriceBN
+            const percentChange = effectivePriceBN
               .multipliedBy(percent)
-              .dividedBy(100)
-              .plus(effectivePriceBN);
+              .dividedBy(100);
+            tpTriggerPrice =
+              side === 'long'
+                ? effectivePriceBN.plus(percentChange)
+                : effectivePriceBN.minus(percentChange);
           }
         }
       }
 
-      if (hasSlValue) {
+      if (hasSlValue && slValue) {
         if (formData.slType === 'price') {
-          slTriggerPrice = new BigNumber(formData.slValue!);
+          slTriggerPrice = new BigNumber(slValue);
         } else {
           // percentage mode
-          const percent = new BigNumber(formData.slValue!);
+          const percent = new BigNumber(slValue);
           if (percent.isFinite()) {
-            slTriggerPrice = effectivePriceBN
+            const percentChange = effectivePriceBN
               .multipliedBy(percent)
-              .dividedBy(100)
-              .plus(effectivePriceBN);
+              .dividedBy(100);
+            slTriggerPrice =
+              side === 'long'
+                ? effectivePriceBN.minus(percentChange)
+                : effectivePriceBN.plus(percentChange);
           }
         }
       }
@@ -215,15 +238,23 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
       ) {
         if (side === 'long' && tpTriggerPrice.lte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'TP must be higher than entry price for long',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_desc_1,
+            }),
           });
           return;
         }
         if (side === 'short' && tpTriggerPrice.gte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'TP must be lower than entry price for short',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_desc_2,
+            }),
           });
           return;
         }
@@ -238,15 +269,23 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
       ) {
         if (side === 'long' && slTriggerPrice.gte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'SL must be lower than entry price for long',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_sl_desc_1,
+            }),
           });
           return;
         }
         if (side === 'short' && slTriggerPrice.lte(effectivePriceBN)) {
           Toast.error({
-            title: 'Invalid TP/SL',
-            message: 'SL must be higher than entry price for short',
+            title: intl.formatMessage({
+              id: ETranslations.perp_invaild_tp_sl,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.perp_invaild_sl_desc_2,
+            }),
           });
           return;
         }
@@ -262,6 +301,7 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
   }, [
     side,
     formData,
+    intl,
     effectivePriceBN,
     perpsCustomSettings.skipOrderConfirm,
     handleConfirm,
@@ -269,8 +309,8 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
 
   return (
     <YStack gap="$2" flex={1}>
-      <YStack gap="$1">
-        <XStack justifyContent="space-between">
+      <YStack gap="$1.5">
+        {/* <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_trade_order_value })}
           </SizableText>
@@ -282,32 +322,62 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
           >
             {orderValue.toNumber()}
           </NumberSizeableText>
-        </XStack>
+        </XStack> */}
 
         <XStack justifyContent="space-between">
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_trade_margin_tooltip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_trade_margin_required,
-                })}
-              </SizableText>
-            }
-          />
+          {isMobile ? (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_required,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_margin_required,
+                  })}
+                </SizableText>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_trade_margin_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
+          ) : (
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_trade_margin_tooltip,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  borderBottomWidth="$px"
+                  borderTopWidth={0}
+                  borderLeftWidth={0}
+                  borderRightWidth={0}
+                  borderBottomColor="$border"
+                  borderStyle="dashed"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_trade_margin_required,
+                  })}
+                </SizableText>
+              }
+            />
+          )}
+
           <NumberSizeableText
             size="$bodySm"
             color="$text"
@@ -319,29 +389,58 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
         </XStack>
 
         <XStack justifyContent="space-between">
-          <Tooltip
-            placement="top"
-            renderContent={intl.formatMessage({
-              id: ETranslations.perp_est_liq_price_tooltip,
-            })}
-            renderTrigger={
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                cursor="default"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_est_liq_price,
-                })}
-              </SizableText>
-            }
-          />
+          {isMobile ? (
+            <Popover
+              title={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  color="$textSubdued"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </SizableText>
+              }
+              renderContent={
+                <YStack px="$5" pb="$4">
+                  <SizableText>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_est_liq_price_tooltip,
+                    })}
+                  </SizableText>
+                </YStack>
+              }
+            />
+          ) : (
+            <Tooltip
+              placement="top"
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_est_liq_price_tooltip,
+              })}
+              renderTrigger={
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  cursor="default"
+                  borderBottomWidth="$px"
+                  borderTopWidth={0}
+                  borderLeftWidth={0}
+                  borderRightWidth={0}
+                  borderBottomColor="$border"
+                  borderStyle="dashed"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_est_liq_price,
+                  })}
+                </SizableText>
+              }
+            />
+          )}
           {liquidationPrice ? (
             <NumberSizeableText
               size="$bodySm"
@@ -387,11 +486,18 @@ function SideButtonInternal({ side, isSubmitting }: ISideButtonProps) {
 
 const SideButton = memo(SideButtonInternal);
 
-function TradingButtonGroup({ isSubmitting }: ITradingButtonGroupProps) {
+function TradingButtonGroup({
+  isSubmitting,
+  isMobile,
+}: ITradingButtonGroupProps) {
   return (
     <YStack gap="$3">
-      <SideButton side="long" isSubmitting={isSubmitting} />
-      <SideButton side="short" isSubmitting={isSubmitting} />
+      <SideButton side="long" isSubmitting={isSubmitting} isMobile={isMobile} />
+      <SideButton
+        side="short"
+        isSubmitting={isSubmitting}
+        isMobile={isMobile}
+      />
     </YStack>
   );
 }

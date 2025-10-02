@@ -69,6 +69,7 @@ import type {
   IPerpsActiveAccountAtom,
   IPerpsActiveAccountStatusDetails,
   IPerpsActiveAccountStatusInfoAtom,
+  IPerpsActiveAssetCtxAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
 } from '../../states/jotai/atoms';
@@ -328,11 +329,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
-      await perpsActiveAssetCtxAtom.set({
-        coin: data?.coin,
-        assetId: activeAsset?.assetId,
-        ctx: perpsUtils.formatAssetCtx(data?.ctx),
-      });
+      await perpsActiveAssetCtxAtom.set(
+        (_prev): IPerpsActiveAssetCtxAtom => ({
+          coin: data?.coin,
+          assetId: activeAsset?.assetId,
+          ctx: perpsUtils.formatAssetCtx(data?.ctx),
+        }),
+      );
     } else {
       const activeAssetCtx = await perpsActiveAssetCtxAtom.get();
       if (activeAssetCtx?.coin !== activeAsset?.coin) {

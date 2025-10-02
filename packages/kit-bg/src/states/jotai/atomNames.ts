@@ -1,6 +1,7 @@
 export enum EAtomNames {
   bannerCloseIdsAtom = 'bannerCloseIdsAtom',
   demoPriceAtom = 'demoPriceAtom',
+  demoPriceInfoAtom = 'demoPriceInfoAtom',
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
@@ -64,6 +65,7 @@ export enum EAtomNames {
   perpsActiveAssetAtom = 'perpsActiveAssetAtom',
   perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
   perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
+  perpsActiveOrderBookOptionsAtom = 'perpsActiveOrderBookOptionsAtom',
   perpsCurrentMidAtom = 'perpsCurrentMidAtom', // TODO remove
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',

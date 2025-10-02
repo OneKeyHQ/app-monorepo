@@ -8,10 +8,7 @@ import { Button, SizableText, Spinner, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAssetCtxAtom,
@@ -19,6 +16,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,6 +53,8 @@ export function PerpTradingButton({
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
   const themeVariant = useThemeVariant();
   const isAccountLoading = useMemo<boolean>(() => {
     return (
@@ -111,7 +111,15 @@ export function PerpTradingButton({
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
       });
-    if (isMinimumOrderNotMet) return 'Order must be at least $10'; // TODO: I18n
+    if (isMinimumOrderNotMet)
+      return intl.formatMessage(
+        {
+          id: ETranslations.perp_size_least,
+        },
+        {
+          num: '$10',
+        },
+      );
     return intl.formatMessage({
       id: ETranslations.perp_trade_button_place_order,
     });
@@ -262,11 +270,7 @@ export function PerpTradingButton({
     );
   }
 
-  if (
-    isAccountLoading ||
-    !perpsAccountStatus.canTrade ||
-    !perpsAccount?.accountAddress
-  ) {
+  if (shouldShowEnableTradingButton) {
     return (
       <Button
         size="medium"

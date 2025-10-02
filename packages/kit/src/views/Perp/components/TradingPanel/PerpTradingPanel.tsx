@@ -117,13 +117,13 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
 
   const content = (
     <YStack
-      gap="$4"
+      gap="$2"
       pt={isMobile ? undefined : '$3'}
       px={isMobile ? undefined : '$2.5'}
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       {perpsAccountStatus.canTrade ? (
-        <TradingButtonGroup isSubmitting={isSubmitting} />
+        <TradingButtonGroup isSubmitting={isSubmitting} isMobile={isMobile} />
       ) : (
         <PerpTradingButton
           loading={universalLoading}

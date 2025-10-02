@@ -1,13 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+
 import type {
   IHex,
+  IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
-  IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -54,6 +56,35 @@ export const {
 } = globalAtom<IPerpsActiveAccountSummaryAtom>({
   name: EAtomNames.perpsActiveAccountSummaryAtom,
   initialValue: undefined,
+});
+
+export const {
+  target: perpsActiveAccountMmrAtom,
+  use: usePerpsActiveAccountMmrAtom,
+} = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
+  read: (get) => {
+    const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
+
+    if (
+      !accountSummary?.crossMaintenanceMarginUsed ||
+      !accountSummary?.crossAccountValue
+    ) {
+      return { mmr: null, mmrPercent: null };
+    }
+
+    const maintenanceMarginUsed = new BigNumber(
+      accountSummary.crossMaintenanceMarginUsed,
+    );
+    const accountValue = new BigNumber(accountSummary.crossAccountValue);
+
+    // Avoid division by zero
+    if (accountValue.isZero()) {
+      return { mmr: null, mmrPercent: null };
+    }
+
+    const mmr = maintenanceMarginUsed.dividedBy(accountValue);
+    return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
+  },
 });
 
 export type IPerpsActiveAccountStatusDetails = {
@@ -133,6 +164,19 @@ export const {
   },
 });
 
+export const {
+  target: perpsShouldShowEnableTradingButtonAtom,
+  use: usePerpsShouldShowEnableTradingButtonAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => {
+    const status = get(perpsActiveAccountStatusAtom.atom());
+    const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const isAccountLoading =
+      loading.enableTradingLoading || loading.selectAccountLoading;
+    return isAccountLoading || !status?.canTrade || !status?.accountAddress;
+  },
+});
+
 // #endregion
 
 // #region Active Asset
@@ -175,6 +219,20 @@ export const {
   use: usePerpsActiveAssetDataAtom,
 } = globalAtom<IPerpsActiveAssetDataAtom>({
   name: EAtomNames.perpsActiveAssetDataAtom,
+  initialValue: undefined,
+});
+
+export type IPerpsActiveOrderBookOptionsAtom =
+  | (IL2BookOptions & {
+      coin: string;
+      assetId: number | undefined;
+    })
+  | undefined;
+export const {
+  target: perpsActiveOrderBookOptionsAtom,
+  use: usePerpsActiveOrderBookOptionsAtom,
+} = globalAtom<IPerpsActiveOrderBookOptionsAtom>({
+  name: EAtomNames.perpsActiveOrderBookOptionsAtom,
   initialValue: undefined,
 });
 
