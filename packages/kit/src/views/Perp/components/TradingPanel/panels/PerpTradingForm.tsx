@@ -377,12 +377,12 @@ function PerpTradingForm({
   if (isMobile) {
     return (
       <YStack gap="$3">
-        <TradeSideToggle
-          value={formData.side}
-          onChange={(side: ISide) => updateForm({ side })}
-          disabled={isSubmitting}
-          isMobile={isMobile}
-        />
+        <XStack alignItems="center" flex={1} gap="$2.5">
+          <YStack flex={1}>
+            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+          </YStack>
+          <LeverageAdjustModal isMobile={isMobile} />
+        </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
@@ -396,12 +396,7 @@ function PerpTradingForm({
             <MobileDepositButton />
           </XStack>
         </XStack>
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-          </YStack>
-          <LeverageAdjustModal isMobile={isMobile} />
-        </XStack>
+
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
             <OrderTypeSelector

@@ -273,13 +273,17 @@ const AdjustPositionMarginForm = memo(
             />
 
             <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySm" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 {action === 'add'
-                  ? 'Margin available to add'
-                  : 'Margin available to remove'}
+                  ? appLocale.intl.formatMessage({
+                      id: ETranslations.perp_trading_adjust_margin_max,
+                    })
+                  : appLocale.intl.formatMessage({
+                      id: ETranslations.perp_trading_adjust_margin_min,
+                    })}
               </SizableText>
               <XStack gap="$1" alignItems="center">
-                <SizableText size="$bodySm">
+                <SizableText size="$bodyMdMedium">
                   {numberFormat(
                     (action === 'add' ? maxAdd : maxRemove)
                       .decimalPlaces(2, BigNumber.ROUND_DOWN)
@@ -291,7 +295,7 @@ const AdjustPositionMarginForm = memo(
                   )}
                 </SizableText>
                 <SizableText
-                  size="$bodySm"
+                  size="$bodyMd"
                   color="$textInteractive"
                   cursor="pointer"
                   onPress={handleMaxPress}
@@ -307,7 +311,7 @@ const AdjustPositionMarginForm = memo(
 
         <TradingGuardWrapper>
           <Button
-            size="large"
+            size="medium"
             variant="primary"
             onPress={handleSubmit}
             disabled={!isValidAmount || isSubmitting}
@@ -329,9 +333,10 @@ export function showAdjustPositionMarginDialog({
   coin,
 }: IAdjustPositionMarginParams) {
   const dialogInstance = Dialog.show({
-    title: 'Adjust Margin',
-    description:
-      'Decrease the chance of liquidation by adding more margin or remove excess margin to use for other positions.',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_trading_adjust_margin,
+    }),
+
     renderContent: (
       <PerpsProviderMirror>
         <AdjustPositionMarginForm
