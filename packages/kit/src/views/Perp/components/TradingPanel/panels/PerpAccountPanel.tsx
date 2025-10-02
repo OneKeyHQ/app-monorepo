@@ -27,6 +27,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function PerpAccountDebugInfo() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -228,7 +229,11 @@ function PerpAccountPanel() {
                 }}
               >
                 {userAddress
-                  ? `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`
+                  ? accountUtils.shortenAddress({
+                      address: userAddress,
+                      leadingLength: 6,
+                      trailingLength: 4,
+                    })
                   : ''}
               </SizableText>
               <IconButton
