@@ -10,17 +10,18 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
-  Dialog,
+  Icon,
   Input,
+  Popover,
   SegmentControl,
   SizableText,
   Skeleton,
   Toast,
+  Tooltip,
   XStack,
   YStack,
   getFontSize,
-  useDialogInstance,
-  useInModalDialog,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountAvatar } from '@onekeyhq/kit/src/components/AccountAvatar';
@@ -29,7 +30,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { perpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsActiveAccountAtom,
+  usePerpsActiveAccountSummaryAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -51,6 +55,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
@@ -76,6 +81,66 @@ function DepositWithdrawContent({
 }: IDepositWithdrawContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const accountValue = accountSummary?.accountValue ?? '';
+  const accountValueInfoTrigger = useMemo(
+    () => (
+      <XStack
+        alignItems="center"
+        gap="$1"
+        cursor={!platformEnv.isNative ? 'pointer' : undefined}
+      >
+        <SizableText size="$bodySm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.perp_account_panel_account_value,
+          })}
+        </SizableText>
+        <Icon name="InfoCircleSolid" size="$4" color="$iconSubdued" />
+      </XStack>
+    ),
+    [intl],
+  );
+  const accountValuePopoverContent = useMemo(
+    () => (
+      <YStack flex={1} px="$5" pb="$5">
+        <SizableText size="$bodySm">
+          {intl.formatMessage({
+            id: ETranslations.perp_account_panel_account_value_tooltip,
+          })}
+        </SizableText>
+      </YStack>
+    ),
+    [intl],
+  );
+  const useTooltipForAccountValue = !platformEnv.isNative && gtMd;
+  const accountValueInfoNode = useMemo(() => {
+    if (useTooltipForAccountValue) {
+      return (
+        <Tooltip
+          placement="top"
+          renderContent={intl.formatMessage({
+            id: ETranslations.perp_account_panel_account_value_tooltip,
+          })}
+          renderTrigger={accountValueInfoTrigger}
+        />
+      );
+    }
+    return (
+      <Popover
+        title={intl.formatMessage({
+          id: ETranslations.perp_account_panel_account_value,
+        })}
+        renderTrigger={accountValueInfoTrigger}
+        renderContent={accountValuePopoverContent}
+      />
+    );
+  }, [
+    intl,
+    accountValueInfoTrigger,
+    accountValuePopoverContent,
+    useTooltipForAccountValue,
+  ]);
   const [selectedAction, setSelectedAction] =
     useState<IPerpsDepositWithdrawActionType>(params.actionType);
   const [amount, setAmount] = useState('');
@@ -409,33 +474,43 @@ function DepositWithdrawContent({
         marginTop: -22,
       }}
     >
-      <XStack alignItems="center" gap="$2" pb="$3">
-        <AccountAvatar
-          size="small"
-          account={
-            accountResult?.isOtherAccount ? accountResult?.account : undefined
-          }
-          indexedAccount={
-            accountResult?.isOtherAccount
-              ? undefined
-              : accountResult?.indexedAccount
-          }
-          wallet={accountResult?.wallet}
-        />
-        <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
-          <SizableText
-            flex={1}
-            size="$bodyMdMedium"
-            color="$text"
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {accountResult?.isOtherAccount
-              ? accountResult?.account?.name
-              : accountResult?.indexedAccount?.name}
-          </SizableText>
+      <YStack gap="$2.5">
+        <XStack alignItems="center" gap="$2" pb="$3">
+          <AccountAvatar
+            size="small"
+            account={
+              accountResult?.isOtherAccount ? accountResult?.account : undefined
+            }
+            indexedAccount={
+              accountResult?.isOtherAccount
+                ? undefined
+                : accountResult?.indexedAccount
+            }
+            wallet={accountResult?.wallet}
+          />
+          <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
+            <SizableText
+              flex={1}
+              size="$bodyMdMedium"
+              color="$text"
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {accountResult?.isOtherAccount
+                ? accountResult?.account?.name
+                : accountResult?.indexedAccount?.name}
+            </SizableText>
+          </XStack>
         </XStack>
-      </XStack>
+        <YStack gap="$1" alignItems="flex-start">
+          {accountValueInfoNode}
+          <PerpsAccountNumberValue
+            value={accountValue}
+            skeletonWidth={120}
+            textSize="$heading4xl"
+          />
+        </YStack>
+      </YStack>
       <SegmentControl
         height={38}
         segmentControlItemStyleProps={{
