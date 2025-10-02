@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -23,7 +24,9 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ESwapSource,
@@ -254,12 +257,23 @@ function WalletActionSwap() {
   );
 }
 
+function WalletActionPerp() {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalPerpParamList>>();
+  const handlePress = useCallback(() => {
+    navigation.switchTab(ETabRoutes.Perp);
+  }, [navigation]);
+  return <RawActions.Perp onPress={handlePress} />;
+}
+
 function WalletActions({ ...rest }: IXStackProps) {
   return (
     <RawActions {...rest}>
       <WalletActionSend />
       <WalletActionReceive />
+      {platformEnv.isExtensionUiPopup ? <WalletActionPerp /> : null}
       <WalletActionSwap />
+      <WalletActionPerp />
       <WalletActionMore />
     </RawActions>
   );
