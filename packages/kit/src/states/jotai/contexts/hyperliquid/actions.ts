@@ -208,11 +208,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         coin,
       });
 
-      const l2BookOptions = await this.getPersistedL2BookOptions.call(
-        set,
-        coin,
-      );
-
       const currentForm = get(tradingFormAtom());
       set(tradingFormAtom(), {
         ...currentForm,
@@ -222,94 +217,29 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         slTriggerPx: '',
         slLossPercent: '',
       });
-
-      await this.updateSubscriptions.call(set, { l2BookOptions });
     },
   );
 
-  updateSubscriptions = contextAtomMethod(
-    async (
-      get,
-      _set,
-      overrides?: { l2BookOptions?: IL2BookOptions | null },
-    ) => {
-      const activeAsset = await perpsActiveAssetAtom.get();
-      const currentToken = activeAsset?.coin;
-      const currentAccount = await perpsActiveAccountAtom.get();
-      const currentUser = currentAccount?.accountAddress;
-      const isActive = get(subscriptionActiveAtom());
-
-      if (!isActive) {
-        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-      }
-
-      try {
-        const payload: {
-          currentSymbol: string;
-          currentUser?: HL.IHex | null;
-          l2BookOptions?: IL2BookOptions | null;
-        } = {
-          currentSymbol: currentToken,
-          currentUser,
-        };
-
-        if (overrides?.l2BookOptions !== undefined) {
-          payload.l2BookOptions = overrides.l2BookOptions;
-        }
-
-        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions(
-          payload,
-        );
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
-          error,
-        );
-      }
-    },
-  );
-
-  updateL2BookSubscription = contextAtomMethod(
-    async (get, set, options?: IL2BookOptions) => {
-      const activeAsset = await perpsActiveAssetAtom.get();
-      const currentToken = activeAsset?.coin;
-      const currentAccount = await perpsActiveAccountAtom.get();
-      const currentUser = currentAccount?.accountAddress;
-      const isActive = get(subscriptionActiveAtom());
-
-      if (!isActive) {
-        await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-      }
-
-      try {
-        console.log(
-          '[HyperliquidActions.updateL2BookSubscription] Updating L2Book subscription with options:',
-          options,
-        );
-
-        // Use the new dedicated method for L2Book subscription updates
-        await backgroundApiProxy.serviceHyperliquidSubscription.updateL2BookSubscription(
-          {
-            l2BookOptions: options || {},
-            currentSymbol: currentToken,
-            currentUser,
-          },
-        );
-      } catch (error) {
-        console.error(
-          '[HyperliquidActions.updateL2BookSubscription] Failed to update L2 book subscription:',
-          error,
-        );
-      }
-    },
-  );
+  updateSubscriptions = contextAtomMethod(async (get, _set) => {
+    const isActive = get(subscriptionActiveAtom());
+    if (!isActive) {
+      await backgroundApiProxy.serviceHyperliquidSubscription.connect();
+    }
+    try {
+      await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptions();
+    } catch (error) {
+      console.error(
+        '[HyperliquidActions.updateSubscriptions] Failed to update subscriptions:',
+        error,
+      );
+    }
+  });
 
   startSubscriptions = contextAtomMethod(async (get, set) => {
     set(subscriptionActiveAtom(), true);
 
     try {
       await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-      await this.updateSubscriptions.call(set);
 
       this.updateConnectionState.call(set, {
         isConnected: true,
@@ -750,7 +680,6 @@ export function useHyperliquidActions() {
   const updateConnectionState = actions.updateConnectionState.use();
 
   const updateSubscriptions = actions.updateSubscriptions.use();
-  const updateL2BookSubscription = actions.updateL2BookSubscription.use();
   const startSubscriptions = actions.startSubscriptions.use();
   const stopSubscriptions = actions.stopSubscriptions.use();
   const reconnectSubscriptions = actions.reconnectSubscriptions.use();
@@ -787,7 +716,6 @@ export function useHyperliquidActions() {
     updateConnectionState,
     changeActiveAsset,
     updateSubscriptions,
-    updateL2BookSubscription,
     startSubscriptions,
     stopSubscriptions,
     reconnectSubscriptions,
