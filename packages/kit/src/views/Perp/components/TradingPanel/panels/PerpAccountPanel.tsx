@@ -7,10 +7,13 @@ import {
   Button,
   DashText,
   DebugRenderTracker,
+  Icon,
+  IconButton,
   SizableText,
   Tooltip,
   XStack,
   YStack,
+  useClipboard,
   useInTabDialog,
 } from '@onekeyhq/components';
 import {
@@ -20,6 +23,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
@@ -76,7 +80,10 @@ function PerpAccountMMRView() {
             </DashText>
           }
         />
-        <SizableText size="$bodySmMedium" color="$text">
+        <SizableText
+          size="$bodySmMedium"
+          color={parseFloat(mmrPercent) <= 50 ? '$green11' : '$red11'}
+        >
           {mmrPercent}%
         </SizableText>
       </XStack>
@@ -91,6 +98,7 @@ function PerpAccountPanel() {
   const userAddress = selectedAccount.accountAddress;
   const dialogInTab = useInTabDialog();
   const intl = useIntl();
+  const { copyText } = useClipboard();
 
   //     if (!userWebData2) {
   //       return (
@@ -165,6 +173,7 @@ function PerpAccountPanel() {
             skeletonWidth={70}
           />
         </XStack>
+
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
             {intl.formatMessage({
@@ -202,6 +211,42 @@ function PerpAccountPanel() {
           />
         </XStack>
         <PerpAccountMMRView />
+        {userAddress ? (
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+              {intl.formatMessage({
+                id: ETranslations.copy_address_modal_title,
+              })}
+            </SizableText>
+
+            <XStack gap="$1" alignItems="center">
+              <SizableText
+                size="$bodySmMedium"
+                cursor="pointer"
+                onPress={() => {
+                  copyText(userAddress ?? '');
+                }}
+              >
+                {userAddress
+                  ? `${userAddress.slice(0, 6)}...${userAddress.slice(-4)}`
+                  : ''}
+              </SizableText>
+              <IconButton
+                icon="OpenOutline"
+                color="$iconSubdued"
+                variant="tertiary"
+                cursor="pointer"
+                iconSize="$3.5"
+                onPress={() => {
+                  if (userAddress) {
+                    const url = `https://hypurrscan.io/address/${userAddress}`;
+                    openUrlExternal(url);
+                  }
+                }}
+              />
+            </XStack>
+          </XStack>
+        ) : null}
       </YStack>
       {/* Action Buttons */}
       {userAddress ? (

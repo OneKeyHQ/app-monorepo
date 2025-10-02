@@ -82,8 +82,8 @@ export function HyperliquidTermsContent({
   const { gtMd } = useMedia();
 
   const slidesData = useMemo<ISlideData[]>(() => {
-    const slideImageMaxHeight = 300;
-    const slideImageHeight = 300;
+    const slideImageMaxHeight = gtMd ? 400 : 300;
+    const slideImageHeight = gtMd ? 400 : 300;
     const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
     const slide3StackHeight = 300 * HEIGHT_RATIO;
     const confirmationSlideStyle: IYStackProps | undefined =
@@ -110,6 +110,7 @@ export function HyperliquidTermsContent({
               justifyContent="flex-start"
               mt="-$6"
               w={bannerWidth}
+              px={gtMd ? undefined : '$4'}
             >
               <SizableText size="$heading2xl">
                 Professional Experience
@@ -155,12 +156,7 @@ export function HyperliquidTermsContent({
         id: 'slide-3',
         content: (
           <Stack alignItems="center" justifyContent="center" px="$6">
-            <Stack
-              height={slide3StackHeight}
-              width={slide3StackHeight}
-              maxHeight={300}
-              maxWidth={300}
-            >
+            <Stack>
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
                 size={slideImageHeight}
@@ -170,8 +166,8 @@ export function HyperliquidTermsContent({
             </Stack>
             <YStack
               gap="$2"
-              justifyContent="flex-start"
               mt="-$6"
+              justifyContent="flex-start"
               w={bannerWidth}
             >
               <SizableText size="$heading2xl">
@@ -199,13 +195,20 @@ export function HyperliquidTermsContent({
                 testID="hyperliquid-intro-confirmation-slide"
                 alignItems="center"
                 justifyContent="center"
-                px="$4"
+                px="$6"
               >
-                <YStack gap="$3">
-                  <YStack alignItems="center" gap="$4">
+                <YStack gap={gtMd ? '$3' : '$2'}>
+                  <YStack
+                    alignItems="center"
+                    gap={gtMd ? '$4' : '$2'}
+                    mb={gtMd ? '$4' : '$2'}
+                  >
                     <Image source={hyperliquidLogo} height={70} width={200} />
 
-                    <SizableText size="$bodyLgMedium" textAlign="center">
+                    <SizableText
+                      size={gtMd ? '$headingLg' : '$headingSm'}
+                      textAlign="center"
+                    >
                       {intl.formatMessage({
                         id: ETranslations.perp_term_title,
                       })}
@@ -215,6 +218,8 @@ export function HyperliquidTermsContent({
                   <YStack bg="$bgSubdued" borderRadius="$3">
                     <XStack alignItems="flex-start" gap="$3" p="$4">
                       <Checkbox
+                        w="$4.5"
+                        h="$4.5"
                         value={isAccountActivatedChecked}
                         onChange={(value) =>
                           setIsAccountActivatedChecked(!!value)
@@ -223,13 +228,15 @@ export function HyperliquidTermsContent({
                           id: ETranslations.perp_term_content_1,
                         })}
                         labelProps={{
-                          variant: '$bodyMd',
+                          variant: gtMd ? '$bodyMd' : '$bodySm',
                         }}
                       />
                     </XStack>
-                    <Divider />
+                    <Divider borderColor="$borderSubdued" />
                     <XStack alignItems="flex-start" gap="$3" p="$4">
                       <Checkbox
+                        w="$4.5"
+                        h="$4.5"
                         value={isNotResponsibleChecked}
                         onChange={(value) =>
                           setIsNotResponsibleChecked(!!value)
@@ -238,7 +245,7 @@ export function HyperliquidTermsContent({
                           id: ETranslations.perp_term_content_2,
                         })}
                         labelProps={{
-                          variant: '$bodyMd',
+                          variant: gtMd ? '$bodyMd' : '$bodySm',
                         }}
                       />
                     </XStack>
@@ -301,10 +308,11 @@ export function HyperliquidTermsContent({
                 </YStack>
               </Stack>
             </ScrollView>
-            <XStack justifyContent="center" paddingBottom={gtMd ? 10 : 0}>
+            <XStack p="$6" justifyContent="center" pb="$4">
               <Button
                 variant="primary"
-                size="small"
+                size="medium"
+                flex={1}
                 onPress={onConfirm}
                 disabled={
                   !isAccountActivatedChecked || !isNotResponsibleChecked
