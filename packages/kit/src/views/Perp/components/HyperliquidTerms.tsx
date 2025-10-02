@@ -463,6 +463,8 @@ export function HyperliquidTermsOverlay() {
     return null;
   }
   const OVERLAY_HEIGHT = 600 * HEIGHT_RATIO;
+  const maxHeight = Math.min(gtMd ? 600 : 480, height);
+  const overlayHeight = OVERLAY_HEIGHT < maxHeight ? OVERLAY_HEIGHT : maxHeight;
   return (
     <Stack
       position="absolute"
@@ -480,7 +482,7 @@ export function HyperliquidTermsOverlay() {
         height={OVERLAY_HEIGHT}
         minWidth={Math.min(gtMd ? 340 : 320, width)}
         maxWidth={Math.min(gtMd ? 500 : 320, width)}
-        maxHeight={Math.min(gtMd ? 600 : 440, height)}
+        maxHeight={maxHeight}
         bg="$bgApp"
         borderRadius="$4"
         overflow="hidden"
@@ -492,7 +494,7 @@ export function HyperliquidTermsOverlay() {
           h={3}
         />
         <HyperliquidTermsContent
-          overlayHeight={OVERLAY_HEIGHT - 24}
+          overlayHeight={overlayHeight - 24}
           onPageIndexChange={onPageIndexChange}
           onConfirm={async () => {
             await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
