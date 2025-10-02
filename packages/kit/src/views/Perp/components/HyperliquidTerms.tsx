@@ -7,7 +7,6 @@ import { useWindowDimensions } from 'react-native';
 import type { ICarouselInstance } from '@onekeyhq/components';
 import {
   AnimatePresence,
-  Button,
   Carousel,
   Checkbox,
   Dialog,
@@ -25,6 +24,7 @@ import {
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   PRIVACY_POLICY_URL,
@@ -55,7 +55,16 @@ export function HyperliquidTermsContent({
   renderDelay?: number;
   onPageIndexChange?: (index: number) => void;
 }) {
-  const { gtMd } = useMedia();
+  const [layout, setLayout] = useState<LayoutRectangle>({
+    x: 0,
+    y: 0,
+    width: 800,
+    height: 800,
+  });
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    setLayout(e.nativeEvent.layout);
+  }, []);
+
   const intl = useIntl();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
@@ -63,18 +72,14 @@ export function HyperliquidTermsContent({
   const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(false);
   const carouselRef = useRef<ICarouselInstance>(null);
 
-  const bannerHeight = useMemo(() => {
-    return gtMd ? 300 : 250;
-  }, [gtMd]);
-
   const { hyperliquidLogo } = usePerpsLogo();
 
   const HEIGHT_RATIO = useHeightRatio();
 
   const slidesData = useMemo<ISlideData[]>(() => {
     const slideImageMaxHeight = 400;
-    const bannerWidth = slideImageMaxHeight * HEIGHT_RATIO;
-    const slideImageHeight = bannerWidth;
+    const slideImageHeight = slideImageMaxHeight * HEIGHT_RATIO;
+    const bannerWidth = Math.max(slideImageHeight, 340);
     const slide3StackHeight = 300 * HEIGHT_RATIO;
     return [
       {
@@ -170,107 +175,114 @@ export function HyperliquidTermsContent({
       {
         id: 'confirmation-slide',
         content: (
-          <Stack
-            testID="hyperliquid-intro-confirmation-slide"
-            alignItems="center"
-            justifyContent="center"
-            px="$4"
+          <ScrollView
+            bg="red"
+            height={platformEnv.isNative ? undefined : layout.height}
           >
-            <YStack gap="$6">
-              <YStack alignItems="center" gap="$4">
-                <Image source={hyperliquidLogo} height={70} width={200} />
+            <Stack
+              testID="hyperliquid-intro-confirmation-slide"
+              alignItems="center"
+              justifyContent="center"
+              px="$4"
+            >
+              <YStack gap="$6">
+                <YStack alignItems="center" gap="$4">
+                  <Image source={hyperliquidLogo} height={70} width={200} />
 
-                <SizableText size="$bodyLgMedium" textAlign="center">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_term_title,
-                  })}
-                </SizableText>
-              </YStack>
-
-              <YStack bg="$bgSubdued" borderRadius="$3">
-                <XStack alignItems="flex-start" gap="$3" p="$4">
-                  <Checkbox
-                    value={isAccountActivatedChecked}
-                    onChange={(value) => setIsAccountActivatedChecked(!!value)}
-                    label={intl.formatMessage({
-                      id: ETranslations.perp_term_content_1,
-                    })}
-                    labelProps={{
-                      variant: '$bodyMd',
-                    }}
-                  />
-                </XStack>
-                <Divider />
-                <XStack alignItems="flex-start" gap="$3" p="$4">
-                  <Checkbox
-                    value={isNotResponsibleChecked}
-                    onChange={(value) => setIsNotResponsibleChecked(!!value)}
-                    label={intl.formatMessage({
-                      id: ETranslations.perp_term_content_2,
-                    })}
-                    labelProps={{
-                      variant: '$bodyMd',
-                    }}
-                  />
-                </XStack>
-              </YStack>
-
-              <XStack justifyContent="center" pt="$2">
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textAlign="center"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_term_content_3,
-                  })}{' '}
-                  <SizableText
-                    size="$bodySm"
-                    color="$textInteractive"
-                    cursor="pointer"
-                    onPress={() => {
-                      openUrlExternal(TERMS_OF_SERVICE_URL);
-                    }}
-                    hoverStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                    pressStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                  >
+                  <SizableText size="$bodyLgMedium" textAlign="center">
                     {intl.formatMessage({
-                      id: ETranslations.settings_user_agreement,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_term_content_4,
-                  })}{' '}
-                  <SizableText
-                    cursor="pointer"
-                    hoverStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                    pressStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                    size="$bodySm"
-                    color="$textInteractive"
-                    onPress={() => {
-                      openUrlExternal(PRIVACY_POLICY_URL);
-                    }}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_privacy_policy,
+                      id: ETranslations.perp_term_title,
                     })}
                   </SizableText>
-                </SizableText>
-              </XStack>
-            </YStack>
-          </Stack>
+                </YStack>
+
+                <YStack bg="$bgSubdued" borderRadius="$3">
+                  <XStack alignItems="flex-start" gap="$3" p="$4">
+                    <Checkbox
+                      value={isAccountActivatedChecked}
+                      onChange={(value) =>
+                        setIsAccountActivatedChecked(!!value)
+                      }
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_1,
+                      })}
+                      labelProps={{
+                        variant: '$bodyMd',
+                      }}
+                    />
+                  </XStack>
+                  <Divider />
+                  <XStack alignItems="flex-start" gap="$3" p="$4">
+                    <Checkbox
+                      value={isNotResponsibleChecked}
+                      onChange={(value) => setIsNotResponsibleChecked(!!value)}
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_2,
+                      })}
+                      labelProps={{
+                        variant: '$bodyMd',
+                      }}
+                    />
+                  </XStack>
+                </YStack>
+
+                <XStack justifyContent="center" pt="$2">
+                  <SizableText
+                    size="$bodySm"
+                    color="$textSubdued"
+                    textAlign="center"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_term_content_3,
+                    })}{' '}
+                    <SizableText
+                      size="$bodySm"
+                      color="$textInteractive"
+                      cursor="pointer"
+                      onPress={() => {
+                        openUrlExternal(TERMS_OF_SERVICE_URL);
+                      }}
+                      hoverStyle={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: '$textInteractive',
+                      }}
+                      pressStyle={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: '$textInteractive',
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.settings_user_agreement,
+                      })}
+                    </SizableText>{' '}
+                    {intl.formatMessage({
+                      id: ETranslations.perp_term_content_4,
+                    })}{' '}
+                    <SizableText
+                      cursor="pointer"
+                      hoverStyle={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: '$textInteractive',
+                      }}
+                      pressStyle={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: '$textInteractive',
+                      }}
+                      size="$bodySm"
+                      color="$textInteractive"
+                      onPress={() => {
+                        openUrlExternal(PRIVACY_POLICY_URL);
+                      }}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.global_privacy_policy,
+                      })}
+                    </SizableText>
+                  </SizableText>
+                </XStack>
+              </YStack>
+            </Stack>
+          </ScrollView>
         ),
       },
     ];
@@ -280,6 +292,7 @@ export function HyperliquidTermsContent({
     intl,
     isAccountActivatedChecked,
     isNotResponsibleChecked,
+    layout.height,
   ]);
 
   const renderItem = useCallback(({ item }: { item: ISlideData }) => {
@@ -321,16 +334,6 @@ export function HyperliquidTermsContent({
     canConfirm,
     onConfirm,
   ]);
-
-  const [layout, setLayout] = useState<LayoutRectangle>({
-    x: 0,
-    y: 0,
-    width: 800,
-    height: 800,
-  });
-  const handleLayout = useCallback((e: LayoutChangeEvent) => {
-    setLayout(e.nativeEvent.layout);
-  }, []);
 
   return (
     <Stack p="$4">
@@ -432,8 +435,8 @@ export function HyperliquidTermsOverlay() {
       p="$6"
     >
       <Stack
-        width={OVERLAY_HEIGHT / 1.2}
         height={OVERLAY_HEIGHT}
+        minWidth={340}
         maxWidth={500}
         maxHeight={600}
         bg="$bgApp"
