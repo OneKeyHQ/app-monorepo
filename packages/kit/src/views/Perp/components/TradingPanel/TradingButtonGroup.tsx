@@ -334,7 +334,7 @@ function SideButtonInternal({
                 <SizableText
                   size="$bodySm"
                   textDecorationLine="underline"
-                  textDecorationStyle="dotted"
+                  textDecorationStyle="dashed"
                   color="$textSubdued"
                 >
                   {intl.formatMessage({
@@ -398,7 +398,7 @@ function SideButtonInternal({
                 <SizableText
                   size="$bodySm"
                   textDecorationLine="underline"
-                  textDecorationStyle="dotted"
+                  textDecorationStyle="dashed"
                   color="$textSubdued"
                 >
                   {intl.formatMessage({

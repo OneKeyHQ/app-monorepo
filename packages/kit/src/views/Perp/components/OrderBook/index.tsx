@@ -1431,7 +1431,7 @@ export function OrderBookMobile({
                         fontWeight: '400',
                         lineHeight: 16,
                         textDecorationLine: 'underline',
-                        textDecorationStyle: 'dotted',
+                        textDecorationStyle: 'dashed',
                       },
                     ]}
                   >

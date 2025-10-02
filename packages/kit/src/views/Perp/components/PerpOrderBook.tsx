@@ -80,7 +80,7 @@ function MobileHeader() {
             fontSize={10}
             color="$textSubdued"
             textDecorationLine="underline"
-            textDecorationStyle="dotted"
+            textDecorationStyle="dashed"
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,

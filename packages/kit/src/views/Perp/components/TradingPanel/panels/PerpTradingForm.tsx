@@ -48,9 +48,6 @@ import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
-import { TradeSideToggle } from '../selectors/TradeSideToggle';
-
-import type { ISide } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
@@ -492,7 +489,7 @@ function PerpTradingForm({
                   <SizableText
                     size="$bodySm"
                     textDecorationLine="underline"
-                    textDecorationStyle="dotted"
+                    textDecorationStyle="dashed"
                     textDecorationColor="$textSubdued"
                   >
                     {intl.formatMessage({
