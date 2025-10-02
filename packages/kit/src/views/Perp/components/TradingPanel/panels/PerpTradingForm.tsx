@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
+  DashText,
   Divider,
   IconButton,
   Popover,
@@ -486,16 +487,15 @@ function PerpTradingForm({
                   </YStack>
                 )}
                 renderTrigger={
-                  <SizableText
+                  <DashText
                     size="$bodySm"
-                    textDecorationLine="underline"
-                    textDecorationStyle="dashed"
-                    textDecorationColor="$textSubdued"
+                    dashColor="$textSubdued"
+                    dashThickness={0.5}
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_position_tp_sl,
                     })}
-                  </SizableText>
+                  </DashText>
                 }
                 title={intl.formatMessage({
                   id: ETranslations.perp_position_tp_sl,
@@ -665,20 +665,16 @@ function PerpTradingForm({
                 id: ETranslations.perp_tp_sl_tooltip,
               })}
               renderTrigger={
-                <SizableText
+                <DashText
                   size="$bodyMd"
-                  borderBottomWidth="$px"
-                  borderTopWidth={0}
-                  borderLeftWidth={0}
-                  borderRightWidth={0}
-                  borderBottomColor="$border"
-                  borderStyle="dashed"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
                   cursor="help"
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_position_tp_sl,
                   })}
-                </SizableText>
+                </DashText>
               }
             />
           </XStack>

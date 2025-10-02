@@ -3,6 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   DebugRenderTracker,
   Divider,
   Popover,
@@ -76,16 +77,17 @@ function MobileHeader() {
       })}
       renderTrigger={
         <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-          <SizableText
+          <DashText
             fontSize={10}
             color="$textSubdued"
-            textDecorationLine="underline"
-            textDecorationStyle="dashed"
+            dashColor="$textSubdued"
+            dashThickness={0.5}
+            lineHeight={16}
           >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
-          </SizableText>
+          </DashText>
 
           {showSkeleton ? (
             <Skeleton width={120} height={16} />

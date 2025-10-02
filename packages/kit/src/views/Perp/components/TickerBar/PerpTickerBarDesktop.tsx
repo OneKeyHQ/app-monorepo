@@ -4,6 +4,7 @@ import { isString } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   DebugRenderTracker,
   Divider,
   NumberSizeableText,
@@ -147,21 +148,17 @@ const TickerBarOraclePriceView = memo(
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 color="$textSubdued"
                 cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_oracle_price,
                 })}
-              </SizableText>
+              </DashText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -254,21 +251,17 @@ const TickerBarOpenInterestView = memo(
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
                 color="$textSubdued"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_open_Interest,
                 })}
-              </SizableText>
+              </DashText>
             }
             renderContent={
               <SizableText size="$bodySm">
@@ -344,21 +337,17 @@ const TickerBarFundingRateView = memo(
         <YStack>
           <Tooltip
             renderTrigger={
-              <SizableText
+              <DashText
                 size="$bodySm"
-                borderBottomWidth="$px"
-                borderTopWidth={0}
-                borderLeftWidth={0}
-                borderRightWidth={0}
-                borderBottomColor="$border"
-                borderStyle="dashed"
+                dashColor="$textDisabled"
+                dashThickness={0.5}
                 color="$textSubdued"
                 cursor="help"
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_token_bar_Funding,
                 })}
-              </SizableText>
+              </DashText>
             }
             renderContent={
               <YStack gap="$2">
