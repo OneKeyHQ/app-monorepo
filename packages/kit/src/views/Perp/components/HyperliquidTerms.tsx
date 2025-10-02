@@ -300,7 +300,14 @@ export function HyperliquidTermsContent({
               </Stack>
             </ScrollView>
             <XStack justifyContent="center" paddingBottom={10}>
-              <Button variant="primary" size="small" onPress={onConfirm}>
+              <Button
+                variant="primary"
+                size="small"
+                onPress={onConfirm}
+                disabled={
+                  !isAccountActivatedChecked || !isNotResponsibleChecked
+                }
+              >
                 {intl.formatMessage({
                   id: ETranslations.perp_term_agree,
                 })}
