@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "토큰을 불러오는 중...",
   "perp.token_selector_volume": "볼륨",
   "perp.tp": "TP",
+  "perp.tp_sl_above": "위의 가격",
+  "perp.tp_sl_below": "아래 가격",
   "perp.tp_sl_loss": "기대 손실",
   "perp.tp_sl_partial_position": "부분 포지션",
   "perp.tp_sl_position": "포지션용 TP/SL",

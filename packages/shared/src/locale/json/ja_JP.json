@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "トークンを読み込んでいます...",
   "perp.token_selector_volume": "音量",
   "perp.tp": "TP",
+  "perp.tp_sl_above": "上記の価格",
+  "perp.tp_sl_below": "価格は以下",
   "perp.tp_sl_loss": "想定損失",
   "perp.tp_sl_partial_position": "部分ポジション",
   "perp.tp_sl_position": "ポジションのTP/SL",

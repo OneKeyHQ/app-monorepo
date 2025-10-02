@@ -2195,6 +2195,8 @@
   perp_token_selector_loading = 'perp.token_selector_loading',
   perp_token_selector_volume = 'perp.token_selector_volume',
   perp_tp = 'perp.tp',
+  perp_tp_sl_above = 'perp.tp_sl_above',
+  perp_tp_sl_below = 'perp.tp_sl_below',
   perp_tp_sl_loss = 'perp.tp_sl_loss',
   perp_tp_sl_partial_position = 'perp.tp_sl_partial_position',
   perp_tp_sl_position = 'perp.tp_sl_position',

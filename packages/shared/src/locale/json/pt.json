@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "Carregando tokens...",
   "perp.token_selector_volume": "Volume",
   "perp.tp": "TP",
+  "perp.tp_sl_above": "Preço acima",
+  "perp.tp_sl_below": "Preço abaixo",
   "perp.tp_sl_loss": "Perda esperada",
   "perp.tp_sl_partial_position": "Posição Parcial",
   "perp.tp_sl_position": "TP/SL para Posição",

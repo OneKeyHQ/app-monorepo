@@ -691,7 +691,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="tp"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_tp,
+                  id: ETranslations.perp_trade_tp_price,
                 })}
                 value={formData.tpValue || ''}
                 inputType={formData.tpType || 'price'}
@@ -704,7 +704,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="sl"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_sl,
+                  id: ETranslations.perp_trade_sl_price,
                 })}
                 value={formData.slValue || ''}
                 inputType={formData.slType || 'price'}

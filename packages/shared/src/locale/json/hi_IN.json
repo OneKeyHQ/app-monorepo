@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "टोकन लोड हो रहे हैं...",
   "perp.token_selector_volume": "आयतन",
   "perp.tp": "TP",
+  "perp.tp_sl_above": "ऊपर कीमत",
+  "perp.tp_sl_below": "नीचे कीमत",
   "perp.tp_sl_loss": "अपेक्षित हानि",
   "perp.tp_sl_partial_position": "आंशिक पोज़ीशन",
   "perp.tp_sl_position": "स्थिति के लिए TP/SL",

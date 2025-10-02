@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "Chargement des jetons...",
   "perp.token_selector_volume": "Volume",
   "perp.tp": "TP",
+  "perp.tp_sl_above": "Prix ci-dessus",
+  "perp.tp_sl_below": "Prix ci-dessous",
   "perp.tp_sl_loss": "Perte attendue",
   "perp.tp_sl_partial_position": "Position Partielle",
   "perp.tp_sl_position": "TP/SL pour Position",

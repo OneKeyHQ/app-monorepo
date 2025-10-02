@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "Завантаження токенів...",
   "perp.token_selector_volume": "Гучність",
   "perp.tp": "TP",
+  "perp.tp_sl_above": "Ціна вище",
+  "perp.tp_sl_below": "Ціна нижче",
   "perp.tp_sl_loss": "Очікувані втрати",
   "perp.tp_sl_partial_position": "Часткова позиція",
   "perp.tp_sl_position": "TP/SL для позиції",

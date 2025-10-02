@@ -2190,6 +2190,8 @@
   "perp.token_selector_loading": "正在載入代幣...",
   "perp.token_selector_volume": "成交量",
   "perp.tp": "止盈",
+  "perp.tp_sl_above": "价格高于",
+  "perp.tp_sl_below": "價格低于",
   "perp.tp_sl_loss": "預期損失",
   "perp.tp_sl_partial_position": "部分倉位",
   "perp.tp_sl_position": "倉位止盈/止損",
