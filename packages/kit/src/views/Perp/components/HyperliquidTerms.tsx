@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type { IRenderPaginationParams } from '@onekeyhq/components';
 import {
@@ -36,6 +37,11 @@ interface ISlideData {
   content: React.ReactNode;
 }
 
+const useHeightRatio = () => {
+  const { height } = useWindowDimensions();
+  return height / 800;
+};
+
 export function HyperliquidTermsContent({
   onConfirm,
   renderDelay = 0,
@@ -62,7 +68,12 @@ export function HyperliquidTermsContent({
 
   const { hyperliquidLogo } = usePerpsLogo();
 
+  const HEIGHT_RATIO = useHeightRatio();
+
   const slidesData = useMemo<ISlideData[]>(() => {
+    const slideImageHeight = 400 * HEIGHT_RATIO;
+    const slideImageMaxHeight = 400;
+    const slide3StackHeight = 300 * HEIGHT_RATIO;
     return [
       {
         id: 'slide-1',
@@ -70,8 +81,9 @@ export function HyperliquidTermsContent({
           <Stack alignItems="center" justifyContent="center" px="$6">
             <Image
               source={require('@onekeyhq/kit/assets/perps/HL_intro_1.png')}
-              height={400}
-              width={400}
+              size={slideImageHeight}
+              maxHeight={slideImageMaxHeight}
+              maxWidth={slideImageMaxHeight}
             />
             <YStack
               gap="$2"
@@ -97,8 +109,9 @@ export function HyperliquidTermsContent({
             <Stack>
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_2.png')}
-                height={400}
-                width={400}
+                size={slideImageHeight}
+                maxHeight={slideImageMaxHeight}
+                maxWidth={slideImageMaxHeight}
               />
             </Stack>
             <YStack
@@ -122,11 +135,17 @@ export function HyperliquidTermsContent({
         id: 'slide-3',
         content: (
           <Stack alignItems="center" justifyContent="center" px="$6">
-            <Stack height={300} width={300}>
+            <Stack
+              height={slide3StackHeight}
+              width={slide3StackHeight}
+              maxHeight={300}
+              maxWidth={300}
+            >
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
-                height={400}
-                width={400}
+                size={slideImageHeight}
+                maxHeight={slideImageMaxHeight}
+                maxWidth={slideImageMaxHeight}
               />
             </Stack>
             <YStack
@@ -254,11 +273,12 @@ export function HyperliquidTermsContent({
       },
     ];
   }, [
+    HEIGHT_RATIO,
     bannerWidth,
     hyperliquidLogo,
+    intl,
     isAccountActivatedChecked,
     isNotResponsibleChecked,
-    intl,
   ]);
 
   const keyExtractor = useCallback((item: ISlideData) => item.id, []);
@@ -401,7 +421,7 @@ export function HyperliquidTermsContent({
 
 export function HyperliquidTermsOverlay() {
   const [isVisible, setIsVisible] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(25);
 
   const handleConfirm = useCallback(() => {
     setIsVisible(false);
@@ -425,11 +445,11 @@ export function HyperliquidTermsOverlay() {
   const onPageIndexChange = useCallback((index: number) => {
     setProgress(((index + 1) / 4) * 100);
   }, []);
-
+  const HEIGHT_RATIO = useHeightRatio();
   if (!isVisible) {
     return null;
   }
-
+  const OVERLAY_HEIGHT = 600 * HEIGHT_RATIO;
   return (
     <Stack
       position="absolute"
@@ -444,9 +464,10 @@ export function HyperliquidTermsOverlay() {
       p="$6"
     >
       <Stack
+        width={OVERLAY_HEIGHT / 1.2}
+        height={OVERLAY_HEIGHT}
         maxWidth={500}
         maxHeight={600}
-        width="100%"
         bg="$bgApp"
         borderRadius="$4"
         overflow="hidden"
