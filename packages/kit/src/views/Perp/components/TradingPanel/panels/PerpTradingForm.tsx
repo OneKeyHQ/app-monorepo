@@ -33,7 +33,6 @@ import {
   usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
