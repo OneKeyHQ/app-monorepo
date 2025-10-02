@@ -311,18 +311,31 @@ function TickerBarOpenInterest() {
   );
 }
 
+function TickerBarFundingRateCountdown() {
+  const countdown = useFundingCountdown();
+  return (
+    <DebugRenderTracker
+      name="TickerBarFundingRateCountdown"
+      position="bottom-right"
+      offsetX={10}
+    >
+      <SizableText size="$headingXs" color="$text">
+        {countdown}
+      </SizableText>
+    </DebugRenderTracker>
+  );
+}
+
 const TickerBarFundingRateView = memo(
   ({
     fundingRate,
     fundingRatePercent,
     annualizedFundingRate,
-    countdown,
     isLoading,
   }: {
     fundingRate: number;
     fundingRatePercent: string;
     annualizedFundingRate: string;
-    countdown: string;
     isLoading: boolean;
   }) => {
     const intl = useIntl();
@@ -375,9 +388,7 @@ const TickerBarFundingRateView = memo(
                     >
                       {fundingRatePercent}%
                     </SizableText>
-                    <SizableText size="$headingXs" color="$text">
-                      {countdown}
-                    </SizableText>
+                    <TickerBarFundingRateCountdown />
                   </XStack>
                 }
                 renderContent={
@@ -449,7 +460,6 @@ const TickerBarFundingRateView = memo(
 TickerBarFundingRateView.displayName = 'TickerBarFundingRateView';
 
 function TickerBarFundingRate() {
-  const countdown = useFundingCountdown();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const fundingRateStr = assetCtx?.ctx?.fundingRate || '0';
   const fundingRate = parseFloat(fundingRateStr);
@@ -462,7 +472,6 @@ function TickerBarFundingRate() {
       fundingRate={fundingRate}
       fundingRatePercent={fundingRatePercent}
       annualizedFundingRate={annualizedFundingRate}
-      countdown={countdown}
       isLoading={isLoading}
     />
   );

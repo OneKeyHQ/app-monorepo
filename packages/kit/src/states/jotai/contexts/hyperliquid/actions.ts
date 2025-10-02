@@ -240,7 +240,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
     try {
       await backgroundApiProxy.serviceHyperliquidSubscription.connect();
-      await this.updateSubscriptions.call(set);
 
       this.updateConnectionState.call(set, {
         isConnected: true,

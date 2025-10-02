@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
+import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
   useIndexedAccountAddressCreationStateAtom,
@@ -334,7 +335,7 @@ function useHyperliquidAccountSelect() {
   }, [isFocused, checkPerpsAccountStatus]);
 }
 
-function useSubscriptionUpdate() {
+function WeboscketSubscriptionUpdate() {
   const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -357,6 +358,7 @@ function useSubscriptionUpdate() {
       activeAsset?.coin &&
       activeOrderBookOptions?.coin === activeAsset?.coin
     ) {
+      console.log('updateSubscriptions______PerpsGlobalEffects');
       void actions.current.updateSubscriptions();
     }
   }, [
@@ -368,6 +370,7 @@ function useSubscriptionUpdate() {
     activeOrderBookOptions?.nSigFigs,
     activeOrderBookOptions?.coin,
   ]);
+  return null;
 }
 
 function useHyperliquidSymbolSelect() {
@@ -422,9 +425,14 @@ function PerpsGlobalEffectsView() {
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
   useSyncContextOrderBookOptionsToGlobal();
-  useSubscriptionUpdate();
 
-  return null;
+  return (
+    <>
+      <DelayedRender delay={600}>
+        <WeboscketSubscriptionUpdate />
+      </DelayedRender>
+    </>
+  );
 }
 
 export function PerpsGlobalEffects() {

@@ -298,6 +298,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         type: T,
         params: IPerpsSubscriptionParams[T],
       ) => {
+        // for (let i = 0; i < 100; i += 1) {
+        //   void wsRequester.request('subscribe', {
+        //     type,
+        //     ...params,
+        //   });
+        // }
         return wsRequester.request('subscribe', {
           type,
           ...params,
@@ -326,6 +332,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private async _closeClient(): Promise<void> {
     if (this._client) {
       try {
+        // TODO remove all eventListeners
         await this._client.innerClient[Symbol.asyncDispose]();
       } catch (error) {
         console.error(
