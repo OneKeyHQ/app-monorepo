@@ -21,11 +21,11 @@ import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useFundingCountdown } from '../hooks/useFundingCountdown';
-import { usePerpShouldShowEnableTradingButton } from '../hooks/usePerpEnableTradingStatus';
 import { useL2Book } from '../hooks/usePerpMarketData';
 import { usePerpSession } from '../hooks/usePerpSession';
 
@@ -220,7 +220,8 @@ export function PerpOrderBook({
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
-  const shouldShowEnableTradingButton = usePerpShouldShowEnableTradingButton();
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = perpsSelectedSymbol?.coin;

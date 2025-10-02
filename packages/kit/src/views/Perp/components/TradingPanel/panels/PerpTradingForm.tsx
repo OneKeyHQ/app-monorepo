@@ -30,13 +30,13 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
-import { usePerpShouldShowEnableTradingButton } from '../../../hooks';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -95,7 +95,8 @@ function PerpTradingForm({
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
-  const shouldShowEnableTradingButton = usePerpShouldShowEnableTradingButton();
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
       actions.current.updateTradingForm(updates);
@@ -466,7 +467,7 @@ function PerpTradingForm({
           step={1}
           h="$1.5"
         />
-        {shouldShowEnableTradingButton && platformEnv.isNative ? null : (
+        {shouldShowEnableTradingButton && isMobile ? null : (
           <YStack gap="$1" mt="$1">
             <XStack alignItems="center" gap="$2">
               <Checkbox

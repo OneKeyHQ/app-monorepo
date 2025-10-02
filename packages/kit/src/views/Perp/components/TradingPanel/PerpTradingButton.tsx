@@ -12,12 +12,15 @@ import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/acco
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsActiveAssetCtxAtom,
+  usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsCommonConfigPersistAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { usePerpEnableTradingStatus } from '../../hooks';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
 import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
@@ -47,14 +50,21 @@ export function PerpTradingButton({
   const intl = useIntl();
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
-  const {
-    perpsAccount,
-    perpsAccountLoading,
-    perpsAccountStatus,
-    isAccountLoading,
-    shouldShowEnableTradingButton,
-  } = usePerpEnableTradingStatus();
+  const [perpsAccount] = usePerpsActiveAccountAtom();
+  const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
   const themeVariant = useThemeVariant();
+  const isAccountLoading = useMemo<boolean>(() => {
+    return (
+      perpsAccountLoading.enableTradingLoading ||
+      perpsAccountLoading.selectAccountLoading
+    );
+  }, [
+    perpsAccountLoading.enableTradingLoading,
+    perpsAccountLoading.selectAccountLoading,
+  ]);
 
   const enableTrading = useCallback(async () => {
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();

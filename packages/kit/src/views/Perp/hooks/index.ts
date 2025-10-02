@@ -5,10 +5,6 @@ export { usePerpSession } from './usePerpSession';
 
 export { useFundingCountdown } from './useFundingCountdown';
 export { useOrderConfirm } from './useOrderConfirm';
-export {
-  usePerpEnableTradingStatus,
-  usePerpShouldShowEnableTradingButton,
-} from './usePerpEnableTradingStatus';
 export { useTradingGuard } from './useTradingGuard';
 
 export type { IPerpTokenSelectorReturn } from './usePerpTokenSelector';
