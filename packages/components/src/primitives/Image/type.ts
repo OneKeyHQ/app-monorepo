@@ -8,7 +8,7 @@ import type {
   ImageProgressEventData,
   ImageProps,
 } from 'expo-image';
-import type { Image, ImageSourcePropType, ImageStyle, StyleProp } from 'react-native';
+import type { Image, ImageSourcePropType } from 'react-native';
 
 export type IImageContext = {
   loading?: boolean;
@@ -87,11 +87,6 @@ export type IImageV2Props = Omit<
      * @default true
      */
     canRetry?: boolean;
-    /** @default undefined
-     * @platform web
-     * @description The style of the img tag
-     */
-    imageStyle?: StyleProp<ImageStyle>;
   };
 
 export type IImageProps = IImageV2Props;
