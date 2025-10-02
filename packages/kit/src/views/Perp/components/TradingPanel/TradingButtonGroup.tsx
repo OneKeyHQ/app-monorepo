@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   NumberSizeableText,
   Popover,
   SizableText,
@@ -331,16 +332,16 @@ function SideButtonInternal({
                 id: ETranslations.perp_trade_margin_required,
               })}
               renderTrigger={
-                <SizableText
+                <DashText
                   size="$bodySm"
-                  textDecorationLine="underline"
-                  textDecorationStyle="dotted"
                   color="$textSubdued"
+                  dashColor="$textSubdued"
+                  dashThickness={0.5}
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_trade_margin_required,
                   })}
-                </SizableText>
+                </DashText>
               }
               renderContent={
                 <YStack px="$5" pb="$4">
@@ -359,21 +360,17 @@ function SideButtonInternal({
                 id: ETranslations.perp_trade_margin_tooltip,
               })}
               renderTrigger={
-                <SizableText
+                <DashText
                   size="$bodySm"
                   color="$textSubdued"
                   cursor="default"
-                  borderBottomWidth="$px"
-                  borderTopWidth={0}
-                  borderLeftWidth={0}
-                  borderRightWidth={0}
-                  borderBottomColor="$border"
-                  borderStyle="dashed"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_trade_margin_required,
                   })}
-                </SizableText>
+                </DashText>
               }
             />
           )}
@@ -395,16 +392,16 @@ function SideButtonInternal({
                 id: ETranslations.perp_est_liq_price,
               })}
               renderTrigger={
-                <SizableText
+                <DashText
                   size="$bodySm"
-                  textDecorationLine="underline"
-                  textDecorationStyle="dotted"
                   color="$textSubdued"
+                  dashColor="$textSubdued"
+                  dashThickness={0.5}
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_est_liq_price,
                   })}
-                </SizableText>
+                </DashText>
               }
               renderContent={
                 <YStack px="$5" pb="$4">
@@ -423,21 +420,17 @@ function SideButtonInternal({
                 id: ETranslations.perp_est_liq_price_tooltip,
               })}
               renderTrigger={
-                <SizableText
+                <DashText
                   size="$bodySm"
                   color="$textSubdued"
                   cursor="default"
-                  borderBottomWidth="$px"
-                  borderTopWidth={0}
-                  borderLeftWidth={0}
-                  borderRightWidth={0}
-                  borderBottomColor="$border"
-                  borderStyle="dashed"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_est_liq_price,
                   })}
-                </SizableText>
+                </DashText>
               }
             />
           )}

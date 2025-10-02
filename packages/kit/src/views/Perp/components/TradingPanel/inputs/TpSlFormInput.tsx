@@ -143,10 +143,10 @@ export const TpSlFormInput = memo(
           placeholder={
             _type === 'tp'
               ? intl.formatMessage({
-                  id: ETranslations.perp_tp,
+                  id: ETranslations.perp_trade_tp_price,
                 })
               : intl.formatMessage({
-                  id: ETranslations.perp_sl,
+                  id: ETranslations.perp_trade_sl_price,
                 })
           }
           label={label}

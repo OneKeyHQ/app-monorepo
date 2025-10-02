@@ -7,6 +7,7 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Divider,
   Page,
   SizableText,
   Slider,
@@ -47,6 +48,7 @@ export interface ISetTpslParams {
   coin: string;
   szDecimals: number;
   assetId: number;
+  isMobile?: boolean;
 }
 
 interface ISetTpslFormProps extends ISetTpslParams {
@@ -61,7 +63,13 @@ function MarkPrice({ coin, szDecimals }: { coin: string; szDecimals: number }) {
 }
 
 const SetTpslForm = memo(
-  ({ coin, szDecimals, assetId, onClose = () => {} }: ISetTpslFormProps) => {
+  ({
+    coin,
+    szDecimals,
+    assetId,
+    isMobile,
+    onClose = () => {},
+  }: ISetTpslFormProps) => {
     const hyperliquidActions = useHyperliquidActions();
     const { ensureTradingEnabled } = useTradingGuard();
 
@@ -326,7 +334,7 @@ const SetTpslForm = memo(
 
     return (
       <YStack flex={1}>
-        <YStack flex={1} gap="$4" pb="$6">
+        <YStack flex={1} gap="$3" pb="$6">
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -368,14 +376,23 @@ const SetTpslForm = memo(
               <MarkPrice coin={currentPosition.coin} szDecimals={szDecimals} />
             </XStack>
           </YStack>
+          <Divider />
           {!tpOrder ? null : (
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Take Profit
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
               </SizableText>
               <YStack>
-                <SizableText size="$bodyMdMedium">
-                  Price above {tpOrder.triggerPx}
+                <XStack gap="$1">
+                  <SizableText size="$bodyMdMedium">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_above,
+                    })}
+                    {': '}
+                    {tpOrder.triggerPx}
+                  </SizableText>
                   <SizableText
                     size="$bodyMd"
                     color="$green9"
@@ -383,12 +400,17 @@ const SetTpslForm = memo(
                     cursor="pointer"
                     onPress={() => handleCancelOrder(tpOrder)}
                   >
-                    Cancel
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_open_orders_cancel,
+                    })}
                   </SizableText>
-                </SizableText>
+                </XStack>
                 {expectedProfit ? (
-                  <SizableText size="$bodyMdMedium" alignSelf="flex-end">
-                    Expected profit: ${expectedProfit}
+                  <SizableText size="$bodySm" alignSelf="flex-end">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_profit,
+                    })}
+                    {': '}${expectedProfit}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -413,11 +435,19 @@ const SetTpslForm = memo(
           {!slOrder ? null : (
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Stop Loss
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
               </SizableText>
               <YStack>
-                <SizableText size="$bodyMdMedium">
-                  Price below {slOrder.triggerPx}
+                <XStack gap="$1">
+                  <SizableText size="$bodyMdMedium">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_below,
+                    })}
+                    {': '}
+                    {slOrder.triggerPx}
+                  </SizableText>
                   <SizableText
                     size="$bodyMd"
                     color="$green9"
@@ -425,12 +455,17 @@ const SetTpslForm = memo(
                     cursor="pointer"
                     onPress={() => handleCancelOrder(slOrder)}
                   >
-                    Cancel
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_open_orders_cancel,
+                    })}
                   </SizableText>
-                </SizableText>
+                </XStack>
                 {expectedLoss ? (
-                  <SizableText size="$bodyMdMedium" alignSelf="flex-end">
-                    Expected loss: ${expectedLoss}
+                  <SizableText size="$bodySm" alignSelf="flex-end">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_loss,
+                    })}
+                    {': '}${expectedLoss}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -489,7 +524,7 @@ const SetTpslForm = memo(
         </YStack>
         <TradingGuardWrapper>
           <Button
-            size="large"
+            size={isMobile ? 'large' : 'medium'}
             variant="primary"
             onPress={handleSubmit}
             disabled={isSubmitting}
@@ -511,7 +546,7 @@ function SetTpslModal() {
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
-  const { coin, szDecimals, assetId } = route.params;
+  const { coin, szDecimals, assetId, isMobile = true } = route.params;
   const navigation = useNavigation();
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -531,6 +566,7 @@ function SetTpslModal() {
               szDecimals={szDecimals}
               assetId={assetId}
               onClose={handleClose}
+              isMobile={isMobile}
             />
           </YStack>
         </PerpsProviderMirror>

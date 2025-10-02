@@ -52,6 +52,7 @@ import type {
   IPlaceOrderParams,
   IPositionTpslOrderParams,
   ISetReferrerRequest,
+  IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -292,6 +293,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       throw error;
     }
+  }
+
+  @backgroundMethod()
+  async updateIsolatedMargin(
+    params: IUpdateIsolatedMarginRequest,
+  ): Promise<void> {
+    await this.checkAccountCanTrade();
+
+    const client = await this.getExchangeClientForTrading();
+    await client.updateIsolatedMargin(params);
   }
 
   @backgroundMethod()

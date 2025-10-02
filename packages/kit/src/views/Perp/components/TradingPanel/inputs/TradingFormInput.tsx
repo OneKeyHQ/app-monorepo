@@ -157,13 +157,12 @@ export const TradingFormInput = memo(
           borderWidth={ifOnDialog ? '$px' : 0}
           borderColor={ifOnDialog ? '$borderSubdued' : '$transparent'}
           px="$3"
-          hoverStyle={
+          focusStyle={
             ifOnDialog || disabled
               ? undefined
               : {
-                  outlineWidth: '$px',
-                  outlineColor: '$border',
-                  outlineStyle: 'solid',
+                  borderWidth: '$px',
+                  borderColor: '$border',
                 }
           }
         >
