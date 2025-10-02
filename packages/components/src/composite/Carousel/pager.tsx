@@ -23,6 +23,7 @@ export function PagerView({
   pageWidth: pageWidthProp,
   disableAnimation = false,
   initialPage = 0,
+  ...props
 }: Omit<PagerViewProps, 'ref'> & {
   ref: React.RefObject<PagerViewType>;
   pageWidth: number | string;
@@ -154,6 +155,7 @@ export function PagerView({
       showsHorizontalScrollIndicator={false}
       scrollEventThrottle={150}
       onScroll={handleScroll}
+      {...(props as any)}
     >
       {children}
     </ScrollView>

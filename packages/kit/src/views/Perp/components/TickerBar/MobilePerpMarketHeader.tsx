@@ -139,7 +139,7 @@ function MobilePerpMarketHeader() {
                     size="$bodySm"
                     color="$textSubdued"
                     textDecorationLine="underline"
-                    textDecorationStyle="dotted"
+                    textDecorationStyle="dashed"
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_position_mark_price,

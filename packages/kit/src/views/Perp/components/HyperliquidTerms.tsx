@@ -1,19 +1,23 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
-import type { IRenderPaginationParams } from '@onekeyhq/components';
+import type { ICarouselInstance, IYStackProps } from '@onekeyhq/components';
 import {
+  AnimatePresence,
   Button,
+  Carousel,
   Checkbox,
   Dialog,
   Divider,
+  IconButton,
   Image,
+  Progress,
   ScrollView,
   SizableText,
   Stack,
-  Swiper,
   XStack,
   YStack,
   useMedia,
@@ -21,6 +25,7 @@ import {
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { PERPS_TERMS_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   PRIVACY_POLICY_URL,
@@ -30,36 +35,65 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePerpsLogo } from '../hooks/usePerpsLogo';
 
+import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
+
 interface ISlideData {
   id: string;
   content: React.ReactNode;
 }
 
+const useHeightRatio = () => {
+  const { height } = useWindowDimensions();
+  return height / 800;
+};
+
 export function HyperliquidTermsContent({
+  overlayHeight,
   onConfirm,
   renderDelay = 0,
+  onPageIndexChange,
 }: {
+  overlayHeight: number;
   onConfirm: () => void;
   renderDelay?: number;
+  onPageIndexChange?: (index: number) => void;
 }) {
-  const { gtMd } = useMedia();
+  const [layout, setLayout] = useState<LayoutRectangle>({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  });
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    setLayout(e.nativeEvent.layout);
+  }, []);
+
   const intl = useIntl();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAccountActivatedChecked, setIsAccountActivatedChecked] =
     useState(false);
   const [isNotResponsibleChecked, setIsNotResponsibleChecked] = useState(false);
-
-  const bannerHeight = useMemo(() => {
-    return gtMd ? 300 : 250;
-  }, [gtMd]);
-
-  const bannerWidth = useMemo(() => {
-    return gtMd ? 400 : 300;
-  }, [gtMd]);
+  const carouselRef = useRef<ICarouselInstance>(null);
 
   const { hyperliquidLogo } = usePerpsLogo();
 
+  const HEIGHT_RATIO = useHeightRatio();
+
+  const { gtMd } = useMedia();
+
   const slidesData = useMemo<ISlideData[]>(() => {
+    const slideImageMaxHeight = 300;
+    const slideImageHeight = 300;
+    const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
+    const slide3StackHeight = 300 * HEIGHT_RATIO;
+    const confirmationSlideStyle: IYStackProps | undefined =
+      platformEnv.isNative
+        ? undefined
+        : {
+            zIndex: 10,
+            minHeight: overlayHeight,
+            height: overlayHeight,
+          };
     return [
       {
         id: 'slide-1',
@@ -67,8 +101,9 @@ export function HyperliquidTermsContent({
           <Stack alignItems="center" justifyContent="center" px="$6">
             <Image
               source={require('@onekeyhq/kit/assets/perps/HL_intro_1.png')}
-              height={400}
-              width={400}
+              size={slideImageHeight}
+              maxHeight={slideImageMaxHeight}
+              maxWidth={slideImageMaxHeight}
             />
             <YStack
               gap="$2"
@@ -94,8 +129,9 @@ export function HyperliquidTermsContent({
             <Stack>
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_2.png')}
-                height={400}
-                width={400}
+                size={slideImageHeight}
+                maxHeight={slideImageMaxHeight}
+                maxWidth={slideImageMaxHeight}
               />
             </Stack>
             <YStack
@@ -119,11 +155,17 @@ export function HyperliquidTermsContent({
         id: 'slide-3',
         content: (
           <Stack alignItems="center" justifyContent="center" px="$6">
-            <Stack height={300} width={300}>
+            <Stack
+              height={slide3StackHeight}
+              width={slide3StackHeight}
+              maxHeight={300}
+              maxWidth={300}
+            >
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
-                height={400}
-                width={400}
+                size={slideImageHeight}
+                maxHeight={slideImageMaxHeight}
+                maxWidth={slideImageMaxHeight}
               />
             </Stack>
             <YStack
@@ -146,225 +188,190 @@ export function HyperliquidTermsContent({
       {
         id: 'confirmation-slide',
         content: (
-          <Stack
-            testID="hyperliquid-intro-confirmation-slide"
-            alignItems="center"
-            justifyContent="center"
-            px="$4"
-          >
-            <YStack gap="$6">
-              <YStack alignItems="center" gap="$4">
-                <Image source={hyperliquidLogo} height={70} width={200} />
+          <YStack {...confirmationSlideStyle}>
+            <ScrollView
+              maxHeight={platformEnv.isNative ? undefined : overlayHeight}
+              contentContainerStyle={{
+                paddingBottom: 32,
+              }}
+            >
+              <Stack
+                testID="hyperliquid-intro-confirmation-slide"
+                alignItems="center"
+                justifyContent="center"
+                px="$4"
+              >
+                <YStack gap="$3">
+                  <YStack alignItems="center" gap="$4">
+                    <Image source={hyperliquidLogo} height={70} width={200} />
 
-                <SizableText size="$bodyLgMedium" textAlign="center">
-                  {intl.formatMessage({
-                    id: ETranslations.perp_term_title,
-                  })}
-                </SizableText>
-              </YStack>
+                    <SizableText size="$bodyLgMedium" textAlign="center">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_term_title,
+                      })}
+                    </SizableText>
+                  </YStack>
 
-              <YStack bg="$bgSubdued" borderRadius="$3">
-                <XStack alignItems="flex-start" gap="$3" p="$4">
-                  <Checkbox
-                    value={isAccountActivatedChecked}
-                    onChange={(value) => setIsAccountActivatedChecked(!!value)}
-                    label={intl.formatMessage({
-                      id: ETranslations.perp_term_content_1,
-                    })}
-                    labelProps={{
-                      variant: '$bodyMd',
-                    }}
-                  />
-                </XStack>
-                <Divider />
-                <XStack alignItems="flex-start" gap="$3" p="$4">
-                  <Checkbox
-                    value={isNotResponsibleChecked}
-                    onChange={(value) => setIsNotResponsibleChecked(!!value)}
-                    label={intl.formatMessage({
-                      id: ETranslations.perp_term_content_2,
-                    })}
-                    labelProps={{
-                      variant: '$bodyMd',
-                    }}
-                  />
-                </XStack>
-              </YStack>
+                  <YStack bg="$bgSubdued" borderRadius="$3">
+                    <XStack alignItems="flex-start" gap="$3" p="$4">
+                      <Checkbox
+                        value={isAccountActivatedChecked}
+                        onChange={(value) =>
+                          setIsAccountActivatedChecked(!!value)
+                        }
+                        label={intl.formatMessage({
+                          id: ETranslations.perp_term_content_1,
+                        })}
+                        labelProps={{
+                          variant: '$bodyMd',
+                        }}
+                      />
+                    </XStack>
+                    <Divider />
+                    <XStack alignItems="flex-start" gap="$3" p="$4">
+                      <Checkbox
+                        value={isNotResponsibleChecked}
+                        onChange={(value) =>
+                          setIsNotResponsibleChecked(!!value)
+                        }
+                        label={intl.formatMessage({
+                          id: ETranslations.perp_term_content_2,
+                        })}
+                        labelProps={{
+                          variant: '$bodyMd',
+                        }}
+                      />
+                    </XStack>
+                  </YStack>
 
-              <XStack justifyContent="center" pt="$2">
-                <SizableText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  textAlign="center"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_term_content_3,
-                  })}{' '}
-                  <SizableText
-                    size="$bodySm"
-                    color="$textInteractive"
-                    cursor="pointer"
-                    onPress={() => {
-                      openUrlExternal(TERMS_OF_SERVICE_URL);
-                    }}
-                    hoverStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                    pressStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.settings_user_agreement,
-                    })}
-                  </SizableText>{' '}
-                  {intl.formatMessage({
-                    id: ETranslations.perp_term_content_4,
-                  })}{' '}
-                  <SizableText
-                    cursor="pointer"
-                    hoverStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                    pressStyle={{
-                      borderBottomWidth: 1,
-                      borderBottomColor: '$textInteractive',
-                    }}
-                    size="$bodySm"
-                    color="$textInteractive"
-                    onPress={() => {
-                      openUrlExternal(PRIVACY_POLICY_URL);
-                    }}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.global_privacy_policy,
-                    })}
-                  </SizableText>
-                </SizableText>
-              </XStack>
-            </YStack>
-          </Stack>
+                  <XStack justifyContent="center" pt="$2">
+                    <SizableText
+                      size="$bodySm"
+                      color="$textSubdued"
+                      textAlign="center"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_term_content_3,
+                      })}{' '}
+                      <SizableText
+                        size="$bodySm"
+                        color="$textInteractive"
+                        cursor="pointer"
+                        onPress={() => {
+                          openUrlExternal(TERMS_OF_SERVICE_URL);
+                        }}
+                        hoverStyle={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: '$textInteractive',
+                        }}
+                        pressStyle={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: '$textInteractive',
+                        }}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.settings_user_agreement,
+                        })}
+                      </SizableText>{' '}
+                      {intl.formatMessage({
+                        id: ETranslations.perp_term_content_4,
+                      })}{' '}
+                      <SizableText
+                        cursor="pointer"
+                        hoverStyle={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: '$textInteractive',
+                        }}
+                        pressStyle={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: '$textInteractive',
+                        }}
+                        size="$bodySm"
+                        color="$textInteractive"
+                        onPress={() => {
+                          openUrlExternal(PRIVACY_POLICY_URL);
+                        }}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.global_privacy_policy,
+                        })}
+                      </SizableText>
+                    </SizableText>
+                  </XStack>
+                </YStack>
+              </Stack>
+            </ScrollView>
+            <XStack justifyContent="center" paddingBottom={gtMd ? 10 : 0}>
+              <Button
+                variant="primary"
+                size="small"
+                onPress={onConfirm}
+                disabled={
+                  !isAccountActivatedChecked || !isNotResponsibleChecked
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_term_agree,
+                })}
+              </Button>
+            </XStack>
+          </YStack>
         ),
       },
     ];
   }, [
-    bannerWidth,
+    HEIGHT_RATIO,
+    gtMd,
     hyperliquidLogo,
+    intl,
     isAccountActivatedChecked,
     isNotResponsibleChecked,
-    intl,
+    onConfirm,
+    overlayHeight,
   ]);
-
-  const keyExtractor = useCallback((item: ISlideData) => item.id, []);
 
   const renderItem = useCallback(({ item }: { item: ISlideData }) => {
     return (
-      <Stack
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        height="100%"
-        pb="$4"
-      >
+      <Stack alignItems="center" justifyContent="center" pb="$4">
         {item.content}
       </Stack>
     );
   }, []);
 
-  const showPaginationButton = true;
-
   const isConfirmationSlide = currentIndex === slidesData.length - 1;
   const canConfirm = isAccountActivatedChecked && isNotResponsibleChecked;
 
-  const renderPagination = useCallback(
-    ({
-      currentIndex: paginationCurrentIndex,
-      goToNextIndex,
-      gotToPrevIndex,
-    }: IRenderPaginationParams) => (
-      <YStack>
-        {slidesData.length > 1 ? (
-          <XStack
-            testID="hyperliquid-intro-pagination"
-            gap="$1"
-            position="absolute"
-            right={0}
-            left={0}
-            bottom={40}
-            jc="center"
-            zIndex={1}
-          >
-            {slidesData.map((_, index) => (
-              <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$neutral6"
-                opacity={paginationCurrentIndex === index ? 1 : 0.3}
-              />
-            ))}
-          </XStack>
-        ) : null}
-        {showPaginationButton ? (
-          <>
-            <XStack gap="$3" pt="$4" justifyContent="center">
-              <Button
-                variant="tertiary"
-                size="small"
-                onPress={gotToPrevIndex}
-                disabled={currentIndex === 0}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_term_previous,
-                })}
-              </Button>
-              <Button
-                variant={isConfirmationSlide ? 'primary' : 'tertiary'}
-                size="small"
-                onPress={() => {
-                  if (isConfirmationSlide) {
-                    if (canConfirm) {
-                      onConfirm();
-                    }
-                    return;
-                  }
-                  goToNextIndex();
-                }}
-                disabled={isConfirmationSlide ? !canConfirm : null}
-              >
-                {isConfirmationSlide
-                  ? intl.formatMessage({
-                      id: ETranslations.perp_term_agree,
-                    })
-                  : intl.formatMessage({
-                      id: ETranslations.global_next,
-                    })}
-              </Button>
-            </XStack>
-          </>
-        ) : null}
-      </YStack>
-    ),
-    [
-      canConfirm,
-      currentIndex,
-      isConfirmationSlide,
-      onConfirm,
-      showPaginationButton,
-      slidesData,
-      intl,
-    ],
+  const handlePageChanged = useCallback(
+    (index: number) => {
+      setCurrentIndex(index);
+      onPageIndexChange?.(index);
+    },
+    [onPageIndexChange],
   );
 
+  const handleNext = useCallback(() => {
+    if (isConfirmationSlide) {
+      if (canConfirm) {
+        onConfirm();
+      }
+      return;
+    }
+    carouselRef.current?.next();
+    const nextIndex = currentIndex + 1;
+    setTimeout(() => {
+      setCurrentIndex(nextIndex);
+      onPageIndexChange?.(nextIndex);
+    }, 100);
+  }, [
+    isConfirmationSlide,
+    currentIndex,
+    onPageIndexChange,
+    canConfirm,
+    onConfirm,
+  ]);
+
   return (
-    <Stack p="$4">
+    <Stack onLayout={handleLayout}>
       <Stack
         minHeight={200}
         display="flex"
@@ -372,19 +379,50 @@ export function HyperliquidTermsContent({
         justifyContent="center"
       >
         <DelayedRender delay={renderDelay}>
-          <Swiper
-            height="100%"
-            position="relative"
-            index={currentIndex}
-            initialNumToRender={4}
-            onChangeIndex={({ index: newIndex }) => setCurrentIndex(newIndex)}
-            keyExtractor={keyExtractor}
-            data={slidesData}
-            renderItem={renderItem}
-            renderPagination={renderPagination}
-            overflow="hidden"
-            borderRadius="$3"
-          />
+          <Stack p="$4" height="100%" position="relative">
+            <Carousel
+              defaultIndex={0}
+              showPagination={false}
+              loop={false}
+              ref={carouselRef}
+              data={slidesData}
+              renderItem={renderItem}
+              pageWidth={layout.width}
+              onPageChanged={handlePageChanged}
+              containerStyle={{
+                overflow: 'hidden',
+                borderRadius: '$3',
+              }}
+              pagerProps={{
+                scrollEnabled: false,
+              }}
+            />
+            <Stack
+              position="absolute"
+              right={28}
+              top={overlayHeight / 2}
+              zIndex={1}
+            >
+              <AnimatePresence>
+                {currentIndex !== slidesData.length - 1 ? (
+                  <IconButton
+                    size="small"
+                    variant="primary"
+                    icon="ChevronRightOutline"
+                    iconColor="$green9"
+                    borderWidth="$0.5"
+                    onPress={handleNext}
+                    pressStyle={{
+                      scale: 0.95,
+                    }}
+                    hoverStyle={{
+                      scale: 1,
+                    }}
+                  />
+                ) : null}
+              </AnimatePresence>
+            </Stack>
+          </Stack>
         </DelayedRender>
       </Stack>
     </Stack>
@@ -393,6 +431,7 @@ export function HyperliquidTermsContent({
 
 export function HyperliquidTermsOverlay() {
   const [isVisible, setIsVisible] = useState(false);
+  const [progress, setProgress] = useState(25);
 
   const handleConfirm = useCallback(() => {
     setIsVisible(false);
@@ -413,10 +452,18 @@ export function HyperliquidTermsOverlay() {
     }, []),
   );
 
+  const onPageIndexChange = useCallback((index: number) => {
+    setProgress(((index + 1) / 4) * 100);
+  }, []);
+  const HEIGHT_RATIO = useHeightRatio();
+  const { width, height } = useWindowDimensions();
+  const { gtMd } = useMedia();
   if (!isVisible) {
     return null;
   }
-
+  const OVERLAY_HEIGHT = 600 * HEIGHT_RATIO;
+  const maxHeight = Math.min(gtMd ? 600 : 480, height);
+  const overlayHeight = OVERLAY_HEIGHT < maxHeight ? OVERLAY_HEIGHT : maxHeight;
   return (
     <Stack
       position="absolute"
@@ -431,22 +478,30 @@ export function HyperliquidTermsOverlay() {
       p="$6"
     >
       <Stack
-        maxWidth={500}
-        maxHeight={600}
-        width="100%"
+        height={OVERLAY_HEIGHT}
+        minWidth={Math.min(gtMd ? 340 : 320, width)}
+        maxWidth={Math.min(gtMd ? 500 : 320, width)}
+        maxHeight={maxHeight}
         bg="$bgApp"
         borderRadius="$4"
+        overflow="hidden"
       >
-        <ScrollView>
-          <HyperliquidTermsContent
-            onConfirm={async () => {
-              await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
-                true,
-              );
-              handleConfirm();
-            }}
-          />
-        </ScrollView>
+        <Progress
+          value={progress}
+          indicatorColor="$textSuccess"
+          progressColor="$bgApp"
+          h={3}
+        />
+        <HyperliquidTermsContent
+          overlayHeight={overlayHeight - 24}
+          onPageIndexChange={onPageIndexChange}
+          onConfirm={async () => {
+            await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
+              true,
+            );
+            handleConfirm();
+          }}
+        />
       </Stack>
     </Stack>
   );
@@ -463,6 +518,7 @@ export async function showHyperliquidTermsDialog() {
     // title: 'Hyperliquid Introduction',
     renderContent: (
       <HyperliquidTermsContent
+        overlayHeight={600}
         renderDelay={300}
         onConfirm={async () => {
           await dialog.close();
