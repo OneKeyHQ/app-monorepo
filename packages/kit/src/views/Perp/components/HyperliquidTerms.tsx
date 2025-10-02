@@ -58,10 +58,11 @@ export function HyperliquidTermsContent({
   const [layout, setLayout] = useState<LayoutRectangle>({
     x: 0,
     y: 0,
-    width: 800,
-    height: 800,
+    width: 0,
+    height: 0,
   });
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    console.log('handleLayout', e.nativeEvent.layout);
     setLayout(e.nativeEvent.layout);
   }, []);
 
@@ -175,10 +176,7 @@ export function HyperliquidTermsContent({
       {
         id: 'confirmation-slide',
         content: (
-          <ScrollView
-            bg="red"
-            height={platformEnv.isNative ? undefined : layout.height}
-          >
+          <ScrollView>
             <Stack
               testID="hyperliquid-intro-confirmation-slide"
               alignItems="center"
@@ -292,7 +290,6 @@ export function HyperliquidTermsContent({
     intl,
     isAccountActivatedChecked,
     isNotResponsibleChecked,
-    layout.height,
   ]);
 
   const renderItem = useCallback(({ item }: { item: ISlideData }) => {
@@ -336,16 +333,15 @@ export function HyperliquidTermsContent({
   ]);
 
   return (
-    <Stack p="$4">
+    <Stack onLayout={handleLayout}>
       <Stack
         minHeight={200}
         display="flex"
         alignItems="center"
         justifyContent="center"
-        onLayout={handleLayout}
       >
         <DelayedRender delay={renderDelay}>
-          <Stack height="100%" position="relative">
+          <Stack p="$4" height="100%" position="relative">
             <Carousel
               defaultIndex={0}
               showPagination={false}
@@ -363,7 +359,12 @@ export function HyperliquidTermsContent({
                 scrollEnabled: false,
               }}
             />
-            <Stack position="absolute" right={-4} top="50%" zIndex={1}>
+            <Stack
+              position="absolute"
+              right={28}
+              top={layout.height / 2}
+              zIndex={1}
+            >
               <AnimatePresence>
                 {currentIndex !== slidesData.length - 1 ? (
                   <IconButton
