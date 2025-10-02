@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEqual, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
@@ -15,6 +20,7 @@ import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
@@ -29,6 +35,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EProtocolOfExchange,
   type IPerpDepositQuoteRes,
@@ -457,6 +464,350 @@ const usePerpDeposit = (
     [token, accountId, result?.fromUserAddress, buildGasInfo],
   );
 
+  const findGasInfo = useCallback(
+    (
+      stepGasInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[],
+      encodedTx: IEncodedTx,
+    ) => {
+      return stepGasInfos?.find(
+        (s) =>
+          isEqual(s.encodeTx, encodedTx) ||
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          ((s.encodeTx as any)?.rawSignTx &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (encodedTx as any)?.rawSignTx &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            (s.encodeTx as any)?.rawSignTx ===
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              (encodedTx as any)?.rawSignTx),
+      );
+    },
+    [],
+  );
+
+  const goBackQrCodeModal = useCallback(() => {
+    if (
+      rootNavigationRef.current?.canGoBack() &&
+      rootNavigationRef.current?.getCurrentRoute()?.name ===
+        EScanQrCodeModalPages.ScanQrCodeStack
+    ) {
+      rootNavigationRef.current?.goBack();
+    }
+  }, []);
+
+  const onApproveTxSuccess = useCallback(() => {
+    if (
+      accountUtils.isQrAccount({
+        accountId,
+      })
+    ) {
+      goBackQrCodeModal();
+    }
+  }, [goBackQrCodeModal, accountId]);
+
+  const updateUnsignedTxAndSendTx = useCallback(
+    async ({
+      unsignedTxItem,
+      gasInfo,
+    }: {
+      networkId: string;
+      accountId: string;
+      unsignedTxItem: IUnsignedTxPro;
+      gasInfo: ISwapGasInfo;
+    }) => {
+      if (!gasInfo.common) {
+        throw new OneKeyError('gasInfo.common is required');
+      }
+      const updatedUnsignedTxItem =
+        await backgroundApiProxy.serviceSend.updateUnsignedTx({
+          networkId: token.networkId,
+          accountId,
+          unsignedTx: unsignedTxItem,
+          feeInfo: {
+            common: {
+              baseFee: gasInfo.common?.baseFee,
+              feeDecimals: gasInfo.common?.feeDecimals,
+              feeSymbol: gasInfo.common?.feeSymbol,
+              nativeDecimals: gasInfo.common?.nativeDecimals,
+              nativeSymbol: gasInfo.common?.nativeSymbol,
+              nativeTokenPrice: gasInfo.common?.nativeTokenPrice,
+            },
+            gas: gasInfo.gas,
+            gasEIP1559: gasInfo.gasEIP1559,
+            feeUTXO: gasInfo.feeUTXO,
+            feeTron: gasInfo.feeTron,
+            feeSol: gasInfo.feeSol,
+            feeCkb: gasInfo.feeCkb,
+            feeAlgo: gasInfo.feeAlgo,
+            feeDot: gasInfo.feeDot,
+            feeBudget: gasInfo.feeBudget,
+          },
+        });
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId: token.networkId,
+        accountId,
+        unsignedTxs: [updatedUnsignedTxItem],
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
+
+      const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
+        networkId: token.networkId,
+        accountId,
+        unsignedTx: updatedUnsignedTxItem,
+        signOnly: false,
+      });
+      return res;
+    },
+    [accountId, token.networkId],
+  );
+
+  const perpSendTxAction = useCallback(
+    async (
+      buildUnsignedParams: ISendTxBaseParams & IBuildUnsignedTxParams,
+      gasInfos: { encodeTx: IEncodedTx; gasInfo: ISwapGasInfo }[],
+      approveUnsignedTxArr?: IUnsignedTxPro[],
+    ) => {
+      if (!token || !accountId || !result?.fromUserAddress) {
+        throw new OneKeyError('account error');
+      }
+      const buildUnsignedParamsCheckNonce = { ...buildUnsignedParams };
+      if (approveUnsignedTxArr?.length && approveUnsignedTxArr.length > 0) {
+        buildUnsignedParamsCheckNonce.prevNonce =
+          approveUnsignedTxArr[approveUnsignedTxArr.length - 1].nonce;
+      }
+      let lastTxRes: ISignedTxPro | undefined;
+      const unsignedTx =
+        await backgroundApiProxy.serviceSend.prepareSendConfirmUnsignedTx({
+          ...buildUnsignedParamsCheckNonce,
+          isInternalSwap: true,
+        });
+      const vaultSettings =
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: token.networkId,
+        });
+      if (
+        approveUnsignedTxArr?.length &&
+        approveUnsignedTxArr.length > 0 &&
+        vaultSettings.supportBatchEstimateFee?.[token.networkId]
+      ) {
+        const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
+        if (
+          unsignedTxArr.every((tx) => findGasInfo(gasInfos ?? [], tx.encodedTx))
+        ) {
+          for (let i = 0; i < unsignedTxArr.length; i += 1) {
+            const unsignedTxItem = unsignedTxArr[i];
+            const gasInfoFinal = findGasInfo(
+              gasInfos ?? [],
+              unsignedTxItem.encodedTx,
+            )?.gasInfo;
+            if (gasInfoFinal) {
+              const res = await updateUnsignedTxAndSendTx({
+                networkId: token.networkId,
+                accountId,
+                unsignedTxItem,
+                gasInfo: gasInfoFinal,
+              });
+              if (i === unsignedTxArr.length - 1) {
+                lastTxRes = res;
+              } else {
+                void onApproveTxSuccess();
+              }
+            }
+          }
+        } else {
+          const estimateFeeParamsArr = await Promise.all(
+            unsignedTxArr.map((o) =>
+              backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+                networkId: token.networkId,
+                accountId,
+                encodedTx: o.encodedTx,
+              }),
+            ),
+          );
+          const gasResArr =
+            await backgroundApiProxy.serviceGas.batchEstimateFee({
+              networkId: token.networkId,
+              accountId,
+              encodedTxs: estimateFeeParamsArr.map((o) => o.encodedTx ?? {}),
+            });
+          for (let i = 0; i < unsignedTxArr.length; i += 1) {
+            const unsignedTxItem = unsignedTxArr[i];
+            const gasRes = gasResArr.txFees[i];
+            const gasInfo = buildGasInfo(gasRes, gasResArr.common);
+            const res = await updateUnsignedTxAndSendTx({
+              networkId: token.networkId,
+              accountId,
+              unsignedTxItem,
+              gasInfo,
+            });
+            if (i === unsignedTxArr.length - 1) {
+              lastTxRes = res;
+            } else {
+              void onApproveTxSuccess();
+            }
+          }
+        }
+      } else if (
+        approveUnsignedTxArr?.length &&
+        approveUnsignedTxArr.length > 0
+      ) {
+        const unsignedTxArr = [...approveUnsignedTxArr, unsignedTx];
+        if (
+          unsignedTxArr.every((tx) => findGasInfo(gasInfos ?? [], tx.encodedTx))
+        ) {
+          for (let i = 0; i < unsignedTxArr.length; i += 1) {
+            const unsignedTxItem = unsignedTxArr[i];
+            const gasInfoFinal = findGasInfo(
+              gasInfos ?? [],
+              unsignedTxItem.encodedTx,
+            )?.gasInfo;
+            if (gasInfoFinal) {
+              const res = await updateUnsignedTxAndSendTx({
+                networkId: token.networkId,
+                accountId,
+                unsignedTxItem,
+                gasInfo: gasInfoFinal,
+              });
+              if (i === unsignedTxArr.length - 1) {
+                lastTxRes = res;
+              } else {
+                void onApproveTxSuccess();
+              }
+            }
+          }
+        } else {
+          let lastTxUseGasInfo: IFeeInfoUnit | undefined;
+          for (let i = 0; i < unsignedTxArr.length; i += 1) {
+            const unsignedTxItem = unsignedTxArr[i];
+            if (i === unsignedTxArr.length - 1) {
+              let specialGasLimit: string | undefined;
+              const unsignedTxSwapInfo = unsignedTxItem.swapInfo;
+              const internalSwapGasLimit =
+                unsignedTxSwapInfo?.swapBuildResData.result.gasLimit;
+              const internalSwapRoutes =
+                unsignedTxSwapInfo?.swapBuildResData.result.routesData;
+              const baseGasLimit =
+                lastTxUseGasInfo?.gas?.gasLimit ??
+                lastTxUseGasInfo?.gasEIP1559?.gasLimit;
+              if (!isNil(internalSwapGasLimit)) {
+                specialGasLimit = new BigNumber(internalSwapGasLimit).toFixed();
+              } else if (internalSwapRoutes && internalSwapRoutes.length > 0) {
+                const allRoutesLength = internalSwapRoutes.reduce(
+                  (acc, cur) => acc.plus(cur.subRoutes?.flat().length ?? 1),
+                  new BigNumber(0),
+                );
+                specialGasLimit = new BigNumber(baseGasLimit ?? 0)
+                  .times(
+                    allRoutesLength.plus(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP),
+                  )
+                  .toFixed();
+              } else {
+                specialGasLimit = new BigNumber(baseGasLimit ?? 0)
+                  .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP)
+                  .toFixed();
+              }
+              const lastTxGasInfo = {
+                common: lastTxUseGasInfo?.common,
+                gas: lastTxUseGasInfo?.gas
+                  ? {
+                      ...lastTxUseGasInfo.gas,
+                      gasLimit:
+                        specialGasLimit ?? lastTxUseGasInfo.gas.gasLimit,
+                    }
+                  : undefined,
+                gasEIP1559: lastTxUseGasInfo?.gasEIP1559
+                  ? {
+                      ...lastTxUseGasInfo.gasEIP1559,
+                      gasLimit:
+                        specialGasLimit ?? lastTxUseGasInfo.gasEIP1559.gasLimit,
+                    }
+                  : undefined,
+              };
+              lastTxRes = await updateUnsignedTxAndSendTx({
+                networkId: token.networkId,
+                accountId,
+                unsignedTxItem,
+                gasInfo: lastTxGasInfo,
+              });
+            } else {
+              const estimateFeeParams =
+                await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+                  networkId: token.networkId,
+                  accountId,
+                  encodedTx: unsignedTxItem.encodedTx,
+                });
+              const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+                ...estimateFeeParams,
+                accountAddress: result?.fromUserAddress,
+                networkId: token.networkId,
+                accountId,
+              });
+              if (i === unsignedTxArr.length - 2) {
+                lastTxUseGasInfo = {
+                  common: gasRes.common,
+                  gas: gasRes.gas?.[1] ?? gasRes.gas?.[0],
+                  gasEIP1559: gasRes.gasEIP1559?.[1] ?? gasRes.gasEIP1559?.[0],
+                };
+              }
+              const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+              await updateUnsignedTxAndSendTx({
+                networkId: token.networkId,
+                accountId,
+                unsignedTxItem,
+                gasInfo: gasParseInfo,
+              });
+              void onApproveTxSuccess();
+            }
+          }
+        }
+      } else if (findGasInfo(gasInfos ?? [], unsignedTx.encodedTx)) {
+        const gasInfoFinal = findGasInfo(
+          gasInfos ?? [],
+          unsignedTx.encodedTx,
+        )?.gasInfo;
+        if (gasInfoFinal) {
+          lastTxRes = await updateUnsignedTxAndSendTx({
+            networkId: token.networkId,
+            accountId,
+            unsignedTxItem: unsignedTx,
+            gasInfo: gasInfoFinal,
+          });
+        }
+      } else {
+        const estimateFeeParams =
+          await backgroundApiProxy.serviceGas.buildEstimateFeeParams({
+            networkId: token.networkId,
+            accountId,
+            encodedTx: unsignedTx.encodedTx,
+          });
+        const gasRes = await backgroundApiProxy.serviceGas.estimateFee({
+          ...estimateFeeParams,
+          accountAddress: result?.fromUserAddress,
+          networkId: token.networkId,
+          accountId,
+        });
+
+        const gasParseInfo = buildGasInfo(gasRes, gasRes.common);
+        lastTxRes = await updateUnsignedTxAndSendTx({
+          networkId: token.networkId,
+          accountId,
+          unsignedTxItem: unsignedTx,
+          gasInfo: gasParseInfo,
+        });
+      }
+      return lastTxRes;
+    },
+    [
+      accountId,
+      buildGasInfo,
+      findGasInfo,
+      onApproveTxSuccess,
+      result?.fromUserAddress,
+      token,
+      updateUnsignedTxAndSendTx,
+    ],
+  );
+
   const buildPerpDepositTx = useCallback(async () => {
     if (!perpDepositQuote) {
       throw new OneKeyError('perpDepositQuote is not found');
@@ -476,8 +827,25 @@ const usePerpDeposit = (
       },
       unsignedTxArr,
     );
+    const res = await perpSendTxAction(
+      {
+        networkId: token.networkId,
+        accountId,
+        transfersInfo: transferInfo ? [transferInfo] : undefined,
+        encodedTx,
+        swapInfo,
+      },
+      gasFeeInfos,
+      unsignedTxArr,
+    );
+    if (res) {
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.feedback_transaction_submitted,
+        }),
+      });
+    }
     setPerpDepositActionLoading(false);
-    // todo send tx
   }, [
     perpDepositQuote,
     buildQuoteRes,
@@ -485,6 +853,8 @@ const usePerpDeposit = (
     estimateNetworkFee,
     token.networkId,
     accountId,
+    perpSendTxAction,
+    intl,
   ]);
 
   const shouldSignEveryTime = useMemo(() => {
