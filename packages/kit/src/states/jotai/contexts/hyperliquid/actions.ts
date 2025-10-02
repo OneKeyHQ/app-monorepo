@@ -515,6 +515,31 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
+  updateIsolatedMargin = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        asset: number;
+        isBuy: boolean;
+        ntli: number;
+      },
+    ): Promise<void> => {
+      return withToast({
+        asyncFn: async () => {
+          await backgroundApiProxy.serviceHyperliquidExchange.updateIsolatedMargin(
+            {
+              asset: params.asset,
+              isBuy: params.isBuy,
+              ntli: params.ntli,
+            },
+          );
+        },
+        actionType: EActionType.UPDATE_ISOLATED_MARGIN,
+      });
+    },
+  );
+
   ordersClose = contextAtomMethod(
     async (
       get,
@@ -696,6 +721,7 @@ export function useHyperliquidActions() {
   const placeOrder = actions.placeOrder.use();
   const orderOpen = actions.orderOpen.use();
   const updateLeverage = actions.updateLeverage.use();
+  const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
   const limitOrderClose = actions.limitOrderClose.use();
   const cancelOrder = actions.cancelOrder.use();
@@ -730,6 +756,7 @@ export function useHyperliquidActions() {
     placeOrder,
     orderOpen,
     updateLeverage,
+    updateIsolatedMargin,
     ordersClose,
     limitOrderClose,
     cancelOrder,
