@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
-import { Button, SizableText } from '@onekeyhq/components';
+import { Button, SizableText, useInTabDialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
@@ -37,7 +37,7 @@ function TradingGuardWrapperInternal({
     }),
     [perpsAccount.accountAddress, perpsAccount.accountId],
   );
-
+  const dialogInTab = useInTabDialog();
   const enableTrading = useCallback(async () => {
     try {
       const status =
@@ -47,15 +47,18 @@ function TradingGuardWrapperInternal({
         accountInfo.accountAddress &&
         accountInfo.accountId
       ) {
-        void showDepositWithdrawModal({
-          withdrawable: '0',
-          actionType: 'deposit',
-        });
+        void showDepositWithdrawModal(
+          {
+            withdrawable: '0',
+            actionType: 'deposit',
+          },
+          dialogInTab,
+        );
       }
     } catch (error) {
       console.error('[TradingGuardWrapper] Enable trading failed:', error);
     }
-  }, [accountInfo.accountAddress, accountInfo.accountId]);
+  }, [accountInfo.accountAddress, accountInfo.accountId, dialogInTab]);
 
   const shouldShowEnableTrading = useMemo(
     () => forceShowEnableTrading || !isAgentReady,

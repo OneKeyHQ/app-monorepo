@@ -4,7 +4,13 @@ import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
-import { Button, SizableText, Spinner, Toast } from '@onekeyhq/components';
+import {
+  Button,
+  SizableText,
+  Spinner,
+  Toast,
+  useInTabDialog,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -65,7 +71,7 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-
+  const dialogInTab = useInTabDialog();
   const enableTrading = useCallback(async () => {
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
     if (
@@ -73,12 +79,15 @@ export function PerpTradingButton({
       perpsAccount.accountAddress &&
       perpsAccount.accountId
     ) {
-      await showDepositWithdrawModal({
-        withdrawable: '0',
-        actionType: 'deposit',
-      });
+      await showDepositWithdrawModal(
+        {
+          withdrawable: '0',
+          actionType: 'deposit',
+        },
+        dialogInTab,
+      );
     }
-  }, [perpsAccount.accountAddress, perpsAccount.accountId]);
+  }, [perpsAccount.accountAddress, perpsAccount.accountId, dialogInTab]);
 
   const buttonDisabled = useMemo(() => {
     return (
