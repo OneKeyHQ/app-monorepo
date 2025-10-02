@@ -597,18 +597,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ): Promise<void> => {
       return withToast({
         asyncFn: async () => {
-          set(tradingLoadingAtom(), true);
-          try {
-            await backgroundApiProxy.serviceHyperliquidExchange.updateIsolatedMargin(
-              {
-                asset: params.asset,
-                isBuy: params.isBuy,
-                ntli: params.ntli,
-              },
-            );
-          } finally {
-            set(tradingLoadingAtom(), false);
-          }
+          await backgroundApiProxy.serviceHyperliquidExchange.updateIsolatedMargin(
+            {
+              asset: params.asset,
+              isBuy: params.isBuy,
+              ntli: params.ntli,
+            },
+          );
         },
         actionType: EActionType.UPDATE_ISOLATED_MARGIN,
       });
