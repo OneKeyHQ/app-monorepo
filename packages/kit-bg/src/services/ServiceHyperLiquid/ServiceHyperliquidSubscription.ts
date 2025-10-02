@@ -15,6 +15,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { HYPERLIQUID_NETWORK_INACTIVE_TIMEOUT_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IHex,
+  IHyperliquidEventTarget,
   IPerpsActiveAssetDataRaw,
   IPerpsSubscription,
   IPerpsSubscriptionParams,
@@ -71,6 +72,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _client: {
     innerClient: SubscriptionClient;
+    hlEventTarget: IHyperliquidEventTarget;
     wsRequester: {
       request: (method: string, payload: any) => Promise<void>;
     };
@@ -270,16 +272,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       });
 
       const innerClient = new SubscriptionClient({ transport });
+      // @ts-ignore
+      const hlEventTarget = innerClient.transport._hlEvents;
 
       const registerEventHandler = (type: ESubscriptionType) => {
         const handleData = (data: unknown) => {
           this._handleSubscriptionData('', data as CustomEvent, type);
         };
-        // @ts-ignore
-        (innerClient.transport._hlEvents as EventTarget).addEventListener(
-          type,
-          handleData,
-        );
+        hlEventTarget.addEventListener(type, handleData);
       };
       registerEventHandler(ESubscriptionType.ACTIVE_ASSET_CTX);
       registerEventHandler(ESubscriptionType.ACTIVE_ASSET_DATA);
@@ -320,6 +320,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       };
       this._client = {
         innerClient,
+        hlEventTarget,
         wsRequester,
         subscribe,
         unsubscribe,

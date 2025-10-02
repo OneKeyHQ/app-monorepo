@@ -8,6 +8,7 @@ export type IWsActiveAssetCtx = HL.WsActiveAssetCtx;
 export type IWsUserEvent = HL.WsUserEvent;
 export type IWsUserFills = HL.WsUserFills;
 export type IWsBbo = HL.WsBbo;
+export type IHyperliquidEventTarget = EventTarget; // HL.HyperliquidEventTarget;
 
 export type IWsNotification = HL.WsNotification;
 export type IWsTrade = HL.WsTrade;
