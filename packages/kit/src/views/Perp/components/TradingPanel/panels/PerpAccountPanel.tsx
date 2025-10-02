@@ -16,6 +16,7 @@ import {
   useClipboard,
   useInTabDialog,
 } from '@onekeyhq/components';
+import { openHyperLiquidExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountMmrAtom,
@@ -23,7 +24,6 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
@@ -239,8 +239,10 @@ function PerpAccountPanel() {
                 iconSize="$3.5"
                 onPress={() => {
                   if (userAddress) {
-                    const url = `https://hypurrscan.io/address/${userAddress}`;
-                    openUrlExternal(url);
+                    void openHyperLiquidExplorerUrl({
+                      address: userAddress,
+                      openInExternal: true,
+                    });
                   }
                 }}
               />
