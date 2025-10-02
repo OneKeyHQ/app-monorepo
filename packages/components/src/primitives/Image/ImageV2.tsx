@@ -23,6 +23,7 @@ export function ImageV2({
   style: defaultStyle,
   animated,
   canRetry: _canRetry = true,
+  imageStyle,
   ...props
 }: IImageV2Props) {
   const sizeProps = useMemo(() => {
@@ -121,6 +122,7 @@ export function ImageV2({
         style={{
           width: '100%',
           height: '100%',
+          ...(imageStyle as any),
         }}
         onError={handleError}
         onLoad={handleLoad}
@@ -138,6 +140,7 @@ export function ImageV2({
     handleLoadEnd,
     hasError,
     imageProps,
+    imageStyle,
     onDisplay,
     onLoadStart,
     resolvedSource,
