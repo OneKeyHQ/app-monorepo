@@ -2,11 +2,12 @@
 
 package so.onekey.app.wallet;
 
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import java.util.HashMap;
 import java.util.Map;
 
 public class AutoUpdateGoogleModule extends ReactContextBaseJavaModule {
-
     public AutoUpdateGoogleModule(ReactApplicationContext context) {
         super(context);
     }
