@@ -12,9 +12,14 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { parseValueToNumber, validateLiquidityInput } from '../../utils';
+
+const marketCapFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+};
 
 type ILiquidityFilterContentProps = {
   value?: { min?: string; max?: string };
@@ -92,9 +97,7 @@ function LiquidityFilterContent({
 
       let finalPreset = preset;
       if (presetNum > maximumMinValue) {
-        finalPreset = String(
-          numberFormat(String(maximumMinValue), { formatter: 'marketCap' }),
-        );
+        finalPreset = numberFormat(String(maximumMinValue), marketCapFormatter);
       }
 
       onApply?.({ min: finalPreset, max: undefined });
@@ -119,7 +122,7 @@ function LiquidityFilterContent({
         // Enforce maximum minimum value of 1t (minimum value cannot exceed 1t)
         const finalMinNum = Math.min(minNum, 1_000_000_000_000);
         convertedMin = String(
-          numberFormat(String(finalMinNum), { formatter: 'marketCap' }),
+          numberFormat(String(finalMinNum), marketCapFormatter),
         );
       } catch (error) {
         // Keep original value if parsing fails
@@ -131,9 +134,7 @@ function LiquidityFilterContent({
       try {
         const maxNum = parseValueToNumber(maxValue.trim());
         // No restriction on maximum value
-        convertedMax = String(
-          numberFormat(String(maxNum), { formatter: 'marketCap' }),
-        );
+        convertedMax = String(numberFormat(String(maxNum), marketCapFormatter));
       } catch (error) {
         // Keep original value if parsing fails
         convertedMax = maxValue;

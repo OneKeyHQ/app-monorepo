@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -22,6 +25,10 @@ function getPriceSizeByValue(price: string) {
   return '$heading3xl';
 }
 
+const marketCapFormatter: INumberFormatProps = {
+  formatter: 'marketCap',
+};
+
 export function InformationPanel() {
   const intl = useIntl();
   const [settings] = useSettingsPersistAtom();
@@ -32,6 +39,16 @@ export function InformationPanel() {
     tokenAddress,
     networkId,
   });
+
+  const currencyFormatter: INumberFormatProps = useMemo(() => {
+    const currencySymbol = settings.currencyInfo.symbol;
+    return {
+      formatter: 'marketCap',
+      formatterOptions: {
+        currency: currencySymbol,
+      },
+    };
+  }, [settings.currencyInfo.symbol]);
 
   if (!tokenDetail) return <InformationPanelSkeleton />;
 
@@ -46,21 +63,9 @@ export function InformationPanel() {
     address = '',
   } = tokenDetail;
 
-  const currencySymbol = settings.currencyInfo.symbol;
+  const formattedMarketCap = numberFormat(marketCap, currencyFormatter);
 
-  const formattedMarketCap = numberFormat(marketCap, {
-    formatter: 'marketCap',
-    formatterOptions: {
-      currency: currencySymbol,
-    },
-  });
-
-  const formattedLiquidity = numberFormat(liquidity, {
-    formatter: 'marketCap',
-    formatterOptions: {
-      currency: currencySymbol,
-    },
-  });
+  const formattedLiquidity = numberFormat(liquidity, currencyFormatter);
 
   const priceChangeNum = parseFloat(priceChange24hPercent);
   const isPriceUp = priceChangeNum >= 0;
@@ -103,7 +108,7 @@ export function InformationPanel() {
             {intl.formatMessage({ id: ETranslations.dexmarket_holders })}
           </SizableText>
           <SizableText size="$bodySmMedium">
-            {numberFormat(String(holders), { formatter: 'marketCap' })}
+            {numberFormat(String(holders), marketCapFormatter)}
           </SizableText>
         </XStack>
         {/* Audit / Security - Only show when we have security data */}

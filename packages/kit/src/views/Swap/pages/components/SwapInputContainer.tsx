@@ -37,6 +37,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -330,6 +331,14 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
+  const reserveGasFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: fromToken?.symbol,
+      },
+    };
+  }, [fromToken?.symbol]);
   const balancePopoverContent = useMemo(() => {
     const reserveGas = swapNativeTokenReserveGas.find(
       (item) => item.networkId === fromToken?.networkId,
@@ -337,12 +346,10 @@ const SwapInputContainer = ({
     if (fromToken?.isNative) {
       let reserveGasFormatted: string | undefined | number = reserveGas;
       if (reserveGas) {
-        reserveGasFormatted = numberFormat(reserveGas.toString(), {
-          formatter: 'balance',
-          formatterOptions: {
-            tokenSymbol: fromToken?.symbol,
-          },
-        }) as string;
+        reserveGasFormatted = numberFormat(
+          reserveGas.toString(),
+          reserveGasFormatter,
+        );
       }
       return (
         <XStack alignItems="center" p="$4">
@@ -366,8 +373,8 @@ const SwapInputContainer = ({
     swapNativeTokenReserveGas,
     fromToken?.isNative,
     fromToken?.networkId,
-    fromToken?.symbol,
     intl,
+    reserveGasFormatter,
   ]);
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">

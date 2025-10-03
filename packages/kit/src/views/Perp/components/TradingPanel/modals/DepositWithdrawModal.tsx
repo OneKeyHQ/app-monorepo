@@ -40,6 +40,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -59,6 +60,9 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
+const formatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 
 const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
@@ -230,16 +234,12 @@ function DepositWithdrawContent({
     if (selectedAction === 'withdraw') {
       return {
         balance: new BigNumber(params.withdrawable || '0').toFixed(),
-        displayBalance: numberFormat(params.withdrawable || '0', {
-          formatter: 'balance',
-        }),
+        displayBalance: numberFormat(params.withdrawable || '0', formatter),
       };
     }
     return {
       balance: new BigNumber(usdcBalance || '0').toFixed(),
-      displayBalance: numberFormat(usdcBalance || '0', {
-        formatter: 'balance',
-      }),
+      displayBalance: numberFormat(usdcBalance || '0', formatter),
     };
   }, [selectedAction, params.withdrawable, usdcBalance]);
   const isValidAmount = useMemo(() => {
