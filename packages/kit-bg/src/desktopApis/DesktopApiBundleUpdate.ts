@@ -397,6 +397,7 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
       signature,
     });
+    store.setNativeVersion(app.getVersion());
 
     const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
     if (

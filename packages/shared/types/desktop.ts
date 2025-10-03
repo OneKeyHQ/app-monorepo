@@ -44,6 +44,7 @@ export enum EDesktopStoreKeys {
   UpdateBuildNumber = 'updateBuildNumber',
   UpdateBundleData = 'updateBundleData',
   FallbackUpdateBundleData = 'fallbackUpdateBundleData',
+  NativeVersion = 'nativeVersion',
   AppInstanceMetaBackup = INSTANCE_META_BACKUP_KEY,
 }
 

@@ -171,3 +171,10 @@ export const getFallbackUpdateBundleData = () =>
 export const clearFallbackUpdateBundleData = () => {
   store.delete(EDesktopStoreKeys.FallbackUpdateBundleData);
 };
+
+export const setNativeVersion = (nativeVersion: string) => {
+  store.set(EDesktopStoreKeys.NativeVersion, nativeVersion);
+};
+
+export const getNativeVersion = () =>
+  store.get(EDesktopStoreKeys.NativeVersion, '');

@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ETranslations } from './i18n';
+import { getNativeVersion } from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -103,7 +104,11 @@ export const getBundleIndexHtmlPath = ({
   if (!appVersion || !bundleVersion) {
     return undefined;
   }
-  if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
+  const prevNativeVersion = getNativeVersion();
+  if (!prevNativeVersion) {
+    return undefined;
+  }
+  if (!semver.eq(prevNativeVersion, app.getVersion())) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({
