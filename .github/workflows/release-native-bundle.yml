@@ -69,14 +69,7 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-
-      - name: Install Dep
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: |
-          yarn
-
+      
       - name: Update Bundle Version
         run: |
           # Generate timestamp in format YYMMDDHHMM
@@ -85,12 +78,19 @@ jobs:
           
           # Update .env.version file
           if [ -f ".env.version" ]; then
-            sed -i "s/BUNDLE_VERSION=1/BUNDLE_VERSION=$TIMESTAMP/g" .env.version
+            sed -i.bak "s/BUNDLE_VERSION=1/BUNDLE_VERSION=$TIMESTAMP/g" .env.version
             echo "Updated .env.version with BUNDLE_VERSION=$TIMESTAMP"
             cat .env.version
           else
             echo "Warning: .env.version file not found"
           fi
+
+      - name: Install Dep
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: '--max_old_space_size=8192'
+        run: |
+          yarn
 
       - name: Build Bundle
         env:
