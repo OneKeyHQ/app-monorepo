@@ -8,6 +8,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -16,6 +17,12 @@ import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 
+const formatter: INumberFormatProps = {
+  formatter: 'value',
+  formatterOptions: {
+    currency: '$',
+  },
+};
 export type ITradesHistoryRowProps = {
   fill: IFill;
   cellMinWidth: number;
@@ -64,20 +71,10 @@ const TradesHistoryRow = memo(
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
       const priceFormatted = priceBN.toFixed(decimals);
-      const feeFormatted = numberFormat(fee, {
-        formatter: 'value',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
+      const feeFormatted = numberFormat(fee, formatter);
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
-      const tradeValueFormatted = numberFormat(tradeValue, {
-        formatter: 'value',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
+      const tradeValueFormatted = numberFormat(tradeValue, formatter);
       return { priceFormatted, size, feeFormatted, tradeValueFormatted };
     }, [fill.fee, fill.px, fill.sz]);
 
@@ -146,9 +143,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm" color={closePnlInfo.closePnlColor}>
-                {`${closePnlInfo.closePnlPlusOrMinus}${
-                  closePnlInfo.closePnlFormatted as string
-                }`}
+                {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
@@ -188,7 +183,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.tradeValueFormatted as string}`}
+                {`${tradeBaseInfo.tradeValueFormatted}`}
               </SizableText>
             </YStack>
             <YStack gap="$1" flex={1} alignItems="flex-end">
@@ -198,7 +193,7 @@ const TradesHistoryRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodySm">
-                {`${tradeBaseInfo.feeFormatted as string}`}
+                {`${tradeBaseInfo.feeFormatted}`}
               </SizableText>
             </YStack>
           </XStack>
@@ -304,7 +299,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${tradeBaseInfo.tradeValueFormatted as string}`}
+            {`${tradeBaseInfo.tradeValueFormatted}`}
           </SizableText>
         </XStack>
 
@@ -315,7 +310,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${tradeBaseInfo.feeFormatted as string}`}
+            {`${tradeBaseInfo.feeFormatted}`}
           </SizableText>
         </XStack>
 
@@ -331,9 +326,7 @@ const TradesHistoryRow = memo(
             size="$bodySm"
             color={closePnlInfo.closePnlColor}
           >
-            {`${closePnlInfo.closePnlPlusOrMinus}${
-              closePnlInfo.closePnlFormatted as string
-            }`}
+            {`${closePnlInfo.closePnlPlusOrMinus}${closePnlInfo.closePnlFormatted}`}
           </SizableText>
         </XStack>
       </XStack>

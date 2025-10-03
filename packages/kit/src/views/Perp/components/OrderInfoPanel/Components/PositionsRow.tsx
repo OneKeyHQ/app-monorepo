@@ -18,6 +18,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -40,6 +41,24 @@ interface IPositionRowProps {
   isMobile?: boolean;
   index: number;
 }
+
+const priceFormatter: INumberFormatProps = {
+  formatter: 'price',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
+const valueFormatter: INumberFormatProps = {
+  formatter: 'value',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
+const balanceFormatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 
 function MarkPrice({ coin, decimals }: { coin: string; decimals: number }) {
   const { midFormattedByDecimals } = usePerpsMidPrice({
@@ -93,6 +112,15 @@ const PositionRow = memo(
       [pos.entryPx],
     );
 
+    const sizeValueFormatter: INumberFormatProps = useMemo(() => {
+      return {
+        formatter: 'balance',
+        formatterOptions: {
+          currency: isMobile ? '' : '$',
+        },
+      };
+    }, [isMobile]);
+
     const priceInfo = useMemo(() => {
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
@@ -109,31 +137,19 @@ const PositionRow = memo(
     const sizeInfo = useMemo(() => {
       const sizeBN = new BigNumber(pos.szi || '0');
       const sizeAbs = sizeBN.abs().toFixed();
-      const sizeAbsFormatted = numberFormat(sizeAbs, {
-        formatter: 'balance',
-      });
+      const sizeAbsFormatted = numberFormat(sizeAbs, balanceFormatter);
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
-      const sizeValueFormatted = numberFormat(sizeValue, {
-        formatter: 'balance',
-        formatterOptions: {
-          currency: isMobile ? '' : '$',
-        },
-      });
+      const sizeValueFormatted = numberFormat(sizeValue, sizeValueFormatter);
       return {
         sizeAbsFormatted,
         sizeValue: sizeValueFormatted,
       };
-    }, [pos.szi, pos.positionValue, isMobile]);
+    }, [pos.szi, pos.positionValue, sizeValueFormatter]);
 
     const otherInfo = useMemo(() => {
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
       const pnlAbs = pnlBn.abs().toFixed();
-      const pnlFormatted = numberFormat(pnlAbs, {
-        formatter: 'value',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
+      const pnlFormatted = numberFormat(pnlAbs, valueFormatter);
       let pnlColor = '$green11';
       let pnlPlusOrMinus = '+';
       if (pnlBn.lt(0)) {
@@ -141,12 +157,10 @@ const PositionRow = memo(
         pnlPlusOrMinus = '-';
       }
       const marginUsedBN = new BigNumber(pos.marginUsed || '0');
-      const marginUsedFormatted = numberFormat(marginUsedBN.toFixed(), {
-        formatter: 'value',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
+      const marginUsedFormatted = numberFormat(
+        marginUsedBN.toFixed(),
+        valueFormatter,
+      );
 
       const fundingAllTimeBN = new BigNumber(pos.cumFunding.allTime);
       const fundingSinceOpenBN = new BigNumber(pos.cumFunding.sinceOpen);
@@ -198,26 +212,12 @@ const PositionRow = memo(
         if (!showOrder) {
           tpslOrders.forEach((order) => {
             if (order.orderType.startsWith('Take') && order.isPositionTpsl) {
-              tpPrice = `${
-                numberFormat(order.triggerPx, {
-                  formatter: 'price',
-                  formatterOptions: {
-                    currency: '$',
-                  },
-                }) as string
-              }`;
+              tpPrice = `${numberFormat(order.triggerPx, priceFormatter)}`;
             } else if (
               order.orderType.startsWith('Stop') &&
               order.isPositionTpsl
             ) {
-              slPrice = `${
-                numberFormat(order.triggerPx, {
-                  formatter: 'price',
-                  formatterOptions: {
-                    currency: '$',
-                  },
-                }) as string
-              }`;
+              slPrice = `${numberFormat(order.triggerPx, priceFormatter)}`;
             }
           });
         }
@@ -299,9 +299,7 @@ const PositionRow = memo(
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium" color={otherInfo.pnlColor}>
-                {`${otherInfo.pnlPlusOrMinus}${
-                  otherInfo.unrealizedPnl as string
-                }`}
+                {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}`}
               </SizableText>
             </YStack>
             <YStack gap="$1" alignItems="flex-end">
@@ -338,8 +336,8 @@ const PositionRow = memo(
                 <SizableText size="$bodySmMedium">
                   {`${
                     isSizeViewChange
-                      ? (sizeInfo.sizeValue as string)
-                      : (sizeInfo.sizeAbsFormatted as string)
+                      ? sizeInfo.sizeValue
+                      : sizeInfo.sizeAbsFormatted
                   }`}
                 </SizableText>
               </XStack>
@@ -352,7 +350,7 @@ const PositionRow = memo(
               </SizableText>
               <XStack alignItems="center" gap="$1">
                 <SizableText size="$bodySmMedium">
-                  {`${otherInfo.marginUsedFormatted as string}`}
+                  {`${otherInfo.marginUsedFormatted}`}
                 </SizableText>
                 {isIsolatedMode ? (
                   <IconButton
@@ -596,7 +594,7 @@ const PositionRow = memo(
           alignItems={calcCellAlign(columnConfigs[1].align)}
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${sizeInfo.sizeAbsFormatted as string}`}
+            {`${sizeInfo.sizeAbsFormatted}`}
           </SizableText>
           <SizableText
             numberOfLines={1}
@@ -604,7 +602,7 @@ const PositionRow = memo(
             size="$bodySm"
             color="$textSubdued"
           >
-            {`${sizeInfo.sizeValue as string}`}
+            {`${sizeInfo.sizeValue}`}
           </SizableText>
         </YStack>
 
@@ -653,9 +651,7 @@ const PositionRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl as string}(${
-              otherInfo.pnlPlusOrMinus
-            }${otherInfo.roiPercent}%)`}
+            {`${otherInfo.pnlPlusOrMinus}${otherInfo.unrealizedPnl}(${otherInfo.pnlPlusOrMinus}${otherInfo.roiPercent}%)`}
           </SizableText>
         </XStack>
 
@@ -670,7 +666,7 @@ const PositionRow = memo(
               numberOfLines={1}
               ellipsizeMode="tail"
               size="$bodySm"
-            >{`${otherInfo.marginUsedFormatted as string}`}</SizableText>
+            >{`${otherInfo.marginUsedFormatted}`}</SizableText>
             {isIsolatedMode ? (
               <IconButton
                 variant="tertiary"
