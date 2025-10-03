@@ -14,25 +14,31 @@ import com.betomorrow.rnfilelogger.FileLoggerModule;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -394,17 +400,21 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return true;
     }
 
-    public static File getFallbackUpdateBundleDataFile() {
+    public static File getFallbackUpdateBundleDataFile(ReactContext context) {
         String bundleDir = getBundleDir(context);
         String fallbackUpdateBundleDataPath = bundleDir + "/fallbackUpdateBundleData.json";
         File fallbackUpdateBundleDataFile = new File(fallbackUpdateBundleDataPath);
         if (!fallbackUpdateBundleDataFile.exists()) {
-            fallbackUpdateBundleDataFile.createNewFile();
+            try {
+                fallbackUpdateBundleDataFile.createNewFile();
+            } catch (IOException e) {
+                staticLog(TAG, "getFallbackUpdateBundleDataFile:" + e.getMessage());
+            }
         }
         return fallbackUpdateBundleDataFile;
     }
 
-    public static void writeFileContent(File file, String content) {
+    public static void writeFileContent(File file, String content) throws IOException {
         if (!file.exists()) {
             file.createNewFile();
         }
@@ -413,19 +423,44 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
-    public static void writeFallbackUpdateBundleDataFile(List<Map<String, String>> fallbackUpdateBundleData) {
-        File fallbackUpdateBundleDataFile = getFallbackUpdateBundleDataFile();
+    public static void writeFallbackUpdateBundleDataFile(List<Map<String, String>> fallbackUpdateBundleData, ReactContext context) {
+        File fallbackUpdateBundleDataFile = getFallbackUpdateBundleDataFile(context);
         String fallbackUpdateBundleDataString = new JSONArray(fallbackUpdateBundleData).toString();
-        writeFileContent(fallbackUpdateBundleDataFile, fallbackUpdateBundleDataString);
+        try {
+            writeFileContent(fallbackUpdateBundleDataFile, fallbackUpdateBundleDataString);
+        } catch (IOException e) {
+
+        }
     }
 
-    public static List<Map<String, String>> readFallbackUpdateBundleDataFile() {
-        File fallbackUpdateBundleDataFile = getFallbackUpdateBundleDataFile();
-        String fallbackUpdateBundleDataString = readFileContent(fallbackUpdateBundleDataFile);
+    public static List<Map<String, String>> readFallbackUpdateBundleDataFile(ReactContext context) {
+        File fallbackUpdateBundleDataFile = getFallbackUpdateBundleDataFile(context);
+        String fallbackUpdateBundleDataString = null;
+        try {
+            fallbackUpdateBundleDataString = readFileContent(fallbackUpdateBundleDataFile);
+        } catch (IOException e) {
+            staticLog(TAG, "readFallbackUpdateBundleDataFile:" + e.getMessage());
+        }
         if (fallbackUpdateBundleDataString == null || fallbackUpdateBundleDataString.isEmpty()) {
             return new ArrayList<>();
         }
-        return new JSONArray(fallbackUpdateBundleDataString).toList();
+        List<Map<String, String>> fallbackUpdateBundleData = new ArrayList<>();
+        try {
+            JSONArray jsonArray = new JSONArray(fallbackUpdateBundleDataString);
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject jsonObject = jsonArray.getJSONObject(i);
+                Map<String, String> map = new HashMap<>();
+                Iterator<String> keys = jsonObject.keys();
+                while (keys.hasNext()) {
+                    String key = keys.next();
+                    map.put(key, jsonObject.getString(key));
+                }
+                fallbackUpdateBundleData.add(map);
+            }
+        } catch (JSONException e) {
+            staticLog(TAG, "readFallbackUpdateBundleDataFile:" + e.getMessage());
+        }
+        return fallbackUpdateBundleData;
     }
 
     private boolean verifyBundleSHA256(String bundlePath, String sha256) {
@@ -686,9 +721,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = this.getCurrentBundleVersion(reactContext);
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
-        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile();
+        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
        
-        if (currentFolderName) {
+        if (currentFolderName != null && !currentFolderName.isEmpty()) {
             String currentAppVersion = currentFolderName.split("-")[0];
             String currentBundleVersion = currentFolderName.split("-")[1];
             SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -704,20 +739,20 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
                 SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 prefs.edit().remove(shiftFolderName).apply();
-            }
-            String bundleDir = getBundleDir(reactContext);
-            String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
-            if (new File(bundleDirPath).exists()) {
-                deleteDirectory(new File(bundleDirPath));
+                String bundleDir = getBundleDir(reactContext);
+                String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
+                if (new File(bundleDirPath).exists()) {
+                    deleteDirectory(new File(bundleDirPath));
+                }
             }
         }
-        writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData);
+        writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
         promise.resolve(null);
     }
 
     @ReactMethod
     public void getFallbackUpdateBundleData(Promise promise) {
-        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile();
+        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
         promise.resolve(fallbackUpdateBundleData);
     }
 
