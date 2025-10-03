@@ -35,21 +35,39 @@ if (platformEnv.isNative) {
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
       function (func, ...args) {
-        if (this.isLoadedFromServer()) {
+        const defaultLogger =
+          require('@onekeyhq/shared/src/logger/logger').defaultLogger;
+        const isLoadedFromServer = this.isLoadedFromServer();
+        defaultLogger.app.error.log(
+          `isLoadedFromServer: ${isLoadedFromServer}`,
+        );
+        if (isLoadedFromServer) {
+          const serverUrl = this.assetServerURL();
+          defaultLogger.app.error.log(`serverUrl: ${serverUrl}`);
           return this.assetServerURL();
         }
         if (platformEnv.isNativeAndroid) {
-          if (this.isLoadedFromFileSystem()) {
+          const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
+          defaultLogger.app.error.log(
+            `isLoadedFromFileSystem: ${isLoadedFromFileSystem}`,
+          );
+          if (isLoadedFromFileSystem) {
             const resolvedAssetSource = this.drawableFolderInBundle();
-            const resPath = resolvedAssetSource.uri;
-            // path in jsBundle
-            return '';
+            defaultLogger.app.error.log(
+              `resolvedAssetSource: ${JSON.stringify(resolvedAssetSource)}`,
+            );
+            return resolvedAssetSource;
           }
-          return this.resourceIdentifierWithoutScale();
+          const resolvedAssetSource = this.resourceIdentifierWithoutScale();
+          defaultLogger.app.error.log(
+            `resolvedAssetSource: ${JSON.stringify(resolvedAssetSource)}`,
+          );
+          return resolvedAssetSource;
         }
         if (platformEnv.isNativeIOS) {
           const iOSAsset = this.scaledAssetURLNearBundle();
-          return '';
+          defaultLogger.app.error.log(`iOSAsset: ${JSON.stringify(iOSAsset)}`);
+          return iOSAsset;
         }
       },
     );
