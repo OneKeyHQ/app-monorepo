@@ -103,6 +103,12 @@ export type ITestWriteEmptyMetadataJson = (
   bundleVersion: string,
 ) => Promise<{ success: boolean; message: string }>;
 
+export interface IJSBundle {
+  appVersion: string;
+  bundleVersion: string;
+  signature: string;
+}
+
 export interface IBundleUpdate {
   downloadBundle: IDownloadBundle;
   verifyBundle: IVerifyBundle;
@@ -111,6 +117,8 @@ export interface IBundleUpdate {
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
   clearAllJSBundleData: () => Promise<void>;
+  getFallbackBundles: () => Promise<IJSBundle[]>;
+  switchBundle: (params: IJSBundle) => Promise<void>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;

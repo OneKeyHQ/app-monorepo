@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -277,24 +278,48 @@ export default function DevAppUpdateModalSettingModal() {
   const currentBuildNumber = String(platformEnv.buildNumber);
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const [jsBundlePath, setJsBundlePath] = useState('');
+  const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
 
   useEffect(() => {
     void getJsBundlePathAsync().then((path) => {
       setJsBundlePath(path);
     });
+    void BundleUpdate.getFallbackBundles().then((bundles) => {
+      setFallbackBundles(bundles);
+    });
   }, []);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Dev App Update Modal Setting" />
       <Page.Body>
-        <YStack p="$4" gap="$3">
+        <YStack p="$4" gap="$4">
           <SizableText size="$headingSm">
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
-          <SizableText size="$headingSm">
-            {`js bundle path: ${jsBundlePath}`}
-          </SizableText>
+          {jsBundlePath ? (
+            <SizableText size="$headingSm">
+              {`js bundle path: ${jsBundlePath}`}
+            </SizableText>
+          ) : null}
+          {fallbackBundles.length > 0 ? (
+            <YStack gap="$2">
+              <SizableText size="$bodyMd">Available Bundles</SizableText>
+              <YStack gap="$2">
+                {fallbackBundles.map((bundle) => (
+                  <Button
+                    key={`${bundle.appVersion}-${bundle.bundleVersion}`}
+                    variant="secondary"
+                    onPress={() => {
+                      void BundleUpdate.switchBundle(bundle);
+                    }}
+                  >
+                    {`${bundle.appVersion}-${bundle.bundleVersion}`}
+                  </Button>
+                ))}
+              </YStack>
+            </YStack>
+          ) : null}
           {platformEnv.isNativeAndroid ||
           (platformEnv.isDesktop &&
             !platformEnv.isMas &&

@@ -181,6 +181,10 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
   installBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+  getFallbackBundles: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
+  switchBundle: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
   clearAllJSBundleData: () =>
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
