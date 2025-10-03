@@ -13,7 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { parseValueToNumber, validateLiquidityInput } from '../../utils';
 
@@ -97,10 +97,7 @@ function LiquidityFilterContent({
 
       let finalPreset = preset;
       if (presetNum > maximumMinValue) {
-        finalPreset = numberFormatAsRenderText(
-          String(maximumMinValue),
-          marketCapFormatter,
-        );
+        finalPreset = numberFormat(String(maximumMinValue), marketCapFormatter);
       }
 
       onApply?.({ min: finalPreset, max: undefined });
