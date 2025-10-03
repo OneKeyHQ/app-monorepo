@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  DashText,
   Divider,
   Icon,
   IconButton,
@@ -381,16 +382,16 @@ const PositionRow = memo(
                   id: ETranslations.perp_position_funding_2,
                 })}
                 renderTrigger={
-                  <SizableText
+                  <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    textDecorationLine="underline"
-                    textDecorationStyle="dashed"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_position_funding_2,
                     })}
-                  </SizableText>
+                  </DashText>
                 }
                 renderContent={
                   <YStack

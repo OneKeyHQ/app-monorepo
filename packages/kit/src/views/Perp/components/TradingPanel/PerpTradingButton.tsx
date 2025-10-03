@@ -9,6 +9,7 @@ import {
   SizableText,
   Spinner,
   Toast,
+  XStack,
   YStack,
   useInTabDialog,
 } from '@onekeyhq/components';
@@ -282,17 +283,16 @@ export function PerpTradingButton({
 
   if (shouldShowEnableTradingButton) {
     return (
-      <YStack gap="$3" h={126} justifyContent="flex-end">
-        <YStack gap="$3" p="$3" borderRadius="$3" bg="$bgSubdued">
+      <YStack gap="$3" h={126} justifyContent="flex-end" flex={1}>
+        <XStack gap="$3" p="$3" borderRadius="$3" bg="$bgSubdued">
           <SizableText size="$bodySm" color="$text">
             {intl.formatMessage({
               id: ETranslations.perp_enable_trading_desc,
             })}
           </SizableText>
-        </YStack>
+        </XStack>
         <Button
-          size="medium"
-          borderRadius="$3"
+          {...sharedButtonProps}
           variant="primary"
           loading={isAccountLoading}
           onPress={async () => {

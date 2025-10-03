@@ -56,9 +56,13 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
     loading: appLocale.intl.formatMessage({
       id: ETranslations.perp_toast_upadating_leverage,
     }),
-    successTitle: appLocale.intl.formatMessage({
-      id: ETranslations.perp_toast_upadating_leverage_sucess,
-    }),
+    successTitle: (mode: string) =>
+      appLocale.intl.formatMessage(
+        {
+          id: ETranslations.perp_toast_upadating_leverage_sucess,
+        },
+        { mode },
+      ),
     successMessage: (leverage: number, mode: string) =>
       appLocale.intl.formatMessage(
         {

@@ -10,6 +10,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
+  DashText,
   Icon,
   Input,
   Popover,
@@ -658,17 +659,20 @@ function DepositWithdrawContent({
                   id: ETranslations.perp_available_balance,
                 })}
           </SizableText>
-          <XStack alignItems="center" gap="$1">
+          <XStack alignItems="center" gap="$2">
             {balanceLoading ? (
               <Skeleton w={80} h={14} />
             ) : (
-              <SizableText
+              <DashText
+                dashColor="$textDisabled"
+                dashThickness={0.2}
+                dashGap={3}
                 cursor="pointer"
                 onPress={handleMaxPress}
                 size="$bodyMd"
               >
-                {availableBalance.displayBalance || '0.00'}{' '}
-              </SizableText>
+                {(availableBalance.displayBalance || '0.00').toString()}
+              </DashText>
             )}
             <SizableText
               size="$bodyMd"

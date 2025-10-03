@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import {
+  DashText,
   DebugRenderTracker,
   Haptics,
   Icon,
@@ -1422,21 +1423,21 @@ export function OrderBookMobile({
                   id: ETranslations.perp_position_mark_price,
                 })}
                 renderTrigger={
-                  <PerpBookText
+                  <DashText
                     style={[
                       styles.monospaceText,
                       {
                         color: textColor.textSubdued,
                         fontSize: 10,
                         fontWeight: '400',
-                        lineHeight: 16,
-                        textDecorationLine: 'underline',
-                        textDecorationStyle: 'dashed',
+                        lineHeight: 14,
                       },
                     ]}
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
                   >
                     {markPrice}
-                  </PerpBookText>
+                  </DashText>
                 }
                 renderContent={
                   <YStack px="$5" pb="$4">
@@ -1490,8 +1491,6 @@ export function OrderBookMobile({
           renderTrigger={({ onPress }) => (
             <TouchableOpacity
               style={{
-                minWidth: 56,
-                maxWidth: 150,
                 height: 24,
                 borderRadius: 4,
                 flexDirection: 'row',

@@ -12,19 +12,25 @@ import type { IBaseSliderProps } from './type';
 import type { GestureReponderEvent } from '@tamagui/core';
 import type { LayoutChangeEvent } from 'react-native';
 
-function SliderSegment({ onPress }: { onPress: () => void }) {
+function SliderSegment({
+  onPress,
+  isActive,
+}: {
+  onPress: () => void;
+  isActive: boolean;
+}) {
   return (
     <XStack
       w={8}
       h={8}
-      borderRadius={100}
-      bg="$gray11"
-      ai="center"
-      jc="center"
+      borderRadius="$full"
+      borderCurve="continuous"
+      borderWidth={1}
+      borderColor={isActive ? '$bgPrimary' : '$neutral9'}
+      bg="$bgApp"
       onPress={onPress}
-    >
-      <XStack w={6} h={6} borderRadius={100} bg="$bgApp" />
-    </XStack>
+      cursor="pointer"
+    />
   );
 }
 
@@ -42,6 +48,7 @@ export const Slider = ({
   min,
   onLayout,
   segments,
+
   ...props
 }: ISliderProps) => {
   const isSlidingRef = useRef(false);
@@ -86,6 +93,7 @@ export const Slider = ({
     return (
       <TMSlider
         h="$1"
+        cursor="pointer"
         {...(props as any)}
         max={max}
         min={min}
@@ -109,11 +117,12 @@ export const Slider = ({
         <TMSlider.Thumb
           unstyled
           position="absolute"
-          size="$5"
+          size="$4"
           hitSlop={NATIVE_HIT_SLOP}
           circular
           index={0}
           bg="$bg"
+          cursor="pointer"
           zIndex={segments ? 10 : undefined}
           borderWidth="$px"
           borderColor="$borderStrong"
@@ -149,6 +158,7 @@ export const Slider = ({
         >
           <SliderSegment
             key={-1}
+            isActive
             onPress={() => {
               handleValueChange([min]);
             }}
@@ -156,6 +166,11 @@ export const Slider = ({
           {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
             <SliderSegment
               key={index}
+              isActive={
+                value
+                  ? ((index + 1) / segments) * (max - min) + min <= value
+                  : false
+              }
               onPress={() => {
                 handleValueChange([
                   min + ((max - min) * (index + 1)) / segments,
@@ -165,6 +180,7 @@ export const Slider = ({
           ))}
           <SliderSegment
             key={segments ?? 1}
+            isActive={value === max}
             onPress={() => {
               handleValueChange([max]);
             }}
