@@ -30,6 +30,7 @@ if (platformEnv.isNative) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath();
+    const { Platform } = require('react-native');
     const AssetSourceResolver =
       require('react-native/Libraries/Image/AssetSourceResolver').default;
     const wrap = require('lodash/wrap');
@@ -50,7 +51,7 @@ if (platformEnv.isNative) {
           defaultLogger.app.error.log(`serverUrl: ${serverUrl}`);
           return serverUrl;
         }
-        if (platformEnv.isNativeAndroid) {
+        if (Platform.OS === 'android') {
           defaultLogger.app.error.log(`isNativeAndroid start`);
           const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
           defaultLogger.app.error.log(
@@ -69,7 +70,7 @@ if (platformEnv.isNative) {
           );
           return resolvedAssetSource;
         }
-        if (platformEnv.isNativeIOS) {
+        if (Platform.OS === 'ios') {
           defaultLogger.app.error.log(`iOSAsset start`);
           const iOSAsset = this.scaledAssetURLNearBundle();
           console.log('iOSAsset: ', iOSAsset);
