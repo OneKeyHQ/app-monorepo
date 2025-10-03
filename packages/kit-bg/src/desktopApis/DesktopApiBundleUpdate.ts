@@ -21,6 +21,7 @@ import type {
   IDownloadPackageParams,
   IUpdateDownloadedEvent,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './base/types';
 import type { BrowserWindow } from 'electron';
@@ -413,10 +414,11 @@ class DesktopApiAppBundleUpdate {
       }
     }
     setTimeout(() => {
-      if (!process.mas) {
+      if (process.mas) {
+        app.exit(0);
+      } else {
         app.relaunch();
       }
-      app.exit(0);
     }, 1200);
   }
 
@@ -429,6 +431,23 @@ class DesktopApiAppBundleUpdate {
         resolve();
       }, 100);
     });
+  }
+
+  async getFallbackUpdateBundleData() {
+    return store.getFallbackUpdateBundleData();
+  }
+
+  async setCurrentUpdateBundleData(
+    updateBundleData: IDesktopStoreUpdateBundleData,
+  ) {
+    store.setUpdateBundleData(updateBundleData);
+    setTimeout(() => {
+      if (process.mas) {
+        app.exit(0);
+      } else {
+        app.relaunch();
+      }
+    }, 1200);
   }
 
   async clearBundleExtract() {
