@@ -258,11 +258,9 @@ function WalletActionSwap() {
 }
 
 function WalletActionPerp() {
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const handlePress = useCallback(() => {
-    navigation.switchTab(ETabRoutes.Perp);
-  }, [navigation]);
+    void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+  }, []);
   return <RawActions.Perp onPress={handlePress} />;
 }
 
