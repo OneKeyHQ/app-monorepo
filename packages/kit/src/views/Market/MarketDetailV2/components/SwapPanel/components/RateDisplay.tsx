@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 
 import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 export interface IRateDisplayProps {
   rate?: number;
@@ -27,7 +27,7 @@ export function RateDisplay({
     [toTokenSymbol],
   );
   const rateFormatted = useMemo(
-    () => (rate ? numberFormatAsString(rate.toString(), formatter) : '-'),
+    () => (rate ? numberFormat(rate.toString(), formatter) : '-'),
     [formatter, rate],
   );
 

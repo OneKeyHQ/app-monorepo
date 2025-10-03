@@ -38,7 +38,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -346,7 +346,7 @@ const SwapInputContainer = ({
     if (fromToken?.isNative) {
       let reserveGasFormatted: string | undefined | number = reserveGas;
       if (reserveGas) {
-        reserveGasFormatted = numberFormatAsString(
+        reserveGasFormatted = numberFormat(
           reserveGas.toString(),
           reserveGasFormatter,
         );

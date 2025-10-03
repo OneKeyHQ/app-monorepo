@@ -9,7 +9,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -71,10 +71,10 @@ const TradesHistoryRow = memo(
       const priceBN = new BigNumber(price);
       const sizeBN = new BigNumber(size);
       const priceFormatted = priceBN.toFixed(decimals);
-      const feeFormatted = numberFormatAsString(fee, formatter);
+      const feeFormatted = numberFormat(fee, formatter);
 
       const tradeValue = priceBN.times(sizeBN).toFixed();
-      const tradeValueFormatted = numberFormatAsString(tradeValue, formatter);
+      const tradeValueFormatted = numberFormat(tradeValue, formatter);
       return { priceFormatted, size, feeFormatted, tradeValueFormatted };
     }, [fill.fee, fill.px, fill.sz]);
 
@@ -88,7 +88,7 @@ const TradesHistoryRow = memo(
         closePnlPlusOrMinus = '-';
       }
       const closePnlStr = closePnlBN.abs().toFixed();
-      const closePnlFormatted = numberFormatAsString(closePnlStr, {
+      const closePnlFormatted = numberFormat(closePnlStr, {
         formatter: 'value',
         formatterOptions: {
           currency: '$',

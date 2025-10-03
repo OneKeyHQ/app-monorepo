@@ -701,14 +701,20 @@ export interface INumberFormatProps {
   formatterOptions?: IFormatterOptions;
 }
 
-export const numberFormatAsString = memoizee(
+export const numberFormatAsRaw = (
+  value: string,
+  { formatter, formatterOptions }: INumberFormatProps,
+) => {
+  return formatter && value
+    ? formatDisplayNumber(
+        NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+      )
+    : '';
+};
+
+export const numberFormat = memoizee(
   (value: string, { formatter, formatterOptions }: INumberFormatProps) => {
-    const result =
-      formatter && value
-        ? formatDisplayNumber(
-            NUMBER_FORMATTER[formatter](String(value), formatterOptions),
-          )
-        : '';
+    const result = numberFormatAsRaw(value, { formatter, formatterOptions });
     if (typeof result === 'string') {
       return result;
     }
@@ -720,17 +726,12 @@ export const numberFormatAsString = memoizee(
   },
 );
 
-export const numberFormat = (
+export const numberFormatAsDisplay = (
   value: string,
   { formatter, formatterOptions }: INumberFormatProps,
   isRaw = false,
 ) => {
-  const result =
-    formatter && value
-      ? formatDisplayNumber(
-          NUMBER_FORMATTER[formatter](String(value), formatterOptions),
-        )
-      : '';
+  const result = numberFormatAsRaw(value, { formatter, formatterOptions });
   if (isRaw) {
     return result;
   }

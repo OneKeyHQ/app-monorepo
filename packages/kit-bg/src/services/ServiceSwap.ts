@@ -27,7 +27,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatBalance,
-  numberFormatAsString,
+  numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -1472,10 +1472,10 @@ export default class ServiceSwap extends ServiceBase {
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
-          message: `${numberFormatAsString(
+          message: `${numberFormat(
             item.baseInfo.fromAmount,
             formatter,
-          )} ${item.baseInfo.fromToken.symbol} → ${numberFormatAsString(
+          )} ${item.baseInfo.fromToken.symbol} → ${numberFormat(
             item.baseInfo.toAmount,
             formatter,
           )} ${item.baseInfo.toToken.symbol}`,

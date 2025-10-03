@@ -18,7 +18,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IFetchQuoteResult,
   ISwapToken,
@@ -179,7 +179,7 @@ const SwapProviderListItem = ({
           return intl.formatMessage(
             { id: ETranslations.provider_min_amount_required },
             {
-              amount: numberFormatAsString(providerResult.limit.min, formatter),
+              amount: numberFormat(providerResult.limit.min, formatter),
               token: fromToken?.symbol ?? 'unknown',
             },
           );
@@ -191,7 +191,7 @@ const SwapProviderListItem = ({
           return intl.formatMessage(
             { id: ETranslations.provider_max_amount_required },
             {
-              amount: numberFormatAsString(providerResult.limit.max, formatter),
+              amount: numberFormat(providerResult.limit.max, formatter),
               token: fromToken?.symbol ?? 'unknown',
             },
           );
@@ -199,7 +199,7 @@ const SwapProviderListItem = ({
       }
     }
     if (providerResult.toAmount) {
-      return `${numberFormatAsString(providerResult.toAmount, formatter)} ${
+      return `${numberFormat(providerResult.toAmount, formatter)} ${
         toToken?.symbol ?? 'unknown'
       }`;
     }

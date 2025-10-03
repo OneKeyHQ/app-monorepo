@@ -21,7 +21,7 @@ import { usePerpsActiveAccountSummaryAtom } from '@onekeyhq/kit-bg/src/states/jo
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -243,7 +243,7 @@ const AdjustPositionMarginForm = memo(
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {numberFormatAsString(
+                {numberFormat(
                   currentMarginUsed
                     .decimalPlaces(2, BigNumber.ROUND_DOWN)
                     .toFixed(2),
@@ -292,7 +292,7 @@ const AdjustPositionMarginForm = memo(
               </SizableText>
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyMdMedium">
-                  {numberFormatAsString(
+                  {numberFormat(
                     (action === 'add' ? maxAdd : maxRemove)
                       .decimalPlaces(2, BigNumber.ROUND_DOWN)
                       .toFixed(2),

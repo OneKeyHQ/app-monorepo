@@ -18,7 +18,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
@@ -136,9 +136,9 @@ const PositionRow = memo(
     const sizeInfo = useMemo(() => {
       const sizeBN = new BigNumber(pos.szi || '0');
       const sizeAbs = sizeBN.abs().toFixed();
-      const sizeAbsFormatted = numberFormatAsString(sizeAbs, balanceFormatter);
+      const sizeAbsFormatted = numberFormat(sizeAbs, balanceFormatter);
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
-      const sizeValueFormatted = numberFormatAsString(
+      const sizeValueFormatted = numberFormat(
         sizeValue,
         sizeValueFormatter,
       );
@@ -151,7 +151,7 @@ const PositionRow = memo(
     const otherInfo = useMemo(() => {
       const pnlBn = new BigNumber(pos.unrealizedPnl || '0');
       const pnlAbs = pnlBn.abs().toFixed();
-      const pnlFormatted = numberFormatAsString(pnlAbs, valueFormatter);
+      const pnlFormatted = numberFormat(pnlAbs, valueFormatter);
       let pnlColor = '$green11';
       let pnlPlusOrMinus = '+';
       if (pnlBn.lt(0)) {
@@ -159,7 +159,7 @@ const PositionRow = memo(
         pnlPlusOrMinus = '-';
       }
       const marginUsedBN = new BigNumber(pos.marginUsed || '0');
-      const marginUsedFormatted = numberFormatAsString(
+      const marginUsedFormatted = numberFormat(
         marginUsedBN.toFixed(),
         valueFormatter,
       );
@@ -214,7 +214,7 @@ const PositionRow = memo(
         if (!showOrder) {
           tpslOrders.forEach((order) => {
             if (order.orderType.startsWith('Take') && order.isPositionTpsl) {
-              tpPrice = `${numberFormatAsString(
+              tpPrice = `${numberFormat(
                 order.triggerPx,
                 priceFormatter,
               )}`;
@@ -222,7 +222,7 @@ const PositionRow = memo(
               order.orderType.startsWith('Stop') &&
               order.isPositionTpsl
             ) {
-              slPrice = `${numberFormatAsString(
+              slPrice = `${numberFormat(
                 order.triggerPx,
                 priceFormatter,
               )}`;

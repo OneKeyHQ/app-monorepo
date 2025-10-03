@@ -12,7 +12,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { parseValueToNumber, validateLiquidityInput } from '../../utils';
 
@@ -96,7 +96,7 @@ function LiquidityFilterContent({
 
       let finalPreset = preset;
       if (presetNum > maximumMinValue) {
-        finalPreset = numberFormatAsString(
+        finalPreset = numberFormat(
           String(maximumMinValue),
           marketCapFormatter,
         );
@@ -124,7 +124,7 @@ function LiquidityFilterContent({
         // Enforce maximum minimum value of 1t (minimum value cannot exceed 1t)
         const finalMinNum = Math.min(minNum, 1_000_000_000_000);
         convertedMin = String(
-          numberFormatAsString(String(finalMinNum), marketCapFormatter),
+          numberFormat(String(finalMinNum), marketCapFormatter),
         );
       } catch (error) {
         // Keep original value if parsing fails
@@ -137,7 +137,7 @@ function LiquidityFilterContent({
         const maxNum = parseValueToNumber(maxValue.trim());
         // No restriction on maximum value
         convertedMax = String(
-          numberFormatAsString(String(maxNum), marketCapFormatter),
+          numberFormat(String(maxNum), marketCapFormatter),
         );
       } catch (error) {
         // Keep original value if parsing fails

@@ -9,7 +9,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -89,7 +89,7 @@ const OpenOrdersRow = memo(
       const decimals = getValidPriceDecimals(price);
       const triggerCondition = order.triggerCondition;
       const origSizeBN = new BigNumber(origSize);
-      const origSizeFormatted = numberFormatAsString(
+      const origSizeFormatted = numberFormat(
         origSize,
         balanceFormatter,
       );
@@ -100,9 +100,9 @@ const OpenOrdersRow = memo(
         executePriceLimit,
       ).toFixed(decimals);
       const priceFormatted = new BigNumber(price).toFixed(decimals);
-      const sizeFormatted = numberFormatAsString(size, balanceFormatter);
+      const sizeFormatted = numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
-      const valueFormatted = numberFormatAsString(
+      const valueFormatted = numberFormat(
         value,
         balanceCurrencyFormatter,
       );
@@ -131,12 +131,12 @@ const OpenOrdersRow = memo(
         const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
         tpslOrders.forEach((child) => {
           if (child.orderType.startsWith('Take')) {
-            tpPrice = `${numberFormatAsString(
+            tpPrice = `${numberFormat(
               child.triggerPx,
               priceFormatter,
             )}`;
           } else if (child.orderType.startsWith('Stop')) {
-            slPrice = `${numberFormatAsString(
+            slPrice = `${numberFormat(
               child.triggerPx,
               priceFormatter,
             )}`;

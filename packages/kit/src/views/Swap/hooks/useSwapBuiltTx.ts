@@ -37,7 +37,7 @@ import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  numberFormatAsString,
+  numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -350,7 +350,7 @@ export function useSwapBuildTx() {
                     },
                     {
                       token: item.token.symbol,
-                      number: numberFormatAsString(
+                      number: numberFormat(
                         tokenAmountBN.toFixed(),
                         formatter,
                       ),

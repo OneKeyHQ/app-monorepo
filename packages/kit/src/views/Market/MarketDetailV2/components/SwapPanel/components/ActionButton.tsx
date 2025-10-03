@@ -14,9 +14,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  numberFormatAsString,
-} from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
@@ -155,17 +153,11 @@ export function ActionButton({
 
   // Disable button if insufficient balance
   const shouldDisable = isInsufficientBalance;
-  const displayAmountFormatted = numberFormatAsString(
-    displayAmount,
-    tokenFormatter,
-  );
+  const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
   let buttonText = `${actionText} ${displayAmountFormatted} `;
   if (typeof totalValue === 'number') {
-    buttonText += `(${numberFormatAsString(
-      totalValue.toFixed(2),
-      currencyFormatter,
-    )})`;
+    buttonText += `(${numberFormat(totalValue.toFixed(2), currencyFormatter)})`;
   }
 
   if (isWrapped) {

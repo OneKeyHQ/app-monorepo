@@ -7,7 +7,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
@@ -64,9 +64,9 @@ export function InformationPanel() {
   } = tokenDetail;
 
 
-  const formattedMarketCap = numberFormatAsString(marketCap, currencyFormatter);
+  const formattedMarketCap = numberFormat(marketCap, currencyFormatter);
 
-  const formattedLiquidity = numberFormatAsString(liquidity, currencyFormatter);
+  const formattedLiquidity = numberFormat(liquidity, currencyFormatter);
 
   const priceChangeNum = parseFloat(priceChange24hPercent);
   const isPriceUp = priceChangeNum >= 0;
@@ -109,7 +109,7 @@ export function InformationPanel() {
             {intl.formatMessage({ id: ETranslations.dexmarket_holders })}
           </SizableText>
           <SizableText size="$bodySmMedium">
-            {numberFormatAsString(String(holders), marketCapFormatter)}
+            {numberFormat(String(holders), marketCapFormatter)}
           </SizableText>
         </XStack>
         {/* Audit / Security - Only show when we have security data */}

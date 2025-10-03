@@ -33,7 +33,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
   ESwapLimitOrderExpiryStep,
@@ -287,7 +287,7 @@ const SwapQuoteResult = ({
       quoteResult?.fee?.estimatedFeeFiatValue ?? '0',
     );
     const allFeeFiatValue = estimatedFeeFiatValue.plus(oneKeyFeeFiatValue);
-    const allFeeFiatValueFormat = numberFormatAsString(
+    const allFeeFiatValueFormat = numberFormat(
       allFeeFiatValue.toFixed(),
       allFeeFiatValueFormatter,
     );
@@ -302,11 +302,11 @@ const SwapQuoteResult = ({
   ]);
 
   const limitNetworkFeeMarkQuestContent = useMemo(() => {
-    const networkCostBuyAmountFormat = numberFormatAsString(
+    const networkCostBuyAmountFormat = numberFormat(
       quoteResult?.networkCostBuyAmount ?? '0',
       formatter,
     );
-    const oneKeyFeeCostFormat = numberFormatAsString(
+    const oneKeyFeeCostFormat = numberFormat(
       quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount ?? '0',
       formatter,
     );

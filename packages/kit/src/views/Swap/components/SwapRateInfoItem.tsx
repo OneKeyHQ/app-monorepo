@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import { SizableText, XStack } from '@onekeyhq/components';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 const formatter: INumberFormatProps = {
@@ -28,7 +28,7 @@ const SwapRateInfoItem = ({
   const rateContent = useMemo(() => {
     const rateBN = new BigNumber(rate ?? 0);
     const exchangeRate = new BigNumber(1).div(rateBN);
-    const formatRate = numberFormatAsString(
+    const formatRate = numberFormat(
       rateSwitch ? exchangeRate.toFixed() : rateBN.toFixed(),
       formatter,
     );
