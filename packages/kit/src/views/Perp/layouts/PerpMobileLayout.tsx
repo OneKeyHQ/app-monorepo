@@ -19,6 +19,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { PerpOrderBook } from '../components/PerpOrderBook';
+import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
 import {
@@ -96,6 +97,7 @@ export function PerpMobileLayout() {
   const tabHeader = useMemo(
     () => (
       <YStack bg="$bgApp" pointerEvents="box-none">
+        <PerpTips />
         <PerpTickerBar />
 
         <XStack alignItems="stretch" gap="$3" px="$4" pb="$4">
