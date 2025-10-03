@@ -730,7 +730,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
-    NSString *currentNativeVersion = [MainBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"];
+  NSString *currentNativeVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     [userDefaults setObject:currentNativeVersion forKey:@"nativeVersion"];
     [userDefaults synchronize];
 
