@@ -70,6 +70,7 @@ if (platformEnv.isNative) {
           );
           return resolvedAssetSource;
         }
+        defaultLogger.app.error.log(`Platform.OS: ${Platform.OS}`);
         if (Platform.OS === 'ios') {
           defaultLogger.app.error.log(`iOSAsset start`);
           const iOSAsset = this.scaledAssetURLNearBundle();
