@@ -726,7 +726,7 @@ export const numberFormat = memoizee(
   },
 );
 
-export const numberFormatAsDisplay = (
+export const numberFormatAsRenderText = (
   value: string,
   { formatter, formatterOptions }: INumberFormatProps,
   isRaw = false,
