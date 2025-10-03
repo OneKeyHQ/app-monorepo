@@ -287,9 +287,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return null;
             }
             return mainJSBundlePath;
-        } catch (PackageManager.NameNotFoundException e) {
-            staticLog(TAG, "Error getting package info: " + e.getMessage());
-            return null;
         } catch (IOException e) {
             staticLog(TAG, "Error getting package info: " + e.getMessage());
             return null;
