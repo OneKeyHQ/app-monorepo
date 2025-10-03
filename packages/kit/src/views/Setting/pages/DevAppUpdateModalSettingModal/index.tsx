@@ -5,6 +5,7 @@ import {
   Dialog,
   Divider,
   Input,
+  Page,
   SizableText,
   YStack,
 } from '@onekeyhq/components';
@@ -13,9 +14,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SectionPressItem } from './SectionPressItem';
-
-export function AutoUpdateSettings() {
+export default function DevAppUpdateModalSettingModal() {
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [bundleVersion, setBundleVersion] = useState('1');
 
@@ -52,7 +51,7 @@ export function AutoUpdateSettings() {
   };
 
   const showVersionConfigDialog = () => {
-    const dialogInstance = Dialog.show({
+    Dialog.show({
       title: 'Version Configuration',
       renderContent: (
         <YStack p="$4" gap="$3">
@@ -66,16 +65,6 @@ export function AutoUpdateSettings() {
             value={bundleVersion}
             onChangeText={setBundleVersion}
           />
-          <Button
-            variant="primary"
-            onPress={async () => {
-              await dialogInstance.close();
-              // eslint-disable-next-line @typescript-eslint/no-use-before-define
-              await showMainDialog();
-            }}
-          >
-            Continue
-          </Button>
         </YStack>
       ),
     });
@@ -273,63 +262,40 @@ export function AutoUpdateSettings() {
     });
   };
 
-  async function showMainDialog() {
-    const currentAppVersion = String(platformEnv.version);
-    const currentBuildNumber = String(platformEnv.buildNumber);
-    const currentBundleVersion = String(platformEnv.bundleVersion);
+  const currentAppVersion = String(platformEnv.version);
+  const currentBuildNumber = String(platformEnv.buildNumber);
+  const currentBundleVersion = String(platformEnv.bundleVersion);
 
-    const dialogInstance = Dialog.show({
-      title: 'Auto Update Test Suite',
-      renderContent: (
-        <YStack p="$1" gap="$1">
+  return (
+    <Page>
+      <Page.Header title="Dev App Update Modal Setting" />
+      <Page.Body>
+        <YStack p="$4" gap="$3">
           <SizableText size="$headingSm">
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
+
           {platformEnv.isNativeAndroid ||
           (platformEnv.isDesktop &&
             !platformEnv.isMas &&
             !platformEnv.isDesktopLinuxSnap &&
             !platformEnv.isDesktopWinMsStore) ? (
-            <Button
-              variant="secondary"
-              onPress={() => {
-                void dialogInstance.close();
-                showFailedTestsDialog();
-              }}
-            >
+            <Button variant="secondary" onPress={showFailedTestsDialog}>
               Auto Update Failed Tests
             </Button>
           ) : null}
 
-          <Button
-            variant="secondary"
-            onPress={() => {
-              void dialogInstance.close();
-              showVerificationTestsDialog();
-            }}
-          >
+          <Button variant="secondary" onPress={showVerificationTestsDialog}>
             Verification Tests
           </Button>
 
-          <Button
-            variant="secondary"
-            onPress={() => {
-              void dialogInstance.close();
-              showBundleTestsDialog();
-            }}
-          >
+          <Button variant="secondary" onPress={showBundleTestsDialog}>
             Bundle Tests
           </Button>
 
           <Divider />
 
-          <Button
-            variant="secondary"
-            onPress={() => {
-              void dialogInstance.close();
-              showVersionConfigDialog();
-            }}
-          >
+          <Button variant="secondary" onPress={showVersionConfigDialog}>
             Configure Versions
           </Button>
           <Button
@@ -341,19 +307,7 @@ export function AutoUpdateSettings() {
             Clear All JSBundle Data
           </Button>
         </YStack>
-      ),
-    });
-  }
-
-  const showAutoUpdateDialog = () => {
-    void showMainDialog();
-  };
-
-  return (
-    <SectionPressItem
-      icon="SettingsOutline"
-      title="Open Auto Update Test Suite"
-      onPress={showAutoUpdateDialog}
-    />
+      </Page.Body>
+    </Page>
   );
 }

@@ -63,7 +63,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
-import { AutoUpdateSettings } from './AutoUpdateSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
@@ -571,8 +570,13 @@ const BaseDevSettingsSection = () => {
         />
       </ListItem>
 
-      <AutoUpdateSettings />
-
+      <SectionPressItem
+        icon="ArrowTopCircleOutline"
+        title="Dev App Update Settings"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
+        }}
+      />
       <SectionFieldItem
         icon="WalletOutline"
         name="allowAddSameHDWallet"
