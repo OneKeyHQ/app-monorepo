@@ -152,7 +152,7 @@ export const verifyMetadataFileSha256 = async ({
     bundleVersion,
   });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
-  const metadataFilesSha256 = await readMetadataFileSha256(signature);
+  // const metadataFilesSha256 = await readMetadataFileSha256(signature);
   // const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
   // if (!isVerified) {
   //   throw new OneKeyLocalError('Invalid asc file');
