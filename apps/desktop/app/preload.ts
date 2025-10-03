@@ -8,10 +8,7 @@ import { app, ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
-import type {
-  IDesktopAppState,
-  IDesktopStoreUpdateSettings,
-} from '@onekeyhq/shared/types/desktop';
+import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 
@@ -40,7 +37,6 @@ type IDesktopAPILegacy = {
   isMas: boolean;
   isDev: boolean;
   channel?: string;
-  jsBundlePath: string | undefined;
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;
@@ -199,10 +195,6 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   isDev,
-  jsBundlePath:
-    globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || '',
-  nativeAppVersion: app.getVersion() || '',
-  nativeAppBuildNumber: process.env.BUILD_NUMBER || '',
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
