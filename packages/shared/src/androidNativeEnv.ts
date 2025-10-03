@@ -1,1 +1,1 @@
-export const ANDROID_CHANNEL = '';
+export const ANDROID_CHANNEL: 'google' | 'huawei' | '' = '';
