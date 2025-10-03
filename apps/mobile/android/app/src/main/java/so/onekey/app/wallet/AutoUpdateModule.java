@@ -450,4 +450,11 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             promise.reject(e);
         }
     }
+
+    @Override
+    public Map<String, Object> getConstants() {
+        final Map<String, Object> constants = new HashMap<>();
+        constants.put("ANDROID_CHANNEL", "android-apk");
+        return constants;
+    }
 }
