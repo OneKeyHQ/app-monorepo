@@ -59,13 +59,13 @@ if (platformEnv.isNative) {
           if (isLoadedFromFileSystem) {
             const resolvedAssetSource = this.drawableFolderInBundle();
             defaultLogger.app.error.log(
-              `resolvedAssetSource: ${JSON.stringify(resolvedAssetSource)}`,
+              `resolvedAssetSource: ${resolvedAssetSource.uri}`,
             );
             return resolvedAssetSource;
           }
           const resolvedAssetSource = this.resourceIdentifierWithoutScale();
           defaultLogger.app.error.log(
-            `resolvedAssetSource: ${JSON.stringify(resolvedAssetSource)}`,
+            `resolvedAssetSource: ${resolvedAssetSource.uri}`,
           );
           return resolvedAssetSource;
         }
