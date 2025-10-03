@@ -411,7 +411,6 @@ class DesktopApiAppBundleUpdate {
 
     if (fallbackUpdateBundleData.length > 3) {
       const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
-      store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
       if (shiftUpdateBundleData) {
         const dirName = `${shiftUpdateBundleData.appVersion}-${shiftUpdateBundleData.bundleVersion}`;
         const bundleDir = getBundleDirName();
@@ -421,6 +420,8 @@ class DesktopApiAppBundleUpdate {
         }
       }
     }
+    console.log('fallbackUpdateBundleData', fallbackUpdateBundleData);
+    store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
     setTimeout(() => {
       if (process.mas) {
         app.exit(0);
