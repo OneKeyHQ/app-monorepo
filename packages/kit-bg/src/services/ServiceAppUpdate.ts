@@ -22,6 +22,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
@@ -168,6 +169,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else if (statusNumber === 404 || statusNumber === 403) {
       errorText = ETranslations.update_server_not_responding_try_later;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
   }
 
@@ -237,6 +239,7 @@ class ServiceAppUpdate extends ServiceBase {
         errorText =
           ETranslations.update_signature_verification_failed_alert_text;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: errorText as ETranslations,
@@ -255,6 +258,7 @@ class ServiceAppUpdate extends ServiceBase {
         errorText = ETranslations.update_installation_not_safe_alert_text;
       }
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: errorText as ETranslations,
@@ -273,6 +277,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else {
       errorText = ETranslations.update_network_instability_check_connection;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadASCFailed, errorText);
   }
 
