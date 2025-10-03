@@ -1,4 +1,4 @@
-public class AutoUpdateHuaWeiModule {
+public class AutoUpdateHuaWeiModule extends ReactContextBaseJavaModule {
     public AutoUpdateGoogleModule(ReactApplicationContext context) {
         super(context);
     }
