@@ -671,14 +671,14 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         return;
     }
 
-    NSString currentFolderName = [self currentBundleVersion];
+  NSString *currentFolderName = [BundleUpdateModule currentBundleVersion];
     
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
     [userDefaults synchronize];
 
-    NSArray *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
+    NSString *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
     NSMutableArray *fallbackUpdateBundleData = [[NSMutableArray alloc] init];
     if (fallbackUpdateBundleDataString) {
         NSError *error;
@@ -892,7 +892,8 @@ RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
 
 RCT_EXPORT_METHOD(getFallbackUpdateBundleData:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSArray *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
     NSMutableArray *fallbackUpdateBundleData = [[NSMutableArray alloc] init];
     if (fallbackUpdateBundleDataString) {
         NSError *error;
