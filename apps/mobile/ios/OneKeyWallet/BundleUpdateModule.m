@@ -508,7 +508,6 @@ didFinishDownloadingToURL:(NSURL *)location {
         NSError *moveError;
         NSString *filePath = self.downloadBundleResult[@"downloadedFile"];
         NSString *sha256 = self.downloadBundleResult[@"sha256"];
-        [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
         BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
         DDLogDebug(@"downloadBundle: success: %@, moveError: %@", success ? @"YES" : @"NO");
         if (!success) {
