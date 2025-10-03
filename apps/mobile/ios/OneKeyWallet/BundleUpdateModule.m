@@ -775,7 +775,6 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         }
     }
 
-    NSError *error;
    [BundleUpdateModule writeFallbackUpdateBundleDataFile:fallbackUpdateBundleData];
     [userDefaults synchronize];
     resolve(nil);
