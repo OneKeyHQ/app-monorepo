@@ -143,7 +143,6 @@ RCT_EXPORT_MODULE();
 
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentBundleVersion = [self currentBundleVersion];
-    DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, prevNativeVersion);
     if (currentBundleVersion == nil) {
         return nil;
     }
