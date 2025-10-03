@@ -12,5 +12,6 @@ export const useJsBundle = () => {
 };
 
 export const useJsBundleAsync = async () => {
-  return false;
+  const bundlePath = await globalThis.desktopApiProxy.system.getJsBundlePath();
+  return !!bundlePath;
 };
