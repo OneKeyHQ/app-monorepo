@@ -873,6 +873,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const exchangeClient = new ExchangeClient({
       transport: new HttpTransport(),
       wallet,
+      signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
     });
     const context = await this._buildLogContext();
     try {
