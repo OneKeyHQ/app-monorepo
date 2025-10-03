@@ -159,14 +159,23 @@ function DownloadVerify({
     return null;
   }, []);
 
+  const headerParams = useMemo(() => {
+    const title = intl.formatMessage({
+      id: ETranslations.update_download_and_verify_text,
+    });
+    return isForceUpdate
+      ? {
+          title,
+          headerLeft,
+        }
+      : {
+          title,
+        };
+  }, [intl, isForceUpdate, headerLeft]);
+
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.update_download_and_verify_text,
-        })}
-        headerLeft={isForceUpdate ? headerLeft : undefined}
-      />
+      <Page.Header {...headerParams} />
       <Page.Body px="$5" py="$2.5">
         <Stepper stepIndex={stepIndex} hasError={hasError}>
           <Stepper.Item
