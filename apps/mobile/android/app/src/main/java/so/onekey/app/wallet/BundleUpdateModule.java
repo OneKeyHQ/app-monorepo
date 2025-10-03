@@ -238,22 +238,19 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     public static String getCurrentBundleMainJSBundle(Context context) {
         try {
-            PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
-            String currentAppVersion = packageInfo.versionName;
+            String currentAppVersion = Build.VERSION.RELEASE;
             String currentBundleVersion = getCurrentBundleVersion(context);
             
             staticLog(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
             
-            if (currentBundleVersion == null) {
+            String prevNativeVersion = getNativeVersion(context);
+            if (prevNativeVersion == null) {
                 return null;
             }
             
-            if (currentAppVersion != null && !currentAppVersion.equals(currentBundleVersion)) {
-                String bundleAppVersion = currentBundleVersion.split("-")[0];
-                if (compareVersion(currentAppVersion, bundleAppVersion) == -1) {
-                    staticLog(TAG, "currentAppVersion is less than currentBundleVersion");
-                    return null;
-                }
+            if (!currentAppVersion.equals(currentBundleVersion)) {
+                staticLog(TAG, "currentAppVersion is not equal to prevNativeVersion " + currentAppVersion + " " + prevNativeVersion);
+                return null;
             }
             
             String bundleDir = getCurrentBundleDir(context, currentBundleVersion);
@@ -461,6 +458,16 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             staticLog(TAG, "readFallbackUpdateBundleDataFile:" + e.getMessage());
         }
         return fallbackUpdateBundleData;
+    }
+
+    public static String getNativeVersion(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        return prefs.getString("nativeVersion", null);
+    }
+
+    public static void setNativeVersion(Context context, String nativeVersion) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putString("nativeVersion", nativeVersion).apply();
     }
 
     private boolean verifyBundleSHA256(String bundlePath, String sha256) {
@@ -719,8 +726,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String folderName = appVersion + "-" + bundleVersion;
-        String currentFolderName = this.getCurrentBundleVersion(reactContext);
+        String currentFolderName = getCurrentBundleVersion(reactContext);
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
+        setNativeVersion(reactContext, Build.VERSION.RELEASE);
         List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
        
         if (currentFolderName != null && !currentFolderName.isEmpty()) {
