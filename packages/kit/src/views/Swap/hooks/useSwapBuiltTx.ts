@@ -350,10 +350,7 @@ export function useSwapBuildTx() {
                     },
                     {
                       token: item.token.symbol,
-                      number: numberFormat(
-                        tokenAmountBN.toFixed(),
-                        formatter,
-                      ),
+                      number: numberFormat(tokenAmountBN.toFixed(), formatter),
                     },
                   ),
                 });

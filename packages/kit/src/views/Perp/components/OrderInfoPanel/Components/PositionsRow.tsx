@@ -138,10 +138,7 @@ const PositionRow = memo(
       const sizeAbs = sizeBN.abs().toFixed();
       const sizeAbsFormatted = numberFormat(sizeAbs, balanceFormatter);
       const sizeValue = new BigNumber(pos.positionValue || '0').toFixed();
-      const sizeValueFormatted = numberFormat(
-        sizeValue,
-        sizeValueFormatter,
-      );
+      const sizeValueFormatted = numberFormat(sizeValue, sizeValueFormatter);
       return {
         sizeAbsFormatted,
         sizeValue: sizeValueFormatted,
@@ -214,18 +211,12 @@ const PositionRow = memo(
         if (!showOrder) {
           tpslOrders.forEach((order) => {
             if (order.orderType.startsWith('Take') && order.isPositionTpsl) {
-              tpPrice = `${numberFormat(
-                order.triggerPx,
-                priceFormatter,
-              )}`;
+              tpPrice = `${numberFormat(order.triggerPx, priceFormatter)}`;
             } else if (
               order.orderType.startsWith('Stop') &&
               order.isPositionTpsl
             ) {
-              slPrice = `${numberFormat(
-                order.triggerPx,
-                priceFormatter,
-              )}`;
+              slPrice = `${numberFormat(order.triggerPx, priceFormatter)}`;
             }
           });
         }

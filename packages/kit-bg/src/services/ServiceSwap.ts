@@ -1472,13 +1472,11 @@ export default class ServiceSwap extends ServiceBase {
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
-          message: `${numberFormat(
-            item.baseInfo.fromAmount,
-            formatter,
-          )} ${item.baseInfo.fromToken.symbol} → ${numberFormat(
-            item.baseInfo.toAmount,
-            formatter,
-          )} ${item.baseInfo.toToken.symbol}`,
+          message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
+            item.baseInfo.fromToken.symbol
+          } → ${numberFormat(item.baseInfo.toAmount, formatter)} ${
+            item.baseInfo.toToken.symbol
+          }`,
         });
       }
     }

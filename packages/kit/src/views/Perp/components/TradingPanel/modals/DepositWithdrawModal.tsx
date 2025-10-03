@@ -234,10 +234,7 @@ function DepositWithdrawContent({
     if (selectedAction === 'withdraw') {
       return {
         balance: new BigNumber(params.withdrawable || '0').toFixed(),
-        displayBalance: numberFormat(
-          params.withdrawable || '0',
-          formatter,
-        ),
+        displayBalance: numberFormat(params.withdrawable || '0', formatter),
       };
     }
     return {

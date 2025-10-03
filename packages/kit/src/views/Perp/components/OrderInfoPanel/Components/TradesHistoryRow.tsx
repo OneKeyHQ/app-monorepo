@@ -299,7 +299,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${tradeBaseInfo.tradeValueFormatted as string}`}
+            {`${tradeBaseInfo.tradeValueFormatted}`}
           </SizableText>
         </XStack>
 
@@ -310,7 +310,7 @@ const TradesHistoryRow = memo(
           alignItems="center"
         >
           <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-            {`${tradeBaseInfo.feeFormatted as string}`}
+            {`${tradeBaseInfo.feeFormatted}`}
           </SizableText>
         </XStack>
 

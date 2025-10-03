@@ -89,10 +89,7 @@ const OpenOrdersRow = memo(
       const decimals = getValidPriceDecimals(price);
       const triggerCondition = order.triggerCondition;
       const origSizeBN = new BigNumber(origSize);
-      const origSizeFormatted = numberFormat(
-        origSize,
-        balanceFormatter,
-      );
+      const origSizeFormatted = numberFormat(origSize, balanceFormatter);
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
@@ -102,10 +99,7 @@ const OpenOrdersRow = memo(
       const priceFormatted = new BigNumber(price).toFixed(decimals);
       const sizeFormatted = numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
-      const valueFormatted = numberFormat(
-        value,
-        balanceCurrencyFormatter,
-      );
+      const valueFormatted = numberFormat(value, balanceCurrencyFormatter);
       return {
         triggerCondition,
         origSizeFormatted,
@@ -131,15 +125,9 @@ const OpenOrdersRow = memo(
         const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
         tpslOrders.forEach((child) => {
           if (child.orderType.startsWith('Take')) {
-            tpPrice = `${numberFormat(
-              child.triggerPx,
-              priceFormatter,
-            )}`;
+            tpPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
           } else if (child.orderType.startsWith('Stop')) {
-            slPrice = `${numberFormat(
-              child.triggerPx,
-              priceFormatter,
-            )}`;
+            slPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
           }
         });
       }

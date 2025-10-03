@@ -63,7 +63,6 @@ export function InformationPanel() {
     address = '',
   } = tokenDetail;
 
-
   const formattedMarketCap = numberFormat(marketCap, currencyFormatter);
 
   const formattedLiquidity = numberFormat(liquidity, currencyFormatter);
