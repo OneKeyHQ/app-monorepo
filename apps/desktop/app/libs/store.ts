@@ -4,6 +4,7 @@ import Store from 'electron-store';
 
 import { EDesktopStoreKeys } from '@onekeyhq/shared/types/desktop';
 import type {
+  IDesktopStoreFallbackUpdateBundleData,
   IDesktopStoreMap,
   IDesktopStoreUpdateBundleData,
   IDesktopStoreUpdateSettings,
@@ -153,7 +154,7 @@ export const clearUpdateBundleData = () => {
 };
 
 export const setFallbackUpdateBundleData = (
-  fallbackUpdateBundleData: IDesktopStoreUpdateBundleData,
+  fallbackUpdateBundleData: IDesktopStoreFallbackUpdateBundleData,
 ) => {
   store.set(
     EDesktopStoreKeys.FallbackUpdateBundleData,
@@ -164,7 +165,7 @@ export const setFallbackUpdateBundleData = (
 export const getFallbackUpdateBundleData = () =>
   store.get(
     EDesktopStoreKeys.FallbackUpdateBundleData,
-    {} as IDesktopStoreUpdateBundleData,
+    [] as IDesktopStoreFallbackUpdateBundleData,
   );
 
 export const clearFallbackUpdateBundleData = () => {

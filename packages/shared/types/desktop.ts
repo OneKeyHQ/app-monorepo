@@ -1,5 +1,4 @@
 import type { ILocaleSymbol } from '../src/locale';
-import type { BrowserWindow } from 'electron';
 
 export type IPrefType =
   | 'default'
@@ -58,6 +57,9 @@ export type IDesktopStoreUpdateBundleData = {
   signature: string;
 };
 
+export type IDesktopStoreFallbackUpdateBundleData =
+  IDesktopStoreUpdateBundleData[];
+
 export type IDesktopStoreMap = {
   [EDesktopStoreKeys.WinBounds]: Electron.Rectangle;
   [EDesktopStoreKeys.UpdateSettings]: IDesktopStoreUpdateSettings;
@@ -72,5 +74,5 @@ export type IDesktopStoreMap = {
   [EDesktopStoreKeys.UpdateBuildNumber]: string;
   [EDesktopStoreKeys.AppInstanceMetaBackup]: IInstanceMetaBackup;
   [EDesktopStoreKeys.UpdateBundleData]: IDesktopStoreUpdateBundleData;
-  [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreUpdateBundleData;
+  [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreFallbackUpdateBundleData;
 };

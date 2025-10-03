@@ -389,12 +389,29 @@ class DesktopApiAppBundleUpdate {
     if (!appVersion || !bundleVersion || !signature) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    store.setFallbackUpdateBundleData(store.getUpdateBundleData());
+    const currentUpdateBundleData = store.getUpdateBundleData();
+
     store.setUpdateBundleData({
       appVersion,
       bundleVersion,
       signature,
     });
+
+    const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
+    fallbackUpdateBundleData.push(currentUpdateBundleData);
+
+    if (fallbackUpdateBundleData.length > 3) {
+      const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
+      store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
+      if (shiftUpdateBundleData) {
+        const dirName = `${shiftUpdateBundleData.appVersion}-${shiftUpdateBundleData.bundleVersion}`;
+        const bundleDir = getBundleDirName();
+        const bundleDirPath = path.join(bundleDir, dirName);
+        if (fs.existsSync(bundleDirPath)) {
+          fs.rmSync(bundleDirPath, { recursive: true, force: true });
+        }
+      }
+    }
     setTimeout(() => {
       if (!process.mas) {
         app.relaunch();
