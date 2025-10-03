@@ -4,7 +4,7 @@ import path from 'path';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
-import { ipcRenderer, nativeImage } from 'electron';
+import { app, ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
@@ -198,6 +198,9 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   isDev,
+  isJSBundle: globalThis.$desktopMainAppFunctions?.useJsBundle?.(),
+  nativeAppVersion: app.getVersion() || '',
+  nativeAppBuildNumber: process.env.BUILD_NUMBER || '',
   channel: getChannel(),
   ready: () => ipcRenderer.send(ipcMessageKeys.APP_READY),
   addIpcEventListener: (event: string, listener: (...args: any[]) => void) => {
