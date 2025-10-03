@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   DebugRenderTracker,
   Icon,
   ListView,
@@ -19,6 +20,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAllAssetsFilteredLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -90,7 +92,7 @@ function BasePerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   const intl = useIntl();
-  const { searchQuery, setSearchQuery, filteredTokens } =
+  const { searchQuery, setSearchQuery, refreshAllAssets } =
     usePerpTokenSelector();
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
@@ -110,6 +112,18 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
+  const [filteredTokensLength] = usePerpsAllAssetsFilteredLengthAtom();
+
+  // cause ListView rerender
+  // const [allAssetsFiltered] = usePerpsAllAssetsFilteredAtom();
+  // console.log(allAssetsFiltered);
+
+  const mockedListData = useMemo(() => {
+    return Array.from({ length: filteredTokensLength }, (_, index) => ({
+      index,
+    }));
+  }, [filteredTokensLength]);
+
   const content = (
     <YStack>
       <YStack gap="$2">
@@ -126,6 +140,7 @@ function BasePerpTokenSelectorContent({
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
+        <Button onPress={refreshAllAssets}>{filteredTokensLength}</Button>
         <TokenListHeader />
       </YStack>
 
@@ -136,11 +151,11 @@ function BasePerpTokenSelectorContent({
           contentContainerStyle={{
             paddingBottom: 10,
           }}
-          data={filteredTokens.filter((token) => !token.isDelisted)}
-          renderItem={({ item: token }) => (
+          data={mockedListData}
+          renderItem={({ item: mockedToken }) => (
             <PerpTokenSelectorRow
-              token={token}
-              onPress={() => handleSelectToken(token.name)}
+              mockedToken={mockedToken}
+              onPress={(name) => handleSelectToken(name)}
             />
           )}
           ListEmptyComponent={

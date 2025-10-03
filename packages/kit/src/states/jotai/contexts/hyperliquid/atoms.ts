@@ -22,6 +22,25 @@ export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 export const { atom: perpsAllMidsAtom, use: usePerpsAllMidsAtom } =
   contextAtom<HL.IWsAllMids | null>(null);
 
+export const {
+  atom: perpsAllAssetsFilteredAtom,
+  use: usePerpsAllAssetsFilteredAtom,
+} = contextAtom<{
+  assets: HL.IPerpsUniverse[];
+  query: string;
+}>({
+  assets: [],
+  query: '',
+});
+
+export const {
+  atom: perpsAllAssetsFilteredLengthAtom,
+  use: usePerpsAllAssetsFilteredLengthAtom,
+} = contextAtomComputed((get) => {
+  const perpsAllAssetsFiltered = get(perpsAllAssetsFilteredAtom());
+  return perpsAllAssetsFiltered.assets.length;
+});
+
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
     assetCtxs: HL.IPerpsAssetCtx[];
@@ -103,6 +122,13 @@ export const {
 } = contextAtom<IPerpsActivePositionAtom>({
   accountAddress: undefined,
   activePositions: [],
+});
+export const {
+  atom: perpsActivePositionLengthAtom,
+  use: usePerpsActivePositionLengthAtom,
+} = contextAtomComputed((get) => {
+  const activePositions = get(perpsActivePositionAtom());
+  return activePositions?.activePositions?.length ?? 0;
 });
 
 export type IPerpsActiveOpenOrdersAtom = {

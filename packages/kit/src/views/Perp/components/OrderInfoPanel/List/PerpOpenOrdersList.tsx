@@ -10,7 +10,6 @@ import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/con
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTradingGuard } from '../../../hooks';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -26,14 +25,13 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
-  const { ensureTradingEnabled } = useTradingGuard();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
   const handleCancelAll = useCallback(async () => {
-    ensureTradingEnabled();
+    actions.current.ensureTradingEnabled();
     const symbolsMetaMap =
       await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
         coins: orders.map((o) => o.coin),
@@ -58,7 +56,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     }
 
     void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, actions, ensureTradingEnabled]);
+  }, [orders, actions]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -150,7 +148,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
 
   const handleCancelOrder = useCallback(
     async (order: FrontendOrder) => {
-      ensureTradingEnabled();
+      actions.current.ensureTradingEnabled();
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: order.coin,
@@ -169,7 +167,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         ],
       });
     },
-    [actions, ensureTradingEnabled],
+    [actions],
   );
 
   const totalMinWidth = useMemo(

@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import {
   Button,
@@ -12,7 +13,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { usePerpsAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useHyperliquidActions,
+  usePerpsAllMidsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -47,27 +53,6 @@ interface IClosePositionFormData {
 interface IClosePositionParams {
   position: IPosition;
   type: ICloseType;
-  szDecimals: number;
-  assetId: number;
-  hyperliquidActions: {
-    current: {
-      ordersClose: (
-        params: {
-          assetId: number;
-          isBuy: boolean;
-          size: string;
-          midPx: string;
-        }[],
-      ) => Promise<IOrderResponse>;
-      limitOrderClose: (params: {
-        assetId: number;
-        isBuy: boolean;
-        size: string;
-        limitPrice: string;
-      }) => Promise<IOrderResponse>;
-      resetTradingForm: () => void;
-    };
-  };
 }
 
 interface IClosePositionFormProps extends IClosePositionParams {
@@ -75,15 +60,17 @@ interface IClosePositionFormProps extends IClosePositionParams {
 }
 
 const ClosePositionForm = memo(
-  ({
-    position,
-    type,
-    szDecimals,
-    assetId,
-    hyperliquidActions,
-    onClose,
-  }: IClosePositionFormProps) => {
+  ({ position, type, onClose }: IClosePositionFormProps) => {
     const [allMids] = usePerpsAllMidsAtom();
+    const hyperliquidActions = useHyperliquidActions();
+
+    const { result: tokenInfo } = usePromiseResult(async () => {
+      return backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+        coin: position.coin,
+      });
+    }, [position.coin]);
+    const szDecimals = tokenInfo?.universe?.szDecimals ?? 2;
+    const assetId = tokenInfo?.assetId;
 
     const midPrice = useMemo(() => {
       return allMids?.mids?.[position.coin] || '0';
@@ -229,6 +216,9 @@ const ClosePositionForm = memo(
 
     const handleSubmit = useCallback(async () => {
       try {
+        if (isNil(assetId) || Number.isNaN(assetId)) {
+          return;
+        }
         if (isMountedRef.current) {
           setIsSubmitting(true);
         }
@@ -507,9 +497,6 @@ ClosePositionForm.displayName = 'ClosePositionForm';
 export function showClosePositionDialog({
   position,
   type,
-  szDecimals,
-  assetId,
-  hyperliquidActions,
 }: IClosePositionParams) {
   const dialogInstance = Dialog.show({
     title: appLocale.intl.formatMessage({
@@ -520,9 +507,6 @@ export function showClosePositionDialog({
         <ClosePositionForm
           position={position}
           type={type}
-          szDecimals={szDecimals}
-          assetId={assetId}
-          hyperliquidActions={hyperliquidActions}
           onClose={() => dialogInstance.close()}
         />
       </PerpsProviderMirror>

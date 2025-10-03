@@ -111,16 +111,17 @@ export const { target: perpsActiveAccountStatusInfoAtom } =
     },
   });
 
-export const {
-  target: perpsActiveAccountStatusAtom,
-  use: usePerpsActiveAccountStatusAtom,
-} = globalAtomComputedR<{
+export type IPerpsActiveAccountStatusAtom = {
   canTrade: boolean | null | undefined;
   canCreateAddress: boolean;
   accountNotSupport: boolean;
   accountAddress: IHex | null;
   details: IPerpsActiveAccountStatusDetails | undefined;
-}>({
+};
+export const {
+  target: perpsActiveAccountStatusAtom,
+  use: usePerpsActiveAccountStatusAtom,
+} = globalAtomComputedR<IPerpsActiveAccountStatusAtom>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusInfoAtom.atom());
     const account = get(perpsActiveAccountAtom.atom());
@@ -296,7 +297,7 @@ export const { target: perpsCurrentMidAtom, use: usePerpsCurrentMidAtom } =
   });
 
 export interface IPerpsNetworkStatus {
-  connected: boolean;
+  connected: boolean | undefined;
   lastMessageAt: number | null;
 }
 
@@ -306,7 +307,7 @@ export const {
 } = globalAtom<IPerpsNetworkStatus>({
   name: EAtomNames.perpsNetworkStatusAtom,
   initialValue: {
-    connected: true,
+    connected: undefined,
     lastMessageAt: null,
   },
 });

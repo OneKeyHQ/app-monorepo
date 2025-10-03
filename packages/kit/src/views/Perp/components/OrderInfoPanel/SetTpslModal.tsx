@@ -36,7 +36,6 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
-import { useTradingGuard } from '../../hooks/useTradingGuard';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
@@ -71,7 +70,6 @@ const SetTpslForm = memo(
     onClose = () => {},
   }: ISetTpslFormProps) => {
     const hyperliquidActions = useHyperliquidActions();
-    const { ensureTradingEnabled } = useTradingGuard();
 
     const [{ activePositions }] = usePerpsActivePositionAtom();
     const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
@@ -147,7 +145,7 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
-        ensureTradingEnabled();
+        hyperliquidActions.current.ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.coin,
@@ -166,7 +164,7 @@ const SetTpslForm = memo(
           ],
         });
       },
-      [hyperliquidActions, ensureTradingEnabled],
+      [hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
