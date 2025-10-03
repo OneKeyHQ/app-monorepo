@@ -56,11 +56,10 @@ export function NumberSizeableText({
       return children;
     }
     return ['string', 'number'].includes(typeof children)
-      ? numberFormatAsRenderText(
-          String(children),
-          { formatter: actualFormatter, formatterOptions },
-          true,
-        )
+      ? numberFormatAsRenderText(String(children), {
+          formatter: actualFormatter,
+          formatterOptions,
+        })
       : '';
   }, [actualFormatter, formatterOptions, children]);
 

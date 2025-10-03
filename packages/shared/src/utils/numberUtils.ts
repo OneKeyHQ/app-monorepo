@@ -718,7 +718,17 @@ export const numberFormat = memoizee(
     if (typeof result === 'string') {
       return result;
     }
-    return result.filter((r) => typeof r === 'string' && r !== '').join('');
+    return result
+      .map((r) => {
+        if (typeof r === 'string') {
+          return r;
+        }
+        if (r.type === 'sub') {
+          return new Array(r.value - 1).fill(0).join('');
+        }
+        return '';
+      })
+      .join('');
   },
   {
     max: 200,
@@ -729,26 +739,7 @@ export const numberFormat = memoizee(
 export const numberFormatAsRenderText = (
   value: string,
   { formatter, formatterOptions }: INumberFormatProps,
-  isRaw = false,
 ) => {
   const result = numberFormatAsRaw(value, { formatter, formatterOptions });
-  if (isRaw) {
-    return result;
-  }
-
-  if (typeof result === 'string') {
-    return result;
-  }
-
-  return result
-    .map((r) => {
-      if (typeof r === 'string') {
-        return r;
-      }
-      if (r.type === 'sub') {
-        return new Array(r.value - 1).fill(0).join('');
-      }
-      return '';
-    })
-    .join('');
+  return result;
 };

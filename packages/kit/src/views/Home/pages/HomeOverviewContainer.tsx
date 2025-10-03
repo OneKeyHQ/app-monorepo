@@ -345,7 +345,6 @@ function HomeOverviewContainer() {
                           numberFormatAsRenderText(
                             String(balanceString),
                             numberFormatter,
-                            true,
                           ).length >= item.length,
                       )?.size ?? defaultBalanceSize
                     : defaultBalanceSize
