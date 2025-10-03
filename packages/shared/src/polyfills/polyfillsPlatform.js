@@ -26,11 +26,12 @@ if (typeof process === 'undefined') {
 if (platformEnv.isNative) {
   const useJsBundle =
     require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle;
-  if (useJsBundle) {
+  if (true) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath();
-    const AssetSourceResolver = require('react-native/Libraries/Image/AssetSourceResolver');
+    const AssetSourceResolver =
+      require('react-native/Libraries/Image/AssetSourceResolver').default;
     const wrap = require('lodash/wrap');
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
@@ -39,13 +40,15 @@ if (platformEnv.isNative) {
           require('@onekeyhq/shared/src/logger/logger').defaultLogger;
         defaultLogger.app.error.log(`mainBundlePath: ${mainBundlePath}`);
         const isLoadedFromServer = this.isLoadedFromServer();
+        console.log('isLoadedFromServer: ', isLoadedFromServer);
         defaultLogger.app.error.log(
           `isLoadedFromServer: ${isLoadedFromServer}`,
         );
         if (isLoadedFromServer) {
           const serverUrl = this.assetServerURL();
+          console.log('serverUrl: ', serverUrl);
           defaultLogger.app.error.log(`serverUrl: ${serverUrl}`);
-          return this.assetServerURL();
+          return serverUrl;
         }
         if (platformEnv.isNativeAndroid) {
           const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
@@ -67,6 +70,7 @@ if (platformEnv.isNative) {
         }
         if (platformEnv.isNativeIOS) {
           const iOSAsset = this.scaledAssetURLNearBundle();
+          console.log('iOSAsset: ', iOSAsset);
           defaultLogger.app.error.log(`iOSAsset: ${JSON.stringify(iOSAsset)}`);
           return iOSAsset;
         }
