@@ -51,6 +51,7 @@ if (platformEnv.isNative) {
           return serverUrl;
         }
         if (platformEnv.isNativeAndroid) {
+          defaultLogger.app.error.log(`isNativeAndroid start`);
           const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
           defaultLogger.app.error.log(
             `isLoadedFromFileSystem: ${isLoadedFromFileSystem}`,
@@ -69,9 +70,11 @@ if (platformEnv.isNative) {
           return resolvedAssetSource;
         }
         if (platformEnv.isNativeIOS) {
+          defaultLogger.app.error.log(`iOSAsset start`);
           const iOSAsset = this.scaledAssetURLNearBundle();
           console.log('iOSAsset: ', iOSAsset);
-          defaultLogger.app.error.log(`iOSAsset: ${JSON.stringify(iOSAsset)}`);
+          defaultLogger.app.error.log(`iOSAsset: ${iOSAsset.uri}`);
+          defaultLogger.app.error.log(`iOSAsset end`);
           return iOSAsset;
         }
       },
