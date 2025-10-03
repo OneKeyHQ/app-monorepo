@@ -1,3 +1,8 @@
+package so.onekey.app.wallet;
+
+import java.util.HashMap;
+import java.util.Map;
+
 public class AutoUpdateHuaWeiModule extends ReactContextBaseJavaModule {
     public AutoUpdateGoogleModule(ReactApplicationContext context) {
         super(context);

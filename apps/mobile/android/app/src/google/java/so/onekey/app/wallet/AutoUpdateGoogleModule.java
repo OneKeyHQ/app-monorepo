@@ -1,5 +1,10 @@
 
 
+package so.onekey.app.wallet;
+
+import java.util.HashMap;
+import java.util.Map;
+
 public class AutoUpdateGoogleModule extends ReactContextBaseJavaModule {
 
     public AutoUpdateGoogleModule(ReactApplicationContext context) {

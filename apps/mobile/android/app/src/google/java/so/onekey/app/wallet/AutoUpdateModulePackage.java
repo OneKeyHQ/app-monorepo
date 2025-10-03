@@ -24,7 +24,7 @@ public class AutoUpdateModulePackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(
             ReactApplicationContext reactContext) {
-        List<NativeModule> modules = new ArrayList<>(new AutoUpdateGoogleModule());
+        List<NativeModule> modules = new ArrayList<>(new AutoUpdateGoogleModule(reactContext));
         return modules;
     }
 }

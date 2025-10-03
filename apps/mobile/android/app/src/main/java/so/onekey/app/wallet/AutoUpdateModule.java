@@ -8,7 +8,6 @@ import android.icu.text.SimpleDateFormat;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
-import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -21,11 +20,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.security.MessageDigest;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.betomorrow.rnfilelogger.FileLoggerModule;
@@ -37,8 +36,6 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-
-import javax.net.ssl.HttpsURLConnection;
 
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
