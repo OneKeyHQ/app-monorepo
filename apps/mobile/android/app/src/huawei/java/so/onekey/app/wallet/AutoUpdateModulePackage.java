@@ -24,7 +24,8 @@ public class AutoUpdateModulePackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(
             ReactApplicationContext reactContext) {
-        List<NativeModule> modules = new ArrayList<>(new AutoUpdateHuaWeiModule(reactContext));
+        List<NativeModule> modules = new ArrayList<>();
+        modules.add(new AutoUpdateHuaWeiModule(reactContext));
         return modules;
     }
 }
