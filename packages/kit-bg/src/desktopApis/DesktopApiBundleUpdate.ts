@@ -399,7 +399,14 @@ class DesktopApiAppBundleUpdate {
     });
 
     const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
-    fallbackUpdateBundleData.push(currentUpdateBundleData);
+    if (
+      currentUpdateBundleData &&
+      currentUpdateBundleData.appVersion &&
+      currentUpdateBundleData.bundleVersion &&
+      currentUpdateBundleData.signature
+    ) {
+      fallbackUpdateBundleData.push(currentUpdateBundleData);
+    }
 
     if (fallbackUpdateBundleData.length > 3) {
       const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
