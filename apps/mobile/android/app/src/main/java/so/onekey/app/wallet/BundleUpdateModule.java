@@ -872,7 +872,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
-    public Boolean jsBundlePath() {
+    public String jsBundlePath() {
         String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
         if (jsBundlePath == null) {
             return "";
