@@ -496,6 +496,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     self.isDownloading = NO;
     self.downloadTask = nil;
     if (error) {
+        DDLogDebug(@"downloadBundle: error: %@", error.localizedDescription);
         [self sendEventWithName:@"update/error" body:@{
             @"error": error.localizedDescription,
         }];
@@ -509,9 +510,10 @@ didFinishDownloadingToURL:(NSURL *)location {
         NSString *sha256 = self.downloadBundleResult[@"sha256"];
         [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
         BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
-        
+        DDLogDebug(@"downloadBundle: success: %@, moveError: %@", success ? @"YES" : @"NO");
         if (!success) {
             [self clearDownloadTask];
+            DDLogDebug(@"downloadBundle: error: %@", moveError.localizedDescription);
             [self sendEventWithName:@"update/error" body:@{
                 @"error": [NSString stringWithFormat:@"%ld", (long)moveError.code],
                 @"errorMessage": moveError.localizedDescription,
@@ -522,6 +524,7 @@ didFinishDownloadingToURL:(NSURL *)location {
         if (![self verifyBundleSHA256:filePath sha256:sha256]) {
             [self clearDownloadTask];
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+            DDLogDebug(@"downloadBundle: error: Bundle signature verification failed");
             [self sendEventWithName:@"update/error" body:@{
                 @"error": @"Bundle signature verification failed",
             }];
