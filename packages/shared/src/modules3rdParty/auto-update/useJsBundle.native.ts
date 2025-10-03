@@ -7,4 +7,18 @@ const jsBundlePath = BundleUpdateModule
   ? BundleUpdateModule.jsBundlePath()
   : '';
 
-export const useJsBundle = !!jsBundlePath;
+export const getJsBundlePath = () => {
+  return jsBundlePath;
+};
+
+export const getJsBundlePathAsync = async () => {
+  return Promise.resolve(jsBundlePath);
+};
+
+export const useJsBundle = () => {
+  return useJsBundle;
+};
+
+export const useJsBundleAsync = async () => {
+  return Promise.resolve(useJsBundle);
+};
