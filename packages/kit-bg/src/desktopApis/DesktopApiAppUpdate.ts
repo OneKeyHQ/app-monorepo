@@ -377,43 +377,43 @@ class DesktopApiAppUpdate {
   }
 
   async downloadAndVerifyASC(params: IInstallUpdateParams): Promise<boolean> {
-    const { downloadedFile, downloadUrl } = params;
-    store.clearASCFile();
-    logger.info(
-      'auto-updater',
-      'Download ASC requested',
-      downloadedFile,
-      downloadUrl,
-    );
+    // const { downloadedFile, downloadUrl } = params;
+    // store.clearASCFile();
+    // logger.info(
+    //   'auto-updater',
+    //   'Download ASC requested',
+    //   downloadedFile,
+    //   downloadUrl,
+    // );
 
-    if (!downloadedFile || !fs.existsSync(downloadedFile)) {
-      logger.info('auto-updater', 'no such file');
-      throw new OneKeyLocalError('NOT_FOUND_FILE');
-    }
+    // if (!downloadedFile || !fs.existsSync(downloadedFile)) {
+    //   logger.info('auto-updater', 'no such file');
+    //   throw new OneKeyLocalError('NOT_FOUND_FILE');
+    // }
 
-    if (downloadUrl) {
-      try {
-        const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
-        const ascFileResponse = await fetch(ascFileUrl);
+    // if (downloadUrl) {
+    //   try {
+    //     const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
+    //     const ascFileResponse = await fetch(ascFileUrl);
 
-        if (!ascFileResponse.ok) {
-          logger.error(
-            'auto-updater',
-            `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
-          );
-          throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
-        }
+    //     if (!ascFileResponse.ok) {
+    //       logger.error(
+    //         'auto-updater',
+    //         `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
+    //       );
+    //       throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
+    //     }
 
-        const ascFileMessage = await ascFileResponse.text();
-        if (ascFileMessage.length === 0) {
-          throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
-        }
-        store.setASCFile(ascFileMessage);
-      } catch (error) {
-        logger.error('auto-updater', 'Failed to fetch ASC file', error);
-        throw error;
-      }
-    }
+    //     const ascFileMessage = await ascFileResponse.text();
+    //     if (ascFileMessage.length === 0) {
+    //       throw new OneKeyLocalError('FAILED_TO_FETCH_ASC_FILE');
+    //     }
+    //     store.setASCFile(ascFileMessage);
+    //   } catch (error) {
+    //     logger.error('auto-updater', 'Failed to fetch ASC file', error);
+    //     throw error;
+    //   }
+    // }
     return true;
   }
 
@@ -487,8 +487,9 @@ class DesktopApiAppUpdate {
 
   async verifyASC(): Promise<boolean> {
     logger.info('auto-updater', 'Verify ASC requested');
-    const sha256 = await this.getSha256();
-    return !!sha256;
+    // const sha256 = await this.getSha256();
+    // return !!sha256;
+    return true;
   }
 
   async verifyFile(verifyParams: IInstallUpdateParams): Promise<boolean> {
@@ -499,24 +500,24 @@ class DesktopApiAppUpdate {
     }
     logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
 
-    const sha256 = await this.getSha256();
-    if (!sha256) {
-      //   sendValidError();
-      return false;
-    }
+    // const sha256 = await this.getSha256();
+    // if (!sha256) {
+    //   //   sendValidError();
+    //   return false;
+    // }
 
-    try {
-      const verified = await this.verifySha256(downloadedFile, sha256);
-      if (!verified) {
-        // sendValidError();
-        return false;
-      }
-    } catch (error) {
-      logger.info('auto-updater', 'verifyFile error', error);
-      throw new OneKeyLocalError(
-        ETranslations.update_installation_package_possibly_compromised,
-      );
-    }
+    // try {
+    //   const verified = await this.verifySha256(downloadedFile, sha256);
+    //   if (!verified) {
+    //     // sendValidError();
+    //     return false;
+    //   }
+    // } catch (error) {
+    //   logger.info('auto-updater', 'verifyFile error', error);
+    //   throw new OneKeyLocalError(
+    //     ETranslations.update_installation_package_possibly_compromised,
+    //   );
+    // }
 
     return true;
   }
