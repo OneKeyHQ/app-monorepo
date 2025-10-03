@@ -248,69 +248,18 @@ export function HyperliquidTermsContent({
                     />
                   </YStack>
                 </YStack>
-
-                <XStack justifyContent="center" pt="$2">
-                  <SizableText
-                    size="$bodySm"
-                    color="$textSubdued"
-                    textAlign="center"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_term_content_3,
-                    })}{' '}
-                    <SizableText
-                      size="$bodySm"
-                      color="$textInteractive"
-                      cursor="pointer"
-                      onPress={() => {
-                        openUrlExternal(TERMS_OF_SERVICE_URL);
-                      }}
-                      hoverStyle={{
-                        borderBottomWidth: 1,
-                        borderBottomColor: '$textInteractive',
-                      }}
-                      pressStyle={{
-                        borderBottomWidth: 1,
-                        borderBottomColor: '$textInteractive',
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.settings_user_agreement,
-                      })}
-                    </SizableText>{' '}
-                    {intl.formatMessage({
-                      id: ETranslations.perp_term_content_4,
-                    })}{' '}
-                    <SizableText
-                      cursor="pointer"
-                      hoverStyle={{
-                        borderBottomWidth: 1,
-                        borderBottomColor: '$textInteractive',
-                      }}
-                      pressStyle={{
-                        borderBottomWidth: 1,
-                        borderBottomColor: '$textInteractive',
-                      }}
-                      size="$bodySm"
-                      color="$textInteractive"
-                      onPress={() => {
-                        openUrlExternal(PRIVACY_POLICY_URL);
-                      }}
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.global_privacy_policy,
-                      })}
-                    </SizableText>
-                  </SizableText>
-                </XStack>
               </YStack>
             </Stack>
-
-            <XStack p="$8" justifyContent="center" pb={gtMd ? '$4' : '$1'}>
+            <YStack
+              p="$8"
+              justifyContent="center"
+              pb={gtMd ? '$4' : '$1'}
+              gap="$1"
+            >
               <Button
                 variant="primary"
                 size="medium"
-                flex={1}
+                w="100%"
                 onPress={onConfirm}
                 disabled={
                   !isAccountActivatedChecked || !isNotResponsibleChecked
@@ -320,7 +269,62 @@ export function HyperliquidTermsContent({
                   id: ETranslations.perp_term_agree,
                 })}
               </Button>
-            </XStack>
+
+              <XStack justifyContent="center" pt="$2">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_content_3,
+                  })}{' '}
+                  <SizableText
+                    size="$bodySm"
+                    color="$textInteractive"
+                    cursor="pointer"
+                    onPress={() => {
+                      openUrlExternal(TERMS_OF_SERVICE_URL);
+                    }}
+                    hoverStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    pressStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.settings_user_agreement,
+                    })}
+                  </SizableText>{' '}
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_content_4,
+                  })}{' '}
+                  <SizableText
+                    cursor="pointer"
+                    hoverStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    pressStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    size="$bodySm"
+                    color="$textInteractive"
+                    onPress={() => {
+                      openUrlExternal(PRIVACY_POLICY_URL);
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_privacy_policy,
+                    })}
+                  </SizableText>
+                </SizableText>
+              </XStack>
+            </YStack>
           </YStack>
         ),
       },
