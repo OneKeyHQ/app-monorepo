@@ -1,6 +1,7 @@
 import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
+import { ANDROID_CHANNEL } from './androidNativeEnv';
 import appGlobals from './appGlobals';
 import { isWebInDappMode } from './utils/devModeUtils';
 
@@ -184,9 +185,8 @@ const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
 const isNativeAndroidGooglePlay =
-  isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
-const isNativeAndroidHuawei =
-  isNativeAndroid && process.env.ANDROID_CHANNEL === 'huawei';
+  isNativeAndroid && ANDROID_CHANNEL === 'google';
+const isNativeAndroidHuawei = isNativeAndroid && ANDROID_CHANNEL === 'huawei';
 const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 
 // for platform building by file extension
