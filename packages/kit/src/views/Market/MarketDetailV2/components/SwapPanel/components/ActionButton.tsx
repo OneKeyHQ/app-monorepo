@@ -13,7 +13,10 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  numberFormatAsString,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { usePaymentTokenPrice } from '../hooks/usePaymentTokenPrice';
@@ -95,6 +98,24 @@ export function ActionButton({
     amountBN,
   ]);
 
+  const tokenFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: token?.symbol || '',
+      },
+    };
+  }, [token?.symbol]);
+
+  const currencyFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'value',
+      formatterOptions: {
+        currency: settingsValue.currencyInfo.symbol,
+      },
+    };
+  }, [settingsValue.currencyInfo.symbol]);
+
   const shouldCreateAddress = usePromiseResult(async () => {
     let result = false;
     if (activeAccount?.canCreateAddress && !createAddressLoading) {
@@ -134,23 +155,17 @@ export function ActionButton({
 
   // Disable button if insufficient balance
   const shouldDisable = isInsufficientBalance;
-  const displayAmountFormatted = numberFormat(displayAmount, {
-    formatter: 'balance',
-    formatterOptions: {
-      tokenSymbol: token?.symbol || '',
-    },
-  });
+  const displayAmountFormatted = numberFormatAsString(
+    displayAmount,
+    tokenFormatter,
+  );
 
-  let buttonText = `${actionText} ${displayAmountFormatted as string} `;
+  let buttonText = `${actionText} ${displayAmountFormatted} `;
   if (typeof totalValue === 'number') {
-    buttonText += `(${
-      numberFormat(totalValue.toFixed(2), {
-        formatter: 'value',
-        formatterOptions: {
-          currency: settingsValue.currencyInfo.symbol,
-        },
-      }) as string
-    })`;
+    buttonText += `(${numberFormatAsString(
+      totalValue.toFixed(2),
+      currencyFormatter,
+    )})`;
   }
 
   if (isWrapped) {

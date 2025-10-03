@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { appLocale, fallbackAppLocaleIntl } from '../locale/appLocale';
 import platformEnv from '../platformEnv';
@@ -699,6 +700,25 @@ export interface INumberFormatProps {
   formatter?: keyof typeof NUMBER_FORMATTER;
   formatterOptions?: IFormatterOptions;
 }
+
+export const numberFormatAsString = memoizee(
+  (value: string, { formatter, formatterOptions }: INumberFormatProps) => {
+    const result =
+      formatter && value
+        ? formatDisplayNumber(
+            NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+          )
+        : '';
+    if (typeof result === 'string') {
+      return result;
+    }
+    return result.filter((r) => typeof r === 'string' && r !== '').join('');
+  },
+  {
+    max: 200,
+    maxAge: 1000 * 60 * 5, // 5 minutes
+  },
+);
 
 export const numberFormat = (
   value: string,

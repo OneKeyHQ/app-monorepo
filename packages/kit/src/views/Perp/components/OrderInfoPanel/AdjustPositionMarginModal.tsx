@@ -20,7 +20,8 @@ import {
 import { usePerpsActiveAccountSummaryAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormatAsString } from '@onekeyhq/shared/src/utils/numberUtils';
 import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -34,6 +35,13 @@ export interface IAdjustPositionMarginParams {
 interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
   onClose: () => void;
 }
+
+const valueFormatter: INumberFormatProps = {
+  formatter: 'value',
+  formatterOptions: {
+    currency: '$',
+  },
+};
 
 type IMarginAction = 'add' | 'remove';
 
@@ -235,7 +243,7 @@ const AdjustPositionMarginForm = memo(
                 })}
               </SizableText>
               <SizableText size="$bodyMdMedium">
-                {numberFormat(
+                {numberFormatAsString(
                   currentMarginUsed
                     .decimalPlaces(2, BigNumber.ROUND_DOWN)
                     .toFixed(2),
@@ -284,7 +292,7 @@ const AdjustPositionMarginForm = memo(
               </SizableText>
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyMdMedium">
-                  {numberFormat(
+                  {numberFormatAsString(
                     (action === 'add' ? maxAdd : maxRemove)
                       .decimalPlaces(2, BigNumber.ROUND_DOWN)
                       .toFixed(2),

@@ -35,8 +35,9 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
-  numberFormat,
+  numberFormatAsString,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -109,6 +110,10 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
+
+const formatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
@@ -345,9 +350,10 @@ export function useSwapBuildTx() {
                     },
                     {
                       token: item.token.symbol,
-                      number: numberFormat(tokenAmountBN.toFixed(), {
-                        formatter: 'balance',
-                      }) as string,
+                      number: numberFormatAsString(
+                        tokenAmountBN.toFixed(),
+                        formatter,
+                      ),
                     },
                   ),
                 });
