@@ -670,10 +670,70 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         reject(@"INVALID_PARAMS", @"filePath and appVersion and bundleVersion are required", nil);
         return;
     }
+
+    NSString currentFolderName = [self currentBundleVersion];
     
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
+    [userDefaults synchronize];
+
+    NSArray *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
+    NSMutableArray *fallbackUpdateBundleData = [[NSMutableArray alloc] init];
+    if (fallbackUpdateBundleDataString) {
+        NSError *error;
+        NSData *jsonData = [fallbackUpdateBundleDataString dataUsingEncoding:NSUTF8StringEncoding];
+        NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        if (!error && jsonArray) {
+            fallbackUpdateBundleData = [NSMutableArray arrayWithArray:jsonArray];
+        }
+    }
+
+    if (currentFolderName) {
+        NSArray *currentFolderData = [currentFolderName componentsSeparatedByString:@"-"];
+        NSString *currentAppVersion = currentFolderData[0];
+        NSString *currentBundleVersion = currentFolderData[1];
+        NSString *currentSignature = [userDefaults objectForKey:currentFolderName];
+        [fallbackUpdateBundleData addObject:@{
+            @"appVersion": currentAppVersion,
+            @"bundleVersion": currentBundleVersion,
+            @"signature": currentSignature,
+        }];
+    }
+
+    // If fallbackUpdateBundleData has more than 3 items, remove the first one and delete corresponding folder
+    if (fallbackUpdateBundleData.count > 3) {
+        NSDictionary *shiftUpdateBundleData = [fallbackUpdateBundleData firstObject];
+        [fallbackUpdateBundleData removeObjectAtIndex:0];
+        
+        if (shiftUpdateBundleData) {
+
+            NSString *shiftAppVersion = shiftUpdateBundleData[@"appVersion"];
+            NSString *shiftBundleVersion = shiftUpdateBundleData[@"bundleVersion"];
+            if (shiftAppVersion && shiftBundleVersion) {
+                NSString *dirName = [NSString stringWithFormat:@"%@-%@", shiftAppVersion, shiftBundleVersion];
+                // Remove signature for the old bundle
+                [userDefaults removeObjectForKey:dirName];
+                NSString *bundleDir = [BundleUpdateModule bundleDir];
+                NSString *bundleDirPath = [bundleDir stringByAppendingPathComponent:dirName];
+                
+                if ([[NSFileManager defaultManager] fileExistsAtPath:bundleDirPath]) {
+                    NSError *removeError;
+                    [[NSFileManager defaultManager] removeItemAtPath:bundleDirPath error:&removeError];
+                    if (removeError) {
+                        DDLogError(@"Failed to remove old bundle directory: %@", removeError.localizedDescription);
+                    }
+                }
+            }
+        }
+    }
+
+    NSError *error;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:fallbackUpdateBundleData options:0 error:&error];
+    if (!error && jsonData) {
+        NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        [userDefaults setObject:jsonString forKey:@"fallbackUpdateBundleData"];
+    }
     [userDefaults synchronize];
     resolve(nil);
 }
@@ -829,6 +889,18 @@ RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
         reject(@"SERIALIZE_ERROR", error.localizedDescription, error);
     }
 }
+
+RCT_EXPORT_METHOD(setCurrentUpdateBundleData:(NSDictionary *)params) {
+    NSString *appVersion = params[@"appVersion"];
+    NSString *jsBundleVersion = params[@"bundleVersion"];
+    NSString *signature = params[@"signature"];
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *bundleVersion = [NSString stringWithFormat:@"%@-%@", appVersion, jsBundleVersion];
+    [userDefaults setObject:bundleVersion forKey:@"currentBundleVersion"];
+    [userDefaults setObject:signature forKey:bundleVersion];
+    [userDefaults synchronize];
+}
+
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
