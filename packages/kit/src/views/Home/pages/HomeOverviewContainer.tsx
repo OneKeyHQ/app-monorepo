@@ -7,7 +7,6 @@ import {
   Button,
   IconButton,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -25,7 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
@@ -33,7 +32,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
@@ -344,10 +342,9 @@ function HomeOverviewContainer() {
                   md
                     ? balanceSizeList.find(
                         (item) =>
-                          numberFormat(
+                          numberFormatAsRenderText(
                             String(balanceString),
                             numberFormatter,
-                            true,
                           ).length >= item.length,
                       )?.size ?? defaultBalanceSize
                     : defaultBalanceSize

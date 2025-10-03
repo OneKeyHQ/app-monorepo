@@ -4,7 +4,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
-import type { ICarouselInstance, IYStackProps } from '@onekeyhq/components';
+import type {
+  IButtonProps,
+  ICarouselInstance,
+  IKeyOfIcons,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
@@ -46,6 +51,47 @@ const useHeightRatio = () => {
   const { height } = useWindowDimensions();
   return height / 800;
 };
+
+function IndicatorButton({
+  top,
+  left,
+  right,
+  onPress,
+  visible,
+  iconName,
+  variant,
+}: {
+  top: number;
+  left?: number;
+  right?: number;
+  iconName: IKeyOfIcons;
+  variant: IButtonProps['variant'];
+  onPress: () => void;
+  visible: boolean;
+}) {
+  return (
+    <Stack position="absolute" left={left} top={top} right={right} zIndex={1}>
+      <AnimatePresence>
+        {visible ? (
+          <IconButton
+            size="small"
+            variant={variant}
+            icon={iconName}
+            iconColor="$green9"
+            borderWidth="$0.5"
+            onPress={onPress}
+            pressStyle={{
+              scale: 0.95,
+            }}
+            hoverStyle={{
+              scale: 1,
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
+    </Stack>
+  );
+}
 
 export function HyperliquidTermsContent({
   overlayHeight,
@@ -357,6 +403,14 @@ export function HyperliquidTermsContent({
     [onPageIndexChange],
   );
 
+  const handlePrev = useCallback(() => {
+    carouselRef.current?.prev();
+    const prevIndex = currentIndex - 1;
+    setTimeout(() => {
+      handlePageChanged(prevIndex);
+    }, 100);
+  }, [currentIndex, handlePageChanged]);
+
   const handleNext = useCallback(() => {
     if (isConfirmationSlide) {
       if (canConfirm) {
@@ -367,15 +421,14 @@ export function HyperliquidTermsContent({
     carouselRef.current?.next();
     const nextIndex = currentIndex + 1;
     setTimeout(() => {
-      setCurrentIndex(nextIndex);
-      onPageIndexChange?.(nextIndex);
+      handlePageChanged(nextIndex);
     }, 100);
   }, [
     isConfirmationSlide,
     currentIndex,
-    onPageIndexChange,
     canConfirm,
     onConfirm,
+    handlePageChanged,
   ]);
 
   return (
@@ -405,31 +458,22 @@ export function HyperliquidTermsContent({
                 scrollEnabled: false,
               }}
             />
-            <Stack
-              position="absolute"
-              right={28}
+            <IndicatorButton
               top={overlayHeight / 2}
-              zIndex={1}
-            >
-              <AnimatePresence>
-                {currentIndex !== slidesData.length - 1 ? (
-                  <IconButton
-                    size="small"
-                    variant="primary"
-                    icon="ChevronRightOutline"
-                    iconColor="$green9"
-                    borderWidth="$0.5"
-                    onPress={handleNext}
-                    pressStyle={{
-                      scale: 0.95,
-                    }}
-                    hoverStyle={{
-                      scale: 1,
-                    }}
-                  />
-                ) : null}
-              </AnimatePresence>
-            </Stack>
+              left={28}
+              iconName="ChevronLeftOutline"
+              variant="secondary"
+              onPress={handlePrev}
+              visible={currentIndex !== 0}
+            />
+            <IndicatorButton
+              top={overlayHeight / 2}
+              right={28}
+              iconName="ChevronRightOutline"
+              variant="primary"
+              onPress={handleNext}
+              visible={currentIndex !== slidesData.length - 1}
+            />
           </Stack>
         </DelayedRender>
       </Stack>

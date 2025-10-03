@@ -9,8 +9,8 @@ import {
   SizableText,
   Spinner,
   Toast,
-  useInTabDialog,
   YStack,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';

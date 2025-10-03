@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isString } from 'lodash';
 
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives';
 import { getFontSize } from '../../utils';
@@ -56,11 +56,10 @@ export function NumberSizeableText({
       return children;
     }
     return ['string', 'number'].includes(typeof children)
-      ? numberFormat(
-          String(children),
-          { formatter: actualFormatter, formatterOptions },
-          true,
-        )
+      ? numberFormatAsRenderText(String(children), {
+          formatter: actualFormatter,
+          formatterOptions,
+        })
       : '';
   }, [actualFormatter, formatterOptions, children]);
 

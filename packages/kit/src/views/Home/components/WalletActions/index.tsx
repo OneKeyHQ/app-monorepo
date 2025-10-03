@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -23,7 +24,9 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ESwapSource,
@@ -34,6 +37,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { RawActions } from './RawActions';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
+import { shouldOpenExpandExtPerp } from '../../../Perp/pages/ExtPerp';
 
 function WalletActionSend() {
   const navigation =
@@ -254,12 +258,25 @@ function WalletActionSwap() {
   );
 }
 
+function WalletActionPerp() {
+  const handlePress = useCallback(() => {
+    if (shouldOpenExpandExtPerp()) {
+      void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+    }
+  }, []);
+  return <RawActions.Perp onPress={handlePress} />;
+}
+
 function WalletActions({ ...rest }: IXStackProps) {
   return (
     <RawActions {...rest}>
       <WalletActionSend />
       <WalletActionReceive />
-      <WalletActionSwap />
+      {platformEnv.isExtensionUiPopup ? (
+        <WalletActionPerp />
+      ) : (
+        <WalletActionSwap />
+      )}
       <WalletActionMore />
     </RawActions>
   );

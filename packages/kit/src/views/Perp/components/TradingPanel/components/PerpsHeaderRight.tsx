@@ -153,13 +153,14 @@ function DepositButton() {
 }
 
 export function PerpsHeaderRight() {
+  const { gtMd } = useMedia();
   const content = (
     <XStack alignItems="center" gap="$5">
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {platformEnv.isNative ? null : (
+      {gtMd ? (
         <PerpSettingsButton testID="perp-header-settings-button" />
-      )}
+      ) : null}
     </XStack>
   );
   return (
