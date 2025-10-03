@@ -23,6 +23,39 @@ if (typeof process === 'undefined') {
   }
 }
 
+if (platformEnv.isNative) {
+  const useJsBundle =
+    require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle;
+  if (useJsBundle) {
+    const getJsBundlePath =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
+    const mainBundlePath = getJsBundlePath();
+    const AssetSourceResolver = require('react-native/Libraries/Image/AssetSourceResolver');
+    const wrap = require('lodash/wrap');
+    AssetSourceResolver.prototype.defaultAsset = wrap(
+      AssetSourceResolver.prototype.defaultAsset,
+      function (func, ...args) {
+        if (this.isLoadedFromServer()) {
+          return this.assetServerURL();
+        }
+        if (platformEnv.isNativeAndroid) {
+          if (this.isLoadedFromFileSystem()) {
+            const resolvedAssetSource = this.drawableFolderInBundle();
+            const resPath = resolvedAssetSource.uri;
+            // path in jsBundle
+            return '';
+          }
+          return this.resourceIdentifierWithoutScale();
+        }
+        if (platformEnv.isNativeIOS) {
+          const iOSAsset = this.scaledAssetURLNearBundle();
+          return '';
+        }
+      },
+    );
+  }
+}
+
 // TextEncoder and TextDecoder polyfill for starcoin
 // Expo implements TextDecoder but only supports utf8 encoding
 if (platformEnv.isNative || typeof TextDecoder === 'undefined') {
