@@ -45,6 +45,7 @@ if (platformEnv.isNative) {
         defaultLogger.app.error.log(
           `isLoadedFromServer: ${isLoadedFromServer}`,
         );
+        defaultLogger.app.error.log(`jsBundleUrl: ${this.jsbundleUrl}`);
         if (isLoadedFromServer) {
           const serverUrl = this.assetServerURL();
           console.log('serverUrl: ', serverUrl);
@@ -77,6 +78,17 @@ if (platformEnv.isNative) {
           console.log('iOSAsset: ', iOSAsset);
           defaultLogger.app.error.log(`iOSAsset: ${iOSAsset.uri}`);
           defaultLogger.app.error.log(`iOSAsset end`);
+          if (useJsBundle) {
+            defaultLogger.app.error.log(`useJsBundle start`, mainBundlePath);
+            const mainBundleUri = !mainBundlePath.startsWith('file://')
+              ? `file://${mainBundlePath}`
+              : mainBundlePath;
+            iOSAsset.uri = iOSAsset.uri.replace(
+              this.jsbundleUrl,
+              mainBundleUri,
+            );
+            defaultLogger.app.error.log(`useJsBundle end`, iOSAsset.uri);
+          }
           return iOSAsset;
         }
       },
