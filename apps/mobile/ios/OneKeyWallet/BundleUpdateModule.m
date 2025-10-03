@@ -62,6 +62,18 @@ RCT_EXPORT_MODULE();
     return bundleDir;
 }
 
++ (NSString *)setNativeVersion:(NSString *)nativeVersion {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    [userDefaults setObject:nativeVersion forKey:@"nativeVersion"];
+    [userDefaults synchronize];
+    return nativeVersion;
+}
+
++ (NSString *)getNativeVersion {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    return [userDefaults objectForKey:@"nativeVersion"];
+}
+
 + (NSString *)currentBundleVersion {
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     return [userDefaults objectForKey:@"currentBundleVersion"];
@@ -130,20 +142,20 @@ RCT_EXPORT_MODULE();
 }
 
 + (NSString *)currentBundleMainJSBundle {
-    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     NSString *currentBundleVersion = [self currentBundleVersion];
-    DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
+    DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, prevNativeVersion);
     if (currentBundleVersion == nil) {
         return nil;
     }
-    if (currentAppVersion != nil && ![currentAppVersion isEqualToString: currentBundleVersion]) {
-        NSString *bundleAppVersion = [currentBundleVersion componentsSeparatedByString:@"-"][0];
-        // Compare versions using semantic versioning
-        NSComparisonResult result = [self compareVersion:currentAppVersion withVersion:bundleAppVersion];
-        if (result == NSOrderedAscending) {
-            DDLogDebug(@"currentAppVersion is less than currentBundleVersion");
-            return nil;
-        }
+
+    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *prevNativeVersion = [self getNativeVersion];
+    if (prevNativeVersion == nil) {
+        return nil;
+    }
+    if (![currentAppVersion isEqualToString: prevNativeVersion]) {
+       DDLogDebug(@"currentAppVersion is not equal to prevNativeVersion %@ %@", currentAppVersion, prevNativeVersion);
+       return nil;
     }
     NSString *folderName = [self currentBundleDir];
     if (!folderName || ![[NSFileManager defaultManager] fileExistsAtPath:folderName]) {
@@ -719,6 +731,8 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
+    NSString *currentNativeVersion = [MainBundle mainBundle].infoDictionary[@"CFBundleShortVersionString"];
+    [userDefaults setObject:currentNativeVersion forKey:@"nativeVersion"];
     [userDefaults synchronize];
 
     NSMutableArray *fallbackUpdateBundleData = [BundleUpdateModule readFallbackUpdateBundleDataFile];
