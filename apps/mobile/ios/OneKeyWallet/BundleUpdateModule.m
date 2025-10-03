@@ -890,6 +890,21 @@ RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
     }
 }
 
+RCT_EXPORT_METHOD(getFallbackUpdateBundleData:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSArray *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
+    NSMutableArray *fallbackUpdateBundleData = [[NSMutableArray alloc] init];
+    if (fallbackUpdateBundleDataString) {
+        NSError *error;
+        NSData *jsonData = [fallbackUpdateBundleDataString dataUsingEncoding:NSUTF8StringEncoding];
+        NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+        if (!error && jsonArray) {
+            fallbackUpdateBundleData = [NSMutableArray arrayWithArray:jsonArray];
+        }
+    }
+    resolve(fallbackUpdateBundleData);
+}
+
 RCT_EXPORT_METHOD(setCurrentUpdateBundleData:(NSDictionary *)params) {
     NSString *appVersion = params[@"appVersion"];
     NSString *jsBundleVersion = params[@"bundleVersion"];
