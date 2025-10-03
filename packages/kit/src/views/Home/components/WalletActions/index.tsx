@@ -269,9 +269,11 @@ function WalletActions({ ...rest }: IXStackProps) {
     <RawActions {...rest}>
       <WalletActionSend />
       <WalletActionReceive />
-      {platformEnv.isExtensionUiPopup ? <WalletActionPerp /> : null}
-      <WalletActionSwap />
-      <WalletActionPerp />
+      {platformEnv.isExtensionUiPopup ? (
+        <WalletActionPerp />
+      ) : (
+        <WalletActionSwap />
+      )}
       <WalletActionMore />
     </RawActions>
   );
