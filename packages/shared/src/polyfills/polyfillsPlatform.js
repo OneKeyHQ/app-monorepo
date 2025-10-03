@@ -1,3 +1,6 @@
+/* eslint-disable no-inner-declarations */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable prefer-template */
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
@@ -34,6 +37,21 @@ if (platformEnv.isNative) {
     const AssetSourceResolver =
       require('react-native/Libraries/Image/AssetSourceResolver').default;
     const wrap = require('lodash/wrap');
+
+    const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
+    const { PixelRatio } = require('react-native');
+    const {
+      getAndroidResourceFolderName,
+      getAndroidResourceIdentifier,
+    } = require('react-native/assets-registry/path-support');
+
+    function getAssetPathInDrawableFolder(asset) {
+      const scale = pickScale(asset.scales, PixelRatio.get());
+      const drawableFolder = getAndroidResourceFolderName(asset, scale);
+      const fileName = getAndroidResourceIdentifier(asset);
+      return drawableFolder + '/' + fileName + '.' + asset.type;
+    }
+
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
       function (func, ...args) {
@@ -58,6 +76,21 @@ if (platformEnv.isNative) {
           defaultLogger.app.error.log(
             `isLoadedFromFileSystem: ${isLoadedFromFileSystem}`,
           );
+
+          if (useJsBundle) {
+            defaultLogger.app.error.log(
+              `android useJsBundle start`,
+              mainBundlePath,
+            );
+            const mainBundleUri = !mainBundlePath.startsWith('file://')
+              ? `file://${mainBundlePath}`
+              : mainBundlePath;
+            const asset = this.fromSource(
+              mainBundleUri + getAssetPathInDrawableFolder(this.asset),
+            );
+            defaultLogger.app.error.log(`android useJsBundle end`, asset.uri);
+            return asset;
+          }
           if (isLoadedFromFileSystem) {
             const resolvedAssetSource = this.drawableFolderInBundle();
             defaultLogger.app.error.log(
