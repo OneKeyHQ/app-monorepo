@@ -37,6 +37,7 @@ if (platformEnv.isNative) {
       function (func, ...args) {
         const defaultLogger =
           require('@onekeyhq/shared/src/logger/logger').defaultLogger;
+        defaultLogger.app.error.log(`mainBundlePath: ${mainBundlePath}`);
         const isLoadedFromServer = this.isLoadedFromServer();
         defaultLogger.app.error.log(
           `isLoadedFromServer: ${isLoadedFromServer}`,
