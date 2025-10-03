@@ -37,6 +37,7 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { RawActions } from './RawActions';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
+import { shouldOpenExpandExtPerp } from '../../../Perp/pages/ExtPerp';
 
 function WalletActionSend() {
   const navigation =
@@ -259,7 +260,9 @@ function WalletActionSwap() {
 
 function WalletActionPerp() {
   const handlePress = useCallback(() => {
-    void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+    if (shouldOpenExpandExtPerp()) {
+      void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
+    }
   }, []);
   return <RawActions.Perp onPress={handlePress} />;
 }
