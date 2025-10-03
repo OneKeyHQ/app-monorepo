@@ -423,11 +423,10 @@ class DesktopApiAppBundleUpdate {
     console.log('fallbackUpdateBundleData', fallbackUpdateBundleData);
     store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
     setTimeout(() => {
-      if (process.mas) {
-        app.exit(0);
-      } else {
+      if (!process.mas) {
         app.relaunch();
       }
+      app.exit(0);
     }, 1200);
   }
 
@@ -451,11 +450,10 @@ class DesktopApiAppBundleUpdate {
   ) {
     store.setUpdateBundleData(updateBundleData);
     setTimeout(() => {
-      if (process.mas) {
-        app.exit(0);
-      } else {
+      if (!process.mas) {
         app.relaunch();
       }
+      app.exit(0);
     }, 1200);
   }
 
