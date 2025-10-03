@@ -376,7 +376,7 @@ export const useDownloadPackage = () => {
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
         headers,
       };
-      defaultLogger.app.appUpdate.endDownload(downloadParams);
+      defaultLogger.app.appUpdate.startDownload(downloadParams);
       const result =
         fileType === EUpdateFileType.jsBundle
           ? await BundleUpdate.downloadBundle(downloadParams)
