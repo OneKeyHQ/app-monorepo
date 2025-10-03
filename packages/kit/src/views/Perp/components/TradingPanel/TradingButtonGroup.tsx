@@ -335,8 +335,8 @@ function SideButtonInternal({
                 <DashText
                   size="$bodySm"
                   color="$textSubdued"
-                  dashColor="$textSubdued"
-                  dashThickness={0.5}
+                  dashColor="$textDisabled"
+                  dashThickness={0.3}
                 >
                   {intl.formatMessage({
                     id: ETranslations.perp_trade_margin_required,
@@ -395,7 +395,7 @@ function SideButtonInternal({
                 <DashText
                   size="$bodySm"
                   color="$textSubdued"
-                  dashColor="$textSubdued"
+                  dashColor="$textDisabled"
                   dashThickness={0.5}
                 >
                   {intl.formatMessage({
