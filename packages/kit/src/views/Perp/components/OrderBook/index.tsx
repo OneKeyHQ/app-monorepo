@@ -1490,8 +1490,6 @@ export function OrderBookMobile({
           renderTrigger={({ onPress }) => (
             <TouchableOpacity
               style={{
-                minWidth: 56,
-                maxWidth: 150,
                 height: 24,
                 borderRadius: 4,
                 flexDirection: 'row',
