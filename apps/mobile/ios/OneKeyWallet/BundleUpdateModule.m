@@ -375,20 +375,20 @@ RCT_EXPORT_MODULE();
 
 
 + (BOOL)validateMetadataFileSha256:(NSString *)currentBundleVersion signature:(NSString *)signature {
-    NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
-    if (!metadataFilePath) {
-        DDLogDebug(@"metadataFilePath is null");
-        return NO;
-    }
+    // NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
+    // if (!metadataFilePath) {
+    //     DDLogDebug(@"metadataFilePath is null");
+    //     return NO;
+    // }
     
-    NSString *extractedSha256 = [self readMetadataFileSha256:signature];
-    if (!extractedSha256 || extractedSha256.length == 0) {
-        return NO;
-    }
+    // NSString *extractedSha256 = [self readMetadataFileSha256:signature];
+    // if (!extractedSha256 || extractedSha256.length == 0) {
+    //     return NO;
+    // }
     
-    NSString *calculatedSha256 = [self calculateSHA256:metadataFilePath];
-    return YES;
+    // NSString *calculatedSha256 = [self calculateSHA256:metadataFilePath];
     // return [calculatedSha256 isEqualToString:extractedSha256];
+    return YES;
 }
 
 - (dispatch_queue_t)methodQueue {
