@@ -373,6 +373,49 @@ RCT_EXPORT_MODULE();
     return extractedSha256;
 }
 
++ (NSString *)getFallbackUpdateBundleDataPath { 
+    NSString *bundleDir = [self bundleDir];
+    NSString *fallbackUpdateBundleDataPath = [bundleDir stringByAppendingPathComponent:@"fallbackUpdateBundleData.json"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:fallbackUpdateBundleDataPath]) {
+        [[NSFileManager defaultManager] createFileAtPath:fallbackUpdateBundleDataPath contents:nil attributes:nil];
+    }
+    return fallbackUpdateBundleDataPath;
+}
+
++ (void)writeFallbackUpdateBundleDataFile:(NSArray *)fallbackUpdateBundleData { 
+    NSString *fallbackUpdateBundleDataPath = [self getFallbackUpdateBundleDataPath];
+    NSError *writeError;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:fallbackUpdateBundleData options:0 error:&writeError];
+    if (writeError) {
+        DDLogError(@"Failed to write fallback update bundle data file: %@", writeError.localizedDescription);
+        return;
+    }
+    NSString *fallbackUpdateBundleDataString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    BOOL success = [fallbackUpdateBundleDataString writeToFile:fallbackUpdateBundleDataPath 
+                                                    atomically:YES 
+                                                      encoding:NSUTF8StringEncoding 
+                                                         error:&writeError];
+    if (!success) {
+        DDLogError(@"Failed to write fallback update bundle data file: %@", writeError.localizedDescription);
+    }
+}
+
++ (NSArray *)readFallbackUpdateBundleDataFile { 
+   NSString *fallbackUpdateBundleDataPath = [self getFallbackUpdateBundleDataPath];
+   NSString *fallbackUpdateBundleDataString = [NSString stringWithContentsOfFile:fallbackUpdateBundleDataPath encoding:NSUTF8StringEncoding error:nil];
+   if (!fallbackUpdateBundleDataString || [fallbackUpdateBundleDataString isEqualToString:@""] || fallbackUpdateBundleDataString == nil) {
+       return [[NSArray alloc] init];
+   }
+   NSError *error;
+   NSData *jsonData = [fallbackUpdateBundleDataString dataUsingEncoding:NSUTF8StringEncoding];
+   NSArray *fallbackUpdateBundleData = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+   if (error) {
+       DDLogError(@"Failed to read fallback update bundle data file: %@", error.localizedDescription);
+       return nil;
+   }
+   return fallbackUpdateBundleData;
+}
+
 
 + (BOOL)validateMetadataFileSha256:(NSString *)currentBundleVersion signature:(NSString *)signature {
     // NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
@@ -671,23 +714,14 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         return;
     }
 
-  NSString *currentFolderName = [BundleUpdateModule currentBundleVersion];
+    NSString *currentFolderName = [BundleUpdateModule currentBundleVersion];
     
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
     [userDefaults synchronize];
 
-    NSString *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
-    NSMutableArray *fallbackUpdateBundleData = [[NSMutableArray alloc] init];
-    if (fallbackUpdateBundleDataString) {
-        NSError *error;
-        NSData *jsonData = [fallbackUpdateBundleDataString dataUsingEncoding:NSUTF8StringEncoding];
-        NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
-        if (!error && jsonArray) {
-            fallbackUpdateBundleData = [NSMutableArray arrayWithArray:jsonArray];
-        }
-    }
+    NSMutableArray *fallbackUpdateBundleData = [BundleUpdateModule readFallbackUpdateBundleDataFile];
 
     if (currentFolderName) {
         NSArray *currentFolderData = [currentFolderName componentsSeparatedByString:@"-"];
@@ -729,11 +763,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     }
 
     NSError *error;
-    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:fallbackUpdateBundleData options:0 error:&error];
-    if (!error && jsonData) {
-        NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-        [userDefaults setObject:jsonString forKey:@"fallbackUpdateBundleData"];
-    }
+   [BundleUpdateModule writeFallbackUpdateBundleDataFile:fallbackUpdateBundleData];
     [userDefaults synchronize];
     resolve(nil);
 }
@@ -892,17 +922,7 @@ RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
 
 RCT_EXPORT_METHOD(getFallbackUpdateBundleData:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-    NSString *fallbackUpdateBundleDataString =  [userDefaults objectForKey:@"fallbackUpdateBundleData"];
-    NSMutableArray *fallbackUpdateBundleData = [[NSMutableArray alloc] init];
-    if (fallbackUpdateBundleDataString) {
-        NSError *error;
-        NSData *jsonData = [fallbackUpdateBundleDataString dataUsingEncoding:NSUTF8StringEncoding];
-        NSArray *jsonArray = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
-        if (!error && jsonArray) {
-            fallbackUpdateBundleData = [NSMutableArray arrayWithArray:jsonArray];
-        }
-    }
+    NSArray *fallbackUpdateBundleData = [BundleUpdateModule readFallbackUpdateBundleDataFile];
     resolve(fallbackUpdateBundleData);
 }
 
