@@ -11,6 +11,7 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
+  DashText,
   IconButton,
   Input,
   ListView,
@@ -73,9 +74,18 @@ const PaginationDoneOnKeyboard = ({
     >
       <XStack>
         {totalAmount ? (
-          <SizableText size="$bodyLg" color="$textSubdued">
-            {inputAmount ?? ''} / {totalAmount}
-          </SizableText>
+          <>
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_page })}{' '}
+            </SizableText>
+            <SizableText size="$bodyLg" color="$text">
+              {inputAmount ?? ''}
+            </SizableText>
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {' '}
+              / {totalAmount}
+            </SizableText>
+          </>
         ) : null}
         {inputAmount && !totalAmount ? (
           <SizableText size="$bodyLg" color="$textSubdued">
