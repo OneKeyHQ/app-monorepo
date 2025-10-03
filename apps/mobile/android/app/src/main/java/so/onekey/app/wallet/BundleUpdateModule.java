@@ -394,6 +394,40 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return true;
     }
 
+    public static File getFallbackUpdateBundleDataFile() {
+        String bundleDir = getBundleDir(context);
+        String fallbackUpdateBundleDataPath = bundleDir + "/fallbackUpdateBundleData.json";
+        File fallbackUpdateBundleDataFile = new File(fallbackUpdateBundleDataPath);
+        if (!fallbackUpdateBundleDataFile.exists()) {
+            fallbackUpdateBundleDataFile.createNewFile();
+        }
+        return fallbackUpdateBundleDataFile;
+    }
+
+    public static void writeFileContent(File file, String content) {
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(content.getBytes());
+        }
+    }
+
+    public static void writeFallbackUpdateBundleDataFile(List<Map<String, String>> fallbackUpdateBundleData) {
+        File fallbackUpdateBundleDataFile = getFallbackUpdateBundleDataFile();
+        String fallbackUpdateBundleDataString = new JSONArray(fallbackUpdateBundleData).toString();
+        writeFileContent(fallbackUpdateBundleDataFile, fallbackUpdateBundleDataString);
+    }
+
+    public static List<Map<String, String>> readFallbackUpdateBundleDataFile() {
+        File fallbackUpdateBundleDataFile = getFallbackUpdateBundleDataFile();
+        String fallbackUpdateBundleDataString = readFileContent(fallbackUpdateBundleDataFile);
+        if (fallbackUpdateBundleDataString == null || fallbackUpdateBundleDataString.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return new JSONArray(fallbackUpdateBundleDataString).toList();
+    }
+
     private boolean verifyBundleSHA256(String bundlePath, String sha256) {
         String calculatedSHA256 = calculateSHA256(bundlePath);
         if (calculatedSHA256 == null || sha256 == null) {
@@ -650,10 +684,53 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String folderName = appVersion + "-" + bundleVersion;
+        String currentFolderName = this.getCurrentBundleVersion(reactContext);
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
+        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile();
+       
+        if (currentFolderName) {
+            String currentAppVersion = currentFolderName.split("-")[0];
+            String currentBundleVersion = currentFolderName.split("-")[1];
+            SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            signature = prefs.getString(currentBundleVersion, null);
+            fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
+        }
+
+        if (fallbackUpdateBundleData.size() > 3) {
+            Map<String, String> shiftUpdateBundleData = fallbackUpdateBundleData.remove(0);
+            String shiftAppVersion = shiftUpdateBundleData.get("appVersion");
+            String shiftBundleVersion = shiftUpdateBundleData.get("bundleVersion");
+            if (shiftAppVersion != null && shiftBundleVersion != null) {
+                String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
+                SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                prefs.edit().remove(shiftFolderName).apply();
+            }
+            String bundleDir = getBundleDir(reactContext);
+            String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
+            if (new File(bundleDirPath).exists()) {
+                deleteDirectory(new File(bundleDirPath));
+            }
+        }
+        writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData);
         promise.resolve(null);
     }
 
+    @ReactMethod
+    public void getFallbackUpdateBundleData(Promise promise) {
+        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile();
+        promise.resolve(fallbackUpdateBundleData);
+    }
+
+    @ReactMethod
+    public void setCurrentUpdateBundleData(ReadableMap params, Promise promise) {
+        String appVersion = params.getString("appVersion");
+        int bundleVersion = params.getInt("bundleVersion");
+        String signature = params.getString("signature");
+        String folderName = appVersion + "-" + bundleVersion;
+        setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
+        promise.resolve(null);
+    }
+       
     @ReactMethod
     public void clearBundle(Promise promise) {
         try {
