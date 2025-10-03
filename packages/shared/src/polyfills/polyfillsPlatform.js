@@ -33,17 +33,20 @@ if (platformEnv.isNative) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath();
-    const { Platform } = require('react-native');
+    const { Platform, PixelRatio } = require('react-native');
     const AssetSourceResolver =
       require('react-native/Libraries/Image/AssetSourceResolver').default;
     const wrap = require('lodash/wrap');
 
     const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
-    const { PixelRatio } = require('react-native');
-    const {
-      getAndroidResourceFolderName,
-      getAndroidResourceIdentifier,
-    } = require('react-native/assets-registry/path-support');
+
+    let getAndroidResourceFolderName;
+    let getAndroidResourceIdentifier;
+    if (Platform.OS === 'android') {
+      const pathSupport = require('@react-native/assets-registry/path-support');
+      getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
+      getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
+    }
 
     function getAssetPathInDrawableFolder(asset) {
       const scale = pickScale(asset.scales, PixelRatio.get());
