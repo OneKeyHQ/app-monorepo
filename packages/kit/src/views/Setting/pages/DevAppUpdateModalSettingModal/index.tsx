@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Button,
@@ -12,12 +12,105 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-export default function DevAppUpdateModalSettingModal() {
+function BundleTestsContent({
+  showTestResult,
+  showTestError,
+}: {
+  showTestResult: (
+    result: boolean | { success: boolean; message: string },
+  ) => void;
+  showTestError: (error: unknown) => void;
+}) {
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [bundleVersion, setBundleVersion] = useState('1');
+  return (
+    <YStack p="$4" gap="$2">
+      <YStack gap="$2" mb="$3">
+        <SizableText size="$bodyMd">Version Configuration</SizableText>
+        <Input
+          placeholder="App Version (e.g., 1.0.0)"
+          value={appVersion}
+          onChangeText={setAppVersion}
+        />
+        <Input
+          placeholder="Bundle Version (e.g., 1)"
+          value={bundleVersion}
+          onChangeText={setBundleVersion}
+        />
+      </YStack>
+      <Divider />
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testDeleteJsBundle(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Delete JsBundle
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testDeleteJsRuntimeDir(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Delete Js Runtime Directory
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testDeleteMetadataJson(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Delete Metadata.json
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testWriteEmptyMetadataJson(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Write Empty Metadata.json
+      </Button>
+    </YStack>
+  );
+}
 
+export default function DevAppUpdateModalSettingModal() {
   const showTestResult = (
     result: boolean | { success: boolean; message: string },
   ) => {
@@ -45,26 +138,6 @@ export default function DevAppUpdateModalSettingModal() {
           <SizableText>
             Error: {(error as Error)?.message || 'Unknown error'}
           </SizableText>
-        </YStack>
-      ),
-    });
-  };
-
-  const showVersionConfigDialog = () => {
-    Dialog.show({
-      title: 'Version Configuration',
-      renderContent: (
-        <YStack p="$4" gap="$3">
-          <Input
-            placeholder="App Version (e.g., 1.0.0)"
-            value={appVersion}
-            onChangeText={setAppVersion}
-          />
-          <Input
-            placeholder="Bundle Version (e.g., 1)"
-            value={bundleVersion}
-            onChangeText={setBundleVersion}
-          />
         </YStack>
       ),
     });
@@ -192,72 +265,10 @@ export default function DevAppUpdateModalSettingModal() {
         w: '$96',
       },
       renderContent: (
-        <YStack p="$4" gap="$2">
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testDeleteJsBundle(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Delete JsBundle
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testDeleteJsRuntimeDir(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Delete Js Runtime Directory
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testDeleteMetadataJson(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Delete Metadata.json
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testWriteEmptyMetadataJson(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Write Empty Metadata.json
-          </Button>
-        </YStack>
+        <BundleTestsContent
+          showTestResult={showTestResult}
+          showTestError={showTestError}
+        />
       ),
     });
   };
@@ -265,6 +276,13 @@ export default function DevAppUpdateModalSettingModal() {
   const currentAppVersion = String(platformEnv.version);
   const currentBuildNumber = String(platformEnv.buildNumber);
   const currentBundleVersion = String(platformEnv.bundleVersion);
+  const [jsBundlePath, setJsBundlePath] = useState('');
+
+  useEffect(() => {
+    void getJsBundlePathAsync().then((path) => {
+      setJsBundlePath(path);
+    });
+  }, []);
 
   return (
     <Page>
@@ -274,7 +292,9 @@ export default function DevAppUpdateModalSettingModal() {
           <SizableText size="$headingSm">
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
-
+          <SizableText size="$headingSm">
+            {`js bundle path: ${jsBundlePath}`}
+          </SizableText>
           {platformEnv.isNativeAndroid ||
           (platformEnv.isDesktop &&
             !platformEnv.isMas &&
@@ -295,9 +315,6 @@ export default function DevAppUpdateModalSettingModal() {
 
           <Divider />
 
-          <Button variant="secondary" onPress={showVersionConfigDialog}>
-            Configure Versions
-          </Button>
           <Button
             variant="secondary"
             onPress={() => {
