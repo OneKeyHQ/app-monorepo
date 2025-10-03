@@ -830,4 +830,13 @@ RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
     }
 }
 
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
+    NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
+    if (jsBundlePath == nil) {
+        return @"";
+    }
+    return jsBundlePath;
+}
+
+
 @end

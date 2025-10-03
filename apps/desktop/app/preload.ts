@@ -40,6 +40,7 @@ type IDesktopAPILegacy = {
   isMas: boolean;
   isDev: boolean;
   channel?: string;
+  jsBundlePath: string | undefined;
   ready: () => void;
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   isFocused: () => boolean;
@@ -198,7 +199,8 @@ const desktopApi: IDesktopAPILegacy = Object.freeze({
   systemVersion: process.getSystemVersion(),
   isMas: process.mas,
   isDev,
-  isJSBundle: globalThis.$desktopMainAppFunctions?.useJsBundle?.(),
+  jsBundlePath:
+    globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || '',
   nativeAppVersion: app.getVersion() || '',
   nativeAppBuildNumber: process.env.BUILD_NUMBER || '',
   channel: getChannel(),

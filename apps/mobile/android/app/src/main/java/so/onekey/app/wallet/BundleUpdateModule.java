@@ -871,6 +871,15 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public Boolean jsBundlePath() {
+        String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
+        if (jsBundlePath == null) {
+            return "";
+        }
+        return jsBundlePath;
+    }
+
     private void extractFile(ZipInputStream zipIn, String filePath) throws IOException {
         File file = new File(filePath);
         file.getParentFile().mkdirs();
