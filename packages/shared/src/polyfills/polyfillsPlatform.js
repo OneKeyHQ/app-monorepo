@@ -116,7 +116,8 @@ if (platformEnv.isNative) {
             defaultLogger.app.error.log(`useJsBundle start`, assetsPath);
             iOSAsset.uri = iOSAsset.uri
               .replace(this.jsbundleUrl, assetsPath)
-              .replace('__packages', 'assets/packages');
+              .replace('__packages', 'assets/packages')
+              .replace('__node_modules', 'assets/node_modules');
             defaultLogger.app.error.log(`useJsBundle end`, iOSAsset.uri);
           }
           return iOSAsset;
