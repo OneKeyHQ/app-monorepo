@@ -213,6 +213,17 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           trackId: 'global-trade',
         },
         perpTabShowRes,
+        {
+          name: ETabRoutes.Earn,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'CoinsSolid' : 'CoinsOutline',
+          translationId: ETranslations.global_earn,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/defi',
+          exact: true,
+          children: earnRouters,
+          trackId: 'global-earn',
+        },
         isShowMyOneKeyOnTabbar
           ? {
               name: ETabRoutes.ReferFriends,
