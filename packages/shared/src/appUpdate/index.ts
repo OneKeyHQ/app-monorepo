@@ -29,7 +29,7 @@ export const getUpdateFileType: (
   }
   if (
     latestVersion &&
-    semver.eq(latestVersion, APP_VERSION) &&
+    semver.gte(latestVersion, APP_VERSION) &&
     jsBundleVersion &&
     jsBundleVersion !== APP_BUNDLE_VERSION
   ) {
