@@ -1026,11 +1026,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
             }
             rateDifferenceRes = {
-              value: `${difference.isPositive() ? '+' : ''}${
-                numberFormat(difference.toFixed(), {
+              value: `${difference.isPositive() ? '+' : ''}${numberFormat(
+                difference.toFixed(),
+                {
                   formatter: 'priceChange',
-                }) as string
-              }`,
+                },
+              )}`,
               unit,
             };
           }
@@ -1142,7 +1143,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   {
                     n: numberFormat(tokenAmountBN.toFixed(), {
                       formatter: 'balance',
-                    }) as string,
+                    }),
                     token: item.token?.symbol ?? '',
                   },
                 ),

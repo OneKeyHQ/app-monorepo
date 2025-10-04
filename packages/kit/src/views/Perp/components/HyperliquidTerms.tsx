@@ -231,134 +231,81 @@ export function HyperliquidTermsContent({
         id: 'confirmation-slide',
         content: (
           <YStack {...confirmationSlideStyle}>
-            <ScrollView
-              maxHeight={platformEnv.isNative ? undefined : overlayHeight}
-              contentContainerStyle={{
-                paddingBottom: 32,
-              }}
+            <Stack
+              testID="hyperliquid-intro-confirmation-slide"
+              alignItems="center"
+              justifyContent="center"
+              px="$8"
             >
-              <Stack
-                testID="hyperliquid-intro-confirmation-slide"
-                alignItems="center"
-                justifyContent="center"
-                px="$6"
-              >
-                <YStack gap={gtMd ? '$3' : '$2'}>
-                  <YStack
-                    alignItems="center"
-                    gap={gtMd ? '$4' : '$2'}
-                    mb={gtMd ? '$4' : '$2'}
+              <YStack gap={gtMd ? '$3' : '$2'}>
+                <YStack
+                  alignItems="center"
+                  gap={gtMd ? '$4' : '$2'}
+                  mb={gtMd ? '$4' : '$2'}
+                >
+                  <Stack py={gtMd ? '$6' : '$4'} justifyContent="center">
+                    <Image
+                      source={hyperliquidLogo}
+                      height={gtMd ? 50 : 40}
+                      width={gtMd ? 300 : 200}
+                      resizeMode="contain"
+                    />
+                  </Stack>
+                  <SizableText
+                    size={gtMd ? '$headingLg' : '$headingSm'}
+                    textAlign="center"
                   >
-                    <Image source={hyperliquidLogo} height={70} width={200} />
-
-                    <SizableText
-                      size={gtMd ? '$headingLg' : '$headingSm'}
-                      textAlign="center"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_term_title,
-                      })}
-                    </SizableText>
-                  </YStack>
-
-                  <YStack bg="$bgSubdued" borderRadius="$3">
-                    <XStack alignItems="flex-start" gap="$3" p="$4">
-                      <Checkbox
-                        w="$4.5"
-                        h="$4.5"
-                        value={isAccountActivatedChecked}
-                        onChange={(value) =>
-                          setIsAccountActivatedChecked(!!value)
-                        }
-                        label={intl.formatMessage({
-                          id: ETranslations.perp_term_content_1,
-                        })}
-                        labelProps={{
-                          variant: gtMd ? '$bodyMd' : '$bodySm',
-                        }}
-                      />
-                    </XStack>
-                    <Divider borderColor="$borderSubdued" />
-                    <XStack alignItems="flex-start" gap="$3" p="$4">
-                      <Checkbox
-                        w="$4.5"
-                        h="$4.5"
-                        value={isNotResponsibleChecked}
-                        onChange={(value) =>
-                          setIsNotResponsibleChecked(!!value)
-                        }
-                        label={intl.formatMessage({
-                          id: ETranslations.perp_term_content_2,
-                        })}
-                        labelProps={{
-                          variant: gtMd ? '$bodyMd' : '$bodySm',
-                        }}
-                      />
-                    </XStack>
-                  </YStack>
-
-                  <XStack justifyContent="center" pt="$2">
-                    <SizableText
-                      size="$bodySm"
-                      color="$textSubdued"
-                      textAlign="center"
-                    >
-                      {intl.formatMessage({
-                        id: ETranslations.perp_term_content_3,
-                      })}{' '}
-                      <SizableText
-                        size="$bodySm"
-                        color="$textInteractive"
-                        cursor="pointer"
-                        onPress={() => {
-                          openUrlExternal(TERMS_OF_SERVICE_URL);
-                        }}
-                        hoverStyle={{
-                          borderBottomWidth: 1,
-                          borderBottomColor: '$textInteractive',
-                        }}
-                        pressStyle={{
-                          borderBottomWidth: 1,
-                          borderBottomColor: '$textInteractive',
-                        }}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.settings_user_agreement,
-                        })}
-                      </SizableText>{' '}
-                      {intl.formatMessage({
-                        id: ETranslations.perp_term_content_4,
-                      })}{' '}
-                      <SizableText
-                        cursor="pointer"
-                        hoverStyle={{
-                          borderBottomWidth: 1,
-                          borderBottomColor: '$textInteractive',
-                        }}
-                        pressStyle={{
-                          borderBottomWidth: 1,
-                          borderBottomColor: '$textInteractive',
-                        }}
-                        size="$bodySm"
-                        color="$textInteractive"
-                        onPress={() => {
-                          openUrlExternal(PRIVACY_POLICY_URL);
-                        }}
-                      >
-                        {intl.formatMessage({
-                          id: ETranslations.global_privacy_policy,
-                        })}
-                      </SizableText>
-                    </SizableText>
-                  </XStack>
+                    {intl.formatMessage({
+                      id: ETranslations.perp_term_title,
+                    })}
+                  </SizableText>
                 </YStack>
-              </Stack>
-            </ScrollView>
-            <XStack p="$6" justifyContent="center" pb="$4">
+
+                <YStack bg="$bgSubdued" borderRadius="$3">
+                  <YStack alignItems="flex-start" gap="$3" p="$3">
+                    <Checkbox
+                      w="$4.5"
+                      h="$4.5"
+                      value={isAccountActivatedChecked}
+                      onChange={(value) =>
+                        setIsAccountActivatedChecked(!!value)
+                      }
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_1,
+                      })}
+                      labelProps={{
+                        variant: gtMd ? '$bodyMd' : '$bodySm',
+                      }}
+                    />
+                  </YStack>
+                  <Divider borderColor="$borderSubdued" />
+                  <YStack alignItems="flex-start" gap="$3" p="$4">
+                    <Checkbox
+                      w="$4.5"
+                      h="$4.5"
+                      value={isNotResponsibleChecked}
+                      onChange={(value) => setIsNotResponsibleChecked(!!value)}
+                      label={intl.formatMessage({
+                        id: ETranslations.perp_term_content_2,
+                      })}
+                      labelProps={{
+                        variant: gtMd ? '$bodyMd' : '$bodySm',
+                      }}
+                    />
+                  </YStack>
+                </YStack>
+              </YStack>
+            </Stack>
+            <YStack
+              p="$8"
+              justifyContent="center"
+              pb={gtMd ? '$4' : '$1'}
+              gap="$1"
+            >
               <Button
                 variant="primary"
                 size="medium"
-                flex={1}
+                w="100%"
                 onPress={onConfirm}
                 disabled={
                   !isAccountActivatedChecked || !isNotResponsibleChecked
@@ -368,7 +315,62 @@ export function HyperliquidTermsContent({
                   id: ETranslations.perp_term_agree,
                 })}
               </Button>
-            </XStack>
+
+              <XStack justifyContent="center" pt="$2">
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_content_3,
+                  })}{' '}
+                  <SizableText
+                    size="$bodySm"
+                    color="$textInteractive"
+                    cursor="pointer"
+                    onPress={() => {
+                      openUrlExternal(TERMS_OF_SERVICE_URL);
+                    }}
+                    hoverStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    pressStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.settings_user_agreement,
+                    })}
+                  </SizableText>{' '}
+                  {intl.formatMessage({
+                    id: ETranslations.perp_term_content_4,
+                  })}{' '}
+                  <SizableText
+                    cursor="pointer"
+                    hoverStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    pressStyle={{
+                      borderBottomWidth: 1,
+                      borderBottomColor: '$textInteractive',
+                    }}
+                    size="$bodySm"
+                    color="$textInteractive"
+                    onPress={() => {
+                      openUrlExternal(PRIVACY_POLICY_URL);
+                    }}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.global_privacy_policy,
+                    })}
+                  </SizableText>
+                </SizableText>
+              </XStack>
+            </YStack>
           </YStack>
         ),
       },

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
   Icon,
   NumberSizeableText,
   Popover,
@@ -135,16 +136,16 @@ function MobilePerpMarketHeader() {
                   id: ETranslations.perp_position_mark_price,
                 })}
                 renderTrigger={
-                  <SizableText
+                  <DashText
                     size="$bodySm"
                     color="$textSubdued"
-                    textDecorationLine="underline"
-                    textDecorationStyle="dashed"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
                   >
                     {intl.formatMessage({
                       id: ETranslations.perp_position_mark_price,
                     })}
-                  </SizableText>
+                  </DashText>
                 }
                 renderContent={
                   <YStack px="$5" pb="$4">

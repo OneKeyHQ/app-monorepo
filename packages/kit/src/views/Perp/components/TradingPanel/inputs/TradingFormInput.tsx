@@ -154,14 +154,13 @@ export const TradingFormInput = memo(
           gap="$3"
           bg={ifOnDialog ? '$bgApp' : '$bgSubdued'}
           borderRadius="$2"
-          borderWidth={ifOnDialog ? '$px' : 0}
+          borderWidth="$px"
           borderColor={ifOnDialog ? '$borderSubdued' : '$transparent'}
           px="$3"
           focusStyle={
             ifOnDialog || disabled
               ? undefined
               : {
-                  borderWidth: '$px',
                   borderColor: '$border',
                 }
           }
@@ -227,12 +226,10 @@ export const TradingFormInput = memo(
           ifOnDialog
             ? undefined
             : {
-                outlineWidth: '$px',
-                outlineColor: '$border',
-                outlineStyle: 'solid',
+                borderColor: '$border',
               }
         }
-        borderWidth={ifOnDialog ? '$px' : '$0'}
+        borderWidth="$px"
         borderColor={ifOnDialog ? '$border' : '$transparent'}
       >
         <YStack>

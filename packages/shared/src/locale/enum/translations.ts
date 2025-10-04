@@ -1414,6 +1414,7 @@
   global_outputs = 'global.outputs',
   global_overview = 'global.overview',
   global_overwritten = 'global.overwritten',
+  global_page = 'global.page',
   global_pair = 'global.pair',
   global_pair_contract = 'global.pair_contract',
   global_passphrase = 'global.passphrase',

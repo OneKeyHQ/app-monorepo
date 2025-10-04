@@ -21,6 +21,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
@@ -48,6 +50,8 @@ function DebugButton() {
 
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -83,6 +87,8 @@ function DebugButton() {
             activeOpenOrders,
             activePositions,
             activeOrderBookOptions,
+            activeAccountStatus,
+            isAgentReady,
           });
         }}
       />
