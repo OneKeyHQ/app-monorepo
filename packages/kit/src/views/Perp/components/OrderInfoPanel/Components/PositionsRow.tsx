@@ -140,10 +140,15 @@ function MarkPrice({ coin, decimals }: { coin: string; decimals: number }) {
     szDecimals: decimals,
   });
 
-  return (
-    <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-      {midFormattedByDecimals}
-    </SizableText>
+  return useMemo(
+    () => (
+      <DebugRenderTracker position="bottom-right" name="MarkPrice" offsetY={10}>
+        <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
+          {midFormattedByDecimals}
+        </SizableText>
+      </DebugRenderTracker>
+    ),
+    [midFormattedByDecimals],
   );
 }
 
@@ -285,18 +290,13 @@ const PositionRowDesktopMarkPrice = memo(() => {
 
   const content = useMemo(
     () => (
-      <DebugRenderTracker
-        position="bottom-right"
-        name="PositionRowDesktopMarkPrice"
+      <XStack
+        {...getColumnStyle(columnConfigs[3])}
+        justifyContent={calcCellAlign(columnConfigs[3].align)}
+        alignItems="center"
       >
-        <XStack
-          {...getColumnStyle(columnConfigs[3])}
-          justifyContent={calcCellAlign(columnConfigs[3].align)}
-          alignItems="center"
-        >
-          <MarkPrice coin={coin} decimals={decimals} />
-        </XStack>
-      </DebugRenderTracker>
+        <MarkPrice coin={coin} decimals={decimals} />
+      </XStack>
     ),
     [columnConfigs, coin, decimals],
   );
@@ -616,7 +616,11 @@ const PositionRowDesktop = memo(() => {
 
   const content = useMemo(
     () => (
-      <DebugRenderTracker position="bottom-left" name="PositionRowDesktop">
+      <DebugRenderTracker
+        position="left-center"
+        offsetX={10}
+        name="PositionRowDesktop"
+      >
         <XStack
           minWidth={cellMinWidth}
           py="$1.5"
@@ -1081,7 +1085,11 @@ PositionRowMobileActions.displayName = 'PositionRowMobileActions';
 const PositionRowMobile = memo(() => {
   const content = useMemo(
     () => (
-      <DebugRenderTracker position="bottom-left" name="PositionRowMobile">
+      <DebugRenderTracker
+        position="bottom-left"
+        offsetX={10}
+        name="PositionRowMobile"
+      >
         <ListItem
           flex={1}
           mt="$1.5"

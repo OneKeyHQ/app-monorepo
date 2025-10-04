@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import {
+  DebugRenderTracker,
   IconButton,
   SizableText,
   Tabs,
@@ -16,16 +17,16 @@ import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import {
+  usePerpsActiveOpenOrdersLengthAtom,
+  usePerpsActivePositionLengthAtom,
+} from '../../../states/jotai/contexts/hyperliquid/atoms';
 import { PerpOpenOrdersList } from '../components/OrderInfoPanel/List/PerpOpenOrdersList';
 import { PerpPositionsList } from '../components/OrderInfoPanel/List/PerpPositionsList';
 import { PerpOrderBook } from '../components/PerpOrderBook';
 import { PerpTips } from '../components/PerpTips';
 import { PerpTickerBar } from '../components/TickerBar/PerpTickerBar';
 import { PerpTradingPanel } from '../components/TradingPanel/PerpTradingPanel';
-import {
-  usePerpsActiveOpenOrdersAtom,
-  usePerpsActivePositionAtom,
-} from '../hooks';
 
 const tabNameToTranslationKey = {
   'Positions': ETranslations.perp_position_title,
@@ -43,39 +44,44 @@ function TabBarItem({
   onPress: (name: string) => void;
 }) {
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ activePositions: positions }] = usePerpsActivePositionAtom();
+  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [positionsLength] = usePerpsActivePositionLengthAtom();
 
   const tabCount = useMemo(() => {
     if (name === 'Trades History') {
       return '';
     }
-    if (name === 'Positions' && positions.length > 0) {
-      return `(${positions.length})`;
+    if (name === 'Positions' && positionsLength > 0) {
+      return `(${positionsLength})`;
     }
-    if (name === 'Open Orders' && orders.length > 0) {
-      return `(${orders.length})`;
+    if (name === 'Open Orders' && openOrdersLength > 0) {
+      return `(${openOrdersLength})`;
     }
     return '';
-  }, [name, positions.length, orders.length]);
+  }, [name, positionsLength, openOrdersLength]);
 
   return (
-    <XStack
-      py="$3"
-      ml="$5"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={() => onPress(name)}
+    <DebugRenderTracker
+      position="bottom-center"
+      name={`PerpMobileLayout_TabBarItem_${name}`}
     >
-      <SizableText size="$headingXs">
-        {`${intl.formatMessage({
-          id: tabNameToTranslationKey[
-            name as keyof typeof tabNameToTranslationKey
-          ],
-        })} ${tabCount}`}
-      </SizableText>
-    </XStack>
+      <XStack
+        py="$3"
+        ml="$5"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={() => onPress(name)}
+      >
+        <SizableText size="$headingXs">
+          {`${intl.formatMessage({
+            id: tabNameToTranslationKey[
+              name as keyof typeof tabNameToTranslationKey
+            ],
+          })} ${tabCount}`}
+        </SizableText>
+      </XStack>
+    </DebugRenderTracker>
   );
 }
 

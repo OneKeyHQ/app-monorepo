@@ -6,9 +6,19 @@ import type {
   IModalNavigationProp,
   ITabContainerRef,
 } from '@onekeyhq/components';
-import { IconButton, SizableText, Tabs, XStack } from '@onekeyhq/components';
+import {
+  DebugRenderTracker,
+  IconButton,
+  SizableText,
+  Tabs,
+  XStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveOpenOrdersAtom,
+  usePerpsActiveOpenOrdersLengthAtom,
+  usePerpsActivePositionLengthAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -40,39 +50,45 @@ function TabBarItem({
   onPress: (name: string) => void;
 }) {
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ activePositions: positions }] = usePerpsActivePositionAtom();
+
+  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [positionsLength] = usePerpsActivePositionLengthAtom();
 
   const tabCount = useMemo(() => {
     if (name === 'Trades History') {
       return '';
     }
-    if (name === 'Positions' && positions.length > 0) {
-      return `(${positions.length})`;
+    if (name === 'Positions' && positionsLength > 0) {
+      return `(${positionsLength})`;
     }
-    if (name === 'Open Orders' && orders.length > 0) {
-      return `(${orders.length})`;
+    if (name === 'Open Orders' && openOrdersLength > 0) {
+      return `(${openOrdersLength})`;
     }
     return '';
-  }, [positions.length, orders.length, name]);
+  }, [positionsLength, openOrdersLength, name]);
 
   return (
-    <XStack
-      py="$3"
-      ml="$5"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={() => onPress(name)}
+    <DebugRenderTracker
+      position="bottom-center"
+      name={`PerpOrderInfoPanel_TabBarItem_${name}`}
     >
-      <SizableText size="$headingXs">
-        {`${intl.formatMessage({
-          id: tabNameToTranslationKey[
-            name as keyof typeof tabNameToTranslationKey
-          ],
-        })} ${tabCount}`}
-      </SizableText>
-    </XStack>
+      <XStack
+        py="$3"
+        ml="$5"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={() => onPress(name)}
+      >
+        <SizableText size="$headingXs">
+          {`${intl.formatMessage({
+            id: tabNameToTranslationKey[
+              name as keyof typeof tabNameToTranslationKey
+            ],
+          })} ${tabCount}`}
+        </SizableText>
+      </XStack>
+    </DebugRenderTracker>
   );
 }
 
