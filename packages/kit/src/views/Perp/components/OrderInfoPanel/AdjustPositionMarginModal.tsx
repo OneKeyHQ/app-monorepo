@@ -22,7 +22,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
-import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getValidPriceDecimals,
+  validateSizeInput,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
@@ -35,13 +38,6 @@ export interface IAdjustPositionMarginParams {
 interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
   onClose: () => void;
 }
-
-const valueFormatter: INumberFormatProps = {
-  formatter: 'value',
-  formatterOptions: {
-    currency: '$',
-  },
-};
 
 type IMarginAction = 'add' | 'remove';
 
@@ -97,6 +93,20 @@ const AdjustPositionMarginForm = memo(
       if (!currentPosition) return new BigNumber(0);
       return new BigNumber(currentPosition.positionValue || '0').abs();
     }, [currentPosition]);
+
+    const decimals = useMemo(
+      () => getValidPriceDecimals(currentPosition?.entryPx || '0'),
+      [currentPosition?.entryPx],
+    );
+    const liquidationPrice = useMemo(() => {
+      const liquidationPriceBN = new BigNumber(
+        currentPosition?.liquidationPx || '0',
+      );
+      const liquidationPriceFormatted = liquidationPriceBN.isZero()
+        ? 'N/A'
+        : liquidationPriceBN.toFixed(decimals);
+      return liquidationPriceFormatted;
+    }, [decimals, currentPosition?.liquidationPx]);
 
     const leverage = useMemo(() => {
       return currentPosition?.leverage?.value || 1;
@@ -261,9 +271,7 @@ const AdjustPositionMarginForm = memo(
                   id: ETranslations.perp_position_liq_price,
                 })}
               </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {currentPosition.liquidationPx || '0'}
-              </SizableText>
+              <SizableText size="$bodyMdMedium">{liquidationPrice}</SizableText>
             </XStack>
           </YStack>
 
