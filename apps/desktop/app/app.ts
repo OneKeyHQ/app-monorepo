@@ -765,14 +765,10 @@ async function createMainWindow() {
         throw new OneKeyLocalError('Bundle directory path not found');
       }
       const replacedKey = url.replace(/^\/+/, '').trim();
-      const key = replacedKey || 'index.html';
-      if (!key) {
-        logger.info(
-          'checkFileHash error:',
-          `${key}: File ${url} not found in metadata.json`,
-        );
-        unmatchedFileDialog();
-        throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
+      let key = replacedKey || 'index.html';
+      if (!metadata[key]) {
+        logger.info(`${key}: File ${url} not found in metadata.json`);
+        key = 'index.html';
       }
       const sha512 = metadata[key];
       const filePath = path.join(bundleDirPath, key);
