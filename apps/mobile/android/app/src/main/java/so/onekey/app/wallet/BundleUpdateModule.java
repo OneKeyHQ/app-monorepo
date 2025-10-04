@@ -238,7 +238,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     public static String getCurrentBundleMainJSBundle(Context context) {
         try {
-            String currentAppVersion = Build.VERSION.RELEASE;
+            String currentAppVersion = getAppVersion(context);
             String currentBundleVersion = getCurrentBundleVersion(context);
             
             staticLog(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
@@ -455,6 +455,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             staticLog(TAG, "readFallbackUpdateBundleDataFile:" + e.getMessage());
         }
         return fallbackUpdateBundleData;
+    }
+
+    public static String getAppVersion(Context context) {
+        try {
+            PackageManager packageManager = context.getPackageManager();
+            PackageInfo packageInfo = packageManager.getPackageInfo(context.getPackageName(), 0);
+            return packageInfo.versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            staticLog(TAG, "Error getting package info: " + e.getMessage());
+            return null;
+        }
     }
 
     public static String getNativeVersion(Context context) {
@@ -725,7 +736,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
-        setNativeVersion(reactContext, Build.VERSION.RELEASE);
+        setNativeVersion(reactContext, getAppVersion(reactContext));
         List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
        
         if (currentFolderName != null && !currentFolderName.isEmpty()) {
