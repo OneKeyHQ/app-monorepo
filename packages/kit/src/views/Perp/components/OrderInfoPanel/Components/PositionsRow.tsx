@@ -1291,29 +1291,42 @@ const PositionRow = memo(
       coin,
     });
     const tpslInfo = useMemo(() => {
-      let tpPrice = '--';
-      let slPrice = '--';
+      const emptyPrice = '--';
+      let tpPrice = emptyPrice;
+      let slPrice = emptyPrice;
       let showOrder = false; // show goToOrders button
+      let hasNonPositionTpslOrder = false;
 
       currentAssetOpenOrders.forEach((order) => {
-        if (!order.isPositionTpsl) {
-          showOrder = true;
-        }
-        if (order.isPositionTpsl) {
-          if (order.orderType.startsWith('Take')) {
+        if (order.orderType.startsWith('Take')) {
+          if (order.isPositionTpsl) {
             tpPrice = `${numberFormat(
               order.triggerPx,
               formatters.priceFormatter,
             )}`;
+          } else {
+            hasNonPositionTpslOrder = true;
           }
-          if (order.orderType.startsWith('Stop')) {
+        }
+        if (order.orderType.startsWith('Stop')) {
+          if (order.isPositionTpsl) {
             slPrice = `${numberFormat(
               order.triggerPx,
               formatters.priceFormatter,
             )}`;
+          } else {
+            hasNonPositionTpslOrder = true;
           }
         }
       });
+
+      if (
+        hasNonPositionTpslOrder &&
+        tpPrice === emptyPrice &&
+        slPrice === emptyPrice
+      ) {
+        showOrder = true;
+      }
 
       // <PositionRowMobileTPSL />
       // <PositionRowDesktopTPSL />
