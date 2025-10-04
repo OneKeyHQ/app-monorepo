@@ -54,8 +54,8 @@ interface ISetTpslFormProps extends ISetTpslParams {
   onClose: () => void;
 }
 
-function MarkPrice({ coin, szDecimals }: { coin: string; szDecimals: number }) {
-  const { midFormattedByDecimals } = usePerpsMidPrice({ coin, szDecimals });
+function MarkPrice({ coin }: { coin: string }) {
+  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
   return (
     <SizableText size="$bodyMdMedium">{midFormattedByDecimals}</SizableText>
   );
@@ -70,7 +70,7 @@ const SetTpslForm = memo(
     onClose = () => {},
   }: ISetTpslFormProps) => {
     const hyperliquidActions = useHyperliquidActions();
-    const { mid: midPrice } = usePerpsMidPrice({ coin, szDecimals });
+    const { mid: midPrice } = usePerpsMidPrice({ coin });
 
     const [{ activePositions }] = usePerpsActivePositionAtom();
     const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
@@ -427,7 +427,7 @@ const SetTpslForm = memo(
                   id: ETranslations.perp_position_mark_price,
                 })}
               </SizableText>
-              <MarkPrice coin={currentPosition.coin} szDecimals={szDecimals} />
+              <MarkPrice coin={currentPosition.coin} />
             </XStack>
           </YStack>
           <Divider />

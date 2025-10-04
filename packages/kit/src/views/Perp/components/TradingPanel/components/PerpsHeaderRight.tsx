@@ -46,7 +46,7 @@ function DebugButton() {
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const { assetCtx: btcAssetCtx } = usePerpsAssetCtx({ assetId: 0 });
   const { mid: btcMid, midFormattedByDecimals: btcMidFormattedByDecimals } =
-    usePerpsMidPrice({ coin: 'BTC', szDecimals: 2 });
+    usePerpsMidPrice({ coin: 'BTC' });
 
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountSummary] = usePerpsActiveAccountSummaryAtom();

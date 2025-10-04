@@ -134,10 +134,9 @@ function PositionRowProvider({
   );
 }
 
-function MarkPrice({ coin, decimals }: { coin: string; decimals: number }) {
+function MarkPrice({ coin }: { coin: string }) {
   const { midFormattedByDecimals } = usePerpsMidPrice({
     coin,
-    szDecimals: decimals,
   });
 
   return useMemo(
@@ -286,7 +285,7 @@ const PositionRowDesktopEntryPrice = memo(() => {
 PositionRowDesktopEntryPrice.displayName = 'PositionRowDesktopEntryPrice';
 
 const PositionRowDesktopMarkPrice = memo(() => {
-  const { columnConfigs, coin, decimals } = usePositionRowContext();
+  const { columnConfigs, coin } = usePositionRowContext();
 
   const content = useMemo(
     () => (
@@ -295,10 +294,10 @@ const PositionRowDesktopMarkPrice = memo(() => {
         justifyContent={calcCellAlign(columnConfigs[3].align)}
         alignItems="center"
       >
-        <MarkPrice coin={coin} decimals={decimals} />
+        <MarkPrice coin={coin} />
       </XStack>
     ),
-    [columnConfigs, coin, decimals],
+    [columnConfigs, coin],
   );
   return content;
 });
@@ -1197,11 +1196,13 @@ const PositionRow = memo(
     );
     const priceInfo = useMemo(() => {
       const entryPrice = new BigNumber(pos.entryPx || '0').toFixed(decimals);
+
       const liquidationPrice = new BigNumber(pos.liquidationPx || '0');
       const entryPriceFormatted = entryPrice;
       const liquidationPriceFormatted = liquidationPrice.isZero()
         ? 'N/A'
         : liquidationPrice.toFixed(decimals);
+
       return {
         entryPriceFormatted,
         liquidationPriceFormatted,
