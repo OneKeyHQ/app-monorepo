@@ -667,12 +667,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
 
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
-      setTimeout(() => {
-        void backgroundApiProxy.serviceAppUpdate
-          .refreshUpdateStatus()
-          .then(() => {
-            fetchUpdateInfo();
-          });
+      setTimeout(async () => {
+        await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
+        fetchUpdateInfo();
       }, 250);
       return;
     }
