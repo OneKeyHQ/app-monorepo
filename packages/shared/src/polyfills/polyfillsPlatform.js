@@ -29,7 +29,7 @@ if (typeof process === 'undefined') {
 if (platformEnv.isNative) {
   const useJsBundle =
     require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle;
-  if (true) {
+  if (useJsBundle) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc').pop();
