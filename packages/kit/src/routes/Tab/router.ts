@@ -95,59 +95,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
-  const perpTabShowRes = useMemo(() => {
-    if (perpConfigCommon?.disablePerp) {
-      return null;
-    }
-    // not working for extension
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tabbarOnPress =
-      platformEnv.isExtension &&
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-        ? async () => {
-            if (platformEnv.isExtension) {
-              await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-            }
-          }
-        : undefined;
-    if (
-      perpConfigCommon?.usePerpWeb ||
-      perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
-    ) {
-      return {
-        name: ETabRoutes.WebviewPerpTrade,
-        tabBarIcon: (focused?: boolean) =>
-          focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-        translationId: ETranslations.global_perp,
-        freezeOnBlur: Boolean(params?.freezeOnBlur),
-        rewrite: '/perp',
-        exact: true,
-        // tabbarOnPress,
-        children: platformEnv.isExtension
-          ? // small screen error: Cannot read properties of null (reading 'filter')
-            // null
-            perpWebviewRouters
-          : perpWebviewRouters,
-        trackId: 'global-perp',
-      };
-    }
-    return {
-      name: ETabRoutes.Perp,
-      tabBarIcon: (focused?: boolean) =>
-        focused ? 'TradingViewCandlesSolid' : 'TradingViewCandlesOutline',
-      translationId: ETranslations.global_perp,
-      freezeOnBlur: Boolean(params?.freezeOnBlur),
-      children: perpRouters,
-      rewrite: '/perp',
-      exact: true,
-      // tabbarOnPress,
-    };
-  }, [
-    perpConfigCommon?.disablePerp,
-    perpConfigCommon?.usePerpWeb,
-    perpUserConfig.currentUserType,
-    params?.freezeOnBlur,
-  ]);
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {
@@ -212,7 +159,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
-        perpTabShowRes,
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
@@ -288,7 +234,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       toMyOneKeyModal,
       toReferFriendsPage,
       handleMarketTabPress,
-      perpTabShowRes,
     ],
   );
 };
