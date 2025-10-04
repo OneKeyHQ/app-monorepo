@@ -17,9 +17,9 @@ export const getJsBundlePathAsync = async () => {
 };
 
 export const useJsBundle = () => {
-  return useJsBundle;
+  return !!getJsBundlePath();
 };
 
 export const useJsBundleAsync = async () => {
-  return Promise.resolve(useJsBundle);
+  return Promise.resolve(useJsBundle());
 };
