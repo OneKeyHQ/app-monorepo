@@ -7,7 +7,6 @@ import {
   useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
-  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
@@ -22,7 +21,6 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
 
   const liquidationPrice = useLiquidationPrice(side);
 
@@ -37,36 +35,37 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     return new BigNumber(activeAssetCtx?.ctx?.markPrice || 0);
   }, [formData.type, formData.price, activeAssetCtx?.ctx?.markPrice]);
 
-  const availableToTradeValue = useMemo(() => {
+  const availableToTradeBN = useMemo(() => {
     const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
-    return Number(_availableToTrade[side === 'long' ? 0 : 1] || 0);
+    const value = Number(_availableToTrade[side === 'long' ? 0 : 1] || 0);
+    return new BigNumber(value);
   }, [side, activeAssetData?.availableToTrade]);
 
   const availableToTrade = useMemo(() => {
-    const valueBN = new BigNumber(availableToTradeValue);
     return {
-      display: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
-      value: availableToTradeValue,
+      display: availableToTradeBN.toFixed(2, BigNumber.ROUND_DOWN),
+      value: availableToTradeBN.toNumber(),
     };
-  }, [availableToTradeValue]);
+  }, [availableToTradeBN]);
 
-  const maxTradeSz = useMemo(() => {
+  const maxTradeSzBN = useMemo(() => {
     const maxTradeSzs = activeAssetData?.maxTradeSzs || [0, 0];
-    return Number(maxTradeSzs[side === 'long' ? 0 : 1]);
+    const value = Number(maxTradeSzs[side === 'long' ? 0 : 1]);
+    return new BigNumber(value);
   }, [activeAssetData?.maxTradeSzs, side]);
 
   const maxPositionSize = useMemo(() => {
-    if (!effectivePriceBN.gt(0) || !availableToTradeValue) return 0;
+    if (!effectivePriceBN.gt(0) || availableToTradeBN.lte(0)) return 0;
 
-    const maxSizeFromBalance = new BigNumber(availableToTradeValue)
+    const maxSizeFromBalance = availableToTradeBN
       .multipliedBy(leverage)
       .dividedBy(effectivePriceBN)
       .toNumber();
 
-    const maxSizeFromLimit = maxTradeSz;
+    const maxSizeFromLimit = maxTradeSzBN.toNumber();
 
     return Math.min(maxSizeFromBalance, maxSizeFromLimit);
-  }, [effectivePriceBN, availableToTradeValue, leverage, maxTradeSz]);
+  }, [effectivePriceBN, availableToTradeBN, leverage, maxTradeSzBN]);
 
   const computedSizeForSide = useMemo(() => {
     const mode = formData.sizeInputMode ?? EPerpsSizeInputMode.MANUAL;
@@ -80,11 +79,11 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
       return new BigNumber(0);
     }
 
-    if (!effectivePriceBN.gt(0) || !availableToTradeValue) {
+    if (!effectivePriceBN.gt(0) || availableToTradeBN.lte(0)) {
       return new BigNumber(0);
     }
 
-    const maxSizeBN = new BigNumber(availableToTradeValue)
+    const maxSizeBN = availableToTradeBN
       .multipliedBy(leverage)
       .dividedBy(effectivePriceBN);
 
@@ -102,7 +101,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     formData.sizePercent,
     tradingComputed.computedSizeBN,
     effectivePriceBN,
-    availableToTradeValue,
+    availableToTradeBN,
     leverage,
     activeAsset?.universe?.szDecimals,
   ]);
@@ -116,34 +115,31 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
   }, [orderValue, leverage]);
 
   const isNoEnoughMargin = useMemo(() => {
-    if (!computedSizeForSide.isFinite()) return false;
-    if (computedSizeForSide.lte(0)) return false;
-
-    if (formData.type === 'limit') {
-      if (!effectivePriceBN.isFinite() || effectivePriceBN.lte(0)) {
-        return false;
-      }
-      const leverageBN = new BigNumber(leverage || 1);
-      const safeLeverage =
-        leverageBN.isFinite() && leverageBN.gt(0)
-          ? leverageBN
-          : new BigNumber(1);
-      const withdrawableBN = new BigNumber(accountSummary?.withdrawable || 0);
-      const requiredMargin = computedSizeForSide
-        .multipliedBy(effectivePriceBN)
-        .dividedBy(safeLeverage);
-      if (!requiredMargin.isFinite()) return false;
-      return requiredMargin.gt(withdrawableBN);
+    if (
+      !computedSizeForSide.isFinite() ||
+      computedSizeForSide.lte(0) ||
+      !effectivePriceBN.isFinite() ||
+      effectivePriceBN.lte(0)
+    ) {
+      return false;
     }
-    return computedSizeForSide.gt(maxTradeSz);
-  }, [
-    accountSummary?.withdrawable,
-    computedSizeForSide,
-    maxTradeSz,
-    formData.type,
-    effectivePriceBN,
-    leverage,
-  ]);
+
+    if (!availableToTradeBN.isFinite() || availableToTradeBN.lte(0)) {
+      return true;
+    }
+
+    const leverageBN = new BigNumber(leverage || 1);
+    const safeLeverage =
+      leverageBN.isFinite() && leverageBN.gt(0) ? leverageBN : new BigNumber(1);
+
+    const requiredMargin = computedSizeForSide
+      .multipliedBy(effectivePriceBN)
+      .dividedBy(safeLeverage);
+
+    if (!requiredMargin.isFinite()) return false;
+
+    return requiredMargin.gt(availableToTradeBN);
+  }, [computedSizeForSide, effectivePriceBN, availableToTradeBN, leverage]);
 
   return {
     computedSizeForSide,
@@ -151,7 +147,7 @@ export function useTradingCalculationsForSide(side: 'long' | 'short') {
     orderValue,
     marginRequired,
     availableToTrade,
-    maxTradeSz,
+    maxTradeSz: maxTradeSzBN.toNumber(),
     maxPositionSize,
     isNoEnoughMargin,
     leverage,

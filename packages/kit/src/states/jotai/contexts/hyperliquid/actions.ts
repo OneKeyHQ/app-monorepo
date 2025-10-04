@@ -548,7 +548,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           return { leverage: params.leverage, isCross: params.isCross };
         },
         actionType: EActionType.UPDATE_LEVERAGE,
-        args: [params.leverage, params.isCross ? 'Cross' : 'Isolated'],
+        args: [params.isCross ? 'Cross' : 'Isolated', params.leverage],
       });
     },
   );
