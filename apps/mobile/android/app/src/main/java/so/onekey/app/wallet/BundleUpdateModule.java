@@ -248,7 +248,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 return null;
             }
             
-            if (!currentAppVersion.equals(currentBundleVersion)) {
+            if (!currentAppVersion.equals(prevNativeVersion)) {
                 staticLog(TAG, "currentAppVersion is not equal to prevNativeVersion " + currentAppVersion + " " + prevNativeVersion);
                 return null;
             }
