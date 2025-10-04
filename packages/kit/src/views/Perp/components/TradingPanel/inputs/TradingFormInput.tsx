@@ -176,6 +176,7 @@ export const TradingFormInput = memo(
             keyboardType={keyboardType}
             disabled={disabled}
             fontSize={getFontSize('$bodyMd')}
+            fontWeight={500}
             bg="$bgSubdued"
             containerProps={{
               flex: 1,

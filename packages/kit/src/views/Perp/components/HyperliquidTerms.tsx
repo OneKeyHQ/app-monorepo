@@ -128,10 +128,11 @@ export function HyperliquidTermsContent({
   const { gtMd } = useMedia();
 
   const slidesData = useMemo<ISlideData[]>(() => {
-    const slideImageMaxHeight = gtMd ? 400 : 300;
-    const slideImageHeight = gtMd ? 400 : 300;
+    const slideImageHeight = gtMd ? 450 : 350;
     const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
-    const slide3StackHeight = 300 * HEIGHT_RATIO;
+    const textPadding = gtMd ? '$5' : '$4';
+    const textHeadingSize = gtMd ? '$heading3xl' : '$heading2xl';
+    const textBodySize = gtMd ? '$bodyLg' : '$bodyMd';
     const confirmationSlideStyle: IYStackProps | undefined =
       platformEnv.isNative
         ? undefined
@@ -145,54 +146,60 @@ export function HyperliquidTermsContent({
         id: 'slide-1',
         content: (
           <Stack alignItems="center" justifyContent="center" px="$6">
-            <Image
-              source={require('@onekeyhq/kit/assets/perps/HL_intro_1.png')}
-              size={slideImageHeight}
-              maxHeight={slideImageMaxHeight}
-              maxWidth={slideImageMaxHeight}
-            />
+            <Stack>
+              <Image
+                source={require('@onekeyhq/kit/assets/perps/HL_intro_1.png')}
+                size={slideImageHeight}
+                resizeMode="contain"
+              />
+            </Stack>
             <YStack
               gap="$2"
-              justifyContent="flex-start"
-              mt="-$6"
+              px={textPadding}
               w={bannerWidth}
-              px={gtMd ? undefined : '$4'}
+              justifyContent="flex-start"
             >
-              <SizableText size="$heading2xl">
-                Professional Experience
+              <SizableText size={textHeadingSize}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_profesional_title,
+                })}
               </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Master the charts with K-lines and real-time trading data at
-                your fingertips.
+              <SizableText size={textBodySize} color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_profesional_msg,
+                })}
               </SizableText>
             </YStack>
           </Stack>
         ),
       },
+
       {
         id: 'slide-2',
         content: (
           <Stack alignItems="center" justifyContent="center" px="$6">
             <Stack>
               <Image
-                source={require('@onekeyhq/kit/assets/perps/HL_intro_2.png')}
+                source={require('@onekeyhq/kit/assets/perps/HL_intro_4.png')}
                 size={slideImageHeight}
-                maxHeight={slideImageMaxHeight}
-                maxWidth={slideImageMaxHeight}
+                resizeMode="contain"
               />
             </Stack>
             <YStack
               gap="$2"
               justifyContent="flex-start"
-              mt="-$6"
               w={bannerWidth}
+              px={textPadding}
             >
-              <SizableText size="$heading2xl">
-                Professional Experience
+              <SizableText size={textHeadingSize}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_leverage_title,
+                })}
               </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Master the charts with K-lines and real-time trading data at
-                your fingertips.
+              <SizableText size={textBodySize} color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_leverage_msg,
+                })}
               </SizableText>
             </YStack>
           </Stack>
@@ -204,24 +211,27 @@ export function HyperliquidTermsContent({
           <Stack alignItems="center" justifyContent="center" px="$6">
             <Stack>
               <Image
-                source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
+                source={require('@onekeyhq/kit/assets/perps/HL_intro_2.png')}
                 size={slideImageHeight}
-                maxHeight={slideImageMaxHeight}
-                maxWidth={slideImageMaxHeight}
+                resizeMode="contain"
               />
             </Stack>
             <YStack
               gap="$2"
-              mt="-$6"
               justifyContent="flex-start"
               w={bannerWidth}
+              px={textPadding}
             >
-              <SizableText size="$heading2xl">
-                Professional Experience
+              <SizableText size={textHeadingSize}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_trade_title,
+                })}
               </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                Master the charts with K-lines and real-time trading data at
-                your fingertips.
+              <SizableText size={textBodySize} color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_trade_msg,
+                })}
+                anywhere.
               </SizableText>
             </YStack>
           </Stack>
@@ -252,7 +262,7 @@ export function HyperliquidTermsContent({
                     />
                   </Stack>
                   <SizableText
-                    size={gtMd ? '$headingLg' : '$headingSm'}
+                    size={gtMd ? '$headingLg' : '$headingXs'}
                     textAlign="center"
                   >
                     {intl.formatMessage({
@@ -376,7 +386,6 @@ export function HyperliquidTermsContent({
       },
     ];
   }, [
-    HEIGHT_RATIO,
     gtMd,
     hyperliquidLogo,
     intl,

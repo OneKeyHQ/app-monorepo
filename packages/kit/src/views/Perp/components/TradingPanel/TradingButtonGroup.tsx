@@ -142,6 +142,14 @@ function SideButtonInternal({
           amount: '$10',
         },
       );
+    if (perpConfigCommon?.ipDisablePerp)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_ip_restricted,
+      });
+    if (perpConfigCommon?.disablePerpActionPerp)
+      return intl.formatMessage({
+        id: ETranslations.perp_button_disable_perp,
+      });
     if (isNoEnoughMargin)
       return intl.formatMessage({
         id: ETranslations.perp_trading_button_no_enough_margin,
@@ -149,7 +157,15 @@ function SideButtonInternal({
     return side === 'long'
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
-  }, [isSubmitting, isMinimumOrderNotMetForSide, isNoEnoughMargin, side, intl]);
+  }, [
+    isSubmitting,
+    isMinimumOrderNotMetForSide,
+    isNoEnoughMargin,
+    side,
+    intl,
+    perpConfigCommon?.ipDisablePerp,
+    perpConfigCommon?.disablePerpActionPerp,
+  ]);
 
   const isLong = side === 'long';
   const buttonStyles = useMemo(() => {
