@@ -9,7 +9,6 @@ import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
-  perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
@@ -730,9 +729,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  ensureTradingEnabled = contextAtomMethod((get, _set) => {
-    const { isAgentReady } = get(perpsActiveAccountIsAgentReadyAtom.atom());
-    if (isAgentReady === false) {
+  ensureTradingEnabled = contextAtomMethod(async (get, _set) => {
+    const info = await perpsActiveAccountIsAgentReadyAtom.get();
+    if (info.isAgentReady === false) {
       showEnableTradingDialog();
       throw new OneKeyLocalError('Trading not enabled');
     }
@@ -741,7 +740,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   closeAllPositions = contextAtomMethod(async (get, set) => {
     return withToast({
       asyncFn: async () => {
-        this.ensureTradingEnabled.call(set);
+        await this.ensureTradingEnabled.call(set);
         const { activePositions: positions } = get(perpsActivePositionAtom());
 
         if (positions.length === 0) {
