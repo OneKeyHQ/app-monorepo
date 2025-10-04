@@ -201,17 +201,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
                 : {}),
             }
           : undefined,
-        {
-          name: ETabRoutes.Swap,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'SwapHorSolid' : 'SwapHorOutline',
-          translationId: ETranslations.global_trade,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/swap',
-          exact: true,
-          children: swapRouters,
-          trackId: 'global-trade',
-        },
         perpTabShowRes,
         {
           name: ETabRoutes.Earn,
