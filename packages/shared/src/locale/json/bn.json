@@ -2051,6 +2051,8 @@
   "perp.account_panel_account_value_tooltip": "উপলভ্য ব্যালান্স এবং খোলা পজিশন থেকে অবাস্তবায়িত P&L সহ মোট Perps অ্যাকাউন্টের মূল্য। এটি উত্তোলনযোগ্য পরিমাণকে উপস্থাপন করে না।",
   "perp.account_panel_withrawable_value": "উত্তোলনযোগ্য মূল্য",
   "perp.available_balance": "উপলব্ধ ব্যালেন্স",
+  "perp.button_disable_perp": "পাওয়া যায় না",
+  "perp.button_ip_restricted": "আইপি সীমাবদ্ধ",
   "perp.close_position": "পজিশন বন্ধ করুন",
   "perp.close_position_amount_input": "বন্ধ করার জন্য পরিমাণ লিখুন",
   "perp.close_position_button_limit": "লিমিট ক্লোজ",

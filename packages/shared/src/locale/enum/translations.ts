@@ -2056,6 +2056,8 @@
   perp_account_panel_account_value_tooltip = 'perp.account_panel_account_value_tooltip',
   perp_account_panel_withrawable_value = 'perp.account_panel_withrawable_value',
   perp_available_balance = 'perp.available_balance',
+  perp_button_disable_perp = 'perp.button_disable_perp',
+  perp_button_ip_restricted = 'perp.button_ip_restricted',
   perp_close_position = 'perp.close_position',
   perp_close_position_amount_input = 'perp.close_position_amount_input',
   perp_close_position_button_limit = 'perp.close_position_button_limit',

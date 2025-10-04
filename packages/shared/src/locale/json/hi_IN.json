@@ -2051,6 +2051,8 @@
   "perp.account_panel_account_value_tooltip": "कुल Perps खाता मूल्य, जिसमें उपलब्ध बैलेंस और खुली पोज़िशन से अवास्तविक P&L शामिल है। यह निकाली जा सकने वाली राशि का प्रतिनिधित्व नहीं करता।",
   "perp.account_panel_withrawable_value": "निकालने योग्य मूल्य",
   "perp.available_balance": "उपलब्ध शेष राशि",
+  "perp.button_disable_perp": "उपलब्ध नहीं है",
+  "perp.button_ip_restricted": "आईपी प्रतिबंधित",
   "perp.close_position": "पोजीशन बंद करें",
   "perp.close_position_amount_input": "बंद करने के लिए आकार दर्ज करें",
   "perp.close_position_button_limit": "लिमिट क्लोज़",

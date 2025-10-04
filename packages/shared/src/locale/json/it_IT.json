@@ -2051,6 +2051,8 @@
   "perp.account_panel_account_value_tooltip": "Valore totale dell’account Perps, inclusi il saldo disponibile e il P&L non realizzato dalle posizioni aperte. Questo non rappresenta l’importo prelevabile.",
   "perp.account_panel_withrawable_value": "Valore prelevabile",
   "perp.available_balance": "Saldo disponibile",
+  "perp.button_disable_perp": "Non disponibile",
+  "perp.button_ip_restricted": "IP limitato",
   "perp.close_position": "Chiudi posizione",
   "perp.close_position_amount_input": "Inserisci la dimensione da chiudere",
   "perp.close_position_button_limit": "Chiusura con limite",

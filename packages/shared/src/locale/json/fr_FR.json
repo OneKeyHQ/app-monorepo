@@ -2051,6 +2051,8 @@
   "perp.account_panel_account_value_tooltip": "Valeur totale du compte Perps, incluant le solde disponible et les P&L non réalisés des positions ouvertes. Ceci ne représente pas le montant retirable.",
   "perp.account_panel_withrawable_value": "Valeur Retirable",
   "perp.available_balance": "Solde disponible",
+  "perp.button_disable_perp": "Pas disponible",
+  "perp.button_ip_restricted": "IP restreinte",
   "perp.close_position": "Fermer la position",
   "perp.close_position_amount_input": "Saisir la taille à fermer",
   "perp.close_position_button_limit": "Limite de clôture",

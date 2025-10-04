@@ -2051,6 +2051,8 @@
   "perp.account_panel_account_value_tooltip": "Total Perps account value, including available balance and unrealized P&L from open positions. This does not represent withdrawable amount.",
   "perp.account_panel_withrawable_value": "Withdrawable Value",
   "perp.available_balance": "Available balance",
+  "perp.button_disable_perp": "Not Available",
+  "perp.button_ip_restricted": "IP restricted",
   "perp.close_position": "Close position",
   "perp.close_position_amount_input": "Enter size to close",
   "perp.close_position_button_limit": "Limit Close",
