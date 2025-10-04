@@ -212,7 +212,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: swapRouters,
           trackId: 'global-trade',
         },
-        perpTabShowRes,
+        // perpTabShowRes,
         {
           name: ETabRoutes.Earn,
           tabBarIcon: (focused?: boolean) =>
@@ -281,7 +281,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       params,
       isShowMarketTab,
       handleMarketTabPress,
-      perpTabShowRes,
+      // perpTabShowRes,
       isShowMyOneKeyOnTabbar,
       toReferFriendsPage,
       toMyOneKeyModal,
