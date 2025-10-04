@@ -244,7 +244,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               trackId: 'global-my-onekey',
             }
           : undefined,
-        // isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
+        isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev
           ? {
               name: ETabRoutes.Me,
