@@ -423,7 +423,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         try {
             writeFileContent(fallbackUpdateBundleDataFile, fallbackUpdateBundleDataString);
         } catch (IOException e) {
-
+            staticLog(TAG, "writeFallbackUpdateBundleDataFile:" + e.getMessage());
         }
     }
 
@@ -786,6 +786,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             clearDownloadTask();
             promise.resolve(null);
         } catch (Exception e) {
+            staticLog(TAG, "clearBundle:" + e.getMessage());
             promise.reject("CLEAR_ERROR", e.getMessage());
         }
     }
@@ -858,6 +859,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         try {
             result = Verification.testExtractedSha256FromVerifyAscFile(cacheFilePath);
         } catch (Exception e) {
+            staticLog(TAG, "testVerification:" + e.getMessage());
             throw new RuntimeException(e);
         }
         promise.resolve(result);
