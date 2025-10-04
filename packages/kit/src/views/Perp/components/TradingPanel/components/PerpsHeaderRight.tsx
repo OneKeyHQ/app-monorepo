@@ -146,9 +146,17 @@ function DepositButton() {
         borderBottomWidth={12}
         borderColor="$borderSubdued"
       />
-      <SizableText size="$bodySmMedium" color="$text">
-        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-      </SizableText>
+      {gtSm ? (
+        <SizableText size="$bodySmMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      ) : (
+        <PerpsAccountNumberValue
+          value={accountValue ?? ''}
+          skeletonWidth={60}
+          textSize="$bodySmMedium"
+        />
+      )}
     </Badge>
   ) : null;
   return (

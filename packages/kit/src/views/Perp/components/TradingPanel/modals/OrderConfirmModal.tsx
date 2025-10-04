@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Divider,
   SizableText,
   XStack,
   YStack,

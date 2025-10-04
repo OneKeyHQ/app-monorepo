@@ -47,6 +47,7 @@ import {
   MIN_DEPOSIT_AMOUNT,
   MIN_WITHDRAW_AMOUNT,
   USDC_TOKEN_INFO,
+  WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
@@ -308,7 +309,13 @@ function DepositWithdrawContent({
     },
     [showMinAmountError],
   );
+  const calculateFinalAmount = (withdrawFee: number): string => {
+    const result = new BigNumber(amount || '0').minus(
+      selectedAction === 'withdraw' ? withdrawFee : 0,
+    );
 
+    return result.isPositive() ? result.toFixed() : '0';
+  };
   const handleAmountBlur = useCallback(() => {
     if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
       if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
@@ -567,7 +574,9 @@ function DepositWithdrawContent({
       <YStack gap="$2">
         <XStack
           borderWidth="$px"
-          borderColor={errorMessage ? '$red7' : '$borderSubdued'}
+          borderColor={
+            errorMessage || isInsufficientBalance ? '$red7' : '$borderSubdued'
+          }
           borderRadius="$3"
           px="$3"
           bg="$bgSubdued"
@@ -616,13 +625,18 @@ function DepositWithdrawContent({
             {errorMessage}
           </SizableText>
         ) : null}
-        {isInsufficientBalance ? (
+        {isInsufficientBalance && selectedAction === 'deposit' ? (
           <XStack gap="$1">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage(
                 { id: ETranslations.earn_not_enough_token },
                 { token: 'USDC' },
               )}
+            </SizableText>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_deposit_try_to,
+              })}
             </SizableText>
             <SizableText
               size="$bodySm"
@@ -641,7 +655,7 @@ function DepositWithdrawContent({
           <SizableText size="$bodyMd" color="$textSubdued">
             {selectedAction === 'withdraw'
               ? intl.formatMessage({
-                  id: ETranslations.perp_trade_withdrawable,
+                  id: ETranslations.perp_account_panel_withrawable_value,
                 })
               : intl.formatMessage({
                   id: ETranslations.perp_available_balance,
@@ -659,29 +673,96 @@ function DepositWithdrawContent({
                 onPress={handleMaxPress}
                 size="$bodyMd"
               >
-                {(availableBalance.displayBalance || '0.00').toString()}
+                {`${availableBalance.displayBalance || '0.00'} USDC`}
               </DashText>
             )}
-            <SizableText
-              size="$bodyMd"
-              color="$green11"
-              cursor="pointer"
-              onPress={handleTrade}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_trade,
-              })}
-            </SizableText>
+            {selectedAction === 'withdraw' ? null : (
+              <SizableText
+                size="$bodyMd"
+                color="$green11"
+                cursor="pointer"
+                onPress={handleTrade}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.global_trade,
+                })}
+              </SizableText>
+            )}
           </XStack>
         </XStack>
-
+        {selectedAction === 'withdraw' ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            {gtMd ? (
+              <Tooltip
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                    cursor="help"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_withdraw_fee,
+                    })}
+                  </DashText>
+                }
+                renderContent={
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.perp_withdraw_fee_mgs,
+                    })}
+                  </SizableText>
+                }
+              />
+            ) : (
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.perp_withdraw_fee,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    dashColor="$textDisabled"
+                    dashThickness={0.3}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_withdraw_fee,
+                    })}
+                  </DashText>
+                }
+                renderContent={() => (
+                  <YStack px="$5" pb="$4">
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_withdraw_fee_mgs,
+                      })}
+                    </SizableText>
+                  </YStack>
+                )}
+              />
+            )}
+            <SizableText color="$text" size="$bodyMd">
+              ${WITHDRAW_FEE}
+            </SizableText>
+          </XStack>
+        ) : null}
         <XStack justifyContent="space-between" alignItems="center">
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
           </SizableText>
           <SizableText color="$text" size="$bodyMd">
-            ${amount || '0'} on{' '}
-            {selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One'}
+            ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
+            {intl.formatMessage(
+              {
+                id: ETranslations.perp_deposit_on,
+              },
+              {
+                chain:
+                  selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One',
+              },
+            )}
           </SizableText>
         </XStack>
       </YStack>
