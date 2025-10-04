@@ -33,10 +33,7 @@ if (platformEnv.isNative) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
     const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc').pop();
-    const assetsPath =
-      Platform.OS === 'android'
-        ? `file://${mainBundlePath}/assets/`
-        : `${mainBundlePath}/`;
+    const assetsPath = `file://${mainBundlePath}/assets/`;
     const { Platform, PixelRatio } = require('react-native');
     const AssetSourceResolver =
       require('react-native/Libraries/Image/AssetSourceResolver').default;
@@ -87,11 +84,10 @@ if (platformEnv.isNative) {
           if (useJsBundle) {
             defaultLogger.app.error.log(
               `android useJsBundle start`,
-              mainBundlePath,
+              assetsPath,
             );
-            const mainBundleUri = `file://${mainBundlePath}/assets/`;
             const asset = this.fromSource(
-              mainBundleUri + getAssetPathInDrawableFolder(this.asset),
+              assetsPath + getAssetPathInDrawableFolder(this.asset),
             );
             defaultLogger.app.error.log(`android useJsBundle end`, asset.uri);
             return asset;
@@ -117,14 +113,8 @@ if (platformEnv.isNative) {
           defaultLogger.app.error.log(`iOSAsset: ${iOSAsset.uri}`);
           defaultLogger.app.error.log(`iOSAsset end`);
           if (useJsBundle) {
-            defaultLogger.app.error.log(`useJsBundle start`, mainBundlePath);
-            const mainBundleUri = !mainBundlePath.startsWith('file://')
-              ? `file://${mainBundlePath}`
-              : mainBundlePath;
-            iOSAsset.uri = iOSAsset.uri.replace(
-              this.jsbundleUrl,
-              mainBundleUri,
-            );
+            defaultLogger.app.error.log(`useJsBundle start`, assetsPath);
+            iOSAsset.uri = iOSAsset.uri.replace(this.jsbundleUrl, assetsPath);
             defaultLogger.app.error.log(`useJsBundle end`, iOSAsset.uri);
           }
           return iOSAsset;
