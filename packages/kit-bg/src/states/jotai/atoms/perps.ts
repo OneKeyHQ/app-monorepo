@@ -150,6 +150,18 @@ export const {
   },
 });
 
+export const {
+  target: perpsActiveAccountIsAgentReadyAtom,
+  use: usePerpsActiveAccountIsAgentReadyAtom,
+} = globalAtomComputedR<{ isAgentReady: boolean }>({
+  read: (get) => {
+    const status = get(perpsActiveAccountStatusAtom.atom());
+    return {
+      isAgentReady: Boolean(status?.details?.agentOk && status?.canTrade),
+    };
+  },
+});
+
 export interface IPerpsAccountLoadingInfo {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;

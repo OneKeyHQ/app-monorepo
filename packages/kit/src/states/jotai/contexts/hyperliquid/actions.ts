@@ -8,6 +8,7 @@ import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/Co
 import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
 import {
   perpsActiveAccountAtom,
+  perpsActiveAccountIsAgentReadyAtom,
   perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
@@ -729,13 +730,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  isAgentReady = contextAtomMethod((get, set) => {
-    const accountStatus = get(perpsActiveAccountStatusAtom.atom());
-    return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
-  });
-
-  ensureTradingEnabled = contextAtomMethod((get, set) => {
-    if (!this.isAgentReady.call(set) === false) {
+  ensureTradingEnabled = contextAtomMethod((get, _set) => {
+    const { isAgentReady } = get(perpsActiveAccountIsAgentReadyAtom.atom());
+    if (isAgentReady === false) {
       showEnableTradingDialog();
       throw new OneKeyLocalError('Trading not enabled');
     }
@@ -914,7 +911,6 @@ export function useHyperliquidActions() {
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
   const changeActiveAsset = actions.changeActiveAsset.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
-  const isAgentReady = actions.isAgentReady.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
   const refreshAllPerpsData = actions.refreshAllPerpsData.use();
 
@@ -950,7 +946,6 @@ export function useHyperliquidActions() {
     withdraw,
     closeAllPositions,
     showSetPositionTpslUI,
-    isAgentReady,
     ensureTradingEnabled,
     ensureOrderBookTickOptionsLoaded,
     setOrderBookTickOption,

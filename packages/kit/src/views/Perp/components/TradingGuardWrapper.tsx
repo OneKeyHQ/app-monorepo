@@ -1,11 +1,15 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import { noop } from 'lodash';
+
 import { Button, SizableText, useInTabDialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
+  usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -27,7 +31,7 @@ function TradingGuardWrapperInternal({
 }: ITradingGuardWrapperProps) {
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-  const actions = useHyperliquidActions();
+  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
 
   // Memoize account info to optimize callback dependencies
   const accountInfo = useMemo(
@@ -60,10 +64,9 @@ function TradingGuardWrapperInternal({
     }
   }, [accountInfo.accountAddress, accountInfo.accountId, dialogInTab]);
 
-  const shouldShowEnableTrading = useMemo(
-    () => forceShowEnableTrading || actions.current.isAgentReady() === false,
-    [forceShowEnableTrading, actions],
-  );
+  const shouldShowEnableTrading = useMemo(() => {
+    return forceShowEnableTrading || isAgentReady === false;
+  }, [forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
 
