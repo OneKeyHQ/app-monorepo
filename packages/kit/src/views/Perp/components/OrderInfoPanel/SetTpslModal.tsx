@@ -146,7 +146,7 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
-        hyperliquidActions.current.ensureTradingEnabled();
+        await hyperliquidActions.current.ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.coin,
