@@ -305,12 +305,12 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
-      latestVersion: '0.0.0',
+      latestVersion: platformEnv.version,
+      jsBundleVersion: platformEnv.bundleVersion,
       updateStrategy: EUpdateStrategy.manual,
       updateAt: 0,
       summary: '',
       status: EAppUpdateStatus.done,
-      jsBundleVersion: undefined,
       jsBundle: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
