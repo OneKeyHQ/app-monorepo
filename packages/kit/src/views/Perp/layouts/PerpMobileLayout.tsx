@@ -120,6 +120,7 @@ export function PerpMobileLayout() {
   );
   return (
     <Tabs.Container
+      allowHeaderOverscroll
       ref={tabsRef as any}
       renderHeader={() => tabHeader}
       initialTabName="Positions"
