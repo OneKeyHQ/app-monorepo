@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,7 +11,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Button,
-  DashText,
   DebugRenderTracker,
   IconButton,
   Input,
@@ -26,9 +25,11 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 const TradesHistoryLoadingView = () => {
@@ -321,6 +322,12 @@ export function CommonTableListView({
     return Math.ceil(data.length / pageSize);
   }, [data.length, pageSize, enablePagination]);
 
+  const actions = useHyperliquidActions();
+
+  const onRefresh = useCallback(async () => {
+    await actions.current.refreshAllPerpsData();
+  }, [actions]);
+
   const handlePreviousPage = () => {
     if (currentListPage && currentListPage > 1 && setCurrentListPage) {
       setCurrentListPage(currentListPage - 1);
@@ -339,10 +346,12 @@ export function CommonTableListView({
     }
   };
   const ListComponent = useTabsList ? Tabs.FlatList : ListView;
+
   if (isMobile) {
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
+          refreshControl={<PullToRefresh onRefresh={onRefresh} />}
           data={paginatedData}
           ListFooterComponent={
             enablePagination &&
