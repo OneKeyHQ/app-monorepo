@@ -367,10 +367,7 @@ class ServiceAppUpdate extends ServiceBase {
         releaseInfo.jsBundleVersion,
       );
       await appUpdatePersistAtom.set((prev) => {
-        const isUpdating = releaseInfo.jsBundleVersion
-          ? prev.jsBundleVersion === releaseInfo.jsBundleVersion &&
-            prev.latestVersion === releaseInfo.version
-          : prev.latestVersion === releaseInfo.version;
+        const isUpdating = prev.status !== EAppUpdateStatus.done;
         return {
           ...prev,
           ...releaseInfo,
