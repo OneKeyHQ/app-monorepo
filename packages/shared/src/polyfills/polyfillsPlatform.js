@@ -32,7 +32,7 @@ if (platformEnv.isNative) {
   if (useJsBundle) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
-    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc').pop();
+    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
     const assetsPath = `file://${mainBundlePath}/assets/`;
     const { Platform, PixelRatio } = require('react-native');
     const AssetSourceResolver =
