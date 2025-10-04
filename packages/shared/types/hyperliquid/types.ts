@@ -101,16 +101,6 @@ export interface ICancelOrderParams {
   oid: number;
 }
 
-export interface IMultiOrderParams {
-  orders: Array<{
-    assetId: number;
-    isBuy: boolean;
-    sz: string;
-    limitPx: string;
-    orderType: { limit: { tif: 'Gtc' | 'Ioc' } };
-  }>;
-}
-
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
 }

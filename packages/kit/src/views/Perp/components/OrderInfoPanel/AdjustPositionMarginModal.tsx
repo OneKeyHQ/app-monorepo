@@ -190,7 +190,7 @@ const AdjustPositionMarginForm = memo(
       hyperliquidActions,
     ]);
 
-    if (!currentPosition || !assetId) {
+    if (!currentPosition || assetId === null) {
       return null;
     }
 

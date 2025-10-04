@@ -415,11 +415,6 @@ function DepositWithdrawContent({
           ],
         });
 
-        Toast.success({
-          title: 'Deposit Initiated',
-          message: `${amount} USDC deposit transaction has been submitted`,
-        });
-
         onClose?.();
       } else {
         await withdraw({
