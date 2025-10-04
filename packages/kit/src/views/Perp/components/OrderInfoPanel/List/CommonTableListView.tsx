@@ -25,10 +25,10 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
