@@ -462,7 +462,7 @@ function PerpTradingForm({
           disabled={sliderDisabled}
           segments={4}
           step={1}
-          h="$1.5"
+          h="$0.5"
         />
         {shouldShowEnableTradingButton && isMobile ? null : (
           <YStack gap="$1" mt="$1">
@@ -637,7 +637,7 @@ function PerpTradingForm({
           sliderPercent={tradingComputed.sizePercent}
           onRequestManualMode={switchToManual}
         />
-        <YStack mt="$3">
+        <YStack>
           <Slider
             width="100%"
             min={0}
@@ -647,6 +647,7 @@ function PerpTradingForm({
             disabled={sliderDisabled}
             segments={4}
             step={1}
+            h={3}
           />
         </YStack>
 

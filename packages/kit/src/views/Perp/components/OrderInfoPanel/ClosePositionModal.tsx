@@ -1,10 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { isNil } from 'lodash';
 
 import {
   Button,
   Dialog,
+  Divider,
   Icon,
   SizableText,
   Slider,
@@ -12,8 +14,12 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { usePerpsAllMidsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useHyperliquidActions,
+  usePerpsAllMidsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -22,10 +28,7 @@ import {
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IOrderResponse,
-  IWsWebData2,
-} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
@@ -47,27 +50,6 @@ interface IClosePositionFormData {
 interface IClosePositionParams {
   position: IPosition;
   type: ICloseType;
-  szDecimals: number;
-  assetId: number;
-  hyperliquidActions: {
-    current: {
-      ordersClose: (
-        params: {
-          assetId: number;
-          isBuy: boolean;
-          size: string;
-          midPx: string;
-        }[],
-      ) => Promise<IOrderResponse>;
-      limitOrderClose: (params: {
-        assetId: number;
-        isBuy: boolean;
-        size: string;
-        limitPrice: string;
-      }) => Promise<IOrderResponse>;
-      resetTradingForm: () => void;
-    };
-  };
 }
 
 interface IClosePositionFormProps extends IClosePositionParams {
@@ -75,15 +57,17 @@ interface IClosePositionFormProps extends IClosePositionParams {
 }
 
 const ClosePositionForm = memo(
-  ({
-    position,
-    type,
-    szDecimals,
-    assetId,
-    hyperliquidActions,
-    onClose,
-  }: IClosePositionFormProps) => {
+  ({ position, type, onClose }: IClosePositionFormProps) => {
     const [allMids] = usePerpsAllMidsAtom();
+    const hyperliquidActions = useHyperliquidActions();
+
+    const { result: tokenInfo } = usePromiseResult(async () => {
+      return backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+        coin: position.coin,
+      });
+    }, [position.coin]);
+    const szDecimals = tokenInfo?.universe?.szDecimals ?? 2;
+    const assetId = tokenInfo?.assetId;
 
     const midPrice = useMemo(() => {
       return allMids?.mids?.[position.coin] || '0';
@@ -229,6 +213,9 @@ const ClosePositionForm = memo(
 
     const handleSubmit = useCallback(async () => {
       try {
+        if (isNil(assetId) || Number.isNaN(assetId)) {
+          return;
+        }
         if (isMountedRef.current) {
           setIsSubmitting(true);
         }
@@ -237,17 +224,19 @@ const ClosePositionForm = memo(
         const closeAmountBN = new BigNumber(closeAmount);
 
         if (!closeAmount || closeAmountBN.lte(0)) {
-          throw new OneKeyLocalError({
-            message: 'Please enter a valid amount',
+          Toast.error({
+            title: 'Please enter a valid amount',
           });
+          return;
         }
 
         if (formData.type === 'market') {
           const latestMidPrice = midPrice;
           if (!latestMidPrice || latestMidPrice === '0') {
-            throw new OneKeyLocalError({
-              message: 'Unable to get current market price',
+            Toast.error({
+              title: 'Unable to get current market price',
             });
+            return;
           }
 
           await hyperliquidActions.current.ordersClose([
@@ -261,9 +250,10 @@ const ClosePositionForm = memo(
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
           if (!formData.limitPrice || limitPriceBN.lte(0)) {
-            throw new OneKeyLocalError({
-              message: 'Please enter a valid limit price',
+            Toast.error({
+              title: 'Please enter a valid limit price',
             });
+            return;
           }
 
           await hyperliquidActions.current.limitOrderClose({
@@ -278,17 +268,6 @@ const ClosePositionForm = memo(
         if (isMountedRef.current) {
           onClose();
         }
-      } catch (error) {
-        if (isMountedRef.current) {
-          Toast.error({
-            title: 'Close Position Failed',
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Failed to close position',
-          });
-        }
-        throw error;
       } finally {
         if (isMountedRef.current) {
           setIsSubmitting(false);
@@ -432,7 +411,7 @@ const ClosePositionForm = memo(
             </XStack>
           </XStack>
         </YStack>
-
+        <Divider />
         {formData.type === 'limit' ? (
           <PriceInput
             label={appLocale.intl.formatMessage({
@@ -507,9 +486,6 @@ ClosePositionForm.displayName = 'ClosePositionForm';
 export function showClosePositionDialog({
   position,
   type,
-  szDecimals,
-  assetId,
-  hyperliquidActions,
 }: IClosePositionParams) {
   const dialogInstance = Dialog.show({
     title: appLocale.intl.formatMessage({
@@ -520,9 +496,6 @@ export function showClosePositionDialog({
         <ClosePositionForm
           position={position}
           type={type}
-          szDecimals={szDecimals}
-          assetId={assetId}
-          hyperliquidActions={hyperliquidActions}
           onClose={() => dialogInstance.close()}
         />
       </PerpsProviderMirror>

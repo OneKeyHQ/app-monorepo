@@ -8,6 +8,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { getValidPriceDecimals } from '@onekeyhq/shared/src/utils/perpsUtils';
 
@@ -15,6 +16,24 @@ import { calcCellAlign, getColumnStyle } from '../utils';
 
 import type { IColumnConfig } from '../List/CommonTableListView';
 import type { FrontendOrder } from '@nktkas/hyperliquid';
+
+const balanceFormatter: INumberFormatProps = {
+  formatter: 'balance',
+};
+
+const balanceCurrencyFormatter: INumberFormatProps = {
+  formatter: 'balance',
+  formatterOptions: {
+    currency: '$',
+  },
+};
+
+const priceFormatter: INumberFormatProps = {
+  formatter: 'price',
+  formatterOptions: {
+    currency: '$',
+  },
+};
 
 interface IOpenOrdersRowProps {
   order: FrontendOrder;
@@ -70,9 +89,7 @@ const OpenOrdersRow = memo(
       const decimals = getValidPriceDecimals(price);
       const triggerCondition = order.triggerCondition;
       const origSizeBN = new BigNumber(origSize);
-      const origSizeFormatted = numberFormat(origSize, {
-        formatter: 'balance',
-      });
+      const origSizeFormatted = numberFormat(origSize, balanceFormatter);
       const executePriceFormatted = new BigNumber(executePrice).toFixed(
         decimals,
       );
@@ -80,16 +97,9 @@ const OpenOrdersRow = memo(
         executePriceLimit,
       ).toFixed(decimals);
       const priceFormatted = new BigNumber(price).toFixed(decimals);
-      const sizeFormatted = numberFormat(size, {
-        formatter: 'balance',
-      });
+      const sizeFormatted = numberFormat(size, balanceFormatter);
       const value = priceBN.times(origSizeBN).toFixed();
-      const valueFormatted = numberFormat(value, {
-        formatter: 'balance',
-        formatterOptions: {
-          currency: '$',
-        },
-      });
+      const valueFormatted = numberFormat(value, balanceCurrencyFormatter);
       return {
         triggerCondition,
         origSizeFormatted,
@@ -115,23 +125,9 @@ const OpenOrdersRow = memo(
         const tpslOrders = tpslChildren.filter((child) => child.isPositionTpsl);
         tpslOrders.forEach((child) => {
           if (child.orderType.startsWith('Take')) {
-            tpPrice = `${
-              numberFormat(child.triggerPx, {
-                formatter: 'price',
-                formatterOptions: {
-                  currency: '$',
-                },
-              }) as string
-            }`;
+            tpPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
           } else if (child.orderType.startsWith('Stop')) {
-            slPrice = `${
-              numberFormat(child.triggerPx, {
-                formatter: 'price',
-                formatterOptions: {
-                  currency: '$',
-                },
-              }) as string
-            }`;
+            slPrice = `${numberFormat(child.triggerPx, priceFormatter)}`;
           }
         });
       }
@@ -210,9 +206,7 @@ const OpenOrdersRow = memo(
               })}
             </SizableText>
             <SizableText size="$bodySm">
-              {`${orderBaseInfo.sizeFormatted as string} / ${
-                orderBaseInfo.origSizeFormatted as string
-              }`}
+              {`${orderBaseInfo.sizeFormatted} / ${orderBaseInfo.origSizeFormatted}`}
             </SizableText>
           </XStack>
           <XStack
@@ -346,7 +340,7 @@ const OpenOrdersRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${orderBaseInfo.sizeFormatted as string}`}</SizableText>
+          >{`${orderBaseInfo.sizeFormatted}`}</SizableText>
         </XStack>
 
         {/* Original size */}
@@ -359,7 +353,7 @@ const OpenOrdersRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${orderBaseInfo.origSizeFormatted as string}`}</SizableText>
+          >{`${orderBaseInfo.origSizeFormatted}`}</SizableText>
         </XStack>
 
         {/* value */}
@@ -372,7 +366,7 @@ const OpenOrdersRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-          >{`${orderBaseInfo.valueFormatted as string}`}</SizableText>
+          >{`${orderBaseInfo.valueFormatted}`}</SizableText>
         </XStack>
 
         {/* Execute price */}

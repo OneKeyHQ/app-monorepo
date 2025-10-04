@@ -115,3 +115,5 @@ export type IPerpsSubscriptionParams = {
   [ESubscriptionType.TRADES]: IEventTradesParameters;
   [ESubscriptionType.BBO]: IEventBboParameters;
 };
+
+export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;

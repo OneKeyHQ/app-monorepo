@@ -21,6 +21,8 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
@@ -44,10 +46,12 @@ function DebugButton() {
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const { assetCtx: btcAssetCtx } = usePerpsAssetCtx({ assetId: 0 });
   const { mid: btcMid, midFormattedByDecimals: btcMidFormattedByDecimals } =
-    usePerpsMidPrice({ coin: 'BTC', szDecimals: 2 });
+    usePerpsMidPrice({ coin: 'BTC' });
 
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
@@ -83,6 +87,8 @@ function DebugButton() {
             activeOpenOrders,
             activePositions,
             activeOrderBookOptions,
+            activeAccountStatus,
+            isAgentReady,
           });
         }}
       />
@@ -140,9 +146,17 @@ function DepositButton() {
         borderBottomWidth={12}
         borderColor="$borderSubdued"
       />
-      <SizableText size="$bodySmMedium" color="$text">
-        {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-      </SizableText>
+      {gtSm ? (
+        <SizableText size="$bodySmMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      ) : (
+        <PerpsAccountNumberValue
+          value={accountValue ?? ''}
+          skeletonWidth={60}
+          textSize="$bodySmMedium"
+        />
+      )}
     </Badge>
   ) : null;
   return (
@@ -153,13 +167,14 @@ function DepositButton() {
 }
 
 export function PerpsHeaderRight() {
+  const { gtMd } = useMedia();
   const content = (
     <XStack alignItems="center" gap="$5">
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
-      {platformEnv.isNative ? null : (
+      {gtMd ? (
         <PerpSettingsButton testID="perp-header-settings-button" />
-      )}
+      ) : null}
     </XStack>
   );
   return (

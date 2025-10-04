@@ -16,6 +16,7 @@ export const HYPERLIQUID_DEPOSIT_ADDRESS =
   '0x2df1c51e09aecf9cacb7bc98cb1742757f163df7' as IHex;
 
 export const MIN_DEPOSIT_AMOUNT = 5;
+export const WITHDRAW_FEE = 1;
 
 export const USDC_TOKEN_INFO = {
   address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as IHex,

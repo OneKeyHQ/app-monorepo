@@ -163,6 +163,7 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   {
     name: EModalRoutes.AppUpdateModal,
+    rewrite: '/update',
     children: AppUpdateRouter,
   },
   {
