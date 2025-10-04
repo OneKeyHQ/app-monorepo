@@ -508,6 +508,37 @@ didFinishDownloadingToURL:(NSURL *)location {
         NSError *moveError;
         NSString *filePath = self.downloadBundleResult[@"downloadedFile"];
         NSString *sha256 = self.downloadBundleResult[@"sha256"];
+        NSString *downloadDir = [BundleUpdateModule downloadBundleDir];
+        BOOL isExist = [[NSFileManager defaultManager] fileExistsAtPath:downloadDir];
+        DDLogDebug(@"downloadBundle: downloadDir path: %@", downloadDir);
+        DDLogDebug(@"downloadBundle: isExist: %@", isExist ? @"YES" : @"NO");
+        DDLogDebug(@"downloadBundle: location.path: %@", location.path);
+        DDLogDebug(@"downloadBundle: filePath: %@", filePath);
+        DDLogDebug(@"downloadBundle: Attempting to move file from %@ to %@", location.path, filePath);
+        
+        // Check if source file exists
+        BOOL sourceExists = [[NSFileManager defaultManager] fileExistsAtPath:location.path];
+        DDLogDebug(@"downloadBundle: Source file exists: %@", sourceExists ? @"YES" : @"NO");
+        
+        // Check if destination directory exists, create if needed
+        NSString *destinationDir = [filePath stringByDeletingLastPathComponent];
+        BOOL destDirExists = [[NSFileManager defaultManager] fileExistsAtPath:destinationDir];
+        DDLogDebug(@"downloadBundle: destinationDir path: %@", destinationDir);
+        DDLogDebug(@"downloadBundle: Destination directory exists: %@", destDirExists ? @"YES" : @"NO");
+        
+        if (!destDirExists) {
+            NSError *createDirError;
+            BOOL createSuccess = [[NSFileManager defaultManager] createDirectoryAtPath:destinationDir withIntermediateDirectories:YES attributes:nil error:&createDirError];
+            DDLogDebug(@"downloadBundle: Create directory success: %@, error: %@", createSuccess ? @"YES" : @"NO", createDirError.localizedDescription);
+        }
+        // Check if destination file already exists and remove it
+        BOOL destFileExists = [[NSFileManager defaultManager] fileExistsAtPath:filePath];
+        if (destFileExists) {
+            NSError *removeError;
+            BOOL removeSuccess = [[NSFileManager defaultManager] removeItemAtPath:filePath error:&removeError];
+            DDLogDebug(@"downloadBundle: Removed existing destination file: %@, error: %@", removeSuccess ? @"YES" : @"NO", removeError.localizedDescription);
+        }
+        
         BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
         DDLogDebug(@"downloadBundle: success: %@, moveError: %@", success ? @"YES" : @"NO");
         if (!success) {
