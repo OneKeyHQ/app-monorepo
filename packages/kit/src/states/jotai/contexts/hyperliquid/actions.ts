@@ -9,10 +9,13 @@ import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components
 import {
   perpsActiveAccountAtom,
   perpsActiveAccountIsAgentReadyAtom,
+  perpsActiveAccountStatusInfoAtom,
+  perpsActiveAccountSummaryAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -239,22 +242,33 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   changeActiveAsset = contextAtomMethod(
     async (get, set, { coin, force }: { coin: string; force?: boolean }) => {
       const activeAsset = await perpsActiveAssetAtom.get();
-      const currentToken = activeAsset?.coin;
-      if (currentToken === coin && !force) return;
+      if (activeAsset?.coin === coin && !force) {
+        return;
+      }
 
+      await this.clearActiveAssetData.call(set);
       await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
         coin,
       });
+    },
+  );
 
-      const currentForm = get(tradingFormAtom());
-      set(tradingFormAtom(), {
-        ...currentForm,
-        size: '',
-        tpTriggerPx: '',
-        tpGainPercent: '',
-        slTriggerPx: '',
-        slLossPercent: '',
-      });
+  changeActivePerpsAccount = contextAtomMethod(
+    async (
+      get,
+      set,
+      params: {
+        accountId: string | null;
+        indexedAccountId: string | null;
+        deriveType: IAccountDeriveTypes;
+      },
+    ) => {
+      await this.clearActiveAccountData.call(set);
+      const account =
+        await backgroundApiProxy.serviceHyperliquid.changeActivePerpsAccount(
+          params,
+        );
+      return account;
     },
   );
 
@@ -345,9 +359,36 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  // reset user data
-  clearUserData = contextAtomMethod((get, set) => {
-    // TODO
+  clearActiveAssetData = contextAtomMethod(async (get, set) => {
+    set(l2BookAtom(), null);
+    await perpsActiveAssetCtxAtom.set(undefined);
+    await perpsActiveAssetDataAtom.set(undefined);
+
+    set(
+      tradingFormAtom(),
+      (prev): ITradingFormData => ({
+        ...prev,
+        size: '',
+        tpTriggerPx: '',
+        tpGainPercent: '',
+        slTriggerPx: '',
+        slLossPercent: '',
+      }),
+    );
+  });
+
+  clearActiveAccountData = contextAtomMethod(async (get, set) => {
+    set(perpsActivePositionAtom(), {
+      accountAddress: undefined,
+      activePositions: [],
+    });
+    set(perpsActiveOpenOrdersAtom(), {
+      accountAddress: undefined,
+      openOrders: [],
+    });
+    await perpsActiveAccountSummaryAtom.set(undefined);
+    await perpsActiveAccountStatusInfoAtom.set(undefined);
+    await perpsActiveAssetDataAtom.set(undefined);
   });
 
   // reset all data
@@ -886,7 +927,6 @@ export function useHyperliquidActions() {
 
   const enableTrading = actions.enableTrading.use();
 
-  const clearUserData = actions.clearUserData.use();
   const clearAllData = actions.clearAllData.use();
 
   const updateTradingForm = actions.updateTradingForm.use();
@@ -909,6 +949,7 @@ export function useHyperliquidActions() {
     actions.ensureOrderBookTickOptionsLoaded.use();
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
   const changeActiveAsset = actions.changeActiveAsset.use();
+  const changeActivePerpsAccount = actions.changeActivePerpsAccount.use();
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
   const refreshAllPerpsData = actions.refreshAllPerpsData.use();
@@ -922,12 +963,13 @@ export function useHyperliquidActions() {
     updateL2Book,
     updateConnectionState,
     changeActiveAsset,
+    changeActivePerpsAccount,
+
     updateSubscriptions,
     startSubscriptions,
     stopSubscriptions,
     reconnectSubscriptions,
     enableTrading,
-    clearUserData,
     clearAllData,
 
     updateTradingForm,
