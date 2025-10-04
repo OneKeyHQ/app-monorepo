@@ -1,6 +1,7 @@
 import type {
   EUpdateFileType,
   EUpdateStrategy,
+  IResponseAppUpdateInfo,
 } from '@onekeyhq/shared/src/appUpdate';
 import type {
   IDownloadPackageParams,
@@ -20,6 +21,15 @@ export class AppUpdateScene extends BaseScene {
       fileType,
       updateStrategy,
     };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public fetchConfig(updateInfo: IResponseAppUpdateInfo | undefined) {
+    return updateInfo;
+  }
+
+  isNeedSyncAppUpdateInfo(isNeedSync: boolean) {
+    return isNeedSync;
   }
 
   @LogToLocal({ level: 'info' })
