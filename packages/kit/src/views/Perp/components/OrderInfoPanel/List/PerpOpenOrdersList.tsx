@@ -31,7 +31,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
   const handleCancelAll = useCallback(async () => {
-    actions.current.ensureTradingEnabled();
+    await actions.current.ensureTradingEnabled();
     const symbolsMetaMap =
       await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
         coins: orders.map((o) => o.coin),
@@ -148,7 +148,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
 
   const handleCancelOrder = useCallback(
     async (order: FrontendOrder) => {
-      actions.current.ensureTradingEnabled();
+      await actions.current.ensureTradingEnabled();
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: order.coin,

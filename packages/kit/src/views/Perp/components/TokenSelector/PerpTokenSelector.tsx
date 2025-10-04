@@ -92,6 +92,7 @@ function BasePerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   const intl = useIntl();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { searchQuery, setSearchQuery, refreshAllAssets } =
     usePerpTokenSelector();
   const { closePopover } = usePopoverContext();
@@ -140,7 +141,7 @@ function BasePerpTokenSelectorContent({
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
-        <Button onPress={refreshAllAssets}>{filteredTokensLength}</Button>
+        {/* <Button onPress={refreshAllAssets}>{filteredTokensLength}</Button> */}
         <TokenListHeader />
       </YStack>
 
