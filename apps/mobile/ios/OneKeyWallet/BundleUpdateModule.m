@@ -44,9 +44,13 @@ RCT_EXPORT_MODULE();
     return @[@"update/start", @"update/downloading", @"update/complete", @"update/error"];
 }
 
++ (NSString *)documentDirectory {
+    return [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask, YES) objectAtIndex:0];
+}
+
 + (NSString *)downloadBundleDir {
-    NSString *homeDir = NSHomeDirectory();
-    NSString *bundleUpdateDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle-download"];
+    NSString *documentDirectory = [BundleUpdateModule documentDirectory];
+    NSString *bundleUpdateDir = [documentDirectory stringByAppendingPathComponent:@"onekey-bundle-download"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:bundleUpdateDir]) {
         [[NSFileManager defaultManager] createDirectoryAtPath:bundleUpdateDir withIntermediateDirectories:YES attributes:nil error:nil];
     }
@@ -54,8 +58,8 @@ RCT_EXPORT_MODULE();
 }
 
 + (NSString *)bundleDir {
-    NSString *homeDir = NSHomeDirectory();
-    NSString *bundleDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle"];
+    NSString *documentDirectory = [BundleUpdateModule documentDirectory];
+    NSString *bundleDir = [documentDirectory stringByAppendingPathComponent:@"onekey-bundle"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:bundleDir]) {
         [[NSFileManager defaultManager] createDirectoryAtPath:bundleDir withIntermediateDirectories:YES attributes:nil error:nil];
     }
