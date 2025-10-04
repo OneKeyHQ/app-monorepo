@@ -143,6 +143,21 @@ export const {
   openOrders: [],
 });
 
+export const {
+  atom: perpsActiveOpenOrdersMapAtom,
+  use: usePerpsActiveOpenOrdersMapAtom,
+} = contextAtomComputed<
+  Partial<{
+    [coin: string]: number[];
+  }>
+>((get) => {
+  const { openOrders } = get(perpsActiveOpenOrdersAtom());
+  return openOrders.reduce((acc, order, index) => {
+    acc[order.coin] = [...(acc[order.coin] || []), index];
+    return acc;
+  }, {} as { [coin: string]: number[] });
+});
+
 export interface ITradingFormEnv {
   markPrice?: string;
   availableToTrade?: Array<number | string>;

@@ -864,6 +864,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
     },
   );
+
+  // refreshAllPerpsData
+  refreshAllPerpsData = contextAtomMethod(async (get, set) => {
+    // TODO
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
@@ -911,6 +916,7 @@ export function useHyperliquidActions() {
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const isAgentReady = actions.isAgentReady.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
+  const refreshAllPerpsData = actions.refreshAllPerpsData.use();
 
   return useRef({
     updateAllAssetsFiltered,
@@ -948,5 +954,6 @@ export function useHyperliquidActions() {
     ensureTradingEnabled,
     ensureOrderBookTickOptionsLoaded,
     setOrderBookTickOption,
+    refreshAllPerpsData,
   });
 }
