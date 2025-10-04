@@ -10,6 +10,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
@@ -22,10 +23,10 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
+let firstLaunch = true;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -98,6 +99,12 @@ class ServiceAppUpdate extends ServiceBase {
     ) {
       return false;
     }
+
+    if (firstLaunch) {
+      firstLaunch = false;
+      return true;
+    }
+
     const timeout =
       timerUtils.getTimeDurationMs({
         hour: 1,
@@ -335,6 +342,7 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async fetchChangeLog() {
     const response = await this.getAppLatestInfo();
+    defaultLogger.app.appUpdate.fetchConfig(response);
     return {
       changeLog: response?.changeLog,
       summary: response?.summary,
@@ -345,11 +353,14 @@ class ServiceAppUpdate extends ServiceBase {
   public async fetchAppUpdateInfo(forceUpdate = false) {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
-    if (!(await this.isNeedSyncAppUpdateInfo())) {
+    const isNeedSync = await this.isNeedSyncAppUpdateInfo();
+    defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
+    if (!isNeedSync) {
       return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
+    defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
       const shouldUpdate = gtVersion(
         releaseInfo.version,
