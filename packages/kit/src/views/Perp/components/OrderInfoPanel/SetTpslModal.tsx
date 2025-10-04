@@ -11,6 +11,7 @@ import {
   Page,
   SizableText,
   Slider,
+  Toast,
   XStack,
   YStack,
   getFontSize,
@@ -21,7 +22,6 @@ import {
   usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -70,6 +70,7 @@ const SetTpslForm = memo(
     onClose = () => {},
   }: ISetTpslFormProps) => {
     const hyperliquidActions = useHyperliquidActions();
+    const { mid: midPrice } = usePerpsMidPrice({ coin, szDecimals });
 
     const [{ activePositions }] = usePerpsActivePositionAtom();
     const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
@@ -266,10 +267,16 @@ const SetTpslForm = memo(
       [positionSize],
     );
 
+    const isValidForm = useMemo(() => {
+      const hasNewTpPrice = !tpOrder && formData.tpPrice.trim() !== '';
+      const hasNewSlPrice = !slOrder && formData.slPrice.trim() !== '';
+      return hasNewTpPrice || hasNewSlPrice;
+    }, [formData.tpPrice, formData.slPrice, tpOrder, slOrder]);
+
     const handleSubmit = useCallback(async () => {
       try {
         setIsSubmitting(true);
-        onClose();
+
         const tpslAmount = configureAmount
           ? formData.amount || calculatedAmount
           : '0';
@@ -277,24 +284,71 @@ const SetTpslForm = memo(
 
         if (configureAmount) {
           if (!tpOrder && !slOrder && (!tpslAmount || tpslAmountBN.lte(0))) {
-            throw new OneKeyLocalError({
-              message: 'Please enter a valid amount',
+            Toast.error({
+              title: 'Please enter a valid amount',
             });
+            return;
           }
 
           if (tpslAmountBN.gt(positionSize)) {
-            throw new OneKeyLocalError({
-              message: 'Amount cannot exceed position size',
+            Toast.error({
+              title: 'Amount cannot exceed position size',
             });
+            return;
           }
         }
 
-        if (!formData.tpPrice && !formData.slPrice) {
-          throw new OneKeyLocalError({
-            message: 'Please set at least TP or SL price',
+        if (!isValidForm) {
+          Toast.error({
+            title: 'Please set at least TP or SL price',
           });
+          return;
         }
 
+        const currentPriceBN = new BigNumber(midPrice || '0');
+        const tpPriceBN = new BigNumber(formData.tpPrice || '0');
+        const slPriceBN = new BigNumber(formData.slPrice || '0');
+
+        const positionType = isLongPosition ? 'Long' : 'Short';
+
+        if (
+          !tpOrder &&
+          formData.tpPrice &&
+          tpPriceBN.isFinite() &&
+          currentPriceBN.gt(0)
+        ) {
+          const isInvalid = isLongPosition
+            ? tpPriceBN.lte(currentPriceBN)
+            : tpPriceBN.gte(currentPriceBN);
+          const comparison = isLongPosition ? 'above' : 'below';
+
+          if (isInvalid) {
+            Toast.error({
+              title: `${positionType} TP must be ${comparison} current price`,
+            });
+            return;
+          }
+        }
+
+        if (
+          !slOrder &&
+          formData.slPrice &&
+          slPriceBN.isFinite() &&
+          currentPriceBN.gt(0)
+        ) {
+          const isInvalid = isLongPosition
+            ? slPriceBN.gte(currentPriceBN)
+            : slPriceBN.lte(currentPriceBN);
+          const comparison = isLongPosition ? 'below' : 'above';
+
+          if (isInvalid) {
+            Toast.error({
+              title: `${positionType} SL must be ${comparison} current price`,
+            });
+            return;
+          }
+        }
+        onClose();
         // Call the actual setPositionTpsl action
         await hyperliquidActions.current.setPositionTpsl({
           assetId,
@@ -323,6 +377,8 @@ const SetTpslForm = memo(
       onClose,
       slOrder,
       tpOrder,
+      midPrice,
+      isValidForm,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties
@@ -525,7 +581,7 @@ const SetTpslForm = memo(
             size={isMobile ? 'large' : 'medium'}
             variant="primary"
             onPress={handleSubmit}
-            disabled={isSubmitting}
+            disabled={!isValidForm || isSubmitting}
             loading={isSubmitting}
           >
             {appLocale.intl.formatMessage({

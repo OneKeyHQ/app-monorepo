@@ -46,7 +46,6 @@ import type {
   IBuilderFeeRequest,
   ICancelOrderParams,
   ILeverageUpdateRequest,
-  IMultiOrderParams,
   IOrderCloseParams,
   IOrderOpenParams,
   IPlaceOrderParams,
@@ -730,42 +729,6 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         extra,
       });
       throw error;
-    }
-  }
-
-  @backgroundMethod()
-  async multiOrder(params: IMultiOrderParams): Promise<IOrderResponse> {
-    await this.checkAccountCanTrade();
-    try {
-      const orderParams = params.orders.map((order) => {
-        const orderParam: IOrderParams = {
-          a: order.assetId,
-          b: order.isBuy,
-          p: order.limitPx,
-          s: order.sz,
-          r: false,
-          t: { limit: { tif: order.orderType.limit.tif } },
-        };
-
-        return orderParam;
-      });
-
-      const response = await this.placeOrderRaw(
-        {
-          orders: orderParams,
-          grouping: 'na',
-        },
-        {
-          action: 'multiOrder',
-          originalParams: params,
-          extra: { orderCount: orderParams.length },
-        },
-      );
-      return response;
-    } catch (error) {
-      throw new OneKeyLocalError(
-        `Failed to place multi orders: ${String(error)}`,
-      );
     }
   }
 

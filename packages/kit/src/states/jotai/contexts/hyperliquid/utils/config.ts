@@ -61,9 +61,18 @@ export const TOAST_CONFIGS: Record<EActionType, IToastConfig> = {
         {
           id: ETranslations.perp_toast_upadating_leverage_sucess,
         },
-        { mode },
+        {
+          type:
+            mode === 'Cross'
+              ? appLocale.intl.formatMessage({
+                  id: ETranslations.perp_trade_cross,
+                })
+              : appLocale.intl.formatMessage({
+                  id: ETranslations.perp_trade_isolated,
+                }),
+        },
       ),
-    successMessage: (leverage: number, mode: string) =>
+    successMessage: (mode: string, leverage: number) =>
       appLocale.intl.formatMessage(
         {
           id: ETranslations.perp_toast_upadating_leverage_sucess_msg,
