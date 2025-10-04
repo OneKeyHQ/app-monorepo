@@ -131,7 +131,7 @@ export function HyperliquidTermsContent({
     const slideImageHeight = gtMd ? 450 : 350;
     const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
     const textPadding = gtMd ? '$5' : '$4';
-    const textHeadingSize = gtMd ? '$heading3xl' : '$headingXl';
+    const textHeadingSize = gtMd ? '$heading3xl' : '$heading2xl';
     const textBodySize = gtMd ? '$bodyLg' : '$bodyMd';
     const confirmationSlideStyle: IYStackProps | undefined =
       platformEnv.isNative
@@ -231,6 +231,7 @@ export function HyperliquidTermsContent({
                 {intl.formatMessage({
                   id: ETranslations.perp_intro_trade_msg,
                 })}
+                anywhere.
               </SizableText>
             </YStack>
           </Stack>
@@ -261,7 +262,7 @@ export function HyperliquidTermsContent({
                     />
                   </Stack>
                   <SizableText
-                    size={gtMd ? '$headingLg' : '$headingSm'}
+                    size={gtMd ? '$headingLg' : '$headingXs'}
                     textAlign="center"
                   >
                     {intl.formatMessage({

@@ -6,6 +6,7 @@ import { isNil } from 'lodash';
 import {
   Button,
   Dialog,
+  Divider,
   Icon,
   SizableText,
   Slider,
@@ -410,7 +411,7 @@ const ClosePositionForm = memo(
             </XStack>
           </XStack>
         </YStack>
-
+        <Divider />
         {formData.type === 'limit' ? (
           <PriceInput
             label={appLocale.intl.formatMessage({
