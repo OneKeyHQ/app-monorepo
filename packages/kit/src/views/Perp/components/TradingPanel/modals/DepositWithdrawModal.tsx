@@ -41,8 +41,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -61,9 +59,6 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
-const formatter: INumberFormatProps = {
-  formatter: 'balance',
-};
 
 const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
@@ -231,45 +226,51 @@ function DepositWithdrawContent({
       debounced: 1000,
     },
   );
+
   const availableBalance = useMemo(() => {
-    if (selectedAction === 'withdraw') {
-      return {
-        balance: new BigNumber(params.withdrawable || '0').toFixed(),
-        displayBalance: numberFormat(params.withdrawable || '0', formatter),
-      };
-    }
+    const rawBalance =
+      selectedAction === 'withdraw'
+        ? params.withdrawable || '0'
+        : usdcBalance || '0';
+
     return {
-      balance: new BigNumber(usdcBalance || '0').toFixed(),
-      displayBalance: numberFormat(usdcBalance || '0', formatter),
+      balance: rawBalance,
+      displayBalance: new BigNumber(rawBalance)
+        .decimalPlaces(2, BigNumber.ROUND_DOWN)
+        .toFixed(2),
     };
   }, [selectedAction, params.withdrawable, usdcBalance]);
-  const isValidAmount = useMemo(() => {
-    const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(availableBalance.balance || '0');
 
+  const amountBN = useMemo(() => new BigNumber(amount || '0'), [amount]);
+
+  const availableBalanceBN = useMemo(
+    () => new BigNumber(availableBalance.balance || '0'),
+    [availableBalance.balance],
+  );
+
+  const isValidAmount = useMemo(() => {
     if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
     if (selectedAction === 'deposit') {
       return (
-        amountBN.lte(balanceBN) &&
+        amountBN.lte(availableBalanceBN) &&
         (!showMinAmountError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
       );
     }
 
     if (selectedAction === 'withdraw') {
       return (
-        amountBN.lte(balanceBN) &&
+        amountBN.lte(availableBalanceBN) &&
         (!showMinAmountError || amountBN.gte(MIN_WITHDRAW_AMOUNT))
       );
     }
 
     return true;
-  }, [amount, availableBalance, selectedAction, showMinAmountError]);
+  }, [amountBN, availableBalanceBN, selectedAction, showMinAmountError]);
 
   const errorMessage = useMemo(() => {
     if (!amount) return '';
 
-    const amountBN = new BigNumber(amount || '0');
     if (amountBN.isNaN() || amountBN.lte(0)) {
       return '';
     }
@@ -293,11 +294,11 @@ function DepositWithdrawContent({
     }
 
     return '';
-  }, [amount, selectedAction, showMinAmountError, intl]);
+  }, [amount, amountBN, selectedAction, showMinAmountError, intl]);
 
   const handleAmountChange = useCallback(
     (value: string) => {
-      if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
         setAmount(value);
         // Clear minimum amount error when user changes amount
         if (showMinAmountError) {
@@ -309,24 +310,21 @@ function DepositWithdrawContent({
   );
 
   const handleAmountBlur = useCallback(() => {
-    if (amount) {
-      const amountBN = new BigNumber(amount);
-      if (!amountBN.isNaN() && amountBN.gt(0)) {
-        if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
-          setShowMinAmountError(true);
-        } else if (
-          selectedAction === 'withdraw' &&
-          amountBN.lt(MIN_WITHDRAW_AMOUNT)
-        ) {
-          setShowMinAmountError(true);
-        }
+    if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
+      if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+        setShowMinAmountError(true);
+      } else if (
+        selectedAction === 'withdraw' &&
+        amountBN.lt(MIN_WITHDRAW_AMOUNT)
+      ) {
+        setShowMinAmountError(true);
       }
     }
-  }, [selectedAction, amount]);
+  }, [selectedAction, amount, amountBN]);
 
   const handleMaxPress = useCallback(() => {
     if (availableBalance) {
-      setAmount(availableBalance.balance);
+      setAmount(availableBalance.displayBalance);
     }
   }, [availableBalance]);
 
@@ -344,9 +342,6 @@ function DepositWithdrawContent({
   }, [navigation]);
 
   const validateAmountBeforeSubmit = useCallback(() => {
-    const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(availableBalance.balance || '0');
-
     if (amountBN.isNaN() || amountBN.lte(0)) {
       Toast.error({
         title: intl.formatMessage({ id: ETranslations.dexmarket_enter_amount }),
@@ -354,7 +349,7 @@ function DepositWithdrawContent({
       return false;
     }
 
-    if (amountBN.gt(balanceBN)) {
+    if (amountBN.gt(availableBalanceBN)) {
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.earn_insufficient_balance,
@@ -388,7 +383,7 @@ function DepositWithdrawContent({
     }
 
     return true;
-  }, [amount, availableBalance, intl, selectedAction, showMinAmountError]);
+  }, [amountBN, availableBalanceBN, intl, selectedAction, showMinAmountError]);
 
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
@@ -448,10 +443,8 @@ function DepositWithdrawContent({
     : {};
 
   const isInsufficientBalance = useMemo(() => {
-    const amountBN = new BigNumber(amount || '0');
-    const balanceBN = new BigNumber(availableBalance.balance || '0');
-    return amountBN.gt(balanceBN) && amountBN.gt(0);
-  }, [amount, availableBalance]);
+    return amountBN.gt(availableBalanceBN) && amountBN.gt(0);
+  }, [amountBN, availableBalanceBN]);
   const buttonText = useMemo(() => {
     if (isInsufficientBalance)
       return intl.formatMessage({
