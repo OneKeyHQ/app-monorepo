@@ -22,6 +22,25 @@ export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 export const { atom: perpsAllMidsAtom, use: usePerpsAllMidsAtom } =
   contextAtom<HL.IWsAllMids | null>(null);
 
+export const {
+  atom: perpsAllAssetsFilteredAtom,
+  use: usePerpsAllAssetsFilteredAtom,
+} = contextAtom<{
+  assets: HL.IPerpsUniverse[];
+  query: string;
+}>({
+  assets: [],
+  query: '',
+});
+
+export const {
+  atom: perpsAllAssetsFilteredLengthAtom,
+  use: usePerpsAllAssetsFilteredLengthAtom,
+} = contextAtomComputed((get) => {
+  const perpsAllAssetsFiltered = get(perpsAllAssetsFilteredAtom());
+  return perpsAllAssetsFiltered.assets.length;
+});
+
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
     assetCtxs: HL.IPerpsAssetCtx[];
@@ -104,6 +123,13 @@ export const {
   accountAddress: undefined,
   activePositions: [],
 });
+export const {
+  atom: perpsActivePositionLengthAtom,
+  use: usePerpsActivePositionLengthAtom,
+} = contextAtomComputed((get) => {
+  const activePositions = get(perpsActivePositionAtom());
+  return activePositions?.activePositions?.length ?? 0;
+});
 
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
@@ -115,6 +141,21 @@ export const {
 } = contextAtom<IPerpsActiveOpenOrdersAtom>({
   accountAddress: undefined,
   openOrders: [],
+});
+
+export const {
+  atom: perpsActiveOpenOrdersMapAtom,
+  use: usePerpsActiveOpenOrdersMapAtom,
+} = contextAtomComputed<
+  Partial<{
+    [coin: string]: number[];
+  }>
+>((get) => {
+  const { openOrders } = get(perpsActiveOpenOrdersAtom());
+  return openOrders.reduce((acc, order, index) => {
+    acc[order.coin] = [...(acc[order.coin] || []), index];
+    return acc;
+  }, {} as { [coin: string]: number[] });
 });
 
 export interface ITradingFormEnv {

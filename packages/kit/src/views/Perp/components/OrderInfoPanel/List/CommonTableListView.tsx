@@ -12,6 +12,7 @@ import type {
 import {
   Button,
   DashText,
+  DebugRenderTracker,
   IconButton,
   Input,
   ListView,
@@ -340,55 +341,57 @@ export function CommonTableListView({
   const ListComponent = useTabsList ? Tabs.FlatList : ListView;
   if (isMobile) {
     const ListContent = (
-      <ListComponent
-        data={paginatedData}
-        ListFooterComponent={
-          enablePagination &&
-          currentListPage &&
-          totalPages > 1 &&
-          !paginationToBottom ? (
-            <PaginationFooter
-              isMobile={isMobile}
-              currentPage={currentListPage}
-              totalPages={totalPages}
-              onPreviousPage={handlePreviousPage}
-              onNextPage={handleNextPage}
-              onPageChange={handlePageChange}
-              headerBgColor={headerBgColor}
-              headerTextColor={headerTextColor}
-            />
-          ) : null
-        }
-        renderItem={({ item, index }) => {
-          return renderRow(item, index);
-        }}
-        ListEmptyComponent={
-          listLoading ? (
-            <TradesHistoryLoadingView />
-          ) : (
-            <YStack flex={1} alignItems="center" p="$6">
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {emptyMessage}
-              </SizableText>
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-                mt="$2"
-              >
-                {emptySubMessage}
-              </SizableText>
-            </YStack>
-          )
-        }
-        contentContainerStyle={{
-          paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
-        }}
-      />
+      <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
+        <ListComponent
+          data={paginatedData}
+          ListFooterComponent={
+            enablePagination &&
+            currentListPage &&
+            totalPages > 1 &&
+            !paginationToBottom ? (
+              <PaginationFooter
+                isMobile={isMobile}
+                currentPage={currentListPage}
+                totalPages={totalPages}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
+                onPageChange={handlePageChange}
+                headerBgColor={headerBgColor}
+                headerTextColor={headerTextColor}
+              />
+            ) : null
+          }
+          renderItem={({ item, index }) => {
+            return renderRow(item, index);
+          }}
+          ListEmptyComponent={
+            listLoading ? (
+              <TradesHistoryLoadingView />
+            ) : (
+              <YStack flex={1} alignItems="center" p="$6">
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  textAlign="center"
+                >
+                  {emptyMessage}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                  mt="$2"
+                >
+                  {emptySubMessage}
+                </SizableText>
+              </YStack>
+            )
+          }
+          contentContainerStyle={{
+            paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+          }}
+        />
+      </DebugRenderTracker>
     );
     if (paginationToBottom && currentListPage && totalPages > 1) {
       return (

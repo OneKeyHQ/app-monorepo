@@ -10,7 +10,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-import { useTradingGuard } from '../hooks/useTradingGuard';
+import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 
 import { showDepositWithdrawModal } from './TradingPanel/modals/DepositWithdrawModal';
 
@@ -25,9 +25,9 @@ function TradingGuardWrapperInternal({
   forceShowEnableTrading = false,
   disabled = false,
 }: ITradingGuardWrapperProps) {
-  const { isAgentReady } = useTradingGuard();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const actions = useHyperliquidActions();
 
   // Memoize account info to optimize callback dependencies
   const accountInfo = useMemo(
@@ -61,8 +61,8 @@ function TradingGuardWrapperInternal({
   }, [accountInfo.accountAddress, accountInfo.accountId, dialogInTab]);
 
   const shouldShowEnableTrading = useMemo(
-    () => forceShowEnableTrading || !isAgentReady,
-    [forceShowEnableTrading, isAgentReady],
+    () => forceShowEnableTrading || actions.current.isAgentReady() === false,
+    [forceShowEnableTrading, actions],
   );
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;

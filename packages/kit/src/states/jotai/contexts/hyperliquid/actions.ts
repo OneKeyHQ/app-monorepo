@@ -1,15 +1,24 @@
 import { useRef } from 'react';
 
+import { BigNumber } from 'bignumber.js';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { showEnableTradingDialog } from '@onekeyhq/kit/src/views/Perp/components/TradingPanel/modals/EnableTradingModal';
 import {
   perpsActiveAccountAtom,
+  perpsActiveAccountStatusAtom,
   perpsActiveAssetAtom,
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { resolveTradingSize } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -26,6 +35,7 @@ import {
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
   perpsAllAssetCtxsAtom,
+  perpsAllAssetsFilteredAtom,
   perpsAllMidsAtom,
   subscriptionActiveAtom,
   tradingFormAtom,
@@ -67,6 +77,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     });
   });
 
+  updateAllAssetsFiltered = contextAtomMethod(
+    (_, set, data: { allAssets: HL.IPerpsUniverse[]; query: string }) => {
+      const { allAssets, query } = data;
+      const searchQuery = query?.trim()?.toLowerCase();
+      let assets = allAssets;
+      if (!searchQuery) {
+        assets = allAssets.filter((token) => !token.isDelisted);
+      } else {
+        assets = allAssets.filter(
+          (token) =>
+            token.name?.toLowerCase().includes(searchQuery) &&
+            !token.isDelisted,
+        );
+      }
+
+      set(perpsAllAssetsFilteredAtom(), {
+        assets,
+        query,
+      });
+    },
+  );
+
   updateWebData2 = contextAtomMethod(async (get, set, data: HL.IWsWebData2) => {
     this.updateAllAssetCtxs.call(set, data);
 
@@ -77,10 +109,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     if (activeAccountAddress === dataUser) {
       // Update active positions from webData2
       const positions = data?.clearinghouseState?.assetPositions || [];
-      const activePositions = positions.filter((pos) => {
-        const size = parseFloat(pos.position?.szi || '0');
-        return Math.abs(size) > 0;
-      });
+      const activePositions = positions
+        .filter((pos) => {
+          const size = parseFloat(pos.position?.szi || '0');
+          return Math.abs(size) > 0;
+        })
+        .sort(
+          (a, b) =>
+            parseFloat(b.position.positionValue || '0') -
+            parseFloat(a.position.positionValue || '0'),
+        );
 
       set(perpsActivePositionAtom(), {
         accountAddress: activeAccountAddress,
@@ -690,6 +728,147 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
     },
   );
+
+  isAgentReady = contextAtomMethod((get, set) => {
+    const accountStatus = get(perpsActiveAccountStatusAtom.atom());
+    return Boolean(accountStatus?.details?.agentOk && accountStatus?.canTrade);
+  });
+
+  ensureTradingEnabled = contextAtomMethod((get, set) => {
+    if (!this.isAgentReady.call(set) === false) {
+      showEnableTradingDialog();
+      throw new OneKeyLocalError('Trading not enabled');
+    }
+  });
+
+  closeAllPositions = contextAtomMethod(async (get, set) => {
+    return withToast({
+      asyncFn: async () => {
+        this.ensureTradingEnabled.call(set);
+        const { activePositions: positions } = get(perpsActivePositionAtom());
+
+        if (positions.length === 0) {
+          console.warn('No positions to close');
+          return;
+        }
+
+        // Get symbol metadata for all positions
+        const symbolsMetaMap =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+            coins: positions.map((p) => p.position.coin),
+          });
+
+        // Get current mid prices for all positions
+        const midPrices = await Promise.all(
+          positions.map(async (p) => {
+            try {
+              const midPrice =
+                await backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
+                  coin: p.position.coin,
+                });
+              return { coin: p.position.coin, midPrice };
+            } catch (error) {
+              console.warn(
+                `Failed to get mid price for ${p.position.coin}:`,
+                error,
+              );
+              return { coin: p.position.coin, midPrice: null };
+            }
+          }),
+        );
+
+        const midPriceMap = Object.fromEntries(
+          midPrices.map((item) => [item.coin, item.midPrice]),
+        );
+
+        // Prepare close orders for all positions
+        const positionsToClose = positions
+          .map((positionItem) => {
+            const position = positionItem.position;
+            const tokenInfo = symbolsMetaMap[position.coin];
+            const midPrice = midPriceMap[position.coin];
+
+            if (!tokenInfo || !midPrice) {
+              console.warn(`Missing data for position ${position.coin}`);
+              return null;
+            }
+
+            const positionSize = new BigNumber(position.szi || '0')
+              .abs()
+              .toFixed();
+            const isLongPosition = new BigNumber(position.szi || '0').gte(0);
+
+            return {
+              assetId: tokenInfo.assetId,
+              isBuy: isLongPosition,
+              size: positionSize,
+              midPx: midPrice,
+            };
+          })
+          .filter(Boolean);
+
+        if (positionsToClose.length === 0) {
+          console.warn('No valid positions to close or data unavailable');
+          return;
+        }
+
+        await this.ordersClose.call(set, positionsToClose);
+      },
+      actionType: EActionType.ORDERS_CLOSE,
+    });
+  });
+
+  showSetPositionTpslUI = contextAtomMethod(
+    async (
+      _get,
+      _set,
+      params: {
+        position: IPerpsAssetPosition['position'];
+        isMobile: boolean;
+        onShowDialog: (params: {
+          coin: string;
+          szDecimals: number;
+          assetId: number;
+        }) => void;
+        navigation: IAppNavigation;
+      },
+    ) => {
+      const { position, isMobile, onShowDialog } = params;
+
+      const tokenInfo =
+        await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin: position.coin,
+        });
+
+      if (!tokenInfo) {
+        console.error(
+          '[HyperliquidActions.showSetPositionTpslUI] Token info not found for',
+          position.coin,
+        );
+        return;
+      }
+
+      const tpslParams = {
+        coin: position.coin,
+        szDecimals: tokenInfo.universe?.szDecimals ?? 2,
+        assetId: tokenInfo.assetId,
+      };
+
+      if (isMobile) {
+        params.navigation.pushModal(EModalRoutes.PerpModal, {
+          screen: EModalPerpRoutes.MobileSetTpsl,
+          params: tpslParams,
+        });
+      } else {
+        onShowDialog(tpslParams);
+      }
+    },
+  );
+
+  // refreshAllPerpsData
+  refreshAllPerpsData = contextAtomMethod(async (get, set) => {
+    // TODO
+  });
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
@@ -727,13 +906,20 @@ export function useHyperliquidActions() {
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
+  const closeAllPositions = actions.closeAllPositions.use();
+  const showSetPositionTpslUI = actions.showSetPositionTpslUI.use();
 
   const ensureOrderBookTickOptionsLoaded =
     actions.ensureOrderBookTickOptionsLoaded.use();
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
   const changeActiveAsset = actions.changeActiveAsset.use();
+  const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
+  const isAgentReady = actions.isAgentReady.use();
+  const ensureTradingEnabled = actions.ensureTradingEnabled.use();
+  const refreshAllPerpsData = actions.refreshAllPerpsData.use();
 
   return useRef({
+    updateAllAssetsFiltered,
     updateAllMids,
     markAllAssetCtxsRequired,
     markAllAssetCtxsNotRequired,
@@ -762,8 +948,12 @@ export function useHyperliquidActions() {
     cancelOrder,
     setPositionTpsl,
     withdraw,
-
+    closeAllPositions,
+    showSetPositionTpslUI,
+    isAgentReady,
+    ensureTradingEnabled,
     ensureOrderBookTickOptionsLoaded,
     setOrderBookTickOption,
+    refreshAllPerpsData,
   });
 }

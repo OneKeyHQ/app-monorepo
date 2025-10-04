@@ -34,10 +34,11 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { shouldOpenExpandExtPerp } from '../../../Perp/pages/ExtPerp';
+
 import { RawActions } from './RawActions';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
-import { shouldOpenExpandExtPerp } from '../../../Perp/pages/ExtPerp';
 
 function WalletActionSend() {
   const navigation =
