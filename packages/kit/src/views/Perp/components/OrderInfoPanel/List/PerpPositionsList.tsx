@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -6,18 +6,11 @@ import { useIntl } from 'react-intl';
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsActiveOpenOrdersAtom,
-  usePerpsActivePositionLengthAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 
 import { PositionRow } from '../Components/PositionsRow';
-import { showSetTpslDialog } from '../SetTpslModal';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 

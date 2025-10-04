@@ -144,6 +144,14 @@ export const {
 });
 
 export const {
+  atom: perpsActiveOpenOrdersLengthAtom,
+  use: usePerpsActiveOpenOrdersLengthAtom,
+} = contextAtomComputed((get) => {
+  const { openOrders } = get(perpsActiveOpenOrdersAtom());
+  return openOrders.length ?? 0;
+});
+
+export const {
   atom: perpsActiveOpenOrdersMapAtom,
   use: usePerpsActiveOpenOrdersMapAtom,
 } = contextAtomComputed<
