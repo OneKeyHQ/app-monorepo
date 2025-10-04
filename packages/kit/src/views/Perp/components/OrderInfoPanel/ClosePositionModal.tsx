@@ -19,7 +19,6 @@ import {
   useHyperliquidActions,
   usePerpsAllMidsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -28,10 +27,7 @@ import {
   formatWithPrecision,
   validateSizeInput,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IOrderResponse,
-  IWsWebData2,
-} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
@@ -227,17 +223,19 @@ const ClosePositionForm = memo(
         const closeAmountBN = new BigNumber(closeAmount);
 
         if (!closeAmount || closeAmountBN.lte(0)) {
-          throw new OneKeyLocalError({
-            message: 'Please enter a valid amount',
+          Toast.error({
+            title: 'Please enter a valid amount',
           });
+          return;
         }
 
         if (formData.type === 'market') {
           const latestMidPrice = midPrice;
           if (!latestMidPrice || latestMidPrice === '0') {
-            throw new OneKeyLocalError({
-              message: 'Unable to get current market price',
+            Toast.error({
+              title: 'Unable to get current market price',
             });
+            return;
           }
 
           await hyperliquidActions.current.ordersClose([
@@ -251,9 +249,10 @@ const ClosePositionForm = memo(
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
           if (!formData.limitPrice || limitPriceBN.lte(0)) {
-            throw new OneKeyLocalError({
-              message: 'Please enter a valid limit price',
+            Toast.error({
+              title: 'Please enter a valid limit price',
             });
+            return;
           }
 
           await hyperliquidActions.current.limitOrderClose({
@@ -268,17 +267,6 @@ const ClosePositionForm = memo(
         if (isMountedRef.current) {
           onClose();
         }
-      } catch (error) {
-        if (isMountedRef.current) {
-          Toast.error({
-            title: 'Close Position Failed',
-            message:
-              error instanceof Error
-                ? error.message
-                : 'Failed to close position',
-          });
-        }
-        throw error;
       } finally {
         if (isMountedRef.current) {
           setIsSubmitting(false);
