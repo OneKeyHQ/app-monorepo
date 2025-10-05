@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 
-import { useUpdateEffect } from '@onekeyhq/components';
+import {
+  useIsFocusedTab,
+  useTabIsRefreshingFocused,
+  useUpdateEffect,
+} from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
@@ -418,6 +423,42 @@ function useHyperliquidScreenLockHandler() {
   }, [unLock, checkPerpsAccountStatus]);
 }
 
+function AutoPauseSubscriptions() {
+  const isFocusedPerpsTab = useIsFocusedTab();
+  const focusedTabName = useFocusedTab();
+  const isFocusedRoute = useRouteIsFocused();
+
+  console.log('AutoPauseSubscriptions___value', {
+    isFocusedPerpsTab,
+    focusedTabName,
+    isFocusedRoute,
+  });
+
+  const pauseSubscriptionsTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+  useEffect(() => {
+    if (isFocusedRoute) {
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+      void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+      void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    } else {
+      void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+      pauseSubscriptionsTimerRef.current = setTimeout(
+        () => {
+          void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
+        },
+        timerUtils.getTimeDurationMs({
+          minute: 10,
+          seconds: 30,
+        }),
+      );
+    }
+  }, [isFocusedRoute]);
+  return null;
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
@@ -431,6 +472,7 @@ function PerpsGlobalEffectsView() {
       <DelayedRender delay={600}>
         <WeboscketSubscriptionUpdate />
       </DelayedRender>
+      <AutoPauseSubscriptions />
     </>
   );
 }

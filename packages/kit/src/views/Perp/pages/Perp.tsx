@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -10,8 +10,10 @@ import {
   Stack,
   XStack,
   YStack,
+  useIsFocusedTab,
   useMedia,
 } from '@onekeyhq/components';
+import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -180,6 +182,7 @@ export default function Perp() {
   useFocusEffect(() => {
     void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
   });
+
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
