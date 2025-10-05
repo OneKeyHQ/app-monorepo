@@ -277,14 +277,14 @@ function useHyperliquidAccountSelect() {
       'selectPerpsAccount______555_address',
       activeAccount.account?.address,
     );
-    const _account =
-      await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
-        indexedAccountId: activeAccount?.indexedAccount?.id || null,
-        accountId: activeAccount?.account?.id || null,
-        deriveType: globalDeriveType,
-      });
+    const _account = await actions.current.changeActivePerpsAccount({
+      indexedAccountId: activeAccount?.indexedAccount?.id || null,
+      accountId: activeAccount?.account?.id || null,
+      deriveType: globalDeriveType,
+    });
     await checkPerpsAccountStatus();
   }, [
+    actions,
     activeAccount.account?.address,
     activeAccount.account?.id,
     activeAccount?.indexedAccount?.id,

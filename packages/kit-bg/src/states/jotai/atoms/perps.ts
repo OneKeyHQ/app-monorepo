@@ -93,22 +93,16 @@ export type IPerpsActiveAccountStatusDetails = {
   referralCodeOk: boolean;
   builderFeeOk: boolean;
 };
-export interface IPerpsActiveAccountStatusInfoAtom {
-  accountAddress: IHex | null;
-  details: IPerpsActiveAccountStatusDetails;
-}
+export type IPerpsActiveAccountStatusInfoAtom =
+  | {
+      accountAddress: IHex | null;
+      details: IPerpsActiveAccountStatusDetails;
+    }
+  | undefined;
 export const { target: perpsActiveAccountStatusInfoAtom } =
   globalAtom<IPerpsActiveAccountStatusInfoAtom>({
     name: EAtomNames.perpsActiveAccountStatusInfoAtom,
-    initialValue: {
-      accountAddress: null,
-      details: {
-        agentOk: false,
-        builderFeeOk: false,
-        referralCodeOk: false,
-        activatedOk: false,
-      },
-    },
+    initialValue: undefined,
   });
 
 export type IPerpsActiveAccountStatusAtom = {
@@ -126,8 +120,9 @@ export const {
     const status = get(perpsActiveAccountStatusInfoAtom.atom());
     const account = get(perpsActiveAccountAtom.atom());
     const details: IPerpsActiveAccountStatusDetails | undefined =
-      status.accountAddress?.toLowerCase() ===
-        account.accountAddress?.toLowerCase() && status.accountAddress
+      status?.accountAddress &&
+      status?.accountAddress?.toLowerCase() ===
+        account.accountAddress?.toLowerCase()
         ? status.details
         : undefined;
     const canTrade =

@@ -407,43 +407,10 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async changeActiveAsset(params: { coin: string }): Promise<{
-    universeItems: IPerpsUniverse[];
-    selectedUniverse: IPerpsUniverse | undefined;
-  }> {
-    const oldActiveAsset = await perpsActiveAssetAtom.get();
-    const oldCoin = oldActiveAsset?.coin;
-    const newCoin = params.coin;
-    const { universeItems = [], marginTablesMap } =
-      await this.getTradingUniverse();
-    const selectedUniverse: IPerpsUniverse | undefined =
-      universeItems?.find((item) => item.name === newCoin) ||
-      universeItems?.[0];
-    const assetId =
-      selectedUniverse?.assetId ??
-      universeItems.findIndex((token) => token.name === selectedUniverse.name);
-    const selectedMargin = marginTablesMap?.[selectedUniverse?.marginTableId];
-    await perpsActiveAssetAtom.set({
-      coin: selectedUniverse?.name || newCoin || '',
-      assetId,
-      universe: selectedUniverse,
-      margin: selectedMargin,
-    });
-    if (oldCoin !== newCoin) {
-      await perpsActiveAssetCtxAtom.set(undefined);
-    }
-    await this.refreshCurrentMid();
-    return {
-      universeItems,
-      selectedUniverse,
-    };
-  }
-
   hideSelectAccountLoadingTimer: ReturnType<typeof setTimeout> | undefined;
 
   @backgroundMethod()
-  async selectPerpsAccount(params: {
+  async changeActivePerpsAccount(params: {
     accountId: string | null;
     indexedAccountId: string | null;
     deriveType: IAccountDeriveTypes;
@@ -508,6 +475,39 @@ export default class ServiceHyperliquid extends ServiceBase {
 
     await perpsActiveAccountAtom.set(perpsAccount);
     return perpsAccount;
+  }
+
+  @backgroundMethod()
+  async changeActiveAsset(params: { coin: string }): Promise<{
+    universeItems: IPerpsUniverse[];
+    selectedUniverse: IPerpsUniverse | undefined;
+  }> {
+    const oldActiveAsset = await perpsActiveAssetAtom.get();
+    const oldCoin = oldActiveAsset?.coin;
+    const newCoin = params.coin;
+    const { universeItems = [], marginTablesMap } =
+      await this.getTradingUniverse();
+    const selectedUniverse: IPerpsUniverse | undefined =
+      universeItems?.find((item) => item.name === newCoin) ||
+      universeItems?.[0];
+    const assetId =
+      selectedUniverse?.assetId ??
+      universeItems.findIndex((token) => token.name === selectedUniverse.name);
+    const selectedMargin = marginTablesMap?.[selectedUniverse?.marginTableId];
+    await perpsActiveAssetAtom.set({
+      coin: selectedUniverse?.name || newCoin || '',
+      assetId,
+      universe: selectedUniverse,
+      margin: selectedMargin,
+    });
+    if (oldCoin !== newCoin) {
+      await perpsActiveAssetCtxAtom.set(undefined);
+    }
+    await this.refreshCurrentMid();
+    return {
+      universeItems,
+      selectedUniverse,
+    };
   }
 
   @backgroundMethod()
