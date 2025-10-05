@@ -205,7 +205,7 @@ const PositionRowDesktopSymbolAndLeverage = memo(() => {
                 color="$textSubdued"
                 fontSize={12}
               >
-                {assetInfo.leverageType} {assetInfo.leverage}X
+                {assetInfo.leverageType} {assetInfo.leverage}x
               </SizableText>
             </YStack>
           </XStack>
@@ -696,7 +696,7 @@ const PositionRowMobileHeader = memo(() => {
             color="$textSubdued"
             fontSize={10}
           >
-            {assetInfo.leverageType} {assetInfo.leverage}X
+            {assetInfo.leverageType} {assetInfo.leverage}x
           </SizableText>
         </XStack>
       </DebugRenderTracker>
