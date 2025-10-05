@@ -18,7 +18,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-export const InputAccessoryDoneButton = () => {
+export const InputAccessoryDoneButton = ({
+  leftContent,
+}: {
+  leftContent?: ReactNode;
+}) => {
   const intl = useIntl();
   const isKeyboardShown = useIsKeyboardShown();
   if (!platformEnv.isNativeIOS && !isKeyboardShown) return null;
@@ -26,11 +30,12 @@ export const InputAccessoryDoneButton = () => {
     <XStack
       p="$2.5"
       px="$3.5"
-      justifyContent="flex-end"
+      justifyContent={leftContent ? 'space-between' : 'flex-end'}
       bg="$bgSubdued"
       borderTopWidth="$px"
       borderTopColor="$borderSubduedLight"
     >
+      {leftContent}
       <Button variant="tertiary" onPress={() => Keyboard.dismiss()}>
         {intl.formatMessage({ id: ETranslations.global_done })}
       </Button>
