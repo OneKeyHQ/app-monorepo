@@ -41,17 +41,17 @@ export function usePerpTradesHistory() {
         type: 'account';
         subType: string;
         data: IWsUserFills;
-        metadata: {
-          timestamp: number;
-          source: string;
-          userId?: string;
-        };
       };
 
       if (eventPayload.subType !== ESubscriptionType.USER_FILLS) return;
 
-      if (eventPayload.metadata.userId !== currentAccount?.accountAddress)
+      if (
+        !eventPayload?.data?.user ||
+        eventPayload?.data?.user?.toLowerCase() !==
+          currentAccount?.accountAddress?.toLowerCase()
+      ) {
         return;
+      }
 
       const { data } = eventPayload;
 
