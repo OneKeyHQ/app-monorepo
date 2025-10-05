@@ -408,38 +408,42 @@ function useHyperliquidScreenLockHandler() {
 }
 
 function AutoPauseSubscriptions() {
-  const isFocusedPerpsTab = useIsFocusedTab();
-  const focusedTabName = useFocusedTab();
-  const isFocusedRoute = useRouteIsFocused();
-
-  console.log('AutoPauseSubscriptions___value', {
-    isFocusedPerpsTab,
-    focusedTabName,
-    isFocusedRoute,
-  });
-
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
-  useEffect(() => {
-    if (isFocusedRoute) {
-      clearTimeout(pauseSubscriptionsTimerRef.current);
-      void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
-      void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
-    } else {
-      void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
-      clearTimeout(pauseSubscriptionsTimerRef.current);
-      pauseSubscriptionsTimerRef.current = setTimeout(
-        () => {
-          void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
-        },
-        timerUtils.getTimeDurationMs({
-          minute: 10,
-          seconds: 30,
-        }),
-      );
-    }
-  }, [isFocusedRoute]);
+
+  // const isFocusedRoute = useRouteIsFocused();
+  // useEffect(() => {
+  //   //
+  // }, [isFocusedRoute]);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    async (isFocus: boolean, _isHideByModal: boolean) => {
+      // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
+      //   isFocus,
+      //   isHideByModal,
+      // });
+      if (isFocus) {
+        clearTimeout(pauseSubscriptionsTimerRef.current);
+        void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+        void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+      } else {
+        void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
+        clearTimeout(pauseSubscriptionsTimerRef.current);
+        pauseSubscriptionsTimerRef.current = setTimeout(
+          () => {
+            void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
+          },
+          timerUtils.getTimeDurationMs({
+            minute: 5,
+            seconds: 30,
+          }),
+        );
+      }
+    },
+  );
+
   return null;
 }
 

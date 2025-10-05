@@ -74,6 +74,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _client: {
+    transport: WebSocketTransport;
     dispose: () => Promise<void>;
     hlEventTarget: IHyperliquidEventTarget;
     wsRequester: {
@@ -108,6 +109,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   _updateSubscriptionsDebounced = debounce(
     async () => {
+      const client = await this.getWebSocketClient();
+      if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
       const activeAccount = await perpsActiveAccountAtom.get();
       const activeAsset = await perpsActiveAssetAtom.get();
       const activeOrderBookOptions =
@@ -445,6 +451,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         });
       };
       this._client = {
+        transport,
         hlEventTarget,
         wsRequester,
         subscribe,
