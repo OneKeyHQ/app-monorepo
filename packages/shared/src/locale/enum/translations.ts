@@ -2069,6 +2069,7 @@
   perp_confirm_order = 'perp.confirm_order',
   perp_confirm_order_action = 'perp.confirm_order_action',
   perp_confirm_order_desc = 'perp.confirm_order_desc',
+  perp_cost = 'perp.cost',
   perp_cross_mode_desc = 'perp.cross_mode_desc',
   perp_deposit_chain = 'perp.deposit_chain',
   perp_deposit_on = 'perp.deposit_on',
