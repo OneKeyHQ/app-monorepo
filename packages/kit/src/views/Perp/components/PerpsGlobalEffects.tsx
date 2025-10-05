@@ -89,14 +89,6 @@ function useHyperliquidEventBusListener() {
         type: 'market' | 'account';
         subType: ESubscriptionType;
         data: any;
-        metadata: {
-          timestamp: number;
-          source: string;
-          key?: string;
-          coin?: string;
-          userId?: string;
-          interval?: string;
-        };
       };
       const { subType, data } = eventPayload;
 
@@ -113,23 +105,19 @@ function useHyperliquidEventBusListener() {
           }
 
           case ESubscriptionType.ACTIVE_ASSET_CTX:
-            if (eventPayload.metadata.coin) {
-              // move to global jotai, updateActiveAssetCtx() in background
-              // void actions.current.updateActiveAssetCtx(
-              //   data as IWsActiveAssetCtx,
-              //   eventPayload.metadata.coin,
-              // );
-            }
+            // move to global jotai, updateActiveAssetCtx() in background
+            // void actions.current.updateActiveAssetCtx(
+            //   data as IWsActiveAssetCtx,
+            //   eventPayload.metadata.coin,
+            // );
             break;
 
           case ESubscriptionType.ACTIVE_ASSET_DATA:
-            if (eventPayload.metadata.coin) {
-              // move to global jotai, updateActiveAssetData() in background
-              // void actions.current.updateActiveAssetData(
-              //   data as IActiveAssetData,
-              //   eventPayload.metadata.coin,
-              // );
-            }
+            // move to global jotai, updateActiveAssetData() in background
+            // void actions.current.updateActiveAssetData(
+            //   data as IActiveAssetData,
+            //   eventPayload.metadata.coin,
+            // );
             break;
 
           case ESubscriptionType.L2_BOOK:
@@ -155,10 +143,6 @@ function useHyperliquidEventBusListener() {
           lastConnected: number;
           service: string;
           activeSubscriptions: number;
-        };
-        metadata: {
-          timestamp: number;
-          source: string;
         };
       };
       const { data } = eventPayload;
