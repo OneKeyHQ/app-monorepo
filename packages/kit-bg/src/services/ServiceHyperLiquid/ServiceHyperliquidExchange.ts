@@ -301,7 +301,23 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
 
     const client = await this.getExchangeClientForTrading();
-    await client.updateIsolatedMargin(params);
+    const context = await this._buildLogContext();
+    try {
+      const response = await client.updateIsolatedMargin(params);
+      defaultLogger.perp.hyperliquid.updateIsolatedMargin({
+        ...context,
+        request: params,
+        response,
+      });
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.updateIsolatedMargin({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
