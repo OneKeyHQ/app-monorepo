@@ -2102,6 +2102,7 @@
   perp_leverage_desc = 'perp.leverage_desc',
   perp_leverage_desc_warning = 'perp.leverage_desc_warning',
   perp_leverage_maximum_desc = 'perp.leverage_maximum_desc',
+  perp_leverage_warning_2 = 'perp.leverage_warning_2',
   perp_mark_price_tooltip = 'perp.mark_price_tooltip',
   perp_market_price = 'perp.market_price',
   perp_mini_deposit = 'perp.mini_deposit',

@@ -12,6 +12,7 @@ import {
   Slider,
   XStack,
   YStack,
+  getFontSize,
   useMedia,
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
@@ -99,10 +100,42 @@ const LeverageContent = memo(
     ]);
     const isDisabled = value <= 0 || loading;
     const intl = useIntl();
-    const { gtSm } = useMedia();
+
     return (
-      <YStack gap="$3" flex={1}>
-        <YStack p="$1" mb="$6" gap="$3" flex={1}>
+      <YStack gap="$5" flex={1}>
+        <YStack p="$1" gap="$4" flex={1}>
+          <XStack justifyContent="center" alignItems="center">
+            <Input
+              containerProps={{
+                borderRadius: '$3',
+                borderWidth: 0,
+                p: 0,
+                w: 80,
+                justifyContent: 'flex-end',
+                alignItems: 'flex-end',
+              }}
+              InputComponentStyle={{
+                p: 0,
+              }}
+              fontSize={getFontSize('$heading5xl')}
+              alignItems="center"
+              justifyContent="center"
+              value={value ? value.toString() : ''}
+              onChangeText={handleInputChange}
+              keyboardType="numeric"
+              textAlign="center"
+              disabled={loading}
+              addOns={[
+                {
+                  renderContent: (
+                    <XStack alignItems="center" pr="$1">
+                      <Icon name="CrossedSmallOutline" size="$5" />
+                    </XStack>
+                  ),
+                },
+              ]}
+            />
+          </XStack>
           <XStack flex={1} alignItems="center" gap="$4">
             <Slider
               value={value || 1}
@@ -113,48 +146,32 @@ const LeverageContent = memo(
               disabled={loading}
               flex={1}
             />
-            <XStack width={gtSm ? undefined : 60} alignItems="center">
-              <Input
-                containerProps={{
-                  borderRadius: '$3',
-                  p: 0,
-                }}
-                InputComponentStyle={{
-                  p: 0,
-                }}
-                width={30}
-                size="medium"
-                alignItems="center"
-                value={value ? value.toString() : ''}
-                onChangeText={handleInputChange}
-                keyboardType="numeric"
-                textAlign="right"
-                disabled={loading}
-                addOns={[
-                  {
-                    renderContent: (
-                      <XStack alignItems="center" pr="$1">
-                        <Icon name="CrossedSmallOutline" size="$5" />
-                      </XStack>
-                    ),
-                  },
-                ]}
-              />
-            </XStack>
           </XStack>
         </YStack>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage(
-            {
-              id: ETranslations.perp_leverage_desc_warning,
-            },
-            {
-              token: tokenInfo.coin,
-              leverage: maxLeverage,
-            },
-          )}
-        </SizableText>
-
+        <YStack gap="$2" pb="$4">
+          <XStack gap="$1" alignItems="center">
+            <Icon name="InfoCircleSolid" size="$3.5" color="$iconSubdued" />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.perp_leverage_desc_warning,
+                },
+                {
+                  token: tokenInfo.coin,
+                  leverage: `${maxLeverage}x`,
+                },
+              )}
+            </SizableText>
+          </XStack>
+          <XStack gap="$1" alignItems="center">
+            <Icon name="InfoCircleSolid" size="$3.5" color="$iconSubdued" />
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_leverage_warning_2,
+              })}
+            </SizableText>
+          </XStack>
+        </YStack>
         <TradingGuardWrapper>
           <Button
             onPress={handleConfirm}
