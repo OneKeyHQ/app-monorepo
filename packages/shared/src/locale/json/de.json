@@ -2078,6 +2078,8 @@
   "perp.funding_rate_tip1": "Finanzierungsgebühren werden alle 1 Stunden zwischen Inhabern von Long- und Short-Positionen ausgetauscht. Bei positivem Wert zahlen Longs an Shorts; bei negativem Wert zahlen Shorts an Longs.",
   "perp.funding_rate_tip2": "Finanzierungsgebühren = Positionswert * Finanzierungsrate",
   "perp.funding_tooltip": "Der Stundensatz, zu dem Long-Positionen Short-Positionen bezahlen (bei negativem Wert bezahlen Short-Positionen die Long-Positionen).",
+  "perp.intro_fast_msg": "Aktiviere den Handel einmal und platziere anschließend Orders ohne wiederholte Signaturen. Genieße null gas-Gebühren und bleibe dem Markt einen Schritt voraus.",
+  "perp.intro_fast_title": "Sofortiges Trading",
   "perp.intro_leverage_msg": "Mehrere Hebeloptionen verfügbar. Kontrollieren Sie größere Positionen mit weniger Kapital.",
   "perp.intro_leverage_title": "Flexible Hebelwirkung",
   "perp.intro_profesional_msg": "Beherrsche die Charts mit K-Linien und Echtzeit-Handelsdaten direkt zur Hand.",

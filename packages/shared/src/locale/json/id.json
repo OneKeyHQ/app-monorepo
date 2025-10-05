@@ -2078,6 +2078,8 @@
   "perp.funding_rate_tip1": "Biaya pendanaan akan dipertukarkan antara pemegang posisi long dan short setiap 1 jam. Jika positif, long membayar short; jika negatif, short membayar long.",
   "perp.funding_rate_tip2": "Biaya Pendanaan = Nilai Posisi * Tingkat Pendanaan",
   "perp.funding_tooltip": "Tarif per jam di mana posisi long membayar posisi short (jika negatif, posisi short membayar posisi long).",
+  "perp.intro_fast_msg": "Aktifkan perdagangan sekali, lalu lakukan pemesanan tanpa tanda tangan berulang. Nikmati biaya gas nol dan tetap selangkah di depan pasar.",
+  "perp.intro_fast_title": "Perdagangan Instan",
   "perp.intro_leverage_msg": "Beragam opsi leverage tersedia. Kendalikan posisi lebih besar dengan modal lebih kecil.",
   "perp.intro_leverage_title": "Leverage Fleksibel",
   "perp.intro_profesional_msg": "Kuasai grafik dengan K-line dan data perdagangan real-time di ujung jari Anda.",

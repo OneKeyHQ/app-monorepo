@@ -105,7 +105,7 @@ function DepositWithdrawContent({
   const accountValuePopoverContent = useMemo(
     () => (
       <YStack flex={1} px="$5" pb="$5">
-        <SizableText size="$bodySm">
+        <SizableText size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.perp_account_panel_account_value_tooltip,
           })}
@@ -723,7 +723,6 @@ function DepositWithdrawContent({
                 renderTrigger={
                   <DashText
                     size="$bodyMd"
-                    color="$textSubdued"
                     dashColor="$textDisabled"
                     dashThickness={0.3}
                   >

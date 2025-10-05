@@ -237,7 +237,6 @@ export function HyperliquidTermsContent({
                 {intl.formatMessage({
                   id: ETranslations.perp_intro_trade_msg,
                 })}
-                anywhere.
               </SizableText>
             </YStack>
           </Stack>
@@ -247,10 +246,15 @@ export function HyperliquidTermsContent({
         id: 'slide-4',
         content: (
           <Stack alignItems="center" justifyContent="center" px="$6">
-            <Stack>
+            <Stack
+              height={slideImageHeight}
+              width={slideImageHeight}
+              alignItems="center"
+              justifyContent="center"
+            >
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
-                size={slideImageHeight}
+                size={slideImageHeight / 1.2}
                 resizeMode="contain"
               />
             </Stack>
@@ -263,14 +267,13 @@ export function HyperliquidTermsContent({
             >
               <SizableText size={textHeadingSize}>
                 {intl.formatMessage({
-                  id: ETranslations.perp_intro_trade_title,
+                  id: ETranslations.perp_intro_fast_title,
                 })}
               </SizableText>
               <SizableText size={textBodySize} color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.perp_intro_trade_msg,
+                  id: ETranslations.perp_intro_fast_msg,
                 })}
-                anywhere.
               </SizableText>
             </YStack>
           </Stack>

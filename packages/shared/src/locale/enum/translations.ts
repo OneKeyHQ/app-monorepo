@@ -2083,6 +2083,8 @@
   perp_funding_rate_tip1 = 'perp.funding_rate_tip1',
   perp_funding_rate_tip2 = 'perp.funding_rate_tip2',
   perp_funding_tooltip = 'perp.funding_tooltip',
+  perp_intro_fast_msg = 'perp.intro_fast_msg',
+  perp_intro_fast_title = 'perp.intro_fast_title',
   perp_intro_leverage_msg = 'perp.intro_leverage_msg',
   perp_intro_leverage_title = 'perp.intro_leverage_title',
   perp_intro_profesional_msg = 'perp.intro_profesional_msg',

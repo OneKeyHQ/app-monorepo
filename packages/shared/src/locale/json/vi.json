@@ -2078,6 +2078,8 @@
   "perp.funding_rate_tip1": "Phí funding sẽ được trao đổi giữa những người nắm giữ vị thế long và short mỗi 1 giờ. Nếu dương, bên long trả cho bên short; nếu âm, bên short trả cho bên long.",
   "perp.funding_rate_tip2": "Phí Funding = Giá trị vị thế * Tỷ lệ Funding",
   "perp.funding_tooltip": "Tỷ lệ phí theo giờ mà vị thế mua trả cho vị thế bán (nếu âm, vị thế bán trả cho vị thế mua).",
+  "perp.intro_fast_msg": "Kích hoạt giao dịch một lần, sau đó đặt lệnh mà không cần ký lại nhiều lần. Tận hưởng phí gas bằng 0 và luôn đi trước thị trường.",
+  "perp.intro_fast_title": "Giao dịch tức thì",
   "perp.intro_leverage_msg": "Nhiều tùy chọn đòn bẩy khả dụng. Kiểm soát vị thế lớn hơn với ít vốn hơn.",
   "perp.intro_leverage_title": "Đòn bẩy linh hoạt",
   "perp.intro_profesional_msg": "Làm chủ biểu đồ với các đường K và dữ liệu giao dịch theo thời gian thực ngay trong tầm tay bạn.",

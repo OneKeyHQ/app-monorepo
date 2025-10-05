@@ -2078,6 +2078,8 @@
   "perp.funding_rate_tip1": "Funding fees will be exchanged between holders of long and short positions every 1 hours. If positive, longs pay shorts; if negative, shorts pay longs.",
   "perp.funding_rate_tip2": "Funding Fees = Position Value * Funding Rate",
   "perp.funding_tooltip": "The hourly rate at which longs pay shorts (if negative, shorts pay longs).",
+  "perp.intro_fast_msg": "Enable trading once, then place orders without repeated signatures. Enjoy zero gas fees and stay ahead of the market.",
+  "perp.intro_fast_title": "Lightning Trade",
   "perp.intro_leverage_msg": "Multiple leverage options available. Control larger positions with less capital.",
   "perp.intro_leverage_title": "Flexible Leverage",
   "perp.intro_profesional_msg": "Master the charts with K-lines and real-time trading data at your fingertips.",

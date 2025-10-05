@@ -2078,6 +2078,8 @@
   "perp.funding_rate_tip1": "Les frais de financement seront échangés entre les détenteurs de positions longues et courtes toutes les heures. Si positifs, les longs paient les shorts ; si négatifs, les shorts paient les longs.",
   "perp.funding_rate_tip2": "Frais de financement = Valeur de position * Taux de financement",
   "perp.funding_tooltip": "Le taux horaire auquel les positions longues paient les positions courtes (si négatif, les positions courtes paient les positions longues).",
+  "perp.intro_fast_msg": "Activez le trading une fois, puis passez des ordres sans signatures répétées. Profitez de frais de gas nuls et gardez une longueur d'avance sur le marché.",
+  "perp.intro_fast_title": "Trading Instantané",
   "perp.intro_leverage_msg": "Plusieurs options de levier disponibles. Contrôlez des positions plus importantes avec moins de capital.",
   "perp.intro_leverage_title": "Effet de levier flexible",
   "perp.intro_profesional_msg": "Maîtrisez les graphiques avec les chandeliers japonais et les données de trading en temps réel à portée de main.",

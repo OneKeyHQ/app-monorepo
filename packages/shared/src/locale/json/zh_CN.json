@@ -2078,6 +2078,8 @@
   "perp.funding_rate_tip1": "资金费用将每 1 小时在多头和空头持仓者之间交换。如果为正值，多头向空头支付；如果为负值，空头向多头支付。",
   "perp.funding_rate_tip2": "资金费用 = 持仓价值 * 资金费率",
   "perp.funding_tooltip": "多头向空头支付的小时费率（如果为负数，则空头向多头支付）。",
+  "perp.intro_fast_msg": "启用交易后，每次下单无需重复签名。享受零 Gas 费用，快人一步抢先机",
+  "perp.intro_fast_title": "极速交易",
   "perp.intro_leverage_msg": "自选杠杆倍数，以小资金撬动大仓位，灵活把控风险收益",
   "perp.intro_leverage_title": "灵活杠杆",
   "perp.intro_profesional_msg": "掌握 K 线图表与实时交易数据，专业工具尽在指尖",
