@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 import {
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -238,12 +239,8 @@ export function DefaultLoadingNode({
         </Stack>
       </XStack>
 
-      <YStack gap={1}>
-        {DESKTOP_ROW_WIDTHS.map((width, index) => (
-          <Stack key={index} h={DESKTOP_ROW_HEIGHT} overflow="hidden">
-            <Skeleton w={width} h="100%" radius="square" />
-          </Stack>
-        ))}
+      <YStack gap={1} justifyContent="center" alignItems="center" flex={1}>
+        <Spinner size="large" />
       </YStack>
     </YStack>
   );
