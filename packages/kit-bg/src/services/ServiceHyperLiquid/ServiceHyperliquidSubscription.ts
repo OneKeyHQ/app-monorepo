@@ -394,7 +394,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const registerSubscriptionHandler = (type: ESubscriptionType) => {
         if (!this.subscriptionHandlerByType[type]) {
           const handleData = (data: unknown) => {
-            this._handleSubscriptionData('', data as CustomEvent, type);
+            this._handleSubscriptionData(type, data as CustomEvent);
           };
           this.subscriptionHandlerByType[type] = handleData;
         }
@@ -604,55 +604,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   > = {};
 
   private _handleSubscriptionData(
-    key: string,
-    event: CustomEvent,
     subscriptionType: ESubscriptionType,
+    event: CustomEvent,
   ): void {
     try {
       if (this.subscriptionsHandlerDisabled) {
         return;
-      }
-      if (key) {
-        const subscription = this._activeSubscriptions.get(key);
-        if (subscription) {
-          subscription.lastActivity = Date.now();
-          this._activeSubscriptions.set(key, subscription);
-        }
       }
 
       const data = event?.detail as unknown;
 
       if (data == null) {
         console.warn(
-          `[ServiceHyperliquidSubscription.handleSubscriptionData] Data validation failed for: ${key}`,
+          `[ServiceHyperliquidSubscription.handleSubscriptionData] Data validation failed for: ${subscriptionType}`,
         );
         return;
-      }
-
-      const parts = key.split(':');
-      const metadata: Record<string, any> = {
-        timestamp: Date.now(),
-        source: 'ServiceHyperliquidSubscription',
-        key,
-      };
-      if (
-        subscriptionType === ESubscriptionType.ACTIVE_ASSET_CTX ||
-        subscriptionType === ESubscriptionType.L2_BOOK ||
-        subscriptionType === ESubscriptionType.TRADES ||
-        subscriptionType === ESubscriptionType.BBO
-      ) {
-        metadata.coin = parts?.[2];
-      } else if (
-        subscriptionType === ESubscriptionType.WEB_DATA2 ||
-        subscriptionType === ESubscriptionType.USER_FILLS ||
-        subscriptionType === ESubscriptionType.USER_EVENTS ||
-        subscriptionType === ESubscriptionType.USER_NOTIFICATIONS ||
-        subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA
-      ) {
-        metadata.userId = parts?.[2];
-        if (subscriptionType === ESubscriptionType.ACTIVE_ASSET_DATA) {
-          metadata.coin = parts?.[3];
-        }
       }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
@@ -679,7 +645,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
           subType: subscriptionType,
           data,
-          metadata,
         });
       }
 
@@ -696,7 +661,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       this._scheduleNetworkTimeout(messageTimestamp);
     } catch (error) {
       console.error(
-        `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${key}:`,
+        `[ServiceHyperliquidSubscription.handleSubscriptionData] Failed to handle data for ${subscriptionType}:`,
         error,
       );
     }
