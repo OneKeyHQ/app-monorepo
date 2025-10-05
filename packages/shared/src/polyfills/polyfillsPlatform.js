@@ -32,7 +32,7 @@ if (platformEnv.isNative) {
   if (useJsBundle) {
     const getJsBundlePath =
       require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
-    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc').pop();
+    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
     const assetsPath = `file://${mainBundlePath}/assets/`;
     const { Platform, PixelRatio } = require('react-native');
     const AssetSourceResolver =
@@ -89,6 +89,9 @@ if (platformEnv.isNative) {
             const asset = this.fromSource(
               assetsPath + getAssetPathInDrawableFolder(this.asset),
             );
+            asset.uri = asset.uri
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
             defaultLogger.app.error.log(`android useJsBundle end`, asset.uri);
             return asset;
           }

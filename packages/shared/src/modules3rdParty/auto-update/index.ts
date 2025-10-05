@@ -55,6 +55,8 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testWriteEmptyMetadataJson: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
+  getFallbackBundles: () => Promise.resolve([]),
+  switchBundle: () => Promise.resolve(),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;
