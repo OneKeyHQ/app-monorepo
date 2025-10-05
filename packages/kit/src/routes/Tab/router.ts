@@ -244,7 +244,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               trackId: 'global-my-onekey',
             }
           : undefined,
-        // isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
+        isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev
           ? {
               name: ETabRoutes.Me,
@@ -271,20 +271,22 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               trackId: 'global-dev',
             }
           : undefined,
-        // isShowDesktopDiscover
-        //   ? getDiscoverRouterConfig(params, {
-        //       marginTop: getTokenValue('$4', 'size'),
-        //     })
-        //   : undefined,
+        isShowDesktopDiscover
+          ? getDiscoverRouterConfig(params, {
+              marginTop: getTokenValue('$4', 'size'),
+            })
+          : undefined,
       ].filter((i) => !!i),
     [
-      isShowMyOneKeyOnTabbar,
-      isShowMarketTab,
       params,
-      toMyOneKeyModal,
-      toReferFriendsPage,
+      isShowMarketTab,
       handleMarketTabPress,
       perpTabShowRes,
+      isShowMyOneKeyOnTabbar,
+      toReferFriendsPage,
+      toMyOneKeyModal,
+      isShowMDDiscover,
+      isShowDesktopDiscover,
     ],
   ) as ITabNavigatorConfig<ETabRoutes>[];
 };

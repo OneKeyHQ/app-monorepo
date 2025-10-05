@@ -69,21 +69,6 @@ jobs:
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-yarn-
-      
-      - name: Update Bundle Version
-        run: |
-          # Generate timestamp in format YYMMDDHHMM
-          TIMESTAMP=$(date +"%y%m%d%H%M")
-          echo "Generated timestamp: $TIMESTAMP"
-          
-          # Update .env.version file
-          if [ -f ".env.version" ]; then
-            sed -i.bak "s/BUNDLE_VERSION=1/BUNDLE_VERSION=$TIMESTAMP/g" .env.version
-            echo "Updated .env.version with BUNDLE_VERSION=$TIMESTAMP"
-            cat .env.version
-          else
-            echo "Warning: .env.version file not found"
-          fi
 
       - name: Install Dep
         env:
