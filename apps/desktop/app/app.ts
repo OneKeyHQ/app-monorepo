@@ -513,6 +513,7 @@ async function createMainWindow() {
   };
 
   const bundleData = store.getUpdateBundleData();
+  logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 

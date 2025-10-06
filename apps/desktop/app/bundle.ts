@@ -108,11 +108,17 @@ export const getBundleIndexHtmlPath = ({
   if (!prevNativeVersion) {
     return undefined;
   }
-  if (!semver.eq(prevNativeVersion, app.getVersion())) {
+  const currentAppVersion = app.getVersion();
+  logger.info(
+    'getBundleIndexHtmlPath: check appVersion and prevNativeVersion',
+    currentAppVersion,
+    prevNativeVersion,
+  );
+  if (!semver.eq(currentAppVersion, prevNativeVersion)) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({
-    appVersion: platformEnv.version || '1.0.0',
+    appVersion: appVersion || '1.0.0',
     bundleVersion: bundleVersion || '1',
   });
   if (!fs.existsSync(extractDir)) {
