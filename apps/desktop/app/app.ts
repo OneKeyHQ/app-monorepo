@@ -747,7 +747,16 @@ async function createMainWindow() {
     },
   );
 
-  if (!isDev) {
+  const PROTOCOL = 'file';
+  if (isDev) {
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        console.log('request', request);
+        callback(request.url);
+      },
+    );
+  } else {
     const appPath = app.getAppPath();
     // Get Windows drive letter for security validation
     const driveLetter = isWin ? appPath.substring(0, 3) : '';
@@ -802,7 +811,6 @@ async function createMainWindow() {
       }
       return filePath;
     };
-    const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
