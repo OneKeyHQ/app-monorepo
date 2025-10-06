@@ -108,7 +108,13 @@ export const getBundleIndexHtmlPath = ({
   if (!prevNativeVersion) {
     return undefined;
   }
-  if (!semver.eq(prevNativeVersion, app.getVersion())) {
+  const currentAppVersion = app.getVersion();
+  logger.info(
+    'bundle-download-getBundleIndexHtmlPath',
+    currentAppVersion,
+    prevNativeVersion,
+  );
+  if (!semver.eq(currentAppVersion, prevNativeVersion)) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({
