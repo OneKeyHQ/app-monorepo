@@ -83,7 +83,6 @@ export function PerpTradingButton({
     ) {
       await showDepositWithdrawModal(
         {
-          withdrawable: '0',
           actionType: 'deposit',
         },
         dialogInTab,

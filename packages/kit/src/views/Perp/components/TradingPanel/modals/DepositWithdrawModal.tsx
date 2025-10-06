@@ -65,7 +65,6 @@ const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
 
 interface IDepositWithdrawParams {
-  withdrawable: string;
   actionType: IPerpsDepositWithdrawActionType;
 }
 
@@ -85,7 +84,7 @@ function DepositWithdrawContent({
   const { gtMd } = useMedia();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const accountValue = accountSummary?.accountValue ?? '';
-
+  const withdrawable = accountSummary?.withdrawable ?? '';
   const accountValueInfoTrigger = useMemo(
     () => (
       <XStack
@@ -231,9 +230,7 @@ function DepositWithdrawContent({
 
   const availableBalance = useMemo(() => {
     const rawBalance =
-      selectedAction === 'withdraw'
-        ? params.withdrawable || '0'
-        : usdcBalance || '0';
+      selectedAction === 'withdraw' ? withdrawable || '0' : usdcBalance || '0';
 
     return {
       balance: rawBalance,
@@ -241,7 +238,7 @@ function DepositWithdrawContent({
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toFixed(2),
     };
-  }, [selectedAction, params.withdrawable, usdcBalance]);
+  }, [selectedAction, withdrawable, usdcBalance]);
 
   const amountBN = useMemo(() => new BigNumber(amount || '0'), [amount]);
 

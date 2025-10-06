@@ -267,7 +267,6 @@ function PerpAccountPanel() {
               showDepositWithdrawModal(
                 {
                   actionType: 'deposit',
-                  withdrawable: accountSummary?.withdrawable || '0',
                 },
                 dialogInTab,
               )
@@ -288,7 +287,6 @@ function PerpAccountPanel() {
               showDepositWithdrawModal(
                 {
                   actionType: 'withdraw',
-                  withdrawable: accountSummary?.withdrawable || '0',
                 },
                 dialogInTab,
               )

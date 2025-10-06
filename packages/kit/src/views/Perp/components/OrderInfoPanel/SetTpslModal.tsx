@@ -249,18 +249,20 @@ const SetTpslForm = memo(
           return;
         }
 
-        const numericValue = new BigNumber(processedValue);
+        let numericValue = new BigNumber(processedValue);
         if (numericValue.isNaN()) {
           return;
         }
-
+        if (numericValue.gt(positionSize)) {
+          numericValue = positionSize;
+        }
         const percentage = positionSize.gt(0)
           ? numericValue.dividedBy(positionSize).multipliedBy(100).toNumber()
           : 0;
 
         setFormData((prev) => ({
           ...prev,
-          amount: processedValue,
+          amount: numericValue.toFixed(),
           percentage: Math.min(100, Math.max(0, percentage)),
         }));
       },

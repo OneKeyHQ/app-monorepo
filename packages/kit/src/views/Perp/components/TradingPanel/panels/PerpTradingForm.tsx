@@ -42,6 +42,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -56,7 +57,6 @@ interface IPerpTradingFormProps {
 }
 
 function MobileDepositButton() {
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const dialogInTab = useInTabDialog();
   return (
     <IconButton
@@ -69,7 +69,6 @@ function MobileDepositButton() {
         showDepositWithdrawModal(
           {
             actionType: 'deposit',
-            withdrawable: accountSummary?.withdrawable || '0',
           },
           dialogInTab,
         )
@@ -85,6 +84,8 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
@@ -388,9 +389,10 @@ function PerpTradingForm({
             })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySmMedium" color="$text">
-              ${availableToTradeDisplay}
-            </SizableText>
+            <PerpsAccountNumberValue
+              value={accountSummary?.withdrawable ?? ''}
+              skeletonWidth={60}
+            />
             <MobileDepositButton />
           </XStack>
         </XStack>
@@ -588,6 +590,20 @@ function PerpTradingForm({
           borderColor="$borderSubdued"
           borderRadius="$3"
         >
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_trade_account_overview_available,
+              })}
+            </SizableText>
+            <XStack alignItems="center" gap="$1">
+              <PerpsAccountNumberValue
+                value={accountSummary?.withdrawable ?? ''}
+                skeletonWidth={60}
+              />
+              <MobileDepositButton />
+            </XStack>
+          </XStack>
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
