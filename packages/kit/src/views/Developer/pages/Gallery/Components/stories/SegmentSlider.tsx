@@ -2,15 +2,15 @@
 /* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
-import { Stack } from '@onekeyhq/components';
+import { SegmentSlider, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
-import { SegmentSlider } from '@onekeyhq/components/src/composite/SegmentSlider';
 
 const SegmentSliderDemo = () => {
+  const [value, setValue] = useState(0);
   return (
     <Stack gap="$4" padding="$4">
-      <SegmentSlider />
+      <SegmentSlider value={value} onChange={setValue} segments={4} />
     </Stack>
   );
 };

@@ -168,7 +168,7 @@ export function SegmentSlider({
   }, [bgColor, bgPrimaryColor, neutral5Color]);
   const onValueChange = useCallback(
     (sliderValue: number) => {
-      onChange(sliderValue);
+      onChange?.(sliderValue);
     },
     [onChange],
   );
