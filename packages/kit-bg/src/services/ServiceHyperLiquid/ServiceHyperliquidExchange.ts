@@ -27,6 +27,7 @@ import type {
   IHyperLiquidOrderRequestPayload,
 } from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
@@ -160,6 +161,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           'ServiceHyperliquidExchange.setup Error: User address is required',
         );
       }
+
       const transport = new HttpTransport();
 
       let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
@@ -250,7 +252,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
     const context = await this._buildLogContext();
     try {
-      const response = await this.exchangeClient.setReferrer(params);
+      const response = await convertHyperLiquidResponse(() =>
+        this.exchangeClient.setReferrer(params),
+      );
       defaultLogger.perp.hyperliquid.setReferrer({
         ...context,
         request: params,
@@ -277,7 +281,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const client = await this.getExchangeClientForTrading();
     const context = await this._buildLogContext();
     try {
-      await client.updateLeverage(params);
+      await convertHyperLiquidResponse(() => client.updateLeverage(params));
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
         request: params,
@@ -303,7 +307,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const client = await this.getExchangeClientForTrading();
     const context = await this._buildLogContext();
     try {
-      const response = await client.updateIsolatedMargin(params);
+      const response = await convertHyperLiquidResponse(() =>
+        client.updateIsolatedMargin(params),
+      );
       defaultLogger.perp.hyperliquid.updateIsolatedMargin({
         ...context,
         request: params,
@@ -356,7 +362,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const context = await this._buildLogContext();
     try {
-      const response = await this.exchangeClient.approveAgent(requestPayload);
+      const response = await convertHyperLiquidResponse(() =>
+        this.exchangeClient.approveAgent(requestPayload),
+      );
       defaultLogger.perp.hyperliquid.approveAgent({
         ...context,
         request: params,
@@ -398,7 +406,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const context = await this._buildLogContext();
     try {
-      const response = await this.exchangeClient.approveAgent(requestPayload);
+      const response = await convertHyperLiquidResponse(() =>
+        this.exchangeClient.approveAgent(requestPayload),
+      );
       defaultLogger.perp.hyperliquid.removeAgent({
         ...context,
         request,
@@ -453,11 +463,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const context = await this._buildLogContext();
     const extra = this._composeOrderLogExtra(options);
     try {
-      const response = await client.order({
-        orders,
-        grouping,
-        builder: this._builderFeeInfo,
-      });
+      const response = await convertHyperLiquidResponse(() =>
+        client.order({
+          orders,
+          grouping,
+          builder: this._builderFeeInfo,
+        }),
+      );
       dispatchHyperLiquidOrderLog({
         scene: defaultLogger.perp.hyperliquid,
         action: options.action,
@@ -726,7 +738,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       cancelCount: cancelParams.length,
     };
     try {
-      const response = await client.cancel(requestPayload);
+      const response = await convertHyperLiquidResponse(() =>
+        client.cancel(requestPayload),
+      );
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
         request: requestPayload,
@@ -856,7 +870,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     });
     const context = await this._buildLogContext();
     try {
-      await exchangeClient.withdraw3(params);
+      await convertHyperLiquidResponse(() => exchangeClient.withdraw3(params));
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
         request: params,

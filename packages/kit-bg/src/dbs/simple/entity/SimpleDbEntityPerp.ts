@@ -8,7 +8,10 @@ import type {
   IPerpsUniverse,
   IPerpsUniverseRaw,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import type { IPerpOrderBookTickOptionPersist } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  IHyperLiquidErrorLocaleItem,
+  IPerpOrderBookTickOptionPersist,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -41,6 +44,7 @@ export interface ISimpleDbPerpData {
   referralCode?: string;
   tradingviewDisplayPriceScale?: Record<string, number>; // decimal places for price display in tradingview chart
   hyperliquidTermsAccepted?: boolean;
+  hyperliquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
 }
 
 export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
@@ -227,5 +231,13 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   ): Promise<number | undefined> {
     const config = await this.getPerpData();
     return config.tradingviewDisplayPriceScale?.[symbol];
+  }
+
+  @backgroundMethod()
+  async getHyperliquidErrorLocales(): Promise<
+    IHyperLiquidErrorLocaleItem[] | undefined
+  > {
+    const config = await this.getPerpData();
+    return config.hyperliquidErrorLocales;
   }
 }
