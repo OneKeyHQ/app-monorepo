@@ -98,7 +98,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   private async init() {
-    // 设置 locale 数据提供者(支持 fallback)
+    // Register the locale provider so we can fall back when needed.
     hyperLiquidErrorResolver.setLocaleProvider(async () => {
       const config = await this.backgroundApi.simpleDb.perp.getPerpData();
       return config.hyperliquidErrorLocales;
@@ -112,7 +112,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         this.maxBuilderFee =
           config.hyperliquidMaxBuilderFee || FALLBACK_MAX_BUILDER_FEE;
 
-        // 初始化错误解析器的 locale 数据
+        // Initialize the error resolver with locale data.
         hyperLiquidErrorResolver.updateLocales(config.hyperliquidErrorLocales);
       })
       .catch((error) => {
@@ -180,7 +180,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
-    // 更新错误解析器的 locale 数据
+    // Update the error resolver locale data.
     hyperLiquidErrorResolver.updateLocales(hyperLiquidErrorLocales);
 
     if (shouldNotifyToDapp) {
