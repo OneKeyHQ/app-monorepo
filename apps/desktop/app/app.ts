@@ -751,9 +751,7 @@ async function createMainWindow() {
     const appPath = app.getAppPath();
     // Get Windows drive letter for security validation
     const driveLetter = isWin ? appPath.substring(0, 3) : '';
-    if (!isDev) {
-      logger.info('driveLetter >>>> ', driveLetter);
-    }
+    logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
     const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
