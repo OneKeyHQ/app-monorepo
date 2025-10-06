@@ -65,6 +65,7 @@ let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 globalThis.$desktopMainAppFunctions = {
   getBundleIndexHtmlPath: () => {
     const bundleData = store.getUpdateBundleData();
+    logger.info('bundleData >>>> ', bundleData);
     if (!bundleData) {
       return undefined;
     }
@@ -747,6 +748,10 @@ async function createMainWindow() {
   );
 
   if (!isDev) {
+    const appPath = app.getAppPath();
+    // Get Windows drive letter for security validation
+    const driveLetter = isWin ? appPath.substring(0, 3) : '';
+    logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
     const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
@@ -767,6 +772,10 @@ async function createMainWindow() {
       }
       const replacedKey = url.replace(/^\/+/, '').trim();
       let key = replacedKey || 'index.html';
+      // Handle Windows path separators
+      if (isWin) {
+        key = key.replace(driveLetter, '').replace('C:/', '');
+      }
       if (!metadata[key]) {
         logger.info(`${key}: File ${url} not found in metadata.json`);
         key = 'index.html';
