@@ -333,7 +333,8 @@ function WebSocketSubscriptionUpdate() {
   const actions = useHyperliquidActions();
   const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
 
-  const isLoading = !!loadingInfo?.selectAccountLoading;
+  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+  const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
 
@@ -345,7 +346,7 @@ function WebSocketSubscriptionUpdate() {
     noop(activeOrderBookOptions?.nSigFigs);
 
     if (
-      isWebSocketConnected &&
+      isWebSocketConnected === true &&
       !isLoading &&
       activeAsset?.coin &&
       activeOrderBookOptions?.coin === activeAsset?.coin
