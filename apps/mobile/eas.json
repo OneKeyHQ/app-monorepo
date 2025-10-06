@@ -28,7 +28,7 @@
       },
       "android": {
         "buildType": "apk",
-        "gradleCommand": ":app:bundleGoogleRelease",
+        "gradleCommand": ":app:assembleGoogleRelease",
         "env": {
           "ANDROID_CHANNEL": "google"
         }
