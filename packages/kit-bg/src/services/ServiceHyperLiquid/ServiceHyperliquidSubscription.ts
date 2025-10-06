@@ -32,6 +32,7 @@ import {
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
   perpsNetworkStatusAtom,
+  perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
@@ -74,6 +75,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private _client: {
+    transport: WebSocketTransport;
     dispose: () => Promise<void>;
     hlEventTarget: IHyperliquidEventTarget;
     wsRequester: {
@@ -108,6 +110,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   _updateSubscriptionsDebounced = debounce(
     async () => {
+      const client = await this.getWebSocketClient();
+      if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+        return;
+      }
+
       const activeAccount = await perpsActiveAccountAtom.get();
       const activeAsset = await perpsActiveAssetAtom.get();
       const activeOrderBookOptions =
@@ -297,6 +304,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
+    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
     console.log(
       'hyperliquidWebSocket__event__error',
       socket?.readyState,
@@ -310,6 +318,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
+    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
     console.log(
       'hyperliquidWebSocket__event__close',
       socket?.readyState,
@@ -330,6 +339,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
+    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
     console.log(
       'hyperliquidWebSocket__event__open',
       socket?.readyState,
@@ -350,6 +360,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     ...args
   ) => {
     const socket = event.target as WebSocket | undefined;
+    void perpsWebSocketReadyStateAtom.set({ readyState: socket?.readyState });
     console.log(
       'hyperliquidWebSocket__event__message',
       socket?.readyState,
@@ -445,6 +456,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         });
       };
       this._client = {
+        transport,
         hlEventTarget,
         wsRequester,
         subscribe,

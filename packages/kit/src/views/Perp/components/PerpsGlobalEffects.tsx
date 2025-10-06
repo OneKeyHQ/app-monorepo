@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 
-import {
-  useIsFocusedTab,
-  useTabIsRefreshingFocused,
-  useUpdateEffect,
-} from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+import { useUpdateEffect } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
+  useAppIsLockedAtom,
   useIndexedAccountAddressCreationStateAtom,
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -24,6 +19,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -324,14 +320,16 @@ function useHyperliquidAccountSelect() {
   }, [isFocused, checkPerpsAccountStatus]);
 }
 
-function WeboscketSubscriptionUpdate() {
+function WebSocketSubscriptionUpdate() {
   const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
   const actions = useHyperliquidActions();
+  const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
 
-  const isLoading = !!loadingInfo?.selectAccountLoading;
+  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+  const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
 
@@ -343,6 +341,7 @@ function WeboscketSubscriptionUpdate() {
     noop(activeOrderBookOptions?.nSigFigs);
 
     if (
+      isWebSocketConnected === true &&
       !isLoading &&
       activeAsset?.coin &&
       activeOrderBookOptions?.coin === activeAsset?.coin
@@ -351,6 +350,7 @@ function WeboscketSubscriptionUpdate() {
       void actions.current.updateSubscriptions();
     }
   }, [
+    isWebSocketConnected,
     isLoading,
     actions,
     activePerpsAccount?.accountAddress,
@@ -408,38 +408,71 @@ function useHyperliquidScreenLockHandler() {
 }
 
 function AutoPauseSubscriptions() {
-  const isFocusedPerpsTab = useIsFocusedTab();
-  const focusedTabName = useFocusedTab();
-  const isFocusedRoute = useRouteIsFocused();
-
-  console.log('AutoPauseSubscriptions___value', {
-    isFocusedPerpsTab,
-    focusedTabName,
-    isFocusedRoute,
-  });
-
   const pauseSubscriptionsTimerRef = useRef<
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
+
+  // const isFocusedRoute = useRouteIsFocused();
+  // useEffect(() => {
+  //   //
+  // }, [isFocusedRoute]);
+
+  const onFocusHandler = useCallback(
+    async ({ isFocus }: { isFocus: boolean }) => {
+      // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
+      //   isFocus,
+      //   isHideByModal,
+      // });
+      if (isFocus) {
+        clearTimeout(pauseSubscriptionsTimerRef.current);
+        void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+        void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+      } else {
+        void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
+        clearTimeout(pauseSubscriptionsTimerRef.current);
+        pauseSubscriptionsTimerRef.current = setTimeout(
+          () => {
+            void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
+          },
+          timerUtils.getTimeDurationMs({
+            minute: 5,
+            seconds: 30,
+          }),
+        );
+      }
+    },
+    [],
+  );
+
+  const isFocusedRef = useRef(false);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    useCallback(
+      (isFocus: boolean) => {
+        isFocusedRef.current = isFocus;
+        void onFocusHandler({ isFocus: isFocusedRef.current });
+      },
+      [onFocusHandler],
+    ),
+  );
+
+  const [isLocked] = useAppIsLockedAtom();
+
   useEffect(() => {
-    if (isFocusedRoute) {
-      clearTimeout(pauseSubscriptionsTimerRef.current);
-      void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
-      void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+    if (isLocked) {
+      void onFocusHandler({ isFocus: false });
     } else {
-      void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
-      clearTimeout(pauseSubscriptionsTimerRef.current);
-      pauseSubscriptionsTimerRef.current = setTimeout(
-        () => {
-          void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
-        },
-        timerUtils.getTimeDurationMs({
-          minute: 10,
-          seconds: 30,
-        }),
-      );
+      void onFocusHandler({ isFocus: isFocusedRef.current });
     }
-  }, [isFocusedRoute]);
+  }, [isLocked, onFocusHandler]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+    };
+  }, []);
+
   return null;
 }
 
@@ -454,7 +487,7 @@ function PerpsGlobalEffectsView() {
   return (
     <>
       <DelayedRender delay={600}>
-        <WeboscketSubscriptionUpdate />
+        <WebSocketSubscriptionUpdate />
       </DelayedRender>
       <AutoPauseSubscriptions />
     </>

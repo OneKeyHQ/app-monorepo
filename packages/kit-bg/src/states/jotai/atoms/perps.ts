@@ -318,3 +318,21 @@ export const {
     lastMessageAt: null,
   },
 });
+
+export const {
+  target: perpsWebSocketReadyStateAtom,
+  use: usePerpsWebSocketReadyStateAtom,
+} = globalAtom<{ readyState: number | undefined } | undefined>({
+  name: EAtomNames.perpsWebSocketReadyStateAtom,
+  initialValue: undefined,
+});
+
+export const {
+  target: perpsWebSocketConnectedAtom,
+  use: usePerpsWebSocketConnectedAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => {
+    const readyState = get(perpsWebSocketReadyStateAtom.atom());
+    return readyState?.readyState === WebSocket.OPEN;
+  },
+});
