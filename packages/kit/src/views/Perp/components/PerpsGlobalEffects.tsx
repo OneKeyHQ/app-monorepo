@@ -24,6 +24,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -324,12 +325,13 @@ function useHyperliquidAccountSelect() {
   }, [isFocused, checkPerpsAccountStatus]);
 }
 
-function WeboscketSubscriptionUpdate() {
+function WebSocketSubscriptionUpdate() {
   const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
   const actions = useHyperliquidActions();
+  const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
 
   const isLoading = !!loadingInfo?.selectAccountLoading;
   const isLoadingRef = useRef(isLoading);
@@ -343,6 +345,7 @@ function WeboscketSubscriptionUpdate() {
     noop(activeOrderBookOptions?.nSigFigs);
 
     if (
+      isWebSocketConnected &&
       !isLoading &&
       activeAsset?.coin &&
       activeOrderBookOptions?.coin === activeAsset?.coin
@@ -351,6 +354,7 @@ function WeboscketSubscriptionUpdate() {
       void actions.current.updateSubscriptions();
     }
   }, [
+    isWebSocketConnected,
     isLoading,
     actions,
     activePerpsAccount?.accountAddress,
@@ -460,7 +464,7 @@ function PerpsGlobalEffectsView() {
   return (
     <>
       <DelayedRender delay={600}>
-        <WeboscketSubscriptionUpdate />
+        <WebSocketSubscriptionUpdate />
       </DelayedRender>
       <AutoPauseSubscriptions />
     </>
