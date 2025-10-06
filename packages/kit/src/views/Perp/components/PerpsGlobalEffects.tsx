@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 
-import {
-  useIsFocusedTab,
-  useTabIsRefreshingFocused,
-  useUpdateEffect,
-} from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
+import { useUpdateEffect } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
+  useAppIsLockedAtom,
   useIndexedAccountAddressCreationStateAtom,
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -423,7 +418,7 @@ function AutoPauseSubscriptions() {
   // }, [isFocusedRoute]);
 
   const onFocusHandler = useCallback(
-    async (isFocus: boolean, _isHideByModal: boolean) => {
+    async ({ isFocus }: { isFocus: boolean }) => {
       // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
       //   isFocus,
       //   isHideByModal,
@@ -449,7 +444,28 @@ function AutoPauseSubscriptions() {
     [],
   );
 
-  useListenTabFocusState(ETabRoutes.Perp, onFocusHandler);
+  const isFocusedRef = useRef(false);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    useCallback(
+      (isFocus: boolean) => {
+        isFocusedRef.current = isFocus;
+        void onFocusHandler({ isFocus: isFocusedRef.current });
+      },
+      [onFocusHandler],
+    ),
+  );
+
+  const [isLocked] = useAppIsLockedAtom();
+
+  useEffect(() => {
+    if (isLocked) {
+      void onFocusHandler({ isFocus: false });
+    } else {
+      void onFocusHandler({ isFocus: isFocusedRef.current });
+    }
+  }, [isLocked, onFocusHandler]);
 
   useEffect(() => {
     return () => {
