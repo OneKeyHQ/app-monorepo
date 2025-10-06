@@ -85,6 +85,7 @@ function DepositWithdrawContent({
   const { gtMd } = useMedia();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const accountValue = accountSummary?.accountValue ?? '';
+
   const accountValueInfoTrigger = useMemo(
     () => (
       <XStack
@@ -105,7 +106,7 @@ function DepositWithdrawContent({
   const accountValuePopoverContent = useMemo(
     () => (
       <YStack flex={1} px="$5" pb="$5">
-        <SizableText size="$bodySm">
+        <SizableText size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.perp_account_panel_account_value_tooltip,
           })}
@@ -391,7 +392,23 @@ function DepositWithdrawContent({
 
     return true;
   }, [amountBN, availableBalanceBN, intl, selectedAction, showMinAmountError]);
-
+  const leftContent = useMemo(() => {
+    return selectedAction === 'deposit' ? (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: `${MIN_DEPOSIT_AMOUNT} USDC` },
+        )}
+      </SizableText>
+    ) : (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: `${MIN_WITHDRAW_AMOUNT} USDC` },
+        )}
+      </SizableText>
+    );
+  }, [intl, selectedAction]);
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
 
@@ -465,7 +482,8 @@ function DepositWithdrawContent({
   const content = (
     <YStack
       gap="$4"
-      p="$1"
+      px="$1"
+      pt="$1"
       style={{
         marginTop: -22,
       }}
@@ -784,7 +802,7 @@ function DepositWithdrawContent({
       {content}
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID}>
-          <InputAccessoryDoneButton />
+          <InputAccessoryDoneButton leftContent={leftContent} />
         </InputAccessoryView>
       ) : null}
     </>

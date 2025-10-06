@@ -128,11 +128,13 @@ export function HyperliquidTermsContent({
   const { gtMd } = useMedia();
 
   const slidesData = useMemo<ISlideData[]>(() => {
-    const slideImageHeight = gtMd ? 450 : 350;
+    const slideImageHeight = (450 * HEIGHT_RATIO) / 1.5;
+    // const slideImageHeight = gtMd ? 450 : 350;
     const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
     const textPadding = gtMd ? '$5' : '$4';
     const textHeadingSize = gtMd ? '$heading3xl' : '$heading2xl';
     const textBodySize = gtMd ? '$bodyLg' : '$bodyMd';
+    const textHeadingMarginTop = gtMd ? '$-8' : '$-6';
     const confirmationSlideStyle: IYStackProps | undefined =
       platformEnv.isNative
         ? undefined
@@ -149,8 +151,9 @@ export function HyperliquidTermsContent({
             <Stack>
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_1.png')}
-                size={slideImageHeight}
-                resizeMode="contain"
+                // size={slideImageHeight}
+                height={slideImageHeight}
+                width={slideImageHeight}
               />
             </Stack>
             <YStack
@@ -158,6 +161,7 @@ export function HyperliquidTermsContent({
               px={textPadding}
               w={bannerWidth}
               justifyContent="flex-start"
+              mt={textHeadingMarginTop}
             >
               <SizableText size={textHeadingSize}>
                 {intl.formatMessage({
@@ -190,6 +194,7 @@ export function HyperliquidTermsContent({
               justifyContent="flex-start"
               w={bannerWidth}
               px={textPadding}
+              mt={textHeadingMarginTop}
             >
               <SizableText size={textHeadingSize}>
                 {intl.formatMessage({
@@ -221,6 +226,7 @@ export function HyperliquidTermsContent({
               justifyContent="flex-start"
               w={bannerWidth}
               px={textPadding}
+              mt={textHeadingMarginTop}
             >
               <SizableText size={textHeadingSize}>
                 {intl.formatMessage({
@@ -231,7 +237,43 @@ export function HyperliquidTermsContent({
                 {intl.formatMessage({
                   id: ETranslations.perp_intro_trade_msg,
                 })}
-                anywhere.
+              </SizableText>
+            </YStack>
+          </Stack>
+        ),
+      },
+      {
+        id: 'slide-4',
+        content: (
+          <Stack alignItems="center" justifyContent="center" px="$6">
+            <Stack
+              height={slideImageHeight}
+              width={slideImageHeight}
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Image
+                source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
+                size={slideImageHeight / 1.2}
+                resizeMode="contain"
+              />
+            </Stack>
+            <YStack
+              gap="$2"
+              justifyContent="flex-start"
+              w={bannerWidth}
+              px={textPadding}
+              mt={textHeadingMarginTop}
+            >
+              <SizableText size={textHeadingSize}>
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_fast_title,
+                })}
+              </SizableText>
+              <SizableText size={textBodySize} color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_intro_fast_msg,
+                })}
               </SizableText>
             </YStack>
           </Stack>
@@ -257,7 +299,7 @@ export function HyperliquidTermsContent({
                     <Image
                       source={hyperliquidLogo}
                       height={gtMd ? 50 : 40}
-                      width={gtMd ? 300 : 200}
+                      width={gtMd ? 300 : 250}
                       resizeMode="contain"
                     />
                   </Stack>
@@ -271,8 +313,13 @@ export function HyperliquidTermsContent({
                   </SizableText>
                 </YStack>
 
-                <YStack bg="$bgSubdued" borderRadius="$3">
-                  <YStack alignItems="flex-start" gap="$3" p="$3">
+                <YStack
+                  maxWidth="100%"
+                  px="$3"
+                  bg="$bgSubdued"
+                  borderRadius="$3"
+                >
+                  <YStack alignItems="flex-start" p="$4">
                     <Checkbox
                       w="$4.5"
                       h="$4.5"
@@ -289,7 +336,7 @@ export function HyperliquidTermsContent({
                     />
                   </YStack>
                   <Divider borderColor="$borderSubdued" />
-                  <YStack alignItems="flex-start" gap="$3" p="$4">
+                  <YStack alignItems="flex-start" p="$4">
                     <Checkbox
                       w="$4.5"
                       h="$4.5"
@@ -393,6 +440,7 @@ export function HyperliquidTermsContent({
     isNotResponsibleChecked,
     onConfirm,
     overlayHeight,
+    HEIGHT_RATIO,
   ]);
 
   const renderItem = useCallback(({ item }: { item: ISlideData }) => {
@@ -516,7 +564,7 @@ export function HyperliquidTermsOverlay() {
   );
 
   const onPageIndexChange = useCallback((index: number) => {
-    setProgress(((index + 1) / 4) * 100);
+    setProgress(((index + 1) / 5) * 100);
   }, []);
   const HEIGHT_RATIO = useHeightRatio();
   const { width, height } = useWindowDimensions();
@@ -524,7 +572,7 @@ export function HyperliquidTermsOverlay() {
   if (!isVisible) {
     return null;
   }
-  const OVERLAY_HEIGHT = 600 * HEIGHT_RATIO;
+  const OVERLAY_HEIGHT = 450 * HEIGHT_RATIO;
   const maxHeight = Math.min(gtMd ? 600 : 480, height);
   const overlayHeight = OVERLAY_HEIGHT < maxHeight ? OVERLAY_HEIGHT : maxHeight;
   return (

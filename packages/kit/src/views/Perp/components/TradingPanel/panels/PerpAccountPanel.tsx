@@ -259,7 +259,7 @@ function PerpAccountPanel() {
       {userAddress ? (
         <XStack gap="$2.5">
           <Button
-            borderRadius="$3"
+            borderRadius="$full"
             flex={1}
             size="medium"
             variant="secondary"
@@ -280,7 +280,7 @@ function PerpAccountPanel() {
             </SizableText>
           </Button>
           <Button
-            borderRadius="$3"
+            borderRadius="$full"
             flex={1}
             size="medium"
             variant="secondary"

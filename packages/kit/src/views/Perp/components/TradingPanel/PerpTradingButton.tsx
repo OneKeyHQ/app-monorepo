@@ -35,7 +35,7 @@ import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
 
 const sharedButtonProps = {
   size: 'medium',
-  borderRadius: '$3',
+  borderRadius: '$full',
 };
 
 export function PerpTradingButton({
