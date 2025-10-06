@@ -152,6 +152,24 @@ export interface IPerpOrderBookTickOptionPersist {
   mantissa: IL2BookOptions['mantissa'];
 }
 
+export type IHyperLiquidErrorMatcher =
+  | {
+      type: 'exact';
+      value?: string;
+    }
+  | {
+      type: 'regex';
+      pattern?: string;
+    };
+
+export interface IHyperLiquidErrorLocaleItem {
+  i18nKey: string;
+  rawMessage: string;
+  localizedMessage: string;
+  variables: string[];
+  matcher: IHyperLiquidErrorMatcher;
+}
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
