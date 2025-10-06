@@ -97,7 +97,7 @@ const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
 const resourcesPath = getResourcesPath();
 // static path
-const preloadJsUrl = path.join(staticPath, 'preload.js');
+// const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
 const sdkConnectSrc = isDev
@@ -569,7 +569,7 @@ async function createMainWindow() {
       {
         resourcesPath,
         staticPath: `file://${staticPath}`,
-        preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
+        // preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
         sdkConnectSrc,
       },
     );
@@ -752,7 +752,7 @@ async function createMainWindow() {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
-        console.log('request', request);
+        console.log('request url', request);
         callback(request.url);
       },
     );
