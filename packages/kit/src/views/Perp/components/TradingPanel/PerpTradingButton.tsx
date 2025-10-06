@@ -282,9 +282,21 @@ export function PerpTradingButton({
 
   if (shouldShowEnableTradingButton) {
     return (
-      <YStack gap="$3" h={126} justifyContent="flex-end" flex={1}>
-        <XStack gap="$3" p="$3" borderRadius="$3" bg="$bgSubdued">
-          <SizableText size="$bodySm" color="$text">
+      <YStack
+        gap="$3"
+        h={126}
+        justifyContent="flex-end"
+        flex={1}
+        pointerEvents="box-none"
+      >
+        <XStack
+          gap="$3"
+          p="$3"
+          borderRadius="$3"
+          bg="$bgSubdued"
+          pointerEvents="box-none"
+        >
+          <SizableText size="$bodySm" color="$text" pointerEvents="box-none">
             {intl.formatMessage({
               id: ETranslations.perp_enable_trading_desc,
             })}
