@@ -110,7 +110,7 @@ export const getBundleIndexHtmlPath = ({
   }
   const currentAppVersion = app.getVersion();
   logger.info(
-    'bundle-download-getBundleIndexHtmlPath',
+    'getBundleIndexHtmlPath: check appVersion and prevNativeVersion',
     currentAppVersion,
     prevNativeVersion,
   );
