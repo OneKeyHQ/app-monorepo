@@ -450,6 +450,12 @@ function AutoPauseSubscriptions() {
 
   useListenTabFocusState(ETabRoutes.Perp, onFocusHandler);
 
+  useEffect(() => {
+    return () => {
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+    };
+  }, []);
+
   return null;
 }
 
