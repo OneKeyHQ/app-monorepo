@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TouchableWithoutFeedback, View } from 'react-native';
 import { Slider } from 'react-native-awesome-slider';
 import Animated, {
   useAnimatedReaction,
@@ -27,23 +27,27 @@ const Mark = ({
   markColor,
   backgroundColor,
   borderColor,
+  onPress,
 }: {
   slideOver?: boolean;
   markColor?: string;
   backgroundColor?: string;
   borderColor?: string;
+  onPress?: () => void;
 }) => {
   return (
-    <View
-      style={{
-        width: markWidth,
-        height: markWidth,
-        backgroundColor: slideOver ? markColor : backgroundColor,
-        borderWidth: 1,
-        borderColor: slideOver ? markColor : borderColor,
-        borderRadius: markWidth / 2,
-      }}
-    />
+    <TouchableWithoutFeedback onPress={onPress}>
+      <View
+        style={{
+          width: markWidth,
+          height: markWidth,
+          backgroundColor: slideOver ? markColor : backgroundColor,
+          borderWidth: 1,
+          borderColor: slideOver ? markColor : borderColor,
+          borderRadius: markWidth / 2,
+        }}
+      />
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -83,6 +87,7 @@ const MarkWithAnimatedView = ({
   markColor,
   backgroundColor,
   borderColor,
+  onPress,
 }: {
   index: number;
   progress: SharedValue<number>;
@@ -90,6 +95,7 @@ const MarkWithAnimatedView = ({
   markColor?: string;
   backgroundColor?: string;
   borderColor?: string;
+  onPress?: () => void;
 }) => {
   const style = useAnimatedStyle(() => {
     const progressStep = Math.floor((progress.value / 100) * step);
@@ -101,6 +107,7 @@ const MarkWithAnimatedView = ({
     <Animated.View style={[{ ...StyleSheet.absoluteFillObject }, style]}>
       <Mark
         slideOver
+        onPress={onPress}
         markColor={markColor}
         backgroundColor={backgroundColor}
         borderColor={borderColor}
@@ -174,6 +181,7 @@ export function SegmentSlider({
       bubbleTextColor: bgColor,
     };
   }, [bgColor, bgPrimaryColor, neutral5Color]);
+
   const onValueChange = useCallback(
     (sliderValue: number) => {
       onChange?.(Math.round(sliderValue));
@@ -187,6 +195,15 @@ export function SegmentSlider({
       <Thumb backgroundColor={bgColor} borderColor={borderColor} />
     );
   }, [bgColor, borderColor, renderThumbElement]);
+
+  const handlePressSegment = useCallback(
+    (index: number) => {
+      const segmentValue = maxValue - minValue;
+      onValueChange(Math.round((segmentValue * index) / step + minValue));
+    },
+    [onValueChange, maxValue, minValue, step],
+  );
+
   const renderMark = useCallback(
     ({ index }: { index: number }) => {
       if (renderMarkElement) {
@@ -198,6 +215,9 @@ export function SegmentSlider({
             key={index}
             markColor={bgPrimaryColor}
             backgroundColor={bgColor}
+            onPress={() => {
+              handlePressSegment(index);
+            }}
             borderColor={neutral5Color}
           />
           <MarkWithAnimatedView
@@ -207,11 +227,22 @@ export function SegmentSlider({
             markColor={bgPrimaryColor}
             backgroundColor={bgColor}
             borderColor={neutral5Color}
+            onPress={() => {
+              handlePressSegment(index);
+            }}
           />
         </>
       );
     },
-    [bgColor, bgPrimaryColor, neutral5Color, progress, renderMarkElement, step],
+    [
+      bgColor,
+      bgPrimaryColor,
+      neutral5Color,
+      handlePressSegment,
+      progress,
+      renderMarkElement,
+      step,
+    ],
   );
   const renderBubbleText = useCallback(
     (s: number) => {
