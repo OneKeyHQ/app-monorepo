@@ -1,11 +1,11 @@
 /**
- * HyperLiquid API 错误消息 i18n 解析器
+ * HyperLiquid API error message i18n resolver.
  *
- * 职责:
- * 1. 根据服务端提供的 locale 配置,将英文错误消息转换为本地化消息
- * 2. 支持 exact(精确匹配) 和 regex(正则匹配) 两种匹配模式
- * 3. 支持变量占位符替换 {{variable}}
- * 4. 支持 fallback 到本地存储获取 locale 数据
+ * Responsibilities:
+ * 1. Convert server-supplied English errors into localized messages via locale config.
+ * 2. Support both exact and regex matching modes.
+ * 3. Replace {{variable}} placeholders with extracted values.
+ * 4. Fall back to locale data loaded from local storage when needed.
  */
 
 import type { IHyperLiquidErrorLocaleItem } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -31,14 +31,14 @@ class HyperLiquidErrorResolver {
   private localeProvider?: ILocaleDataProvider;
 
   /**
-   * 设置 locale 数据提供者(用于 fallback)
+   * Register the locale data provider used for fallback lookups.
    */
   setLocaleProvider(provider: ILocaleDataProvider): void {
     this.localeProvider = provider;
   }
 
   /**
-   * 更新内存中的 locale 数据
+   * Update the in-memory locale data.
    */
   updateLocales(locales: IHyperLiquidErrorLocaleItem[] | undefined): void {
     this.locales = locales || [];
@@ -46,7 +46,7 @@ class HyperLiquidErrorResolver {
   }
 
   /**
-   * 预编译所有匹配器(提升性能)
+   * Precompile all matchers to improve performance.
    */
   private compileMatchers(): void {
     this.compiledMatchers.clear();
@@ -71,7 +71,7 @@ class HyperLiquidErrorResolver {
   }
 
   /**
-   * 同步解析错误消息(使用内存中的 locale 数据)
+   * Resolve an error message synchronously using in-memory locale data.
    */
   resolve(rawMessage: string): IResolvedError {
     if (!rawMessage) {
@@ -86,19 +86,19 @@ class HyperLiquidErrorResolver {
   }
 
   /**
-   * 异步解析错误消息(支持 fallback 到本地存储)
+   * Resolve an error message asynchronously with a fallback to local storage.
    */
   async resolveAsync(rawMessage: string): Promise<IResolvedError> {
     if (!rawMessage) {
       return { rawMessage: '', localizedMessage: '' };
     }
 
-    // 1. 尝试使用内存中的数据
+    // 1. Try the in-memory data first.
     if (this.locales.length > 0) {
       return this.matchAndResolve(rawMessage);
     }
 
-    // 2. Fallback: 从本地存储加载
+    // 2. Fall back to locale data loaded from local storage.
     if (this.localeProvider) {
       try {
         const locales = await this.localeProvider();
@@ -114,12 +114,12 @@ class HyperLiquidErrorResolver {
       }
     }
 
-    // 3. 无可用数据,返回原始消息
+    // 3. No locale data available; return the original message.
     return { rawMessage, localizedMessage: rawMessage };
   }
 
   /**
-   * 核心匹配和解析逻辑
+   * Core matching and resolution logic.
    */
   private matchAndResolve(rawMessage: string): IResolvedError {
     for (const item of this.locales) {
@@ -138,23 +138,23 @@ class HyperLiquidErrorResolver {
       }
     }
 
-    // 未匹配到任何规则,返回原始消息
+    // No matching rule found; return the original message.
     return { rawMessage, localizedMessage: rawMessage };
   }
 
   /**
-   * 提取变量(支持 exact 和 regex 两种模式)
+   * Extract variables for both exact and regex matchers.
    */
   private extractVariables(
     compiled: RegExp | string,
     raw: string,
   ): Record<string, string> | undefined {
-    // Exact match: 完全匹配才返回空对象
+    // Exact match: return an empty object only on a full match.
     if (typeof compiled === 'string') {
       return compiled === raw ? {} : undefined;
     }
 
-    // Regex match: 使用命名捕获组提取变量
+    // Regex match: use named capture groups to extract variables.
     const match = compiled.exec(raw);
     if (!match) return undefined;
 
@@ -162,7 +162,7 @@ class HyperLiquidErrorResolver {
   }
 
   /**
-   * 填充模板占位符 {{variable}}
+   * Fill template placeholders such as {{variable}}.
    */
   private fillTemplate(
     template: string,
@@ -176,7 +176,7 @@ class HyperLiquidErrorResolver {
   }
 }
 
-// 全局单例
+// Global singleton instance.
 export const hyperLiquidErrorResolver = new HyperLiquidErrorResolver();
 
 type IHyperLiquidApiErrorResponse = {
@@ -189,7 +189,7 @@ type IHyperLiquidApiRequestError = Error & {
 };
 
 /**
- * 统一封装 HyperLiquid API 响应,在捕获错误时自动执行 i18n 消息转换。
+ * Wrap HyperLiquid API responses and resolve i18n messages on errors.
  */
 export async function convertHyperLiquidResponse<T>(
   fn: () => Promise<T>,
