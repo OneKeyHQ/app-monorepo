@@ -750,7 +750,7 @@ async function createMainWindow() {
   if (!isDev) {
     const appPath = app.getAppPath();
     // Get Windows drive letter for security validation
-    const driveLetter = isWin ? appPath.substring(0, 2) : '';
+    const driveLetter = isWin ? appPath.substring(0, 3) : '';
     logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
@@ -774,7 +774,7 @@ async function createMainWindow() {
       let key = replacedKey || 'index.html';
       // Handle Windows path separators
       if (isWin) {
-        key = key.replace(driveLetter, '').replace('C:', '');
+        key = key.replace(driveLetter, '').replace('C:/', '');
       }
       if (!metadata[key]) {
         logger.info(`${key}: File ${url} not found in metadata.json`);
