@@ -97,7 +97,7 @@ jobs:
 
           # if env.WORKFLOW_BUILD_NUMBER exists and start with 1000, it's a dev build
           if [[ -n "${{ env.WORKFLOW_BUILD_NUMBER }}" && "${{ env.WORKFLOW_BUILD_NUMBER }}" == 1000* ]]; then
-            eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
+            eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large
           else
             eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
             eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large --auto-submit
