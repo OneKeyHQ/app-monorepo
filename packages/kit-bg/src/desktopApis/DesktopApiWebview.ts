@@ -11,7 +11,7 @@ import {
 } from '@onekeyhq/desktop/app/bundle';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
-import { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
+import logger from 'electron-log/main';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -48,6 +48,7 @@ class DesktopApiNetwork {
   async getPreloadJsContent(): Promise<string> {
     const staticPath = getStaticPath();
     const preloadJsPath = path.join(staticPath, 'preload.js');
+    logger.info('getPreloadJsContent', preloadJsPath);
     if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
       const bundleDirPath = getBundleDirPath();
       const bundleData = store.getUpdateBundleData();
@@ -67,14 +68,7 @@ class DesktopApiNetwork {
         url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
       });
     }
-    return new Promise((resolve, reject) => {
-      fs.readFile(preloadJsPath, 'utf8', (err, data) => {
-        if (err) {
-          reject(err);
-        }
-        resolve(data);
-      });
-    });
+    return `file://${preloadJsPath}?t=${Date.now()}`;
   }
 }
 
