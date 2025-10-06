@@ -139,7 +139,7 @@ export function SegmentSlider({
   sliderHeight = 4,
   segments: step = 1,
   forceSnapToStep = false,
-  snapThreshold = 6,
+  snapThreshold = 1,
   onSlideStart,
   onSlideComplete,
   renderThumb: renderThumbElement,
