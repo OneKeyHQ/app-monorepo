@@ -120,6 +120,10 @@ export interface ISegmentSliderProps {
   onSlideComplete?: () => void;
   renderThumb?: () => React.ReactNode;
   renderMark?: (props: { index: number }) => React.ReactNode;
+  min?: number;
+  max?: number;
+  disabled?: boolean;
+  showBubble?: boolean;
 }
 
 export function SegmentSlider({
@@ -132,11 +136,15 @@ export function SegmentSlider({
   onSlideStart,
   onSlideComplete,
   renderThumb: renderThumbElement,
+  min: minValue = 0,
+  max: maxValue = 100,
   renderMark: renderMarkElement,
+  showBubble = true,
+  disabled,
 }: ISegmentSliderProps) {
-  const progress = useSharedValue(100);
-  const min = useSharedValue(0);
-  const max = useSharedValue(100);
+  const progress = useSharedValue(maxValue - minValue);
+  const min = useSharedValue(minValue);
+  const max = useSharedValue(maxValue);
   const thumbScaleValue = useSharedValue(1);
   const isScrubbing = useSharedValue(false);
 
@@ -168,7 +176,7 @@ export function SegmentSlider({
   }, [bgColor, bgPrimaryColor, neutral5Color]);
   const onValueChange = useCallback(
     (sliderValue: number) => {
-      onChange?.(sliderValue);
+      onChange?.(Math.round(sliderValue));
     },
     [onChange],
   );
@@ -205,9 +213,12 @@ export function SegmentSlider({
     },
     [bgColor, bgPrimaryColor, neutral5Color, progress, renderMarkElement, step],
   );
-  const renderBubble = useCallback((s: number) => {
-    return `${Math.round(s)}%`;
-  }, []);
+  const renderBubbleText = useCallback(
+    (s: number) => {
+      return showBubble ? `${Math.round(s)}%` : '';
+    },
+    [showBubble],
+  );
   const handleSlidingStart = useCallback(() => {
     thumbScaleValue.value = 1.15;
     onSlideStart?.();
@@ -216,9 +227,14 @@ export function SegmentSlider({
     thumbScaleValue.value = 1;
     onSlideComplete?.();
   }, [onSlideComplete, thumbScaleValue]);
+
+  const renderBubble = useCallback(() => {
+    return showBubble ? undefined : () => null;
+  }, [showBubble]);
   return (
     <View style={styles.full}>
       <Slider
+        disable={disabled}
         steps={step}
         thumbWidth={thumbWidth}
         sliderHeight={sliderHeight}
@@ -226,7 +242,8 @@ export function SegmentSlider({
         forceSnapToStep={forceSnapToStep}
         onSlidingStart={handleSlidingStart}
         onSlidingComplete={handleSlidingComplete}
-        bubble={renderBubble}
+        renderBubble={renderBubble as any}
+        bubble={renderBubbleText}
         snapThreshold={snapThreshold}
         snapThresholdMode="absolute"
         markWidth={markWidth}
