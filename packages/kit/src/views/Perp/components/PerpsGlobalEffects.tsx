@@ -417,8 +417,7 @@ function AutoPauseSubscriptions() {
   //   //
   // }, [isFocusedRoute]);
 
-  useListenTabFocusState(
-    ETabRoutes.Perp,
+  const onFocusHandler = useCallback(
     async (isFocus: boolean, _isHideByModal: boolean) => {
       // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
       //   isFocus,
@@ -442,7 +441,10 @@ function AutoPauseSubscriptions() {
         );
       }
     },
+    [],
   );
+
+  useListenTabFocusState(ETabRoutes.Perp, onFocusHandler);
 
   return null;
 }
