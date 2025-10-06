@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Slider } from 'react-native-awesome-slider';
 import Animated, {
   useAnimatedReaction,
@@ -97,15 +97,12 @@ const Mark = ({
   return (
     <View
       style={{
-        width: slideOver ? markWidth + 2 : markWidth,
-        height: slideOver ? markWidth + 2 : markWidth,
-        left: slideOver ? -1 : 0,
-        top: slideOver ? -1 : 0,
-        transform: [{ rotate: '45deg' }],
+        width: markWidth,
+        height: markWidth,
         backgroundColor: slideOver ? markColor : backgroundColor,
         borderWidth: 1,
         borderColor: slideOver ? markColor : borderColor,
-        borderRadius: 2,
+        borderRadius: markWidth / 2,
       }}
     />
   );
