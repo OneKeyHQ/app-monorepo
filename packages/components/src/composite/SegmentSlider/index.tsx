@@ -1,173 +1,275 @@
-import { StyleSheet, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Slider } from 'react-native-awesome-slider';
 import Animated, {
+  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
 
-import type { TextStyle, ViewStyle } from 'react-native';
+import { useThemeValue } from '../../hooks/useStyle';
+
+import type { TextStyle } from 'react-native';
 import type { SliderThemeType } from 'react-native-awesome-slider';
 import type { SharedValue } from 'react-native-reanimated';
 
-const sliderHeight = 8;
-
-const COLORS = {
-  backgroundColor: '#0A0A0A',
-  inputBackgroundColor: '#1f1f1f',
-
-  borderColor: '#474747',
-  markColor: '#EAECEF',
-
-  bubbleBackgroundColor: '#E0E2E5',
-  bubbleTextColor: '#262C36',
-
-  textColor: '#EAECEF',
-  descriptionColor: '#E0E2E5',
-  cardStyle: {
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 20,
-    borderWidth: 1,
-    borderColor: '#292929',
-    gap: 8,
-    backgroundColor: '#0a0a0a',
-  } satisfies ViewStyle,
-
-  optionStyle: {
+const styles = StyleSheet.create({
+  full: {
+    width: '100%',
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: '#1A1A1A',
     height: 38,
-  } satisfies ViewStyle,
-  optionTextStyle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#EAECEF',
-  } satisfies TextStyle,
-  sliderTheme: {
-    maximumTrackTintColor: '#292929',
-    minimumTrackTintColor: '#EAECEF',
-    bubbleBackgroundColor: '#E0E2E5',
-    bubbleTextColor: '#262C36',
-    cacheTrackTintColor: 'rgba(189, 186, 186, 0.6)',
-  } satisfies SliderThemeType,
-};
-
-const styles = StyleSheet.create({
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
   slider: {
     marginBottom: 20,
     marginTop: 12,
   },
-  containerStyle: {
-    overflow: 'hidden',
-    borderRadius: 999,
+  container: {
+    flex: 1,
   },
-  mark: {
-    width: 2,
-    height: sliderHeight,
+
+  desc: {
+    color: '#888888',
   },
-  track: {
-    height: '100%',
-    width: '100%',
+  button: {
+    width: 38,
+    height: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    position: 'absolute',
+    // @ts-ignore
+    userSelect: 'none',
   },
 });
 
-const colors = [
-  '#FF4B4B',
-  '#FF764B',
-  '#FFA14B',
-  '#FFD24B',
-  '#FFE74B',
-  '#E9FF4B',
-  '#BFFF4B',
-  '#89FF4B',
-  '#4BFF62',
-  '#4BFFA1',
-];
-const TrackSegment = ({
+export const COLORS = {
+  backgroundColor: '#111111',
+  inputBackgroundColor: '#1A1A1A',
+
+  borderColor: '#222222',
+  markColor: '#FFFFFF',
+  textColor: '#FFFFFF',
+  descriptionColor: '#888888',
+
+  optionStyle: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+    marginBottom: 12,
+  },
+
+  optionTextStyle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+  } satisfies TextStyle,
+
+  sliderTheme: {
+    maximumTrackTintColor: '#222222',
+    minimumTrackTintColor: '#FFFFFF',
+
+    bubbleBackgroundColor: '#1A1A1A',
+    bubbleTextColor: '#FFFFFF',
+  } satisfies SliderThemeType,
+};
+
+const markWidth = 10;
+const thumbWidth = markWidth + 6;
+
+const Mark = ({
+  slideOver,
+  markColor,
+  backgroundColor,
+  borderColor,
+}: {
+  slideOver?: boolean;
+  markColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+}) => {
+  return (
+    <View
+      style={{
+        width: slideOver ? markWidth + 2 : markWidth,
+        height: slideOver ? markWidth + 2 : markWidth,
+        left: slideOver ? -1 : 0,
+        top: slideOver ? -1 : 0,
+        transform: [{ rotate: '45deg' }],
+        backgroundColor: slideOver ? markColor : backgroundColor,
+        borderWidth: 1,
+        borderColor: slideOver ? markColor : borderColor,
+        borderRadius: 2,
+      }}
+    />
+  );
+};
+
+const Thumb = ({
+  backgroundColor,
+  borderColor,
+}: {
+  backgroundColor?: string;
+  borderColor?: string;
+}) => {
+  return (
+    <View
+      style={{
+        width: thumbWidth,
+        height: thumbWidth,
+        backgroundColor,
+        borderWidth: 1,
+        borderColor,
+        borderRadius: thumbWidth / 2,
+        shadowColor: '#000000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+      }}
+    />
+  );
+};
+
+const MarkWithAnimatedView = ({
   index,
   progress,
   step,
-  color,
+  markColor,
+  backgroundColor,
+  borderColor,
 }: {
   index: number;
   progress: SharedValue<number>;
   step: number;
-  color: string | undefined;
+  markColor?: string;
+  backgroundColor?: string;
+  borderColor?: string;
 }) => {
   const style = useAnimatedStyle(() => {
-    const progressStep = Math.round((progress.value / 100) * step);
+    const progressStep = Math.floor((progress.value / 100) * step);
     return {
-      opacity: index < progressStep ? 1 : 0,
+      opacity: index <= progressStep ? 1 : 0,
     };
   });
   return (
-    <View
-      style={[
-        styles.track,
-        {
-          borderTopLeftRadius: index === 0 ? 999 : 0,
-          borderBottomLeftRadius: index === 0 ? 999 : 0,
-          borderTopRightRadius: index === step - 1 ? 999 : 0,
-          borderBottomRightRadius: index === step - 1 ? 999 : 0,
-          overflow: 'hidden',
-        },
-      ]}
-    >
-      <Animated.View style={[StyleSheet.absoluteFillObject, style]}>
-        <View
-          style={[StyleSheet.absoluteFillObject, { backgroundColor: color }]}
-        />
-      </Animated.View>
-    </View>
+    <Animated.View style={[{ ...StyleSheet.absoluteFillObject }, style]}>
+      <Mark
+        slideOver
+        markColor={markColor}
+        backgroundColor={backgroundColor}
+        borderColor={borderColor}
+      />
+    </Animated.View>
   );
 };
 
-const step = colors.length - 1;
-
 export function SegmentSlider() {
-  const progress = useSharedValue(50);
+  const [value, setValue] = useState(25);
+  const [forceSnapToStep, setForceSnapToStep] = useState(false);
+  const [snapThreshold, setSnapThreshold] = useState(6);
+
+  const progress = useSharedValue(100);
   const min = useSharedValue(0);
   const max = useSharedValue(100);
+  const thumbScaleValue = useSharedValue(1);
+  const isScrubbing = useSharedValue(false);
+  const step = 4;
 
+  useAnimatedReaction(
+    () => {
+      return value;
+    },
+    (data) => {
+      if (data !== undefined && !Number.isNaN(data) && !isScrubbing.value) {
+        progress.value = data;
+      }
+    },
+    [value],
+  );
+
+  const [bgPrimaryColor, neutral5Color, bgColor, borderColor] = useThemeValue([
+    'bgPrimary',
+    'neutral5',
+    'bg',
+    'borderStrong',
+  ]);
+  const sliderTheme: SliderThemeType = useMemo(() => {
+    return {
+      maximumTrackTintColor: neutral5Color,
+      minimumTrackTintColor: bgPrimaryColor,
+      bubbleBackgroundColor: bgPrimaryColor,
+      bubbleTextColor: bgColor,
+    };
+  }, [bgColor, bgPrimaryColor, neutral5Color]);
   return (
-    <Slider
-      progress={progress}
-      minimumValue={min}
-      style={styles.slider}
-      containerStyle={styles.containerStyle}
-      maximumValue={max}
-      steps={step}
-      sliderHeight={sliderHeight}
-      renderBubble={() => <></>}
-      renderMark={({ index }) => {
-        if (index === 0 || index === step) return null;
-        return (
-          <View
-            style={[
-              styles.mark,
-              {
-                backgroundColor: COLORS.markColor,
-              },
-            ]}
-          />
-        );
-      }}
-      renderTrack={({ index }) => {
-        return (
-          <TrackSegment
-            index={index}
-            progress={progress}
-            step={step}
-            color={colors[index]}
-          />
-        );
-      }}
-      forceSnapToStep
-      thumbWidth={20}
-      theme={{
-        ...COLORS.sliderTheme,
-      }}
-    />
+    <View style={styles.full}>
+      <Slider
+        steps={step}
+        thumbWidth={thumbWidth}
+        sliderHeight={3}
+        isScrubbing={isScrubbing}
+        // disableTrackPress
+        // thumbTouchSize={thumbWidth * 2}
+        forceSnapToStep={forceSnapToStep}
+        onSlidingStart={() => {
+          thumbScaleValue.value = 1.15;
+        }}
+        // disableTapEvent={true}
+        onSlidingComplete={() => {
+          thumbScaleValue.value = 1;
+        }}
+        bubble={useCallback((s: number) => {
+          return `${Math.round(s)}%`;
+        }, [])}
+        snapThreshold={snapThreshold}
+        snapThresholdMode="absolute"
+        markWidth={markWidth}
+        renderMark={useCallback(
+          ({ index }: { index: number }) => {
+            return (
+              <>
+                <Mark
+                  key={index}
+                  markColor={bgPrimaryColor}
+                  backgroundColor={bgColor}
+                  borderColor={neutral5Color}
+                />
+                <MarkWithAnimatedView
+                  index={index}
+                  progress={progress}
+                  step={step}
+                  markColor={bgPrimaryColor}
+                  backgroundColor={bgColor}
+                  borderColor={neutral5Color}
+                />
+              </>
+            );
+          },
+          [bgColor, bgPrimaryColor, neutral5Color, progress],
+        )}
+        theme={sliderTheme}
+        renderThumb={() => (
+          <Thumb backgroundColor={bgColor} borderColor={borderColor} />
+        )}
+        onValueChange={useCallback((sliderValue: number) => {
+          setValue(Math.round(sliderValue));
+        }, [])}
+        style={styles.slider}
+        progress={progress}
+        minimumValue={min}
+        maximumValue={max}
+        thumbScaleValue={thumbScaleValue}
+      />
+    </View>
   );
 }
