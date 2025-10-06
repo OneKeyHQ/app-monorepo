@@ -118,7 +118,7 @@ export const getBundleIndexHtmlPath = ({
     return undefined;
   }
   const extractDir = getBundleExtractDir({
-    appVersion: platformEnv.version || '1.0.0',
+    appVersion: appVersion || '1.0.0',
     bundleVersion: bundleVersion || '1',
   });
   if (!fs.existsSync(extractDir)) {
