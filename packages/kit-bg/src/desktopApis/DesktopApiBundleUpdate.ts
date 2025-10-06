@@ -397,8 +397,15 @@ class DesktopApiAppBundleUpdate {
       bundleVersion,
       signature,
     });
+    logger.info('installBundle', {
+      appVersion,
+      bundleVersion,
+      signature,
+    });
     store.setNativeVersion(app.getVersion());
-
+    logger.info('installBundle setNativeVersion', {
+      nativeVersion: app.getVersion(),
+    });
     const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
     if (
       currentUpdateBundleData &&
@@ -420,7 +427,7 @@ class DesktopApiAppBundleUpdate {
         }
       }
     }
-    console.log('fallbackUpdateBundleData', fallbackUpdateBundleData);
+    logger.info('fallbackUpdateBundleData', fallbackUpdateBundleData);
     store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
     setTimeout(() => {
       if (!process.mas) {

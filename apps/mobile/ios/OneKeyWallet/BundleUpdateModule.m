@@ -80,7 +80,9 @@ RCT_EXPORT_MODULE();
 
 + (NSString *)currentBundleVersion {
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-    return [userDefaults objectForKey:@"currentBundleVersion"];
+    NSString *currentBundleVersion = [userDefaults objectForKey:@"currentBundleVersion"];
+    DDLogDebug(@"currentBundleVersion: %@", currentBundleVersion);
+    return currentBundleVersion;
 }
 
 + (NSString *)currentBundleDir {
@@ -183,6 +185,7 @@ RCT_EXPORT_MODULE();
     }
     NSString *manJsBundleName = @"main.jsbundle.hbc";
     NSString *mainJSBundle = [folderName stringByAppendingPathComponent:manJsBundleName];
+    DDLogDebug(@"mainJSBundle path: %@", mainJSBundle);
     if (![[NSFileManager defaultManager] fileExistsAtPath:mainJSBundle]) {
         DDLogDebug(@"mainJSBundleFile does not exist");
         return nil;
