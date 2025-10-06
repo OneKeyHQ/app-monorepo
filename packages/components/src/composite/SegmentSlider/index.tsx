@@ -10,7 +10,6 @@ import Animated, {
 
 import { useThemeValue } from '../../hooks/useStyle';
 
-import type { TextStyle } from 'react-native';
 import type { SliderThemeType } from 'react-native-awesome-slider';
 import type { SharedValue } from 'react-native-reanimated';
 
@@ -18,67 +17,7 @@ const styles = StyleSheet.create({
   full: {
     width: '100%',
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    height: 38,
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  slider: {
-    marginBottom: 20,
-    marginTop: 12,
-  },
-  container: {
-    flex: 1,
-  },
-
-  desc: {
-    color: '#888888',
-  },
-  button: {
-    width: 38,
-    height: 38,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-    position: 'absolute',
-    // @ts-ignore
-    userSelect: 'none',
-  },
 });
-
-export const COLORS = {
-  backgroundColor: '#111111',
-  inputBackgroundColor: '#1A1A1A',
-
-  borderColor: '#222222',
-  markColor: '#FFFFFF',
-  textColor: '#FFFFFF',
-  descriptionColor: '#888888',
-
-  optionStyle: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    marginBottom: 12,
-  },
-
-  optionTextStyle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FFFFFF',
-  } satisfies TextStyle,
-
-  sliderTheme: {
-    maximumTrackTintColor: '#222222',
-    minimumTrackTintColor: '#FFFFFF',
-
-    bubbleBackgroundColor: '#1A1A1A',
-    bubbleTextColor: '#FFFFFF',
-  } satisfies SliderThemeType,
-};
 
 const markWidth = 10;
 const thumbWidth = markWidth + 6;
@@ -170,17 +109,36 @@ const MarkWithAnimatedView = ({
   );
 };
 
-export function SegmentSlider() {
-  const [value, setValue] = useState(25);
-  const [forceSnapToStep, setForceSnapToStep] = useState(false);
-  const [snapThreshold, setSnapThreshold] = useState(6);
+export interface ISegmentSliderProps {
+  value: number;
+  sliderHeight?: number;
+  onChange: (value: number) => void;
+  segments: number;
+  snapThreshold?: number;
+  forceSnapToStep?: boolean;
+  onSlideStart?: () => void;
+  onSlideComplete?: () => void;
+  renderThumb?: () => React.ReactNode;
+  renderMark?: (props: { index: number }) => React.ReactNode;
+}
 
+export function SegmentSlider({
+  value,
+  onChange,
+  sliderHeight = 4,
+  segments: step = 1,
+  forceSnapToStep = false,
+  snapThreshold = 6,
+  onSlideStart,
+  onSlideComplete,
+  renderThumb: renderThumbElement,
+  renderMark: renderMarkElement,
+}: ISegmentSliderProps) {
   const progress = useSharedValue(100);
   const min = useSharedValue(0);
   const max = useSharedValue(100);
   const thumbScaleValue = useSharedValue(1);
   const isScrubbing = useSharedValue(false);
-  const step = 4;
 
   useAnimatedReaction(
     () => {
@@ -208,60 +166,74 @@ export function SegmentSlider() {
       bubbleTextColor: bgColor,
     };
   }, [bgColor, bgPrimaryColor, neutral5Color]);
+  const onValueChange = useCallback(
+    (sliderValue: number) => {
+      onChange(sliderValue);
+    },
+    [onChange],
+  );
+  const renderThumb = useCallback(() => {
+    return renderThumbElement ? (
+      renderThumbElement()
+    ) : (
+      <Thumb backgroundColor={bgColor} borderColor={borderColor} />
+    );
+  }, [bgColor, borderColor, renderThumbElement]);
+  const renderMark = useCallback(
+    ({ index }: { index: number }) => {
+      if (renderMarkElement) {
+        return renderMarkElement({ index });
+      }
+      return (
+        <>
+          <Mark
+            key={index}
+            markColor={bgPrimaryColor}
+            backgroundColor={bgColor}
+            borderColor={neutral5Color}
+          />
+          <MarkWithAnimatedView
+            index={index}
+            progress={progress}
+            step={step}
+            markColor={bgPrimaryColor}
+            backgroundColor={bgColor}
+            borderColor={neutral5Color}
+          />
+        </>
+      );
+    },
+    [bgColor, bgPrimaryColor, neutral5Color, progress, renderMarkElement, step],
+  );
+  const renderBubble = useCallback((s: number) => {
+    return `${Math.round(s)}%`;
+  }, []);
+  const handleSlidingStart = useCallback(() => {
+    thumbScaleValue.value = 1.15;
+    onSlideStart?.();
+  }, [onSlideStart, thumbScaleValue]);
+  const handleSlidingComplete = useCallback(() => {
+    thumbScaleValue.value = 1;
+    onSlideComplete?.();
+  }, [onSlideComplete, thumbScaleValue]);
   return (
     <View style={styles.full}>
       <Slider
         steps={step}
         thumbWidth={thumbWidth}
-        sliderHeight={3}
+        sliderHeight={sliderHeight}
         isScrubbing={isScrubbing}
-        // disableTrackPress
-        // thumbTouchSize={thumbWidth * 2}
         forceSnapToStep={forceSnapToStep}
-        onSlidingStart={() => {
-          thumbScaleValue.value = 1.15;
-        }}
-        // disableTapEvent={true}
-        onSlidingComplete={() => {
-          thumbScaleValue.value = 1;
-        }}
-        bubble={useCallback((s: number) => {
-          return `${Math.round(s)}%`;
-        }, [])}
+        onSlidingStart={handleSlidingStart}
+        onSlidingComplete={handleSlidingComplete}
+        bubble={renderBubble}
         snapThreshold={snapThreshold}
         snapThresholdMode="absolute"
         markWidth={markWidth}
-        renderMark={useCallback(
-          ({ index }: { index: number }) => {
-            return (
-              <>
-                <Mark
-                  key={index}
-                  markColor={bgPrimaryColor}
-                  backgroundColor={bgColor}
-                  borderColor={neutral5Color}
-                />
-                <MarkWithAnimatedView
-                  index={index}
-                  progress={progress}
-                  step={step}
-                  markColor={bgPrimaryColor}
-                  backgroundColor={bgColor}
-                  borderColor={neutral5Color}
-                />
-              </>
-            );
-          },
-          [bgColor, bgPrimaryColor, neutral5Color, progress],
-        )}
+        renderMark={renderMark}
         theme={sliderTheme}
-        renderThumb={() => (
-          <Thumb backgroundColor={bgColor} borderColor={borderColor} />
-        )}
-        onValueChange={useCallback((sliderValue: number) => {
-          setValue(Math.round(sliderValue));
-        }, [])}
-        style={styles.slider}
+        renderThumb={renderThumb}
+        onValueChange={onValueChange}
         progress={progress}
         minimumValue={min}
         maximumValue={max}
