@@ -41,7 +41,9 @@ const PerpTickerBarMMRInfoMobileView = memo(
     );
     return (
       <Popover
-        title="MMR"
+        title={intl.formatMessage({
+          id: ETranslations.perp_account_panel_account_maintenance_margin,
+        })}
         renderTrigger={
           <DebugRenderTracker name="PerpTickerBarMMRInfoMobileViewTrigger">
             <XStack

@@ -86,7 +86,8 @@ export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  midPx?: string;
+  limitPx?: string;
   slippage?: number;
 }
 
@@ -150,6 +151,24 @@ export interface IPerpOrderBookTickOptionPersist {
   value: string;
   nSigFigs: IL2BookOptions['nSigFigs'];
   mantissa: IL2BookOptions['mantissa'];
+}
+
+export type IHyperLiquidErrorMatcher =
+  | {
+      type: 'exact';
+      value?: string;
+    }
+  | {
+      type: 'regex';
+      pattern?: string;
+    };
+
+export interface IHyperLiquidErrorLocaleItem {
+  i18nKey: string;
+  rawMessage: string;
+  localizedMessage: string;
+  variables: string[];
+  matcher: IHyperLiquidErrorMatcher;
 }
 
 export interface IPerpCommonConfig {

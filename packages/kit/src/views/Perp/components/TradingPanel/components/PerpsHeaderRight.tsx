@@ -113,7 +113,6 @@ function DepositButton() {
         showDepositWithdrawModal(
           {
             actionType: 'deposit',
-            withdrawable: accountSummary?.withdrawable || '0',
           },
           dialogInTab,
         )

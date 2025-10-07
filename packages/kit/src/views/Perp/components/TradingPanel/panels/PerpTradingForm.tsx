@@ -9,9 +9,9 @@ import {
   Divider,
   IconButton,
   Popover,
+  SegmentSlider,
   SizableText,
   Skeleton,
-  Slider,
   Tooltip,
   XStack,
   YStack,
@@ -42,6 +42,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
@@ -56,7 +57,6 @@ interface IPerpTradingFormProps {
 }
 
 function MobileDepositButton() {
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const dialogInTab = useInTabDialog();
   return (
     <IconButton
@@ -69,7 +69,6 @@ function MobileDepositButton() {
         showDepositWithdrawModal(
           {
             actionType: 'deposit',
-            withdrawable: accountSummary?.withdrawable || '0',
           },
           dialogInTab,
         )
@@ -85,6 +84,8 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
@@ -374,7 +375,7 @@ function PerpTradingForm({
 
   if (isMobile) {
     return (
-      <YStack gap="$3">
+      <YStack gap="$2.5">
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
             <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
@@ -388,9 +389,10 @@ function PerpTradingForm({
             })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySmMedium" color="$text">
-              ${availableToTradeDisplay}
-            </SizableText>
+            <PerpsAccountNumberValue
+              value={accountSummary?.withdrawable ?? ''}
+              skeletonWidth={60}
+            />
             <MobileDepositButton />
           </XStack>
         </XStack>
@@ -454,16 +456,18 @@ function PerpTradingForm({
           onRequestManualMode={switchToManual}
           isMobile={isMobile}
         />
-        <Slider
-          min={0}
-          max={100}
-          value={sliderValue}
-          onChange={handleSliderPercentChange}
-          disabled={sliderDisabled}
-          segments={4}
-          step={1}
-          h="$0.5"
-        />
+        <YStack pt="$2" pb="$2">
+          <SegmentSlider
+            min={0}
+            max={100}
+            value={sliderValue}
+            showBubble={false}
+            onChange={handleSliderPercentChange}
+            disabled={sliderDisabled}
+            segments={4}
+            sliderHeight={2}
+          />
+        </YStack>
         {shouldShowEnableTradingButton && isMobile ? null : (
           <YStack gap="$1" mt="$1">
             <XStack alignItems="center" gap="$2">
@@ -591,6 +595,20 @@ function PerpTradingForm({
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
+                id: ETranslations.perp_trade_account_overview_available,
+              })}
+            </SizableText>
+            <XStack alignItems="center" gap="$1">
+              <PerpsAccountNumberValue
+                value={accountSummary?.withdrawable ?? ''}
+                skeletonWidth={60}
+              />
+              <MobileDepositButton />
+            </XStack>
+          </XStack>
+          <XStack justifyContent="space-between">
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
                 id: ETranslations.perp_trade_current_position,
               })}
             </SizableText>
@@ -638,16 +656,15 @@ function PerpTradingForm({
           onRequestManualMode={switchToManual}
         />
         <YStack>
-          <Slider
-            width="100%"
+          <SegmentSlider
             min={0}
             max={100}
+            showBubble={false}
             value={sliderValue}
             onChange={handleSliderPercentChange}
             disabled={sliderDisabled}
             segments={4}
-            step={1}
-            h={3}
+            sliderHeight={4}
           />
         </YStack>
 

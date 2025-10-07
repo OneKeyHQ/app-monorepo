@@ -3,6 +3,7 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   ICancelResponse,
+  ISuccessResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
@@ -12,6 +13,7 @@ import type {
   IBuilderFeeRequest,
   ILeverageUpdateRequest,
   ISetReferrerRequest,
+  IUpdateIsolatedMarginRequest,
   IWithdrawParams,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -56,6 +58,16 @@ export class HyperLiquidScene extends BaseScene {
     params: IHyperLiquidLogParams<
       ILeverageUpdateRequest,
       { success: true } | IApiErrorResponse
+    >,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
+  public updateIsolatedMargin(
+    params: IHyperLiquidLogParams<
+      IUpdateIsolatedMarginRequest,
+      ISuccessResponse | IApiErrorResponse
     >,
   ) {
     return params;
