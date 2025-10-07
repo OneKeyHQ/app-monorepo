@@ -100,7 +100,7 @@ jobs:
       - name: Upload universal Windows Store exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-winms-universal-exe
+          name: onekey-desktop-winms-universal-${{ env.BUILD_NUMBER }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe

@@ -100,7 +100,7 @@ jobs:
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: onekey-desktop-snap-${{ env.BUILD_NUMBER }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
