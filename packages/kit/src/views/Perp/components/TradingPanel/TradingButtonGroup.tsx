@@ -1,7 +1,8 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Button,
@@ -31,13 +32,11 @@ import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 
 interface ITradingButtonGroupProps {
-  isSubmitting: boolean;
   isMobile: boolean;
 }
 
 interface ISideButtonProps {
   side: 'long' | 'short';
-  isSubmitting: boolean;
   isMobile: boolean;
   justifyContent?:
     | 'flex-start'
@@ -51,7 +50,6 @@ interface ISideButtonProps {
 
 function SideButtonInternal({
   side,
-  isSubmitting,
   isMobile,
   justifyContent = 'flex-start',
 }: ISideButtonProps) {
@@ -117,7 +115,6 @@ function SideButtonInternal({
       hasEmptyInputs ||
       !computedSizeForSide.gt(0) ||
       !perpsAccountStatus.canTrade ||
-      isSubmitting ||
       isMinimumOrderNotMetForSide ||
       isNoEnoughMargin ||
       isAccountLoading ||
@@ -129,7 +126,6 @@ function SideButtonInternal({
     hasEmptyInputs,
     computedSizeForSide,
     perpsAccountStatus.canTrade,
-    isSubmitting,
     isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     isAccountLoading,
@@ -138,10 +134,6 @@ function SideButtonInternal({
   ]);
 
   const buttonText = useMemo(() => {
-    if (isSubmitting)
-      return intl.formatMessage({
-        id: ETranslations.perp_trading_button_placing,
-      });
     if (isMinimumOrderNotMetForSide)
       return intl.formatMessage(
         {
@@ -167,7 +159,6 @@ function SideButtonInternal({
       ? intl.formatMessage({ id: ETranslations.perp_trade_long })
       : intl.formatMessage({ id: ETranslations.perp_trade_short });
   }, [
-    isSubmitting,
     isMinimumOrderNotMetForSide,
     isNoEnoughMargin,
     side,
@@ -207,131 +198,131 @@ function SideButtonInternal({
     };
   }, [isAccountLoading, isLong, themeVariant]);
 
-  const handlePress = useCallback(() => {
-    // Validate TPSL only if user has filled in values
-    const tpValue = formData.tpValue?.trim();
-    const slValue = formData.slValue?.trim();
-    const hasTpValue = Boolean(tpValue);
-    const hasSlValue = Boolean(slValue);
+  const handlePress = useDebouncedCallback(
+    (): void => {
+      // Validate TPSL only if user has filled in values
+      const tpValue = formData.tpValue?.trim();
+      const slValue = formData.slValue?.trim();
+      const hasTpValue = Boolean(tpValue);
+      const hasSlValue = Boolean(slValue);
 
-    if (formData.hasTpsl && (hasTpValue || hasSlValue)) {
-      // Calculate trigger prices based on type
-      let tpTriggerPrice: BigNumber | null = null;
-      let slTriggerPrice: BigNumber | null = null;
+      if (formData.hasTpsl && (hasTpValue || hasSlValue)) {
+        // Calculate trigger prices based on type
+        let tpTriggerPrice: BigNumber | null = null;
+        let slTriggerPrice: BigNumber | null = null;
 
-      if (hasTpValue && tpValue) {
-        if (formData.tpType === 'price') {
-          tpTriggerPrice = new BigNumber(tpValue);
-        } else {
-          // percentage mode
-          const percent = new BigNumber(tpValue);
-          if (percent.isFinite()) {
-            const percentChange = effectivePriceBN
-              .multipliedBy(percent)
-              .dividedBy(100);
-            tpTriggerPrice =
-              side === 'long'
-                ? effectivePriceBN.plus(percentChange)
-                : effectivePriceBN.minus(percentChange);
+        if (hasTpValue && tpValue) {
+          if (formData.tpType === 'price') {
+            tpTriggerPrice = new BigNumber(tpValue);
+          } else {
+            // percentage mode
+            const percent = new BigNumber(tpValue);
+            if (percent.isFinite()) {
+              const percentChange = effectivePriceBN
+                .multipliedBy(percent)
+                .dividedBy(100);
+              tpTriggerPrice =
+                side === 'long'
+                  ? effectivePriceBN.plus(percentChange)
+                  : effectivePriceBN.minus(percentChange);
+            }
+          }
+        }
+
+        if (hasSlValue && slValue) {
+          if (formData.slType === 'price') {
+            slTriggerPrice = new BigNumber(slValue);
+          } else {
+            // percentage mode
+            const percent = new BigNumber(slValue);
+            if (percent.isFinite()) {
+              const percentChange = effectivePriceBN
+                .multipliedBy(percent)
+                .dividedBy(100);
+              slTriggerPrice =
+                side === 'long'
+                  ? effectivePriceBN.minus(percentChange)
+                  : effectivePriceBN.plus(percentChange);
+            }
+          }
+        }
+
+        // Validate TP only if user filled it
+        if (
+          hasTpValue &&
+          tpTriggerPrice &&
+          tpTriggerPrice.isFinite() &&
+          effectivePriceBN.gt(0)
+        ) {
+          if (side === 'long' && tpTriggerPrice.lte(effectivePriceBN)) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_1,
+              }),
+            });
+            return;
+          }
+          if (side === 'short' && tpTriggerPrice.gte(effectivePriceBN)) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_2,
+              }),
+            });
+            return;
+          }
+        }
+
+        // Validate SL only if user filled it
+        if (
+          hasSlValue &&
+          slTriggerPrice &&
+          slTriggerPrice.isFinite() &&
+          effectivePriceBN.gt(0)
+        ) {
+          if (side === 'long' && slTriggerPrice.gte(effectivePriceBN)) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_1,
+              }),
+            });
+            return;
+          }
+          if (side === 'short' && slTriggerPrice.lte(effectivePriceBN)) {
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_sl,
+              }),
+              message: intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_2,
+              }),
+            });
+            return;
           }
         }
       }
 
-      if (hasSlValue && slValue) {
-        if (formData.slType === 'price') {
-          slTriggerPrice = new BigNumber(slValue);
-        } else {
-          // percentage mode
-          const percent = new BigNumber(slValue);
-          if (percent.isFinite()) {
-            const percentChange = effectivePriceBN
-              .multipliedBy(percent)
-              .dividedBy(100);
-            slTriggerPrice =
-              side === 'long'
-                ? effectivePriceBN.minus(percentChange)
-                : effectivePriceBN.plus(percentChange);
-          }
-        }
+      // Validation passed, proceed with order
+      if (perpsCustomSettings.skipOrderConfirm) {
+        void handleConfirm(side);
+      } else {
+        showOrderConfirmDialog(side);
       }
-
-      // Validate TP only if user filled it
-      if (
-        hasTpValue &&
-        tpTriggerPrice &&
-        tpTriggerPrice.isFinite() &&
-        effectivePriceBN.gt(0)
-      ) {
-        if (side === 'long' && tpTriggerPrice.lte(effectivePriceBN)) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.perp_invaild_tp_sl,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.perp_invaild_tp_desc_1,
-            }),
-          });
-          return;
-        }
-        if (side === 'short' && tpTriggerPrice.gte(effectivePriceBN)) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.perp_invaild_tp_sl,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.perp_invaild_tp_desc_2,
-            }),
-          });
-          return;
-        }
-      }
-
-      // Validate SL only if user filled it
-      if (
-        hasSlValue &&
-        slTriggerPrice &&
-        slTriggerPrice.isFinite() &&
-        effectivePriceBN.gt(0)
-      ) {
-        if (side === 'long' && slTriggerPrice.gte(effectivePriceBN)) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.perp_invaild_tp_sl,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.perp_invaild_sl_desc_1,
-            }),
-          });
-          return;
-        }
-        if (side === 'short' && slTriggerPrice.lte(effectivePriceBN)) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.perp_invaild_tp_sl,
-            }),
-            message: intl.formatMessage({
-              id: ETranslations.perp_invaild_sl_desc_2,
-            }),
-          });
-          return;
-        }
-      }
-    }
-
-    // Validation passed, proceed with order
-    if (perpsCustomSettings.skipOrderConfirm) {
-      void handleConfirm(side);
-    } else {
-      showOrderConfirmDialog(side);
-    }
-  }, [
-    side,
-    formData,
-    intl,
-    effectivePriceBN,
-    perpsCustomSettings.skipOrderConfirm,
-    handleConfirm,
-  ]);
+    },
+    1000,
+    {
+      leading: true,
+      trailing: false,
+    },
+  );
   if (isMobile) {
     return (
       <YStack gap="$2" flex={1}>
@@ -438,16 +429,11 @@ function SideButtonInternal({
           borderRadius="$full"
           bg={buttonStyles.bg}
           hoverStyle={
-            !buttonDisabled && !isSubmitting
-              ? { bg: buttonStyles.hoverBg }
-              : undefined
+            !buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined
           }
           pressStyle={
-            !buttonDisabled && !isSubmitting
-              ? { bg: buttonStyles.pressBg }
-              : undefined
+            !buttonDisabled ? { bg: buttonStyles.pressBg } : undefined
           }
-          loading={isSubmitting}
           disabled={buttonDisabled}
           onPress={handlePress}
         >
@@ -464,17 +450,8 @@ function SideButtonInternal({
         size="medium"
         borderRadius="$full"
         bg={buttonStyles.bg}
-        hoverStyle={
-          !buttonDisabled && !isSubmitting
-            ? { bg: buttonStyles.hoverBg }
-            : undefined
-        }
-        pressStyle={
-          !buttonDisabled && !isSubmitting
-            ? { bg: buttonStyles.pressBg }
-            : undefined
-        }
-        loading={isSubmitting}
+        hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
+        pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
         onPress={handlePress}
       >
@@ -571,25 +548,17 @@ function SideButtonInternal({
 
 const SideButton = memo(SideButtonInternal);
 
-function TradingButtonGroup({
-  isSubmitting,
-  isMobile,
-}: ITradingButtonGroupProps) {
+function TradingButtonGroup({ isMobile }: ITradingButtonGroupProps) {
   return isMobile ? (
     <YStack gap="$3">
-      <SideButton side="long" isSubmitting={isSubmitting} isMobile={isMobile} />
-      <SideButton
-        side="short"
-        isSubmitting={isSubmitting}
-        isMobile={isMobile}
-      />
+      <SideButton side="long" isMobile={isMobile} />
+      <SideButton side="short" isMobile={isMobile} />
     </YStack>
   ) : (
     <XStack gap="$2.5" mt="$4">
       <XStack flexBasis="50%" flexShrink={1}>
         <SideButton
           side="long"
-          isSubmitting={isSubmitting}
           isMobile={isMobile}
           justifyContent="flex-start"
         />
@@ -597,7 +566,6 @@ function TradingButtonGroup({
       <XStack flexBasis="50%" flexShrink={1}>
         <SideButton
           side="short"
-          isSubmitting={isSubmitting}
           isMobile={isMobile}
           justifyContent="flex-end"
         />

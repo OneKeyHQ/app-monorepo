@@ -123,7 +123,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
       {perpsAccountStatus.canTrade ? (
-        <TradingButtonGroup isSubmitting={isSubmitting} isMobile={isMobile} />
+        <TradingButtonGroup isMobile={isMobile} />
       ) : (
         <PerpTradingButton
           loading={universalLoading}

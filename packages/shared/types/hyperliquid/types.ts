@@ -86,7 +86,8 @@ export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  midPx?: string;
+  limitPx?: string;
   slippage?: number;
 }
 
