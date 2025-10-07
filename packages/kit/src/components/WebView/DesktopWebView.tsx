@@ -60,7 +60,7 @@ function usePreloadJsUrl() {
           setPreloadJsUrl(url);
         });
     }
-  }, []);
+  }, [preloadJsUrl]);
   return preloadJsUrl;
 }
 

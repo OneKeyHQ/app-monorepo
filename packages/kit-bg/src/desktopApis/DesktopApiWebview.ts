@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { session } from 'electron';
+import logger from 'electron-log/main';
 
 import {
   checkFileHash,
@@ -11,7 +12,6 @@ import {
 } from '@onekeyhq/desktop/app/bundle';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
-import logger from 'electron-log/main';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
