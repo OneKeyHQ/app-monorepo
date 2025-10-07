@@ -2045,7 +2045,7 @@
   "perp.account_create": "請為此帳戶建立一個 EVM 地址",
   "perp.account_cross_margin_ration": "全仓保證金比率",
   "perp.account_cross_margin_ration_tip": "保證金比率越低，相對於您的倉位規模，您的強制平倉水平就越低。一旦保證金比率達到100%，您的倉位將被強制平倉。",
-  "perp.account_panel_account_maintenance_margin": "維持保證金",
+  "perp.account_panel_account_maintenance_margin": "全仓維持保證金",
   "perp.account_panel_account_maintenance_margin_tooltip": "維持保證金是維持您的未平倉全倉倉位所需的最低保證金餘額",
   "perp.account_panel_account_value": "賬戶总價值",
   "perp.account_panel_account_value_tooltip": "Perps 帳戶總值，包括可用餘額及未平倉位的未實現盈虧。此數值不代表可提取金額",

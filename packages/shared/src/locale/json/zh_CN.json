@@ -2045,7 +2045,7 @@
   "perp.account_create": "请为此账户创建一个 EVM 地址",
   "perp.account_cross_margin_ration": "全仓保证金比率",
   "perp.account_cross_margin_ration_tip": "维持保证金比率越低，仓位的风险相对较小。当保证金比率到达 100% 时，仓位将被强平",
-  "perp.account_panel_account_maintenance_margin": "维持保证金",
+  "perp.account_panel_account_maintenance_margin": "全仓维持保证金",
   "perp.account_panel_account_maintenance_margin_tooltip": "维持保证金是维持您的全仓持仓所需的最低保证金",
   "perp.account_panel_account_value": "账户总价值",
   "perp.account_panel_account_value_tooltip": "Perps 账户总资产估值，包含可用余额和未平仓位的浮动盈亏，不代表可提现金额",

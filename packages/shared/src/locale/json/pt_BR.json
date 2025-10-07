@@ -2072,7 +2072,7 @@
   "perp.deposit_chain": "Rede de Depósito",
   "perp.deposit_on": "Em {chain}",
   "perp.deposit_try_to": "Tentar ",
-  "perp.enable_trading_desc": "Habilitar negociação abre um canal dedicado para ordens instantâneas e sem Gas. Nenhuma taxa de Gas é necessária para habilitar.",
+  "perp.enable_trading_desc": "Activar el trading abre un canal para órdenes instantáneas sin Gas. No hay comisión por activarlo.",
   "perp.error_enable": "Por favor, habilite a negociação para continuar",
   "perp.est_liq_price": "Preço Liq. Est.",
   "perp.est_liq_price_tooltip": "Preço estimado de liquidação. O preço real de liquidação pode diferir deste. Por favor, preste atenção ao preço real de liquidação e à margem após abrir uma posição.",
