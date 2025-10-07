@@ -375,7 +375,7 @@ function PerpTradingForm({
 
   if (isMobile) {
     return (
-      <YStack gap="$3">
+      <YStack gap="$2.5">
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
             <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
@@ -456,16 +456,18 @@ function PerpTradingForm({
           onRequestManualMode={switchToManual}
           isMobile={isMobile}
         />
-        <SegmentSlider
-          min={0}
-          max={100}
-          value={sliderValue}
-          showBubble={false}
-          onChange={handleSliderPercentChange}
-          disabled={sliderDisabled}
-          segments={4}
-          sliderHeight={2}
-        />
+        <YStack pt="$2" pb="$2">
+          <SegmentSlider
+            min={0}
+            max={100}
+            value={sliderValue}
+            showBubble={false}
+            onChange={handleSliderPercentChange}
+            disabled={sliderDisabled}
+            segments={4}
+            sliderHeight={2}
+          />
+        </YStack>
         {shouldShowEnableTradingButton && isMobile ? null : (
           <YStack gap="$1" mt="$1">
             <XStack alignItems="center" gap="$2">

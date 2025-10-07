@@ -723,7 +723,7 @@ function DepositWithdrawContent({
                   </DashText>
                 }
                 renderContent={
-                  <SizableText size="$bodySm" color="$textSubdued">
+                  <SizableText size="$bodySm">
                     {intl.formatMessage({
                       id: ETranslations.perp_withdraw_fee_mgs,
                     })}
@@ -749,7 +749,7 @@ function DepositWithdrawContent({
                 }
                 renderContent={() => (
                   <YStack px="$5" pb="$4">
-                    <SizableText size="$bodyMd" color="$textSubdued">
+                    <SizableText size="$bodyMd" color="$text">
                       {intl.formatMessage({
                         id: ETranslations.perp_withdraw_fee_mgs,
                       })}
