@@ -11,8 +11,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';

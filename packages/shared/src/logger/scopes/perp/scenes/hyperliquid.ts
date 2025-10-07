@@ -3,10 +3,10 @@ import type {
   IApiRequestError,
   IApiRequestResult,
   ICancelResponse,
-  ISuccessResponse,
   IOrderParams,
   IOrderRequest,
   IOrderResponse,
+  ISuccessResponse,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type {
   IAgentApprovalRequest,
