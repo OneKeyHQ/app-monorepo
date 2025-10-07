@@ -28,6 +28,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
+import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { InputAccessoryView } from 'react-native';
 
 interface ILeverageContentProps {
   initialValue: number;
@@ -100,90 +103,110 @@ const LeverageContent = memo(
     ]);
     const isDisabled = value <= 0 || loading;
     const intl = useIntl();
-
+    const nativeInputProps = platformEnv.isNativeIOS
+      ? { inputAccessoryViewID: 'leverage-adjust-input-accessory-view' }
+      : {};
     return (
-      <YStack gap="$5" flex={1}>
-        <YStack p="$1" gap="$4" flex={1}>
-          <XStack justifyContent="center" alignItems="center">
-            <Input
-              containerProps={{
-                borderRadius: '$3',
-                borderWidth: 0,
-                p: 0,
-                w: 80,
-                justifyContent: 'flex-end',
-                alignItems: 'flex-end',
-              }}
-              InputComponentStyle={{
-                p: 0,
-              }}
-              fontSize={getFontSize('$heading5xl')}
-              alignItems="center"
-              justifyContent="center"
-              value={value ? value.toString() : ''}
-              onChangeText={handleInputChange}
-              keyboardType="numeric"
-              textAlign="center"
-              disabled={loading}
-              addOns={[
-                {
-                  renderContent: (
-                    <XStack alignItems="center" pr="$1">
-                      <Icon name="CrossedSmallOutline" size="$5" />
-                    </XStack>
-                  ),
-                },
-              ]}
-            />
-          </XStack>
-          <XStack flex={1} alignItems="center" gap="$4">
-            <Slider
-              value={value || 1}
-              onChange={handleSliderChange}
-              min={1}
-              max={maxLeverage}
-              step={1}
-              disabled={loading}
-              flex={1}
-            />
-          </XStack>
+      <>
+        <YStack gap="$5" flex={1}>
+          <YStack p="$1" gap="$4" flex={1}>
+            <XStack justifyContent="center" alignItems="center">
+              <Input
+                containerProps={{
+                  borderRadius: '$3',
+                  borderWidth: 0,
+                  p: 0,
+                  w: 80,
+                  justifyContent: 'flex-end',
+                  alignItems: 'flex-end',
+                }}
+                InputComponentStyle={{
+                  p: 0,
+                }}
+                fontSize={getFontSize('$heading5xl')}
+                alignItems="center"
+                justifyContent="center"
+                value={value ? value.toString() : ''}
+                onChangeText={handleInputChange}
+                keyboardType="numeric"
+                textAlign="center"
+                disabled={loading}
+                addOns={[
+                  {
+                    renderContent: (
+                      <XStack alignItems="center" pr="$1">
+                        <Icon name="CrossedSmallOutline" size="$5" />
+                      </XStack>
+                    ),
+                  },
+                ]}
+                {...nativeInputProps}
+              />
+            </XStack>
+            <XStack flex={1} alignItems="center" gap="$4">
+              <Slider
+                value={value || 1}
+                onChange={handleSliderChange}
+                min={1}
+                max={maxLeverage}
+                step={1}
+                disabled={loading}
+                flex={1}
+              />
+            </XStack>
+          </YStack>
+          <YStack gap="$2" pb="$4">
+            <XStack gap="$1" alignItems="center" justifyContent="flex-start">
+              <Icon
+                name="InfoCircleSolid"
+                size="$3.5"
+                color="$iconSubdued"
+                flexShrink={0}
+              />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.perp_leverage_desc_warning,
+                  },
+                  {
+                    token: tokenInfo.coin,
+                    leverage: `${maxLeverage}x`,
+                  },
+                )}
+              </SizableText>
+            </XStack>
+            <XStack gap="$1" alignItems="center" justifyContent="flex-start">
+              <Icon
+                name="InfoCircleSolid"
+                size="$3.5"
+                color="$iconSubdued"
+                flexShrink={0}
+              />
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.perp_leverage_warning_2,
+                })}
+              </SizableText>
+            </XStack>
+          </YStack>
+          <TradingGuardWrapper>
+            <Button
+              onPress={handleConfirm}
+              disabled={isDisabled}
+              loading={loading}
+              size="medium"
+              variant="primary"
+            >
+              {intl.formatMessage({ id: ETranslations.global_confirm })}
+            </Button>
+          </TradingGuardWrapper>
         </YStack>
-        <YStack gap="$2" pb="$4">
-          <XStack gap="$1" alignItems="center">
-            <Icon name="InfoCircleSolid" size="$3.5" color="$iconSubdued" />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.perp_leverage_desc_warning,
-                },
-                {
-                  token: tokenInfo.coin,
-                  leverage: `${maxLeverage}x`,
-                },
-              )}
-            </SizableText>
-          </XStack>
-          <XStack gap="$1" alignItems="center">
-            <Icon name="InfoCircleSolid" size="$3.5" color="$iconSubdued" />
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_leverage_warning_2,
-              })}
-            </SizableText>
-          </XStack>
-        </YStack>
-        <TradingGuardWrapper>
-          <Button
-            onPress={handleConfirm}
-            disabled={isDisabled}
-            loading={loading}
-            size="medium"
-            variant="primary"
-          >
-            {intl.formatMessage({ id: ETranslations.global_confirm })}
-          </Button>
-        </TradingGuardWrapper>
-      </YStack>
+        {platformEnv.isNativeIOS ? (
+          <InputAccessoryView nativeID="leverage-adjust-input-accessory-view">
+            <InputAccessoryDoneButton />
+          </InputAccessoryView>
+        ) : null}
+      </>
     );
   },
 );
