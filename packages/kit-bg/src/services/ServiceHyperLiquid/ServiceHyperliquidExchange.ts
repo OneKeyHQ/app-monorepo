@@ -682,12 +682,21 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async ordersClose(params: IOrderCloseParams[]): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
-      const midPx = param.midPx;
-      const price = this._calculateSlippagePrice({
-        markPrice: midPx,
-        isBuy: !param.isBuy,
-        slippage: param.slippage || this.slippage,
-      });
+      let price: string;
+
+      if (param.limitPx) {
+        price = param.limitPx;
+      } else if (param.midPx) {
+        price = this._calculateSlippagePrice({
+          markPrice: param.midPx,
+          isBuy: !param.isBuy,
+          slippage: param.slippage || this.slippage,
+        });
+      } else {
+        throw new OneKeyLocalError(
+          'Either limitPx or midPx must be provided for order close',
+        );
+      }
 
       const orderParams: IOrderParams = {
         a: param.assetId,
@@ -716,7 +725,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return response;
     } catch (error) {
       throw new OneKeyLocalError(
-        `Failed to place market close order: ${String(error)}`,
+        `Failed to place close order: ${String(error)}`,
       );
     }
   }
