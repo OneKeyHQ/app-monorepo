@@ -66,7 +66,7 @@ export function PerpTips() {
   }
   return (
     <Alert
-      flex={1}
+      flex={1} 
       type={perpConfigCommon?.perpBannerConfig?.alertType ?? 'default'}
       fullBleed
       title={perpConfigCommon?.perpBannerConfig?.title}
