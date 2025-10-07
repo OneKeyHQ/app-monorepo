@@ -371,6 +371,25 @@ class ServiceAppUpdate extends ServiceBase {
       );
       await appUpdatePersistAtom.set((prev) => {
         const isUpdating = prev.status !== EAppUpdateStatus.done;
+        let downloadedEvent: IUpdateDownloadedEvent | undefined;
+        if (shouldUpdate && !isUpdating) {
+          if (
+            releaseInfo.downloadUrl &&
+            releaseInfo.downloadUrl.startsWith('https')
+          ) {
+            downloadedEvent = {
+              ...prev.downloadedEvent,
+              downloadUrl: releaseInfo.downloadUrl,
+            };
+          }
+
+          if (releaseInfo.jsBundle && releaseInfo.jsBundle.downloadUrl) {
+            downloadedEvent = {
+              ...prev.downloadedEvent,
+              downloadUrl: releaseInfo.jsBundle.downloadUrl,
+            };
+          }
+        }
         return {
           ...prev,
           ...releaseInfo,
@@ -381,6 +400,7 @@ class ServiceAppUpdate extends ServiceBase {
           updateAt: Date.now(),
           status:
             shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
+          downloadedEvent,
         };
       });
     } else {
