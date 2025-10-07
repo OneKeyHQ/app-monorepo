@@ -256,12 +256,14 @@ const ClosePositionForm = memo(
             return;
           }
 
-          await hyperliquidActions.current.limitOrderClose({
-            assetId,
-            isBuy: isLongPosition,
-            size: closeAmount,
-            limitPrice: formData.limitPrice,
-          });
+          await hyperliquidActions.current.ordersClose([
+            {
+              assetId,
+              isBuy: isLongPosition,
+              size: closeAmount,
+              limitPx: formData.limitPrice,
+            },
+          ]);
         }
 
         hyperliquidActions.current.resetTradingForm();

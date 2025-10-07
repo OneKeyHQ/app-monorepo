@@ -20,13 +20,15 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { resolveTradingSize } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  formatPriceToSignificantDigits,
+  resolveTradingSize,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
   type IL2BookOptions,
-  type IOrderCloseParams,
   type IPerpOrderBookTickOptionPersist,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -627,7 +629,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: number;
         isBuy: boolean;
         size: string;
-        midPx: string;
+        midPx?: string;
+        limitPx?: string;
         slippage?: number;
       }[],
     ) => {
@@ -639,41 +642,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             );
           return result;
         },
-        actionType: EActionType.ORDERS_CLOSE,
-      });
-    },
-  );
-
-  limitOrderClose = contextAtomMethod(
-    async (
-      get,
-      set,
-      params: {
-        assetId: number;
-        isBuy: boolean;
-        size: string;
-        limitPrice: string;
-      },
-    ) => {
-      return withToast({
-        asyncFn: async () => {
-          set(tradingLoadingAtom(), true);
-          try {
-            const result =
-              await backgroundApiProxy.serviceHyperliquidExchange.placeOrder({
-                assetId: params.assetId,
-                isBuy: !params.isBuy,
-                sz: params.size,
-                limitPx: params.limitPrice,
-                orderType: { limit: { tif: 'Gtc' } },
-                reduceOnly: true,
-              });
-            return result;
-          } finally {
-            set(tradingLoadingAtom(), false);
-          }
-        },
-        actionType: EActionType.LIMIT_ORDER_CLOSE,
+        actionType: params[0]?.limitPx
+          ? EActionType.LIMIT_ORDER_CLOSE
+          : EActionType.ORDERS_CLOSE,
       });
     },
   );
@@ -778,82 +749,97 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  closeAllPositions = contextAtomMethod(async (get, set) => {
-    return withToast({
-      asyncFn: async () => {
-        await this.ensureTradingEnabled.call(set);
-        const { activePositions: positions } = get(perpsActivePositionAtom());
+  closeAllPositions = contextAtomMethod(
+    async (get, set, type: 'market' | 'limit' = 'market') => {
+      return withToast({
+        asyncFn: async () => {
+          await this.ensureTradingEnabled.call(set);
+          const { activePositions: positions } = get(perpsActivePositionAtom());
 
-        if (positions.length === 0) {
-          console.warn('No positions to close');
-          return;
-        }
+          if (positions.length === 0) {
+            console.warn('No positions to close');
+            return;
+          }
 
-        // Get symbol metadata for all positions
-        const symbolsMetaMap =
-          await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-            coins: positions.map((p) => p.position.coin),
-          });
+          // Get symbol metadata for all positions
+          const symbolsMetaMap =
+            await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
+              coins: positions.map((p) => p.position.coin),
+            });
 
-        // Get current mid prices for all positions
-        const midPrices = await Promise.all(
-          positions.map(async (p) => {
-            try {
-              const midPrice =
-                await backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
-                  coin: p.position.coin,
-                });
-              return { coin: p.position.coin, midPrice };
-            } catch (error) {
-              console.warn(
-                `Failed to get mid price for ${p.position.coin}:`,
-                error,
-              );
-              return { coin: p.position.coin, midPrice: null };
-            }
-          }),
-        );
+          // Get current mid prices for all positions
+          const midPrices = await Promise.all(
+            positions.map(async (p) => {
+              try {
+                const midPrice =
+                  await backgroundApiProxy.serviceHyperliquid.getSymbolMidValue(
+                    {
+                      coin: p.position.coin,
+                    },
+                  );
+                return { coin: p.position.coin, midPrice };
+              } catch (error) {
+                console.warn(
+                  `Failed to get mid price for ${p.position.coin}:`,
+                  error,
+                );
+                return { coin: p.position.coin, midPrice: null };
+              }
+            }),
+          );
 
-        const midPriceMap = Object.fromEntries(
-          midPrices.map((item) => [item.coin, item.midPrice]),
-        );
+          const midPriceMap = Object.fromEntries(
+            midPrices.map((item) => [item.coin, item.midPrice]),
+          );
 
-        // Prepare close orders for all positions
-        const positionsToClose = positions
-          .map((positionItem) => {
-            const position = positionItem.position;
-            const tokenInfo = symbolsMetaMap[position.coin];
-            const midPrice = midPriceMap[position.coin];
+          // Prepare close orders for all positions
+          const positionsToClose = positions
+            .map((positionItem) => {
+              const position = positionItem.position;
+              const tokenInfo = symbolsMetaMap[position.coin];
+              const midPrice = midPriceMap[position.coin];
 
-            if (!tokenInfo || !midPrice) {
-              console.warn(`Missing data for position ${position.coin}`);
-              return null;
-            }
+              if (!tokenInfo || !midPrice) {
+                console.warn(`Missing data for position ${position.coin}`);
+                return null;
+              }
 
-            const positionSize = new BigNumber(position.szi || '0')
-              .abs()
-              .toFixed();
-            const isLongPosition = new BigNumber(position.szi || '0').gte(0);
+              const positionSize = new BigNumber(position.szi || '0')
+                .abs()
+                .toFixed();
+              const isLongPosition = new BigNumber(position.szi || '0').gte(0);
 
-            return {
-              assetId: tokenInfo.assetId,
-              isBuy: isLongPosition,
-              size: positionSize,
-              midPx: midPrice,
-            };
-          })
-          .filter(Boolean);
+              if (type === 'limit') {
+                return {
+                  assetId: tokenInfo.assetId,
+                  isBuy: isLongPosition,
+                  size: positionSize,
+                  limitPx: formatPriceToSignificantDigits(
+                    midPrice,
+                    tokenInfo.universe?.szDecimals,
+                  ),
+                };
+              }
 
-        if (positionsToClose.length === 0) {
-          console.warn('No valid positions to close or data unavailable');
-          return;
-        }
+              return {
+                assetId: tokenInfo.assetId,
+                isBuy: isLongPosition,
+                size: positionSize,
+                midPx: midPrice,
+              };
+            })
+            .filter(Boolean);
 
-        await this.ordersClose.call(set, positionsToClose);
-      },
-      actionType: EActionType.ORDERS_CLOSE,
-    });
-  });
+          if (positionsToClose.length === 0) {
+            console.warn('No valid positions to close or data unavailable');
+            return;
+          }
+
+          await this.ordersClose.call(set, positionsToClose);
+        },
+      });
+    },
+  );
 
   showSetPositionTpslUI = contextAtomMethod(
     async (
@@ -938,7 +924,6 @@ export function useHyperliquidActions() {
   const updateLeverage = actions.updateLeverage.use();
   const updateIsolatedMargin = actions.updateIsolatedMargin.use();
   const ordersClose = actions.ordersClose.use();
-  const limitOrderClose = actions.limitOrderClose.use();
   const cancelOrder = actions.cancelOrder.use();
   const setPositionTpsl = actions.setPositionTpsl.use();
   const withdraw = actions.withdraw.use();
@@ -981,7 +966,6 @@ export function useHyperliquidActions() {
     updateLeverage,
     updateIsolatedMargin,
     ordersClose,
-    limitOrderClose,
     cancelOrder,
     setPositionTpsl,
     withdraw,
