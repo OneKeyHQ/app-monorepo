@@ -26,7 +26,7 @@
     "build:electron:snap": "electron-builder build -l --config electron-builder-snap.config.js",
     "bundle:build": "yarn build:renderer",
     "build": "yarn keytar && cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron --publish never",
-    "build:snap": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never",
+    "build:snap": "cross-env NODE_ENV=production SNAP=true yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:snap --publish never",
     "build:mac": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:mac --publish never",
     "build:mas": "yarn keytar && cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:mas --publish never",
     "build:win": "cross-env NODE_ENV=production yarn clean:build && yarn build:renderer && yarn build:main && yarn install-app-deps && yarn build:electron:win --publish never",
