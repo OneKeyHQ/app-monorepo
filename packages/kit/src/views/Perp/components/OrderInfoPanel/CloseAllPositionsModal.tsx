@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Checkbox,
@@ -9,6 +11,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
@@ -21,6 +25,7 @@ interface ICloseAllPositionsContentProps {
 
 function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
   const actions = useHyperliquidActions();
+  const intl = useIntl();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeType, setCloseType] = useState<ICloseType>('market');
 
@@ -40,21 +45,23 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
 
   const buttonText = useMemo(() => {
     if (isSubmitting) {
-      return 'Closing...';
+      return intl.formatMessage({
+        id: ETranslations.perp_toast_closing_position,
+      });
     }
 
-    if (closeType === 'market') {
-      return 'Confirm Market Close';
-    }
-    return 'Confirm Limit Close';
-  }, [closeType, isSubmitting]);
+    return intl.formatMessage({
+      id: ETranslations.perp_confirm_order,
+    });
+  }, [isSubmitting, intl]);
 
   return (
     <YStack gap="$4" p="$1">
       {/* Description */}
       <SizableText size="$bodyMd" color="$textSubdued">
-        This will close all your positions and cancel their associated TP/SL
-        orders.
+        {intl.formatMessage({
+          id: ETranslations.perp_close_all_msg,
+        })}
       </SizableText>
 
       {/* Close Type Options */}
@@ -65,7 +72,9 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
             labelProps={{
               fontSize: '$bodyMd',
             }}
-            label="Market Close"
+            label={intl.formatMessage({
+              id: ETranslations.perp_close_all_market,
+            })}
             value={closeType === 'market'}
             onChange={(checked) => {
               if (checked) {
@@ -81,7 +90,9 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
             labelProps={{
               fontSize: '$bodyMd',
             }}
-            label="Limit Close at Mid Price"
+            label={intl.formatMessage({
+              id: ETranslations.perp_close_all_limit,
+            })}
             value={closeType === 'limit'}
             onChange={(checked) => {
               if (checked) {
@@ -109,7 +120,9 @@ function CloseAllPositionsContent({ onClose }: ICloseAllPositionsContentProps) {
 
 export function showCloseAllPositionsDialog() {
   const dialogInstance = Dialog.show({
-    title: 'Confirm Close All',
+    title: appLocale.intl.formatMessage({
+      id: ETranslations.perp_position_close,
+    }),
     renderContent: (
       <PerpsProviderMirror>
         <CloseAllPositionsContent
