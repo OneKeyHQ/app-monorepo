@@ -128,7 +128,7 @@ export function HyperliquidTermsContent({
   const { gtMd } = useMedia();
 
   const slidesData = useMemo<ISlideData[]>(() => {
-    const slideImageHeight = (450 * HEIGHT_RATIO) / 1.5;
+    const slideImageHeight = gtMd ? 400 : 350;
     // const slideImageHeight = gtMd ? 450 : 350;
     const bannerWidth = gtMd ? Math.max(slideImageHeight, 340) : 300;
     const textPadding = gtMd ? '$5' : '$4';
@@ -254,7 +254,7 @@ export function HyperliquidTermsContent({
             >
               <Image
                 source={require('@onekeyhq/kit/assets/perps/HL_intro_3.png')}
-                size={slideImageHeight / 1.2}
+                size={slideImageHeight / 1.4}
                 resizeMode="contain"
               />
             </Stack>
@@ -440,14 +440,15 @@ export function HyperliquidTermsContent({
     isNotResponsibleChecked,
     onConfirm,
     overlayHeight,
-    HEIGHT_RATIO,
   ]);
 
   const renderItem = useCallback(({ item }: { item: ISlideData }) => {
     return (
-      <Stack alignItems="center" justifyContent="center" pb="$4">
-        {item.content}
-      </Stack>
+      <ScrollView>
+        <Stack alignItems="center" justifyContent="center" pb="$4">
+          {item.content}
+        </Stack>
+      </ScrollView>
     );
   }, []);
 
@@ -566,15 +567,14 @@ export function HyperliquidTermsOverlay() {
   const onPageIndexChange = useCallback((index: number) => {
     setProgress(((index + 1) / 5) * 100);
   }, []);
-  const HEIGHT_RATIO = useHeightRatio();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const { gtMd } = useMedia();
   if (!isVisible) {
     return null;
   }
-  const OVERLAY_HEIGHT = 450 * HEIGHT_RATIO;
-  const maxHeight = Math.min(gtMd ? 600 : 480, height);
-  const overlayHeight = OVERLAY_HEIGHT < maxHeight ? OVERLAY_HEIGHT : maxHeight;
+
+  const minHeight = 500;
+
   return (
     <Stack
       position="absolute"
@@ -589,10 +589,8 @@ export function HyperliquidTermsOverlay() {
       p="$6"
     >
       <Stack
-        height={OVERLAY_HEIGHT}
-        minWidth={Math.min(gtMd ? 340 : 320, width)}
-        maxWidth={Math.min(gtMd ? 500 : 320, width)}
-        maxHeight={maxHeight}
+        height={minHeight}
+        width={Math.min(gtMd ? 460 : 320, width)}
         bg="$bgApp"
         borderRadius="$4"
         overflow="hidden"
@@ -604,7 +602,7 @@ export function HyperliquidTermsOverlay() {
           h={3}
         />
         <HyperliquidTermsContent
-          overlayHeight={overlayHeight - 24}
+          overlayHeight={minHeight - 24}
           onPageIndexChange={onPageIndexChange}
           onConfirm={async () => {
             await backgroundApiProxy.simpleDb.perp.setHyperliquidTermsAccepted(
