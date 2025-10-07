@@ -730,10 +730,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async openExtPerpTab() {
-    if (
-      platformEnv.isExtension &&
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-    ) {
+    if (platformEnv.isExtension) {
       // this.lastExtPerpTab = await extUtils.openUrlInTab(
       //   HYPER_LIQUID_WEBVIEW_TRADE_URL,
       //   {
