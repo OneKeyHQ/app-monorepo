@@ -1483,7 +1483,7 @@ export function OrderBookMobile({
             width: 150,
           }}
           title={intl.formatMessage({
-            id: ETranslations.perp_orderbook_spread,
+            id: ETranslations.perp_order_book_depth,
           })}
           items={tickOptions}
           value={selectedTickOption?.value}
