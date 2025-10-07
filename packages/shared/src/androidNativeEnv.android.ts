@@ -1,10 +1,10 @@
 import { NativeModules } from 'react-native';
 
-let channel = 'apk';
+let channel = 'direct';
 
-if (NativeModules.AutoUpdateModule) {
+if (NativeModules.BundleUpdateModule) {
   const constants = (
-    NativeModules.AutoUpdateModule as {
+    NativeModules.BundleUpdateModule as {
       getConstants: () => { ANDROID_CHANNEL: string };
     }
   )?.getConstants();

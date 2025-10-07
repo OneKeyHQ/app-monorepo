@@ -110,16 +110,16 @@ function DownloadVerify({
 
   const handleToUpdate = useCallback(async () => {
     setIsInstalling(true);
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       setIsInstalling(false);
-    }, 3500);
+    }, 5500);
     await installPackage(
-      () => {
-        setIsInstalling(false);
-        clearTimeout(timer);
-      },
+      () => {},
       () => {
         showInCompleteDialog();
+        setTimeout(() => {
+          setIsInstalling(false);
+        }, 350);
       },
     );
   }, [installPackage, showInCompleteDialog]);
@@ -376,6 +376,7 @@ function DownloadVerify({
           id: ETranslations.global_secure_install,
         })}
         confirmButtonProps={{
+          loading: installing,
           icon:
             data.status === EAppUpdateStatus.ready
               ? 'BadgeVerifiedSolid'
