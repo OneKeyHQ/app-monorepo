@@ -36,10 +36,12 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import {
+  checkFileHash,
   checkFileSha512,
+  getBundleDirPath,
   getBundleIndexHtmlPath,
+  getDriveLetter,
   getMetadata,
-  unmatchedFileDialog,
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
@@ -65,6 +67,7 @@ let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 globalThis.$desktopMainAppFunctions = {
   getBundleIndexHtmlPath: () => {
     const bundleData = store.getUpdateBundleData();
+    logger.info('bundleData >>>> ', bundleData);
     if (!bundleData) {
       return undefined;
     }
@@ -96,7 +99,7 @@ const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
 const resourcesPath = getResourcesPath();
 // static path
-const preloadJsUrl = path.join(staticPath, 'preload.js');
+// const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
 const sdkConnectSrc = isDev
@@ -568,7 +571,7 @@ async function createMainWindow() {
       {
         resourcesPath,
         staticPath: `file://${staticPath}`,
-        preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
+        // preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
         sdkConnectSrc,
       },
     );
@@ -746,13 +749,23 @@ async function createMainWindow() {
     },
   );
 
-  if (!isDev) {
+  const PROTOCOL = 'file';
+  if (isDev) {
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        console.log('request url', request);
+        callback(request.url);
+      },
+    );
+  } else {
+    // Get Windows drive letter for security validation
+    const driveLetter = getDriveLetter();
+    logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
     const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
-    const bundleDirPath = indexHtmlPath
-      ? path.dirname(indexHtmlPath)
-      : undefined;
+    const bundleDirPath = getBundleDirPath();
     const metadata = bundleDirPath
       ? await getMetadata({
           bundleDir: bundleDirPath,
@@ -761,39 +774,6 @@ async function createMainWindow() {
           signature: bundleData.signature,
         })
       : {};
-    const checkFileHash = (url: string) => {
-      if (!bundleDirPath) {
-        throw new OneKeyLocalError('Bundle directory path not found');
-      }
-      const replacedKey = url.replace(/^\/+/, '').trim();
-      let key = replacedKey || 'index.html';
-      if (!metadata[key]) {
-        logger.info(`${key}: File ${url} not found in metadata.json`);
-        key = 'index.html';
-      }
-      const sha512 = metadata[key];
-      const filePath = path.join(bundleDirPath, key);
-      if (!sha512) {
-        logger.info(
-          'checkFileHash error:',
-          `${key}: ${url}, sha512 not found in metadata.json`,
-        );
-        unmatchedFileDialog();
-        throw new OneKeyLocalError(
-          `File ${url}, sha512 not found in metadata.json`,
-        );
-      }
-      if (!checkFileSha512(filePath, sha512)) {
-        logger.info(
-          'checkFileHash error:',
-          `${key}:  ${url} not matched ${filePath}: ${sha512}`,
-        );
-        unmatchedFileDialog();
-        throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
-      }
-      return filePath;
-    };
-    const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -831,7 +811,12 @@ async function createMainWindow() {
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (!decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash(decodedUrl);
+            const filePath = checkFileHash({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: decodedUrl,
+            });
             callback(filePath);
             return;
           }

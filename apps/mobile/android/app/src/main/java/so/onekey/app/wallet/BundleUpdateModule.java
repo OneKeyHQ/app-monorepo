@@ -77,6 +77,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     @Override
     public Map<String, Object> getConstants() {
         final Map<String, Object> constants = new HashMap<>();
+        constants.put("ANDROID_CHANNEL", BuildConfig.ANDROID_CHANNEL);
         return constants;
     }
 

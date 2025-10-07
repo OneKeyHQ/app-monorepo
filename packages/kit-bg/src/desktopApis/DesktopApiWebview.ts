@@ -1,4 +1,17 @@
+import fs from 'fs';
+import path from 'path';
+
 import { session } from 'electron';
+import logger from 'electron-log/main';
+
+import {
+  checkFileHash,
+  getBundleDirPath,
+  getDriveLetter,
+  getMetadata,
+} from '@onekeyhq/desktop/app/bundle';
+import * as store from '@onekeyhq/desktop/app/libs/store';
+import { getStaticPath } from '@onekeyhq/desktop/app/resoucePath';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -30,6 +43,32 @@ class DesktopApiNetwork {
     await session.defaultSession.clearStorageData({
       storages: ['cookies', 'cachestorage'],
     });
+  }
+
+  async getPreloadJsContent(): Promise<string> {
+    const staticPath = getStaticPath();
+    const preloadJsPath = path.join(staticPath, 'preload.js');
+    logger.info('getPreloadJsContent', preloadJsPath);
+    if (globalThis.$desktopMainAppFunctions?.useJsBundle?.()) {
+      const bundleDirPath = getBundleDirPath();
+      const bundleData = store.getUpdateBundleData();
+      const metadata = bundleDirPath
+        ? await getMetadata({
+            bundleDir: bundleDirPath,
+            appVersion: bundleData.appVersion,
+            bundleVersion: bundleData.bundleVersion,
+            signature: bundleData.signature,
+          })
+        : {};
+      const driveLetter = getDriveLetter();
+      checkFileHash({
+        bundleDirPath,
+        metadata,
+        driveLetter,
+        url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
+      });
+    }
+    return `file://${preloadJsPath}?t=${Date.now()}`;
   }
 }
 

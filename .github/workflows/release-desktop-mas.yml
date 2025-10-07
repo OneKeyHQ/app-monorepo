@@ -135,7 +135,7 @@ jobs:
       - name: Upload Artifacts mas
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mas
+          name: onekey-desktop-mas-${{ env.BUILD_NUMBER }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
