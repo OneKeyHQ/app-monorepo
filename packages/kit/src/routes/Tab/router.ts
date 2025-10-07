@@ -95,17 +95,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       return null;
     }
-    // not working for extension
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tabbarOnPress =
-      platformEnv.isExtension &&
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-        ? async () => {
-            if (platformEnv.isExtension) {
-              await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-            }
-          }
-        : undefined;
     if (
       perpConfigCommon?.usePerpWeb ||
       perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
@@ -118,7 +107,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/perp',
         exact: true,
-        // tabbarOnPress,
         children: platformEnv.isExtension
           ? // small screen error: Cannot read properties of null (reading 'filter')
             // null
