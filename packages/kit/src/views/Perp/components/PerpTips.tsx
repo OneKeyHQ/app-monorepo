@@ -36,9 +36,9 @@ export function PerpTips() {
         if (href) {
           if (hrefType === 'external') {
             if (useSystemBrowser) {
-              openUrlInApp(href);
-            } else {
               openUrlExternal(href);
+            } else {
+              openUrlInApp(href);
             }
           } else {
             void parseQRCode.parse(href, {
