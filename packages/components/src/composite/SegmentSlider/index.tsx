@@ -67,14 +67,6 @@ const Thumb = ({
         borderWidth: 1,
         borderColor,
         borderRadius: thumbWidth / 2,
-        shadowColor: '#000000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
       }}
     />
   );
