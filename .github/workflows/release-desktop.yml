@@ -135,12 +135,12 @@ jobs:
           path: |
             ./apps/desktop/build-electron/*-arm64.dmg
 
-      - name: Upload Linux x86_64 AppImage
+      - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-linux-x86_64-appimage
           path: |
-            ./apps/desktop/build-electron/*-x86_64.AppImage
+            ./apps/desktop/build-electron/*.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
