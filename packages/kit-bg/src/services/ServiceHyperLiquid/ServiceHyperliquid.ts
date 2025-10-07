@@ -22,6 +22,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import perpsUtils from '@onekeyhq/shared/src/utils/perpsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -97,6 +98,12 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   private async init() {
+    // Register the locale provider so we can fall back when needed.
+    hyperLiquidErrorResolver.setLocaleProvider(async () => {
+      const config = await this.backgroundApi.simpleDb.perp.getPerpData();
+      return config.hyperliquidErrorLocales;
+    });
+
     void this.backgroundApi.simpleDb.perp
       .getPerpData()
       .then((config) => {
@@ -104,6 +111,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           FALLBACK_BUILDER_ADDRESS) as IHex;
         this.maxBuilderFee =
           config.hyperliquidMaxBuilderFee || FALLBACK_MAX_BUILDER_FEE;
+
+        // Initialize the error resolver with locale data.
+        hyperLiquidErrorResolver.updateLocales(config.hyperliquidErrorLocales);
       })
       .catch((error) => {
         console.error('Failed to load perp config:', error);
@@ -118,6 +128,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     customLocalStorageV2,
     commonConfig,
     bannerConfig,
+    hyperLiquidErrorLocales,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
     await perpsCommonConfigPersistAtom.set(
@@ -156,6 +167,8 @@ export default class ServiceHyperliquid extends ServiceBase {
             customLocalStorage || prev?.hyperliquidCustomLocalStorage,
           hyperliquidCustomLocalStorageV2:
             customLocalStorageV2 || prev?.hyperliquidCustomLocalStorageV2,
+          hyperliquidErrorLocales:
+            hyperLiquidErrorLocales || prev?.hyperliquidErrorLocales,
         };
         if (isEqual(newConfig, prev)) {
           return (
@@ -166,6 +179,10 @@ export default class ServiceHyperliquid extends ServiceBase {
         return newConfig;
       },
     );
+
+    // Update the error resolver locale data.
+    hyperLiquidErrorResolver.updateLocales(hyperLiquidErrorLocales);
+
     if (shouldNotifyToDapp) {
       const config = await this.backgroundApi.simpleDb.perp.getPerpData();
       await this.backgroundApi.serviceDApp.notifyHyperliquidPerpConfigChanged({
@@ -199,6 +216,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
       commonConfig: resData?.data?.commonConfig,
       bannerConfig: resData?.data?.bannerConfig,
+      hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
     });
     return resData;
   }

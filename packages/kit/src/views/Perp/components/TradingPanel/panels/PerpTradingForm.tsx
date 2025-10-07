@@ -9,9 +9,9 @@ import {
   Divider,
   IconButton,
   Popover,
+  SegmentSlider,
   SizableText,
   Skeleton,
-  Slider,
   Tooltip,
   XStack,
   YStack,
@@ -456,15 +456,15 @@ function PerpTradingForm({
           onRequestManualMode={switchToManual}
           isMobile={isMobile}
         />
-        <Slider
+        <SegmentSlider
           min={0}
           max={100}
           value={sliderValue}
+          showBubble={false}
           onChange={handleSliderPercentChange}
           disabled={sliderDisabled}
           segments={4}
-          step={1}
-          h="$0.5"
+          sliderHeight={2}
         />
         {shouldShowEnableTradingButton && isMobile ? null : (
           <YStack gap="$1" mt="$1">
@@ -654,16 +654,15 @@ function PerpTradingForm({
           onRequestManualMode={switchToManual}
         />
         <YStack>
-          <Slider
-            width="100%"
+          <SegmentSlider
             min={0}
             max={100}
+            showBubble={false}
             value={sliderValue}
             onChange={handleSliderPercentChange}
             disabled={sliderDisabled}
             segments={4}
-            step={1}
-            h={3}
+            sliderHeight={4}
           />
         </YStack>
 

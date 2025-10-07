@@ -293,6 +293,12 @@ const SliderGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider'
     ),
 );
+const SegmentSliderGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentSlider'
+    ),
+);
 const SortableListViewGallery = LazyLoadPage(
   () =>
     import(
@@ -734,6 +740,7 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },
   { name: EGalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: EGalleryRoutes.ComponentSlider, component: SliderGallery },
+  { name: EGalleryRoutes.ComponentSegmentSlider, component: SegmentSliderGallery },
   {
     name: EGalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
