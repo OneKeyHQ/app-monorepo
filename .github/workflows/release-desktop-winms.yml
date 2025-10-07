@@ -92,6 +92,7 @@ jobs:
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          DESK_CHANNEL: ms-store
           CSC_LINK: './sign.p12'
         run: |
           cd apps/desktop
