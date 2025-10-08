@@ -325,18 +325,19 @@ export function usePerpsMessageHandler({
         type: 'account';
         subType: string;
         data: IWsUserFills;
-        metadata: {
-          timestamp: number;
-          source: string;
-          userId?: string;
-        };
       };
 
       // Only process USER_FILLS events
       if (eventPayload.subType !== ESubscriptionType.USER_FILLS) return;
 
       // Verify the data is for the current user
-      if (eventPayload.metadata.userId !== userAddressRef.current) return;
+      if (
+        !eventPayload?.data?.user ||
+        eventPayload?.data?.user?.toLowerCase() !==
+          userAddressRef.current?.toLowerCase()
+      ) {
+        return;
+      }
 
       const { data } = eventPayload;
 
