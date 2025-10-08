@@ -249,18 +249,20 @@ const SetTpslForm = memo(
           return;
         }
 
-        const numericValue = new BigNumber(processedValue);
+        let numericValue = new BigNumber(processedValue);
         if (numericValue.isNaN()) {
           return;
         }
-
+        if (numericValue.gt(positionSize)) {
+          numericValue = positionSize;
+        }
         const percentage = positionSize.gt(0)
           ? numericValue.dividedBy(positionSize).multipliedBy(100).toNumber()
           : 0;
 
         setFormData((prev) => ({
           ...prev,
-          amount: processedValue,
+          amount: numericValue.toFixed(),
           percentage: Math.min(100, Math.max(0, percentage)),
         }));
       },
@@ -285,14 +287,18 @@ const SetTpslForm = memo(
         if (configureAmount) {
           if (!tpOrder && !slOrder && (!tpslAmount || tpslAmountBN.lte(0))) {
             Toast.error({
-              title: 'Please enter a valid amount',
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.perp_tp_sl_error_enter,
+              }),
             });
             return;
           }
 
           if (tpslAmountBN.gt(positionSize)) {
             Toast.error({
-              title: 'Amount cannot exceed position size',
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.perp_tp_sl_error_amount,
+              }),
             });
             return;
           }
@@ -300,7 +306,9 @@ const SetTpslForm = memo(
 
         if (!isValidForm) {
           Toast.error({
-            title: 'Please set at least TP or SL price',
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.perp_tp_sl_error_price,
+            }),
           });
           return;
         }
@@ -308,8 +316,6 @@ const SetTpslForm = memo(
         const currentPriceBN = new BigNumber(midPrice || '0');
         const tpPriceBN = new BigNumber(formData.tpPrice || '0');
         const slPriceBN = new BigNumber(formData.slPrice || '0');
-
-        const positionType = isLongPosition ? 'Long' : 'Short';
 
         if (
           !tpOrder &&
@@ -320,11 +326,23 @@ const SetTpslForm = memo(
           const isInvalid = isLongPosition
             ? tpPriceBN.lte(currentPriceBN)
             : tpPriceBN.gte(currentPriceBN);
-          const comparison = isLongPosition ? 'above' : 'below';
 
           if (isInvalid) {
+            let errorMessage = '';
+            if (isLongPosition) {
+              // Long + above
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_1,
+              });
+            } else {
+              // Short + below
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_2,
+              });
+            }
+
             Toast.error({
-              title: `${positionType} TP must be ${comparison} current price`,
+              title: errorMessage,
             });
             return;
           }
@@ -339,11 +357,22 @@ const SetTpslForm = memo(
           const isInvalid = isLongPosition
             ? slPriceBN.gte(currentPriceBN)
             : slPriceBN.lte(currentPriceBN);
-          const comparison = isLongPosition ? 'below' : 'above';
-
           if (isInvalid) {
+            let errorMessage = '';
+            if (isLongPosition) {
+              // Long + below
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_1,
+              });
+            } else {
+              // Short + above
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_2,
+              });
+            }
+
             Toast.error({
-              title: `${positionType} SL must be ${comparison} current price`,
+              title: errorMessage,
             });
             return;
           }

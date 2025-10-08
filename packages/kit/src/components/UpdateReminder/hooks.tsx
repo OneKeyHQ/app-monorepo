@@ -666,7 +666,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
 
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
-      onViewReleaseInfo();
+      if (appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless) {
+        onViewReleaseInfo();
+      }
       setTimeout(async () => {
         await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
         fetchUpdateInfo();

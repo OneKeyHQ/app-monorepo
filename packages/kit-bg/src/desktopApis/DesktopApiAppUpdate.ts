@@ -80,6 +80,13 @@ autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
 
+const isMas = process.mas;
+const isSnapStore = process.platform === 'linux' && process.env.SNAP;
+const isWindowsMsStore =
+  process.platform === 'win32' && process.env.DESK_CHANNEL === 'ms-store';
+
+const isStoreVersion = isMas || isSnapStore || isWindowsMsStore;
+
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
 
@@ -99,9 +106,10 @@ class DesktopApiAppUpdate {
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    if (!process.mas) {
-      this.initAppAutoUpdateEvents();
-      this.initBundleAutoUpdateEvents();
+    if (!isStoreVersion) {
+      void app.whenReady().then(() => {
+        this.initAppAutoUpdateEvents();
+      });
     }
     if (isDev) {
       Object.defineProperty(app, 'isPackaged', {
@@ -255,8 +263,6 @@ class DesktopApiAppUpdate {
       },
     );
   }
-
-  initBundleAutoUpdateEvents(): void {}
 
   async isDownloadingPackage(): Promise<boolean> {
     return this.isDownloading;

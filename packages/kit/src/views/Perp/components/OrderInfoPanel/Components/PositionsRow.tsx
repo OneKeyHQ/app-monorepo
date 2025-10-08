@@ -205,7 +205,7 @@ const PositionRowDesktopSymbolAndLeverage = memo(() => {
                 color="$textSubdued"
                 fontSize={12}
               >
-                {assetInfo.leverageType} {assetInfo.leverage}X
+                {assetInfo.leverageType} {assetInfo.leverage}x
               </SizableText>
             </YStack>
           </XStack>
@@ -696,7 +696,7 @@ const PositionRowMobileHeader = memo(() => {
             color="$textSubdued"
             fontSize={10}
           >
-            {assetInfo.leverageType} {assetInfo.leverage}X
+            {assetInfo.leverageType} {assetInfo.leverage}x
           </SizableText>
         </XStack>
       </DebugRenderTracker>
@@ -996,7 +996,10 @@ const PositionRowMobileTPSL = memo(() => {
               id: ETranslations.perp_position_tp_sl,
             })}
           </SizableText>
-          <SizableText size="$bodySmMedium">{`${tpslInfo.tpsl}`}</SizableText>
+          <SizableText
+            size="$bodySmMedium"
+            numberOfLines={1}
+          >{`${tpslInfo.tpsl}`}</SizableText>
         </YStack>
       </DebugRenderTracker>
     ),
@@ -1411,4 +1414,4 @@ const PositionRow = memo(
 );
 
 PositionRow.displayName = 'PositionRow';
-export { PositionRow };
+export { PositionRow, MarkPrice };

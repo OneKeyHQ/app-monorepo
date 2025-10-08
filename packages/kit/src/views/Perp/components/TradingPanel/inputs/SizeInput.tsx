@@ -201,6 +201,11 @@ export const SizeInput = memo(
 
     const handleInputChange = useCallback(
       (newValue: string) => {
+        if (isSliderMode) {
+          setTokenAmount('');
+          onChange('');
+          return;
+        }
         setIsUserTyping(true);
 
         onRequestManualMode?.();
@@ -229,12 +234,13 @@ export const SizeInput = memo(
         }
       },
       [
-        inputMode,
-        hasValidPrice,
-        szDecimals,
-        onChange,
-        priceBN,
+        isSliderMode,
         onRequestManualMode,
+        inputMode,
+        onChange,
+        hasValidPrice,
+        priceBN,
+        szDecimals,
       ],
     );
 
