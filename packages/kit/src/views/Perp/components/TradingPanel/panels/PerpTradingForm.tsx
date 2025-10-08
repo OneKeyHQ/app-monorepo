@@ -267,7 +267,6 @@ function PerpTradingForm({
 
   const handleManualSizeChange = useCallback(
     (value: string) => {
-      console.log('handleManualSizeChange', value);
       updateForm({
         size: value,
         sizeInputMode: EPerpsSizeInputMode.MANUAL,
