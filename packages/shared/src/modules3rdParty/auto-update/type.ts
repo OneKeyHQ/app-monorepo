@@ -116,7 +116,7 @@ export interface IBundleUpdate {
   downloadBundleASC: IDownloadBundleASC;
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
-  clearAllJSBundleData: () => Promise<void>;
+  clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getFallbackBundles: () => Promise<IJSBundle[]>;
   switchBundle: (params: IJSBundle) => Promise<void>;
   testVerification: () => Promise<boolean>;
