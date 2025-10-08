@@ -57,14 +57,43 @@ const OpenOrdersRow = memo(
     const intl = useIntl();
     const assetInfo = useMemo(() => {
       const assetSymbol = order.coin ?? '-';
-      const orderType = order.orderType;
+      const orderType = (() => {
+        switch (order.orderType) {
+          case 'Market':
+            return intl.formatMessage({
+              id: ETranslations.perp_position_market,
+            });
+          case 'Limit':
+            return intl.formatMessage({
+              id: ETranslations.perp_position_limit,
+            });
+          case 'Stop Market':
+            return intl.formatMessage({
+              id: ETranslations.perp_order_stop_market,
+            });
+          case 'Stop Limit':
+            return intl.formatMessage({
+              id: ETranslations.perp_order_stop_limit,
+            });
+          case 'Take Profit Market':
+            return intl.formatMessage({
+              id: ETranslations.perp_order_tp_market,
+            });
+          case 'Take Profit Limit':
+            return intl.formatMessage({
+              id: ETranslations.perp_order_tp_limit,
+            });
+          default:
+            return order.orderType;
+        }
+      })();
       const type =
         order.side === 'B'
           ? intl.formatMessage({
-              id: ETranslations.perp_trade_long,
+              id: ETranslations.perp_long,
             })
           : intl.formatMessage({
-              id: ETranslations.perp_trade_short,
+              id: ETranslations.perp_short,
             });
       const typeColor = order.side === 'B' ? '$green11' : '$red11';
       return { assetSymbol, type, orderType, typeColor };

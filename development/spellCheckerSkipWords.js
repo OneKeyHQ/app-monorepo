@@ -27,6 +27,7 @@ module.exports = [
   'perp',
   'hyperliquid',
   'Delisted',
+  'inferrable',
   'PerpTrade',
   'perpTradeRouters',
   'thirdparty',

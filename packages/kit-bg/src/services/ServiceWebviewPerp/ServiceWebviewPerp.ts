@@ -25,7 +25,10 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  EPerpUserType,
+  IHyperLiquidErrorLocaleItem,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   perpsUserConfigPersistAtom,
@@ -177,6 +180,7 @@ export interface IPerpServerConfigResponse {
   >;
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
+  hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {
