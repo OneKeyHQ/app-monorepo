@@ -2053,6 +2053,8 @@
   "perp.available_balance": "Solde disponible",
   "perp.button_disable_perp": "Pas disponible",
   "perp.button_ip_restricted": "IP restreinte",
+  "perp.cacenl_all_order_msg": "Cela annulera tous vos ordres ouverts, y compris les ordres de prise de bénéfices et de stop-loss.",
+  "perp.cacenl_all_order_title": "Annuler toutes les commandes",
   "perp.close_all_limit": "Limite Fermer Tout au Milieu",
   "perp.close_all_market": "Fermer Tout le Marché",
   "perp.close_all_msg": "Cela fermera toutes vos positions et annulera leurs ordres TP/SL associés.",

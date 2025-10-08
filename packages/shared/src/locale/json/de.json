@@ -2053,6 +2053,8 @@
   "perp.available_balance": "Verfügbares Guthaben",
   "perp.button_disable_perp": "Nicht verfügbar",
   "perp.button_ip_restricted": "IP-beschränkt",
+  "perp.cacenl_all_order_msg": "Dadurch werden alle offenen Orders storniert, einschließlich Take-Profit- und Stop-Loss-Orders.",
+  "perp.cacenl_all_order_title": "Alle Bestellungen stornieren",
   "perp.close_all_limit": "Limit Close All zum Mittelkurs",
   "perp.close_all_market": "Alle am Markt schließen",
   "perp.close_all_msg": "Dadurch werden alle Ihre Positionen geschlossen und die dazugehörigen TP/SL-Orders storniert.",
