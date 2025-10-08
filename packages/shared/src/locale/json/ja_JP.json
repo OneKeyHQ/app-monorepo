@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "価値",
   "perp.oracle_price_tooltip": "外部の価格フィードから取得した資産のリアルタイム価格。",
   "perp.order_book_depth": "注文板の深さ",
+  "perp.order_close_long": "ロングをクローズ",
+  "perp.order_close_short": "Close Short",
   "perp.order_mid_price_title": "ミッドプライス",
   "perp.order_mid_price_title_desc": "最良の買気配と売気配の平均で、公正な市場価値を反映するもの。",
   "perp.order_size_small": "注文は最低でも{amount}である必要があります",

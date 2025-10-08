@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "मूल्य",
   "perp.oracle_price_tooltip": "बाहरी प्राइस फ़ीड्स से एसेट की रियल‑टाइम कीमत।",
   "perp.order_book_depth": "ऑर्डर बुक की गहराई",
+  "perp.order_close_long": "लॉन्ग बंद करें",
+  "perp.order_close_short": "शॉर्ट बंद करें",
   "perp.order_mid_price_title": "मध्य मूल्य",
   "perp.order_mid_price_title_desc": "सर्वोत्तम बोली और पूछ मूल्य का औसत, जो उचित बाजार मूल्य को दर्शाता है।",
   "perp.order_size_small": "ऑर्डर कम से कम {amount} का होना चाहिए",
