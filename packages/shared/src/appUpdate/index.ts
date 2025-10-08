@@ -104,7 +104,7 @@ export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   ) {
     return (
       appUpdateInfo.status !== EAppUpdateStatus.done &&
-      Number(appUpdateInfo.jsBundleVersion) > Number(APP_BUNDLE_VERSION)
+      Number(APP_BUNDLE_VERSION) > Number(appUpdateInfo.jsBundleVersion)
     );
   }
   return (
