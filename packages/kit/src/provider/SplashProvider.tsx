@@ -16,7 +16,7 @@ import {
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-export const useSemlessInstall = (): void => {
+export const useSeamlessInstall = (): void => {
   const hasLaunchEventsExecutedRef = useRef(false);
 
   useLayoutEffect(() => {
@@ -52,5 +52,6 @@ export const useSemlessInstall = (): void => {
 };
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
+  useSeamlessInstall();
   return <Splash>{children}</Splash>;
 }
