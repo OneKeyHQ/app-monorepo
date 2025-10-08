@@ -42,6 +42,7 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
   ONEKEY_URL,
@@ -414,7 +415,7 @@ export function ListVersionItem(props: ICustomElementProps) {
       <ListItem.Text
         primary={
           <Badge badgeType="info" badgeSize="lg">
-            {appUpdateInfo.data.latestVersion}
+            {displayAppUpdateVersion(appUpdateInfo.data)}
           </Badge>
         }
         align="right"
@@ -556,6 +557,18 @@ export function SocialButtonGroup() {
   }, [copyText, versionString]);
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
+  const isUpToDate = useMemo(() => {
+    if (!appUpdateInfo.latestVersion) {
+      return true;
+    }
+    if (appUpdateInfo.jsBundleVersion) {
+      return (
+        appUpdateInfo.latestVersion === platformEnv.version &&
+        appUpdateInfo.jsBundleVersion === platformEnv.bundleVersion
+      );
+    }
+    return appUpdateInfo.latestVersion === platformEnv.version;
+  }, [appUpdateInfo.jsBundleVersion, appUpdateInfo.latestVersion]);
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
@@ -605,9 +618,7 @@ export function SocialButtonGroup() {
         >
           {upperFirst(versionString)}
         </SizableText>
-        {!isTabNavigator &&
-        (!appUpdateInfo.latestVersion ||
-          appUpdateInfo.latestVersion === platformEnv.version) ? (
+        {!isTabNavigator && isUpToDate ? (
           <SizableText
             color={textColor}
             size={textSize}
