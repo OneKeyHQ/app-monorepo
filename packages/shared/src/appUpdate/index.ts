@@ -80,6 +80,16 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
+export const displayAppVersion = (appUpdateInfo: IAppUpdateInfo) => {
+  const { latestVersion } = appUpdateInfo;
+  if (!latestVersion) {
+    return APP_VERSION;
+  }
+  return latestVersion === APP_VERSION
+    ? `${latestVersion}(${appUpdateInfo.jsBundleVersion ?? 1})`
+    : latestVersion;
+};
+
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   // App shell version is equal to the latest version, check js bundle version
   if (

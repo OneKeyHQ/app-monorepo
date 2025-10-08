@@ -740,7 +740,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentButton, component: ButtonGallery },
   { name: EGalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: EGalleryRoutes.ComponentSlider, component: SliderGallery },
-  { name: EGalleryRoutes.ComponentSegmentSlider, component: SegmentSliderGallery },
+  {
+    name: EGalleryRoutes.ComponentSegmentSlider,
+    component: SegmentSliderGallery,
+  },
   {
     name: EGalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
