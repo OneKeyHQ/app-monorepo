@@ -3,22 +3,20 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Markdown, Page, ScrollView } from '@onekeyhq/components';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import {
-  useAppChangeLog,
-  useAppUpdateInfo,
-} from '../../../components/UpdateReminder/hooks';
+import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
-import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 
 function WhatsNew() {
   const intl = useIntl();
   const { version = '' } = platformEnv;
-  const appUpdateInfo = useAppUpdateInfo();
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
   const response = useAppChangeLog(version);
   const { changeLog } = response ?? {};
   const navigation = useAppNavigation();
