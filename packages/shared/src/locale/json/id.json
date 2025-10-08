@@ -2053,6 +2053,8 @@
   "perp.available_balance": "Saldo tersedia",
   "perp.button_disable_perp": "Tidak Tersedia",
   "perp.button_ip_restricted": "IP dibatasi",
+  "perp.cacenl_all_order_msg": "Ini akan membatalkan semua pesanan terbuka Anda, termasuk pesanan take-profit dan stop-loss.",
+  "perp.cacenl_all_order_title": "Batalkan semua pesanan",
   "perp.close_all_limit": "Tutup Semua Batas di Harga Tengah",
   "perp.close_all_market": "Tutup Semua Pasar",
   "perp.close_all_msg": "Ini akan menutup semua posisi Anda dan membatalkan pesanan TP/SL yang terkait.",

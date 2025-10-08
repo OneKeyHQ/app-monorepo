@@ -2053,6 +2053,8 @@
   "perp.available_balance": "사용 가능 잔액",
   "perp.button_disable_perp": "사용할 수 없음",
   "perp.button_ip_restricted": "IP 제한됨",
+  "perp.cacenl_all_order_msg": "이 작업을 수행하면 이익 실현 주문과 손절매 주문을 포함하여, 열려 있는 모든 주문이 취소됩니다.",
+  "perp.cacenl_all_order_title": "모든 주문 취소",
   "perp.close_all_limit": "모두 미드가로 지정가 청산",
   "perp.close_all_market": "모든 포지션 시장가 청산",
   "perp.close_all_msg": "이 작업을 수행하면 모든 포지션이 청산되고, 연동된 TP/SL 주문이 취소됩니다.",

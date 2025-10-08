@@ -2053,6 +2053,8 @@
   "perp.available_balance": "उपलब्ध शेष राशि",
   "perp.button_disable_perp": "उपलब्ध नहीं है",
   "perp.button_ip_restricted": "आईपी प्रतिबंधित",
+  "perp.cacenl_all_order_msg": "यह आपकी सभी खुली ऑर्डर, जिनमें टेक-प्रॉफिट और स्टॉप-लॉस ऑर्डर शामिल हैं, रद्द कर देगा।",
+  "perp.cacenl_all_order_title": "सभी ऑर्डर रद्द करें",
   "perp.close_all_limit": "लिमिट: सभी को मिड पर बंद करें",
   "perp.close_all_market": "मार्केट क्लोज़ ऑल",
   "perp.close_all_msg": "यह आपकी सभी पोज़िशन बंद कर देगा और उनसे संबंधित TP/SL ऑर्डर रद्द कर देगा।",

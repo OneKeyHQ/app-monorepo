@@ -2053,6 +2053,8 @@
   "perp.available_balance": "Доступный баланс",
   "perp.button_disable_perp": "Нет в наличии",
   "perp.button_ip_restricted": "IP-адрес ограничен",
+  "perp.cacenl_all_order_msg": "Это отменит все ваши открытые ордера, включая ордера тейк-профит и стоп-лосс.",
+  "perp.cacenl_all_order_title": "Отменить все заказы",
   "perp.close_all_limit": "Лимит закрыть все по середине спреда",
   "perp.close_all_market": "Рыночное закрытие всех позиций",
   "perp.close_all_msg": "Это закроет все ваши позиции и отменит связанные с ними ордера TP/SL.",

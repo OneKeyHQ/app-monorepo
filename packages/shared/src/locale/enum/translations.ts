@@ -2058,6 +2058,8 @@
   perp_available_balance = 'perp.available_balance',
   perp_button_disable_perp = 'perp.button_disable_perp',
   perp_button_ip_restricted = 'perp.button_ip_restricted',
+  perp_cacenl_all_order_msg = 'perp.cacenl_all_order_msg',
+  perp_cacenl_all_order_title = 'perp.cacenl_all_order_title',
   perp_close_all_limit = 'perp.close_all_limit',
   perp_close_all_market = 'perp.close_all_market',
   perp_close_all_msg = 'perp.close_all_msg',
