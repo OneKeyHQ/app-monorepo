@@ -989,6 +989,41 @@ RCT_EXPORT_METHOD(setCurrentUpdateBundleData:(NSDictionary *)params) {
     [userDefaults synchronize];
 }
 
+RCT_EXPORT_METHOD(clearAllJSBundleData:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    @try {
+        NSString *bundleDir = [BundleUpdateModule bundleDir];
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        
+        if ([fileManager fileExistsAtPath:bundleDir]) {
+            NSError *error;
+            BOOL success = [fileManager removeItemAtPath:bundleDir error:&error];
+            if (!success) {
+                DDLogDebug(@"clearAllJSBundleData: Error removing bundle directory: %@", error.localizedDescription);
+                reject(@"DELETE_ERROR", error.localizedDescription, error);
+                return;
+            }
+        }
+        
+        // Clear all bundle-related preferences
+        NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+        NSString *currentBundleVersion = [userDefaults stringForKey:@"currentBundleVersion"];
+        if (currentBundleVersion) {
+            [userDefaults removeObjectForKey:currentBundleVersion];
+            [userDefaults removeObjectForKey:@"currentBundleVersion"];
+        }
+        [userDefaults removeObjectForKey:@"nativeVersion"];
+        [userDefaults synchronize];
+        
+        DDLogDebug(@"clearAllJSBundleData: Successfully cleared all JS bundle data");
+        resolve(@{@"success": @YES, @"message": @"Successfully cleared all JS bundle data"});
+    } @catch (NSException *exception) {
+        DDLogDebug(@"clearAllJSBundleData: Exception: %@", exception.reason);
+        reject(@"CLEAR_ERROR", exception.reason, nil);
+    }
+}
+
+
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
