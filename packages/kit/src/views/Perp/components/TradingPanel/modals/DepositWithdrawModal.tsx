@@ -65,7 +65,6 @@ const DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID =
   'perp-deposit-withdraw-accessory-view';
 
 interface IDepositWithdrawParams {
-  withdrawable: string;
   actionType: IPerpsDepositWithdrawActionType;
 }
 
@@ -85,6 +84,7 @@ function DepositWithdrawContent({
   const { gtMd } = useMedia();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
   const accountValue = accountSummary?.accountValue ?? '';
+  const withdrawable = accountSummary?.withdrawable ?? '';
   const accountValueInfoTrigger = useMemo(
     () => (
       <XStack
@@ -105,7 +105,7 @@ function DepositWithdrawContent({
   const accountValuePopoverContent = useMemo(
     () => (
       <YStack flex={1} px="$5" pb="$5">
-        <SizableText size="$bodySm">
+        <SizableText size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.perp_account_panel_account_value_tooltip,
           })}
@@ -230,9 +230,7 @@ function DepositWithdrawContent({
 
   const availableBalance = useMemo(() => {
     const rawBalance =
-      selectedAction === 'withdraw'
-        ? params.withdrawable || '0'
-        : usdcBalance || '0';
+      selectedAction === 'withdraw' ? withdrawable || '0' : usdcBalance || '0';
 
     return {
       balance: rawBalance,
@@ -240,7 +238,7 @@ function DepositWithdrawContent({
         .decimalPlaces(2, BigNumber.ROUND_DOWN)
         .toFixed(2),
     };
-  }, [selectedAction, params.withdrawable, usdcBalance]);
+  }, [selectedAction, withdrawable, usdcBalance]);
 
   const amountBN = useMemo(() => new BigNumber(amount || '0'), [amount]);
 
@@ -391,7 +389,23 @@ function DepositWithdrawContent({
 
     return true;
   }, [amountBN, availableBalanceBN, intl, selectedAction, showMinAmountError]);
-
+  const leftContent = useMemo(() => {
+    return selectedAction === 'deposit' ? (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: `${MIN_DEPOSIT_AMOUNT} USDC` },
+        )}
+      </SizableText>
+    ) : (
+      <SizableText size="$bodyLgMedium" color="$textSubdued">
+        {intl.formatMessage(
+          { id: ETranslations.perp_size_least },
+          { amount: `${MIN_WITHDRAW_AMOUNT} USDC` },
+        )}
+      </SizableText>
+    );
+  }, [intl, selectedAction]);
   const handleConfirm = useCallback(async () => {
     if (!isValidAmount || !selectedAccount.accountAddress) return;
 
@@ -465,7 +479,8 @@ function DepositWithdrawContent({
   const content = (
     <YStack
       gap="$4"
-      p="$1"
+      px="$1"
+      pt="$1"
       style={{
         marginTop: -22,
       }}
@@ -708,7 +723,7 @@ function DepositWithdrawContent({
                   </DashText>
                 }
                 renderContent={
-                  <SizableText size="$bodySm" color="$textSubdued">
+                  <SizableText size="$bodySm">
                     {intl.formatMessage({
                       id: ETranslations.perp_withdraw_fee_mgs,
                     })}
@@ -734,7 +749,7 @@ function DepositWithdrawContent({
                 }
                 renderContent={() => (
                   <YStack px="$5" pb="$4">
-                    <SizableText size="$bodyMd" color="$textSubdued">
+                    <SizableText size="$bodyMd" color="$text">
                       {intl.formatMessage({
                         id: ETranslations.perp_withdraw_fee_mgs,
                       })}
@@ -784,7 +799,7 @@ function DepositWithdrawContent({
       {content}
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={DEPOSIT_WITHDRAW_INPUT_ACCESSORY_VIEW_ID}>
-          <InputAccessoryDoneButton />
+          <InputAccessoryDoneButton leftContent={leftContent} />
         </InputAccessoryView>
       ) : null}
     </>

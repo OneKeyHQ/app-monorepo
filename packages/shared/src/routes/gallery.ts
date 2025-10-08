@@ -67,6 +67,7 @@ export enum EGalleryRoutes {
   ComponentShortcut = 'component-Shortcut',
   ComponentSkeleton = 'component-Skeleton',
   ComponentSlider = 'component-Slider',
+  ComponentSegmentSlider = 'component-SegmentSlider',
   ComponentSortableListView = 'component-SortableListView',
   ComponentSortableSectionList = 'component-SortableSectionList',
   ComponentSpotlight = 'component-Spotlight',

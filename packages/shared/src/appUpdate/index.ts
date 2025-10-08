@@ -80,6 +80,45 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
+const displayVersion = (
+  newVersion?: string,
+  latestVersion?: string,
+  bundleVersion?: string,
+) => {
+  if (!newVersion) {
+    return latestVersion;
+  }
+  return newVersion === latestVersion
+    ? `${newVersion}(${bundleVersion ?? 1})`
+    : newVersion;
+};
+
+export const displayWhatsNewVersion = (
+  appUpdateInfo: IAppUpdateInfo | undefined,
+) => {
+  if (!appUpdateInfo) {
+    return APP_VERSION;
+  }
+  return displayVersion(
+    appUpdateInfo.latestVersion,
+    appUpdateInfo.previousAppVersion,
+    appUpdateInfo.jsBundleVersion,
+  );
+};
+
+export const displayAppUpdateVersion = (
+  appUpdateInfo: IAppUpdateInfo | undefined,
+) => {
+  if (!appUpdateInfo) {
+    return APP_VERSION;
+  }
+  return displayVersion(
+    appUpdateInfo.latestVersion,
+    APP_VERSION,
+    appUpdateInfo.jsBundleVersion,
+  );
+};
+
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   // App shell version is equal to the latest version, check js bundle version
   if (
@@ -89,12 +128,12 @@ export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   ) {
     return (
       appUpdateInfo.status !== EAppUpdateStatus.done &&
-      Number(appUpdateInfo.jsBundleVersion) >= Number(APP_BUNDLE_VERSION)
+      Number(APP_BUNDLE_VERSION) > Number(appUpdateInfo.jsBundleVersion)
     );
   }
   return (
     appUpdateInfo.status !== EAppUpdateStatus.done &&
     appUpdateInfo.latestVersion &&
-    semver.gte(APP_VERSION, appUpdateInfo.latestVersion)
+    semver.gt(APP_VERSION, appUpdateInfo.latestVersion)
   );
 };

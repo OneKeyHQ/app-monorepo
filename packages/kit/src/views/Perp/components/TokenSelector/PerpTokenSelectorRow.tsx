@@ -6,6 +6,7 @@ import {
   NumberSizeableText,
   SizableText,
   SkeletonContainer,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -135,6 +136,7 @@ const PerpTokenSelectorRow = memo(
             pressStyle={{
               bg: '$bgHover',
             }}
+            gap="$4"
           >
             <TokenImageMobile name={token.name} />
             <XStack gap="$2" alignItems="center" justifyContent="center">
@@ -153,6 +155,7 @@ const PerpTokenSelectorRow = memo(
                 </SkeletonContainer>
               </YStack>
             </XStack>
+            <Stack flex={1} />
             <YStack gap="$1" justifyContent="flex-end">
               <SkeletonContainer
                 alignSelf="flex-end"
