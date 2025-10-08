@@ -1,4 +1,5 @@
-import { memo, useCallback, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
+import { memo, useCallback, useLayoutEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -14,10 +15,8 @@ import {
   XStack,
   YStack,
   getFontSize,
-  useMedia,
 } from '@onekeyhq/components';
 import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -40,6 +39,21 @@ interface ILeverageContentProps {
   isMobile?: boolean;
 }
 
+const useInitialValue = platformEnv.isNativeIOS
+  ? (initialValue: number) => {
+      const [value, setValue] = useState(0);
+      useLayoutEffect(() => {
+        setTimeout(() => {
+          setValue(initialValue);
+        }, 100);
+      }, [initialValue]);
+      return [value, setValue];
+    }
+  : (initialValue: number) => {
+      const [value, setValue] = useState(initialValue);
+      return [value, setValue];
+    };
+
 const LeverageContent = memo(
   ({
     initialValue,
@@ -47,15 +61,21 @@ const LeverageContent = memo(
     tokenInfo,
     activeAssetData,
   }: ILeverageContentProps) => {
-    const [value, setValue] = useState(initialValue);
+    const [value, setValue] = useInitialValue(initialValue) as [
+      number,
+      Dispatch<SetStateAction<number>>,
+    ];
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
     const actions = useHyperliquidActions();
 
-    const handleSliderChange = useCallback((newValue: number) => {
-      const roundedValue = Math.round(newValue);
-      setValue(roundedValue);
-    }, []);
+    const handleSliderChange = useCallback(
+      (newValue: number) => {
+        const roundedValue = Math.round(newValue);
+        setValue(roundedValue);
+      },
+      [setValue],
+    );
 
     const handleInputChange = useCallback(
       (text: string) => {
@@ -74,7 +94,7 @@ const LeverageContent = memo(
         }
         setValue(newValue);
       },
-      [maxLeverage],
+      [maxLeverage, setValue],
     );
 
     const handleConfirm = useCallback(async () => {
