@@ -53,7 +53,6 @@ function TradingGuardWrapperInternal({
       ) {
         void showDepositWithdrawModal(
           {
-            withdrawable: '0',
             actionType: 'deposit',
           },
           dialogInTab,

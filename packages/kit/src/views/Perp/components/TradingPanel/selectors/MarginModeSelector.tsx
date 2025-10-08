@@ -56,7 +56,11 @@ const MarginModeSelector = ({
     >
       <SizableText size="$bodyMdMedium">{currentModeLabel}</SizableText>
 
-      <Icon name="ChevronTriangleDownSmallOutline" color="$icon" size="$5" />
+      <Icon
+        name="ChevronTriangleDownSmallOutline"
+        color="$iconSubdued"
+        size="$4"
+      />
     </XStack>
   );
 };

@@ -85,7 +85,7 @@ const ClosePositionForm = memo(
 
     const [formData, setFormData] = useState<IClosePositionFormData>({
       type,
-      amount: formatWithPrecision(positionSize, szDecimals, true),
+      amount: positionSize.toFixed(),
       limitPrice: '',
       percentage: 100,
     });
@@ -256,12 +256,14 @@ const ClosePositionForm = memo(
             return;
           }
 
-          await hyperliquidActions.current.limitOrderClose({
-            assetId,
-            isBuy: isLongPosition,
-            size: closeAmount,
-            limitPrice: formData.limitPrice,
-          });
+          await hyperliquidActions.current.ordersClose([
+            {
+              assetId,
+              isBuy: isLongPosition,
+              size: closeAmount,
+              limitPx: formData.limitPrice,
+            },
+          ]);
         }
 
         hyperliquidActions.current.resetTradingForm();
@@ -284,6 +286,9 @@ const ClosePositionForm = memo(
       hyperliquidActions,
       onClose,
     ]);
+    const entryPrice = useMemo(() => {
+      return position?.entryPx || '0';
+    }, [position]);
 
     const estimatedProfit = useMemo(() => {
       const exitPrice =
@@ -378,6 +383,23 @@ const ClosePositionForm = memo(
               {positionSize.toNumber()} {position.coin}
             </SizableText>
           </XStack>
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_entry_price,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">{entryPrice}</SizableText>
+          </XStack>
+
+          {/* <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {appLocale.intl.formatMessage({
+                id: ETranslations.perp_position_mark_price,
+              })}
+            </SizableText>
+            <MarkPrice coin={position.coin} />
+          </XStack> */}
 
           <XStack justifyContent="space-between" alignItems="center">
             <SizableText size="$bodyMd" color="$textSubdued">

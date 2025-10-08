@@ -43,6 +43,9 @@ export function useOrderConfirm(
         return;
       }
 
+      // Reset form before placing order
+      hyperliquidActions.current.resetTradingForm();
+
       let effectiveFormData = overrideSide
         ? { ...formData, side: overrideSide }
         : formData;
@@ -120,9 +123,6 @@ export function useOrderConfirm(
             price: effectiveFormData.price || '0',
           });
         }
-
-        // Reset form after successful order
-        hyperliquidActions.current.resetTradingForm();
 
         options?.onSuccess?.();
       } catch (error) {
