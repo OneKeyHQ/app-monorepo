@@ -142,7 +142,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_app_version_ready_for_update },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
           },
