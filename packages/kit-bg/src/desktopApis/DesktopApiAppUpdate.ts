@@ -79,6 +79,14 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
+
+const isMas = process.mas;
+const isSnapStore = process.platform === 'linux' && process.env.SNAP;
+const isWindowsMsStore =
+  process.platform === 'win32' && process.env.DESK_CHANNEL === 'ms-store';
+
+const isStoreVersion = isMas || isSnapStore || isWindowsMsStore;
+
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
 
@@ -98,7 +106,7 @@ class DesktopApiAppUpdate {
     this.latestVersion = {} as ILatestVersion;
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
-    if (!process.mas) {
+    if (!isStoreVersion) {
       void app.whenReady().then(() => {
         this.initAppAutoUpdateEvents();
       });
