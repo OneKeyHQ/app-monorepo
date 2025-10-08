@@ -2053,6 +2053,8 @@
   "perp.available_balance": "可用余额",
   "perp.button_disable_perp": "无法使用",
   "perp.button_ip_restricted": "IP 限制",
+  "perp.cacenl_all_order_msg": "将取消您所有的挂单，包括止盈和止损订单",
+  "perp.cacenl_all_order_title": "取消所有挂单",
   "perp.close_all_limit": "限价单以中间价全部平仓",
   "perp.close_all_market": "市价单全部平仓",
   "perp.close_all_msg": "将平仓您的所有仓位并取消其关联的止盈/止损订单",

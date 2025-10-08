@@ -2053,6 +2053,8 @@
   "perp.available_balance": "ยอดคงเหลือที่ใช้ได้",
   "perp.button_disable_perp": "ไม่สามารถใช้งานได้",
   "perp.button_ip_restricted": "จำกัด IP",
+  "perp.cacenl_all_order_msg": "การดำเนินการนี้จะยกเลิกคำสั่งที่เปิดอยู่ทั้งหมดของคุณ รวมถึงคำสั่งทำกำไรและคำสั่งตัดขาดทุนด้วย",
+  "perp.cacenl_all_order_title": "ยกเลิกคำสั่งซื้อทั้งหมด",
   "perp.close_all_limit": "จำกัด ปิดทั้งหมดที่ราคา Mid",
   "perp.close_all_market": "ปิดตลาดทั้งหมด",
   "perp.close_all_msg": "สิ่งนี้จะปิดโพสิชันทั้งหมดของคุณและยกเลิกคำสั่ง TP/SL ที่เกี่ยวข้อง",

@@ -2053,6 +2053,8 @@
   "perp.available_balance": "Saldo disponibile",
   "perp.button_disable_perp": "Non disponibile",
   "perp.button_ip_restricted": "IP limitato",
+  "perp.cacenl_all_order_msg": "Questo annullerà tutti i tuoi ordini aperti, inclusi gli ordini take-profit e stop-loss.",
+  "perp.cacenl_all_order_title": "Annulla tutti gli ordini",
   "perp.close_all_limit": "Chiudi tutto con limite a metà prezzo",
   "perp.close_all_market": "Chiudi tutte le posizioni di mercato",
   "perp.close_all_msg": "Questo chiuderà tutte le tue posizioni e annullerà i relativi ordini TP/SL.",

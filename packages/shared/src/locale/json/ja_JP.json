@@ -2053,6 +2053,8 @@
   "perp.available_balance": "利用可能残高",
   "perp.button_disable_perp": "利用不可",
   "perp.button_ip_restricted": "IP制限あり",
+  "perp.cacenl_all_order_msg": "これにより、利確注文や損切り注文を含む、すべての未決済注文がキャンセルされます。",
+  "perp.cacenl_all_order_title": "すべての注文をキャンセル",
   "perp.close_all_limit": "指値で全決済（ミッド）",
   "perp.close_all_market": "マーケット終了ですべて決済",
   "perp.close_all_msg": "これにより、すべてのポジションが決済され、関連するTP/SL注文がキャンセルされます。",

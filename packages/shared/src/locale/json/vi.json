@@ -2053,6 +2053,8 @@
   "perp.available_balance": "Số dư khả dụng",
   "perp.button_disable_perp": "Không có sẵn",
   "perp.button_ip_restricted": "IP bị hạn chế",
+  "perp.cacenl_all_order_msg": "Thao tác này sẽ hủy tất cả các lệnh đang mở của bạn, bao gồm cả lệnh chốt lời và cắt lỗ.",
+  "perp.cacenl_all_order_title": "Hủy tất cả đơn hàng",
   "perp.close_all_limit": "Đặt lệnh giới hạn đóng tất cả ở giá giữa",
   "perp.close_all_market": "Đóng tất cả thị trường",
   "perp.close_all_msg": "Thao tác này sẽ đóng tất cả vị thế của bạn và hủy các lệnh TP/SL liên quan.",
