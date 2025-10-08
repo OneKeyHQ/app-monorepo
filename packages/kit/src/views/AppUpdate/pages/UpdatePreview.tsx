@@ -50,7 +50,7 @@ function UpdatePreview({
     return null;
   }, []);
   const {
-    latestVersion: latestVersionParam,
+    latestVersion,
     isForceUpdate: isForceUpdateParam,
     autoClose = false,
   } = route.params || {};
@@ -77,7 +77,11 @@ function UpdatePreview({
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_title },
-          { ver: displayAppUpdateVersion(updateInfo) },
+          {
+            ver: updateInfo
+              ? displayAppUpdateVersion(updateInfo)
+              : latestVersion,
+          },
         )}
         headerLeft={isForceUpdate ? headerLeft : undefined}
       />
