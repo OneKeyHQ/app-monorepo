@@ -15,25 +15,17 @@ import {
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
+  useAppIsLockedAtom,
   useDevSettingsPersistAtom,
   useOnboardingConnectWalletLoadingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  EAppUpdateStatus,
-  EUpdateFileType,
-  EUpdateStrategy,
-  getUpdateFileType,
-} from '@onekeyhq/shared/src/appUpdate';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import {
-  AppUpdate,
-  BundleUpdate,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import performance from '@onekeyhq/shared/src/performance';
@@ -59,7 +51,6 @@ import {
   isOpenedReferFriendsPage,
   useReferFriends,
 } from '../hooks/useReferFriends';
-import { whenAppUnlocked } from '../utils/passwordUtils';
 import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
@@ -470,47 +461,28 @@ export const useIntercomInit = () => {
 
 export const useLaunchEvents = (): void => {
   const intl = useIntl();
+  const [isLocked] = useAppIsLockedAtom();
   const hasLaunchEventsExecutedRef = useRef(false);
-
   useEffect(() => {
-    if (hasLaunchEventsExecutedRef.current) {
+    if (isLocked || hasLaunchEventsExecutedRef.current) {
       return;
     }
-    const launchCallback = async () => {
-      hasLaunchEventsExecutedRef.current = true;
-      const appInfo = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-      if (
-        appInfo.status === EAppUpdateStatus.ready &&
-        appInfo.updateStrategy === EUpdateStrategy.seamless
-      ) {
-        const fileType = getUpdateFileType(appInfo);
-        defaultLogger.app.appUpdate.startInstallPackage({
-          fileType,
-          data: appInfo,
-        });
-        try {
-          if (fileType === EUpdateFileType.jsBundle) {
-            await BundleUpdate.installBundle(appInfo.downloadedEvent);
-          } else {
-            await AppUpdate.installPackage(appInfo);
-          }
-          defaultLogger.app.appUpdate.endInstallPackage(true);
-        } catch (e) {
-          defaultLogger.app.appUpdate.endInstallPackage(false, e as Error);
+    void backgroundApiProxy.serviceAppUpdate
+      .getUpdateStatus()
+      .then((updateStatus: EAppUpdateStatus) => {
+        if (updateStatus === EAppUpdateStatus.ready) {
+          return;
         }
-      }
-      if (appInfo.status !== EAppUpdateStatus.ready) {
+        hasLaunchEventsExecutedRef.current = true;
         setTimeout(async () => {
-          await whenAppUnlocked();
           await backgroundApiProxy.serviceApp.updateLaunchTimes();
           if (platformEnv.isExtension) {
             await launchFloatingIconEvent(intl);
           }
         }, 250);
-      }
-    };
-    void launchCallback();
-  }, [intl]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocked]);
 };
 
 const getBuilderNumber = (builderNumber?: string) => {
