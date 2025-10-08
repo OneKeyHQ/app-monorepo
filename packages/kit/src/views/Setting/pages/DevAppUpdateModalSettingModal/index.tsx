@@ -342,8 +342,21 @@ export default function DevAppUpdateModalSettingModal() {
 
           <Button
             variant="secondary"
-            onPress={() => {
-              void BundleUpdate.clearAllJSBundleData();
+            onPress={async () => {
+              try {
+                const result = await BundleUpdate.clearAllJSBundleData();
+                Dialog.confirm({
+                  title: 'Clear JSBundle Data',
+                  description: JSON.stringify(result),
+                });
+              } catch (error) {
+                Dialog.confirm({
+                  title: 'Clear JSBundle Data',
+                  description: `Error: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                });
+              }
             }}
           >
             Clear All JSBundle Data
