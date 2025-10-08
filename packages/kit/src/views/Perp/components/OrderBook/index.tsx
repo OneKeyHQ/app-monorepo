@@ -1098,8 +1098,8 @@ export function OrderPairBook({
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 60;
-const MOBILE_PRICE_FLEX = 0.6;
-const MOBILE_SIZE_FLEX = 0.4;
+const MOBILE_PRICE_FLEX = 0.4;
+const MOBILE_SIZE_FLEX = 0.6;
 const MobileRow = ({
   item,
   priceColor,
@@ -1483,7 +1483,7 @@ export function OrderBookMobile({
             width: 150,
           }}
           title={intl.formatMessage({
-            id: ETranslations.perp_orderbook_spread,
+            id: ETranslations.perp_order_book_depth,
           })}
           items={tickOptions}
           value={selectedTickOption?.value}

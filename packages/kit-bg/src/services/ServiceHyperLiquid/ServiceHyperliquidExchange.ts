@@ -27,6 +27,7 @@ import type {
   IHyperLiquidOrderRequestPayload,
 } from '@onekeyhq/shared/src/logger/scopes/perp/scenes/hyperliquid';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import {
   MAX_DECIMALS_PERP,
   formatPriceToSignificantDigits,
@@ -160,6 +161,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           'ServiceHyperliquidExchange.setup Error: User address is required',
         );
       }
+
       const transport = new HttpTransport();
 
       let wallet: WalletHyperliquidProxy | WalletHyperliquidOnekey;
@@ -250,7 +252,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
     const context = await this._buildLogContext();
     try {
-      const response = await this.exchangeClient.setReferrer(params);
+      const response = await convertHyperLiquidResponse(() =>
+        this.exchangeClient.setReferrer(params),
+      );
       defaultLogger.perp.hyperliquid.setReferrer({
         ...context,
         request: params,
@@ -277,7 +281,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const client = await this.getExchangeClientForTrading();
     const context = await this._buildLogContext();
     try {
-      await client.updateLeverage(params);
+      await convertHyperLiquidResponse(() => client.updateLeverage(params));
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
         request: params,
@@ -301,7 +305,25 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     await this.checkAccountCanTrade();
 
     const client = await this.getExchangeClientForTrading();
-    await client.updateIsolatedMargin(params);
+    const context = await this._buildLogContext();
+    try {
+      const response = await convertHyperLiquidResponse(() =>
+        client.updateIsolatedMargin(params),
+      );
+      defaultLogger.perp.hyperliquid.updateIsolatedMargin({
+        ...context,
+        request: params,
+        response,
+      });
+    } catch (error) {
+      defaultLogger.perp.hyperliquid.updateIsolatedMargin({
+        ...context,
+        request: params,
+        response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
+        error: serializeHyperLiquidError(error),
+      });
+      throw error;
+    }
   }
 
   @backgroundMethod()
@@ -340,7 +362,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const context = await this._buildLogContext();
     try {
-      const response = await this.exchangeClient.approveAgent(requestPayload);
+      const response = await convertHyperLiquidResponse(() =>
+        this.exchangeClient.approveAgent(requestPayload),
+      );
       defaultLogger.perp.hyperliquid.approveAgent({
         ...context,
         request: params,
@@ -382,7 +406,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     };
     const context = await this._buildLogContext();
     try {
-      const response = await this.exchangeClient.approveAgent(requestPayload);
+      const response = await convertHyperLiquidResponse(() =>
+        this.exchangeClient.approveAgent(requestPayload),
+      );
       defaultLogger.perp.hyperliquid.removeAgent({
         ...context,
         request,
@@ -437,11 +463,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const context = await this._buildLogContext();
     const extra = this._composeOrderLogExtra(options);
     try {
-      const response = await client.order({
-        orders,
-        grouping,
-        builder: this._builderFeeInfo,
-      });
+      const response = await convertHyperLiquidResponse(() =>
+        client.order({
+          orders,
+          grouping,
+          builder: this._builderFeeInfo,
+        }),
+      );
       dispatchHyperLiquidOrderLog({
         scene: defaultLogger.perp.hyperliquid,
         action: options.action,
@@ -654,12 +682,21 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async ordersClose(params: IOrderCloseParams[]): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
-      const midPx = param.midPx;
-      const price = this._calculateSlippagePrice({
-        markPrice: midPx,
-        isBuy: !param.isBuy,
-        slippage: param.slippage || this.slippage,
-      });
+      let price: string;
+
+      if (param.limitPx) {
+        price = param.limitPx;
+      } else if (param.midPx) {
+        price = this._calculateSlippagePrice({
+          markPrice: param.midPx,
+          isBuy: !param.isBuy,
+          slippage: param.slippage || this.slippage,
+        });
+      } else {
+        throw new OneKeyLocalError(
+          'Either limitPx or midPx must be provided for order close',
+        );
+      }
 
       const orderParams: IOrderParams = {
         a: param.assetId,
@@ -688,7 +725,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       return response;
     } catch (error) {
       throw new OneKeyLocalError(
-        `Failed to place market close order: ${String(error)}`,
+        `Failed to place close order: ${String(error)}`,
       );
     }
   }
@@ -710,7 +747,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       cancelCount: cancelParams.length,
     };
     try {
-      const response = await client.cancel(requestPayload);
+      const response = await convertHyperLiquidResponse(() =>
+        client.cancel(requestPayload),
+      );
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
         request: requestPayload,
@@ -840,7 +879,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     });
     const context = await this._buildLogContext();
     try {
-      await exchangeClient.withdraw3(params);
+      await convertHyperLiquidResponse(() => exchangeClient.withdraw3(params));
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
         request: params,

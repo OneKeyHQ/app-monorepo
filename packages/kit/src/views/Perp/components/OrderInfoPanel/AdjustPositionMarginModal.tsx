@@ -169,7 +169,7 @@ const AdjustPositionMarginForm = memo(
     }, [amount, action, maxAdd, maxRemove]);
 
     const handleSubmit = useCallback(async () => {
-      if (!isValidAmount || !assetId || !currentPosition) return;
+      if (!isValidAmount || assetId === null || !currentPosition) return;
 
       setIsSubmitting(true);
       try {
