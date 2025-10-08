@@ -4,12 +4,11 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { showCloseAllPositionsDialog } from '../CloseAllPositionsModal';
 import { PositionRow } from '../Components/PositionsRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -24,10 +23,9 @@ function PerpPositionsList({
   isMobile,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
-  const navigation = useAppNavigation();
   const [currentUser] = usePerpsActiveAccountAtom();
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const [positionsLength] = usePerpsActivePositionLengthAtom();
-  const actions = useHyperliquidActions();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
@@ -130,10 +128,12 @@ function PerpPositionsList({
         minWidth: 100,
         align: 'right',
         flex: 1,
-        onPress: () => actions.current.closeAllPositions(),
+        ...(positionsLength > 0 && {
+          onPress: () => showCloseAllPositionsDialog(),
+        }),
       },
     ];
-  }, [actions, intl]);
+  }, [intl, positionsLength]);
   const totalMinWidth = useMemo(
     () =>
       columnsConfig.reduce(

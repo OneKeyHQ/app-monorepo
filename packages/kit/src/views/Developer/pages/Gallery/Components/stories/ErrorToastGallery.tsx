@@ -11,9 +11,36 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { convertHyperLiquidResponse } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Layout } from './utils/Layout';
+
+async function showHyperLiquidVariableErrorToast() {
+  try {
+    await errorToastUtils.withErrorAutoToast(async () =>
+      convertHyperLiquidResponse(async () => {
+        const hyperLiquidError = new Error(
+          'HyperLiquid test error with BTC and ETH.',
+        ) as Error & {
+          response: {
+            status: 'err';
+            response: string;
+          };
+        };
+
+        hyperLiquidError.response = {
+          status: 'err',
+          response: 'HyperLiquid test error with BTC and ETH.',
+        };
+
+        throw hyperLiquidError;
+      }),
+    );
+  } catch (error) {
+    console.log('HyperLiquid variable error toast demo', error);
+  }
+}
 
 function error10() {
   throw new BadAuthError();
@@ -201,6 +228,13 @@ function Demo1() {
         }}
       >
         调用 background 显示 IncorrectPassword
+      </Button>
+      <Button
+        onPress={() => {
+          void showHyperLiquidVariableErrorToast();
+        }}
+      >
+        HyperLiquid 变量错误 toast
       </Button>
     </Stack>
   );
