@@ -2053,6 +2053,8 @@
   "perp.available_balance": "উপলব্ধ ব্যালেন্স",
   "perp.button_disable_perp": "পাওয়া যায় না",
   "perp.button_ip_restricted": "আইপি সীমাবদ্ধ",
+  "perp.cacenl_all_order_msg": "এটি আপনার সমস্ত ওপেন অর্ডার বাতিল করবে, যার মধ্যে টেক-প্রফিট এবং স্টপ-লস অর্ডারও অন্তর্ভুক্ত।",
+  "perp.cacenl_all_order_title": "সকল অর্ডার বাতিল করুন",
   "perp.close_all_limit": "লিমিট ক্লোজ অল অ্যাট মিড",
   "perp.close_all_market": "মার্কেট ক্লোজ অল",
   "perp.close_all_msg": "এটি আপনার সব পজিশন বন্ধ করবে এবং তাদের সঙ্গে যুক্ত TP/SL অর্ডারগুলো বাতিল করবে।",
