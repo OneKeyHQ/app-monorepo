@@ -104,12 +104,12 @@ export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
   ) {
     return (
       appUpdateInfo.status !== EAppUpdateStatus.done &&
-      Number(appUpdateInfo.jsBundleVersion) >= Number(APP_BUNDLE_VERSION)
+      Number(appUpdateInfo.jsBundleVersion) > Number(APP_BUNDLE_VERSION)
     );
   }
   return (
     appUpdateInfo.status !== EAppUpdateStatus.done &&
     appUpdateInfo.latestVersion &&
-    semver.gte(APP_VERSION, appUpdateInfo.latestVersion)
+    semver.gt(APP_VERSION, appUpdateInfo.latestVersion)
   );
 };
