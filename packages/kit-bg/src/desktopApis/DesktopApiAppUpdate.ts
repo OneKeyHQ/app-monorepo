@@ -101,7 +101,6 @@ class DesktopApiAppUpdate {
     if (!process.mas) {
       void app.whenReady().then(() => {
         this.initAppAutoUpdateEvents();
-        this.initBundleAutoUpdateEvents();
       });
     }
     if (isDev) {
@@ -256,8 +255,6 @@ class DesktopApiAppUpdate {
       },
     );
   }
-
-  initBundleAutoUpdateEvents(): void {}
 
   async isDownloadingPackage(): Promise<boolean> {
     return this.isDownloading;
