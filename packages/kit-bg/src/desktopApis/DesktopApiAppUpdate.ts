@@ -79,7 +79,6 @@ autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.disableDifferentialDownload = true;
 autoUpdater.logger = logger;
-
 class DesktopApiAppUpdate {
   desktopApi: IDesktopApi;
 
@@ -100,8 +99,10 @@ class DesktopApiAppUpdate {
     this.isDownloading = false;
     this.downloadedEvent = {} as IUpdateDownloadedEvent;
     if (!process.mas) {
-      this.initAppAutoUpdateEvents();
-      this.initBundleAutoUpdateEvents();
+      void app.whenReady().then(() => {
+        this.initAppAutoUpdateEvents();
+        this.initBundleAutoUpdateEvents();
+      });
     }
     if (isDev) {
       Object.defineProperty(app, 'isPackaged', {
