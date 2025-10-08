@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "Значение",
   "perp.oracle_price_tooltip": "Цена актива в реальном времени из внешних ценовых источников.",
   "perp.order_book_depth": "Глубина книги заказов",
+  "perp.order_close_long": "Закрыть лонг",
+  "perp.order_close_short": "Close Short",
   "perp.order_mid_price_title": "Средняя цена",
   "perp.order_mid_price_title_desc": "Среднее значение лучшей цены покупки и продажи, отражающее справедливую рыночную стоимость.",
   "perp.order_size_small": "Минимальный размер ордера: не менее {amount}",

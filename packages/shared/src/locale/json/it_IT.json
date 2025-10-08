@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "Valore",
   "perp.oracle_price_tooltip": "Prezzo in tempo reale dell’asset da feed di prezzo esterni.",
   "perp.order_book_depth": "Profondità del portafoglio ordini",
+  "perp.order_close_long": "Chiudi long",
+  "perp.order_close_short": "Chiudi short",
   "perp.order_mid_price_title": "Prezzo medio",
   "perp.order_mid_price_title_desc": "La media tra il miglior prezzo denaro e il miglior prezzo lettera, che riflette il valore equo di mercato.",
   "perp.order_size_small": "L'ordine deve essere almeno di {amount}",

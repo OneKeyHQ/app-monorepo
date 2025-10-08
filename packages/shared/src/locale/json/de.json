@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "Wert",
   "perp.oracle_price_tooltip": "Echtzeitpreis des Assets aus externen Preisfeeds.",
   "perp.order_book_depth": "Orderbuchtiefe",
+  "perp.order_close_long": "Close Long",
+  "perp.order_close_short": "Close Short",
   "perp.order_mid_price_title": "Mittelpreis",
   "perp.order_mid_price_title_desc": "Der Durchschnitt aus bestem Geld- und Briefkurs, der den fairen Marktwert widerspiegelt.",
   "perp.order_size_small": "Die Order muss mindestens {amount} betragen",

@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "Giá trị",
   "perp.oracle_price_tooltip": "Giá theo thời gian thực của tài sản từ các nguồn dữ liệu giá bên ngoài.",
   "perp.order_book_depth": "Độ sâu sổ lệnh",
+  "perp.order_close_long": "Close Long",
+  "perp.order_close_short": "Đóng lệnh Short",
   "perp.order_mid_price_title": "Giá trung bình",
   "perp.order_mid_price_title_desc": "Giá trung bình giữa giá chào mua và chào bán tốt nhất, phản ánh giá trị thị trường hợp lý.",
   "perp.order_size_small": "Lệnh phải có ít nhất {amount}",

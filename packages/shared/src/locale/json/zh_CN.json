@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "价值",
   "perp.oracle_price_tooltip": "来自外部价格源的资产实时价格",
   "perp.order_book_depth": "委托单表示深度",
+  "perp.order_close_long": "平多",
+  "perp.order_close_short": "平空",
   "perp.order_mid_price_title": "中间价",
   "perp.order_mid_price_title_desc": "最佳买入价和卖出价的平均值，反映市场公允价值",
   "perp.order_size_small": "订单金额必须至少 {amount}",

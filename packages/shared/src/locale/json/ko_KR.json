@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "평가금액",
   "perp.oracle_price_tooltip": "외부 가격 피드를 통한 자산의 실시간 가격입니다.",
   "perp.order_book_depth": "주문장 깊이",
+  "perp.order_close_long": "롱 청산",
+  "perp.order_close_short": "숏 포지션 청산",
   "perp.order_mid_price_title": "중간 가격",
   "perp.order_mid_price_title_desc": "최적 매수호가와 매도호가의 평균으로, 공정한 시장 가치를 반영합니다.",
   "perp.order_size_small": "주문은 최소 {amount}이어야 합니다",

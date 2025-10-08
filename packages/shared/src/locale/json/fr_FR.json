@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "Valeur",
   "perp.oracle_price_tooltip": "Prix en temps réel de l'actif provenant de flux de prix externes.",
   "perp.order_book_depth": "Profondeur du carnet de commandes",
+  "perp.order_close_long": "Fermer Long",
+  "perp.order_close_short": "Fermer Short",
   "perp.order_mid_price_title": "Prix moyen",
   "perp.order_mid_price_title_desc": "La moyenne des meilleurs prix d'achat et de vente, reflétant la juste valeur de marché.",
   "perp.order_size_small": "La commande doit être d'au moins {amount}",

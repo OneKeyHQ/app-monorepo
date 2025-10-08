@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "Значення",
   "perp.oracle_price_tooltip": "Ціна активу в реальному часі з зовнішніх джерел цінових даних.",
   "perp.order_book_depth": "Глибина книги замовлень",
+  "perp.order_close_long": "Закрити лонг",
+  "perp.order_close_short": "Закрити шорт",
   "perp.order_mid_price_title": "Середня ціна",
   "perp.order_mid_price_title_desc": "Середнє значення найкращих цін покупки та продажу, що відображає справедливу ринкову вартість.",
   "perp.order_size_small": "Замовлення має бути щонайменше {amount}",

@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "มูลค่า",
   "perp.oracle_price_tooltip": "ราคาสินทรัพย์แบบเรียลไทม์จากฟีดราคาภายนอก",
   "perp.order_book_depth": "ความลึกของหนังสือสั่งซื้อ",
+  "perp.order_close_long": "Close Long",
+  "perp.order_close_short": "ปิดชอร์ต",
   "perp.order_mid_price_title": "ราคากลาง",
   "perp.order_mid_price_title_desc": "ค่าเฉลี่ยของราคาซื้อและราคาขายที่ดีที่สุด สะท้อนมูลค่าตลาดที่ยุติธรรม",
   "perp.order_size_small": "คำสั่งต้องมีอย่างน้อย {amount}",

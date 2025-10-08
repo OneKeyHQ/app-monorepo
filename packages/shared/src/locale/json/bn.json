@@ -2126,6 +2126,8 @@
   "perp.open_orders_value": "মূল্য",
   "perp.oracle_price_tooltip": "বাহ্যিক প্রাইস ফিড থেকে সম্পদের রিয়েল-টাইম মূল্য।",
   "perp.order_book_depth": "অর্ডার বইয়ের গভীরতা",
+  "perp.order_close_long": "লং পজিশন বন্ধ করুন",
+  "perp.order_close_short": "শর্ট বন্ধ করুন",
   "perp.order_mid_price_title": "মধ্যম মূল্য",
   "perp.order_mid_price_title_desc": "সর্বোত্তম বিড এবং আস্ক মূল্যের গড়, যা ন্যায্য বাজারমূল্যকে প্রতিফলিত করে।",
   "perp.order_size_small": "অর্ডার অন্তত {amount} হতে হবে",
