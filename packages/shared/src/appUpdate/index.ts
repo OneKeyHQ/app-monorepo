@@ -80,7 +80,12 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
-export const displayAppVersion = (appUpdateInfo: IAppUpdateInfo) => {
+export const displayAppUpdateVersion = (
+  appUpdateInfo: IAppUpdateInfo | undefined,
+) => {
+  if (!appUpdateInfo) {
+    return APP_VERSION;
+  }
   const { latestVersion } = appUpdateInfo;
   if (!latestVersion) {
     return APP_VERSION;
