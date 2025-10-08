@@ -70,6 +70,8 @@ export const SizeInput = memo(
     const [isUserTyping, setIsUserTyping] = useState(false);
 
     const prevValueRef = useRef(value);
+    const prevPriceRef = useRef(referencePrice);
+    const isPriceChangingRef = useRef(false);
 
     const isSliderMode = sizeInputMode === 'slider';
 
@@ -136,21 +138,35 @@ export const SizeInput = memo(
 
     useEffect(() => {
       if (isSliderMode) return;
-      if (inputMode === 'usd' && hasValidPrice && usdAmount && !isUserTyping) {
-        const usdBN = new BigNumber(usdAmount);
-        if (usdBN.isFinite()) {
-          const newTokenValue = formatWithPrecision(
-            usdBN.dividedBy(priceBN),
-            szDecimals,
+
+      if (prevPriceRef.current !== referencePrice) {
+        prevPriceRef.current = referencePrice;
+        isPriceChangingRef.current = true;
+        if (inputMode === 'usd' && hasValidPrice && tokenAmount) {
+          const usdValue = formatWithPrecision(
+            new BigNumber(tokenAmount).multipliedBy(priceBN),
+            2,
             true,
           );
-          setTokenAmount((prevTokenAmount) => {
-            if (newTokenValue !== prevTokenAmount) {
-              onChange(newTokenValue);
-              return newTokenValue;
-            }
-            return prevTokenAmount;
-          });
+          setUsdAmount(usdValue);
+        }
+        return;
+      }
+
+      if (isPriceChangingRef.current) {
+        isPriceChangingRef.current = false;
+        return;
+      }
+
+      if (inputMode === 'usd' && hasValidPrice && usdAmount && !isUserTyping) {
+        const newTokenValue = formatWithPrecision(
+          new BigNumber(usdAmount).dividedBy(priceBN),
+          szDecimals,
+          true,
+        );
+        if (newTokenValue !== tokenAmount) {
+          setTokenAmount(newTokenValue);
+          onChange(newTokenValue);
         }
       }
     }, [
@@ -162,6 +178,8 @@ export const SizeInput = memo(
       isUserTyping,
       priceBN,
       isSliderMode,
+      referencePrice,
+      tokenAmount,
     ]);
 
     const validator = useCallback(
