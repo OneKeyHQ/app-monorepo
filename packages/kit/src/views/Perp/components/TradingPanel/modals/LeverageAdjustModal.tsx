@@ -1,6 +1,7 @@
 import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import {
   Badge,
@@ -25,12 +26,11 @@ import {
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { TradingGuardWrapper } from '../../TradingGuardWrapper';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { InputAccessoryView } from 'react-native';
 
 interface ILeverageContentProps {
   initialValue: number;

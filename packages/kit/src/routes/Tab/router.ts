@@ -84,14 +84,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     [isShowDesktopDiscover, md],
   );
 
-  const isShowMarketTab = useMemo(
-    () =>
-      // Hide Market tab in extension popup and side panel
-      // Show in extension expand tab (fullscreen) and all other platforms
-      !platformEnv.isExtensionUiPopup && !platformEnv.isExtensionUiSidePanel,
-    [],
-  );
-
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
@@ -99,17 +91,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     if (perpConfigCommon?.disablePerp) {
       return null;
     }
-    // not working for extension
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tabbarOnPress =
-      platformEnv.isExtension &&
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-        ? async () => {
-            if (platformEnv.isExtension) {
-              await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-            }
-          }
-        : undefined;
+
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return null;
+    }
     if (
       perpConfigCommon?.usePerpWeb ||
       perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
@@ -122,7 +107,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/perp',
         exact: true,
-        // tabbarOnPress,
         children: platformEnv.isExtension
           ? // small screen error: Cannot read properties of null (reading 'filter')
             // null
@@ -182,25 +166,23 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: homeRouters,
           trackId: 'global-wallet',
         },
-        isShowMarketTab
-          ? {
-              name: ETabRoutes.Market,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
-              translationId: ETranslations.global_market,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/market',
-              exact: true,
-              children: marketRouters,
-              trackId: 'global-market',
-              // Only apply custom tab press handler for non-mobile platforms
-              ...(platformEnv.isDesktop ||
-              platformEnv.isWeb ||
-              platformEnv.isExtension
-                ? { onPressWhenSelected: handleMarketTabPress }
-                : {}),
-            }
-          : undefined,
+        {
+          name: ETabRoutes.Market,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+          translationId: ETranslations.global_market,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/market',
+          exact: true,
+          children: marketRouters,
+          trackId: 'global-market',
+          // Only apply custom tab press handler for non-mobile platforms
+          ...(platformEnv.isDesktop ||
+          platformEnv.isWeb ||
+          platformEnv.isExtension
+            ? { onPressWhenSelected: handleMarketTabPress }
+            : {}),
+        },
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
@@ -280,15 +262,14 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
       ),
     [
-      isShowDesktopDiscover,
-      isShowMDDiscover,
-      isShowMyOneKeyOnTabbar,
-      isShowMarketTab,
       params,
-      toMyOneKeyModal,
-      toReferFriendsPage,
       handleMarketTabPress,
       perpTabShowRes,
+      isShowMyOneKeyOnTabbar,
+      toReferFriendsPage,
+      toMyOneKeyModal,
+      isShowMDDiscover,
+      isShowDesktopDiscover,
     ],
   );
 };
