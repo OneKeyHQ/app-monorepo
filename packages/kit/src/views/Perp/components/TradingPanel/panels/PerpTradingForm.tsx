@@ -234,15 +234,6 @@ function PerpTradingForm({
     activeAsset?.universe?.szDecimals,
   ]);
 
-  const { availableToTradeDisplay } = useMemo(() => {
-    const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
-    const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
-    const valueBN = new BigNumber(value);
-    return {
-      availableToTradeDisplay: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
-    };
-  }, [formData.side, activeAssetData?.availableToTrade]);
-
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
     useMemo(() => {
       const value = Number(
@@ -255,16 +246,14 @@ function PerpTradingForm({
       return [Math.abs(value), side];
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
-  // Order calculations: Total value and required margin
-  const totalValue = useMemo(() => {
-    return tradingComputed.computedSizeBN.multipliedBy(referencePrice); // Size × Price = Total Value
-  }, [tradingComputed.computedSizeBN, referencePrice]);
-
-  const marginRequired = useMemo(() => {
-    return tradingComputed.computedSizeBN
-      .multipliedBy(referencePrice)
-      .dividedBy(leverage || 1); // (Size × Price) ÷ Leverage = Required Margin
-  }, [tradingComputed.computedSizeBN, referencePrice, leverage]);
+  const availableToTrade = useMemo(() => {
+    const accountValue = new BigNumber(accountSummary?.accountValue || '0');
+    const totalMarginUsed = new BigNumber(
+      accountSummary?.totalMarginUsed || '0',
+    );
+    const availableToTradeBN = accountValue.minus(totalMarginUsed);
+    return availableToTradeBN.toFixed();
+  }, [accountSummary]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -278,6 +267,7 @@ function PerpTradingForm({
 
   const handleManualSizeChange = useCallback(
     (value: string) => {
+      console.log('handleManualSizeChange', value);
       updateForm({
         size: value,
         sizeInputMode: EPerpsSizeInputMode.MANUAL,
@@ -390,7 +380,7 @@ function PerpTradingForm({
           </SizableText>
           <XStack alignItems="center" gap="$1">
             <PerpsAccountNumberValue
-              value={accountSummary?.withdrawable ?? ''}
+              value={availableToTrade}
               skeletonWidth={60}
             />
             <MobileDepositButton />
@@ -600,7 +590,7 @@ function PerpTradingForm({
             </SizableText>
             <XStack alignItems="center" gap="$1">
               <PerpsAccountNumberValue
-                value={accountSummary?.withdrawable ?? ''}
+                value={availableToTrade}
                 skeletonWidth={60}
               />
               <MobileDepositButton />
