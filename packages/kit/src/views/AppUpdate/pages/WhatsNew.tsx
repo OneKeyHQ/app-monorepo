@@ -7,13 +7,18 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
+import {
+  useAppChangeLog,
+  useAppUpdateInfo,
+} from '../../../components/UpdateReminder/hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
+import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 
 function WhatsNew() {
   const intl = useIntl();
   const { version = '' } = platformEnv;
+  const appUpdateInfo = useAppUpdateInfo();
   const response = useAppChangeLog(version);
   const { changeLog } = response ?? {};
   const navigation = useAppNavigation();
@@ -28,7 +33,7 @@ function WhatsNew() {
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_updated_title },
           {
-            ver: platformEnv.version,
+            ver: displayWhatsNewVersion(appUpdateInfo),
           },
         )}
       />

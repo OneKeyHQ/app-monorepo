@@ -45,6 +45,8 @@ export interface IResponseAppUpdateInfo extends IBasicAppUpdateInfo {
 }
 
 export interface IAppUpdateInfo extends IBasicAppUpdateInfo {
+  // the previous app version before update
+  previousAppVersion?: string;
   // the latest version of remote server
   latestVersion?: string;
   // the last time the app update info was fetched

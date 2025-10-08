@@ -80,19 +80,43 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
+const displayVersion = (
+  newVersion?: string,
+  latestVersion?: string,
+  bundleVersion?: string,
+) => {
+  if (!newVersion) {
+    return latestVersion;
+  }
+  return newVersion === latestVersion
+    ? `${newVersion}(${bundleVersion ?? 1})`
+    : newVersion;
+};
+
+export const displayWhatsNewVersion = (
+  appUpdateInfo: IAppUpdateInfo | undefined,
+) => {
+  if (!appUpdateInfo) {
+    return APP_VERSION;
+  }
+  return displayVersion(
+    appUpdateInfo.latestVersion,
+    appUpdateInfo.previousAppVersion,
+    appUpdateInfo.jsBundleVersion,
+  );
+};
+
 export const displayAppUpdateVersion = (
   appUpdateInfo: IAppUpdateInfo | undefined,
 ) => {
   if (!appUpdateInfo) {
     return APP_VERSION;
   }
-  const { latestVersion } = appUpdateInfo;
-  if (!latestVersion) {
-    return APP_VERSION;
-  }
-  return latestVersion === APP_VERSION
-    ? `${latestVersion}(${appUpdateInfo.jsBundleVersion ?? 1})`
-    : latestVersion;
+  return displayVersion(
+    appUpdateInfo.latestVersion,
+    APP_VERSION,
+    appUpdateInfo.jsBundleVersion,
+  );
 };
 
 export const isFirstLaunchAfterUpdated = (appUpdateInfo: IAppUpdateInfo) => {
