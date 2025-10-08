@@ -861,7 +861,10 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             deleteDirectory(bundleDir);
         }
         BundleUpdateModule.clearUpdateBundleData(reactContext);
-        promise.resolve(null);
+        WritableMap result = Arguments.createMap();
+        result.putBoolean("success", true);
+        result.putString("message", "Successfully cleared all JS bundle data");
+        promise.resolve(result);
     }
 
     @ReactMethod
