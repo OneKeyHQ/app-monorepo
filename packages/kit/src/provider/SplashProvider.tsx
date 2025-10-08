@@ -31,11 +31,11 @@ export const useSeamlessInstall = (): void => {
         appInfo.updateStrategy === EUpdateStrategy.seamless
       ) {
         const fileType = getUpdateFileType(appInfo);
-        defaultLogger.app.appUpdate.startInstallPackage({
-          fileType,
-          data: appInfo,
-        });
         try {
+          defaultLogger.app.appUpdate.startInstallPackage({
+            fileType,
+            data: appInfo,
+          });
           if (fileType === EUpdateFileType.jsBundle) {
             await BundleUpdate.installBundle(appInfo.downloadedEvent);
           } else {
