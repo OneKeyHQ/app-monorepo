@@ -1,5 +1,10 @@
 /* eslint-disable global-require */
-import { type PropsWithChildren, useLayoutEffect, useRef } from 'react';
+import {
+  type PropsWithChildren,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { Splash } from '@onekeyhq/components';
 import {
@@ -17,9 +22,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-export const useSeamlessInstall =
+export const useDisplaySplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
+        const [displaySplash, setDisplaySplash] = useState(true);
         const hasLaunchEventsExecutedRef = useRef(false);
 
         useLayoutEffect(() => {
@@ -52,14 +58,19 @@ export const useSeamlessInstall =
                   e as Error,
                 );
               }
+            } else {
+              setDisplaySplash(true);
             }
           };
           void launchCallback();
         }, []);
+        return displaySplash;
       }
-    : () => {};
+    : () => {
+        return true;
+      };
 
 export function SplashProvider({ children }: PropsWithChildren<unknown>) {
-  useSeamlessInstall();
-  return <Splash>{children}</Splash>;
+  const displaySplash = useDisplaySplash();
+  return displaySplash ? <Splash>{children}</Splash> : null;
 }
