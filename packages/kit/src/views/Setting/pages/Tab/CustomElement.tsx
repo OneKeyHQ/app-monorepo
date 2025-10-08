@@ -70,6 +70,7 @@ import { useOptions } from '../AppAutoLock/useOptions';
 
 import { TabSettingsListItem } from './ListItem';
 import { useIsTabNavigator } from './useIsTabNavigator';
+import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 
 export interface ICustomElementProps {
   titleMatch?: IFuseResultMatch;
@@ -414,7 +415,7 @@ export function ListVersionItem(props: ICustomElementProps) {
       <ListItem.Text
         primary={
           <Badge badgeType="info" badgeSize="lg">
-            {appUpdateInfo.data.latestVersion}
+            {displayAppUpdateVersion(appUpdateInfo.data)}
           </Badge>
         }
         align="right"
