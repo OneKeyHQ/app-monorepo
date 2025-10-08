@@ -25,7 +25,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 export const useDisplaySplash =
   platformEnv.isDesktop || platformEnv.isNative
     ? () => {
-        const [displaySplash, setDisplaySplash] = useState(true);
+        const [displaySplash, setDisplaySplash] = useState(false);
         const hasLaunchEventsExecutedRef = useRef(false);
 
         useLayoutEffect(() => {
