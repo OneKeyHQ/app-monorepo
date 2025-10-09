@@ -620,7 +620,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           r: true,
           t: {
             trigger: {
-              isMarket,
+              isMarket: true,
               triggerPx: originalTpPrice,
               tpsl: 'tp',
             },
@@ -646,7 +646,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           r: true,
           t: {
             trigger: {
-              isMarket,
+              isMarket: true,
               triggerPx: originalSlPrice,
               tpsl: 'sl',
             },

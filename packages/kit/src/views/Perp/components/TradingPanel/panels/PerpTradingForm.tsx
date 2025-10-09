@@ -156,6 +156,11 @@ function PerpTradingForm({
       }
       return nextEnv;
     });
+    if (formData.leverage !== nextEnv.leverageValue) {
+      updateForm({
+        leverage: nextEnv.leverageValue,
+      });
+    }
   }, [
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.availableToTrade,
@@ -163,6 +168,8 @@ function PerpTradingForm({
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
     setTradingFormEnv,
+    formData.leverage,
+    updateForm,
   ]);
 
   // Token Switch Effect: Handle price updates when user switches tokens
