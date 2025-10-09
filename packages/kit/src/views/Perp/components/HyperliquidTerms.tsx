@@ -134,7 +134,7 @@ export function HyperliquidTermsContent({
     const textPadding = gtMd ? '$5' : '$4';
     const textHeadingSize = gtMd ? '$heading3xl' : '$heading2xl';
     const textBodySize = gtMd ? '$bodyLg' : '$bodyMd';
-    const textHeadingMarginTop = gtMd ? '$-8' : '$-6';
+    const textHeadingMarginTop = '$0';
     const confirmationSlideStyle: IYStackProps | undefined =
       platformEnv.isNative
         ? undefined
@@ -574,7 +574,7 @@ export function HyperliquidTermsOverlay() {
     return null;
   }
 
-  const minHeight = 520;
+  const minHeight = gtMd ? 560 : 520;
 
   return (
     <Stack
