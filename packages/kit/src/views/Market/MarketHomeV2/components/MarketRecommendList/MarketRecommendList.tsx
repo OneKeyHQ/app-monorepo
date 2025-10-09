@@ -41,6 +41,7 @@ export function MarketRecommendList({
   const intl = useIntl();
   const actions = useWatchListV2Action();
   const { gtMd } = useMedia();
+
   const defaultTokens = useMemo(
     () => recommendedTokens?.slice(0, maxSize) || [],
     [recommendedTokens, maxSize],
