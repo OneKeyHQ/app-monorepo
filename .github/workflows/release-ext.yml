@@ -88,14 +88,14 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-extension-rn
+          name: onekey-extension-rn-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/ext/build/_dist/*.zip
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-extension-rn-development-build
+          name: onekey-extension-rn-development-build-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/ext/build/_development_build_dist/*.zip
 
