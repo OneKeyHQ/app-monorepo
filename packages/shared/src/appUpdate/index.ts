@@ -10,7 +10,7 @@ export * from './utils';
 export * from './type';
 
 const APP_VERSION = platformEnv.version ?? '1.0.0';
-const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? 1;
+const APP_BUNDLE_VERSION = platformEnv.bundleVersion ?? '1';
 
 interface IIsNeedUpdateParams {
   latestVersion?: string;
@@ -102,7 +102,7 @@ export const displayWhatsNewVersion = (
   return displayVersion(
     APP_VERSION,
     appUpdateInfo.previousAppVersion,
-    appUpdateInfo.jsBundleVersion,
+    APP_BUNDLE_VERSION,
   );
 };
 
