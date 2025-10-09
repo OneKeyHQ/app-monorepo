@@ -57,6 +57,7 @@ export const useDisplaySplash =
                   }
                   defaultLogger.app.appUpdate.endInstallPackage(true);
                 } catch (e) {
+                  setDisplaySplash(true);
                   defaultLogger.app.appUpdate.endInstallPackage(
                     false,
                     e as Error,
