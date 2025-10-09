@@ -29,6 +29,7 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
+import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePerpsActivePositionAtom } from '../../hooks';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -113,17 +114,28 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
     });
   };
 
+  const lastSubscriptionsHandlerDisabledCount = useRef<number>(-1);
+
   return (
     <Tabs.Container
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
-      onTabChange={(tab) => {
+      onTabChange={async (tab) => {
         console.log('PerpOrderInfoPanel_onTabChange_tabName::', tab);
         if (tab.tabName === 'Trades History') {
-          void perpsTradesHistoryRefreshHookAtom.set({
-            refreshHook: Date.now(),
-          });
+          const subscriptionsHandlerDisabledCount =
+            await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
+          if (
+            subscriptionsHandlerDisabledCount >
+            lastSubscriptionsHandlerDisabledCount.current
+          ) {
+            lastSubscriptionsHandlerDisabledCount.current =
+              subscriptionsHandlerDisabledCount;
+            void perpsTradesHistoryRefreshHookAtom.set({
+              refreshHook: Date.now(),
+            });
+          }
         }
       }}
       renderTabBar={(props) => (
