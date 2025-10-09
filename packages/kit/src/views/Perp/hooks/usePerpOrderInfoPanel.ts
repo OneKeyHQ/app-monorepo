@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsTradesHistoryRefreshHookAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
@@ -8,6 +11,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { noop } from 'lodash';
 
 interface INewTradesHistory {
   fill: IFill;
@@ -20,6 +24,7 @@ export function usePerpTradesHistory() {
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
     [],
   );
+  const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const newTradesHistoryRef = useRef<INewTradesHistory[]>([]);
   useEffect(() => {
     if (
@@ -85,6 +90,7 @@ export function usePerpTradesHistory() {
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {
+        noop(refreshHook);
         const trades = await backgroundApiProxy.serviceHyperliquid.getUserFills(
           {
             user: currentAccount?.accountAddress,
@@ -97,7 +103,7 @@ export function usePerpTradesHistory() {
       }
       return [];
     },
-    [currentAccount?.accountAddress],
+    [currentAccount?.accountAddress, refreshHook],
     { watchLoading: true, initResult: [] },
   );
 
