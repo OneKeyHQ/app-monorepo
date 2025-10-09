@@ -66,18 +66,18 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Modify build.gradle
-        uses: OneKeyHQ/actions/build-gradle-edit@main
-        with:
-          versionCode: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ env.BUILD_APP_VERSION }}
-          packageName: 'so.onekey.app.wallet'
-          android_dir: ./apps/mobile
+      # - name: Modify build.gradle
+      #   uses: OneKeyHQ/actions/build-gradle-edit@main
+      #   with:
+      #     versionCode: ${{ env.BUILD_NUMBER }}
+      #     versionName: ${{ env.BUILD_APP_VERSION }}
+      #     packageName: 'so.onekey.app.wallet'
+      #     android_dir: ./apps/mobile
 
       - name: Write .env.version
         run: |
           # pass BUILD_NUMBER as env variable to expo server
-          echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
+          echo "BUILD_NUMBER=20251030800" >> .env.version
 
       - name: Write .sentry.properties
         run: |
@@ -100,7 +100,7 @@ jobs:
             eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
           else
             eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
-            eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large --auto-submit
+            eas build --profile=production-store --platform android --non-interactive --no-wait --resource-class large
             # eas build --profile=production-huawei --platform android --non-interactive --no-wait --resource-class large
           fi
 
