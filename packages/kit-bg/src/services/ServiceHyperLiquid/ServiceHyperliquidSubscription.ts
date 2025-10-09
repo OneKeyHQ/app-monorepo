@@ -239,14 +239,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   subscriptionsHandlerDisabled = false;
 
+  subscriptionsHandlerDisabledCount = 0;
+
   @backgroundMethod()
   async disableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = true;
+    this.subscriptionsHandlerDisabledCount += 1;
   }
 
   @backgroundMethod()
   async enableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = false;
+  }
+
+  @backgroundMethod()
+  async getSubscriptionsHandlerDisabledCount(): Promise<number> {
+    return this.subscriptionsHandlerDisabledCount;
   }
 
   @backgroundMethod()

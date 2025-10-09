@@ -495,6 +495,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           extra,
         },
       });
+      this.backgroundApi.serviceHyperliquid.fetchExtraAgentsWithCache.clear();
+      this.backgroundApi.serviceHyperliquid.getUserApprovedMaxBuilderFeeWithCache.clear();
       throw error;
     }
   }
@@ -620,7 +622,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           r: true,
           t: {
             trigger: {
-              isMarket,
+              isMarket: true,
               triggerPx: originalTpPrice,
               tpsl: 'tp',
             },
@@ -646,7 +648,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           r: true,
           t: {
             trigger: {
-              isMarket,
+              isMarket: true,
               triggerPx: originalSlPrice,
               tpsl: 'sl',
             },
