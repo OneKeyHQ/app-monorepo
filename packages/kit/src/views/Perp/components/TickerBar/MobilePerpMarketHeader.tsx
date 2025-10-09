@@ -157,7 +157,7 @@ function MobilePerpMarketHeader() {
                   </YStack>
                 }
               />
-              <SizableText size="$heading2xl">{`$${markPrice}`}</SizableText>
+              <SizableText size="$heading2xl">{markPrice}</SizableText>
             </>
           )}
 
