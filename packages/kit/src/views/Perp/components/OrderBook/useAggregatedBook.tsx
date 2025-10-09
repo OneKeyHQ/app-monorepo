@@ -23,6 +23,18 @@ const formatOrderBookValue = (
   if (!value) {
     return '0';
   }
+  if (variant === 'mobileVertical') {
+    const valueBN = new BigNumber(value);
+    if (valueBN.isNaN()) {
+      return value;
+    }
+    if (valueBN.isZero()) {
+      return '0';
+    }
+    if (valueBN.abs().lt(0.01)) {
+      return value;
+    }
+  }
   const formatted = numberFormat(value, { formatter: 'marketCap' });
   if (
     typeof formatted === 'string' &&

@@ -338,3 +338,11 @@ export const {
     return readyState?.readyState === WebSocket.OPEN;
   },
 });
+
+export const {
+  target: perpsTradesHistoryRefreshHookAtom,
+  use: usePerpsTradesHistoryRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
+});
