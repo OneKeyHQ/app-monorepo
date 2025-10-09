@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { noop } from 'lodash';
+
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsTradesHistoryRefreshHookAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   PERPS_HISTORY_FILLS_URL,
   PERPS_USER_FILLS_TIME_RANGE,
@@ -25,6 +30,7 @@ export function usePerpTradesHistory() {
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
     [],
   );
+  const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const newTradesHistoryRef = useRef<INewTradesHistory[]>([]);
   useEffect(() => {
     if (
@@ -90,6 +96,7 @@ export function usePerpTradesHistory() {
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {
+        noop(refreshHook);
         const now = Date.now();
         const startTime = now - PERPS_USER_FILLS_TIME_RANGE;
         const trades =
@@ -104,7 +111,7 @@ export function usePerpTradesHistory() {
       }
       return [];
     },
-    [currentAccount?.accountAddress],
+    [currentAccount?.accountAddress, refreshHook],
     { watchLoading: true, initResult: [] },
   );
 
