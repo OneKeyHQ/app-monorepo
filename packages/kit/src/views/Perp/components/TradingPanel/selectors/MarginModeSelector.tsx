@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  XStack,
+  useInPageDialog,
+} from '@onekeyhq/components';
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetDataAtom,
@@ -31,9 +36,11 @@ const MarginModeSelector = ({
       : intl.formatMessage({ id: ETranslations.perp_trade_isolated });
   }, [activeAssetData?.leverage?.type, intl]);
 
+  const dialog = useInPageDialog();
+
   const handlePress = () => {
     if (disabled) return;
-    showMarginModeDialog(selectedSymbol?.coin);
+    showMarginModeDialog(selectedSymbol?.coin, dialog);
   };
 
   return (
