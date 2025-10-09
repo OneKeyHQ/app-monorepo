@@ -86,7 +86,8 @@ export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  midPx?: string;
+  limitPx?: string;
   slippage?: number;
 }
 
@@ -101,16 +102,6 @@ export interface ICancelOrderParams {
   oid: number;
 }
 
-export interface IMultiOrderParams {
-  orders: Array<{
-    assetId: number;
-    isBuy: boolean;
-    sz: string;
-    limitPx: string;
-    orderType: { limit: { tif: 'Gtc' | 'Ioc' } };
-  }>;
-}
-
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
 }
@@ -119,6 +110,12 @@ export interface ILeverageUpdateRequest {
   asset: number;
   isCross: boolean;
   leverage: number;
+}
+
+export interface IUpdateIsolatedMarginRequest {
+  asset: number;
+  isBuy: boolean;
+  ntli: number; // Margin amount in USDC (multiplied by 1e6): positive to add, negative to remove
 }
 
 export interface ISetReferrerRequest {
@@ -154,6 +151,24 @@ export interface IPerpOrderBookTickOptionPersist {
   value: string;
   nSigFigs: IL2BookOptions['nSigFigs'];
   mantissa: IL2BookOptions['mantissa'];
+}
+
+export type IHyperLiquidErrorMatcher =
+  | {
+      type: 'exact';
+      value?: string;
+    }
+  | {
+      type: 'regex';
+      pattern?: string;
+    };
+
+export interface IHyperLiquidErrorLocaleItem {
+  i18nKey: string;
+  rawMessage: string;
+  localizedMessage: string;
+  variables: string[];
+  matcher: IHyperLiquidErrorMatcher;
 }
 
 export interface IPerpCommonConfig {

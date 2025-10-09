@@ -38,6 +38,7 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
+  getWebEmbedPath: () => Promise.resolve(''),
   downloadBundle: () => Promise.resolve({} as IUpdateDownloadedEvent),
   verifyBundle: () => Promise.resolve(),
   verifyBundleASC: () => Promise.resolve(),

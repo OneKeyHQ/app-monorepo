@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
   DebugRenderTracker,
   Icon,
   ListView,
@@ -16,10 +17,15 @@ import {
   usePopoverContext,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAllAssetsFilteredLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpTokenSelector } from '../../hooks';
 
@@ -86,7 +92,8 @@ function BasePerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   const intl = useIntl();
-  const { searchQuery, setSearchQuery, filteredTokens } =
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { searchQuery, setSearchQuery, refreshAllAssets } =
     usePerpTokenSelector();
   const { closePopover } = usePopoverContext();
   const actions = useHyperliquidActions();
@@ -106,6 +113,18 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
+  const [filteredTokensLength] = usePerpsAllAssetsFilteredLengthAtom();
+
+  // cause ListView rerender
+  // const [allAssetsFiltered] = usePerpsAllAssetsFilteredAtom();
+  // console.log(allAssetsFiltered);
+
+  const mockedListData = useMemo(() => {
+    return Array.from({ length: filteredTokensLength }, (_, index) => ({
+      index,
+    }));
+  }, [filteredTokensLength]);
+
   const content = (
     <YStack>
       <YStack gap="$2">
@@ -122,6 +141,7 @@ function BasePerpTokenSelectorContent({
             // value={searchQuery} // keep value undefined to make debounce works
           />
         </XStack>
+        {/* <Button onPress={refreshAllAssets}>{filteredTokensLength}</Button> */}
         <TokenListHeader />
       </YStack>
 
@@ -132,11 +152,11 @@ function BasePerpTokenSelectorContent({
           contentContainerStyle={{
             paddingBottom: 10,
           }}
-          data={filteredTokens.filter((token) => !token.isDelisted)}
-          renderItem={({ item: token }) => (
+          data={mockedListData}
+          renderItem={({ item: mockedToken }) => (
             <PerpTokenSelectorRow
-              token={token}
-              onPress={() => handleSelectToken(token.name)}
+              mockedToken={mockedToken}
+              onPress={(name) => handleSelectToken(name)}
             />
           )}
           ListEmptyComponent={
@@ -157,10 +177,7 @@ function BasePerpTokenSelectorContent({
     </YStack>
   );
   return (
-    <DebugRenderTracker
-      timesBadgePosition="top-right"
-      name="PerpTokenSelectorContent"
-    >
+    <DebugRenderTracker position="top-right" name="PerpTokenSelectorContent">
       {content}
     </DebugRenderTracker>
   );
@@ -186,7 +203,7 @@ function BasePerpTokenSelector() {
   const [currentToken] = usePerpsActiveAssetAtom();
   const { coin } = currentToken;
   const [isLoading, setIsLoading] = useState(false);
-  return useMemo(
+  const content = useMemo(
     () => (
       <Popover
         title="Select Token"
@@ -216,7 +233,7 @@ function BasePerpTokenSelector() {
               size="md"
               borderRadius="$full"
               bg={themeVariant === 'light' ? null : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${coin}.svg`}
+              tokenImageUri={getHyperliquidTokenImageUrl(coin)}
               fallbackIcon="CryptoCoinOutline"
             />
 
@@ -236,6 +253,64 @@ function BasePerpTokenSelector() {
     ),
     [isOpen, coin, isLoading, themeVariant],
   );
+  return (
+    <DebugRenderTracker name="PerpTokenSelector">{content}</DebugRenderTracker>
+  );
 }
 
 export const PerpTokenSelector = memo(BasePerpTokenSelector);
+
+const BasePerpTokenSelectorMobileView = memo(
+  ({
+    onPressTokenSelector,
+    coin,
+  }: {
+    onPressTokenSelector: () => void;
+    coin: string;
+  }) => {
+    const intl = useIntl();
+
+    return (
+      <DebugRenderTracker name="BasePerpTokenSelectorMobileView">
+        <XStack
+          gap="$1"
+          bg="$bgApp"
+          onPress={onPressTokenSelector}
+          justifyContent="center"
+          alignItems="center"
+        >
+          <SizableText size="$headingXl">{coin}USD</SizableText>
+          <Badge radius="$1" bg="$bgSubdued" px="$1" py={0}>
+            <SizableText color="$textSubdued" fontSize={11}>
+              {intl.formatMessage({
+                id: ETranslations.perp_label_perp,
+              })}
+            </SizableText>
+          </Badge>
+          <Icon name="ChevronTriangleDownSmallOutline" size="$5" />
+        </XStack>
+      </DebugRenderTracker>
+    );
+  },
+);
+BasePerpTokenSelectorMobileView.displayName = 'BasePerpTokenSelectorMobileView';
+function BasePerpTokenSelectorMobile() {
+  const navigation = useAppNavigation();
+
+  const [asset] = usePerpsActiveAssetAtom();
+  const coin = asset?.coin || '';
+  const onPressTokenSelector = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
+  }, [navigation]);
+
+  return (
+    <BasePerpTokenSelectorMobileView
+      onPressTokenSelector={onPressTokenSelector}
+      coin={coin}
+    />
+  );
+}
+
+export const PerpTokenSelectorMobile = memo(BasePerpTokenSelectorMobile);

@@ -190,7 +190,6 @@ function DesktopCustomTabBar() {
     (eventName: EShortcutEvents) => {
       switch (eventName) {
         case EShortcutEvents.TabPin8:
-        case EShortcutEvents.TabPin9:
           if (result?.pinnedTabs?.length) {
             const id =
               result?.pinnedTabs?.[Number(eventName.match(/\d+/)?.[0]) - 6]?.id;

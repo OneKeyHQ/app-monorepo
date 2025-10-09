@@ -353,7 +353,6 @@ export interface IAppEventBusPayload {
     type: string;
     subType: ESubscriptionType;
     data: unknown;
-    metadata: Record<string, any>;
   };
   [EAppEventBusNames.HyperliquidConnectionChange]: {
     type: 'connection';
