@@ -57,12 +57,12 @@ export const useDisplaySplash =
                   }
                   defaultLogger.app.appUpdate.endInstallPackage(true);
                 } catch (e) {
-                  await backgroundApiProxy.serviceAppUpdate.reset();
                   setDisplaySplash(true);
                   defaultLogger.app.appUpdate.endInstallPackage(
                     false,
                     e as Error,
                   );
+                  await backgroundApiProxy.serviceAppUpdate.reset();
                 }
               }
             } else {
