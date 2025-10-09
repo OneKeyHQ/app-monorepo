@@ -270,7 +270,7 @@ export const LeverageAdjustModal = memo(
         ),
         showFooter: false,
       });
-    }, [userAddress, currentToken, activeAssetData, intl]);
+    }, [userAddress, currentToken, activeAssetData, dialog, intl]);
 
     if (!userAddress || !currentToken) return null;
 
