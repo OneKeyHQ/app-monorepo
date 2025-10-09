@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  usePerpsActiveAccountAtom,
-  usePerpsActiveAssetAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
@@ -19,9 +16,7 @@ interface INewTradesHistory {
 
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsActiveAccountAtom();
-  const [currentToken] = usePerpsActiveAssetAtom();
   const [currentListPage, setCurrentListPage] = useState(1);
-  const { coin } = currentToken;
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
     [],
   );
@@ -46,25 +41,23 @@ export function usePerpTradesHistory() {
         type: 'account';
         subType: string;
         data: IWsUserFills;
-        metadata: {
-          timestamp: number;
-          source: string;
-          userId?: string;
-        };
       };
 
       if (eventPayload.subType !== ESubscriptionType.USER_FILLS) return;
 
-      if (eventPayload.metadata.userId !== currentAccount?.accountAddress)
+      if (
+        !eventPayload?.data?.user ||
+        eventPayload?.data?.user?.toLowerCase() !==
+          currentAccount?.accountAddress?.toLowerCase()
+      ) {
         return;
+      }
 
       const { data } = eventPayload;
 
       if (data.isSnapshot) return;
 
-      const relevantFills = data.fills.filter(
-        (fill: IFill) => fill.coin === coin,
-      );
+      const relevantFills = [...data.fills];
 
       if (relevantFills.length === 0) return;
 
@@ -88,7 +81,7 @@ export function usePerpTradesHistory() {
         handleUserFillsListUpdate,
       );
     };
-  }, [currentAccount?.accountAddress, coin]);
+  }, [currentAccount?.accountAddress]);
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {

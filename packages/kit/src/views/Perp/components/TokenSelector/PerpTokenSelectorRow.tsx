@@ -6,28 +6,106 @@ import {
   NumberSizeableText,
   SizableText,
   SkeletonContainer,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { usePerpsAllAssetsFilteredAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   NUMBER_FORMATTER,
   formatDisplayNumber,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpsAssetCtx } from '../../hooks/usePerpsAssetCtx';
 
 interface IPerpTokenSelectorRowProps {
-  token: IPerpsUniverse;
-  onPress: () => void;
+  mockedToken: {
+    index: number;
+  };
+  onPress: (name: string) => void;
   isOnModal?: boolean;
 }
 
-const PerpTokenSelectorRow = memo(
-  ({ token, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
+const TokenInfoDesktop = memo(
+  ({ name, maxLeverage }: { name: string; maxLeverage: number }) => {
     const themeVariant = useThemeVariant();
+
+    return (
+      <XStack
+        width={150}
+        justifyContent="flex-start"
+        gap="$2"
+        alignItems="center"
+      >
+        <Token
+          size="xs"
+          borderRadius="$full"
+          bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+          tokenImageUri={getHyperliquidTokenImageUrl(name)}
+          fallbackIcon="CryptoCoinOutline"
+        />
+        <SizableText size="$bodySmMedium">{name}</SizableText>
+        <Badge radius="$2" bg="$bgInfo" gap="$1">
+          <SizableText color="$textInfo" size="$bodySm">
+            {maxLeverage}x
+          </SizableText>
+        </Badge>
+      </XStack>
+    );
+  },
+);
+TokenInfoDesktop.displayName = 'TokenInfoDesktop';
+
+const TokenImageMobile = memo(({ name }: { name: string }) => {
+  const themeVariant = useThemeVariant();
+
+  return (
+    <Token
+      size="lg"
+      borderRadius="$full"
+      bg={themeVariant === 'light' ? undefined : '$bgInverse'}
+      tokenImageUri={getHyperliquidTokenImageUrl(name)}
+      fallbackIcon="CryptoCoinOutline"
+    />
+  );
+});
+TokenImageMobile.displayName = 'TokenImageMobile';
+
+const TokenNameMobile = memo(
+  ({ name, maxLeverage }: { name: string; maxLeverage: number }) => {
+    return (
+      <XStack gap="$1.5" alignItems="center" justifyContent="center">
+        <SizableText size="$bodyMdMedium">{name}</SizableText>
+
+        <XStack
+          borderRadius="$1"
+          bg="$bgInfo"
+          justifyContent="center"
+          alignItems="center"
+          px="$1.5"
+        >
+          <SizableText
+            fontSize={10}
+            alignSelf="center"
+            color="$textInfo"
+            lineHeight={16}
+          >
+            {maxLeverage}x
+          </SizableText>
+        </XStack>
+      </XStack>
+    );
+  },
+);
+TokenNameMobile.displayName = 'TokenNameMobile';
+
+const PerpTokenSelectorRow = memo(
+  ({ mockedToken, onPress, isOnModal }: IPerpTokenSelectorRowProps) => {
+    const [filteredAssets] = usePerpsAllAssetsFilteredAtom();
+    const token = filteredAssets.assets[mockedToken.index];
     // const isLoading = true;
     const {
       assetCtx,
@@ -44,7 +122,7 @@ const PerpTokenSelectorRow = memo(
     if (isOnModal) {
       return (
         <DebugRenderTracker
-          timesBadgePosition="bottom-center"
+          position="bottom-center"
           name="PerpTokenSelectorRow-Modal"
         >
           <XStack
@@ -53,41 +131,20 @@ const PerpTokenSelectorRow = memo(
             flex={1}
             justifyContent="space-between"
             alignItems="center"
-            onPress={onPress}
+            onPress={() => onPress(token.name)}
             cursor="pointer"
             pressStyle={{
               bg: '$bgHover',
             }}
+            gap="$4"
           >
+            <TokenImageMobile name={token.name} />
             <XStack gap="$2" alignItems="center" justifyContent="center">
-              <Token
-                size="lg"
-                borderRadius="$full"
-                bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-                tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
-                fallbackIcon="CryptoCoinOutline"
-              />
               <YStack gap="$1">
-                <XStack gap="$1.5" alignItems="center" justifyContent="center">
-                  <SizableText size="$bodyMdMedium">{token.name}</SizableText>
-
-                  <XStack
-                    borderRadius="$1"
-                    bg="$bgInfo"
-                    justifyContent="center"
-                    alignItems="center"
-                    px="$1.5"
-                  >
-                    <SizableText
-                      fontSize={10}
-                      alignSelf="center"
-                      color="$textInfo"
-                      lineHeight={16}
-                    >
-                      {token.maxLeverage}x
-                    </SizableText>
-                  </XStack>
-                </XStack>
+                <TokenNameMobile
+                  name={token.name}
+                  maxLeverage={token.maxLeverage}
+                />
                 <SkeletonContainer isLoading={isLoading} width={80} height={16}>
                   <SizableText size="$bodySm" color="$text">
                     $
@@ -98,6 +155,7 @@ const PerpTokenSelectorRow = memo(
                 </SkeletonContainer>
               </YStack>
             </XStack>
+            <Stack flex={1} />
             <YStack gap="$1" justifyContent="flex-end">
               <SkeletonContainer
                 alignSelf="flex-end"
@@ -139,11 +197,11 @@ const PerpTokenSelectorRow = memo(
 
     return (
       <DebugRenderTracker
-        timesBadgePosition="bottom-center"
+        position="bottom-center"
         name="PerpTokenSelectorRow-Popover"
       >
         <XStack
-          onPress={onPress}
+          onPress={() => onPress(token.name)}
           borderRadius="$0"
           justifyContent="flex-start"
           hoverStyle={{ bg: '$bgHover' }}
@@ -153,26 +211,7 @@ const PerpTokenSelectorRow = memo(
           cursor="pointer"
         >
           {/* Token Info */}
-          <XStack
-            width={150}
-            justifyContent="flex-start"
-            gap="$2"
-            alignItems="center"
-          >
-            <Token
-              size="xs"
-              borderRadius="$full"
-              bg={themeVariant === 'light' ? undefined : '$bgInverse'}
-              tokenImageUri={`https://app.hyperliquid.xyz/coins/${token.name}.svg`}
-              fallbackIcon="CryptoCoinOutline"
-            />
-            <SizableText size="$bodySmMedium">{token.name}</SizableText>
-            <Badge radius="$2" bg="$bgInfo" gap="$1">
-              <SizableText color="$textInfo" size="$bodySm">
-                {token.maxLeverage}x
-              </SizableText>
-            </Badge>
-          </XStack>
+          <TokenInfoDesktop name={token.name} maxLeverage={token.maxLeverage} />
           <XStack width={100} justifyContent="flex-start">
             <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
               <NumberSizeableText
@@ -208,7 +247,6 @@ const PerpTokenSelectorRow = memo(
               </SizableText>
             </SkeletonContainer>
           </XStack>
-
           <XStack width={100} justifyContent="flex-start">
             <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
               <SizableText size="$bodySm" color="$text">
@@ -216,7 +254,6 @@ const PerpTokenSelectorRow = memo(
               </SizableText>
             </SkeletonContainer>
           </XStack>
-
           <XStack width={100} justifyContent="flex-start">
             <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
               <SizableText size="$bodySm" color="$text">
@@ -227,7 +264,6 @@ const PerpTokenSelectorRow = memo(
               </SizableText>
             </SkeletonContainer>
           </XStack>
-
           <XStack flex={1} justifyContent="flex-end">
             <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
               <SizableText size="$bodySm" color="$text">

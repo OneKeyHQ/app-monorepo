@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,7 +18,8 @@ import type {
   IAppUpdatePagesParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { isForceUpdateStrategy } from '../../../components/UpdateReminder/hooks';
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
@@ -45,13 +46,26 @@ function UpdatePreview({
     return null;
   }, []);
   const {
-    latestVersion,
-    isForceUpdate,
+    latestVersion: latestVersionParam,
+    isForceUpdate: isForceUpdateParam,
     autoClose = false,
   } = route.params || {};
+  const [isForceUpdate, setIsForceUpdate] = useState(isForceUpdateParam);
+  const [changeLog, setChangeLog] = useState<string | undefined>(undefined);
+  const [latestVersion, setLatestVersion] = useState<string | undefined>(
+    latestVersionParam,
+  );
+  useEffect(() => {
+    void backgroundApiProxy.serviceAppUpdate
+      .fetchAppUpdateInfo(true)
+      .then((response) => {
+        setIsForceUpdate(isForceUpdateStrategy(response.updateStrategy));
+        setChangeLog(response.changeLog);
+        setLatestVersion(response.latestVersion);
+      });
+  }, []);
+
   usePreventRemove(!!isForceUpdate, () => {});
-  const response = useAppChangeLog(latestVersion);
-  const { changeLog } = response ?? {};
 
   return (
     <Page>

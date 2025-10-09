@@ -116,4 +116,5 @@ export interface IBundleUpdate {
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;
   testDeleteMetadataJson: ITestDeleteMetadataJson;
   testWriteEmptyMetadataJson: ITestWriteEmptyMetadataJson;
+  getWebEmbedPath: () => Promise<string>;
 }

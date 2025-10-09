@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-import { app } from 'electron';
+import { app, dialog } from 'electron';
 import logger from 'electron-log/main';
 import { readCleartextMessage, readKey } from 'openpgp';
 import semver from 'semver';
@@ -100,23 +100,22 @@ export const getBundleIndexHtmlPath = ({
   appVersion: string;
   bundleVersion: string;
 }) => {
-  return undefined;
-  // if (!appVersion || !bundleVersion) {
-  //   return undefined;
-  // }
-  // if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
-  //   return undefined;
-  // }
-  // const extractDir = getBundleExtractDir({
-  //   appVersion: platformEnv.version || '1.0.0',
-  //   bundleVersion: bundleVersion || '1',
-  // });
-  // if (!fs.existsSync(extractDir)) {
-  //   return undefined;
-  // }
-  // const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
-  // logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
-  // return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
+  if (!appVersion || !bundleVersion) {
+    return undefined;
+  }
+  if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
+    return undefined;
+  }
+  const extractDir = getBundleExtractDir({
+    appVersion: platformEnv.version || '1.0.0',
+    bundleVersion: bundleVersion || '1',
+  });
+  if (!fs.existsSync(extractDir)) {
+    return undefined;
+  }
+  const indexHtmlPath = path.join(extractDir, 'build', 'index.html');
+  logger.info('bundle-download-getBundleIndexHtmlPath', indexHtmlPath);
+  return fs.existsSync(indexHtmlPath) ? indexHtmlPath : undefined;
 };
 
 export const checkFileSha512 = (filePath: string, sha512: string) => {
@@ -214,4 +213,21 @@ export const testExtractedSha256FromVerifyAscFile = async () => {
     result ===
     '2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba'
   );
+};
+
+export const unmatchedFileDialog = (): void => {
+  setTimeout(() => {
+    void dialog
+      .showMessageBox({
+        type: 'error',
+        message:
+          'File tampering detected, please contact customer service to update the client',
+        buttons: ['exit it'],
+      })
+      .then((selection) => {
+        if (selection.response === 0) {
+          app.exit();
+        }
+      });
+  });
 };

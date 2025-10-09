@@ -10,11 +10,13 @@ const LiquidationPriceDisplay = memo(
   ({
     isMobile,
     textSize,
+    side,
   }: {
     isMobile?: boolean;
     textSize?: FontSizeTokens;
+    side?: 'long' | 'short';
   }) => {
-    const liquidationPrice = useLiquidationPrice();
+    const liquidationPrice = useLiquidationPrice(side);
     if (!liquidationPrice) {
       return 'N/A';
     }
@@ -23,7 +25,7 @@ const LiquidationPriceDisplay = memo(
       <NumberSizeableText
         size={textSize ?? '$bodySmMedium'}
         style={{
-          fontSize: isMobile ? '10px' : undefined,
+          fontSize: isMobile ? 10 : undefined,
         }}
         formatter="price"
         formatterOptions={{ currency: '$' }}

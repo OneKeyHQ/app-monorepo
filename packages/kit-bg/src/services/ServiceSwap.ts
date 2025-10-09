@@ -24,6 +24,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   formatBalance,
   numberFormat,
@@ -91,6 +92,9 @@ import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
 
+const formatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 @backgroundClass()
 export default class ServiceSwap extends ServiceBase {
   private _quoteAbortController?: AbortController;
@@ -1468,15 +1472,11 @@ export default class ServiceSwap extends ServiceBase {
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
-          message: `${
-            numberFormat(item.baseInfo.fromAmount, {
-              formatter: 'balance',
-            }) as string
-          } ${item.baseInfo.fromToken.symbol} → ${
-            numberFormat(item.baseInfo.toAmount, {
-              formatter: 'balance',
-            }) as string
-          } ${item.baseInfo.toToken.symbol}`,
+          message: `${numberFormat(item.baseInfo.fromAmount, formatter)} ${
+            item.baseInfo.fromToken.symbol
+          } → ${numberFormat(item.baseInfo.toAmount, formatter)} ${
+            item.baseInfo.toToken.symbol
+          }`,
         });
       }
     }

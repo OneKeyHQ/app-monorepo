@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppUpdateRoutes,
   EGalleryRoutes,
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -203,6 +204,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.AppUpdateModal}${EAppUpdateRoutes.UpdatePreview}`]:
       {
         showUrl: true,
         showParams: true,

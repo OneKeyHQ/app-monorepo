@@ -5,13 +5,17 @@ import { useIntl } from 'react-intl';
 
 import {
   Checkbox,
-  NumberSizeableText,
+  DashText,
+  Divider,
+  IconButton,
+  Popover,
+  SegmentSlider,
   SizableText,
   Skeleton,
-  Slider,
+  Tooltip,
   XStack,
   YStack,
-  getFontSize,
+  useInTabDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -24,9 +28,11 @@ import {
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -36,22 +42,41 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
-import { LiquidationPriceDisplay } from '../components/LiquidationPriceDisplay';
+import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
-import { TpslInput } from '../inputs/TpslInput';
+import { TpSlFormInput } from '../inputs/TpSlFormInput';
+import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
-import { TradeSideToggle } from '../selectors/TradeSideToggle';
-
-import { PerpAccountPanel } from './PerpAccountPanel';
-
-import type { ISide } from '../selectors/TradeSideToggle';
 
 interface IPerpTradingFormProps {
   isSubmitting?: boolean;
   isMobile?: boolean;
+}
+
+function MobileDepositButton() {
+  const dialogInTab = useInTabDialog();
+  return (
+    <IconButton
+      testID="perp-trading-form-mobile-deposit-button"
+      size="small"
+      variant="tertiary"
+      iconSize="$3.5"
+      icon="PlusCircleSolid"
+      onPress={() =>
+        showDepositWithdrawModal(
+          {
+            actionType: 'deposit',
+          },
+          dialogInTab,
+        )
+      }
+      color="$iconSubdued"
+      cursor="pointer"
+    />
+  );
 }
 
 function PerpTradingForm({
@@ -59,6 +84,8 @@ function PerpTradingForm({
   isMobile = false,
 }: IPerpTradingFormProps) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
   const [formData] = useTradingFormAtom();
   const [, setTradingFormEnv] = useTradingFormEnvAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
@@ -71,6 +98,8 @@ function PerpTradingForm({
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const { universe } = perpsSelectedSymbol;
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
   const updateForm = useCallback(
     (updates: Partial<ITradingFormData>) => {
       actions.current.updateTradingForm(updates);
@@ -127,6 +156,11 @@ function PerpTradingForm({
       }
       return nextEnv;
     });
+    if (formData.leverage !== nextEnv.leverageValue) {
+      updateForm({
+        leverage: nextEnv.leverageValue,
+      });
+    }
   }, [
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.availableToTrade,
@@ -134,6 +168,8 @@ function PerpTradingForm({
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
     setTradingFormEnv,
+    formData.leverage,
+    updateForm,
   ]);
 
   // Token Switch Effect: Handle price updates when user switches tokens
@@ -205,15 +241,6 @@ function PerpTradingForm({
     activeAsset?.universe?.szDecimals,
   ]);
 
-  const { availableToTradeDisplay } = useMemo(() => {
-    const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
-    const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
-    const valueBN = new BigNumber(value);
-    return {
-      availableToTradeDisplay: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
-    };
-  }, [formData.side, activeAssetData?.availableToTrade]);
-
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
     useMemo(() => {
       const value = Number(
@@ -226,16 +253,14 @@ function PerpTradingForm({
       return [Math.abs(value), side];
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
-  // Order calculations: Total value and required margin
-  const totalValue = useMemo(() => {
-    return tradingComputed.computedSizeBN.multipliedBy(referencePrice); // Size × Price = Total Value
-  }, [tradingComputed.computedSizeBN, referencePrice]);
-
-  const marginRequired = useMemo(() => {
-    return tradingComputed.computedSizeBN
-      .multipliedBy(referencePrice)
-      .dividedBy(leverage || 1); // (Size × Price) ÷ Leverage = Required Margin
-  }, [tradingComputed.computedSizeBN, referencePrice, leverage]);
+  const availableToTrade = useMemo(() => {
+    const accountValue = new BigNumber(accountSummary?.accountValue || '0');
+    const totalMarginUsed = new BigNumber(
+      accountSummary?.totalMarginUsed || '0',
+    );
+    const availableToTradeBN = accountValue.minus(totalMarginUsed);
+    return availableToTradeBN.toFixed();
+  }, [accountSummary]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -291,24 +316,68 @@ function PerpTradingForm({
     },
     [updateForm],
   );
-  const handleTpslChange = useCallback(
-    (data: { tpPrice: string; slPrice: string }) => {
-      updateForm({
-        tpTriggerPx: data.tpPrice,
-        slTriggerPx: data.slPrice,
-      });
+
+  const handleTpValueChange = useCallback(
+    (value: string) => {
+      updateForm({ tpValue: value });
     },
     [updateForm],
   );
+
+  const handleTpTypeChange = useCallback(
+    (type: 'price' | 'percentage') => {
+      updateForm({ tpType: type });
+    },
+    [updateForm],
+  );
+
+  const handleSlValueChange = useCallback(
+    (value: string) => {
+      updateForm({ slValue: value });
+    },
+    [updateForm],
+  );
+
+  const handleSlTypeChange = useCallback(
+    (type: 'price' | 'percentage') => {
+      updateForm({ slType: type });
+    },
+    [updateForm],
+  );
+
+  const orderTypeOptions = useMemo(
+    () => [
+      {
+        name: intl.formatMessage({ id: ETranslations.perp_trade_market }),
+        value: 'market' as const,
+      },
+      {
+        name: intl.formatMessage({ id: ETranslations.perp_trade_limit }),
+        value: 'limit' as const,
+      },
+    ],
+    [intl],
+  );
+
+  const handleOrderTypeChange = useCallback(
+    (name: string) => {
+      const option = orderTypeOptions.find((o) => o.name === name);
+      if (option) {
+        updateForm({ type: option.value });
+      }
+    },
+    [orderTypeOptions, updateForm],
+  );
+
   if (isMobile) {
     return (
-      <YStack gap="$3">
-        <TradeSideToggle
-          value={formData.side}
-          onChange={(side: ISide) => updateForm({ side })}
-          disabled={isSubmitting}
-          isMobile={isMobile}
-        />
+      <YStack gap="$2.5">
+        <XStack alignItems="center" flex={1} gap="$2.5">
+          <YStack flex={1}>
+            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+          </YStack>
+          <LeverageAdjustModal isMobile={isMobile} />
+        </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
@@ -316,18 +385,14 @@ function PerpTradingForm({
             })}
           </SizableText>
           <XStack alignItems="center" gap="$1">
-            <SizableText size="$bodySmMedium" color="$text">
-              ${availableToTradeDisplay}
-            </SizableText>
-            <PerpAccountPanel isTradingPanel />
+            <PerpsAccountNumberValue
+              value={availableToTrade}
+              skeletonWidth={60}
+            />
+            <MobileDepositButton />
           </XStack>
         </XStack>
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-          </YStack>
-          <LeverageAdjustModal isMobile={isMobile} />
-        </XStack>
+
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
             <OrderTypeSelector
@@ -387,106 +452,128 @@ function PerpTradingForm({
           onRequestManualMode={switchToManual}
           isMobile={isMobile}
         />
-        <Slider
-          mt="$2"
-          min={0}
-          max={100}
-          value={sliderValue}
-          onChange={handleSliderPercentChange}
-          disabled={sliderDisabled}
-          step={1}
-        />
-        <YStack gap="$1">
-          <Checkbox
-            label={intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl,
-            })}
-            value={formData.hasTpsl}
-            onChange={handleTpslCheckboxChange}
-            disabled={isSubmitting}
-            labelProps={{
-              fontSize: getFontSize('$bodySm'),
-              color: '$textSubdued',
-            }}
-            containerProps={{ p: 0, alignItems: 'center' }}
-            width="$3.5"
-            height="$3.5"
-            p="$0"
+        <YStack pt="$2" pb="$2">
+          <SegmentSlider
+            min={0}
+            max={100}
+            value={sliderValue}
+            showBubble={false}
+            onChange={handleSliderPercentChange}
+            disabled={sliderDisabled}
+            segments={4}
+            sliderHeight={2}
           />
-
-          {formData.hasTpsl ? (
-            <TpslInput
-              price={referencePrice.toFixed()}
-              side={formData.side}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-              leverage={leverage}
-              tpsl={{
-                tpPrice: formData.tpTriggerPx,
-                slPrice: formData.slTriggerPx,
-              }}
-              onChange={handleTpslChange}
-              disabled={isSubmitting}
-              isMobile={isMobile}
-              amount={tradingComputed.computedSizeString}
-            />
-          ) : null}
         </YStack>
-        <YStack
-          flex={1}
-          px="$2"
-          py="$1"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          borderRadius="$2"
-        >
-          <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_position_liq_price,
-              })}
-            </SizableText>
-            <SizableText fontSize={10} color="$text" fontWeight={500}>
-              <LiquidationPriceDisplay isMobile={isMobile} />
-            </SizableText>
-          </XStack>
-          <XStack justifyContent="space-between">
-            <SizableText fontSize={10} color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_order_value,
-              })}
-            </SizableText>
-            <NumberSizeableText
-              fontSize={10}
-              formatter="value"
-              formatterOptions={{ currency: '$' }}
-              color="$text"
-              fontWeight={500}
-            >
-              {totalValue.toNumber()}
-            </NumberSizeableText>
-          </XStack>
-        </YStack>
+        {shouldShowEnableTradingButton && isMobile ? null : (
+          <YStack gap="$1" mt="$1">
+            <XStack alignItems="center" gap="$2">
+              <Checkbox
+                value={formData.hasTpsl}
+                onChange={handleTpslCheckboxChange}
+                disabled={isSubmitting}
+                containerProps={{ p: 0, alignItems: 'center' }}
+                width="$3.5"
+                height="$3.5"
+                p="$0"
+              />
+              <Popover
+                renderContent={() => (
+                  <YStack px="$5" pt="$2" pb="$4">
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_tp_sl_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                )}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    dashColor="$textSubdued"
+                    dashThickness={0.5}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_tp_sl,
+                    })}
+                  </DashText>
+                }
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              />
+            </XStack>
+            {formData.hasTpsl ? (
+              <YStack gap="$2">
+                <TpSlFormInput
+                  type="tp"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_tp,
+                  })}
+                  value={formData.tpValue || ''}
+                  inputType={formData.tpType || 'price'}
+                  referencePrice={referencePriceString}
+                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                  onChange={handleTpValueChange}
+                  onTypeChange={handleTpTypeChange}
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+                <TpSlFormInput
+                  type="sl"
+                  label={intl.formatMessage({
+                    id: ETranslations.perp_sl,
+                  })}
+                  value={formData.slValue || ''}
+                  inputType={formData.slType || 'price'}
+                  referencePrice={referencePriceString}
+                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                  onChange={handleSlValueChange}
+                  onTypeChange={handleSlTypeChange}
+                  disabled={isSubmitting}
+                  isMobile={isMobile}
+                />
+              </YStack>
+            ) : null}
+          </YStack>
+        )}
       </YStack>
     );
   }
+
   return (
     <>
       <YStack gap="$4">
-        <TradeSideToggle
-          value={formData.side}
-          onChange={(side: ISide) => updateForm({ side })}
-          disabled={isSubmitting}
-        />
+        <YStack>
+          <XStack>
+            {orderTypeOptions.map((option) => (
+              <XStack
+                pb="$2.5"
+                key={option.value}
+                ml="$2.5"
+                mr="$2"
+                borderBottomWidth={
+                  formData.type === option.value ? '$0.5' : '$0'
+                }
+                borderBottomColor="$borderActive"
+                onPress={() => handleOrderTypeChange(option.name)}
+                cursor="pointer"
+              >
+                <SizableText
+                  size="$headingXs"
+                  fontSize={14}
+                  color={
+                    formData.type === option.value ? '$text' : '$textSubdued'
+                  }
+                >
+                  {option.name}
+                </SizableText>
+              </XStack>
+            ))}
+          </XStack>
+          <Divider />
+        </YStack>
 
         <XStack alignItems="center" flex={1} gap="$3">
-          <YStack flex={1}>
-            <OrderTypeSelector
-              value={formData.type}
-              onChange={(type: 'market' | 'limit') => updateForm({ type })}
-              disabled={isSubmitting}
-            />
-          </YStack>
-
           <YStack flex={1}>
             <MarginModeSelector disabled={isSubmitting} />
           </YStack>
@@ -501,20 +588,19 @@ function PerpTradingForm({
           borderColor="$borderSubdued"
           borderRadius="$3"
         >
-          {/* Available Balance */}
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.perp_trade_account_overview_available,
               })}
             </SizableText>
-            {activeAssetData ? (
-              <SizableText size="$bodySmMedium" color="$text">
-                ${availableToTradeDisplay}
-              </SizableText>
-            ) : (
-              <Skeleton width={70} height={16} />
-            )}
+            <XStack alignItems="center" gap="$1">
+              <PerpsAccountNumberValue
+                value={availableToTrade}
+                skeletonWidth={60}
+              />
+              <MobileDepositButton />
+            </XStack>
           </XStack>
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
@@ -565,91 +651,79 @@ function PerpTradingForm({
           sliderPercent={tradingComputed.sizePercent}
           onRequestManualMode={switchToManual}
         />
-        <Slider
-          width="100%"
-          mt="$3"
-          min={0}
-          max={100}
-          value={sliderValue}
-          onChange={handleSliderPercentChange}
-          disabled={sliderDisabled}
-          step={1}
-        />
+        <YStack>
+          <SegmentSlider
+            min={0}
+            max={100}
+            showBubble={false}
+            value={sliderValue}
+            onChange={handleSliderPercentChange}
+            disabled={sliderDisabled}
+            segments={4}
+            sliderHeight={4}
+          />
+        </YStack>
 
         <YStack p="$0">
-          <Checkbox
-            label={intl.formatMessage({
-              id: ETranslations.perp_position_tp_sl,
-            })}
-            value={formData.hasTpsl}
-            onChange={handleTpslCheckboxChange}
-            disabled={isSubmitting}
-            labelProps={{
-              fontSize: getFontSize('$bodyMd'),
-              color: '$textSubdued',
-            }}
-            containerProps={{ alignItems: 'center' }}
-            width="$4"
-            height="$4"
-          />
+          <XStack alignItems="center" gap="$2">
+            <Checkbox
+              value={formData.hasTpsl}
+              onChange={handleTpslCheckboxChange}
+              disabled={isSubmitting}
+              containerProps={{ alignItems: 'center', cursor: 'pointer' }}
+              width="$4"
+              height="$4"
+            />
+            <Tooltip
+              renderContent={intl.formatMessage({
+                id: ETranslations.perp_tp_sl_tooltip,
+              })}
+              renderTrigger={
+                <DashText
+                  size="$bodyMd"
+                  dashColor="$textDisabled"
+                  dashThickness={0.5}
+                  cursor="help"
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_position_tp_sl,
+                  })}
+                </DashText>
+              }
+            />
+          </XStack>
 
           {formData.hasTpsl ? (
-            <TpslInput
-              price={referencePriceString}
-              side={formData.side}
-              szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-              leverage={leverage}
-              tpsl={{
-                tpPrice: formData.tpTriggerPx,
-                slPrice: formData.slTriggerPx,
-              }}
-              onChange={handleTpslChange}
-              disabled={isSubmitting}
-              amount={tradingComputed.computedSizeString}
-            />
+            <YStack gap="$2">
+              <TpSlFormInput
+                type="tp"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
+                value={formData.tpValue || ''}
+                inputType={formData.tpType || 'price'}
+                referencePrice={referencePriceString}
+                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                onChange={handleTpValueChange}
+                onTypeChange={handleTpTypeChange}
+                disabled={isSubmitting}
+              />
+              <TpSlFormInput
+                type="sl"
+                label={intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
+                value={formData.slValue || ''}
+                inputType={formData.slType || 'price'}
+                referencePrice={referencePriceString}
+                szDecimals={activeAsset?.universe?.szDecimals ?? 2}
+                onChange={handleSlValueChange}
+                onTypeChange={handleSlTypeChange}
+                disabled={isSubmitting}
+              />
+            </YStack>
           ) : null}
         </YStack>
-      </YStack>
-
-      <YStack gap="$2" mt="$5">
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_position_liq_price,
-            })}
-          </SizableText>
-          <SizableText size="$bodySmMedium">
-            <LiquidationPriceDisplay />
-          </SizableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_order_value,
-            })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {totalValue.toNumber()}
-          </NumberSizeableText>
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_margin_required,
-            })}
-          </SizableText>
-          <NumberSizeableText
-            size="$bodySmMedium"
-            formatter="value"
-            formatterOptions={{ currency: '$' }}
-          >
-            {marginRequired.toNumber()}
-          </NumberSizeableText>
-        </XStack>
       </YStack>
     </>
   );

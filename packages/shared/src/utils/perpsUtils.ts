@@ -404,6 +404,12 @@ function formatWithPrecision(
 function validateSizeInput(input: string, szDecimals: number): boolean {
   if (!input) return true;
   if (input === '00') return false;
+
+  // Prevent leading zeros like "01", "001" but allow "0", "0.", "0.1"
+  if (input.length > 1 && input[0] === '0' && input[1] !== '.') {
+    return false;
+  }
+
   if (szDecimals === 0) return /^[0-9]*$/.test(input);
   if (!/^[0-9]*\.?[0-9]*$/.test(input)) return false;
 
@@ -451,6 +457,12 @@ function validatePriceInput(input: string, szDecimals = 2): boolean {
 
   const text = input.replace(/。/g, '.');
   if (text === '00') return false;
+
+  // Prevent leading zeros like "01", "001" but allow "0", "0.", "0.1"
+  if (text.length > 1 && text[0] === '0' && text[1] !== '.') {
+    return false;
+  }
+
   const maxDecimals = MAX_DECIMALS_PERP - szDecimals;
 
   if (!/^[0-9]*\.?[0-9]*$/.test(text) || text.split('.').length > 2)
@@ -1064,6 +1076,10 @@ const resolveTradingSize = (params: ITradingSizeParams): string => {
   return sizeBN.toFixed();
 };
 
+function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
+  return `https://uni.onekey-asset.com/static/hyperliquid/${tokenSymbol}.png`;
+}
+
 export {
   formatAssetCtx,
   formatLargeNumber,
@@ -1092,6 +1108,7 @@ export {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  getHyperliquidTokenImageUrl,
 };
 export default {
   formatAssetCtx,
@@ -1121,4 +1138,5 @@ export default {
   computeMaxTradeSize,
   resolveTradingSize,
   resolveTradingSizeBN,
+  getHyperliquidTokenImageUrl,
 };

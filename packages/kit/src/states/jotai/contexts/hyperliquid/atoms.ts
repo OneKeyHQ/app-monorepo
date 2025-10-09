@@ -22,6 +22,25 @@ export { contextAtomMethod, ProviderJotaiContextHyperliquid };
 export const { atom: perpsAllMidsAtom, use: usePerpsAllMidsAtom } =
   contextAtom<HL.IWsAllMids | null>(null);
 
+export const {
+  atom: perpsAllAssetsFilteredAtom,
+  use: usePerpsAllAssetsFilteredAtom,
+} = contextAtom<{
+  assets: HL.IPerpsUniverse[];
+  query: string;
+}>({
+  assets: [],
+  query: '',
+});
+
+export const {
+  atom: perpsAllAssetsFilteredLengthAtom,
+  use: usePerpsAllAssetsFilteredLengthAtom,
+} = contextAtomComputed((get) => {
+  const perpsAllAssetsFiltered = get(perpsAllAssetsFilteredAtom());
+  return perpsAllAssetsFiltered.assets.length;
+});
+
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
     assetCtxs: HL.IPerpsAssetCtx[];
@@ -32,6 +51,7 @@ export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
 export const { atom: l2BookAtom, use: useL2BookAtom } =
   contextAtom<HL.IBook | null>(null);
 
+// TODO remove
 export const { atom: connectionStateAtom, use: useConnectionStateAtom } =
   contextAtom<IConnectionState>({
     isConnected: false,
@@ -62,6 +82,12 @@ export interface ITradingFormData {
   tpGainPercent: string; // Gain %
   slTriggerPx: string; // SL Price
   slLossPercent: string; // Loss %
+
+  // New TPSL fields for form input
+  tpType?: 'price' | 'percentage';
+  tpValue?: string;
+  slType?: 'price' | 'percentage';
+  slValue?: string;
 }
 
 export const { atom: tradingFormAtom, use: useTradingFormAtom } =
@@ -78,6 +104,10 @@ export const { atom: tradingFormAtom, use: useTradingFormAtom } =
     tpGainPercent: '',
     slTriggerPx: '',
     slLossPercent: '',
+    tpType: 'price',
+    tpValue: '',
+    slType: 'price',
+    slValue: '',
   });
 
 export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
@@ -94,6 +124,13 @@ export const {
   accountAddress: undefined,
   activePositions: [],
 });
+export const {
+  atom: perpsActivePositionLengthAtom,
+  use: usePerpsActivePositionLengthAtom,
+} = contextAtomComputed((get) => {
+  const activePositions = get(perpsActivePositionAtom());
+  return activePositions?.activePositions?.length ?? 0;
+});
 
 export type IPerpsActiveOpenOrdersAtom = {
   accountAddress: string | undefined;
@@ -105,6 +142,29 @@ export const {
 } = contextAtom<IPerpsActiveOpenOrdersAtom>({
   accountAddress: undefined,
   openOrders: [],
+});
+
+export const {
+  atom: perpsActiveOpenOrdersLengthAtom,
+  use: usePerpsActiveOpenOrdersLengthAtom,
+} = contextAtomComputed((get) => {
+  const { openOrders } = get(perpsActiveOpenOrdersAtom());
+  return openOrders.length ?? 0;
+});
+
+export const {
+  atom: perpsActiveOpenOrdersMapAtom,
+  use: usePerpsActiveOpenOrdersMapAtom,
+} = contextAtomComputed<
+  Partial<{
+    [coin: string]: number[];
+  }>
+>((get) => {
+  const { openOrders } = get(perpsActiveOpenOrdersAtom());
+  return openOrders.reduce((acc, order, index) => {
+    acc[order.coin] = [...(acc[order.coin] || []), index];
+    return acc;
+  }, {} as { [coin: string]: number[] });
 });
 
 export interface ITradingFormEnv {
@@ -169,6 +229,6 @@ export const {
     computedSizeString,
     maxSizeBN,
     maxSize: maxSizeBN.isFinite() ? maxSizeBN.toNumber() : 0,
-    sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gt(0),
+    sliderEnabled: maxSizeBN.isFinite() && maxSizeBN.gte(0),
   };
 });

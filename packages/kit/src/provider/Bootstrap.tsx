@@ -274,6 +274,11 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          case EShortcutEvents.TabPerps:
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Perp);
+            });
+            break;
           case EShortcutEvents.TabReferAFriend:
             if (!isOpenedReferFriendsPage()) {
               ensureModalClosedAndNavigate(() => {

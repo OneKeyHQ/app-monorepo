@@ -223,6 +223,7 @@ interface INativeBundleUpdateModule {
   installBundle: (params: any) => Promise<void>;
   clearBundle: () => Promise<void>;
   clearAllJSBundleData: () => Promise<void>;
+  getWebEmbedPath: () => Promise<string>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (
     appVersion: string,
@@ -299,4 +300,8 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
     BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
+  getWebEmbedPath: () =>
+    BundleUpdateModule && BundleUpdateModule.getWebEmbedPath
+      ? BundleUpdateModule.getWebEmbedPath()
+      : Promise.resolve(''),
 };
