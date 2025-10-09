@@ -143,7 +143,7 @@ function ActionPerp(props: IActionItemsProps) {
   return (
     <ActionItem
       label={intl.formatMessage({ id: ETranslations.global_perp })}
-      icon="ChartLineOutline"
+      icon="TradingViewCandlesOutline"
       {...props}
     />
   );

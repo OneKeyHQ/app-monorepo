@@ -287,15 +287,15 @@ export function HyperliquidTermsContent({
               testID="hyperliquid-intro-confirmation-slide"
               alignItems="center"
               justifyContent="center"
-              px="$8"
+              px={gtMd ? '$8' : '$4'}
             >
-              <YStack gap={gtMd ? '$3' : '$2'}>
+              <YStack gap="$2">
                 <YStack
                   alignItems="center"
-                  gap={gtMd ? '$4' : '$2'}
-                  mb={gtMd ? '$4' : '$2'}
+                  gap={gtMd ? '$2' : '$2'}
+                  mb={gtMd ? '$1' : '$2'}
                 >
-                  <Stack py={gtMd ? '$6' : '$4'} justifyContent="center">
+                  <Stack py={gtMd ? '$4' : '$4'} justifyContent="center">
                     <Image
                       source={hyperliquidLogo}
                       height={gtMd ? 50 : 40}
@@ -304,7 +304,7 @@ export function HyperliquidTermsContent({
                     />
                   </Stack>
                   <SizableText
-                    size={gtMd ? '$headingLg' : '$headingXs'}
+                    size={gtMd ? '$headingMd' : '$headingXs'}
                     textAlign="center"
                   >
                     {intl.formatMessage({
@@ -354,9 +354,10 @@ export function HyperliquidTermsContent({
               </YStack>
             </Stack>
             <YStack
-              p="$8"
+              py="$8"
+              px={gtMd ? '$8' : '$4'}
               justifyContent="center"
-              pb={gtMd ? '$4' : '$1'}
+              pb={gtMd ? '$3' : '$1'}
               gap="$1"
             >
               <Button
@@ -573,7 +574,7 @@ export function HyperliquidTermsOverlay() {
     return null;
   }
 
-  const minHeight = 500;
+  const minHeight = 520;
 
   return (
     <Stack
