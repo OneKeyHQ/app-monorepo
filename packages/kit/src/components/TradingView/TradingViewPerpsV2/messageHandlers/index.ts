@@ -95,12 +95,14 @@ export function usePerpsMessageHandler({
       endDate.setFullYear(endDate.getFullYear() + 1);
 
       const historyTrades =
-        await backgroundApiProxy.serviceHyperliquid.getUserFillsByTime({
-          user: targetUserAddress,
-          startTime: startDate.getTime(),
-          endTime: endDate.getTime(),
-          aggregateByTime: true,
-        });
+        await backgroundApiProxy.serviceHyperliquid.getUserFillsByTimeWithCache(
+          {
+            user: targetUserAddress,
+            startTime: startDate.getTime(),
+            endTime: endDate.getTime(),
+            aggregateByTime: true,
+          },
+        );
 
       // Filter trades by target symbol and format to TradingView marks
       const filteredTrades = historyTrades.filter(

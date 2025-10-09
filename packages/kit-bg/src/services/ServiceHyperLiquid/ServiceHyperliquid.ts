@@ -259,8 +259,14 @@ export default class ServiceHyperliquid extends ServiceBase {
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {
     const { infoClient } = hyperLiquidApiClients;
-
     return infoClient.userFillsByTime({ ...params, reversed: true } as any);
+  }
+
+  @backgroundMethod()
+  async getUserFillsByTimeWithCache(
+    params: IUserFillsByTimeParameters,
+  ): Promise<IFill[]> {
+    return this._getUserFillsByTimeMemo(params);
   }
 
   @backgroundMethod()
