@@ -124,6 +124,9 @@ export function PerpMobileLayout() {
       ref={tabsRef as any}
       renderHeader={() => tabHeader}
       initialTabName="Positions"
+      onTabChange={(tabName) => {
+        console.log('PerpMobileLayout_onTabChange_tabName::', tabName);
+      }}
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}
