@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   monospaceText: {
-    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'sans-serif',
+    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'monospace',
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
