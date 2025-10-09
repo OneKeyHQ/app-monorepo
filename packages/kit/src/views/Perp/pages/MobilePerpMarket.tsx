@@ -100,6 +100,33 @@ function MobilePerpMarket() {
     };
   }, []);
 
+  const pageHeader = useMemo(
+    () => <Page.Header headerLeft={renderHeaderTitle} />,
+    [renderHeaderTitle],
+  );
+
+  const marketHeaderContent = useMemo(
+    () => (
+      <YStack>
+        <MobilePerpMarketHeader />
+
+        <YStack flex={1} minHeight={500}>
+          <PerpCandles />
+        </YStack>
+      </YStack>
+    ),
+    [],
+  );
+
+  const orderBookContent = useMemo(
+    () => (
+      <YStack bg="$bgApp" px={2}>
+        <PerpOrderBook entry="perpMobileMarket" />
+      </YStack>
+    ),
+    [],
+  );
+
   const pageFooter = useMemo(() => {
     return (
       <Page.Footer
@@ -148,28 +175,16 @@ function MobilePerpMarket() {
   if (platformEnv.isNativeAndroid) {
     return (
       <Page>
-        <Page.Header headerLeft={renderHeaderTitle} />
-        <Page.Body px="$0" py="$0">
+        {pageHeader}
+        <Page.Body p="$0">
           <YStack flex={1} bg="$bgApp" gap="$1.5">
             <Tabs.Container
-              initialTabName="AAA"
-              renderHeader={() => (
-                <YStack>
-                  <MobilePerpMarketHeader />
-
-                  <YStack flex={1} minHeight={500}>
-                    <PerpCandles />
-                  </YStack>
-                </YStack>
-              )}
+              initialTabName="orderbook"
+              renderHeader={() => marketHeaderContent}
               renderTabBar={() => null}
             >
-              <Tabs.Tab name="AAA">
-                <Tabs.ScrollView>
-                  <YStack bg="$bgApp" px={2}>
-                    <PerpOrderBook entry="perpMobileMarket" />
-                  </YStack>
-                </Tabs.ScrollView>
+              <Tabs.Tab name="orderbook">
+                <Tabs.ScrollView>{orderBookContent}</Tabs.ScrollView>
               </Tabs.Tab>
             </Tabs.Container>
           </YStack>
@@ -181,18 +196,12 @@ function MobilePerpMarket() {
 
   return (
     <Page scrollEnabled>
-      <Page.Header headerLeft={renderHeaderTitle} />
-      <Page.Body px="$0" py="$0">
+      {pageHeader}
+      <Page.Body p="$0">
         <YStack flex={1} bg="$bgApp" gap="$1.5">
-          <MobilePerpMarketHeader />
+          {marketHeaderContent}
 
-          <YStack flex={1} minHeight={500}>
-            <PerpCandles />
-          </YStack>
-
-          <YStack flexShrink={0} bg="$bgApp" px={2}>
-            <PerpOrderBook entry="perpMobileMarket" />
-          </YStack>
+          <YStack flexShrink={0}>{orderBookContent}</YStack>
         </YStack>
       </Page.Body>
       {pageFooter}
