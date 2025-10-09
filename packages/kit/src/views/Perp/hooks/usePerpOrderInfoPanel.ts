@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  PERPS_HISTORY_FILLS_URL,
+  PERPS_USER_FILLS_TIME_RANGE,
+} from '@onekeyhq/shared/src/consts/perp';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -85,12 +90,14 @@ export function usePerpTradesHistory() {
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {
-        const trades = await backgroundApiProxy.serviceHyperliquid.getUserFills(
-          {
+        const now = Date.now();
+        const startTime = now - PERPS_USER_FILLS_TIME_RANGE;
+        const trades =
+          await backgroundApiProxy.serviceHyperliquid.getUserFillsByTime({
             user: currentAccount?.accountAddress,
+            startTime,
             aggregateByTime: true,
-          },
-        );
+          });
         const sortedTrades = trades.sort((a, b) => b.time - a.time);
         setCurrentListPage(1);
         return sortedTrades;
@@ -127,5 +134,19 @@ export function usePerpTradesHistory() {
     currentListPage,
     setCurrentListPage,
     isLoading,
+  };
+}
+
+export function usePerpTradesHistoryViewAllUrl() {
+  const [currentAccount] = usePerpsActiveAccountAtom();
+  const onViewAllUrl = useCallback(() => {
+    if (currentAccount?.accountAddress) {
+      openUrlInApp(
+        `${PERPS_HISTORY_FILLS_URL}${currentAccount?.accountAddress}`,
+      );
+    }
+  }, [currentAccount?.accountAddress]);
+  return {
+    onViewAllUrl,
   };
 }
