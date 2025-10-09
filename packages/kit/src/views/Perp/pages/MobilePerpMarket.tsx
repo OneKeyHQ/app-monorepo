@@ -162,7 +162,7 @@ function MobilePerpMarket() {
                   </YStack>
                 </YStack>
               )}
-              renderTabBar={(props) => null}
+              renderTabBar={() => null}
             >
               <Tabs.Tab name="AAA">
                 <Tabs.ScrollView>
