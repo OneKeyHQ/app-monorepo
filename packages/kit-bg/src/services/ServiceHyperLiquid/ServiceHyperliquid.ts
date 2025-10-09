@@ -979,7 +979,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
     {
       max: 20,
-      maxAge: timerUtils.getTimeDurationMs({ minute: 2 }),
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
       promise: true,
     },
   );
