@@ -14,6 +14,7 @@ import {
   Tabs,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -29,7 +30,6 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
-import backgroundApiProxy from '../../../../background/instance/backgroundApiProxy';
 import { usePerpsActivePositionAtom } from '../../hooks';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
