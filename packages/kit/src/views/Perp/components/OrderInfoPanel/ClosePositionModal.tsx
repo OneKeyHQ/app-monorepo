@@ -15,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDelayedState } from '@onekeyhq/kit/src/hooks/useDelayedState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useHyperliquidActions,
@@ -90,9 +91,17 @@ const ClosePositionForm = memo(
       percentage: 100,
     });
 
+    const [sliderPercentage, setSliderPercentage] = useDelayedState(
+      formData.percentage,
+    );
+
     const [userSetPrice, setUserSetPrice] = useState(false);
     const initPriceRef = useRef(false);
     const isMountedRef = useRef(true);
+
+    useEffect(() => {
+      setSliderPercentage(formData.percentage);
+    }, [formData.percentage, setSliderPercentage]);
 
     useEffect(() => {
       if (!midPrice) return;
@@ -465,7 +474,7 @@ const ClosePositionForm = memo(
         />
 
         <Slider
-          value={formData.percentage}
+          value={sliderPercentage}
           onChange={handlePercentageChange}
           max={100}
           min={0}
