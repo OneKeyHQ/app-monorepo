@@ -391,6 +391,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         },
       };
       const transport = new WebSocketTransport(transportOptions);
+      // transport.socket.readyState
       transport.socket.removeEventListener('close', this.socketCloseHandler);
       transport.socket.addEventListener('close', this.socketCloseHandler);
 
