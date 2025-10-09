@@ -100,7 +100,7 @@ export const displayWhatsNewVersion = (
     return APP_VERSION;
   }
   return displayVersion(
-    appUpdateInfo.latestVersion,
+    APP_VERSION,
     appUpdateInfo.previousAppVersion,
     appUpdateInfo.jsBundleVersion,
   );
