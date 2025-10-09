@@ -110,42 +110,42 @@ jobs:
       - name: Upload Artifacts latest.yml
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-yml
+          name: onekey-desktop-mac-and-linux-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
 
       - name: Upload universal Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mac-universal-dmg
+          name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-universal.dmg
 
       - name: Upload x64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mac-x64-dmg
+          name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-x64.dmg
 
       - name: Upload arm64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mac-arm64-dmg
+          name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-arm64.dmg
 
-      - name: Upload Linux x86_64 AppImage
+      - name: Upload Linux AppImage
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-linux-x86_64-appimage
+          name: onekey-desktop-linux-appimage-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
-            ./apps/desktop/build-electron/*-x86_64.AppImage
+            ./apps/desktop/build-electron/*.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release-desktop-mac-and-linux
+          name: onekey-desktop-mac-and-linux-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked
