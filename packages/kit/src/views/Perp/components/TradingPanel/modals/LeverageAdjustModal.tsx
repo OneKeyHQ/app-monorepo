@@ -15,8 +15,9 @@ import {
   XStack,
   YStack,
   getFontSize,
+  useDialogInstance,
+  useInPageDialog,
 } from '@onekeyhq/components';
-import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -241,6 +242,7 @@ export const LeverageAdjustModal = memo(
     const [activeAssetData] = usePerpsActiveAssetDataAtom();
 
     const intl = useIntl();
+    const dialog = useInPageDialog();
     const showLeverageDialog = useCallback(() => {
       if (!userAddress || !currentToken || !activeAssetData) return;
 
@@ -250,7 +252,7 @@ export const LeverageAdjustModal = memo(
         1;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
-      Dialog.show({
+      dialog.show({
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
@@ -268,7 +270,7 @@ export const LeverageAdjustModal = memo(
         ),
         showFooter: false,
       });
-    }, [userAddress, currentToken, activeAssetData, intl]);
+    }, [userAddress, currentToken, activeAssetData, dialog, intl]);
 
     if (!userAddress || !currentToken) return null;
 
