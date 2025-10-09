@@ -14,8 +14,7 @@ import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 function WhatsNew() {
   const intl = useIntl();
   const { version = '' } = platformEnv;
-  const response = useAppChangeLog(version);
-  const { changeLog } = response ?? {};
+  const changeLog = useAppChangeLog(version);
   const navigation = useAppNavigation();
   const handleClose = useCallback(() => {
     setTimeout(() => {
