@@ -28,6 +28,7 @@ import {
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -156,6 +157,7 @@ const PaginationFooter = ({
   onPageChange,
   headerBgColor,
   headerTextColor,
+  onViewAll,
 }: {
   currentPage: number;
   totalPages: number;
@@ -165,7 +167,9 @@ const PaginationFooter = ({
   headerBgColor: string;
   headerTextColor: string;
   isMobile?: boolean;
+  onViewAll?: () => void;
 }) => {
+  const intl = useIntl();
   const [inputValue, setInputValue] = useState(currentPage.toString());
 
   useEffect(() => {
@@ -185,7 +189,6 @@ const PaginationFooter = ({
     }
   };
 
-  if (totalPages <= 1) return null;
   const handleInputBlur = () => {
     handleInputSubmit();
   };
@@ -199,54 +202,69 @@ const PaginationFooter = ({
       alignItems="center"
       bg={headerBgColor}
     >
-      <IconButton
-        borderRadius="$full"
-        borderWidth="$px"
-        borderColor="$border"
-        variant="tertiary"
-        size="small"
-        disabled={currentPage === 1}
-        onPress={onPreviousPage}
-        icon="ChevronLeftOutline"
-      />
-      <XStack gap="$2" alignItems="center">
-        <InputWithAccessoryDoneView
-          value={inputValue}
-          inputAccessoryViewID={PaginationInputAccessoryViewID}
-          onChangeText={handleInputChange}
-          onSubmitEditing={handleInputSubmit}
-          onBlur={handleInputBlur}
-          keyboardType="numeric"
-          w={isMobile ? undefined : '$12'}
-          h="$7"
-          p="$1"
-          textAlign="center"
-          borderColor="$borderStrong"
-          borderRadius="$2"
-          maxLength={totalPages.toString().length}
-          onDone={handleInputSubmit}
-          xStackProps={{
-            w: isMobile ? 40 : undefined,
+      {totalPages > 1 ? (
+        <>
+          <IconButton
+            borderRadius="$full"
+            borderWidth="$px"
+            borderColor="$border"
+            variant="tertiary"
+            size="small"
+            disabled={currentPage === 1}
+            onPress={onPreviousPage}
+            icon="ChevronLeftOutline"
+          />
+          <XStack gap="$2" alignItems="center">
+            <InputWithAccessoryDoneView
+              value={inputValue}
+              inputAccessoryViewID={PaginationInputAccessoryViewID}
+              onChangeText={handleInputChange}
+              onSubmitEditing={handleInputSubmit}
+              onBlur={handleInputBlur}
+              keyboardType="numeric"
+              w={isMobile ? undefined : '$12'}
+              h="$7"
+              p="$1"
+              textAlign="center"
+              borderColor="$borderStrong"
+              borderRadius="$2"
+              maxLength={totalPages.toString().length}
+              onDone={handleInputSubmit}
+              xStackProps={{
+                w: isMobile ? 40 : undefined,
+              }}
+              totalPages={totalPages}
+            />
+            <SizableText size="$bodyMd" color={headerTextColor}>
+              /
+            </SizableText>
+            <SizableText size="$bodyMd" color={headerTextColor}>
+              {totalPages}
+            </SizableText>
+          </XStack>
+          <IconButton
+            borderRadius="$full"
+            borderWidth="$px"
+            borderColor="$border"
+            variant="tertiary"
+            size="small"
+            disabled={currentPage === totalPages}
+            onPress={onNextPage}
+            icon="ChevronRightOutline"
+          />
+        </>
+      ) : null}
+      {onViewAll ? (
+        <Button
+          variant="tertiary"
+          size="small"
+          onPress={() => {
+            onViewAll();
           }}
-          totalPages={totalPages}
-        />
-        <SizableText size="$bodyMd" color={headerTextColor}>
-          /
-        </SizableText>
-        <SizableText size="$bodyMd" color={headerTextColor}>
-          {totalPages}
-        </SizableText>
-      </XStack>
-      <IconButton
-        borderRadius="$full"
-        borderWidth="$px"
-        borderColor="$border"
-        variant="tertiary"
-        size="small"
-        disabled={currentPage === totalPages}
-        onPress={onNextPage}
-        icon="ChevronRightOutline"
-      />
+        >
+          {intl.formatMessage({ id: ETranslations.global_view_more })}
+        </Button>
+      ) : null}
     </XStack>
   );
 };
@@ -283,6 +301,7 @@ export interface ICommonTableListViewProps {
   listLoading?: boolean;
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
+  onViewAll?: () => void;
 }
 
 export function CommonTableListView({
@@ -304,6 +323,7 @@ export function CommonTableListView({
   enablePagination = false,
   pageSize = 20,
   listViewDebugRenderTrackerProps,
+  onViewAll,
 }: ICommonTableListViewProps) {
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -402,16 +422,20 @@ export function CommonTableListView({
         />
       </DebugRenderTracker>
     );
-    if (paginationToBottom && currentListPage && totalPages > 1) {
+    if (
+      (paginationToBottom && currentListPage && totalPages > 1) ||
+      onViewAll
+    ) {
       return (
         <YStack flex={1}>
           {ListContent}
           <PaginationFooter
             isMobile={isMobile}
-            currentPage={currentListPage}
+            currentPage={currentListPage ?? 1}
             totalPages={totalPages}
             onPreviousPage={handlePreviousPage}
             onNextPage={handleNextPage}
+            onViewAll={onViewAll}
             onPageChange={handlePageChange}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
@@ -601,6 +625,7 @@ export function CommonTableListView({
                 isMobile={isMobile}
                 headerBgColor={headerBgColor}
                 headerTextColor={headerTextColor}
+                onViewAll={onViewAll}
               />
             ) : null}
           </YStack>

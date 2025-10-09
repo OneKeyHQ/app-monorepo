@@ -248,7 +248,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   ): Promise<IFill[]> {
     const { infoClient } = hyperLiquidApiClients;
 
-    return infoClient.userFillsByTime(params);
+    return infoClient.userFillsByTime({ ...params, reversed: true } as any);
   }
 
   @backgroundMethod()
