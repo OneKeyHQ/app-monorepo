@@ -19,6 +19,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -134,7 +135,10 @@ export function DesktopLeftSideBar({
                 merge: true,
                 params:
                   route.name === ETabRoutes.Market
-                    ? { from: EEnterWay.HomeTab }
+                    ? {
+                        screen: ETabMarketRoutes.TabMarket,
+                        params: { from: EEnterWay.HomeTab },
+                      }
                     : undefined,
               }),
               target: state.key,
