@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
-import { memo, useCallback, useLayoutEffect, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -7,7 +6,6 @@ import { InputAccessoryView } from 'react-native';
 import {
   Badge,
   Button,
-  Dialog,
   Icon,
   Input,
   SizableText,
@@ -18,6 +16,7 @@ import {
   useDialogInstance,
   useInPageDialog,
 } from '@onekeyhq/components';
+import { useDelayedState } from '@onekeyhq/kit/src/hooks/useDelayedState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -40,21 +39,6 @@ interface ILeverageContentProps {
   isMobile?: boolean;
 }
 
-const useInitialValue = platformEnv.isNativeIOS
-  ? (initialValue: number) => {
-      const [value, setValue] = useState(0);
-      useLayoutEffect(() => {
-        setTimeout(() => {
-          setValue(initialValue);
-        }, 100);
-      }, [initialValue]);
-      return [value, setValue];
-    }
-  : (initialValue: number) => {
-      const [value, setValue] = useState(initialValue);
-      return [value, setValue];
-    };
-
 const LeverageContent = memo(
   ({
     initialValue,
@@ -62,10 +46,7 @@ const LeverageContent = memo(
     tokenInfo,
     activeAssetData,
   }: ILeverageContentProps) => {
-    const [value, setValue] = useInitialValue(initialValue) as [
-      number,
-      Dispatch<SetStateAction<number>>,
-    ];
+    const [value, setValue] = useDelayedState(initialValue);
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
     const actions = useHyperliquidActions();
