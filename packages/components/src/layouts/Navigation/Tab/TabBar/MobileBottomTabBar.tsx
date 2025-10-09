@@ -82,10 +82,6 @@ export default function MobileBottomTabBar({
         });
       }
 
-      console.log(
-        'route.name === ETabRoutes.Market',
-        route.name === ETabRoutes.Market,
-      );
       if (!isActive && !event.defaultPrevented) {
         navigation.dispatch({
           ...CommonActions.navigate({
