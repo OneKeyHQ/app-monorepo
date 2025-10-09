@@ -486,7 +486,7 @@ class DesktopApiAppBundleUpdate {
     await this.clearDownload();
     await this.clearBundleExtract();
     store.clearUpdateBundleData();
-    return new Promise<void>((resolve) => {
+    return new Promise<{ success: boolean; message: string }>((resolve) => {
       setTimeout(() => {
         resolve({
           success: true,
