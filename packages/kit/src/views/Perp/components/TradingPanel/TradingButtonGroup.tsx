@@ -426,6 +426,7 @@ function SideButtonInternal({
 
         <Button
           size="medium"
+          childrenAsText={false}
           borderRadius="$4"
           bg={buttonStyles.bg}
           hoverStyle={
@@ -436,14 +437,32 @@ function SideButtonInternal({
           }
           disabled={buttonDisabled}
           onPress={handlePress}
+          h={36}
+          py={
+            !orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined
+          }
         >
-          <YStack>
-            <SizableText size="$bodyMdMedium" color="$textOnColor">
+          <YStack alignItems="center" gap={2}>
+            <SizableText
+              size="$bodyMdMedium"
+              lineHeight={18}
+              color="$textOnColor"
+            >
               {buttonText}
             </SizableText>
-            <SizableText size="$bodySm" color="$text">
-              $ {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toNumber()}
-            </SizableText>
+
+            {!orderValue.isZero() && orderValue.isFinite() ? (
+              <SizableText
+                fontSize={11}
+                color="$textOnColor"
+                opacity={0.8}
+                lineHeight={11}
+              >
+                ≈ $
+                {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2) ||
+                  '0.00'}
+              </SizableText>
+            ) : null}
           </YStack>
         </Button>
       </YStack>
@@ -459,14 +478,29 @@ function SideButtonInternal({
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
         onPress={handlePress}
+        h={36}
+        py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
       >
-        <YStack>
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
+        <YStack alignItems="center" gap={2}>
+          <SizableText
+            size="$bodyMdMedium"
+            lineHeight={18}
+            color="$textOnColor"
+          >
             {buttonText}
           </SizableText>
-          <SizableText size="$bodySm" color="$text">
-            $ {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toNumber()}
-          </SizableText>
+          {!orderValue.isZero() && orderValue.isFinite() ? (
+            <SizableText
+              fontSize={11}
+              color="$textOnColor"
+              opacity={0.8}
+              lineHeight={11}
+            >
+              ≈ $
+              {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2) ||
+                '0.00'}
+            </SizableText>
+          ) : null}
         </YStack>
       </Button>
       <YStack gap="$1.5">
