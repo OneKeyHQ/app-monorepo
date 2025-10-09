@@ -381,6 +381,12 @@ export const useFetchMarketBasicConfig = () => {
   }, []);
 };
 
+export const useFetchPerpConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
+  }, []);
+};
+
 const launchFloatingIconEvent = async (intl: IntlShape) => {
   const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
     ESpotlightTour.showFloatingIconDialog,
@@ -611,6 +617,7 @@ export function Bootstrap() {
 
   useFetchCurrencyList();
   useFetchMarketBasicConfig();
+  useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
