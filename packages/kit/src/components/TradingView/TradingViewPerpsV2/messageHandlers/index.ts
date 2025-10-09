@@ -86,13 +86,23 @@ export function usePerpsMessageHandler({
       targetSymbol: string,
       targetUserAddress: IHex,
     ): Promise<ITradingMark[]> => {
+      const now = new Date();
+      const startDate = new Date(now);
+      startDate.setHours(0, 0, 0, 0);
+      startDate.setFullYear(startDate.getFullYear() - 2);
+      const endDate = new Date(now);
+      endDate.setHours(0, 0, 0, 0);
+      endDate.setFullYear(endDate.getFullYear() + 1);
+
       const historyTrades =
-        await backgroundApiProxy.serviceHyperliquid.getUserFillsByTime({
-          user: targetUserAddress,
-          startTime: 1_731_024_000_000,
-          endTime: 2_114_352_000_000,
-          aggregateByTime: true,
-        });
+        await backgroundApiProxy.serviceHyperliquid.getUserFillsByTimeWithCache(
+          {
+            user: targetUserAddress,
+            startTime: startDate.getTime(),
+            endTime: endDate.getTime(),
+            aggregateByTime: true,
+          },
+        );
 
       // Filter trades by target symbol and format to TradingView marks
       const filteredTrades = historyTrades.filter(
