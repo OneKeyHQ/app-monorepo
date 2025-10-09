@@ -8,14 +8,13 @@ import {
   Dialog,
   Divider,
   Icon,
+  SegmentSlider,
   SizableText,
-  Slider,
   Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useDelayedState } from '@onekeyhq/kit/src/hooks/useDelayedState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useHyperliquidActions,
@@ -91,7 +90,7 @@ const ClosePositionForm = memo(
       percentage: 100,
     });
 
-    const [sliderPercentage, setSliderPercentage] = useDelayedState(
+    const [sliderPercentage, setSliderPercentage] = useState(
       formData.percentage,
     );
 
@@ -473,12 +472,12 @@ const ClosePositionForm = memo(
           ifOnDialog
         />
 
-        <Slider
+        <SegmentSlider
           value={sliderPercentage}
           onChange={handlePercentageChange}
           max={100}
           min={0}
-          step={1}
+          segments={0}
         />
 
         <XStack justifyContent="space-between" gap="$1">
@@ -522,6 +521,7 @@ export function showClosePositionDialog({
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_close_position_title,
     }),
+    disableDrag: true,
     renderContent: (
       <PerpsProviderMirror>
         <ClosePositionForm
