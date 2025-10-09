@@ -495,6 +495,8 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           extra,
         },
       });
+      this.backgroundApi.serviceHyperliquid.fetchExtraAgentsWithCache.clear();
+      this.backgroundApi.serviceHyperliquid.getUserApprovedMaxBuilderFeeWithCache.clear();
       throw error;
     }
   }
