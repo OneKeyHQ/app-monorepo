@@ -426,7 +426,7 @@ function SideButtonInternal({
 
         <Button
           size="medium"
-          borderRadius="$full"
+          borderRadius="$4"
           bg={buttonStyles.bg}
           hoverStyle={
             !buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined
@@ -437,9 +437,14 @@ function SideButtonInternal({
           disabled={buttonDisabled}
           onPress={handlePress}
         >
-          <SizableText size="$bodyMdMedium" color="$textOnColor">
-            {buttonText}
-          </SizableText>
+          <YStack>
+            <SizableText size="$bodyMdMedium" color="$textOnColor">
+              {buttonText}
+            </SizableText>
+            <SizableText size="$bodySm" color="$text">
+              $ {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toNumber()}
+            </SizableText>
+          </YStack>
         </Button>
       </YStack>
     );
@@ -448,16 +453,21 @@ function SideButtonInternal({
     <YStack gap="$2" flex={1}>
       <Button
         size="medium"
-        borderRadius="$full"
+        borderRadius="$4"
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
         disabled={buttonDisabled}
         onPress={handlePress}
       >
-        <SizableText size="$bodyMdMedium" color="$textOnColor">
-          {buttonText}
-        </SizableText>
+        <YStack>
+          <SizableText size="$bodyMdMedium" color="$textOnColor">
+            {buttonText}
+          </SizableText>
+          <SizableText size="$bodySm" color="$text">
+            $ {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toNumber()}
+          </SizableText>
+        </YStack>
       </Button>
       <YStack gap="$1.5">
         {/* <XStack justifyContent="space-between">
