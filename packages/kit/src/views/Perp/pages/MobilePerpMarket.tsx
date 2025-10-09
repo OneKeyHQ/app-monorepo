@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,6 +8,7 @@ import {
   NavBackButton,
   Page,
   SizableText,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -17,6 +18,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -98,22 +100,8 @@ function MobilePerpMarket() {
     };
   }, []);
 
-  return (
-    <Page scrollEnabled>
-      <Page.Header headerLeft={renderHeaderTitle} />
-      <Page.Body px="$0" py="$0">
-        <YStack flex={1} bg="$bgApp" gap="$1.5">
-          <MobilePerpMarketHeader />
-
-          <YStack flex={1} minHeight={500}>
-            <PerpCandles />
-          </YStack>
-
-          <YStack flexShrink={0} bg="$bgApp" px={2}>
-            <PerpOrderBook entry="perpMobileMarket" />
-          </YStack>
-        </YStack>
-      </Page.Body>
+  const pageFooter = useMemo(() => {
+    return (
       <Page.Footer
         onCancelText={intl.formatMessage({
           id: ETranslations.perp_trade_long,
@@ -154,6 +142,60 @@ function MobilePerpMarket() {
           close();
         }}
       />
+    );
+  }, [intl, actionsRef, longButtonStyle, shortButtonStyle]);
+
+  if (platformEnv.isNativeAndroid) {
+    return (
+      <Page>
+        <Page.Header headerLeft={renderHeaderTitle} />
+        <Page.Body px="$0" py="$0">
+          <YStack flex={1} bg="$bgApp" gap="$1.5">
+            <Tabs.Container
+              initialTabName="AAA"
+              renderHeader={() => (
+                <YStack>
+                  <MobilePerpMarketHeader />
+
+                  <YStack flex={1} minHeight={500}>
+                    <PerpCandles />
+                  </YStack>
+                </YStack>
+              )}
+              renderTabBar={(props) => null}
+            >
+              <Tabs.Tab name="AAA">
+                <Tabs.ScrollView>
+                  <YStack bg="$bgApp" px={2}>
+                    <PerpOrderBook entry="perpMobileMarket" />
+                  </YStack>
+                </Tabs.ScrollView>
+              </Tabs.Tab>
+            </Tabs.Container>
+          </YStack>
+        </Page.Body>
+        {pageFooter}
+      </Page>
+    );
+  }
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header headerLeft={renderHeaderTitle} />
+      <Page.Body px="$0" py="$0">
+        <YStack flex={1} bg="$bgApp" gap="$1.5">
+          <MobilePerpMarketHeader />
+
+          <YStack flex={1} minHeight={500}>
+            <PerpCandles />
+          </YStack>
+
+          <YStack flexShrink={0} bg="$bgApp" px={2}>
+            <PerpOrderBook entry="perpMobileMarket" />
+          </YStack>
+        </YStack>
+      </Page.Body>
+      {pageFooter}
     </Page>
   );
 }
