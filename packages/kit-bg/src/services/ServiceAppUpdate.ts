@@ -341,7 +341,7 @@ class ServiceAppUpdate extends ServiceBase {
         };
       }>('/utility/v1/app-update/version-info');
       const { code, data } = response.data;
-      return code === 0 ? data : undefined;
+      return code === 0 ? data?.changeLog : undefined;
     },
     {
       maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
