@@ -567,6 +567,7 @@ export function UniversalSearch({
         return (
           <>
             <Tabs.TabBar
+              scrollable
               tabNames={tabTitles}
               onTabPress={handleTabPress}
               focusedTab={focusedTab}
