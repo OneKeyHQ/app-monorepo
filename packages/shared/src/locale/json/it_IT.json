@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "Tag di destinazione",
   "wallet.disable_energy_rental_description": "Il noleggio di energia aiuta a ridurre le commissioni di transazione TRON. È sicuro, trasparente e funziona automaticamente. Disattivandolo, le tue commissioni saranno più alte.",
   "wallet.disable_energy_rental_title": "Disattiva il noleggio energetico",
-  "wallet.energy_confirmations_required": "L'invio di una transazione con noleggio di energia richiede due conferme sul tuo wallet hardware. La prima transazione noleggia l'energia, mentre la seconda invia il tuo trasferimento. Completa entrambe le operazioni tempestivamente per evitare la scadenza della transazione.",
+  "wallet.energy_confirmations_required": "L’invio di una transazione con noleggio di energia richiede due conferme.",
   "wallet.energy_rental_description": "Il noleggio di energia è stato abilitato per ridurre le commissioni a causa della bassa energia. Questo cambierà il nonce della transazione. Disattivalo se non necessario. Supporta l'uso di USDT per pagare il gas quando TRX è insufficiente. Il servizio di noleggio è fornito da una terza parte.",
   "wallet.energy_rental_insufficient_trx": "TRX insufficiente rilevato. Verrà utilizzato USDT per noleggiare energia.",
   "wallet.energy_rental_low_energy_detected": "Energia bassa rilevata. Il noleggio di energia è stato attivato per ridurre le commissioni.",

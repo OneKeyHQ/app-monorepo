@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "目的地標籤",
   "wallet.disable_energy_rental_description": "能量租賃有助於降低您的 TRON 交易手續費。它安全、透明且自動運作。關閉此功能將使您的手續費更高。",
   "wallet.disable_energy_rental_title": "關閉能量租賃",
-  "wallet.energy_confirmations_required": "使用能量租賃發送交易需要在您的硬體錢包上進行兩次確認。第一筆用於租賃能量，第二筆為正式轉帳。請及時確認以避免交易過期。",
+  "wallet.energy_confirmations_required": "使用能量租賃發送交易需要兩次確認。",
   "wallet.energy_rental_description": "能量租用已啟用，以減少因能量不足而產生的費用。這將改變交易的编号。如不需要，請將其停用。當 TRX 不足時，支援使用 USDT 支付 gas。租用服務由第三方提供。",
   "wallet.energy_rental_insufficient_trx": "偵測到 TRX 不足。將使用 USDT 來租用能量。",
   "wallet.energy_rental_low_energy_detected": "偵測到低能量。已啟用能量租借以減少費用。",

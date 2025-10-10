@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "目的地タグ",
   "wallet.disable_energy_rental_description": "エネルギーレンタルは、TRONの取引手数料を下げるのに役立ちます。安全で透明性が高く、自動的に機能します。オフにすると手数料が高くなります。",
   "wallet.disable_energy_rental_title": "エネルギーレンタルをオフにする",
-  "wallet.energy_confirmations_required": "エネルギーレンタルを伴うトランザクションの送信には、ハードウェアウォレットで2回の確認が必要です。最初のトランザクションでエネルギーをレンタルし、2回目で送金を行います。トランザクションの有効期限切れを防ぐため、両方の確認を速やかに完了してください。",
+  "wallet.energy_confirmations_required": "エネルギーのレンタルを伴うトランザクションの送信には、2回の確認が必要です。",
   "wallet.energy_rental_description": "エネルギーが不足しているため、手数料を削減するためにエネルギーレンタルが有効になっています。これによりトランザクションのnonceが変更されます。不要な場合は無効にしてください。TRXが不足している場合、USDTでgasを支払うこともサポートしています。レンタルサービスは第三者によって提供されています。",
   "wallet.energy_rental_insufficient_trx": "TRXが不足しています。エネルギーのレンタルにはUSDTが使用されます。",
   "wallet.energy_rental_low_energy_detected": "低エネルギーが検出されました。手数料を削減するためにエネルギーレンタルが有効になりました。",
