@@ -220,6 +220,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         hwParams.isRawData = true;
       }
     }
+
+    let useBlindSignature = false;
+
     if (encodedTx.messages.length > 1) {
       hwParams.extDestination = [];
       hwParams.extTonAmount = [];
@@ -227,13 +230,31 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.messages.slice(1).forEach((extMsg) => {
         hwParams.extDestination?.push(extMsg.address);
         hwParams.extTonAmount?.push(extMsg.amount.toString());
-        hwParams.extPayload?.push(extMsg.payload ?? '');
+
+        let payloadHex: string | undefined;
+        if (extMsg.payload) {
+          let bytes: Buffer | undefined;
+          try {
+            bytes = Buffer.from(extMsg.payload, 'base64');
+          } catch (e) {
+            try {
+              bytes = Buffer.from(extMsg.payload, 'hex');
+            } catch (ee) {
+              useBlindSignature = true;
+            }
+          }
+
+          payloadHex = bytes?.toString('hex');
+          // exists payload and exotic cell
+          if (payloadHex && Cell.fromHex(payloadHex).isExotic) {
+            useBlindSignature = true;
+          }
+        }
+        hwParams.extPayload?.push(payloadHex ?? '');
       });
     }
 
     let signingMessage = serializeUnsignedTx.signingMessage;
-    let useBlindSignature = false;
-
     try {
       if (msg.stateInit) {
         hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString(
