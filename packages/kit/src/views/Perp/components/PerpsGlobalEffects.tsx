@@ -101,6 +101,10 @@ function useHyperliquidEventBusListener() {
             break;
           }
 
+          case ESubscriptionType.L2_BOOK:
+            void actions.current.updateL2Book(data as IBook);
+            break;
+
           case ESubscriptionType.ACTIVE_ASSET_CTX:
             // move to global jotai, updateActiveAssetCtx() in background
             // void actions.current.updateActiveAssetCtx(
@@ -115,10 +119,6 @@ function useHyperliquidEventBusListener() {
             //   data as IActiveAssetData,
             //   eventPayload.metadata.coin,
             // );
-            break;
-
-          case ESubscriptionType.L2_BOOK:
-            void actions.current.updateL2Book(data as IBook);
             break;
 
           // case ESubscriptionType.BBO:
