@@ -11,6 +11,7 @@ import {
   SizableText,
   YStack,
 } from '@onekeyhq/components';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -51,7 +52,10 @@ function UpdatePreview({
     autoClose = false,
   } = route.params || {};
   const [isForceUpdate, setIsForceUpdate] = useState(isForceUpdateParam);
-  const [changeLog, setChangeLog] = useState<string | undefined>(undefined);
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const [changeLog, setChangeLog] = useState<string | undefined>(
+    appUpdateInfo.changeLog,
+  );
   const [latestVersion, setLatestVersion] = useState<string | undefined>(
     latestVersionParam,
   );
