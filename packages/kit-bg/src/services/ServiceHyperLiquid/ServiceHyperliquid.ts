@@ -242,13 +242,31 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
+  private _getUserFillsByTimeMemo = cacheUtils.memoizee(
+    async (params: IUserFillsByTimeParameters) => {
+      const { infoClient } = hyperLiquidApiClients;
+      return infoClient.userFillsByTime({ ...params, reversed: true } as any);
+    },
+    {
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   async getUserFillsByTime(
     params: IUserFillsByTimeParameters,
   ): Promise<IFill[]> {
     const { infoClient } = hyperLiquidApiClients;
+    return infoClient.userFillsByTime({ ...params, reversed: true } as any);
+  }
 
-    return infoClient.userFillsByTime(params);
+  @backgroundMethod()
+  async getUserFillsByTimeWithCache(
+    params: IUserFillsByTimeParameters,
+  ): Promise<IFill[]> {
+    return this._getUserFillsByTimeMemo(params);
   }
 
   @backgroundMethod()
@@ -600,10 +618,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       }
 
       if (password) {
-        const userRole = await infoClient.userRole({
-          user: accountAddress,
-        });
-        if (userRole.role === 'missing') {
+        let isActivated = false;
+        if (hyperLiquidCache?.activatedUser?.[accountAddress] === true) {
+          isActivated = true;
+        }
+        if (!isActivated) {
+          const userRole = await infoClient.userRole({
+            user: accountAddress,
+          });
+          isActivated = userRole.role !== 'missing';
+        }
+        if (!isActivated) {
           statusDetails.activatedOk = false;
           // await this.checkBuilderFeeStatus({
           //   accountAddress,
@@ -611,9 +636,9 @@ export default class ServiceHyperliquid extends ServiceBase {
           //   statusDetails,
           // });
         } else {
+          hyperLiquidCache.activatedUser[accountAddress] = true;
           statusDetails.activatedOk = true;
 
-          // TODO cache
           // Builder fee approve must be executed before agent setup
           await this.checkBuilderFeeStatus({
             accountAddress,
@@ -636,12 +661,23 @@ export default class ServiceHyperliquid extends ServiceBase {
             });
 
             void (async () => {
-              const { referralCode } =
-                await this.backgroundApi.simpleDb.perp.getPerpData();
-              // referrer code can be approved by agent
-              void this.exchangeService.setReferrerCode({
-                code: referralCode || HYPERLIQUID_REFERRAL_CODE,
-              });
+              const cacheKey = [
+                agentCredential.userAddress.toLowerCase(),
+                agentCredential.agentAddress.toLowerCase(),
+                agentCredential.agentName,
+              ].join('-');
+              if (!hyperLiquidCache?.referrerCodeSetDone?.[cacheKey]) {
+                const { referralCode } =
+                  await this.backgroundApi.simpleDb.perp.getPerpData();
+                try {
+                  // referrer code can be approved by agent
+                  await this.exchangeService.setReferrerCode({
+                    code: referralCode || HYPERLIQUID_REFERRAL_CODE,
+                  });
+                } finally {
+                  hyperLiquidCache.referrerCodeSetDone[cacheKey] = true;
+                }
+              }
             })();
 
             // referral code is optional, so we set it to true by default
@@ -668,6 +704,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
+  fetchExtraAgentsWithCache = cacheUtils.memoizee(
+    async ({ user }: { user: IHex }) => {
+      const { infoClient } = hyperLiquidApiClients;
+      return infoClient.extraAgents({
+        user,
+      });
+    },
+    {
+      max: 20,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 2 }),
+      promise: true,
+    },
+  );
+
   private async checkAgentStatus({
     accountAddress,
     isEnableTradingTrigger,
@@ -679,11 +729,8 @@ export default class ServiceHyperliquid extends ServiceBase {
     statusDetails: IPerpsActiveAccountStatusDetails;
     password: string;
   }) {
-    const { infoClient } = hyperLiquidApiClients;
-
     let agentCredential: ICoreHyperLiquidAgentCredential | undefined;
-    // TODO cache
-    const extraAgents = await infoClient.extraAgents({
+    const extraAgents = await this.fetchExtraAgentsWithCache({
       user: accountAddress,
     });
     if (extraAgents?.length) {
@@ -718,6 +765,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       agentCredential = validAgents?.[0];
     }
     if (!agentCredential && isEnableTradingTrigger) {
+      this.fetchExtraAgentsWithCache.clear();
       const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
       const privateKeyHex = bufferUtils.bytesToHex(privateKeyBytes);
       const agentAddress = new ethers.Wallet(privateKeyHex).address as IHex;
@@ -756,6 +804,7 @@ export default class ServiceHyperliquid extends ServiceBase {
             const pollStartTime = Date.now();
             const pollTimeoutMs = 10_000; // 10 seconds total polling timeout
             const requestTimeoutMs = 3000; // 3 seconds per request timeout
+            const { infoClient } = hyperLiquidApiClients;
 
             while (Date.now() - pollStartTime < pollTimeoutMs) {
               try {
@@ -896,13 +945,14 @@ export default class ServiceHyperliquid extends ServiceBase {
       await this.getBuilderFeeConfig();
 
     if (expectBuilderAddress) {
-      const maxBuilderFee = await this.getUserApprovedMaxBuilderFee({
+      const maxBuilderFee = await this.getUserApprovedMaxBuilderFeeWithCache({
         userAddress: accountAddress,
         builderAddress: expectBuilderAddress,
       });
       if (maxBuilderFee === expectMaxBuilderFee) {
         statusDetails.builderFeeOk = true;
       } else if (isEnableTradingTrigger) {
+        this.getUserApprovedMaxBuilderFeeWithCache.clear();
         const approveBuilderFeeResult =
           await this.exchangeService.approveBuilderFee({
             builder: expectBuilderAddress as IHex,
@@ -921,7 +971,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
   }
 
-  // TODO cache
   async getUserApprovedMaxBuilderFee({
     userAddress,
     builderAddress,
@@ -935,6 +984,23 @@ export default class ServiceHyperliquid extends ServiceBase {
       builder: builderAddress.toLowerCase() as IHex,
     });
   }
+
+  getUserApprovedMaxBuilderFeeWithCache = cacheUtils.memoizee(
+    async ({
+      userAddress,
+      builderAddress,
+    }: {
+      userAddress: string;
+      builderAddress: string;
+    }) => {
+      return this.getUserApprovedMaxBuilderFee({ userAddress, builderAddress });
+    },
+    {
+      max: 20,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
+      promise: true,
+    },
+  );
 
   async getBuilderFeeConfig() {
     void this.updatePerpsConfigByServerWithCache();

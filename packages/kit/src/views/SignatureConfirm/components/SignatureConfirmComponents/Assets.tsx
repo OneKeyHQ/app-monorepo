@@ -233,6 +233,13 @@ function SignatureAssetDetailItem({
     name,
   ]);
 
+  const tokenSize = useMemo(() => {
+    if (inSimulation) {
+      return 'md';
+    }
+    return isSmallSize ? 'sm' : 'lg';
+  }, [inSimulation, isSmallSize]);
+
   return (
     <SignatureConfirmItem {...rest}>
       {!hideLabel ? (
@@ -240,7 +247,7 @@ function SignatureAssetDetailItem({
       ) : null}
       <XStack gap="$3" alignItems="center">
         <Token
-          size={isSmallSize ? 'sm' : 'lg'}
+          size={tokenSize}
           showNetworkIcon={showNetwork}
           {...(type === 'nft' && {
             borderRadius: '$2',

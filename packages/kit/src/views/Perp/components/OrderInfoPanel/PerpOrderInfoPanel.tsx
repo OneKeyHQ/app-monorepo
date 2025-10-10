@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -13,12 +14,17 @@ import {
   Tabs,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  perpsTradesHistoryRefreshHookAtom,
+  usePerpsTradesHistoryRefreshHookAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
@@ -108,11 +114,30 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
     });
   };
 
+  const lastSubscriptionsHandlerDisabledCount = useRef<number>(-1);
+
   return (
     <Tabs.Container
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
+      onTabChange={async (tab) => {
+        console.log('PerpOrderInfoPanel_onTabChange_tabName::', tab);
+        if (tab.tabName === 'Trades History') {
+          const subscriptionsHandlerDisabledCount =
+            await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
+          if (
+            subscriptionsHandlerDisabledCount >
+            lastSubscriptionsHandlerDisabledCount.current
+          ) {
+            lastSubscriptionsHandlerDisabledCount.current =
+              subscriptionsHandlerDisabledCount;
+            void perpsTradesHistoryRefreshHookAtom.set({
+              refreshHook: Date.now(),
+            });
+          }
+        }
+      }}
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}

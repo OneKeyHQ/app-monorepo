@@ -1,5 +1,4 @@
-import type { Dispatch, SetStateAction } from 'react';
-import { memo, useCallback, useLayoutEffect, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -7,7 +6,6 @@ import { InputAccessoryView } from 'react-native';
 import {
   Badge,
   Button,
-  Dialog,
   Icon,
   Input,
   SizableText,
@@ -15,8 +13,10 @@ import {
   XStack,
   YStack,
   getFontSize,
+  useDialogInstance,
+  useInPageDialog,
 } from '@onekeyhq/components';
-import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
+import { useDelayedState } from '@onekeyhq/kit/src/hooks/useDelayedState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -39,21 +39,6 @@ interface ILeverageContentProps {
   isMobile?: boolean;
 }
 
-const useInitialValue = platformEnv.isNativeIOS
-  ? (initialValue: number) => {
-      const [value, setValue] = useState(0);
-      useLayoutEffect(() => {
-        setTimeout(() => {
-          setValue(initialValue);
-        }, 100);
-      }, [initialValue]);
-      return [value, setValue];
-    }
-  : (initialValue: number) => {
-      const [value, setValue] = useState(initialValue);
-      return [value, setValue];
-    };
-
 const LeverageContent = memo(
   ({
     initialValue,
@@ -61,10 +46,7 @@ const LeverageContent = memo(
     tokenInfo,
     activeAssetData,
   }: ILeverageContentProps) => {
-    const [value, setValue] = useInitialValue(initialValue) as [
-      number,
-      Dispatch<SetStateAction<number>>,
-    ];
+    const [value, setValue] = useDelayedState(initialValue);
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
     const actions = useHyperliquidActions();
@@ -241,6 +223,7 @@ export const LeverageAdjustModal = memo(
     const [activeAssetData] = usePerpsActiveAssetDataAtom();
 
     const intl = useIntl();
+    const dialog = useInPageDialog();
     const showLeverageDialog = useCallback(() => {
       if (!userAddress || !currentToken || !activeAssetData) return;
 
@@ -250,7 +233,7 @@ export const LeverageAdjustModal = memo(
         1;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
-      Dialog.show({
+      dialog.show({
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
@@ -268,7 +251,7 @@ export const LeverageAdjustModal = memo(
         ),
         showFooter: false,
       });
-    }, [userAddress, currentToken, activeAssetData, intl]);
+    }, [userAddress, currentToken, activeAssetData, dialog, intl]);
 
     if (!userAddress || !currentToken) return null;
 
