@@ -164,7 +164,7 @@ export function calculateRequiredSubscriptions(
 
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
-      aggregateByTime: false,
+      aggregateByTime: true,
     };
     specs.push(
       buildSubscriptionSpec({

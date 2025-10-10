@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "Thẻ đích đến",
   "wallet.disable_energy_rental_description": "Thuê năng lượng giúp giảm phí giao dịch TRON của bạn. Dịch vụ này an toàn, minh bạch và hoạt động tự động. Tắt tính năng này sẽ khiến phí của bạn tăng lên.",
   "wallet.disable_energy_rental_title": "Tắt thuê năng lượng",
-  "wallet.energy_confirmations_required": "Gửi một giao dịch với việc thuê năng lượng yêu cầu hai lần xác nhận trên ví phần cứng của bạn. Giao dịch đầu tiên là thuê năng lượng, và giao dịch thứ hai là gửi chuyển khoản của bạn. Vui lòng hoàn thành cả hai giao dịch một cách nhanh chóng để tránh giao dịch bị hết hạn.",
+  "wallet.energy_confirmations_required": "Gửi một giao dịch với việc thuê năng lượng cần hai lần xác nhận.",
   "wallet.energy_rental_description": "Thuê năng lượng đã được bật để giảm phí do năng lượng thấp. Việc này sẽ thay đổi nonce của giao dịch. Tắt đi nếu không cần thiết. Hỗ trợ sử dụng USDT để trả gas khi TRX không đủ. Dịch vụ thuê được cung cấp bởi bên thứ ba.",
   "wallet.energy_rental_insufficient_trx": "Không phát hiện đủ TRX. USDT sẽ được sử dụng để thuê năng lượng.",
   "wallet.energy_rental_low_energy_detected": "Phát hiện năng lượng thấp. Thuê năng lượng đã được bật để giảm phí.",

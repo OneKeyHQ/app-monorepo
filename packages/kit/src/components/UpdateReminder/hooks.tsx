@@ -82,13 +82,10 @@ export const isForceUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
   return updateStrategy === EUpdateStrategy.force;
 };
 
-export const useAppChangeLog = (version?: string) => {
+export const useAppChangeLog = () => {
   const response = usePromiseResult(
-    () =>
-      version
-        ? backgroundApiProxy.serviceAppUpdate.fetchChangeLog()
-        : Promise.resolve(null),
-    [version],
+    () => backgroundApiProxy.serviceAppUpdate.fetchChangeLog(),
+    [],
   );
   return useMemo(() => response.result, [response.result]);
 };
