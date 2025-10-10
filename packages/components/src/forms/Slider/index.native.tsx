@@ -110,7 +110,6 @@ export function Slider({
   );
 
   const value = props.value ?? props.defaultValue;
-  console.log('value', value, min, max);
   return segments ? (
     <YStack position="relative" onLayout={handleLayout}>
       {sliderContent}
@@ -119,11 +118,15 @@ export function Slider({
           pointerEvents="none"
           gap="$0.5"
           flex={1}
-          zIndex={-1}
           justifyContent="space-between"
           top={-layout.height / 2}
         >
-          <XStack left={platformEnv.isNativeAndroid ? 12 : 2}>
+          <XStack
+            left={platformEnv.isNativeAndroid ? 12 : 2}
+            onPress={() => {
+              handleValueChange(min);
+            }}
+          >
             <SliderSegment key={-1} marked />
           </XStack>
           {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
@@ -136,7 +139,12 @@ export function Slider({
               }
             />
           ))}
-          <XStack right={platformEnv.isNativeAndroid ? 12 : 2}>
+          <XStack
+            right={platformEnv.isNativeAndroid ? 12 : 2}
+            onPress={() => {
+              handleValueChange(max);
+            }}
+          >
             <SliderSegment key={segments ?? 1} marked={value === max} />
           </XStack>
         </XStack>

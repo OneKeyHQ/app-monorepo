@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IYStackProps } from '@onekeyhq/components';
+import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
   Icon,
   SizableText,
@@ -36,6 +36,8 @@ import {
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
+import type { FontSizeTokens } from 'tamagui';
+
 type IAssetsCommonProps = {
   networkId: string;
   showNetwork?: boolean;
@@ -46,6 +48,7 @@ type IAssetsCommonProps = {
     isMaxSend: boolean;
     amountToUpdate: string;
   };
+  inSimulation?: boolean;
 } & ISignatureConfirmItemType;
 
 type IAssetsTokenProps = IAssetsCommonProps & {
@@ -81,6 +84,7 @@ function SignatureAssetDetailItem({
   name,
   editable,
   tokenProps,
+  textProps,
   isLoading,
   handleEdit,
   hideLabel,
@@ -88,6 +92,8 @@ function SignatureAssetDetailItem({
   NFTType,
   nativeTokenTransferAmountToUpdate,
   isSendNativeTokenOnly,
+  inSimulation,
+  isSmallSize,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -99,6 +105,7 @@ function SignatureAssetDetailItem({
   showNetwork?: boolean;
   isLoading?: boolean;
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
+  textProps?: ISizableTextProps;
   handleEdit?: () => void;
   hideLabel?: boolean;
   transferDirection?: ETransferDirection;
@@ -108,6 +115,8 @@ function SignatureAssetDetailItem({
     amountToUpdate: string;
   };
   isSendNativeTokenOnly?: boolean;
+  inSimulation?: boolean;
+  isSmallSize?: boolean;
 } & ISignatureConfirmItemType) {
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
@@ -115,8 +124,33 @@ function SignatureAssetDetailItem({
 
   const renderDetails = useCallback(() => {
     if (isLoading) {
+      if (isSmallSize) {
+        return <Skeleton.HeadingSm />;
+      }
+
       return <Skeleton.HeadingMd />;
     }
+
+    const amountTextProps: {
+      size: FontSizeTokens;
+    } = isSmallSize
+      ? {
+          size: '$headingSm',
+        }
+      : {
+          size: '$headingMd',
+        };
+
+    const symbolTextProps: {
+      size: FontSizeTokens;
+    } = isSmallSize
+      ? {
+          size: inSimulation ? '$bodyMdMedium' : '$bodyMd',
+        }
+      : {
+          size: inSimulation ? '$bodyLgMedium' : '$bodyLg',
+        };
+
     return (
       <>
         <SizableText
@@ -128,14 +162,24 @@ function SignatureAssetDetailItem({
           }}
         >
           {transferDirection === ETransferDirection.Out ? (
-            <SizableText size="$headingMd">-</SizableText>
+            <SizableText size={amountTextProps.size}>-</SizableText>
           ) : null}
           {transferDirection === ETransferDirection.In ? (
-            <SizableText size="$headingMd">+</SizableText>
+            <SizableText size={amountTextProps.size} color="$textSuccess">
+              +
+            </SizableText>
           ) : null}
           {type !== 'nft' ||
           (type === 'nft' && NFTType === ENFTType.ERC1155) ? (
-            <SizableText size="$headingMd">
+            <SizableText
+              size={amountTextProps.size}
+              color={
+                transferDirection === ETransferDirection.In
+                  ? '$textSuccess'
+                  : '$textText'
+              }
+              {...textProps}
+            >
               {isSendNativeTokenOnly &&
               nativeTokenTransferAmountToUpdate?.isMaxSend &&
               !isNil(nativeTokenTransferAmountToUpdate.amountToUpdate) &&
@@ -145,10 +189,26 @@ function SignatureAssetDetailItem({
             </SizableText>
           ) : null}
           {type !== 'nft' && symbol ? (
-            <SizableText size="$bodyLg">{`  ${symbol}`}</SizableText>
+            <SizableText
+              size={symbolTextProps.size}
+              color={
+                transferDirection === ETransferDirection.In
+                  ? '$textSuccess'
+                  : '$textText'
+              }
+              {...textProps}
+            >{`  ${symbol}`}</SizableText>
           ) : null}
           {type === 'nft' && name ? (
-            <SizableText size="$bodyLg">{`  ${name}`}</SizableText>
+            <SizableText
+              size={symbolTextProps.size}
+              color={
+                transferDirection === ETransferDirection.In
+                  ? '$textSuccess'
+                  : '$textText'
+              }
+              {...textProps}
+            >{`  ${name}`}</SizableText>
           ) : null}
         </SizableText>
         {editable ? (
@@ -158,10 +218,13 @@ function SignatureAssetDetailItem({
     );
   }, [
     isLoading,
+    isSmallSize,
+    inSimulation,
     editable,
     transferDirection,
     type,
     NFTType,
+    textProps,
     isSendNativeTokenOnly,
     nativeTokenTransferAmountToUpdate?.isMaxSend,
     nativeTokenTransferAmountToUpdate?.amountToUpdate,
@@ -177,7 +240,7 @@ function SignatureAssetDetailItem({
       ) : null}
       <XStack gap="$3" alignItems="center">
         <Token
-          size="lg"
+          size={isSmallSize ? 'sm' : 'lg'}
           showNetworkIcon={showNetwork}
           {...(type === 'nft' && {
             borderRadius: '$2',
@@ -215,9 +278,7 @@ function SignatureAssetDetailItem({
             {renderDetails()}
           </XStack>
           {showNetwork ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {network?.name}
-            </SizableText>
+            <SizableText size="$bodyMd">{network?.name}</SizableText>
           ) : null}
         </YStack>
       </XStack>
@@ -240,6 +301,7 @@ function AssetsToken(props: IAssetsTokenProps) {
       type="token"
       showNetwork={component.showNetwork ?? showNetwork}
       transferDirection={component.transferDirection}
+      isSmallSize={component.isSmallSize}
       {...rest}
     />
   );
@@ -336,6 +398,7 @@ function AssetsNFT(props: IAssetsNFTProps) {
       }}
       transferDirection={component.transferDirection}
       NFTType={component.nft.collectionType}
+      isSmallSize={component.isSmallSize}
       {...rest}
     />
   );

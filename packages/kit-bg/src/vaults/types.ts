@@ -571,6 +571,7 @@ export interface IBuildDecodedTxParams {
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
   isToContract?: boolean;
+  sourceInfo?: IDappSourceInfo;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;

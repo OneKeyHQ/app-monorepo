@@ -26,11 +26,13 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 export function AccountCopyButton({
+  avatarNetworkId,
   indexedAccount,
   account,
   wallet,
   onClose,
 }: {
+  avatarNetworkId?: string;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   wallet?: IDBWallet;
@@ -44,7 +46,7 @@ export function AccountCopyButton({
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
 
   const currentNetworkId =
-    account?.createAtNetwork ?? activeAccount?.network?.id;
+    avatarNetworkId || account?.createAtNetwork || activeAccount?.network?.id;
 
   const { network, vaultSettings } = useAccountData({
     networkId: currentNetworkId,

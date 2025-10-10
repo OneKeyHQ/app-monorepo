@@ -17,6 +17,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type {
   IFetchQuoteResult,
@@ -28,6 +29,10 @@ import SwapRoutePaths from './SwapRoutePaths';
 
 import type { IRouteRows } from './SwapRoutePaths';
 import type { IListItemProps } from '../../../components/ListItem';
+
+const formatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 
 export type ISwapProviderListItemProps = {
   providerResult: IFetchQuoteResult;
@@ -174,9 +179,7 @@ const SwapProviderListItem = ({
           return intl.formatMessage(
             { id: ETranslations.provider_min_amount_required },
             {
-              amount: numberFormat(providerResult.limit.min, {
-                formatter: 'balance',
-              }) as string,
+              amount: numberFormat(providerResult.limit.min, formatter),
               token: fromToken?.symbol ?? 'unknown',
             },
           );
@@ -188,9 +191,7 @@ const SwapProviderListItem = ({
           return intl.formatMessage(
             { id: ETranslations.provider_max_amount_required },
             {
-              amount: numberFormat(providerResult.limit.max, {
-                formatter: 'balance',
-              }) as string,
+              amount: numberFormat(providerResult.limit.max, formatter),
               token: fromToken?.symbol ?? 'unknown',
             },
           );
@@ -198,11 +199,9 @@ const SwapProviderListItem = ({
       }
     }
     if (providerResult.toAmount) {
-      return `${
-        numberFormat(providerResult.toAmount, {
-          formatter: 'balance',
-        }) as string
-      } ${toToken?.symbol ?? 'unknown'}`;
+      return `${numberFormat(providerResult.toAmount, formatter)} ${
+        toToken?.symbol ?? 'unknown'
+      }`;
     }
     return '';
   }, [

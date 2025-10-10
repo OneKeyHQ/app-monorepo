@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
 
-import type { IInputProps, IXStackProps } from '@onekeyhq/components';
+import type {
+  IDebugRenderTrackerProps,
+  IInputProps,
+  IXStackProps,
+} from '@onekeyhq/components';
 import {
   Button,
+  DebugRenderTracker,
   IconButton,
   Input,
   ListView,
@@ -20,9 +25,12 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
 
 const TradesHistoryLoadingView = () => {
@@ -69,9 +77,18 @@ const PaginationDoneOnKeyboard = ({
     >
       <XStack>
         {totalAmount ? (
-          <SizableText size="$bodyLg" color="$textSubdued">
-            {inputAmount ?? ''} / {totalAmount}
-          </SizableText>
+          <>
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_page })}{' '}
+            </SizableText>
+            <SizableText size="$bodyLg" color="$text">
+              {inputAmount ?? ''}
+            </SizableText>
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {' '}
+              / {totalAmount}
+            </SizableText>
+          </>
         ) : null}
         {inputAmount && !totalAmount ? (
           <SizableText size="$bodyLg" color="$textSubdued">
@@ -140,6 +157,7 @@ const PaginationFooter = ({
   onPageChange,
   headerBgColor,
   headerTextColor,
+  onViewAll,
 }: {
   currentPage: number;
   totalPages: number;
@@ -149,7 +167,9 @@ const PaginationFooter = ({
   headerBgColor: string;
   headerTextColor: string;
   isMobile?: boolean;
+  onViewAll?: () => void;
 }) => {
+  const intl = useIntl();
   const [inputValue, setInputValue] = useState(currentPage.toString());
 
   useEffect(() => {
@@ -169,7 +189,6 @@ const PaginationFooter = ({
     }
   };
 
-  if (totalPages <= 1) return null;
   const handleInputBlur = () => {
     handleInputSubmit();
   };
@@ -183,54 +202,69 @@ const PaginationFooter = ({
       alignItems="center"
       bg={headerBgColor}
     >
-      <IconButton
-        borderRadius="$full"
-        borderWidth="$px"
-        borderColor="$border"
-        variant="tertiary"
-        size="small"
-        disabled={currentPage === 1}
-        onPress={onPreviousPage}
-        icon="ChevronLeftOutline"
-      />
-      <XStack gap="$2" alignItems="center">
-        <InputWithAccessoryDoneView
-          value={inputValue}
-          inputAccessoryViewID={PaginationInputAccessoryViewID}
-          onChangeText={handleInputChange}
-          onSubmitEditing={handleInputSubmit}
-          onBlur={handleInputBlur}
-          keyboardType="numeric"
-          w={isMobile ? undefined : '$12'}
-          h="$7"
-          p="$1"
-          textAlign="center"
-          borderColor="$borderStrong"
-          borderRadius="$2"
-          maxLength={totalPages.toString().length}
-          onDone={handleInputSubmit}
-          xStackProps={{
-            w: isMobile ? 40 : undefined,
+      {totalPages > 1 ? (
+        <>
+          <IconButton
+            borderRadius="$full"
+            borderWidth="$px"
+            borderColor="$border"
+            variant="tertiary"
+            size="small"
+            disabled={currentPage === 1}
+            onPress={onPreviousPage}
+            icon="ChevronLeftOutline"
+          />
+          <XStack gap="$2" alignItems="center">
+            <InputWithAccessoryDoneView
+              value={inputValue}
+              inputAccessoryViewID={PaginationInputAccessoryViewID}
+              onChangeText={handleInputChange}
+              onSubmitEditing={handleInputSubmit}
+              onBlur={handleInputBlur}
+              keyboardType="numeric"
+              w={isMobile ? undefined : '$12'}
+              h="$7"
+              p="$1"
+              textAlign="center"
+              borderColor="$borderStrong"
+              borderRadius="$2"
+              maxLength={totalPages.toString().length}
+              onDone={handleInputSubmit}
+              xStackProps={{
+                w: isMobile ? 40 : undefined,
+              }}
+              totalPages={totalPages}
+            />
+            <SizableText size="$bodyMd" color={headerTextColor}>
+              /
+            </SizableText>
+            <SizableText size="$bodyMd" color={headerTextColor}>
+              {totalPages}
+            </SizableText>
+          </XStack>
+          <IconButton
+            borderRadius="$full"
+            borderWidth="$px"
+            borderColor="$border"
+            variant="tertiary"
+            size="small"
+            disabled={currentPage === totalPages}
+            onPress={onNextPage}
+            icon="ChevronRightOutline"
+          />
+        </>
+      ) : null}
+      {onViewAll ? (
+        <Button
+          variant="tertiary"
+          size="small"
+          onPress={() => {
+            onViewAll();
           }}
-          totalPages={totalPages}
-        />
-        <SizableText size="$bodyMd" color={headerTextColor}>
-          /
-        </SizableText>
-        <SizableText size="$bodyMd" color={headerTextColor}>
-          {totalPages}
-        </SizableText>
-      </XStack>
-      <IconButton
-        borderRadius="$full"
-        borderWidth="$px"
-        borderColor="$border"
-        variant="tertiary"
-        size="small"
-        disabled={currentPage === totalPages}
-        onPress={onNextPage}
-        icon="ChevronRightOutline"
-      />
+        >
+          {intl.formatMessage({ id: ETranslations.global_view_more })}
+        </Button>
+      ) : null}
     </XStack>
   );
 };
@@ -266,6 +300,8 @@ export interface ICommonTableListViewProps {
   useTabsList?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
+  listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
+  onViewAll?: () => void;
 }
 
 export function CommonTableListView({
@@ -286,6 +322,8 @@ export function CommonTableListView({
   borderColor = '$borderSubdued',
   enablePagination = false,
   pageSize = 20,
+  listViewDebugRenderTrackerProps,
+  onViewAll,
 }: ICommonTableListViewProps) {
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -303,6 +341,12 @@ export function CommonTableListView({
     if (!enablePagination || data.length <= pageSize) return 1;
     return Math.ceil(data.length / pageSize);
   }, [data.length, pageSize, enablePagination]);
+
+  const actions = useHyperliquidActions();
+
+  const onRefresh = useCallback(async () => {
+    await actions.current.refreshAllPerpsData();
+  }, [actions]);
 
   const handlePreviousPage = () => {
     if (currentListPage && currentListPage > 1 && setCurrentListPage) {
@@ -322,68 +366,76 @@ export function CommonTableListView({
     }
   };
   const ListComponent = useTabsList ? Tabs.FlatList : ListView;
+
   if (isMobile) {
     const ListContent = (
-      <ListComponent
-        data={paginatedData}
-        ListFooterComponent={
-          enablePagination &&
-          currentListPage &&
-          totalPages > 1 &&
-          !paginationToBottom ? (
-            <PaginationFooter
-              isMobile={isMobile}
-              currentPage={currentListPage}
-              totalPages={totalPages}
-              onPreviousPage={handlePreviousPage}
-              onNextPage={handleNextPage}
-              onPageChange={handlePageChange}
-              headerBgColor={headerBgColor}
-              headerTextColor={headerTextColor}
-            />
-          ) : null
-        }
-        renderItem={({ item, index }) => {
-          return renderRow(item, index);
-        }}
-        ListEmptyComponent={
-          listLoading ? (
-            <TradesHistoryLoadingView />
-          ) : (
-            <YStack flex={1} alignItems="center" p="$6">
-              <SizableText
-                size="$bodyMd"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {emptyMessage}
-              </SizableText>
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-                mt="$2"
-              >
-                {emptySubMessage}
-              </SizableText>
-            </YStack>
-          )
-        }
-        contentContainerStyle={{
-          paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
-        }}
-      />
+      <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
+        <ListComponent
+          refreshControl={<PullToRefresh onRefresh={onRefresh} />}
+          data={paginatedData}
+          ListFooterComponent={
+            enablePagination &&
+            currentListPage &&
+            totalPages > 1 &&
+            !paginationToBottom ? (
+              <PaginationFooter
+                isMobile={isMobile}
+                currentPage={currentListPage}
+                totalPages={totalPages}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
+                onPageChange={handlePageChange}
+                headerBgColor={headerBgColor}
+                headerTextColor={headerTextColor}
+              />
+            ) : null
+          }
+          renderItem={({ item, index }) => {
+            return renderRow(item, index);
+          }}
+          ListEmptyComponent={
+            listLoading ? (
+              <TradesHistoryLoadingView />
+            ) : (
+              <YStack flex={1} alignItems="center" p="$6">
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSubdued"
+                  textAlign="center"
+                >
+                  {emptyMessage}
+                </SizableText>
+                <SizableText
+                  size="$bodySm"
+                  color="$textSubdued"
+                  textAlign="center"
+                  mt="$2"
+                >
+                  {emptySubMessage}
+                </SizableText>
+              </YStack>
+            )
+          }
+          contentContainerStyle={{
+            paddingBottom: enablePagination && totalPages > 1 ? 0 : 16,
+          }}
+        />
+      </DebugRenderTracker>
     );
-    if (paginationToBottom && currentListPage && totalPages > 1) {
+    if (
+      (paginationToBottom && currentListPage && totalPages > 1) ||
+      onViewAll
+    ) {
       return (
         <YStack flex={1}>
           {ListContent}
           <PaginationFooter
             isMobile={isMobile}
-            currentPage={currentListPage}
+            currentPage={currentListPage ?? 1}
             totalPages={totalPages}
             onPreviousPage={handlePreviousPage}
             onNextPage={handleNextPage}
+            onViewAll={onViewAll}
             onPageChange={handlePageChange}
             headerBgColor={headerBgColor}
             headerTextColor={headerTextColor}
@@ -454,9 +506,13 @@ export function CommonTableListView({
                         renderTrigger={
                           <SizableText
                             size="$bodySm"
-                            textDecorationLine="underline"
-                            textDecorationStyle="dashed"
-                            textDecorationColor="$textSubdued"
+                            borderBottomWidth="$px"
+                            borderTopWidth={0}
+                            borderLeftWidth={0}
+                            borderRightWidth={0}
+                            borderBottomColor="$border"
+                            borderStyle="dashed"
+                            cursor="help"
                             color={
                               column.onPress ? '$textSuccess' : headerTextColor
                             }
@@ -485,6 +541,7 @@ export function CommonTableListView({
               })}
             </XStack>
             <ListView
+              debugRenderTrackerProps={listViewDebugRenderTrackerProps}
               style={{
                 height: 400,
               }}
@@ -568,6 +625,7 @@ export function CommonTableListView({
                 isMobile={isMobile}
                 headerBgColor={headerBgColor}
                 headerTextColor={headerTextColor}
+                onViewAll={onViewAll}
               />
             ) : null}
           </YStack>

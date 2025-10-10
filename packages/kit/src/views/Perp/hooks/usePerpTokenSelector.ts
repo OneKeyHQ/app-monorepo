@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -34,39 +35,57 @@ export interface IPerpTokenSelectorReturn {
   isLoading: boolean;
 }
 
+let lastRefreshTradingMetaTime = 0;
+
 export function usePerpTokenSelector() {
   const [searchQuery, setSearchQuery] = useState('');
   const actions = useHyperliquidActions();
 
-  const { result } = usePromiseResult(() => {
-    return backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-  }, []);
-  const allTokens = useMemo(
-    () => result?.universeItems || [],
-    [result?.universeItems],
-  );
+  const allAssetsRef = useRef<IPerpsUniverse[] | undefined>(undefined);
 
-  const filteredTokens = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return allTokens;
+  const refreshAllAssets = useCallback(async () => {
+    const { universeItems } =
+      await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+    allAssetsRef.current = universeItems || [];
+    actions.current.updateAllAssetsFiltered({
+      allAssets: allAssetsRef.current,
+      query: searchQuery,
+    });
+  }, [actions, searchQuery]);
+
+  useEffect(() => {
+    void refreshAllAssets();
+    const now = Date.now();
+    if (
+      now - lastRefreshTradingMetaTime >
+      timerUtils.getTimeDurationMs({
+        minute: 5,
+      })
+    ) {
+      lastRefreshTradingMetaTime = now;
+      void backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
     }
+    return () => {};
+  }, [actions, refreshAllAssets]);
 
-    const query = searchQuery.toLowerCase();
-    const tokens = allTokens.filter((token) =>
-      token.name?.toLowerCase().includes(query),
-    );
-    return tokens;
-  }, [allTokens, searchQuery]);
+  useEffect(() => {
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      actions.current.updateAllAssetsFiltered({
+        allAssets: [],
+        query: '',
+      });
+    };
+  }, [actions]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
   }, []);
 
   return {
-    allTokens,
     searchQuery,
-    filteredTokens,
     setSearchQuery,
     clearSearch,
+    refreshAllAssets,
   };
 }

@@ -1186,6 +1186,7 @@ const icons = {
   AvocadoSolid: () => import("./react/solid/Avocado"),
   Back10Solid: () => import("./react/solid/Back10"),
   BacktrackSolid: () => import("./react/solid/Backtrack"),
+  BadgeRecognizedSolid: () => import("./react/solid/BadgeRecognized"),
   BadgeVerifiedSolid: () => import("./react/solid/BadgeVerified"),
   BagSolid: () => import("./react/solid/Bag"),
   BagSmileSolid: () => import("./react/solid/BagSmile"),

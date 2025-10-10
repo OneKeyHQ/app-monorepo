@@ -6,6 +6,7 @@ import crypto from 'crypto';
 
 import {
   Button,
+  DebugRenderTracker,
   Icon,
   SizableText,
   Stack,
@@ -28,6 +29,7 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { ICurveName } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDemoPriceInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/demo';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   AES256_IV_LENGTH,
@@ -676,6 +678,34 @@ function SecretFunctionsTest() {
   );
 }
 
+function JotaiDemoPriceInfo() {
+  const [demoPriceInfo, setDemoPriceInfo] = useDemoPriceInfoAtom();
+
+  return (
+    <DebugRenderTracker>
+      <Stack>
+        <SizableText size="$bodyMd">
+          {JSON.stringify(demoPriceInfo, null, 2)}
+        </SizableText>
+        <Button
+          variant="primary"
+          onPress={() =>
+            setDemoPriceInfo((prev) => ({ ...prev, price: 10, info: 'info' }))
+          }
+        >
+          setDemoPriceInfo(new object)
+        </Button>
+        <Button
+          variant="primary"
+          onPress={() => setDemoPriceInfo((prev) => prev)}
+        >
+          setDemoPriceInfo(prev object)
+        </Button>
+      </Stack>
+    </DebugRenderTracker>
+  );
+}
+
 const CryptoGallery = () => (
   <Layout
     getFilePath={() => __CURRENT_FILE_PATH__}
@@ -705,6 +735,7 @@ const CryptoGallery = () => (
                 <SecretFunctionsTest />
               </CustomAccordionItem>
             </CustomAccordion>
+            <JotaiDemoPriceInfo />
           </Stack>
         ),
       },

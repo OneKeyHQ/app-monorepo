@@ -1,12 +1,59 @@
 import BigNumber from 'bignumber.js';
 
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { formatWithPrecision } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { type ITickParam } from './tickSizeUtils';
 import { ceilToTickFast, floorToTickFast } from './utils';
 
-import type { IOBLevel } from './types';
+import type {
+  IAggregatedBookResult,
+  IFormattedOBLevel,
+  IOBLevel,
+  IOrderBookVariant,
+} from './types';
+
+const MARKET_CAP_UNIT_SUFFIX = /(K|M|B|T)$/;
+
+const formatOrderBookValue = (
+  value: string,
+  variant: IOrderBookVariant,
+): string => {
+  if (!value) {
+    return '0';
+  }
+  if (variant === 'mobileVertical') {
+    const valueBN = new BigNumber(value);
+    if (valueBN.isNaN()) {
+      return value;
+    }
+    if (valueBN.isZero()) {
+      return '0';
+    }
+    if (valueBN.abs().lt(0.01)) {
+      return value;
+    }
+  }
+  const formatted = numberFormat(value, { formatter: 'marketCap' });
+  if (
+    typeof formatted === 'string' &&
+    (variant === 'mobileVertical' || MARKET_CAP_UNIT_SUFFIX.test(formatted))
+  ) {
+    return formatted;
+  }
+  return value;
+};
+
+const withDisplayFields = (
+  levels: IOBLevel[],
+  variant: IOrderBookVariant,
+): IFormattedOBLevel[] =>
+  levels.map((level) => ({
+    ...level,
+    displaySize: formatOrderBookValue(level.size, variant),
+    displayCumSize: formatOrderBookValue(level.cumSize, variant),
+  }));
 
 // Aggregates in 1 iteration using BigNumber for precision
 export function aggregateLevels(
@@ -154,13 +201,14 @@ function convertHLBookLevelsToIOBLevels(
 }
 
 export function useAggregatedBook(
+  variant: IOrderBookVariant,
   bids: IBookLevel[],
   asks: IBookLevel[],
   maxLevelsPerSide: number,
   activeTickOption: ITickParam | undefined,
   priceDecimals: number,
   sizeDecimals: number,
-) {
+): IAggregatedBookResult {
   // Convert HL.IBookLevel to IOBLevel format with dynamic decimal places
   const { levels: convertedBids, prefixMaxSizes: bidsPrefixMaxSizes } =
     convertHLBookLevelsToIOBLevels(bids, priceDecimals, sizeDecimals);
@@ -169,8 +217,8 @@ export function useAggregatedBook(
 
   if (!activeTickOption) {
     return {
-      bids: convertedBids,
-      asks: convertedAsks,
+      bids: withDisplayFields(convertedBids, variant),
+      asks: withDisplayFields(convertedAsks, variant),
       maxBidSize: '0',
       maxAskSize: '0',
     };
@@ -182,7 +230,12 @@ export function useAggregatedBook(
     activeTickOption.targetTick !== activeTickOption.apiTick;
 
   if (!needsAggregation) {
-    return sumAndSlice(
+    const {
+      bids: rawBids,
+      asks: rawAsks,
+      maxBidSize,
+      maxAskSize,
+    } = sumAndSlice(
       convertedBids,
       convertedAsks,
       maxLevelsPerSide,
@@ -190,6 +243,12 @@ export function useAggregatedBook(
       bidsPrefixMaxSizes,
       asksPrefixMaxSizes,
     );
+    return {
+      bids: withDisplayFields(rawBids, variant),
+      asks: withDisplayFields(rawAsks, variant),
+      maxBidSize,
+      maxAskSize,
+    };
   }
 
   const { aggregatedLevels: aggregatedBids, maxSize: maxBidSize } =
@@ -213,8 +272,8 @@ export function useAggregatedBook(
     );
 
   return {
-    bids: aggregatedBids,
-    asks: aggregatedAsks,
+    bids: withDisplayFields(aggregatedBids, variant),
+    asks: withDisplayFields(aggregatedAsks, variant),
     maxBidSize,
     maxAskSize,
   };

@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsAllAssetsFilteredLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePerpTokenSelector } from '../../hooks';
@@ -27,8 +28,7 @@ function MobileTokenSelectorModal({
   const intl = useIntl();
   const navigation = useAppNavigation();
   const actions = useHyperliquidActions();
-  const { searchQuery, setSearchQuery, filteredTokens } =
-    usePerpTokenSelector();
+  const { searchQuery, setSearchQuery } = usePerpTokenSelector();
 
   const handleSelectToken = async (symbol: string) => {
     try {
@@ -41,6 +41,18 @@ function MobileTokenSelectorModal({
       onLoadingChange(false);
     }
   };
+
+  const [filteredTokensLength] = usePerpsAllAssetsFilteredLengthAtom();
+
+  // cause ListView rerender
+  // const [allAssetsFiltered] = usePerpsAllAssetsFilteredAtom();
+  // console.log(allAssetsFiltered);
+
+  const mockedListData = useMemo(() => {
+    return Array.from({ length: filteredTokensLength }, (_, index) => ({
+      index,
+    }));
+  }, [filteredTokensLength]);
 
   return (
     <Page>
@@ -90,12 +102,12 @@ function MobileTokenSelectorModal({
             contentContainerStyle={{
               paddingBottom: 10,
             }}
-            data={filteredTokens.filter((token) => !token.isDelisted)} // eslint-disable-line spellcheck/spell-checker
-            renderItem={({ item: token }) => (
+            data={mockedListData} // eslint-disable-line spellcheck/spell-checker
+            renderItem={({ item: mockedToken }) => (
               <PerpTokenSelectorRow
                 isOnModal
-                token={token}
-                onPress={() => handleSelectToken(token.name)}
+                mockedToken={mockedToken}
+                onPress={(name) => handleSelectToken(name)}
               />
             )}
             ListEmptyComponent={

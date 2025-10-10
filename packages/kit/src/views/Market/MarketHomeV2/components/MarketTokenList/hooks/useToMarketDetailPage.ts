@@ -4,8 +4,10 @@ import { useNavigation } from '@react-navigation/native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { rootNavigationRef } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
   ETabMarketRoutes,
@@ -37,7 +39,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
   const tokenDetailActions = useTokenDetailActions();
 
   const toMarketDetailPage = useCallback(
-    (item: IMarketToken) => {
+    async (item: IMarketToken) => {
       const shortCode = networkUtils.getNetworkShortCode({
         networkId: item.networkId,
       });
@@ -49,8 +51,23 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         from: options?.from,
       };
 
-      // Use root navigation if specified (for universal search)
-      if (options?.useRootNavigation) {
+      // Check if in extension popup/side panel and using root navigation
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
+        // Open in expand tab (fullscreen) for extension popup/side panel
+        // Use path format to match the rewrite pattern: /market/token/:network/:tokenAddress
+        const path = `/market/token/${params.network}/${params.tokenAddress}`;
+        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          path,
+          params: {
+            isNative: params.isNative,
+            from: params.from,
+          },
+        });
+      } else if (options?.useRootNavigation) {
+        // Use root navigation for other cases (expand tab, desktop, web, mobile)
         rootNavigationRef.current?.navigate(ERootRoutes.Main, {
           screen: ETabRoutes.Market,
           params: {
@@ -59,6 +76,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           },
         });
       } else {
+        // Regular navigation within current stack
         // Always clear token detail when navigating
         tokenDetailActions.current.clearTokenDetail();
 

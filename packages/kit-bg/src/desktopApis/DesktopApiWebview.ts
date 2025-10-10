@@ -1,4 +1,4 @@
-import { session, shell } from 'electron';
+import { session } from 'electron';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 

@@ -88,7 +88,10 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async isNeedSyncAppUpdateInfo() {
+  async isNeedSyncAppUpdateInfo(forceUpdate = false) {
+    if (forceUpdate) {
+      return true;
+    }
     const { status, updateAt } = await appUpdatePersistAtom.get();
     clearTimeout(syncTimerId);
     if (
@@ -340,7 +343,7 @@ class ServiceAppUpdate extends ServiceBase {
   public async fetchAppUpdateInfo(forceUpdate = false) {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
-    if (!(await this.isNeedSyncAppUpdateInfo())) {
+    if (!(await this.isNeedSyncAppUpdateInfo(forceUpdate))) {
       return appUpdatePersistAtom.get();
     }
 
