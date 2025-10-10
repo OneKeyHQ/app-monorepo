@@ -2267,7 +2267,7 @@
   "perp.trades_history_direction": "Direction",
   "perp.trades_history_fee": "Frais",
   "perp.trades_history_price": "Prix",
-  "perp.trades_history_title": "HISTORIQUE DES TRANSACTIONS",
+  "perp.trades_history_title": "TRADES HISTORY",
   "perp.trades_history_trade_value": "Valeur de Transaction",
   "perp.trading_adjust_leverage": "Ajuster l'effet de levier",
   "perp.trading_button_no_enough_margin": "Marge insuffisante",
