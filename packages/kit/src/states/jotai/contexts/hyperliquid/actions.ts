@@ -166,8 +166,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  updateL2Book = contextAtomMethod((_, set, data: HL.IBook) => {
-    set(l2BookAtom(), data);
+  updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
+    const activeAsset = await perpsActiveAssetAtom.get();
+    if (activeAsset?.coin === data.coin) {
+      set(l2BookAtom(), data);
+    } else {
+      const currentBook = get(l2BookAtom());
+      if (currentBook?.coin && currentBook?.coin !== activeAsset?.coin) {
+        set(l2BookAtom(), null);
+      }
+    }
   });
 
   ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
