@@ -49,6 +49,10 @@ import {
 import { EActionType, withToast } from './utils';
 
 import type { ITradingFormData } from './atoms';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { Toast } from '@onekeyhq/components';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   private orderBookTickOptionsLoaded = false;
@@ -888,9 +892,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  // refreshAllPerpsData
-  refreshAllPerpsData = contextAtomMethod(async (get, set) => {
-    // TODO
+  lastRefreshAllPerpsDataTime = 0;
+
+  refreshAllPerpsData = contextAtomMethod(async (_get, _set) => {
+    const now = Date.now();
+    if (
+      now - this.lastRefreshAllPerpsDataTime <
+      timerUtils.getTimeDurationMs({ seconds: 15 })
+    ) {
+      Toast.message({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_request_limit,
+        }),
+      });
+      return;
+    }
+    this.lastRefreshAllPerpsDataTime = now;
+    await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
   });
 }
 

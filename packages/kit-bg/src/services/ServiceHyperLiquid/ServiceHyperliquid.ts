@@ -242,7 +242,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
-  private _getUserFillsByTimeMemo = cacheUtils.memoizee(
+    _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
       return infoClient.userFillsByTime({ ...params, reversed: true } as any);

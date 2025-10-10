@@ -33,6 +33,7 @@ import {
   perpsActiveOrderBookOptionsAtom,
   perpsCandlesWebviewReloadHookAtom,
   perpsNetworkStatusAtom,
+  perpsTradesHistoryRefreshHookAtom,
   perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
@@ -195,6 +196,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
     await this._updateSubscriptionsDebounced();
+  }
+
+  @backgroundMethod()
+  async refreshAllPerpsData(): Promise<void> {
+    await this.getWebSocketClient();
+    await this._cleanupAllSubscriptions();
+    await this.updateSubscriptions();
+    this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
+    await perpsTradesHistoryRefreshHookAtom.set({
+      refreshHook: Date.now(),
+    });
+    await perpsCandlesWebviewReloadHookAtom.set({
+      reloadHook: Date.now(),
+    });
+    await timerUtils.wait(3000);
   }
 
   @backgroundMethod()
