@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "Destination tag",
   "wallet.disable_energy_rental_description": "Energy rental helps lower your TRON transaction fees. It’s safe, transparent, and works automatically. Turning it off will make your fees higher.",
   "wallet.disable_energy_rental_title": "Turn off energy rental",
-  "wallet.energy_confirmations_required": "Sending a transaction with energy rental requires two confirmations on your hardware wallet. The first transaction rents energy, and the second sends your transfer. Please complete both promptly to avoid transaction expiration.",
+  "wallet.energy_confirmations_required": "Sending a transaction with energy rental requires two confirmations.",
   "wallet.energy_rental_description": "Energy rental was enabled to reduce fees due to low energy. This will change the transaction nonce. Disable it if not needed. Supports using USDT to pay gas when TRX is insufficient. The rental service is provided by a third party.",
   "wallet.energy_rental_insufficient_trx": "Insufficient TRX detected. USDT will be used to rent energy.",
   "wallet.energy_rental_low_energy_detected": "Low energy detected. Energy rental was enabled to reduce fees.",

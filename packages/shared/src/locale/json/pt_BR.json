@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "Tag de destino",
   "wallet.disable_energy_rental_description": "O aluguel de energia ajuda a reduzir suas taxas de transação TRON. É seguro, transparente e funciona automaticamente. Desativá-lo fará com que suas taxas sejam mais altas.",
   "wallet.disable_energy_rental_title": "Desativar aluguel de energia",
-  "wallet.energy_confirmations_required": "Enviar uma transação com aluguel de energia requer duas confirmações na sua carteira de hardware. A primeira transação aluga energia, e a segunda envia sua transferência. Por favor, complete ambas prontamente para evitar a expiração da transação.",
+  "wallet.energy_confirmations_required": "Enviar uma transação com aluguel de energia requer duas confirmações.",
   "wallet.energy_rental_description": "O aluguel de energia foi ativado para reduzir taxas devido à baixa energia. Isso alterará o nonce da transação. Desative-o se não for necessário. Suporta o uso de USDT para pagar o gás quando o TRX for insuficiente. O serviço de aluguel é fornecido por terceiros.",
   "wallet.energy_rental_insufficient_trx": "TRX insuficiente detectado. USDT será usado para alugar energia.",
   "wallet.energy_rental_low_energy_detected": "Energia baixa detectada. Aluguel de energia foi ativado para reduzir taxas.",
