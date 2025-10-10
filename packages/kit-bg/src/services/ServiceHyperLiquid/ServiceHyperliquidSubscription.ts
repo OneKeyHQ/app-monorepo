@@ -243,10 +243,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this.disableSubscriptionsHandler();
     await this._cleanupAllSubscriptions();
 
-    // after reloading the webview, the socket connection of tradingview will not be automatically unloaded, so temporarily commented out
-    // await perpsCandlesWebviewReloadHookAtom.set({
-    //   reloadHook: -100,
-    // });
+    await perpsCandlesWebviewReloadHookAtom.set({
+      reloadHook: -100,
+    });
   }
 
   subscriptionsHandlerDisabled = false;
@@ -394,11 +393,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
         reconnect: {
-          maxRetries: 9_999_999,
-          connectionTimeout: 10_000,
+          maxRetries: 999_999_999,
+          connectionTimeout: 5000,
           connectionDelay: (attempt) =>
             // eslint-disable-next-line no-bitwise
-            Math.min(~~(1 << attempt) * 150, 5000),
+            Math.min(~~(1 << attempt) * 150, 8000),
           shouldReconnect: () => true,
         },
       };
