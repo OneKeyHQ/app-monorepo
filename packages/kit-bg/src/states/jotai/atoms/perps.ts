@@ -347,7 +347,10 @@ export const {
 export const {
   target: perpsWebSocketDataUpdateTimesAtom,
   use: usePerpsWebSocketDataUpdateTimesAtom,
-} = globalAtom<{ wsUpdateTimes: number }>({
+} = globalAtom<{
+  wsDataReceiveTimes: number;
+  wsDataUpdateTimes: number;
+}>({
   name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
-  initialValue: { wsUpdateTimes: 0 },
+  initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });

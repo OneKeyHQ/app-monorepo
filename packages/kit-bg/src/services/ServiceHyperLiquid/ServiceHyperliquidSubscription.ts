@@ -696,14 +696,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     event: CustomEvent,
   ): Promise<void> {
     try {
+      const devSettings = await devSettingsPersistAtom.get();
+
+      if (devSettings.enabled) {
+        void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
+          ...prev,
+          wsDataReceiveTimes: prev.wsDataReceiveTimes + 1,
+        }));
+      }
+
       if (this.subscriptionsHandlerDisabled) {
         return;
       }
 
-      const devSettings = await devSettingsPersistAtom.get();
       if (devSettings.enabled) {
         void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
-          wsUpdateTimes: prev.wsUpdateTimes + 1,
+          ...prev,
+          wsDataUpdateTimes: prev.wsDataUpdateTimes + 1,
         }));
       }
 

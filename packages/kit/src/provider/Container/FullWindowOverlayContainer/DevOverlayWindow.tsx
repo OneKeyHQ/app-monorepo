@@ -34,11 +34,14 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 function PerpsWebSocketUpdate() {
-  const [{ wsUpdateTimes }] = usePerpsWebSocketDataUpdateTimesAtom();
+  const [{ wsDataReceiveTimes, wsDataUpdateTimes }] =
+    usePerpsWebSocketDataUpdateTimesAtom();
   return (
     <XStack gap="$2" alignItems="center">
-      <SizableText>Perps WSS Update:</SizableText>
-      <SizableText>{wsUpdateTimes}</SizableText>
+      <SizableText>PerpWS 接收:</SizableText>
+      <SizableText>{wsDataReceiveTimes}</SizableText>
+      <SizableText>PerpWS 刷新:</SizableText>
+      <SizableText>{wsDataUpdateTimes}</SizableText>
     </XStack>
   );
 }
