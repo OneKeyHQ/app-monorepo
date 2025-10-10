@@ -343,3 +343,11 @@ export const {
   name: EAtomNames.perpsCandlesWebviewReloadHookAtom,
   initialValue: { reloadHook: 100 },
 });
+
+export const {
+  target: perpsWebSocketDataUpdateTimesAtom,
+  use: usePerpsWebSocketDataUpdateTimesAtom,
+} = globalAtom<{ wsUpdateTimes: number }>({
+  name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
+  initialValue: { wsUpdateTimes: 0 },
+});

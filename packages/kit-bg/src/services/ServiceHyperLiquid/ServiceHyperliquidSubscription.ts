@@ -27,6 +27,7 @@ import type {
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsActiveAccountAtom,
   perpsActiveAssetAtom,
@@ -34,6 +35,7 @@ import {
   perpsCandlesWebviewReloadHookAtom,
   perpsNetworkStatusAtom,
   perpsTradesHistoryRefreshHookAtom,
+  perpsWebSocketDataUpdateTimesAtom,
   perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
@@ -447,7 +449,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const registerSubscriptionHandler = (type: ESubscriptionType) => {
         if (!this.subscriptionHandlerByType[type]) {
           const handleData = (data: unknown) => {
-            this._handleSubscriptionData(type, data as CustomEvent);
+            void this._handleSubscriptionData(type, data as CustomEvent);
           };
           this.subscriptionHandlerByType[type] = handleData;
         }
@@ -689,13 +691,20 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     Record<ESubscriptionType, (data: unknown) => void>
   > = {};
 
-  private _handleSubscriptionData(
+  private async _handleSubscriptionData(
     subscriptionType: ESubscriptionType,
     event: CustomEvent,
-  ): void {
+  ): Promise<void> {
     try {
       if (this.subscriptionsHandlerDisabled) {
         return;
+      }
+
+      const devSettings = await devSettingsPersistAtom.get();
+      if (devSettings.enabled) {
+        void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
+          wsUpdateTimes: prev.wsUpdateTimes + 1,
+        }));
       }
 
       const data = event?.detail as unknown;

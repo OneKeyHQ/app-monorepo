@@ -20,6 +20,7 @@ import {
 import {
   useDevSettingsPersistAtom,
   usePasswordPersistAtom,
+  usePerpsWebSocketDataUpdateTimesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -31,6 +32,16 @@ import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+
+function PerpsWebSocketUpdate() {
+  const [{ wsUpdateTimes }] = usePerpsWebSocketDataUpdateTimesAtom();
+  return (
+    <XStack gap="$2" alignItems="center">
+      <SizableText>Perps WSS Update:</SizableText>
+      <SizableText>{wsUpdateTimes}</SizableText>
+    </XStack>
+  );
+}
 
 function DevOverlayWindow() {
   const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
@@ -269,6 +280,8 @@ function DevOverlayWindow() {
               />
             </XStack>
           </YStack>
+
+          <PerpsWebSocketUpdate />
         </YStack>
       ),
     });
