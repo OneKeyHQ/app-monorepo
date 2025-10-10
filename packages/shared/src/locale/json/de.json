@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "Ziel-Tag",
   "wallet.disable_energy_rental_description": "Die Energieleihe hilft dabei, deine TRON-Transaktionsgebühren zu senken. Sie ist sicher, transparent und funktioniert automatisch. Wenn du sie ausschaltest, werden deine Gebühren höher.",
   "wallet.disable_energy_rental_title": "Energie-Miete ausschalten",
-  "wallet.energy_confirmations_required": "Das Senden einer Transaktion mit Energieleihe erfordert zwei Bestätigungen auf Ihrer Hardware-Wallet. Die erste Transaktion leiht Energie, und die zweite sendet Ihre Überweisung. Bitte schließen Sie beide Vorgänge zügig ab, um ein Ablaufen der Transaktion zu vermeiden.",
+  "wallet.energy_confirmations_required": "Das Senden einer Transaktion mit Energy-Miete erfordert zwei Bestätigungen.",
   "wallet.energy_rental_description": "Die Energieleihe wurde aktiviert, um die Gebühren bei geringer Energie zu senken. Dadurch ändert sich die Transaktions-Nonce. Deaktivieren Sie diese Option, wenn sie nicht benötigt wird. Unterstützt die Zahlung von gas mit USDT, wenn TRX nicht ausreicht. Der Mietservice wird von einem Drittanbieter bereitgestellt.",
   "wallet.energy_rental_insufficient_trx": "Unzureichende TRX erkannt. USDT wird verwendet, um Energie zu mieten.",
   "wallet.energy_rental_low_energy_detected": "Niedriger Energiepegel erkannt. Die Energieleihe wurde aktiviert, um Gebühren zu senken.",
