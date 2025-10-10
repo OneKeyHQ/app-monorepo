@@ -3482,7 +3482,7 @@
   "wallet.destination_tag": "Étiquette de destination",
   "wallet.disable_energy_rental_description": "La location d'énergie aide à réduire vos frais de transaction TRON. C'est sûr, transparent et fonctionne automatiquement. La désactiver augmentera vos frais.",
   "wallet.disable_energy_rental_title": "Désactiver la location d'énergie",
-  "wallet.energy_confirmations_required": "L'envoi d'une transaction avec location d'énergie nécessite deux confirmations sur votre portefeuille matériel. La première transaction loue de l'énergie, et la seconde envoie votre transfert. Veuillez compléter les deux rapidement pour éviter l'expiration de la transaction.",
+  "wallet.energy_confirmations_required": "L'envoi d'une transaction avec location d'énergie nécessite deux confirmations.",
   "wallet.energy_rental_description": "La location d'énergie a été activée pour réduire les frais en raison d'une faible énergie. Cela modifiera le nonce de la transaction. Désactivez-la si elle n'est pas nécessaire. Permet d'utiliser l'USDT pour payer le gas lorsque le TRX est insuffisant. Le service de location est fourni par un tiers.",
   "wallet.energy_rental_insufficient_trx": "TRX insuffisant détecté. USDT sera utilisé pour louer de l'énergie.",
   "wallet.energy_rental_low_energy_detected": "Faible niveau d'énergie détecté. La location d'énergie a été activée pour réduire les frais.",
