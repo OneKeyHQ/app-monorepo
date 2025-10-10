@@ -294,17 +294,6 @@ export const {
 
 // #endregion
 
-// TODO remove
-export type IPerpsCurrentMid = {
-  coin: string;
-  mid: string | undefined;
-};
-export const { target: perpsCurrentMidAtom, use: usePerpsCurrentMidAtom } =
-  globalAtom<IPerpsCurrentMid | undefined>({
-    name: EAtomNames.perpsCurrentMidAtom,
-    initialValue: undefined,
-  });
-
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;

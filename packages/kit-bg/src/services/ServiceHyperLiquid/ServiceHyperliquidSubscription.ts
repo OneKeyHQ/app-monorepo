@@ -708,9 +708,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
-        // TODO remove
-        hyperLiquidCache.allMids = data as IWsAllMids;
-        void this.backgroundApi.serviceHyperliquid.refreshCurrentMid();
+        // do nothing
       }
       if (subscriptionType === ESubscriptionType.WEB_DATA2) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAccountSummary(
