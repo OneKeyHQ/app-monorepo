@@ -392,19 +392,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       };
       const transport = new WebSocketTransport(transportOptions);
       // transport.socket.readyState
-      transport.socket.removeEventListener('close', this.socketCloseHandler);
+      const removeAllSocketEventListeners = () => {
+        transport?.socket?.removeEventListener(
+          'close',
+          this.socketCloseHandler,
+        );
+        transport?.socket?.removeEventListener(
+          'error',
+          this.socketErrorHandler,
+        );
+        transport?.socket?.removeEventListener('open', this.socketOpenHandler);
+        transport?.socket?.removeEventListener(
+          'message',
+          this.socketMessageHandler,
+        );
+      };
+      removeAllSocketEventListeners();
       transport.socket.addEventListener('close', this.socketCloseHandler);
-
-      transport.socket.removeEventListener('error', this.socketErrorHandler);
       transport.socket.addEventListener('error', this.socketErrorHandler);
-
-      transport.socket.removeEventListener('open', this.socketOpenHandler);
       transport.socket.addEventListener('open', this.socketOpenHandler);
-
-      transport.socket.removeEventListener(
-        'message',
-        this.socketMessageHandler,
-      );
       // transport.socket.addEventListener('message', this.socketMessageHandler);
 
       const innerClient = new SubscriptionClient({ transport });
@@ -427,12 +433,28 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this.subscriptionHandlerByType[type],
         );
       };
-      registerSubscriptionHandler(ESubscriptionType.ACTIVE_ASSET_CTX);
-      registerSubscriptionHandler(ESubscriptionType.ACTIVE_ASSET_DATA);
-      registerSubscriptionHandler(ESubscriptionType.ALL_MIDS);
-      registerSubscriptionHandler(ESubscriptionType.L2_BOOK);
-      registerSubscriptionHandler(ESubscriptionType.USER_FILLS);
-      registerSubscriptionHandler(ESubscriptionType.WEB_DATA2);
+      const allTypes = [
+        ESubscriptionType.ACTIVE_ASSET_CTX,
+        ESubscriptionType.ACTIVE_ASSET_DATA,
+        ESubscriptionType.ALL_MIDS,
+        ESubscriptionType.L2_BOOK,
+        ESubscriptionType.USER_FILLS,
+        ESubscriptionType.WEB_DATA2,
+      ];
+      const removeAllSubscriptionHandlers = () => {
+        allTypes.forEach((type) => {
+          if (this.subscriptionHandlerByType[type]) {
+            hlEventTarget.removeEventListener(
+              type,
+              this.subscriptionHandlerByType[type],
+            );
+          }
+        });
+      };
+      removeAllSubscriptionHandlers();
+      allTypes.forEach((type) => {
+        registerSubscriptionHandler(type);
+      });
 
       // @ts-ignore
       const wsRequester = innerClient.transport._wsRequester as {
@@ -470,7 +492,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         wsRequester,
         subscribe,
         unsubscribe,
-        async dispose() {
+        dispose: async () => {
+          try {
+            removeAllSocketEventListeners();
+          } catch (error) {
+            console.error(
+              'dispose__removeAllSocketEventListeners__error',
+              error,
+            );
+          }
+          try {
+            removeAllSubscriptionHandlers();
+          } catch (error) {
+            console.error(
+              'dispose__removeAllSubscriptionHandlers__error',
+              error,
+            );
+          }
           await innerClient[Symbol.asyncDispose]();
         },
       };
