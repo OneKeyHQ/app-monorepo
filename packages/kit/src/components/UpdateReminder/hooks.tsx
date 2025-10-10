@@ -372,7 +372,7 @@ export const useDownloadPackage = () => {
         latestVersion,
         bundleVersion: jsBundleVersion,
         downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
-        fileSize: isJsBundle ? jsBundle?.fileSize : undefined,
+        fileSize: isJsBundle ? jsBundle?.fileSize : params.fileSize ?? 0,
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
         headers,
       };
