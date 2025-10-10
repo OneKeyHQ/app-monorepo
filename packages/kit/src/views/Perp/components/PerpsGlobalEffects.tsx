@@ -121,8 +121,8 @@ function useHyperliquidEventBusListener() {
             void actions.current.updateL2Book(data as IBook);
             break;
 
-          case ESubscriptionType.BBO:
-            break;
+          // case ESubscriptionType.BBO:
+          //   break;
 
           default:
         }

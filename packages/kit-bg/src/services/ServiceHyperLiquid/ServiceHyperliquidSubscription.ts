@@ -461,12 +461,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         );
       };
       const allTypes = [
-        ESubscriptionType.ACTIVE_ASSET_CTX,
-        ESubscriptionType.ACTIVE_ASSET_DATA,
         ESubscriptionType.ALL_MIDS,
         ESubscriptionType.L2_BOOK,
-        ESubscriptionType.USER_FILLS,
+        ESubscriptionType.ACTIVE_ASSET_CTX,
+        ESubscriptionType.ACTIVE_ASSET_DATA,
         ESubscriptionType.WEB_DATA2,
+        ESubscriptionType.USER_FILLS,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {
