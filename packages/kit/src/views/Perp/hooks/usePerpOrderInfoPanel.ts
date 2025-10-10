@@ -32,6 +32,9 @@ export function usePerpTradesHistory() {
   );
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const newTradesHistoryRef = useRef<INewTradesHistory[]>([]);
+  if (newTradesHistoryRef.current !== newTradesHistory) {
+    newTradesHistoryRef.current = newTradesHistory;
+  }
   useEffect(() => {
     if (
       !currentAccount?.accountAddress ||
@@ -118,11 +121,11 @@ export function usePerpTradesHistory() {
   const mergeTradesHistory = useMemo(() => {
     let mergedTrades = result;
     if (newTradesHistory.length > 0) {
-      const existingOrderIds = new Set(result.map((trade) => trade.oid));
+      const existingTIds = new Set(result.map((trade) => trade.tid));
       const newUniqueTrades = newTradesHistory
         .filter(
           (trade) =>
-            !existingOrderIds.has(trade.fill.oid) &&
+            !existingTIds.has(trade.fill.tid) &&
             trade.userId === currentAccount?.accountAddress,
         )
         .map((trade) => trade.fill);
