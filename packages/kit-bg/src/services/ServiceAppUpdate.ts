@@ -16,6 +16,7 @@ import {
   BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -330,13 +331,28 @@ class ServiceAppUpdate extends ServiceBase {
     await this.reset();
   }
 
+  fetchAppChangeLog = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        data: {
+          changeLog: string;
+        };
+      }>('/utility/v1/app-update/version-info');
+      const { code, data } = response.data;
+      return code === 0 ? data?.changeLog : undefined;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   public async fetchChangeLog() {
-    const response = await this.getAppLatestInfo();
-    return {
-      changeLog: response?.changeLog,
-      summary: response?.summary,
-    };
+    const changeLog = await this.fetchAppChangeLog();
+    return changeLog;
   }
 
   @backgroundMethod()
