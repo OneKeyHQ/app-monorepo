@@ -13,6 +13,7 @@ import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowser
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 import { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
@@ -49,7 +50,6 @@ import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetw
 import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
-import { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();

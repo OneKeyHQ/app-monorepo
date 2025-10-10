@@ -25,7 +25,9 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -90,8 +92,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
