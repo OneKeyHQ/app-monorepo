@@ -337,12 +337,7 @@ class ServiceAppUpdate extends ServiceBase {
       const response = await client.get<{
         code: number;
         data: string;
-      }>('/utility/v1/app-update/version-info', {
-        params: {
-          version: platformEnv.version,
-          jsBundleVersion: platformEnv.bundleVersion,
-        },
-      });
+      }>('/utility/v1/app-update/version-info');
       const { code, data } = response.data;
       return code === 0 ? data : undefined;
     },
