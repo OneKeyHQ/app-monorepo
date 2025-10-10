@@ -336,7 +336,9 @@ class ServiceAppUpdate extends ServiceBase {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<{
         code: number;
-        data: string;
+        data: {
+          changeLog: string;
+        };
       }>('/utility/v1/app-update/version-info');
       const { code, data } = response.data;
       return code === 0 ? data : undefined;

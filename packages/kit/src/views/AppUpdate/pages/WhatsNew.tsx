@@ -13,8 +13,7 @@ import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 function WhatsNew() {
   const intl = useIntl();
-  const { version = '' } = platformEnv;
-  const changeLog = useAppChangeLog(version);
+  const changeLog = useAppChangeLog();
   const navigation = useAppNavigation();
   const handleClose = useCallback(() => {
     setTimeout(() => {
