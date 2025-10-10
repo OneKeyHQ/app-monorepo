@@ -31,6 +31,7 @@ import {
   perpsActiveAccountAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
+  perpsCandlesWebviewReloadHookAtom,
   perpsNetworkStatusAtom,
   perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
@@ -229,12 +230,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
     await this.updateSubscriptions();
+    const hookInfo = await perpsCandlesWebviewReloadHookAtom.get();
+    if (hookInfo.reloadHook <= -1) {
+      await perpsCandlesWebviewReloadHookAtom.set({
+        reloadHook: Date.now(),
+      });
+    }
   }
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
     await this.disableSubscriptionsHandler();
     await this._cleanupAllSubscriptions();
+
+    // after reloading the webview, the socket connection of tradingview will not be automatically unloaded, so temporarily commented out
+    // await perpsCandlesWebviewReloadHookAtom.set({
+    //   reloadHook: -100,
+    // });
   }
 
   subscriptionsHandlerDisabled = false;
@@ -771,53 +783,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         connected: false,
       }),
     );
-  }
-
-  private _parseKeyToParams(key: string, type: ESubscriptionType): any {
-    const parts = key.split(':');
-
-    switch (type) {
-      case ESubscriptionType.ALL_MIDS:
-        return {};
-      case ESubscriptionType.ACTIVE_ASSET_CTX:
-      case ESubscriptionType.TRADES:
-      case ESubscriptionType.BBO:
-        return { coin: parts[2] };
-      case ESubscriptionType.L2_BOOK: {
-        const params: any = { coin: parts[2] };
-        // Parse additional L2Book parameters from key
-        for (let i = 3; i < parts.length; i += 1) {
-          const part = parts[i];
-          if (part.startsWith('nSigFigs-')) {
-            const valueStr = part.substring(9);
-            if (valueStr === 'null') {
-              params.nSigFigs = null;
-            } else {
-              const value = parseInt(valueStr, 10);
-              params.nSigFigs = Number.isNaN(value) ? null : value;
-            }
-          } else if (part.startsWith('mantissa-')) {
-            const valueStr = part.substring(9);
-            if (valueStr === 'null') {
-              params.mantissa = null;
-            } else {
-              const value = parseInt(valueStr, 10);
-              params.mantissa = Number.isNaN(value) ? null : value;
-            }
-          }
-        }
-        return params;
-      }
-      case ESubscriptionType.WEB_DATA2:
-      case ESubscriptionType.USER_FILLS:
-      case ESubscriptionType.USER_EVENTS:
-      case ESubscriptionType.USER_NOTIFICATIONS:
-        return { user: parts[2] };
-      case ESubscriptionType.ACTIVE_ASSET_DATA:
-        return { user: parts[2], coin: parts[3] };
-      default:
-        return {};
-    }
   }
 
   private _emitConnectionStatus(): void {

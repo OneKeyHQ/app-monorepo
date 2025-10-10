@@ -346,3 +346,11 @@ export const {
   name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
   initialValue: { refreshHook: 0 },
 });
+
+export const {
+  target: perpsCandlesWebviewReloadHookAtom,
+  use: usePerpsCandlesWebviewReloadHookAtom,
+} = globalAtom<{ reloadHook: number }>({
+  name: EAtomNames.perpsCandlesWebviewReloadHookAtom,
+  initialValue: { reloadHook: 100 },
+});

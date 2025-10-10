@@ -73,6 +73,7 @@ export enum EAtomNames {
   perpsNetworkStatusAtom = 'perpsNetworkStatusAtom',
   perpsWebSocketReadyStateAtom = 'perpsWebSocketReadyStateAtom',
   perpsTradesHistoryRefreshHookAtom = 'perpsTradesHistoryRefreshHookAtom',
+  perpsCandlesWebviewReloadHookAtom = 'perpsCandlesWebviewReloadHookAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

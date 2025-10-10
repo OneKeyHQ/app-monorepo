@@ -15,6 +15,7 @@ import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/stat
 import {
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
+  perpsCandlesWebviewReloadHookAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
