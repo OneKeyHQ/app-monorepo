@@ -1640,7 +1640,6 @@ class ServiceStaking extends ServiceBase {
       }>('/earn/v1/block-region');
       return response.data.data;
     } catch (error) {
-      console.error('getBlockRegion error:', error);
       return {
         isBlockedRegion: false,
         countryCode: '',
