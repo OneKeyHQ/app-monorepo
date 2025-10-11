@@ -68,7 +68,7 @@ const downloadPackage: IDownloadPackage = async ({
       await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
         false,
         headers,
-        latestVersion,
+        latestVersion || '',
       );
     if (!updateInfo) {
       return null;
