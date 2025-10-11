@@ -257,7 +257,9 @@ export const {
   name: EAtomNames.perpsCommonConfigPersistAtom,
   persist: true,
   initialValue: {
-    perpConfigCommon: {},
+    perpConfigCommon: {
+      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+    },
   },
 });
 export interface IPerpsUserConfigPersistAtom {
@@ -335,4 +337,12 @@ export const {
     const readyState = get(perpsWebSocketReadyStateAtom.atom());
     return readyState?.readyState === WebSocket.OPEN;
   },
+});
+
+export const {
+  target: perpsTradesHistoryRefreshHookAtom,
+  use: usePerpsTradesHistoryRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
 });

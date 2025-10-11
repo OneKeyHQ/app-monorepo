@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   monospaceText: {
-    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'SFMono-Regular',
+    fontFamily: platformEnv.isNative ? 'GeistMono-Regular' : 'monospace',
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '500',
@@ -179,6 +179,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   verticalHeaderPrice: {
+    paddingLeft: 8,
     width: '33%',
     alignItems: 'flex-start',
   },
@@ -187,6 +188,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   verticalHeaderTotal: {
+    paddingRight: 8,
     width: '37%',
     alignItems: 'flex-end',
   },
@@ -196,6 +198,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   verticalRowContainer: {
+    paddingHorizontal: 7,
     flex: 1,
     width: '100%',
     flexDirection: 'row',
@@ -692,7 +695,7 @@ export function OrderBook({
     );
   }
   return (
-    <View style={{ padding: 8 }}>
+    <View style={{ padding: 1 }}>
       <DebugRenderTracker
         name="OrderBookVerticalHeader"
         position="right-center"

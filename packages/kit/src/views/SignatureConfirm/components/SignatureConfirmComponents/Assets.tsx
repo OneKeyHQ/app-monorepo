@@ -93,7 +93,7 @@ function SignatureAssetDetailItem({
   nativeTokenTransferAmountToUpdate,
   isSendNativeTokenOnly,
   inSimulation,
-  isSmallSize,
+  // isSmallSize,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -121,6 +121,8 @@ function SignatureAssetDetailItem({
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
   });
+
+  const isSmallSize = false;
 
   const renderDetails = useCallback(() => {
     if (isLoading) {
@@ -233,6 +235,13 @@ function SignatureAssetDetailItem({
     name,
   ]);
 
+  const tokenSize = useMemo(() => {
+    if (inSimulation) {
+      return 'md';
+    }
+    return isSmallSize ? 'sm' : 'lg';
+  }, [inSimulation, isSmallSize]);
+
   return (
     <SignatureConfirmItem {...rest}>
       {!hideLabel ? (
@@ -240,7 +249,7 @@ function SignatureAssetDetailItem({
       ) : null}
       <XStack gap="$3" alignItems="center">
         <Token
-          size={isSmallSize ? 'sm' : 'lg'}
+          size={tokenSize}
           showNetworkIcon={showNetwork}
           {...(type === 'nft' && {
             borderRadius: '$2',

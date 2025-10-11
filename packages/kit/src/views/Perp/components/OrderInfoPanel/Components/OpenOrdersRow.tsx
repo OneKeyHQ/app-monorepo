@@ -261,7 +261,11 @@ const OpenOrdersRow = memo(
               })}
             </SizableText>
             <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-              {`${orderBaseInfo.priceFormatted}`}
+              {order.orderType.includes('Market')
+                ? intl.formatMessage({
+                    id: ETranslations.perp_position_market,
+                  })
+                : orderBaseInfo.executePriceLimitFormatted}
             </SizableText>
           </XStack>
           <XStack

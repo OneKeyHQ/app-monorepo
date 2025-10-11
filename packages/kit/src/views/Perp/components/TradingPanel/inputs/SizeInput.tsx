@@ -56,7 +56,7 @@ export const SizeInput = memo(
     onRequestManualMode,
     error,
     disabled = false,
-    side,
+    side: _side,
     label,
     isMobile = false,
   }: ISizeInputProps) => {
@@ -71,15 +71,8 @@ export const SizeInput = memo(
 
     const prevValueRef = useRef(value);
     const prevPriceRef = useRef(referencePrice);
-    const isPriceChangingRef = useRef(false);
 
     const isSliderMode = sizeInputMode === 'slider';
-
-    const sliderDisplay = useMemo(() => {
-      if (!isSliderMode) return '';
-      if (!Number.isFinite(sliderPercent)) return '0%';
-      return `${new BigNumber(sliderPercent || 0).toFixed()}%`;
-    }, [isSliderMode, sliderPercent]);
 
     const priceBN = useMemo(
       () => new BigNumber(referencePrice),
@@ -90,6 +83,35 @@ export const SizeInput = memo(
       [priceBN],
     );
 
+    // Helper: Calculate USD from Token
+    const calcUsdFromToken = useCallback(
+      (tokenValue: string) => {
+        if (!hasValidPrice) return '';
+        const tokenBN = new BigNumber(tokenValue);
+        if (!tokenBN.isFinite()) return '';
+        return formatWithPrecision(tokenBN.multipliedBy(priceBN), 2, true);
+      },
+      [hasValidPrice, priceBN],
+    );
+
+    // Helper: Calculate Token from USD
+    const calcTokenFromUsd = useCallback(
+      (usdValue: string) => {
+        if (!hasValidPrice) return '';
+        const usdBN = new BigNumber(usdValue);
+        if (!usdBN.isFinite()) return '';
+        return formatWithPrecision(usdBN.dividedBy(priceBN), szDecimals, true);
+      },
+      [hasValidPrice, priceBN, szDecimals],
+    );
+
+    const sliderDisplay = useMemo(() => {
+      if (!isSliderMode) return '';
+      if (!Number.isFinite(sliderPercent)) return '0%';
+      return `${new BigNumber(sliderPercent || 0).toFixed()}%`;
+    }, [isSliderMode, sliderPercent]);
+
+    // Effect: Slider mode reset
     useEffect(() => {
       if (isSliderMode) {
         setTokenAmount('');
@@ -99,88 +121,121 @@ export const SizeInput = memo(
       }
     }, [isSliderMode]);
 
+    // Effect: Sync external value changes + Token→USD calculation
     useEffect(() => {
-      if (value !== prevValueRef.current) {
-        setTokenAmount(value);
-        prevValueRef.current = value;
+      const valueChanged = value !== prevValueRef.current;
+      if (!valueChanged) return;
 
-        if (!value) {
-          setUsdAmount('');
-          setIsUserTyping(false);
-        } else if (hasValidPrice && !isUserTyping) {
-          const valueBN = new BigNumber(value);
-          if (valueBN.isFinite()) {
-            const usdValue = formatWithPrecision(
-              valueBN.multipliedBy(priceBN),
-              2,
-              true,
-            );
-            setUsdAmount(usdValue);
+      setTokenAmount(value);
+      prevValueRef.current = value;
+
+      if (!value) {
+        setUsdAmount('');
+        setIsUserTyping(false);
+        return;
+      }
+
+      // Only update USD in token mode when not actively typing
+      if (inputMode === 'token' && !isUserTyping) {
+        const usdValue = calcUsdFromToken(value);
+        if (usdValue) setUsdAmount(usdValue);
+      }
+    }, [value, inputMode, isUserTyping, calcUsdFromToken]);
+
+    // Effect: Price change handling + USD→Token recalculation
+    useEffect(() => {
+      if (isSliderMode) return;
+
+      const priceChanged = prevPriceRef.current !== referencePrice;
+      if (priceChanged) {
+        prevPriceRef.current = referencePrice;
+
+        if (inputMode === 'token' && tokenAmount) {
+          const usdValue = calcUsdFromToken(tokenAmount);
+          if (usdValue) setUsdAmount(usdValue);
+        } else if (inputMode === 'usd' && usdAmount) {
+          const newTokenValue = calcTokenFromUsd(usdAmount);
+          if (newTokenValue) {
+            setTokenAmount(newTokenValue);
+            onChange(newTokenValue);
           }
         }
-      }
-    }, [value, hasValidPrice, priceBN, isUserTyping]);
-
-    useEffect(() => {
-      if (isSliderMode) return;
-      if (inputMode === 'token' && hasValidPrice && tokenAmount) {
-        const tokenBN = new BigNumber(tokenAmount);
-        if (tokenBN.isFinite()) {
-          const usdValue = formatWithPrecision(
-            tokenBN.multipliedBy(priceBN),
-            2,
-            true,
-          );
-          setUsdAmount(usdValue);
-        }
-      }
-    }, [inputMode, tokenAmount, hasValidPrice, priceBN, isSliderMode]);
-
-    useEffect(() => {
-      if (isSliderMode) return;
-
-      if (prevPriceRef.current !== referencePrice) {
-        prevPriceRef.current = referencePrice;
-        isPriceChangingRef.current = true;
-        if (inputMode === 'usd' && hasValidPrice && tokenAmount) {
-          const usdValue = formatWithPrecision(
-            new BigNumber(tokenAmount).multipliedBy(priceBN),
-            2,
-            true,
-          );
-          setUsdAmount(usdValue);
-        }
         return;
       }
 
-      if (isPriceChangingRef.current) {
-        isPriceChangingRef.current = false;
-        return;
-      }
-
-      if (inputMode === 'usd' && hasValidPrice && usdAmount && !isUserTyping) {
-        const newTokenValue = formatWithPrecision(
-          new BigNumber(usdAmount).dividedBy(priceBN),
-          szDecimals,
-          true,
-        );
-        if (newTokenValue !== tokenAmount) {
+      if (inputMode === 'usd' && usdAmount && !isUserTyping) {
+        const newTokenValue = calcTokenFromUsd(usdAmount);
+        if (newTokenValue && newTokenValue !== tokenAmount) {
           setTokenAmount(newTokenValue);
           onChange(newTokenValue);
         }
       }
     }, [
-      inputMode,
-      usdAmount,
-      hasValidPrice,
-      szDecimals,
-      onChange,
-      isUserTyping,
-      priceBN,
       isSliderMode,
+      inputMode,
       referencePrice,
       tokenAmount,
+      usdAmount,
+      isUserTyping,
+      calcUsdFromToken,
+      calcTokenFromUsd,
+      onChange,
     ]);
+
+    // Effect: User typing debounce
+    useEffect(() => {
+      if (!isUserTyping) return;
+      const timer = setTimeout(() => setIsUserTyping(false), 500);
+      return () => clearTimeout(timer);
+    }, [isUserTyping]);
+
+    const handleInputChange = useCallback(
+      (newValue: string) => {
+        if (isSliderMode) {
+          setTokenAmount('');
+          onChange('');
+          return;
+        }
+
+        setIsUserTyping(true);
+        onRequestManualMode?.();
+
+        if (inputMode === 'token') {
+          setTokenAmount(newValue);
+          onChange(newValue);
+        } else {
+          setUsdAmount(newValue);
+          const tokenValue = calcTokenFromUsd(newValue);
+          setTokenAmount(tokenValue);
+          onChange(tokenValue);
+        }
+      },
+      [
+        isSliderMode,
+        inputMode,
+        onChange,
+        calcTokenFromUsd,
+        onRequestManualMode,
+      ],
+    );
+
+    const handleModeChange = useCallback(
+      (newMode: string) => {
+        const mode = newMode as 'token' | 'usd';
+        if (mode === inputMode) return;
+
+        onRequestManualMode?.();
+        setInputMode(mode);
+        setIsUserTyping(false);
+
+        // Switching to USD mode: calculate USD from current token
+        if (mode === 'usd' && tokenAmount) {
+          const usdValue = calcUsdFromToken(tokenAmount);
+          if (usdValue) setUsdAmount(usdValue);
+        }
+      },
+      [inputMode, tokenAmount, calcUsdFromToken, onRequestManualMode],
+    );
 
     const validator = useCallback(
       (text: string) => {
@@ -189,11 +244,10 @@ export const SizeInput = memo(
           return false;
         }
 
+        // USD mode: limit integer part to 12 digits
         if (inputMode === 'usd' && text) {
           const [integerPart] = text.split('.');
-          if (integerPart && integerPart.length > 12) {
-            return false;
-          }
+          if (integerPart && integerPart.length > 12) return false;
         }
 
         return true;
@@ -208,103 +262,18 @@ export const SizeInput = memo(
       });
     }, [label, intl]);
 
-    useEffect(() => {
-      if (isUserTyping) {
-        const timer = setTimeout(() => {
-          setIsUserTyping(false);
-        }, 500);
-        return () => clearTimeout(timer);
-      }
-    }, [isUserTyping]);
-
-    const handleInputChange = useCallback(
-      (newValue: string) => {
-        if (isSliderMode) {
-          setTokenAmount('');
-          onChange('');
-          return;
-        }
-        setIsUserTyping(true);
-
-        onRequestManualMode?.();
-
-        if (inputMode === 'token') {
-          setTokenAmount(newValue);
-          onChange(newValue);
-        } else {
-          setUsdAmount(newValue);
-
-          if (hasValidPrice && newValue) {
-            const usdBN = new BigNumber(newValue);
-            if (usdBN.isFinite()) {
-              const tokenValue = formatWithPrecision(
-                usdBN.dividedBy(priceBN),
-                szDecimals,
-                true,
-              );
-              setTokenAmount(tokenValue);
-              onChange(tokenValue);
-            }
-          } else {
-            setTokenAmount('');
-            onChange('');
-          }
-        }
-      },
-      [
-        isSliderMode,
-        onRequestManualMode,
-        inputMode,
-        onChange,
-        hasValidPrice,
-        priceBN,
-        szDecimals,
-      ],
-    );
-
-    const selectItems = useMemo((): ISelectItem[] => {
-      const tokenName = symbol || '';
-      return [
-        { label: tokenName, value: 'token' },
+    const selectItems = useMemo(
+      (): ISelectItem[] => [
+        { label: symbol || '', value: 'token' },
         { label: 'USD', value: 'usd' },
-      ];
-    }, [symbol]);
+      ],
+      [symbol],
+    );
 
     const selectWidth = useMemo(() => {
       const tokenName = symbol || '';
       return tokenName.length > 5 ? 140 : 100;
     }, [symbol]);
-
-    const handleModeChange = useCallback(
-      (newMode: string) => {
-        const mode = newMode as 'token' | 'usd';
-        if (mode === inputMode) return;
-
-        onRequestManualMode?.();
-        setInputMode(mode);
-        setIsUserTyping(false);
-
-        if (mode === 'usd' && hasValidPrice && tokenAmount) {
-          const tokenBN = new BigNumber(tokenAmount);
-          if (tokenBN.isFinite()) {
-            const usdValue = formatWithPrecision(
-              tokenBN.multipliedBy(priceBN),
-              2,
-              true,
-            );
-            setUsdAmount(usdValue);
-          }
-        }
-      },
-      [
-        inputMode,
-        hasValidPrice,
-        tokenAmount,
-        priceBN,
-        setUsdAmount,
-        onRequestManualMode,
-      ],
-    );
 
     const customSuffix = useMemo(
       () => (
@@ -338,9 +307,7 @@ export const SizeInput = memo(
     );
 
     const displayValue = useMemo(() => {
-      if (isSliderMode) {
-        return sliderDisplay;
-      }
+      if (isSliderMode) return sliderDisplay;
       return inputMode === 'token' ? tokenAmount : usdAmount;
     }, [isSliderMode, sliderDisplay, inputMode, tokenAmount, usdAmount]);
 

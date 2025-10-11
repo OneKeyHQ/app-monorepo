@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { noop } from 'lodash';
+
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsTradesHistoryRefreshHookAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  PERPS_HISTORY_FILLS_URL,
+  PERPS_USER_FILLS_TIME_RANGE,
+} from '@onekeyhq/shared/src/consts/perp';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -20,7 +30,11 @@ export function usePerpTradesHistory() {
   const [newTradesHistory, setNewTradesHistory] = useState<INewTradesHistory[]>(
     [],
   );
+  const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const newTradesHistoryRef = useRef<INewTradesHistory[]>([]);
+  if (newTradesHistoryRef.current !== newTradesHistory) {
+    newTradesHistoryRef.current = newTradesHistory;
+  }
   useEffect(() => {
     if (
       !currentAccount?.accountAddress ||
@@ -85,30 +99,33 @@ export function usePerpTradesHistory() {
   const { result, isLoading } = usePromiseResult(
     async () => {
       if (currentAccount?.accountAddress) {
-        const trades = await backgroundApiProxy.serviceHyperliquid.getUserFills(
-          {
+        noop(refreshHook);
+        const now = Date.now();
+        const startTime = now - PERPS_USER_FILLS_TIME_RANGE;
+        const trades =
+          await backgroundApiProxy.serviceHyperliquid.getUserFillsByTime({
             user: currentAccount?.accountAddress,
+            startTime,
             aggregateByTime: true,
-          },
-        );
+          });
         const sortedTrades = trades.sort((a, b) => b.time - a.time);
         setCurrentListPage(1);
         return sortedTrades;
       }
       return [];
     },
-    [currentAccount?.accountAddress],
+    [currentAccount?.accountAddress, refreshHook],
     { watchLoading: true, initResult: [] },
   );
 
   const mergeTradesHistory = useMemo(() => {
     let mergedTrades = result;
     if (newTradesHistory.length > 0) {
-      const existingOrderIds = new Set(result.map((trade) => trade.oid));
+      const existingTIds = new Set(result.map((trade) => trade.tid));
       const newUniqueTrades = newTradesHistory
         .filter(
           (trade) =>
-            !existingOrderIds.has(trade.fill.oid) &&
+            !existingTIds.has(trade.fill.tid) &&
             trade.userId === currentAccount?.accountAddress,
         )
         .map((trade) => trade.fill);
@@ -127,5 +144,19 @@ export function usePerpTradesHistory() {
     currentListPage,
     setCurrentListPage,
     isLoading,
+  };
+}
+
+export function usePerpTradesHistoryViewAllUrl() {
+  const [currentAccount] = usePerpsActiveAccountAtom();
+  const onViewAllUrl = useCallback(() => {
+    if (currentAccount?.accountAddress) {
+      openUrlInApp(
+        `${PERPS_HISTORY_FILLS_URL}${currentAccount?.accountAddress}`,
+      );
+    }
+  }, [currentAccount?.accountAddress]);
+  return {
+    onViewAllUrl,
   };
 }

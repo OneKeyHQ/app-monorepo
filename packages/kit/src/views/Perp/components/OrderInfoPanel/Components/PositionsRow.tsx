@@ -774,11 +774,9 @@ const PositionRowMobilePositionSize = memo(() => {
           </XStack>
           <XStack alignItems="center" gap="$1" cursor="pointer">
             <SizableText size="$bodySmMedium">
-              {`$${
-                isSizeViewChange
-                  ? sizeInfo.sizeValue
-                  : sizeInfo.sizeAbsFormatted
-              }`}
+              {isSizeViewChange
+                ? `$${sizeInfo.sizeValue}`
+                : sizeInfo.sizeAbsFormatted}
             </SizableText>
           </XStack>
         </YStack>

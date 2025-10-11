@@ -82,13 +82,10 @@ export const isForceUpdateStrategy = (updateStrategy: EUpdateStrategy) => {
   return updateStrategy === EUpdateStrategy.force;
 };
 
-export const useAppChangeLog = (version?: string) => {
+export const useAppChangeLog = () => {
   const response = usePromiseResult(
-    () =>
-      version
-        ? backgroundApiProxy.serviceAppUpdate.fetchChangeLog()
-        : Promise.resolve(null),
-    [version],
+    () => backgroundApiProxy.serviceAppUpdate.fetchChangeLog(),
+    [],
   );
   return useMemo(() => response.result, [response.result]);
 };
@@ -640,11 +637,43 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       return;
     }
     isFirstLaunch = false;
+    let isShowForceUpdatePreviewPage = false;
+
+    const fetchUpdateInfo = () => {
+      void checkForUpdates().then(
+        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+          if (isShowForceUpdatePreviewPage) {
+            return;
+          }
+          const updateStrategy =
+            response?.updateStrategy ?? EUpdateStrategy.manual;
+          if (needUpdate) {
+            if (isAutoUpdateStrategy(updateStrategy)) {
+              void downloadPackage();
+            } else if (isForceUpdate) {
+              toUpdatePreviewPage(true, response);
+            } else if (platformEnv.isNative || platformEnv.isDesktop) {
+              setTimeout(() => {
+                showUpdateDialog(false, response);
+              }, 200);
+            }
+          }
+        },
+      );
+    };
+
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
+      setTimeout(() => {
+        void backgroundApiProxy.serviceAppUpdate
+          .refreshUpdateStatus()
+          .then(() => {
+            fetchUpdateInfo();
+          });
+      }, 250);
+      return;
     }
 
-    let isShowForceUpdatePreviewPage = false;
     const forceUpdate = isForceUpdateStrategy(appUpdateInfo.updateStrategy);
     if (appUpdateInfo.status !== EAppUpdateStatus.done && forceUpdate) {
       isShowForceUpdatePreviewPage = true;
@@ -677,26 +706,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         showUpdateDialog();
       }
     } else {
-      void checkForUpdates().then(
-        async ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
-          if (isShowForceUpdatePreviewPage) {
-            return;
-          }
-          const updateStrategy =
-            response?.updateStrategy ?? EUpdateStrategy.manual;
-          if (needUpdate) {
-            if (isAutoUpdateStrategy(updateStrategy)) {
-              void downloadPackage();
-            } else if (isForceUpdate) {
-              toUpdatePreviewPage(true, response);
-            } else if (platformEnv.isNative || platformEnv.isDesktop) {
-              setTimeout(() => {
-                showUpdateDialog(false, response);
-              }, 200);
-            }
-          }
-        },
-      );
+      fetchUpdateInfo();
     }
   }, [
     autoCheck,
