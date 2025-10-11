@@ -43,6 +43,9 @@ const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
   getBundleStartTime: () => {
     return Promise.resolve(0);
   },
+  getJsReadyFromPerformanceNow: () => {
+    return Promise.resolve(0);
+  },
   getUIVisibleFromPerformanceNow: () => {
     return Promise.resolve(0);
   },

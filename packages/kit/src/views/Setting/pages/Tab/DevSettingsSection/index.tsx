@@ -291,6 +291,8 @@ const BaseDevSettingsSection = () => {
               jsReadyTime: await LaunchOptionsManager.getJSReadyTime(),
               uiVisibleTime: await LaunchOptionsManager.getUIVisibleTime(),
               bundleStartTime: await LaunchOptionsManager.getBundleStartTime(),
+              jsReadyFromPerformanceNow:
+                await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
               uiVisibleFromPerformanceNow:
                 await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
               deskChannel: globalThis?.desktopApi?.deskChannel,

@@ -16,6 +16,7 @@ export interface ILaunchOptionsManagerInterface {
   getJSReadyTime(): Promise<number>;
   getUIVisibleTime(): Promise<number>;
   getBundleStartTime(): Promise<number>;
+  getJsReadyFromPerformanceNow(): Promise<number>;
   getUIVisibleFromPerformanceNow(): Promise<number>;
 }
 

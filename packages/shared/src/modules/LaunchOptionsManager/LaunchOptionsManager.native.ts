@@ -70,6 +70,14 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
   getBundleStartTime: () => {
     return Promise.resolve(Math.round(__BUNDLE_START_TIME__ || 0));
   },
+  getJsReadyFromPerformanceNow: () => {
+    return Promise.resolve(
+      Math.round(
+        (globalThis.$$onekeyJsReadyFromPerformanceNow || 0) -
+          __BUNDLE_START_TIME__,
+      ),
+    );
+  },
   getUIVisibleFromPerformanceNow: () => {
     return Promise.resolve(
       Math.round(
