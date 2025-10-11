@@ -99,9 +99,9 @@ public class MainApplication extends Application implements ReactApplication {
   public void onCreate() {
     super.onCreate();
     
-    // Record startup time
     long startupTime = System.currentTimeMillis();
-    LaunchOptionModule.getInstance().saveStartupTime(startupTime);
+    LaunchOptionModule.saveStartupTimeStatic(startupTime);
+    
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
       field.setAccessible(true);

@@ -19,21 +19,16 @@ import java.util.Date;
 
 public class LaunchOptionModule extends ReactContextBaseJavaModule {
     private static final String TAG = "LaunchOptionModule";
-    private static LaunchOptionModule instance;
     private FileLoggerModule fileLogger;
+    
+    private static Long staticStartupTime;
     
     private Bundle launchOptions;
     private String deviceToken;
-    private Long startupTime;
 
     public LaunchOptionModule(ReactApplicationContext context) {
         super(context);
-        instance = this;
         fileLogger = new FileLoggerModule(getReactApplicationContext());
-    }
-
-    public static LaunchOptionModule getInstance() {
-        return instance;
     }
 
     @Override
@@ -48,13 +43,18 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
         Log.d(TAG, name + ": " + msg);
     }
 
+    public static void saveStartupTimeStatic(Long startupTime) {
+        staticStartupTime = startupTime;
+        Log.d(TAG, "Static startup time saved: " + startupTime);
+    }
+
     public void saveStartupTime(Long startupTime) {
-        this.startupTime = startupTime;
+        staticStartupTime = startupTime;
         log("saveStartupTime", "Startup time saved: " + startupTime);
     }
 
     public Long getStartupTime() {
-        return startupTime;
+        return staticStartupTime;
     }
 
     public void saveLaunchOptions(Bundle launchOptions) {
