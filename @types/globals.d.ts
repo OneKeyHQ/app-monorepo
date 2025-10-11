@@ -46,7 +46,6 @@ declare global {
     | ICheckCurrentDBIsMigratedToBucketResult
     | undefined;
   var $$onekeyStartupTimeAt: number | undefined;
-  var __BUNDLE_START_TIME__: number | undefined;
   var $$onekeyJsReadyAt: number | undefined;
   var $$onekeyUIVisibleAt: number | undefined;
 

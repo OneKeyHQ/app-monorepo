@@ -69,6 +69,9 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       ? Promise.resolve(uiVisibleAt - startupAt)
       : Promise.resolve(0);
   },
+  getBundleStartTime: () => {
+    return Promise.resolve(__BUNDLE_START_TIME__ || 0);
+  },
 };
 
 export default LaunchOptionsManagerModule;

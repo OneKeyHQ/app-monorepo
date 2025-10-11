@@ -40,6 +40,9 @@ const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
     const duration = uiVisibleAt && startupAt ? uiVisibleAt - startupAt : 0;
     return Promise.resolve(duration > 0 ? duration : 0);
   },
+  getBundleStartTime: () => {
+    return Promise.resolve(0);
+  },
 };
 
 export default LaunchOptionsManager;
