@@ -2,6 +2,10 @@
 /* eslint-disable import/order */
 
 globalThis.$$onekeyJsReadyAt = Date.now();
+if (typeof globalThis.nativePerformanceNow === 'function') {
+  globalThis.$$onekeyJsReadyFromPerformanceNow =
+    globalThis.nativePerformanceNow();
+}
 const { initSentry } = require('@onekeyhq/shared/src/modules3rdParty/sentry');
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
