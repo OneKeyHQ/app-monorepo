@@ -42,22 +42,22 @@ import { TestModalRouter } from '../../views/TestModal/router';
 
 import { ModalMainStack } from './Main';
 
-const onboardingRouterConfig = {
-  onMounted: () => {
-    console.log('OnboardingModal onMounted');
-  },
-  onUnmounted: async () => {
-    await v4migrationAtom.set((v) => ({
-      ...v,
-      isProcessing: false,
-      isMigrationModalOpen: false,
-    }));
-    console.log('OnboardingModal onUnmounted');
-    await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
-  },
-  name: EModalRoutes.OnboardingModal,
-  children: OnboardingRouter,
-};
+// const onboardingRouterConfig = {
+//   onMounted: () => {
+//     console.log('OnboardingModal onMounted');
+//   },
+//   onUnmounted: async () => {
+//     await v4migrationAtom.set((v) => ({
+//       ...v,
+//       isProcessing: false,
+//       isMigrationModalOpen: false,
+//     }));
+//     console.log('OnboardingModal onUnmounted');
+//     await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
+//   },
+//   name: EModalRoutes.OnboardingModal,
+//   children: OnboardingRouter,
+// };
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
@@ -227,7 +227,7 @@ if (platformEnv.isDev) {
 export const modalRouter = router;
 
 export const fullModalRouter = [
-  onboardingRouterConfig,
+  // onboardingRouterConfig,
   // {
   //   name: EModalRoutes.AppUpdateModal,
   //   children: AppUpdateRouter,
