@@ -68,8 +68,14 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       : Promise.resolve(0);
   },
   getBundleStartTime: () => {
+    return Promise.resolve(Math.round(__BUNDLE_START_TIME__ || 0));
+  },
+  getUIVisibleFromPerformanceNow: () => {
     return Promise.resolve(
-      Math.round((__BUNDLE_START_TIME__ || 0) / 1000 / 1000),
+      Math.round(
+        (globalThis.$$onekeyUIVisibleFromPerformanceNow || 0) -
+          __BUNDLE_START_TIME__,
+      ),
     );
   },
 };
