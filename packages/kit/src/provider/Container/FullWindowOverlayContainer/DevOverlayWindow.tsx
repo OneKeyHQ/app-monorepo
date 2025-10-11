@@ -20,8 +20,10 @@ import {
 import {
   useDevSettingsPersistAtom,
   usePasswordPersistAtom,
+  usePerpsCandlesWebviewMountedAtom,
   usePerpsWebSocketDataUpdateTimesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
@@ -33,16 +35,43 @@ import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
-function PerpsWebSocketUpdate() {
-  const [{ wsDataReceiveTimes, wsDataUpdateTimes }] =
+export function DevPerpsWebSocketUpdateView() {
+  const [{ wsDataReceiveTimes, wsDataUpdateTimes }, setWsDataUpdateTimes] =
     usePerpsWebSocketDataUpdateTimesAtom();
+  const [{ mounted }] = usePerpsCandlesWebviewMountedAtom();
+  const [devSettings] = useDevSettingsPersistAtom();
+  if (!devSettings.enabled || !devSettings.settings?.showPerpsRenderStats) {
+    return null;
+  }
+
   return (
-    <XStack gap="$2" alignItems="center">
-      <SizableText>PerpWS 接收:</SizableText>
-      <SizableText>{wsDataReceiveTimes}</SizableText>
-      <SizableText>PerpWS 刷新:</SizableText>
-      <SizableText>{wsDataUpdateTimes}</SizableText>
-    </XStack>
+    <YStack maxWidth="$80">
+      <XStack gap="$2" alignItems="center" justifyContent="space-between">
+        <XStack>
+          <SizableText>PerpWS 接收: </SizableText>
+          <SizableText>{wsDataReceiveTimes}</SizableText>
+        </XStack>
+        <XStack>
+          <SizableText>PerpWS 刷新: </SizableText>
+          <SizableText>{wsDataUpdateTimes}</SizableText>
+        </XStack>
+        <XStack>
+          <SizableText>K 线挂载: </SizableText>
+          <SizableText>{mounted ? '是' : '--'}</SizableText>
+        </XStack>
+      </XStack>
+      <Button
+        onPress={() => {
+          setWsDataUpdateTimes((v) => ({
+            ...v,
+            wsDataReceiveTimes: 0,
+            wsDataUpdateTimes: 0,
+          }));
+        }}
+      >
+        重置计数
+      </Button>
+    </YStack>
   );
 }
 
@@ -284,7 +313,7 @@ function DevOverlayWindow() {
             </XStack>
           </YStack>
 
-          <PerpsWebSocketUpdate />
+          <DevPerpsWebSocketUpdateView />
         </YStack>
       ),
     });
@@ -306,6 +335,7 @@ function DevOverlayWindow() {
       left={positionInfo.align === 'left' ? 0 : undefined}
       right={positionInfo.align === 'right' ? 0 : undefined}
       top={`${positionInfo.top > 95 ? 95 : positionInfo.top}%`}
+      zIndex={DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX}
     >
       <IconButton
         size="small"

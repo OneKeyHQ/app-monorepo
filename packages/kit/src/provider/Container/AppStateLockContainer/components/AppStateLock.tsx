@@ -29,6 +29,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
+import { DevPerpsWebSocketUpdateView } from '../../FullWindowOverlayContainer/DevOverlayWindow';
+
 import { AppStateContainer } from './AppStateContainer';
 
 import type { View as IView, KeyboardEvent } from 'react-native';
@@ -122,6 +124,7 @@ const AppStateLock = ({
               {passwordVerifyContainer}
             </Stack>
           </Stack>
+          <DevPerpsWebSocketUpdateView />
           <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
             {v4migrationData?.isMigrationModalOpen ||
             v4migrationData?.isProcessing ? null : (

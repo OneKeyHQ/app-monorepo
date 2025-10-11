@@ -345,6 +345,14 @@ export const {
 });
 
 export const {
+  target: perpsCandlesWebviewMountedAtom,
+  use: usePerpsCandlesWebviewMountedAtom,
+} = globalAtom<{ mounted: boolean }>({
+  name: EAtomNames.perpsCandlesWebviewMountedAtom,
+  initialValue: { mounted: false },
+});
+
+export const {
   target: perpsWebSocketDataUpdateTimesAtom,
   use: usePerpsWebSocketDataUpdateTimesAtom,
 } = globalAtom<{

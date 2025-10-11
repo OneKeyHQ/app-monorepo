@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { Stack, useOrientation } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
+import { usePerpsCandlesWebviewMountedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -97,7 +98,7 @@ export function TradingViewPerpsV2(
   props: ITradingViewPerpsV2Props & WebViewProps,
 ) {
   const { symbol, userAddress, onLoadEnd, onTradeUpdate, webviewKey } = props;
-
+  const [, setMounted] = usePerpsCandlesWebviewMountedAtom();
   const isLandscape = useOrientation();
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
   const webRef = useRef<IWebViewRef | null>(null);
@@ -105,6 +106,13 @@ export function TradingViewPerpsV2(
   const _webviewKey = useMemo(() => {
     return `${theme}-${webviewKey || ''}`;
   }, [theme, webviewKey]);
+
+  useEffect(() => {
+    setMounted({ mounted: true });
+    return () => {
+      setMounted({ mounted: false });
+    };
+  }, [setMounted]);
 
   // Freeze initial symbol to prevent URL regeneration on symbol changes
   const initialSymbolRef = useRef(symbol);

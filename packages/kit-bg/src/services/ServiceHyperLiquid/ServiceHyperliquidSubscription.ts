@@ -262,7 +262,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._cleanupAllSubscriptions();
 
     await perpsCandlesWebviewReloadHookAtom.set({
-      reloadHook: -100,
+      reloadHook: -1 * Date.now(),
     });
   }
 
