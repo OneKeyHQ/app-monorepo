@@ -41,7 +41,7 @@ static LaunchOptionsManager *sharedInstance = nil;
 }
 
 - (NSNumber *)getStartupTime {
-    return self.startupTime;
+    return [LaunchOptionsManager sharedInstance].startupTime;
 }
 
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions {
