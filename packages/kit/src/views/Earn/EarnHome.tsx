@@ -5,11 +5,16 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
+import type {
+  IKeyOfIcons,
+  ISizableTextProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Banner,
   Button,
+  Heading,
   Icon,
   IconButton,
   Image,
@@ -57,6 +62,7 @@ import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
+import { EEarnStatus, useEarnBlocked } from '../../hooks/useEarnBlocked';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
@@ -75,6 +81,7 @@ import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 
+import type { IEarnBlockedStatusData } from '../../hooks/useEarnBlocked';
 import type { LayoutChangeEvent } from 'react-native';
 
 const BANNER_TITLE_OFFSET = {
@@ -643,6 +650,37 @@ function Overview({
   );
 }
 
+type IEarnBlockedOverviewProps = IEarnBlockedStatusData['notification'];
+
+function EarnBlockedOverview(props: IEarnBlockedOverviewProps) {
+  const { title, description, icon } = props;
+
+  return (
+    <Page fullPage>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+      />
+      <Page.Body px="$16" mt="$10">
+        <YStack flex={1} alignItems="center">
+          <Icon
+            size="$16"
+            name={icon.icon as IKeyOfIcons}
+            color="$iconDisabled"
+            mb="$6"
+          />
+          <Heading size="$headingXl" pb="$2">
+            {title.text}
+          </Heading>
+          <SizableText size="$bodyLg" color="$textSubdued">
+            {description.text}
+          </SizableText>
+        </YStack>
+      </Page.Body>
+    </Page>
+  );
+}
+
 function BasicEarnHome() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
@@ -1193,6 +1231,24 @@ function BasicEarnHome() {
 }
 
 export default function EarnHome() {
+  const { status, blockData } = useEarnBlocked();
+
+  const content = useMemo(() => {
+    switch (status) {
+      case EEarnStatus.Loading:
+        return null;
+      case EEarnStatus.Blocked:
+        if (!blockData) {
+          return null;
+        }
+        return <EarnBlockedOverview {...blockData.notification} />;
+      case EEarnStatus.Available:
+        return <BasicEarnHome />;
+      default:
+        return null;
+    }
+  }, [status, blockData]);
+
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1202,7 +1258,7 @@ export default function EarnHome() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicEarnHome />
+        {content}
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

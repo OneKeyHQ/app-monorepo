@@ -1,10 +1,19 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import type { IKeyOfIcons } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  EEarnStatus,
+  useEarnBlocked,
+} from '@onekeyhq/kit/src/hooks/useEarnBlocked';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -31,6 +40,9 @@ export function WalletActionEarn(props: {
 
   const navigation = useAppNavigation();
 
+  const { status, blockData } = useEarnBlocked();
+  const intl = useIntl();
+
   const { result } = usePromiseResult(async () => {
     const symbolInfo =
       await backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
@@ -54,6 +66,24 @@ export function WalletActionEarn(props: {
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleEarnTokenOnPress = useCallback(async () => {
+    if (status === EEarnStatus.Blocked && blockData) {
+      const { notification } = blockData;
+      Dialog.show({
+        icon: notification.icon.icon as IKeyOfIcons,
+        title: notification.title.text,
+        description: notification.description.text,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_got_it,
+        }),
+        onConfirm: async ({ close }) => {
+          await close?.();
+        },
+        showFooter: false,
+      });
+
+      return;
+    }
+
     const symbol = result?.symbolInfo?.symbol ?? '';
     const protocolList = result?.protocolList ?? [];
 
@@ -105,6 +135,9 @@ export function WalletActionEarn(props: {
       },
     });
   }, [
+    intl,
+    blockData,
+    status,
     result?.symbolInfo?.symbol,
     result?.protocolList,
     networkId,
@@ -119,7 +152,7 @@ export function WalletActionEarn(props: {
   return (
     <RawActions.Earn
       onPress={handleEarnTokenOnPress}
-      disabled={!result}
+      disabled={!result || status === EEarnStatus.Loading}
       trackID={trackID}
     />
   );
