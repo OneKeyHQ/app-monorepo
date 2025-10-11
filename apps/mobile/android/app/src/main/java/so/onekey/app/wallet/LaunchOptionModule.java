@@ -48,11 +48,6 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
         Log.d(TAG, "Static startup time saved: " + startupTime);
     }
 
-    public void saveStartupTime(Long startupTime) {
-        staticStartupTime = startupTime;
-        log("saveStartupTime", "Startup time saved: " + startupTime);
-    }
-
     public Long getStartupTime() {
         return staticStartupTime;
     }
