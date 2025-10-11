@@ -54,7 +54,6 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
-  perpsCurrentMidAtom,
   perpsCustomSettingsAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -222,11 +221,6 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHyperLiquidCache() {
-    return { allMids: hyperLiquidCache.allMids };
-  }
-
-  @backgroundMethod()
   async updatePerpsConfigByServerWithCache() {
     return this._updatePerpsConfigByServerWithCache();
   }
@@ -242,7 +236,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
-  private _getUserFillsByTimeMemo = cacheUtils.memoizee(
+  _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
       return infoClient.userFillsByTime({ ...params, reversed: true } as any);
@@ -333,33 +327,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     const map = await this.getSymbolsMetaMap({ coins: [coin] });
     const meta = map[coin];
     return meta;
-  }
-
-  @backgroundMethod()
-  async getSymbolMidValue({ coin }: { coin: string }) {
-    const { allMids } = await this.getHyperLiquidCache();
-    const mid = allMids?.mids?.[coin];
-    const midBN = new BigNumber(mid);
-    if (midBN.isNaN() || midBN.isLessThanOrEqualTo(0)) {
-      return undefined;
-    }
-    return mid;
-  }
-
-  async refreshCurrentMid() {
-    const selectedSymbol = await perpsActiveAssetAtom.get();
-    const currentMid = await perpsCurrentMidAtom.get();
-    const midValue = await this.getSymbolMidValue({
-      coin: selectedSymbol.coin,
-    });
-    const newMid = {
-      coin: selectedSymbol.coin,
-      mid: midValue,
-    };
-    if (isEqual(currentMid, newMid)) {
-      return;
-    }
-    await perpsCurrentMidAtom.set(newMid);
   }
 
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
@@ -539,7 +506,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (oldCoin !== newCoin) {
       await perpsActiveAssetCtxAtom.set(undefined);
     }
-    await this.refreshCurrentMid();
     return {
       universeItems,
       selectedUniverse,
