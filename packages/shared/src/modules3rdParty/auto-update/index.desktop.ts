@@ -47,6 +47,7 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
 const downloadPackage: IDownloadPackage = async ({
   downloadedFile,
   headers,
+  latestVersion,
 }) => {
   const isDownloading =
     await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
@@ -67,6 +68,7 @@ const downloadPackage: IDownloadPackage = async ({
       await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
         false,
         headers,
+        latestVersion,
       );
     if (!updateInfo) {
       return null;

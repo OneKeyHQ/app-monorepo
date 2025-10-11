@@ -54,11 +54,11 @@ async function clearUpdateCache() {
   }
 }
 
-function buildFeedUrl(useTestFeedUrl: boolean) {
+function buildFeedUrl(useTestFeedUrl: boolean, latestVersion: string) {
   return `${buildServiceEndpoint({
     serviceName: EServiceEndpointEnum.Utility,
     env: useTestFeedUrl ? 'test' : 'prod',
-  })}/utility/v1/app-update/electron-feed-url`;
+  })}/utility/v1/app-update/electron-feed-url?version=${latestVersion}`;
 }
 
 export interface ILatestVersion {
@@ -302,6 +302,7 @@ class DesktopApiAppUpdate {
   async checkForUpdates(
     isManual = false,
     requestHeaders = {},
+    latestVersion: string,
   ): Promise<UpdateCheckResult['updateInfo'] | null> {
     if (isManual) {
       this.isManualCheck = true;
@@ -313,7 +314,7 @@ class DesktopApiAppUpdate {
 
     const updateSettings = store.getUpdateSettings();
 
-    const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl);
+    const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl, latestVersion);
     autoUpdater.setFeedURL({
       url: feedUrl,
       requestHeaders,
