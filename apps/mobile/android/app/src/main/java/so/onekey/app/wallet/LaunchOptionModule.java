@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.betomorrow.rnfilelogger.FileLoggerModule;
@@ -31,6 +32,7 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
         fileLogger = new FileLoggerModule(getReactApplicationContext());
     }
 
+    @NonNull
     @Override
     public String getName() {
         return "LaunchOptionsManager";
@@ -138,7 +140,7 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void getStartupTime(Promise promise) {
         Long startupTime = getStartupTime();
-        promise.resolve(startupTime != null ? startupTime : 0);
+        promise.resolve(startupTime != null ? startupTime.doubleValue() : 0.0);
     }
 
     @ReactMethod
