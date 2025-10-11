@@ -19,7 +19,9 @@ const getStartupTimeAt = async () => {
 };
 
 const getJSReadyTimeAt = () => {
-  return globalThis.$$onekeyJsReadyAt || 0;
+  return typeof __BUNDLE_START_TIME__ !== 'undefined'
+    ? __BUNDLE_START_TIME__
+    : 0;
 };
 
 const getUIVisibleTimeAt = () => {
