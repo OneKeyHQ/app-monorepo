@@ -5,15 +5,15 @@ import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
+  L2_BOOK = 'l2Book',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
+  ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
-  L2_BOOK = 'l2Book',
-  TRADES = 'trades',
-  BBO = 'bbo',
-  ACTIVE_ASSET_DATA = 'activeAssetData',
-  USER_EVENTS = 'userEvents',
-  USER_NOTIFICATIONS = 'userNotifications',
+  // TRADES = 'trades',
+  // BBO = 'bbo',
+  // USER_EVENTS = 'userEvents',
+  // USER_NOTIFICATIONS = 'userNotifications',
 }
 
 export interface IConnectionState {
