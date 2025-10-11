@@ -45,6 +45,9 @@ declare global {
   var $indexedDBIsMigratedToBucket:
     | ICheckCurrentDBIsMigratedToBucketResult
     | undefined;
+  var $$onekeyStartupTimeAt: number | undefined;
+  var $$onekeyJsReadyAt: number | undefined;
+  var $$onekeyUIVisibleAt: number | undefined;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;

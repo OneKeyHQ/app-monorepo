@@ -12,7 +12,9 @@ export type ISplashProps = PropsWithChildren;
 const noop = () => {};
 export function Splash({ children }: ISplashProps) {
   const resolveSplash = useRef<() => void>(noop);
-  const handleExitComplete = useCallback(() => {}, []);
+  const handleExitComplete = useCallback(() => {
+    globalThis.$$onekeyUIVisibleAt = Date.now();
+  }, []);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { height } = e.nativeEvent.layout;

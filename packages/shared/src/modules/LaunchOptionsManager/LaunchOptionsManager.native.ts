@@ -6,7 +6,22 @@ const { LaunchOptionsManager } = NativeModules as {
   LaunchOptionsManager: ILaunchOptionsManagerInterface;
 };
 
-export default {
+const getStartupTimeAt = () => {
+  if (LaunchOptionsManager && LaunchOptionsManager.getStartupTime) {
+    return LaunchOptionsManager.getStartupTime();
+  }
+  return Promise.resolve(0);
+};
+
+const getJSReadyTimeAt = () => {
+  return globalThis.$$onekeyJsReadyAt || 0;
+};
+
+const getUIVisibleTimeAt = () => {
+  return globalThis.$$onekeyUIVisibleAt || 0;
+};
+
+const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
   getLaunchOptions: () => {
     if (LaunchOptionsManager && LaunchOptionsManager.getLaunchOptions) {
       return LaunchOptionsManager.getLaunchOptions();
@@ -25,4 +40,28 @@ export default {
     }
     return Promise.resolve(null);
   },
-} as ILaunchOptionsManagerInterface;
+  getStartupTime: getStartupTimeAt,
+  getStartupTimeAt,
+  getJSReadyTimeAt: () => {
+    return Promise.resolve(getJSReadyTimeAt());
+  },
+  getUIVisibleTimeAt: () => {
+    return Promise.resolve(getUIVisibleTimeAt());
+  },
+  getJSReadyTime: async () => {
+    const jsReadyAt = getJSReadyTimeAt();
+    const startupAt = await getStartupTimeAt();
+    return jsReadyAt && startupAt
+      ? Promise.resolve(jsReadyAt - startupAt)
+      : Promise.resolve(0);
+  },
+  getUIVisibleTime: async () => {
+    const startupAt = await getStartupTimeAt();
+    const uiVisibleAt = getUIVisibleTimeAt();
+    return startupAt && uiVisibleAt
+      ? Promise.resolve(uiVisibleAt - startupAt)
+      : Promise.resolve(0);
+  },
+};
+
+export default LaunchOptionsManagerModule;
