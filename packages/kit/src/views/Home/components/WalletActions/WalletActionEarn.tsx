@@ -72,13 +72,13 @@ export function WalletActionEarn(props: {
         icon: notification.icon.icon as IKeyOfIcons,
         title: notification.title.text,
         description: notification.description.text,
+        showCancelButton: false,
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_got_it,
         }),
         onConfirm: async ({ close }) => {
           await close?.();
         },
-        showFooter: false,
       });
 
       return;
