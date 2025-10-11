@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import { IconButton, Toast, useClipboard } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
 
 import type { IAddressPluginProps } from '../types';

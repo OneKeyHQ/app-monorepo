@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import wordLists from 'bip39/src/wordlists/english.json';
 import { shuffle } from 'lodash';
-import { InteractionManager } from 'react-native';
 
 import type { useForm } from '@onekeyhq/components';
 import { Haptics, useClipboard, useKeyboardEvent } from '@onekeyhq/components';

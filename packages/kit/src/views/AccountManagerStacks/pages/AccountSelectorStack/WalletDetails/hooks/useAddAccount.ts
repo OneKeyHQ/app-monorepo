@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import { useDebouncedCallback } from 'use-debounce';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';

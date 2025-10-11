@@ -24,9 +24,7 @@ import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ESwapSource,

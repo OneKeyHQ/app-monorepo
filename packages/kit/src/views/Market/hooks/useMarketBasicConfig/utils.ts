@@ -1,8 +1,4 @@
-import type {
-  IMarketBasicConfigData,
-  IMarketBasicConfigToken,
-  IMarketTokenListItem,
-} from '@onekeyhq/shared/types/marketV2';
+import type { IMarketBasicConfigData } from '@onekeyhq/shared/types/marketV2';
 
 /**
  * Extract default network ID from basic config

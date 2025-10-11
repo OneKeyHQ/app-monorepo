@@ -1,20 +1,15 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
-import { noop } from 'lodash';
-
 import { Button, SizableText, useInTabDialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountIsAgentReadyAtom,
-  usePerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-
-import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 
 import { showDepositWithdrawModal } from './TradingPanel/modals/DepositWithdrawModal';
 

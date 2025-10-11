@@ -5,7 +5,6 @@ import {
 } from '@aptos-labs/siwa';
 import {
   Deserializer,
-  MultiAgentTransaction,
   Network,
   NetworkToNodeAPI,
   Serializer,
@@ -53,7 +52,6 @@ import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type VaultAptos from '../vaults/impls/aptos/Vault';
-import type { AccountAddress } from '@aptos-labs/ts-sdk';
 import type {
   AptosSignAndSubmitTransactionInput,
   AptosSignAndSubmitTransactionOutput,

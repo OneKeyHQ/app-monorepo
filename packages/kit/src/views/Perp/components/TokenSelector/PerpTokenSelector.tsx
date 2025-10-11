@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   DebugRenderTracker,
   Icon,
   ListView,

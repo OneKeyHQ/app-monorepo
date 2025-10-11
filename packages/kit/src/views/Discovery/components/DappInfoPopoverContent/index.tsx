@@ -11,7 +11,6 @@ import {
   Icon,
   Image,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
   YStack,

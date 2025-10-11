@@ -1,16 +1,14 @@
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 
 import { Page } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EMultiTabBrowserRoutes,
   IMultiTabBrowserParamList,
 } from '@onekeyhq/shared/src/routes';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';

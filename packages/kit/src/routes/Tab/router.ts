@@ -21,10 +21,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
@@ -143,9 +142,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         navigation.dispatch(
           CommonActions.navigate({
             name: ETabRoutes.Market,
-            params: {
-              screen: ETabMarketRoutes.TabMarket,
-            },
           }),
         );
       }
