@@ -307,6 +307,11 @@ class DesktopApiAppUpdate {
     if (isManual) {
       this.isManualCheck = true;
     }
+
+    logger.info('auto-updater', 'latestVersion is ', latestVersion);
+    if (!latestVersion) {
+      return null;
+    }
     logger.info(
       'auto-updater',
       `Update checking request (manual: ${b2t(this.isManualCheck)})`,
@@ -325,7 +330,7 @@ class DesktopApiAppUpdate {
     logger.info('current feed url: ', feedUrl);
     try {
       const result = await autoUpdater.checkForUpdates();
-      console.log('checkForUpdates result: =>>>> ', result);
+      logger.info('auto-updater', 'checkForUpdates result: =>>>> ', result);
       if (result) {
         return result.updateInfo;
       }
