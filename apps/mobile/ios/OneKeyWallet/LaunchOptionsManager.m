@@ -27,6 +27,7 @@ static LaunchOptionsManager *sharedInstance = nil;
     self = [super init];
     if (self) {
         self.launchOptions = nil;
+        self.startupTime = @0;
     }
     return self;
 }
