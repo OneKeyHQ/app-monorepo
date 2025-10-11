@@ -22,7 +22,7 @@ export const LOCALES = {
   // 'th-TH': () => import('./json/th_TH.json'),
   // 'uk-UA': () => import('./json/uk_UA.json'),
   // 'vi': () => import('./json/vi.json'),
-  // 'zh-CN': () => import('./json/zh_CN.json'),
+  'zh-CN': () => import('./json/zh_CN.json'),
   // 'zh-HK': () => import('./json/zh_HK.json'),
   // 'zh-TW': () => import('./json/zh_TW.json'),
 };
