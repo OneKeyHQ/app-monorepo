@@ -697,8 +697,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   ): Promise<void> {
     try {
       const devSettings = await devSettingsPersistAtom.get();
+      const shouldUpdateWsDataUpdateTimes =
+        devSettings.enabled && devSettings.settings?.showPerpsRenderStats;
 
-      if (devSettings.enabled) {
+      if (shouldUpdateWsDataUpdateTimes) {
         void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
           ...prev,
           wsDataReceiveTimes: prev.wsDataReceiveTimes + 1,
@@ -709,7 +711,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         return;
       }
 
-      if (devSettings.enabled) {
+      if (shouldUpdateWsDataUpdateTimes) {
         void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
           ...prev,
           wsDataUpdateTimes: prev.wsDataUpdateTimes + 1,
