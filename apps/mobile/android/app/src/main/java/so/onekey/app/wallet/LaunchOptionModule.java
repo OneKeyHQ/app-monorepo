@@ -33,7 +33,7 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
 
     @Override
     public String getName() {
-        return "LaunchOptionModule";
+        return "LaunchOptionsManager";
     }
 
     public void log(String name, String msg) {
@@ -45,7 +45,6 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
 
     public static void saveStartupTimeStatic(Long startupTime) {
         staticStartupTime = startupTime;
-        Log.d(TAG, "Static startup time saved: " + startupTime);
     }
 
     public Long getStartupTime() {
