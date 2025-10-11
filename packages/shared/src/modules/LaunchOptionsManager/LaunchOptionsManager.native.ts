@@ -1,14 +1,19 @@
 import { NativeModules } from 'react-native';
 
+import platformEnv from '../../platformEnv';
+
 import type { ILaunchOptionsManagerInterface } from './type';
 
 const { LaunchOptionsManager } = NativeModules as {
   LaunchOptionsManager: ILaunchOptionsManagerInterface;
 };
 
-const getStartupTimeAt = () => {
+const getStartupTimeAt = async () => {
   if (LaunchOptionsManager && LaunchOptionsManager.getStartupTime) {
-    return LaunchOptionsManager.getStartupTime();
+    const startupTime = await LaunchOptionsManager.getStartupTime();
+    return platformEnv.isNativeIOS
+      ? Math.round(startupTime * 1000)
+      : startupTime;
   }
   return Promise.resolve(0);
 };
