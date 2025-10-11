@@ -14,6 +14,10 @@ export function Splash({ children }: ISplashProps) {
   const resolveSplash = useRef<() => void>(noop);
   const handleExitComplete = useCallback(() => {
     globalThis.$$onekeyUIVisibleAt = Date.now();
+    if (typeof globalThis.nativePerformanceNow === 'function') {
+      globalThis.$$onekeyUIVisibleFromPerformanceNow =
+        globalThis.nativePerformanceNow();
+    }
   }, []);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {

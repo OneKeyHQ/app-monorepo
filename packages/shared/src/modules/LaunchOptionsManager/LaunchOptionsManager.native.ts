@@ -19,9 +19,7 @@ const getStartupTimeAt = async () => {
 };
 
 const getJSReadyTimeAt = () => {
-  return typeof __BUNDLE_START_TIME__ !== 'undefined'
-    ? __BUNDLE_START_TIME__
-    : 0;
+  return globalThis.$$onekeyJsReadyAt || 0;
 };
 
 const getUIVisibleTimeAt = () => {
@@ -70,7 +68,15 @@ const LaunchOptionsManagerModule: ILaunchOptionsManagerInterface = {
       : Promise.resolve(0);
   },
   getBundleStartTime: () => {
-    return Promise.resolve(__BUNDLE_START_TIME__ || 0);
+    return Promise.resolve(Math.round(__BUNDLE_START_TIME__ || 0));
+  },
+  getUIVisibleFromPerformanceNow: () => {
+    return Promise.resolve(
+      Math.round(
+        (globalThis.$$onekeyUIVisibleFromPerformanceNow || 0) -
+          __BUNDLE_START_TIME__,
+      ),
+    );
   },
 };
 

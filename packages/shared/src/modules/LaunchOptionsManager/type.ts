@@ -16,6 +16,7 @@ export interface ILaunchOptionsManagerInterface {
   getJSReadyTime(): Promise<number>;
   getUIVisibleTime(): Promise<number>;
   getBundleStartTime(): Promise<number>;
+  getUIVisibleFromPerformanceNow(): Promise<number>;
 }
 
 export enum ELaunchOptionsLaunchType {

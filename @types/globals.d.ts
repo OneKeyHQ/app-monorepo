@@ -48,6 +48,8 @@ declare global {
   var $$onekeyStartupTimeAt: number | undefined;
   var $$onekeyJsReadyAt: number | undefined;
   var $$onekeyUIVisibleAt: number | undefined;
+  var $$onekeyUIVisibleFromPerformanceNow: number | undefined;
+  var nativePerformanceNow: () => number;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;
