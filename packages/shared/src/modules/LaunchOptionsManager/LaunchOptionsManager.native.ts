@@ -11,9 +11,9 @@ const { LaunchOptionsManager } = NativeModules as {
 const getStartupTimeAt = async () => {
   if (LaunchOptionsManager && LaunchOptionsManager.getStartupTime) {
     const startupTime = await LaunchOptionsManager.getStartupTime();
-    return platformEnv.isNativeIOS
-      ? Math.round(startupTime * 1000)
-      : startupTime;
+    return Math.round(
+      platformEnv.isNativeIOS ? startupTime * 1000 : startupTime,
+    );
   }
   return Promise.resolve(0);
 };
