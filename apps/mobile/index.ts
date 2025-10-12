@@ -4,10 +4,7 @@ import '@onekeyhq/shared/src/polyfills';
 
 import { I18nManager } from 'react-native';
 import { registerRootComponent } from 'expo';
-import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
-import App from './App';
-
-initSentry();
+import { App } from './newApp';
 
 I18nManager.allowRTL(true);
 
@@ -18,4 +15,5 @@ if (typeof globalThis.nativePerformanceNow === 'function') {
   globalThis.$$onekeyAppWillMountFromPerformanceNow =
     globalThis.nativePerformanceNow();
 }
+
 registerRootComponent(App);
