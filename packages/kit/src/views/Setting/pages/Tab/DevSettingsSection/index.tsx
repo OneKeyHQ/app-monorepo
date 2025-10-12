@@ -293,6 +293,9 @@ const BaseDevSettingsSection = () => {
               bundleStartTime: await LaunchOptionsManager.getBundleStartTime(),
               jsReadyFromPerformanceNow:
                 await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
+              appWillMountFromPerformanceNow:
+                (globalThis.$$onekeyAppWillMountFromPerformanceNow || 0) -
+                __BUNDLE_START_TIME__,
               uiVisibleFromPerformanceNow:
                 await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
               deskChannel: globalThis?.desktopApi?.deskChannel,
@@ -971,6 +974,15 @@ const BaseDevSettingsSection = () => {
           navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
         }}
       />
+      <SectionFieldItem
+        icon="CreditCardOutline"
+        name="showPerpsRenderStats"
+        title="显示 Perps 渲染统计"
+        subtitle="显示 Perps 渲染统计"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <SectionPressItem
         icon="LockOutline"
         title="CryptoGallery"

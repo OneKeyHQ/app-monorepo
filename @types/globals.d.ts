@@ -49,6 +49,7 @@ declare global {
   var $$onekeyJsReadyAt: number | undefined;
   var $$onekeyUIVisibleAt: number | undefined;
   var $$onekeyJsReadyFromPerformanceNow: number | undefined;
+  var $$onekeyAppWillMountFromPerformanceNow: number | undefined;
   var $$onekeyUIVisibleFromPerformanceNow: number | undefined;
   var nativePerformanceNow: () => number;
 
