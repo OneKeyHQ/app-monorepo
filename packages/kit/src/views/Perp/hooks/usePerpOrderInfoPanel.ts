@@ -139,6 +139,8 @@ export function usePerpTradesHistory() {
     return filteredTrades?.sort((a, b) => b.time - a.time);
   }, [currentAccount?.accountAddress, newTradesHistory, result]);
 
+  console.log('usePerpTradesHistory__render', newTradesHistory, refreshHook);
+
   return {
     trades: mergeTradesHistory,
     currentListPage,

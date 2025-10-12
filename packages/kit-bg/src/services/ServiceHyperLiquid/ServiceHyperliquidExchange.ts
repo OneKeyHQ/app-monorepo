@@ -221,6 +221,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   //   return new ExchangeClient({
   //     transport,
   //     wallet,
+  //     signatureChainId: PERPS_EVM_CHAIN_ID_HEX,
   //   });
   // }
 
