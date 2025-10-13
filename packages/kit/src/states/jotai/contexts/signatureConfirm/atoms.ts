@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import {
   EFeeType,
+  ESendFeeDiscountStatus,
   ESendFeeStatus,
   ETronResourceRentalPayType,
 } from '@onekeyhq/shared/types/fee';
@@ -66,6 +67,8 @@ export const {
       totalFiat: string;
       totalNativeForDisplay: string;
       totalFiatForDisplay: string;
+      originalTotalNative?: string;
+      originalTotalFiat?: string;
     }
   | undefined
 >(undefined);
@@ -74,9 +77,11 @@ export const { atom: sendFeeStatusAtom, use: useSendFeeStatusAtom } =
   contextAtom<{
     status: ESendFeeStatus;
     errMessage?: string;
+    discountPercent?: number;
   }>({
     status: ESendFeeStatus.Idle,
     errMessage: '',
+    discountPercent: 0,
   });
 
 export const {
