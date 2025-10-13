@@ -174,7 +174,15 @@ function PerpAccountPanel() {
             skeletonWidth={70}
           />
         </XStack>
-
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+            Unrealized PNL
+          </SizableText>
+          <PerpsAccountNumberValue
+            value={accountSummary?.totalUnrealizedPnl ?? ''}
+            skeletonWidth={60}
+          />
+        </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
             {intl.formatMessage({

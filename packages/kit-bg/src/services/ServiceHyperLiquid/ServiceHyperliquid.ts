@@ -383,7 +383,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       activeAccount?.accountAddress?.toLowerCase() ===
         webData2?.user?.toLowerCase()
     ) {
-      // TODO deep compare
+      // Note: Deep compare not suitable here due to real-time data requirements
+      const positions = webData2.clearinghouseState?.assetPositions || [];
+      const totalUnrealizedPnlBN = positions.reduce((sum, position) => {
+        const pnl = position.position?.unrealizedPnl;
+        return pnl ? sum.plus(pnl) : sum;
+      }, new BigNumber(0));
+
       await perpsActiveAccountSummaryAtom.set({
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
@@ -396,6 +402,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
+        totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       });
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
