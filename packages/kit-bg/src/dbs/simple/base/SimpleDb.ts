@@ -1,469 +1,158 @@
+import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
+import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
+import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
+import { SimpleDbEntityAddressInfo } from '../entity/SimpleDbEntityAddressInfo';
+import { SimpleDbEntityAggregateToken } from '../entity/SimpleDbEntityAggregateToken';
+import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
+import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
+import { SimpleDbEntityApproval } from '../entity/SimpleDbEntityApproval';
+import { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
+import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
+import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
+import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
+import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
+import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
+import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
+import { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
+import { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
+import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
+import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
+import { SimpleDbEntityDappConnection } from '../entity/SimpleDbEntityDappConnection';
+import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDefaultWalletSettings';
+import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
+import { SimpleDbEntityEarnExtra } from '../entity/SimpleDbEntityEarnExtra';
+import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
+import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
+import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
+import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
+import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
+import { SimpleDbEntityLocalNFTs } from '../entity/SimpleDbEntityLocalNFTs';
+import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
+import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
+import { SimpleDbEntityMarketWatchListV2 } from '../entity/SimpleDbEntityMarketWatchListV2';
+import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
+import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
+import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import { SimpleDbEntityPrimeTransfer } from '../entity/SimpleDbEntityPrimeTransfer';
+import { SimpleDbEntityRecentNetworks } from '../entity/SimpleDbEntityRecentNetworks';
+import { SimpleDbEntityRecentRecipients } from '../entity/SimpleDbEntityRecentRecipients';
+import { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
+import { SimpleDbEntityRiskTokenManagement } from '../entity/SimpleDbEntityRiskTokenManagement';
+import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
+import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
+import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
+import { SimpleDbEntitySwapHistory } from '../entity/SimpleDbEntitySwapHistory';
+import { SimpleDbEntitySwapNetworksSort } from '../entity/SimpleDbEntitySwapNetworksSort';
+import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversalSearch';
+import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
+import { SimpleDbEntityWalletBanner } from '../entity/SimpleDbEntityWalletBanner';
+
 export class SimpleDb {
-  get prime() {
-    const SimpleDbEntityPrime = import(
-      '../entity/SimpleDbEntityPrime'
-    ) as unknown as typeof import('../entity/SimpleDbEntityPrime').SimpleDbEntityPrime;
-    const value = new SimpleDbEntityPrime();
-    Object.defineProperty(this, 'prime', { value });
-    return value;
-  }
+  prime = new SimpleDbEntityPrime();
 
-  get primeTransfer() {
-    const SimpleDbEntityPrimeTransfer = import(
-      '../entity/SimpleDbEntityPrimeTransfer'
-    ) as unknown as typeof import('../entity/SimpleDbEntityPrimeTransfer').SimpleDbEntityPrimeTransfer;
-    const value = new SimpleDbEntityPrimeTransfer();
-    Object.defineProperty(this, 'primeTransfer', { value });
-    return value;
-  }
+  primeTransfer = new SimpleDbEntityPrimeTransfer();
 
-  get referralCode() {
-    const SimpleDbEntityReferralCode = import(
-      '../entity/SimpleDbEntityReferralCode'
-    ) as unknown as typeof import('../entity/SimpleDbEntityReferralCode').SimpleDbEntityReferralCode;
-    const value = new SimpleDbEntityReferralCode();
-    Object.defineProperty(this, 'referralCode', { value });
-    return value;
-  }
+  referralCode = new SimpleDbEntityReferralCode();
 
-  get browserTabs() {
-    const SimpleDbEntityBrowserTabs = import(
-      '../entity/SimpleDbEntityBrowserTabs'
-    ) as unknown as typeof import('../entity/SimpleDbEntityBrowserTabs').SimpleDbEntityBrowserTabs;
-    const value = new SimpleDbEntityBrowserTabs();
-    Object.defineProperty(this, 'browserTabs', { value });
-    return value;
-  }
+  browserTabs = new SimpleDbEntityBrowserTabs();
 
-  get browserBookmarks() {
-    const SimpleDbEntityBrowserBookmarks = import(
-      '../entity/SimpleDbEntityBrowserBookmarks'
-    ) as unknown as typeof import('../entity/SimpleDbEntityBrowserBookmarks').SimpleDbEntityBrowserBookmarks;
-    const value = new SimpleDbEntityBrowserBookmarks();
-    Object.defineProperty(this, 'browserBookmarks', { value });
-    return value;
-  }
+  browserBookmarks = new SimpleDbEntityBrowserBookmarks();
 
-  get browserClosedTabs() {
-    const SimpleDbEntityBrowserClosedTabs = import(
-      '../entity/SimpleDbEntityBrowserClosedTabs'
-    ) as unknown as typeof import('../entity/SimpleDbEntityBrowserClosedTabs').SimpleDbEntityBrowserClosedTabs;
-    const value = new SimpleDbEntityBrowserClosedTabs();
-    Object.defineProperty(this, 'browserClosedTabs', { value });
-    return value;
-  }
+  browserClosedTabs = new SimpleDbEntityBrowserClosedTabs();
 
-  get browserRiskWhiteList() {
-    const SimpleDbEntityBrowserRiskWhiteList = import(
-      '../entity/SimpleDbEntityBrowserRiskWhiteList'
-    ) as unknown as typeof import('../entity/SimpleDbEntityBrowserRiskWhiteList').SimpleDbEntityBrowserRiskWhiteList;
-    const value = new SimpleDbEntityBrowserRiskWhiteList();
-    Object.defineProperty(this, 'browserRiskWhiteList', { value });
-    return value;
-  }
+  browserRiskWhiteList = new SimpleDbEntityBrowserRiskWhiteList();
 
-  get dappConnection() {
-    const SimpleDbEntityDappConnection = import(
-      '../entity/SimpleDbEntityDappConnection'
-    ) as unknown as typeof import('../entity/SimpleDbEntityDappConnection').SimpleDbEntityDappConnection;
-    const value = new SimpleDbEntityDappConnection();
-    Object.defineProperty(this, 'dappConnection', { value });
-    return value;
-  }
+  dappConnection = new SimpleDbEntityDappConnection();
 
-  get browserHistory() {
-    const SimpleDbEntityBrowserHistory = import(
-      '../entity/SimpleDbEntityBrowserHistory'
-    ) as unknown as typeof import('../entity/SimpleDbEntityBrowserHistory').SimpleDbEntityBrowserHistory;
-    const value = new SimpleDbEntityBrowserHistory();
-    Object.defineProperty(this, 'browserHistory', { value });
-    return value;
-  }
+  browserHistory = new SimpleDbEntityBrowserHistory();
 
-  get accountSelector() {
-    const SimpleDbEntityAccountSelector = import(
-      '../entity/SimpleDbEntityAccountSelector'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAccountSelector').SimpleDbEntityAccountSelector;
-    const value = new SimpleDbEntityAccountSelector();
-    Object.defineProperty(this, 'accountSelector', { value });
-    return value;
-  }
+  accountSelector = new SimpleDbEntityAccountSelector();
 
-  get appCleanup() {
-    const SimpleDbEntityAppCleanup = import(
-      '../entity/SimpleDbEntityAppCleanup'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAppCleanup').SimpleDbEntityAppCleanup;
-    const value = new SimpleDbEntityAppCleanup();
-    Object.defineProperty(this, 'appCleanup', { value });
-    return value;
-  }
+  appCleanup = new SimpleDbEntityAppCleanup();
 
-  get swapNetworksSort() {
-    const SimpleDbEntitySwapNetworksSort = import(
-      '../entity/SimpleDbEntitySwapNetworksSort'
-    ) as unknown as typeof import('../entity/SimpleDbEntitySwapNetworksSort').SimpleDbEntitySwapNetworksSort;
-    const value = new SimpleDbEntitySwapNetworksSort();
-    Object.defineProperty(this, 'swapNetworksSort', { value });
-    return value;
-  }
+  swapNetworksSort = new SimpleDbEntitySwapNetworksSort();
 
-  get swapHistory() {
-    const SimpleDbEntitySwapHistory = import(
-      '../entity/SimpleDbEntitySwapHistory'
-    ) as unknown as typeof import('../entity/SimpleDbEntitySwapHistory').SimpleDbEntitySwapHistory;
-    const value = new SimpleDbEntitySwapHistory();
-    Object.defineProperty(this, 'swapHistory', { value });
-    return value;
-  }
+  swapHistory = new SimpleDbEntitySwapHistory();
 
-  get swapConfigs() {
-    const SimpleDbEntitySwapConfigs = import(
-      '../entity/SimpleDbEntitySwapConfigs'
-    ) as unknown as typeof import('../entity/SimpleDbEntitySwapConfigs').SimpleDbEntitySwapConfigs;
-    const value = new SimpleDbEntitySwapConfigs();
-    Object.defineProperty(this, 'swapConfigs', { value });
-    return value;
-  }
+  swapConfigs = new SimpleDbEntitySwapConfigs();
 
-  get localTokens() {
-    const SimpleDbEntityLocalTokens = import(
-      '../entity/SimpleDbEntityLocalTokens'
-    ) as unknown as typeof import('../entity/SimpleDbEntityLocalTokens').SimpleDbEntityLocalTokens;
-    const value = new SimpleDbEntityLocalTokens();
-    Object.defineProperty(this, 'localTokens', { value });
-    return value;
-  }
+  localTokens = new SimpleDbEntityLocalTokens();
 
-  get addressBook() {
-    const SimpleDbEntityAddressBook = import(
-      '../entity/SimpleDbEntityAddressBook'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAddressBook').SimpleDbEntityAddressBook;
-    const value = new SimpleDbEntityAddressBook();
-    Object.defineProperty(this, 'addressBook', { value });
-    return value;
-  }
+  addressBook = new SimpleDbEntityAddressBook();
 
-  get localHistory() {
-    const SimpleDbEntityLocalHistory = import(
-      '../entity/SimpleDbEntityLocalHistory'
-    ) as unknown as typeof import('../entity/SimpleDbEntityLocalHistory').SimpleDbEntityLocalHistory;
-    const value = new SimpleDbEntityLocalHistory();
-    Object.defineProperty(this, 'localHistory', { value });
-    return value;
-  }
+  localHistory = new SimpleDbEntityLocalHistory();
 
-  get riskyTokens() {
-    const SimpleDbEntityRiskyTokens = import(
-      '../entity/SimpleDbEntityRiskyTokens'
-    ) as unknown as typeof import('../entity/SimpleDbEntityRiskyTokens').SimpleDbEntityRiskyTokens;
-    const value = new SimpleDbEntityRiskyTokens();
-    Object.defineProperty(this, 'riskyTokens', { value });
-    return value;
-  }
+  riskyTokens = new SimpleDbEntityRiskyTokens();
 
-  get defaultWalletSettings() {
-    const SimpleDbEntityDefaultWalletSettings = import(
-      '../entity/SimpleDbEntityDefaultWalletSettings'
-    ) as unknown as typeof import('../entity/SimpleDbEntityDefaultWalletSettings').SimpleDbEntityDefaultWalletSettings;
-    const value = new SimpleDbEntityDefaultWalletSettings();
-    Object.defineProperty(this, 'defaultWalletSettings', { value });
-    return value;
-  }
+  defaultWalletSettings = new SimpleDbEntityDefaultWalletSettings();
 
-  get networkSelector() {
-    const SimpleDbEntityNetworkSelector = import(
-      '../entity/SimpleDbEntityNetworkSelector'
-    ) as unknown as typeof import('../entity/SimpleDbEntityNetworkSelector').SimpleDbEntityNetworkSelector;
-    const value = new SimpleDbEntityNetworkSelector();
-    Object.defineProperty(this, 'networkSelector', { value });
-    return value;
-  }
+  networkSelector = new SimpleDbEntityNetworkSelector();
 
-  get notificationSettings() {
-    const SimpleDbEntityNotificationSettings = import(
-      '../entity/SimpleDbEntityNotificationSettings'
-    ) as unknown as typeof import('../entity/SimpleDbEntityNotificationSettings').SimpleDbEntityNotificationSettings;
-    const value = new SimpleDbEntityNotificationSettings();
-    Object.defineProperty(this, 'notificationSettings', { value });
-    return value;
-  }
+  notificationSettings = new SimpleDbEntityNotificationSettings();
 
-  get lightning() {
-    const SimpleDbEntityLightning = import(
-      '../entity/SimpleDbEntityLightning'
-    ) as unknown as typeof import('../entity/SimpleDbEntityLightning').SimpleDbEntityLightning;
-    const value = new SimpleDbEntityLightning();
-    Object.defineProperty(this, 'lightning', { value });
-    return value;
-  }
+  lightning = new SimpleDbEntityLightning();
 
-  get feeInfo() {
-    const SimpleDbEntityFeeInfo = import(
-      '../entity/SimpleDbEntityFeeInfo'
-    ) as unknown as typeof import('../entity/SimpleDbEntityFeeInfo').SimpleDbEntityFeeInfo;
-    const value = new SimpleDbEntityFeeInfo();
-    Object.defineProperty(this, 'feeInfo', { value });
-    return value;
-  }
+  feeInfo = new SimpleDbEntityFeeInfo();
 
-  get marketWatchList() {
-    const SimpleDbEntityMarketWatchList = import(
-      '../entity/SimpleDbEntityMarketWatchList'
-    ) as unknown as typeof import('../entity/SimpleDbEntityMarketWatchList').SimpleDbEntityMarketWatchList;
-    const value = new SimpleDbEntityMarketWatchList();
-    Object.defineProperty(this, 'marketWatchList', { value });
-    return value;
-  }
+  marketWatchList = new SimpleDbEntityMarketWatchList();
 
-  get marketWatchListV2() {
-    const SimpleDbEntityMarketWatchListV2 = import(
-      '../entity/SimpleDbEntityMarketWatchListV2'
-    ) as unknown as typeof import('../entity/SimpleDbEntityMarketWatchListV2').SimpleDbEntityMarketWatchListV2;
-    const value = new SimpleDbEntityMarketWatchListV2();
-    Object.defineProperty(this, 'marketWatchListV2', { value });
-    return value;
-  }
+  marketWatchListV2 = new SimpleDbEntityMarketWatchListV2();
 
-  get floatingIconDomainBlockList() {
-    const SimpleDbEntityFloatingIconDomainBlockList = import(
-      '../entity/SimpleDbEntityFloatingIconDomainBlockList'
-    ) as unknown as typeof import('../entity/SimpleDbEntityFloatingIconDomainBlockList').SimpleDbEntityFloatingIconDomainBlockList;
-    const value = new SimpleDbEntityFloatingIconDomainBlockList();
-    Object.defineProperty(this, 'floatingIconDomainBlockList', { value });
-    return value;
-  }
+  floatingIconDomainBlockList = new SimpleDbEntityFloatingIconDomainBlockList();
 
-  get floatingIconSettings() {
-    const SimpleDbEntityFloatingIconSettings = import(
-      '../entity/SimpleDbEntityFloatingIconSettings'
-    ) as unknown as typeof import('../entity/SimpleDbEntityFloatingIconSettings').SimpleDbEntityFloatingIconSettings;
-    const value = new SimpleDbEntityFloatingIconSettings();
-    Object.defineProperty(this, 'floatingIconSettings', { value });
-    return value;
-  }
+  floatingIconSettings = new SimpleDbEntityFloatingIconSettings();
 
-  get earn() {
-    const SimpleDbEntityEarn = import(
-      '../entity/SimpleDbEntityEarn'
-    ) as unknown as typeof import('../entity/SimpleDbEntityEarn').SimpleDbEntityEarn;
-    const value = new SimpleDbEntityEarn();
-    Object.defineProperty(this, 'earn', { value });
-    return value;
-  }
+  earn = new SimpleDbEntityEarn();
 
-  get earnExtra() {
-    const SimpleDbEntityEarnExtra = import(
-      '../entity/SimpleDbEntityEarnExtra'
-    ) as unknown as typeof import('../entity/SimpleDbEntityEarnExtra').SimpleDbEntityEarnExtra;
-    const value = new SimpleDbEntityEarnExtra();
-    Object.defineProperty(this, 'earnExtra', { value });
-    return value;
-  }
+  earnExtra = new SimpleDbEntityEarnExtra();
 
-  get earnOrders() {
-    const SimpleDbEntityEarnOrders = import(
-      '../entity/SimpleDbEntityEarnOrders'
-    ) as unknown as typeof import('../entity/SimpleDbEntityEarnOrders').SimpleDbEntityEarnOrders;
-    const value = new SimpleDbEntityEarnOrders();
-    Object.defineProperty(this, 'earnOrders', { value });
-    return value;
-  }
+  earnOrders = new SimpleDbEntityEarnOrders();
 
-  get universalSearch() {
-    const SimpleDbEntityUniversalSearch = import(
-      '../entity/SimpleDbEntityUniversalSearch'
-    ) as unknown as typeof import('../entity/SimpleDbEntityUniversalSearch').SimpleDbEntityUniversalSearch;
-    const value = new SimpleDbEntityUniversalSearch();
-    Object.defineProperty(this, 'universalSearch', { value });
-    return value;
-  }
+  universalSearch = new SimpleDbEntityUniversalSearch();
 
-  get customTokens() {
-    const SimpleDbEntityCustomTokens = import(
-      '../entity/SimpleDbEntityCustomTokens'
-    ) as unknown as typeof import('../entity/SimpleDbEntityCustomTokens').SimpleDbEntityCustomTokens;
-    const value = new SimpleDbEntityCustomTokens();
-    Object.defineProperty(this, 'customTokens', { value });
-    return value;
-  }
+  customTokens = new SimpleDbEntityCustomTokens();
 
-  get customRpc() {
-    const SimpleDbEntityCustomRpc = import(
-      '../entity/SimpleDbEntityCustomRPC'
-    ) as unknown as typeof import('../entity/SimpleDbEntityCustomRPC').SimpleDbEntityCustomRpc;
-    const value = new SimpleDbEntityCustomRpc();
-    Object.defineProperty(this, 'customRpc', { value });
-    return value;
-  }
+  customRpc = new SimpleDbEntityCustomRpc();
 
-  get customNetwork() {
-    const SimpleDbEntityCustomNetwork = import(
-      '../entity/SimpleDbEntityCustomNetwork'
-    ) as unknown as typeof import('../entity/SimpleDbEntityCustomNetwork').SimpleDbEntityCustomNetwork;
-    const value = new SimpleDbEntityCustomNetwork();
-    Object.defineProperty(this, 'customNetwork', { value });
-    return value;
-  }
+  customNetwork = new SimpleDbEntityCustomNetwork();
 
-  get serverNetwork() {
-    const SimpleDbEntityServerNetwork = import(
-      '../entity/SimpleDbEntityServerNetwork'
-    ) as unknown as typeof import('../entity/SimpleDbEntityServerNetwork').SimpleDbEntityServerNetwork;
-    const value = new SimpleDbEntityServerNetwork();
-    Object.defineProperty(this, 'serverNetwork', { value });
-    return value;
-  }
+  serverNetwork = new SimpleDbEntityServerNetwork();
 
-  get v4MigrationResult() {
-    const SimpleDbEntityV4MigrationResult = import(
-      '../entity/SimpleDbEntityV4MigrationResult'
-    ) as unknown as typeof import('../entity/SimpleDbEntityV4MigrationResult').SimpleDbEntityV4MigrationResult;
-    const value = new SimpleDbEntityV4MigrationResult();
-    Object.defineProperty(this, 'v4MigrationResult', { value });
-    return value;
-  }
+  v4MigrationResult = new SimpleDbEntityV4MigrationResult();
 
-  get accountValue() {
-    const SimpleDbEntityAccountValue = import(
-      '../entity/SimpleDbEntityAccountValue'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAccountValue').SimpleDbEntityAccountValue;
-    const value = new SimpleDbEntityAccountValue();
-    Object.defineProperty(this, 'accountValue', { value });
-    return value;
-  }
+  accountValue = new SimpleDbEntityAccountValue();
 
-  get legacyWalletNames() {
-    const SimpleDbEntityLegacyWalletNames = import(
-      '../entity/SimpleDbEntityLegacyWalletNames'
-    ) as unknown as typeof import('../entity/SimpleDbEntityLegacyWalletNames').SimpleDbEntityLegacyWalletNames;
-    const value = new SimpleDbEntityLegacyWalletNames();
-    Object.defineProperty(this, 'legacyWalletNames', { value });
-    return value;
-  }
+  legacyWalletNames = new SimpleDbEntityLegacyWalletNames();
 
-  get localNFTs() {
-    const SimpleDbEntityLocalNFTs = import(
-      '../entity/SimpleDbEntityLocalNFTs'
-    ) as unknown as typeof import('../entity/SimpleDbEntityLocalNFTs').SimpleDbEntityLocalNFTs;
-    const value = new SimpleDbEntityLocalNFTs();
-    Object.defineProperty(this, 'localNFTs', { value });
-    return value;
-  }
+  localNFTs = new SimpleDbEntityLocalNFTs();
 
-  get babylonSync() {
-    const SimpleDbEntityBabylonSync = import(
-      '../entity/SimpleDbEntityBabylonSync'
-    ) as unknown as typeof import('../entity/SimpleDbEntityBabylonSync').SimpleDbEntityBabylonSync;
-    const value = new SimpleDbEntityBabylonSync();
-    Object.defineProperty(this, 'babylonSync', { value });
-    return value;
-  }
+  babylonSync = new SimpleDbEntityBabylonSync();
 
-  get appStatus() {
-    const SimpleDbEntityAppStatus = import(
-      '../entity/SimpleDbEntityAppStatus'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAppStatus').SimpleDbEntityAppStatus;
-    const value = new SimpleDbEntityAppStatus();
-    Object.defineProperty(this, 'appStatus', { value });
-    return value;
-  }
+  appStatus = new SimpleDbEntityAppStatus();
 
-  get allNetworks() {
-    const SimpleDbEntityAllNetworks = import(
-      '../entity/SimpleDbEntityAllNetworks'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAllNetworks').SimpleDbEntityAllNetworks;
-    const value = new SimpleDbEntityAllNetworks();
-    Object.defineProperty(this, 'allNetworks', { value });
-    return value;
-  }
+  allNetworks = new SimpleDbEntityAllNetworks();
 
-  get changeHistory() {
-    const SimpleDbEntityChangeHistory = import(
-      '../entity/SimpleDbEntityChangeHistory'
-    ) as unknown as typeof import('../entity/SimpleDbEntityChangeHistory').SimpleDbEntityChangeHistory;
-    const value = new SimpleDbEntityChangeHistory();
-    Object.defineProperty(this, 'changeHistory', { value });
-    return value;
-  }
+  changeHistory = new SimpleDbEntityChangeHistory();
 
-  get recentNetworks() {
-    const SimpleDbEntityRecentNetworks = import(
-      '../entity/SimpleDbEntityRecentNetworks'
-    ) as unknown as typeof import('../entity/SimpleDbEntityRecentNetworks').SimpleDbEntityRecentNetworks;
-    const value = new SimpleDbEntityRecentNetworks();
-    Object.defineProperty(this, 'recentNetworks', { value });
-    return value;
-  }
+  recentNetworks = new SimpleDbEntityRecentNetworks();
 
-  get addressInfo() {
-    const SimpleDbEntityAddressInfo = import(
-      '../entity/SimpleDbEntityAddressInfo'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAddressInfo').SimpleDbEntityAddressInfo;
-    const value = new SimpleDbEntityAddressInfo();
-    Object.defineProperty(this, 'addressInfo', { value });
-    return value;
-  }
+  addressInfo = new SimpleDbEntityAddressInfo();
 
-  get recentRecipients() {
-    const SimpleDbEntityRecentRecipients = import(
-      '../entity/SimpleDbEntityRecentRecipients'
-    ) as unknown as typeof import('../entity/SimpleDbEntityRecentRecipients').SimpleDbEntityRecentRecipients;
-    const value = new SimpleDbEntityRecentRecipients();
-    Object.defineProperty(this, 'recentRecipients', { value });
-    return value;
-  }
+  recentRecipients = new SimpleDbEntityRecentRecipients();
 
-  get riskTokenManagement() {
-    const SimpleDbEntityRiskTokenManagement = import(
-      '../entity/SimpleDbEntityRiskTokenManagement'
-    ) as unknown as typeof import('../entity/SimpleDbEntityRiskTokenManagement').SimpleDbEntityRiskTokenManagement;
-    const value = new SimpleDbEntityRiskTokenManagement();
-    Object.defineProperty(this, 'riskTokenManagement', { value });
-    return value;
-  }
+  riskTokenManagement = new SimpleDbEntityRiskTokenManagement();
 
-  get walletBanner() {
-    const SimpleDbEntityWalletBanner = import(
-      '../entity/SimpleDbEntityWalletBanner'
-    ) as unknown as typeof import('../entity/SimpleDbEntityWalletBanner').SimpleDbEntityWalletBanner;
-    const value = new SimpleDbEntityWalletBanner();
-    Object.defineProperty(this, 'walletBanner', { value });
-    return value;
-  }
+  walletBanner = new SimpleDbEntityWalletBanner();
 
-  get perp() {
-    const SimpleDbEntityPerp = import(
-      '../entity/SimpleDbEntityPerp'
-    ) as unknown as typeof import('../entity/SimpleDbEntityPerp').SimpleDbEntityPerp;
-    const value = new SimpleDbEntityPerp();
-    Object.defineProperty(this, 'perp', { value });
-    return value;
-  }
+  perp = new SimpleDbEntityPerp();
 
-  get approval() {
-    const SimpleDbEntityApproval = import(
-      '../entity/SimpleDbEntityApproval'
-    ) as unknown as typeof import('../entity/SimpleDbEntityApproval').SimpleDbEntityApproval;
-    const value = new SimpleDbEntityApproval();
-    Object.defineProperty(this, 'approval', { value });
-    return value;
-  }
+  approval = new SimpleDbEntityApproval();
 
-  get aggregateToken() {
-    const SimpleDbEntityAggregateToken = import(
-      '../entity/SimpleDbEntityAggregateToken'
-    ) as unknown as typeof import('../entity/SimpleDbEntityAggregateToken').SimpleDbEntityAggregateToken;
-    const value = new SimpleDbEntityAggregateToken();
-    Object.defineProperty(this, 'aggregateToken', { value });
-    return value;
-  }
+  aggregateToken = new SimpleDbEntityAggregateToken();
 
-  get chainResource() {
-    const SimpleDbEntityChainResource = import(
-      '../entity/SimpleDbEntityChainResource'
-    ) as unknown as typeof import('../entity/SimpleDbEntityChainResource').SimpleDbEntityChainResource;
-    const value = new SimpleDbEntityChainResource();
-    Object.defineProperty(this, 'chainResource', { value });
-    return value;
-  }
+  chainResource = new SimpleDbEntityChainResource();
 }
