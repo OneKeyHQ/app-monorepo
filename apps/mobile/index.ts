@@ -20,8 +20,8 @@ if (typeof globalThis.nativePerformanceNow === 'function') {
   if (__DEV__) {
     console.log(
       'onekeyAppWillMountFromPerformanceNow',
-      globalThis.$$onekeyAppWillMountFromPerformanceNow -
-        globalThis.$$onekeyJsReadyFromPerformanceNow,
+      (globalThis.$$onekeyAppWillMountFromPerformanceNow || 0) -
+        (globalThis.$$onekeyJsReadyFromPerformanceNow || 0),
     );
   }
 }
