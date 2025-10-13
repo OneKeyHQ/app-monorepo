@@ -17,5 +17,12 @@ I18nManager.allowRTL(true);
 if (typeof globalThis.nativePerformanceNow === 'function') {
   globalThis.$$onekeyAppWillMountFromPerformanceNow =
     globalThis.nativePerformanceNow();
+  if (__DEV__) {
+    console.log(
+      'onekeyAppWillMountFromPerformanceNow',
+      globalThis.$$onekeyAppWillMountFromPerformanceNow -
+        globalThis.$$onekeyJsReadyFromPerformanceNow,
+    );
+  }
 }
 registerRootComponent(App);
