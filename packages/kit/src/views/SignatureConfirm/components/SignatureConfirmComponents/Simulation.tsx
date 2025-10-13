@@ -36,7 +36,9 @@ function Simulation(props: IProps) {
       elevation={0.5}
       gap={6}
     >
-      <SizableText>{component.label}</SizableText>
+      <SizableText size="$headingXs" color="$textSubdued">
+        {component.label}
+      </SizableText>
       <YStack gap="$3">
         {component.assets.map((asset, index) => {
           if (asset.type === EParseTxComponentType.NFT) {
