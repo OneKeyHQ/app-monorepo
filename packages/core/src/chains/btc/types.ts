@@ -133,3 +133,14 @@ export type ITxOutput = {
   tokenAddress?: string;
   payload?: { [key: string]: any };
 };
+
+export interface IBtcBlockbookDerivedInfo {
+  type: 'XPUBAddress';
+  name: string;
+  path: string;
+  transfers: number;
+  decimals: number;
+  balance?: string;
+  totalReceived?: string;
+  totalSent?: string;
+}

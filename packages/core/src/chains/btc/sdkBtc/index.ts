@@ -42,7 +42,11 @@ import type {
   ICurveName,
   ITxInputToSign,
 } from '../../../types';
-import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
+import type {
+  IBtcBlockbookDerivedInfo,
+  IBtcForkNetwork,
+  IBtcForkSigner,
+} from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
@@ -853,4 +857,33 @@ export async function convertLtcXpub({
   }
 
   return undefined;
+}
+
+export async function transformAddress({
+  network,
+  xpub,
+  addressEncoding,
+  derivedInfos,
+}: {
+  network: IBtcForkNetwork;
+  xpub: string;
+  addressEncoding: EAddressEncodings;
+  derivedInfos: IBtcBlockbookDerivedInfo[];
+}) {
+  if (!derivedInfos || !Array.isArray(derivedInfos)) return undefined;
+  const addresses = derivedInfos.filter((i) => i.type === 'XPUBAddress');
+  if (addresses.length < 1) return undefined;
+  const internal = addresses.filter((i) => i.path.split('/')[4] === '1');
+  const external = addresses.filter((i) => internal.indexOf(i) < 0);
+
+  return {
+    change: {
+      used: internal.filter((i) => i.transfers > 0),
+      unused: internal.filter((i) => i.transfers === 0),
+    },
+    fresh: {
+      used: external.filter((i) => i.transfers > 0),
+      unused: external.filter((i) => i.transfers === 0),
+    },
+  };
 }
