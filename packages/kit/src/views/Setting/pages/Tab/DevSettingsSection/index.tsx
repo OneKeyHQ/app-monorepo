@@ -595,6 +595,15 @@ const BaseDevSettingsSection = () => {
 
       <ReactScanSetting />
 
+      <SectionFieldItem
+        icon="CreditCardOutline"
+        name="showPerpsRenderStats"
+        title="显示 Perps 渲染统计"
+        subtitle="显示 Perps 渲染统计"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <AutoUpdateSettings />
 
       <SectionFieldItem
@@ -980,14 +989,6 @@ const BaseDevSettingsSection = () => {
           navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
         }}
       />
-      <SectionFieldItem
-        icon="CreditCardOutline"
-        name="showPerpsRenderStats"
-        title="显示 Perps 渲染统计"
-        subtitle="显示 Perps 渲染统计"
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
 
       <SectionPressItem
         icon="LockOutline"
