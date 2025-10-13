@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { flatMap, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -25,7 +26,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
-import BigNumber from 'bignumber.js';
 
 interface IProps {
   accountId: string;
