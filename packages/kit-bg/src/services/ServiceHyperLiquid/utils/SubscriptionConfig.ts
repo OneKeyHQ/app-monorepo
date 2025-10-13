@@ -38,26 +38,26 @@ export const SUBSCRIPTION_TYPE_INFO: {
     eventType: 'market',
     priority: 3,
   },
-  [ESubscriptionType.TRADES]: {
-    eventType: 'market',
-    priority: 4,
-  },
-  [ESubscriptionType.BBO]: {
-    eventType: 'market',
-    priority: 3,
-  },
   [ESubscriptionType.ACTIVE_ASSET_DATA]: {
     eventType: 'account',
     priority: 3,
   },
-  [ESubscriptionType.USER_EVENTS]: {
-    eventType: 'account',
-    priority: 2,
-  },
-  [ESubscriptionType.USER_NOTIFICATIONS]: {
-    eventType: 'account',
-    priority: 3,
-  },
+  // [ESubscriptionType.TRADES]: {
+  //   eventType: 'market',
+  //   priority: 4,
+  // },
+  // [ESubscriptionType.BBO]: {
+  //   eventType: 'market',
+  //   priority: 3,
+  // },
+  // [ESubscriptionType.USER_EVENTS]: {
+  //   eventType: 'account',
+  //   priority: 2,
+  // },
+  // [ESubscriptionType.USER_NOTIFICATIONS]: {
+  //   eventType: 'account',
+  //   priority: 3,
+  // },
 };
 
 export interface ISubscriptionSpec<T extends ESubscriptionType> {
