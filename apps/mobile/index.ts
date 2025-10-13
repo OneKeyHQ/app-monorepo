@@ -1,9 +1,9 @@
 /* eslint-disable import/order */
 import './jsReady';
-import '@onekeyhq/shared/src/polyfills';
 
 import { I18nManager } from 'react-native';
 import { registerRootComponent } from 'expo';
+import '@onekeyhq/shared/src/polyfills';
 import { initSentry } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import App from './App';
 
