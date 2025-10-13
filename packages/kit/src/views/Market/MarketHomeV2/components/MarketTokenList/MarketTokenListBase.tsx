@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import {
@@ -258,4 +258,8 @@ function MarketTokenListBase({
   );
 }
 
-export { MarketTokenListBase };
+const MarketTokenListBaseMemo = memo(MarketTokenListBase);
+
+MarketTokenListBaseMemo.displayName = 'MarketTokenListBase';
+
+export { MarketTokenListBaseMemo as MarketTokenListBase };

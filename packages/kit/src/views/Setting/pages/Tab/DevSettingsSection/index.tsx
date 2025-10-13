@@ -70,6 +70,7 @@ import { HapticsPanel } from './HapticsPanel';
 import { ImagePanel } from './ImagePanel';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
+import { ReactScanSetting } from './ReactScanSetting';
 import { RegistrationID } from './RegistrationID';
 import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
@@ -1001,6 +1002,8 @@ const BaseDevSettingsSection = () => {
           }}
         />
       </ListItem>
+
+      <ReactScanSetting />
 
       <SectionPressItem
         icon="AppleBrand"

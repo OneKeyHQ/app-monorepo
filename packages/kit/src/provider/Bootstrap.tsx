@@ -28,6 +28,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { scan } from '@onekeyhq/shared/src/modules3rdParty/react-scan';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -572,6 +573,32 @@ export const useRemindDevelopmentBuildExtension =
       }
     : noop;
 
+export const useReactScan =
+  (platformEnv.isWeb || platformEnv.isDesktop) && platformEnv.isDev
+    ? () => {
+        const [devSettings] = useDevSettingsPersistAtom();
+        useEffect(() => {
+          if (devSettings.settings?.enableReactScan) {
+            scan({
+              enabled: true,
+              showToolbar: devSettings.settings.reactScanShowToolbar ?? true,
+              animationSpeed:
+                devSettings.settings.reactScanAnimationSpeed ?? 'fast',
+              trackUnnecessaryRenders:
+                devSettings.settings.reactScanTrackUnnecessaryRenders ?? true,
+            });
+          } else {
+            scan({ enabled: false });
+          }
+        }, [
+          devSettings.settings?.enableReactScan,
+          devSettings.settings?.reactScanShowToolbar,
+          devSettings.settings?.reactScanAnimationSpeed,
+          devSettings.settings?.reactScanTrackUnnecessaryRenders,
+        ]);
+      }
+    : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -625,5 +652,6 @@ export function Bootstrap() {
   useIntercomInit();
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
+  useReactScan();
   return null;
 }

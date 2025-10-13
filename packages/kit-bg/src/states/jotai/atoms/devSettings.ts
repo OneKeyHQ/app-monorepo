@@ -52,6 +52,11 @@ export interface IDevSettings {
   showPerformanceMonitor?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  // React Scan settings
+  enableReactScan?: boolean;
+  reactScanShowToolbar?: boolean;
+  reactScanAnimationSpeed?: 'slow' | 'fast' | 'off';
+  reactScanTrackUnnecessaryRenders?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -85,6 +90,10 @@ export const {
         selectedTab: ETabRoutes.Discovery,
       },
       useLocalTradingViewUrl: false,
+      enableReactScan: false,
+      reactScanShowToolbar: true,
+      reactScanAnimationSpeed: 'fast',
+      reactScanTrackUnnecessaryRenders: true,
     },
   },
 });

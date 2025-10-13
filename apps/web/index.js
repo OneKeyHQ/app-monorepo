@@ -7,9 +7,11 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { initReactScan } from '@onekeyhq/shared/src/modules3rdParty/react-scan';
 import App from './App';
 
 initSentry();
+initReactScan();
 
 void initIntercom();
 
