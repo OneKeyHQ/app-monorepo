@@ -56,7 +56,7 @@ export function WalletActionEarn(props: {
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
-    return { symbolInfo, maxApr, protocolList, blockData };
+    return { symbolInfo, maxApr, protocolList };
   }, [networkId, tokenAddress]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
