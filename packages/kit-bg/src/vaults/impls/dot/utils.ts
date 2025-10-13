@@ -1,11 +1,9 @@
 import {
   type DecodedSignedTx,
-  SignerPayloadJSON,
   type TypeRegistry,
   getRegistry as _getRegistry,
 } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { isHexString } from 'ethereumjs-util';
 import { isEmpty, isNil } from 'lodash';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -241,12 +239,47 @@ export const getMinAmount = memoizee(
   async (
     networkId: string,
     backgroundApi: IBackgroundApi,
+    tokenContract?: string,
     apiPromise?: ApiPromise,
   ) => {
-    console.log('======>>>>>> getMinAmount', networkId);
+    if (tokenContract) {
+      if (apiPromise) {
+        const res = await apiPromise?.query.assets.asset(tokenContract);
+        return new BigNumber(res?.value?.minBalance?.toString() ?? '0');
+      }
+
+      // const [tokenInfo] =
+      //   await backgroundApi.serviceAccountProfile.sendProxyRequest<{
+      //     'owner': string;
+      //     'issuer': string;
+      //     'admin': string;
+      //     'freezer': string;
+      //     'supply': string;
+      //     'deposit': string;
+      //     'minBalance': string;
+      //     'isSufficient': boolean;
+      //     'accounts': string;
+      //     'sufficients': string;
+      //     'approvals': string;
+      //     'status': string;
+      //   }>({
+      //     networkId,
+      //     body: [
+      //       {
+      //         route: 'clientQuery',
+      //         params: {
+      //           method: 'assets.asset',
+      //           params: [tokenContract],
+      //         },
+      //       },
+      //     ],
+      //   });
+      // return new BigNumber(tokenInfo.minBalance);
+      return new BigNumber('10000');
+    }
+
     if (apiPromise) {
       const res = apiPromise.consts.balances.existentialDeposit;
-      console.log('======>>>>>> getMinAmount custom res', res);
       return new BigNumber(res.toString());
     }
 
@@ -263,7 +296,6 @@ export const getMinAmount = memoizee(
           },
         ],
       });
-    console.log('======>>>>>> getMinAmount res', minAmountStr);
     return new BigNumber(minAmountStr);
   },
   {
@@ -284,12 +316,9 @@ export const getBlockInfo = memoizee(
     blockHash: `0x${string}`;
     blockNumber: number;
   }> => {
-    console.log('======>>>>>> getBlockInfo', networkId);
     if (apiPromise) {
       const res = await apiPromise.rpc.chain.getBlockHash();
-      console.log('======>>>>>> getBlockInfo custom res', res.toHex());
       const block = await apiPromise.rpc.chain.getBlock(res.toHex());
-      console.log('======>>>>>> getBlockInfo custom res', res, block);
       return {
         blockHash: res.toHex(),
         blockNumber: block.block.header.number.toNumber(),
@@ -327,7 +356,6 @@ export const getBlockInfo = memoizee(
         ],
       });
 
-    console.log('======>>>>>> getBlockInfo res', blockHash, block);
     return {
       blockHash,
       blockNumber: block.header.number,

@@ -82,7 +82,6 @@ import type {
 
 import { VaultBase } from '../../base/VaultBase';
 
-import { AssetIdParser } from './AssetIdParser';
 import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
@@ -199,8 +198,6 @@ export default class VaultDot extends VaultBase {
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTx> {
-    console.log('======>>>>>> buildEncodedTx params', params);
-
     const { transfersInfo } = params;
     if (!transfersInfo || !transfersInfo[0].to) {
       throw new OneKeyLocalError('Invalid transferInfo.to params');
@@ -217,7 +214,7 @@ export default class VaultDot extends VaultBase {
 
     const chainId = await this.getNetworkChainId();
     let toAccount = { id: to };
-    if (chainId === 'joystream') {
+    if (chainId === 'joystream' || chainId === 'hydration') {
       toAccount = hexUtils.addHexPrefix(
         bufferUtils.bytesToHex(toAccountId),
       ) as unknown as { id: string };
@@ -247,7 +244,7 @@ export default class VaultDot extends VaultBase {
         .shiftedBy(tokenInfo.decimals)
         .toFixed(0);
 
-      if (chainId === 'polkadot-assethub') {
+      if (chainId === 'asset-hub') {
         const asset = {
           parents: 0,
           interior: {
@@ -335,6 +332,8 @@ export default class VaultDot extends VaultBase {
           option,
         );
       } else {
+        console.log('=====>>>>> ', `sssssss ${amountValue} ${toAccount}`);
+
         unsigned = methods.balances.transferAllowDeath(
           {
             value: amountValue,
@@ -388,10 +387,10 @@ export default class VaultDot extends VaultBase {
 
   private async _getAddressByTxArgs(args: Args): Promise<string> {
     const chainId = await this.getNetworkChainId();
-    if (chainId === 'joystream') {
+    if (chainId === 'joystream' || chainId === 'hydration') {
       return args.dest as string;
     }
-    if (chainId === 'polkadot-assethub') {
+    if (chainId === 'asset-hub') {
       const arg = args as {
         target?: { id?: string }; // asset hub token transfer
         dest?: { id?: string }; // asset hub native transfer
@@ -417,15 +416,6 @@ export default class VaultDot extends VaultBase {
     let action: IDecodedTxAction | null = null;
     const actionType = getTransactionTypeFromTxInfo(decodeUnsignedTx);
 
-    console.log(
-      '======>>>>>> decodeUnsignedTx method',
-      decodeUnsignedTx.method,
-    );
-    console.log(
-      '======>>>>>> decodeUnsignedTx assetId',
-      decodeUnsignedTx.assetId,
-    );
-
     if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
       const from = account.address;
       let to = '';
@@ -434,7 +424,10 @@ export default class VaultDot extends VaultBase {
       const networkInfo = await this.getNetworkInfo();
       let assetId = '';
 
-      if (chainId === 'polkadot-assethub' && decodeUnsignedTx.assetId) {
+      if (
+        chainId === 'asset-hub' &&
+        decodeUnsignedTx.method.pallet === 'assets'
+      ) {
         assetId = decodeUnsignedTx.method.args.id?.toString() ?? '';
       }
 
@@ -539,6 +532,8 @@ export default class VaultDot extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    console.log('========>>>>>>> updateUnsignedTx start: ', params);
+
     const { unsignedTx, nativeAmountInfo } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
@@ -553,10 +548,14 @@ export default class VaultDot extends VaultBase {
       .shiftedBy(params.feeInfo?.common.feeDecimals ?? 0)
       .toFixed();
 
+    const customRpcClient = await this.getCustomApiPromise();
+    const chainId = await this.getNetworkChainId();
+    const { decodedUnsigned: decodeUnsignedTx } = await this._decodeUnsignedTx(
+      encodedTx,
+    );
+
     // send max amount
     if (nativeAmountInfo) {
-      const { decodedUnsigned: decodeUnsignedTx, registry } =
-        await this._decodeUnsignedTx(encodedTx);
       const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
       if (type === EDecodedTxActionType.ASSET_TRANSFER) {
         const txBaseInfo = await this._getTxBaseInfo();
@@ -609,9 +608,117 @@ export default class VaultDot extends VaultBase {
           metadataRpc: '' as `0x${string}`,
         };
       }
-    }
+    } else if (
+      chainId === 'asset-hub' &&
+      decodeUnsignedTx.method.pallet === 'assets'
+    ) {
+      const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
+      if (type === EDecodedTxActionType.ASSET_TRANSFER) {
+        const assetId = decodeUnsignedTx.method.args.id?.toString() ?? '';
+        const amount = decodeUnsignedTx.method.args.amount as string;
 
-    const customRpcClient = await this.getCustomApiPromise();
+        const txBaseInfo = await this._getTxBaseInfo();
+        const from = await this.getAccountAddress();
+
+        const info = {
+          ...txBaseInfo,
+          address: from,
+          eraPeriod: 64,
+          nonce: decodeUnsignedTx.nonce ?? 0,
+          tip: 0,
+        };
+
+        const option = {
+          metadataRpc: txBaseInfo.metadataRpc,
+          registry: txBaseInfo.registry,
+        };
+        const to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
+
+        const tokenList = await this.fetchTokenList({
+          accountId: this.accountId,
+          requestApiParams: {
+            accountAddress: from,
+            networkId: this.networkId,
+            contractList: [assetId],
+            hiddenTokens: [],
+          },
+          flag: 'dot-updateUnsignedTx-send-token',
+        });
+        const tokenInfo = tokenList.data.data.tokens.data.find(
+          (token) => token.address === assetId,
+        );
+
+        if (!tokenInfo) {
+          throw new OneKeyInternalError({
+            message: 'updateUnsignedTx not found tokenInfo',
+            key: ETranslations.send_engine_incorrect_token_address,
+          });
+        }
+        const token = tokenList.data.data.tokens.map[tokenInfo?.$key];
+
+        if (new BigNumber(amount).gte(new BigNumber(token.balance))) {
+          const minBalance = await getMinAmount(
+            this.networkId,
+            this.backgroundApi,
+            assetId,
+          );
+          const amountValue = new BigNumber(amount ?? '0')
+            .minus(minBalance)
+            .toFixed(0);
+
+          const asset = {
+            parents: 0,
+            interior: {
+              X2: [
+                {
+                  palletInstance: 50,
+                },
+                {
+                  generalIndex: parseInt(tokenInfo.address, 10),
+                },
+              ],
+            },
+          };
+
+          let tx;
+          if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
+            tx = methods.assets.transferKeepAlive(
+              {
+                id: parseInt(tokenInfo.address, 10),
+                target: to,
+                amount: amountValue,
+              },
+              {
+                ...info,
+                assetId: asset,
+              },
+              option,
+            );
+          } else {
+            tx = methods.assets.transfer(
+              {
+                id: parseInt(tokenInfo.address, 10),
+                target: to,
+                amount: amountValue,
+              },
+              {
+                ...info,
+                assetId: asset,
+              },
+              option,
+            );
+          }
+
+          const network = await this.getNetwork();
+          encodedTx = {
+            ...tx,
+            specName: txBaseInfo.specName,
+            chainName: network.name,
+            metadataRpc: '' as `0x${string}`,
+          };
+        }
+      }
+    }
 
     if (!params.nonceInfo && !encodedTx.isFromDapp) {
       const blockInfo = await getBlockInfo(
@@ -774,6 +881,7 @@ export default class VaultDot extends VaultBase {
       const minAmount = await getMinAmount(
         this.networkId,
         this.backgroundApi,
+        undefined,
         customRpcClient,
       );
       const balance = await this._getBalance(to);
@@ -826,6 +934,7 @@ export default class VaultDot extends VaultBase {
       const minAmount = await getMinAmount(
         this.networkId,
         this.backgroundApi,
+        undefined,
         customRpcClient,
       );
       const balance = !params.nativeAmountInfo?.maxSendAmount
@@ -854,13 +963,16 @@ export default class VaultDot extends VaultBase {
     return true;
   }
 
-  // RPC Client
-  getRpcClient = async (url: string): Promise<ProviderInterface> => {
+  // Custom RPC Client
+  getRpcClient = async (
+    url: string,
+  ): Promise<ProviderInterface | undefined> => {
     if (url.startsWith('http')) {
       return new HttpProvider(url);
+    } else if (!isEmpty(url)) {
+      return new WsProvider(url);
     }
-
-    return new WsProvider(url);
+    return undefined;
   };
 
   private _getCustomApiPromise = memoizee(
@@ -885,11 +997,11 @@ export default class VaultDot extends VaultBase {
         this.networkId,
       );
 
-    // if (rpcInfo?.isCustomNetwork) {
-    return this._getCustomApiPromise(rpcInfo?.rpc ?? '');
-    // }
+    if (rpcInfo?.isCustomNetwork) {
+      return this._getCustomApiPromise(rpcInfo?.rpc ?? '');
+    }
 
-    // return undefined;
+    return undefined;
   };
 
   override async getCustomRpcEndpointStatus(
@@ -1013,19 +1125,18 @@ export default class VaultDot extends VaultBase {
             price: 0,
           };
         }
-        if (network.chainId === 'polkadot-assethub') {
+        if (network.chainId === 'asset-hub') {
           const apiPromise = await this.getCustomApiPromise();
 
           const asset = await apiPromise?.query.assets.metadata(contract);
+
           const account = await apiPromise?.query.assets.account(
             contract,
             params.accountAddress ?? '',
           );
-          // const assetFrozen =
-          //   await apiPromise?.query.assetsFreezer.frozenBalances(
-          //     contract,
-          //     params.accountAddress ?? '',
-          //   );
+
+          // const assetInfo = await apiPromise?.query.assets.asset(contract);
+          // const assetFrozen = assetInfo?.value?.minBalance;
 
           const accountValue = account?.value;
           if (!asset || !accountValue) {
@@ -1147,7 +1258,7 @@ export default class VaultDot extends VaultBase {
     });
 
     const chainId = await this.getNetworkChainId();
-    if (chainId === 'polkadot-assethub') {
+    if (chainId === 'asset-hub') {
       const assetIds: number[] = [];
       const assetMetadataEntries = await provider.query.assets.asset.entries();
       for (const [key] of assetMetadataEntries) {

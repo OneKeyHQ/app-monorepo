@@ -2590,15 +2590,15 @@ const joystream: IServerNetwork = {
 };
 
 const hydradx: IServerNetwork = {
-  'chainId': 'hydradx',
-  'code': 'hdx',
+  'chainId': 'hydration',
+  'code': 'hydration',
   'decimals': 12,
-  'id': 'dot--hydradx',
+  'id': 'dot--hydration',
   'impl': 'dot',
   'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/hydradx.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hdx.png',
   'name': 'Hydration',
-  'shortcode': 'hdx',
+  'shortcode': 'hydration',
   'shortname': 'HDX',
   'symbol': 'HDX',
   'feeMeta': {
@@ -2606,20 +2606,19 @@ const hydradx: IServerNetwork = {
     'symbol': 'HDX',
   },
   'defaultEnabled': true,
-  'isCustomNetwork': true,
   'status': ENetworkStatus.LISTED,
 };
 
 const assethubPolkadot: IServerNetwork = {
-  'chainId': 'polkadot-assethub',
-  'code': 'dot-assethub',
+  'chainId': 'polkadot-asset-hub',
+  'code': 'assetHub',
   'decimals': 10,
-  'id': 'dot--polkadot-assethub',
+  'id': 'dot--asset-hub',
   'impl': 'dot',
   'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/polkadot-assethub.png',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
   'name': 'Assethub Polkadot',
-  'shortcode': 'dot-assethub',
+  'shortcode': 'assetHub',
   'shortname': 'DOT',
   'symbol': 'DOT',
   'feeMeta': {
@@ -2627,20 +2626,19 @@ const assethubPolkadot: IServerNetwork = {
     'symbol': 'DOT',
   },
   'defaultEnabled': true,
-  'isCustomNetwork': true,
   'status': ENetworkStatus.LISTED,
 };
 
 const bifrost: IServerNetwork = {
-  'chainId': 'bifrost',
-  'code': 'bnc',
+  'chainId': 'bifrost-ksm',
+  'code': 'bifrost',
   'decimals': 12,
-  'id': 'dot--bifrost',
+  'id': 'dot--bifrost-ksm',
   'impl': 'dot',
   'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/bifrost.png',
-  'name': 'Bifrost',
-  'shortcode': 'bnc',
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'name': 'Bifrost Kusama',
+  'shortcode': 'bifrost',
   'shortname': 'BNC',
   'symbol': 'BNC',
   'feeMeta': {
@@ -2648,7 +2646,6 @@ const bifrost: IServerNetwork = {
     'symbol': 'BNC',
   },
   'defaultEnabled': true,
-  'isCustomNetwork': true,
   'status': ENetworkStatus.LISTED,
 };
 
