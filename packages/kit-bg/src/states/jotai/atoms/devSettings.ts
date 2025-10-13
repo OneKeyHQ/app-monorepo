@@ -57,6 +57,7 @@ export interface IDevSettings {
   reactScanShowToolbar?: boolean;
   reactScanAnimationSpeed?: 'slow' | 'fast' | 'off';
   reactScanTrackUnnecessaryRenders?: boolean;
+  showPerpsRenderStats?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

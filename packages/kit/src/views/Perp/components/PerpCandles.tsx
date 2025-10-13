@@ -3,18 +3,23 @@ import { TradingViewPerpsV2 } from '@onekeyhq/kit/src/components/TradingView/Tra
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
+  usePerpsCandlesWebviewReloadHookAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 export function PerpCandles() {
   const [currentToken] = usePerpsActiveAssetAtom();
   const [currentAccount] = usePerpsActiveAccountAtom();
+  const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
 
   const content = (
     <Stack w="100%" h="100%">
-      <TradingViewPerpsV2
-        userAddress={currentAccount?.accountAddress}
-        symbol={currentToken.coin}
-      />
+      {reloadHook > 0 ? (
+        <TradingViewPerpsV2
+          webviewKey={reloadHook.toString()}
+          userAddress={currentAccount?.accountAddress}
+          symbol={currentToken.coin}
+        />
+      ) : null}
     </Stack>
   );
   return (
