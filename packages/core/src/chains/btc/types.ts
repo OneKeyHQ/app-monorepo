@@ -144,3 +144,15 @@ export interface IBtcBlockbookDerivedInfo {
   totalReceived?: string;
   totalSent?: string;
 }
+
+export interface IBtcFreshAddress {
+  address: string | undefined;
+  name: string;
+  path: string;
+  transfers: number;
+  isDerivedByApp: boolean;
+  balance?: string;
+  totalReceived?: string;
+  totalSent?: string;
+  pendingTransactions?: string[];
+}
