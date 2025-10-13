@@ -25,6 +25,7 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Spinner,
   Stack,
   Tabs,
   XStack,
@@ -650,6 +651,20 @@ function Overview({
   );
 }
 
+function EarnLoadingOverview() {
+  return (
+    <Page fullPage>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+      />
+      <Stack flex={1} alignContent="center" justifyContent="center">
+        <Spinner size="large" />
+      </Stack>
+    </Page>
+  );
+}
+
 type IEarnBlockedOverviewProps = IEarnBlockedStatusData['notification'];
 
 function EarnBlockedOverview(props: IEarnBlockedOverviewProps) {
@@ -1236,10 +1251,10 @@ export default function EarnHome() {
   const content = useMemo(() => {
     switch (status) {
       case EEarnStatus.Loading:
-        return null;
+        return <EarnLoadingOverview />;
       case EEarnStatus.Blocked:
         if (!blockData) {
-          return null;
+          return <BasicEarnHome />;
         }
         return <EarnBlockedOverview {...blockData.notification} />;
       case EEarnStatus.Available:
