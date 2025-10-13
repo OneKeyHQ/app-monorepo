@@ -572,6 +572,29 @@ const BaseDevSettingsSection = () => {
         />
       </ListItem>
 
+      <ListItem
+        icon="PerformanceOutline"
+        title="Performance Monitor(UI FPS/JS FPS)"
+        subtitle="性能监控"
+      >
+        <Switch
+          isUncontrolled
+          size={ESwitchSize.small}
+          defaultChecked={!!devSettings.settings?.showPerformanceMonitor}
+          onChange={(v) => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'showPerformanceMonitor',
+              v,
+            );
+            setTimeout(() => {
+              void backgroundApiProxy.serviceApp.restartApp();
+            }, 10);
+          }}
+        />
+      </ListItem>
+
+      <ReactScanSetting />
+
       <AutoUpdateSettings />
 
       <SectionFieldItem
@@ -982,28 +1005,6 @@ const BaseDevSettingsSection = () => {
           });
         }}
       />
-      <ListItem
-        icon="PerformanceOutline"
-        title="Performance Monitor(UI FPS/JS FPS)"
-        subtitle="性能监控"
-      >
-        <Switch
-          isUncontrolled
-          size={ESwitchSize.small}
-          defaultChecked={!!devSettings.settings?.showPerformanceMonitor}
-          onChange={(v) => {
-            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-              'showPerformanceMonitor',
-              v,
-            );
-            setTimeout(() => {
-              void backgroundApiProxy.serviceApp.restartApp();
-            }, 10);
-          }}
-        />
-      </ListItem>
-
-      <ReactScanSetting />
 
       <SectionPressItem
         icon="AppleBrand"
