@@ -664,7 +664,7 @@ function EarnBlockedOverview(props: {
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
       />
-      <Page.Body>
+      <Page.Body px="$16" mt="$10">
         <Empty
           icon={icon}
           title={title}
