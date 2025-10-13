@@ -1,44 +1,25 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type {
-  IModalNavigationProp,
-  ITabContainerRef,
-} from '@onekeyhq/components';
+import type { ITabContainerRef } from '@onekeyhq/components';
 import {
   DebugRenderTracker,
-  IconButton,
   SizableText,
   Tabs,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
-  usePerpsActiveOpenOrdersAtom,
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import {
-  perpsTradesHistoryRefreshHookAtom,
-  usePerpsTradesHistoryRefreshHookAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { perpsTradesHistoryRefreshHookAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-
-import { usePerpsActivePositionAtom } from '../../hooks';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
-
-interface IPerpOrderInfoPanelProps {
-  isMobile?: boolean;
-}
 
 const tabNameToTranslationKey = {
   'Positions': ETranslations.perp_position_title,
@@ -98,20 +79,11 @@ function TabBarItem({
   );
 }
 
-function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
-  const intl = useIntl();
-
+function PerpOrderInfoPanel() {
   const tabsRef = useRef<ITabContainerRef | null>(null);
 
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
-  };
-  const navigation =
-    useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
-  const handleViewTradesHistory = () => {
-    navigation.pushModal(EModalRoutes.PerpModal, {
-      screen: EModalPerpRoutes.PerpTradersHistoryList,
-    });
   };
 
   const lastSubscriptionsHandlerDisabledCount = useRef<number>(-1);
@@ -122,7 +94,6 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       headerHeight={80}
       initialTabName="Positions"
       onTabChange={async (tab) => {
-        console.log('PerpOrderInfoPanel_onTabChange_tabName::', tab);
         if (tab.tabName === 'Trades History') {
           const subscriptionsHandlerDisabledCount =
             await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
@@ -141,20 +112,6 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}
-          renderToolbar={
-            isMobile
-              ? () => (
-                  <IconButton
-                    variant="tertiary"
-                    size="small"
-                    mr="$2"
-                    borderRadius="$full"
-                    icon="ClockTimeHistoryOutline"
-                    onPress={handleViewTradesHistory}
-                  />
-                )
-              : undefined
-          }
           renderItem={({ name, isFocused, onPress }) => (
             <TabBarItem name={name} isFocused={isFocused} onPress={onPress} />
           )}
@@ -167,19 +124,14 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       )}
     >
       <Tabs.Tab name="Positions">
-        <PerpPositionsList
-          handleViewTpslOrders={handleViewTpslOrders}
-          isMobile={isMobile}
-        />
+        <PerpPositionsList handleViewTpslOrders={handleViewTpslOrders} />
       </Tabs.Tab>
       <Tabs.Tab name="Open Orders">
-        <PerpOpenOrdersList isMobile={isMobile} />
+        <PerpOpenOrdersList />
       </Tabs.Tab>
-      {!isMobile ? (
-        <Tabs.Tab name="Trades History">
-          <PerpTradesHistoryList useTabsList />
-        </Tabs.Tab>
-      ) : null}
+      <Tabs.Tab name="Trades History">
+        <PerpTradesHistoryList useTabsList />
+      </Tabs.Tab>
     </Tabs.Container>
   );
 }
