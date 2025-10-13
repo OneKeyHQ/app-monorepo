@@ -11,6 +11,7 @@ import {
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
+  useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -24,6 +25,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import BigNumber from 'bignumber.js';
 
 interface IProps {
   accountId: string;
@@ -38,6 +40,7 @@ function TxConfirmAlert(props: IProps) {
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const { network } = useAccountData({
     networkId,
@@ -200,7 +203,9 @@ function TxConfirmAlert(props: IProps) {
       if (transferPayload?.isTronResourceAutoClaimed) {
         alerts.push({
           title: intl.formatMessage({
-            id: ETranslations.sending_krc20_warning_text,
+            id: new BigNumber(sendSelectedFeeInfo?.totalNative ?? '0').isZero()
+              ? ETranslations.wallet_banner_send_free
+              : ETranslations.wallet_banner_discounted_send,
           }),
           type: 'info',
         });
@@ -220,6 +225,7 @@ function TxConfirmAlert(props: IProps) {
     accountId,
     intl,
     networkId,
+    sendSelectedFeeInfo?.totalNative,
     transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.tokenInfo,
     tronResourceRentalInfo.isResourceRentalEnabled,

@@ -25,7 +25,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { calculateFeeForSend } from '@onekeyhq/kit/src/utils/gasFee';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

@@ -42,13 +42,8 @@ import {
   useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import {
-  calculateFeeForSend,
-  calculateTotalFeeRange,
-  getFeeIcon,
-  getFeeLabel,
-} from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
@@ -63,6 +58,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import {
+  calculateFeeForSend,
+  calculateTotalFeeRange,
+  getFeeIcon,
+  getFeeLabel,
+} from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import {
@@ -86,6 +87,7 @@ type IProps = {
   feeInfoEditable?: boolean;
   tableLayout?: boolean;
   feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
+  transferPayload?: ITransferPayload;
 };
 
 function TxFeeInfo(props: IProps) {
@@ -95,6 +97,7 @@ function TxFeeInfo(props: IProps) {
     useFeeInTx,
     feeInfoEditable = true,
     feeInfoWrapperProps,
+    transferPayload,
   } = props;
   const intl = useIntl();
   const feeInTxUpdated = useRef(false);
@@ -1487,6 +1490,10 @@ function TxFeeInfo(props: IProps) {
         payTokenAmount = payTokenInfo.payTxFeeAmount;
       }
 
+      const totalFiat = new BigNumber(payTokenAmount ?? 0).times(
+        payTokenInfo.price ?? 0,
+      );
+
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
           (
@@ -1498,9 +1505,7 @@ function TxFeeInfo(props: IProps) {
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {new BigNumber(payTokenAmount ?? 0)
-              .times(payTokenInfo.price ?? 0)
-              .toFixed() ?? '-'}
+            {totalFiat.toFixed() ?? '-'}
           </NumberSizeableText>
           )
         </SizableText>
@@ -1525,18 +1530,19 @@ function TxFeeInfo(props: IProps) {
     );
   }, [
     megafuelEligible.sponsorable,
-    isResourceRentalEnabled,
-    isResourceRentalNeeded,
-    isSwapTrxEnabled,
-    payTokenInfo,
-    payType,
     selectedFee?.totalFiatMinForDisplay,
+    isResourceRentalNeeded,
+    isResourceRentalEnabled,
+    payTokenInfo,
     settings.currencyInfo.symbol,
+    payType,
+    isSwapTrxEnabled,
   ]);
 
   const renderOriginalFeeInfo = useCallback(() => {
     if (
       (!isResourceRentalNeeded || !isResourceRentalEnabled) &&
+      !transferPayload?.isTronResourceAutoClaimed &&
       !megafuelEligible.sponsorable
     ) {
       return null;
@@ -1544,13 +1550,21 @@ function TxFeeInfo(props: IProps) {
 
     const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
 
-    const totalNative = megafuelEligible.sponsorable
+    let totalNative = megafuelEligible.sponsorable
       ? selectedFee?.originalTotalNative
       : selectedFee?.totalNativeMinForDisplay;
 
-    const totalFiat = megafuelEligible.sponsorable
+    let totalFiat = megafuelEligible.sponsorable
       ? selectedFee?.originalTotalFiat
       : selectedFee?.totalFiatMinForDisplay;
+
+    if (
+      transferPayload?.isTronResourceAutoClaimed &&
+      transferPayload?.txOriginalFee
+    ) {
+      totalNative = transferPayload?.txOriginalFee.totalNative;
+      totalFiat = transferPayload?.txOriginalFee.totalFiat;
+    }
 
     return (
       <XStack alignItems="center">
@@ -1594,11 +1608,29 @@ function TxFeeInfo(props: IProps) {
             </Badge.Text>
           </Badge>
         ) : null}
+        {sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0 ? (
+          <Badge badgeSize="sm" badgeType="success">
+            <Badge.Text>
+              {sendFeeStatus.discountPercent === 100
+                ? intl.formatMessage({
+                    id: ETranslations.prime_status_free,
+                  })
+                : intl.formatMessage(
+                    {
+                      id: ETranslations.wallet_discount_number,
+                    },
+                    { number: `${sendFeeStatus.discountPercent}%` },
+                  )}
+            </Badge.Text>
+          </Badge>
+        ) : null}
       </XStack>
     );
   }, [
     isResourceRentalNeeded,
     isResourceRentalEnabled,
+    transferPayload?.isTronResourceAutoClaimed,
+    transferPayload?.txOriginalFee,
     megafuelEligible.sponsorable,
     selectedFee?.originalTotalNative,
     selectedFee?.totalNativeMinForDisplay,
@@ -1607,6 +1639,7 @@ function TxFeeInfo(props: IProps) {
     txFeeCommon?.nativeSymbol,
     settings.currencyInfo.symbol,
     intl,
+    sendFeeStatus.discountPercent,
   ]);
 
   useEffect(() => {
@@ -1618,6 +1651,58 @@ function TxFeeInfo(props: IProps) {
     updateSendSelectedFee,
     updateTxAdvancedSettings,
     updateTxFeeInfoInit,
+  ]);
+
+  useEffect(() => {
+    let originalTotalFiat = selectedFee?.totalFiatMinForDisplay;
+    let totalFiat = selectedFee?.totalFiatMinForDisplay;
+
+    if (
+      transferPayload?.isTronResourceAutoClaimed &&
+      transferPayload?.txOriginalFee
+    ) {
+      originalTotalFiat = transferPayload?.txOriginalFee.totalFiat;
+    }
+
+    if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
+      let payTokenAmount = payTokenInfo.totalAmount;
+
+      if (payType === ETronResourceRentalPayType.Token && !isSwapTrxEnabled) {
+        payTokenAmount = payTokenInfo.payTxFeeAmount;
+      }
+
+      totalFiat = new BigNumber(payTokenAmount ?? 0)
+        .times(payTokenInfo.price ?? 0)
+        .toFixed();
+    }
+
+    if (
+      !isNil(originalTotalFiat) &&
+      !isNil(totalFiat) &&
+      new BigNumber(originalTotalFiat ?? 0).gt(0)
+    ) {
+      const discountPercent = new BigNumber(originalTotalFiat ?? 0)
+        .minus(totalFiat ?? 0)
+        .dividedBy(originalTotalFiat ?? 0)
+        .multipliedBy(100)
+        .dp(0)
+        .toNumber();
+
+      updateSendFeeStatus({
+        discountPercent,
+      });
+    }
+  }, [
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    isSwapTrxEnabled,
+    megafuelEligible.sponsorable,
+    payTokenInfo,
+    payType,
+    selectedFee?.totalFiatMinForDisplay,
+    transferPayload?.isTronResourceAutoClaimed,
+    transferPayload?.txOriginalFee,
+    updateSendFeeStatus,
   ]);
 
   return (

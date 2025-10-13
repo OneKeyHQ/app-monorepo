@@ -34,7 +34,7 @@ import {
   calculateFeeForSend,
   getFeeIcon,
   getFeeLabel,
-} from '@onekeyhq/kit/src/utils/gasFee';
+} from '@onekeyhq/shared/src/utils/feeUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { useCallback } from 'react';
 
-import { isEmpty } from 'lodash';
+import { isEmpty, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -135,18 +135,23 @@ function useSignatureConfirm(params: IParams) {
           ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
           : EModalSignatureConfirmRoutes.TxConfirm;
 
-        const preActionsBeforeConfirmResult =
-          await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeConfirm(
-            {
-              accountId,
-              networkId,
-            },
-          );
+        try {
+          const preActionsBeforeConfirmResult =
+            await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeConfirm(
+              {
+                accountId,
+                networkId,
+                unsignedTxs,
+              },
+            );
 
-        transferPayload = {
-          ...transferPayload,
-          ...preActionsBeforeConfirmResult,
-        } as ITransferPayload;
+          transferPayload = {
+            ...transferPayload,
+            ...preActionsBeforeConfirmResult,
+          } as ITransferPayload;
+        } catch (error) {
+          noop();
+        }
 
         if (sameModal) {
           navigation.push(target, {

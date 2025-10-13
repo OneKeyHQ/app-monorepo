@@ -365,10 +365,13 @@ class ServiceSignatureConfirm extends ServiceBase {
   async preActionsBeforeConfirm(params: {
     accountId: string;
     networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
   }) {
-    const { accountId, networkId } = params;
+    const { accountId, networkId, unsignedTxs } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    return vault.preActionsBeforeConfirm();
+    return vault.preActionsBeforeConfirm({
+      unsignedTxs,
+    });
   }
 
   @backgroundMethod()

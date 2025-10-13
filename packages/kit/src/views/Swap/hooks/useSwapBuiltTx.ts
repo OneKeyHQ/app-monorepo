@@ -102,7 +102,7 @@ import {
   useSwapStepsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { calculateFeeForSend } from '../../../utils/gasFee';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import {

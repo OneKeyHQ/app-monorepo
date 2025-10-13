@@ -31,7 +31,7 @@ import {
   calculateSolTotalFee,
   calculateSuiTotalFee,
   calculateTotalFeeNative,
-} from '@onekeyhq/kit/src/utils/gasFee';
+} from '@onekeyhq/shared/src/utils/feeUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';

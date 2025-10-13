@@ -14,7 +14,7 @@ import {
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { calculateTxExtraFee } from '@onekeyhq/kit/src/utils/gasFee';
+import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
