@@ -1638,12 +1638,14 @@ class ServiceStaking extends ServiceBase {
       const response = await client.get<{
         data: IStakeBlockRegionResponse;
       }>('/earn/v1/block-region');
-      return response.data.data;
+      const blockResult = response.data.data;
+      const blockData = blockResult.isBlockedRegion
+        ? blockResult.notification
+        : null;
+
+      return blockData;
     } catch (error) {
-      return {
-        isBlockedRegion: false,
-        countryCode: '',
-      };
+      return null;
     }
   }
 }

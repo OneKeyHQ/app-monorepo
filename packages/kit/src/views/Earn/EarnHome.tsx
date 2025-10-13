@@ -14,7 +14,7 @@ import {
   Badge,
   Banner,
   Button,
-  Heading,
+  Empty,
   Icon,
   IconButton,
   Image,
@@ -63,7 +63,6 @@ import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { EEarnStatus, useEarnBlocked } from '../../hooks/useEarnBlocked';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import {
@@ -82,7 +81,6 @@ import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 
-import type { IEarnBlockedStatusData } from '../../hooks/useEarnBlocked';
 import type { LayoutChangeEvent } from 'react-native';
 
 const BANNER_TITLE_OFFSET = {
@@ -651,24 +649,15 @@ function Overview({
   );
 }
 
-function EarnLoadingOverview() {
-  return (
-    <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Earn}
-      />
-      <Stack flex={1} alignContent="center" justifyContent="center">
-        <Spinner size="large" />
-      </Stack>
-    </Page>
-  );
-}
-
-type IEarnBlockedOverviewProps = IEarnBlockedStatusData['notification'];
-
-function EarnBlockedOverview(props: IEarnBlockedOverviewProps) {
-  const { title, description, icon } = props;
+function EarnBlockedOverview(props: {
+  icon: IKeyOfIcons;
+  title: string;
+  description: string;
+  refresh: () => Promise<void>;
+  refreshing: boolean;
+}) {
+  const intl = useIntl();
+  const { title, description, icon, refresh, refreshing } = props;
 
   return (
     <Page fullPage>
@@ -677,20 +666,24 @@ function EarnBlockedOverview(props: IEarnBlockedOverviewProps) {
         tabRoute={ETabRoutes.Earn}
       />
       <Page.Body px="$16" mt="$10">
-        <YStack flex={1} alignItems="center">
-          <Icon
-            size="$16"
-            name={icon.icon as IKeyOfIcons}
-            color="$iconDisabled"
-            mb="$6"
-          />
-          <Heading size="$headingXl" pb="$2">
-            {title.text}
-          </Heading>
-          <SizableText size="$bodyLg" color="$textSubdued">
-            {description.text}
-          </SizableText>
-        </YStack>
+        <Empty
+          icon={icon}
+          title={title}
+          description={description}
+          button={
+            <Button
+              mt="$6"
+              size="medium"
+              variant="primary"
+              onPress={refresh}
+              loading={refreshing}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_refresh,
+              })}
+            </Button>
+          }
+        />
       </Page.Body>
     </Page>
   );
@@ -702,6 +695,22 @@ function BasicEarnHome() {
   const media = useMedia();
   const actions = useEarnActions();
   const allNetworkId = useAllNetworkId();
+
+  const {
+    isLoading: isFetchingBlockResult,
+    run: refreshBlockResult,
+    result: blockResult,
+  } = usePromiseResult(
+    async () => {
+      const blockData =
+        await backgroundApiProxy.serviceStaking.getBlockRegion();
+      return { blockData };
+    },
+    [],
+    {
+      revalidateOnFocus: true,
+    },
+  );
 
   const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
     usePromiseResult(
@@ -1024,6 +1033,18 @@ function BasicEarnHome() {
     setTabPageHeight(height);
   }, []);
 
+  if (!isFetchingBlockResult && blockResult?.blockData) {
+    return (
+      <EarnBlockedOverview
+        refresh={refreshBlockResult}
+        refreshing={!!isFetchingBlockResult}
+        icon={blockResult.blockData.icon.icon}
+        title={blockResult.blockData.title.text}
+        description={blockResult.blockData.description.text}
+      />
+    );
+  }
+
   if (platformEnv.isNative && media.md) {
     return (
       <Page fullPage>
@@ -1246,24 +1267,6 @@ function BasicEarnHome() {
 }
 
 export default function EarnHome() {
-  const { status, blockData } = useEarnBlocked();
-
-  const content = useMemo(() => {
-    switch (status) {
-      case EEarnStatus.Loading:
-        return <EarnLoadingOverview />;
-      case EEarnStatus.Blocked:
-        if (!blockData) {
-          return <BasicEarnHome />;
-        }
-        return <EarnBlockedOverview {...blockData.notification} />;
-      case EEarnStatus.Available:
-        return <BasicEarnHome />;
-      default:
-        return null;
-    }
-  }, [status, blockData]);
-
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -1273,7 +1276,7 @@ export default function EarnHome() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        {content}
+        <BasicEarnHome />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

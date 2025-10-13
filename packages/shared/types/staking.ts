@@ -1171,7 +1171,7 @@ export type IStakeBlockRegionResponse =
       countryCode: string;
       notification: {
         icon: {
-          icon: string;
+          icon: IKeyOfIcons;
         };
         title: {
           text: string;

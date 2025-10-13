@@ -6,10 +6,6 @@ import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  EEarnStatus,
-  useEarnBlocked,
-} from '@onekeyhq/kit/src/hooks/useEarnBlocked';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
@@ -40,7 +36,6 @@ export function WalletActionEarn(props: {
 
   const navigation = useAppNavigation();
 
-  const { status, blockData } = useEarnBlocked();
   const intl = useIntl();
 
   const { result } = usePromiseResult(async () => {
@@ -61,17 +56,17 @@ export function WalletActionEarn(props: {
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
-    return { symbolInfo, maxApr, protocolList };
+    return { symbolInfo, maxApr, protocolList, blockData };
   }, [networkId, tokenAddress]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleEarnTokenOnPress = useCallback(async () => {
-    if (status === EEarnStatus.Blocked && blockData) {
-      const { notification } = blockData;
+    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
+    if (blockData) {
       Dialog.show({
-        icon: notification.icon.icon as IKeyOfIcons,
-        title: notification.title.text,
-        description: notification.description.text,
+        icon: blockData.icon.icon,
+        title: blockData.title.text,
+        description: blockData.description.text,
         showCancelButton: false,
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_got_it,
@@ -136,8 +131,6 @@ export function WalletActionEarn(props: {
     });
   }, [
     intl,
-    blockData,
-    status,
     result?.symbolInfo?.symbol,
     result?.protocolList,
     networkId,
@@ -152,7 +145,7 @@ export function WalletActionEarn(props: {
   return (
     <RawActions.Earn
       onPress={handleEarnTokenOnPress}
-      disabled={!result || status === EEarnStatus.Loading}
+      disabled={!result}
       trackID={trackID}
     />
   );
