@@ -48,6 +48,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
+      totalUnrealizedPnl: string | undefined;
     }
   | undefined;
 export const {
