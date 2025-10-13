@@ -56,17 +56,17 @@ export function WalletActionEarn(props: {
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
-    return { symbolInfo, maxApr, protocolList };
+    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
+    return { symbolInfo, maxApr, protocolList, blockData };
   }, [networkId, tokenAddress]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleEarnTokenOnPress = useCallback(async () => {
-    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
-    if (blockData) {
+    if (result?.blockData) {
       Dialog.show({
-        icon: blockData.icon.icon,
-        title: blockData.title.text,
-        description: blockData.description.text,
+        icon: result.blockData.icon.icon,
+        title: result.blockData.title.text,
+        description: result.blockData.description.text,
         showCancelButton: false,
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_got_it,
@@ -133,6 +133,7 @@ export function WalletActionEarn(props: {
     intl,
     result?.symbolInfo?.symbol,
     result?.protocolList,
+    result?.blockData,
     networkId,
     accountId,
     walletType,
