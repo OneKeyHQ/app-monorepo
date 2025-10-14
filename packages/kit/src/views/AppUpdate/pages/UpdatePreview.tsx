@@ -11,6 +11,7 @@ import {
   SizableText,
   YStack,
 } from '@onekeyhq/components';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   type IAppUpdateInfo,
   displayAppUpdateVersion,
@@ -50,13 +51,12 @@ function UpdatePreview({
     return null;
   }, []);
   const {
-    latestVersion,
     isForceUpdate: isForceUpdateParam,
     autoClose = false,
+    latestVersion,
   } = route.params || {};
-  const [updateInfo, setUpdateInfo] = useState<IAppUpdateInfo | undefined>(
-    undefined,
-  );
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const [updateInfo, setUpdateInfo] = useState<IAppUpdateInfo>(appUpdateInfo);
 
   useEffect(() => {
     void backgroundApiProxy.serviceAppUpdate

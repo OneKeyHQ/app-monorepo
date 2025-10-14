@@ -156,6 +156,11 @@ function PerpTradingForm({
       }
       return nextEnv;
     });
+    if (formData.leverage !== nextEnv.leverageValue) {
+      updateForm({
+        leverage: nextEnv.leverageValue,
+      });
+    }
   }, [
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.availableToTrade,
@@ -163,6 +168,8 @@ function PerpTradingForm({
     activeAsset?.universe?.maxLeverage,
     activeAsset?.universe?.szDecimals,
     setTradingFormEnv,
+    formData.leverage,
+    updateForm,
   ]);
 
   // Token Switch Effect: Handle price updates when user switches tokens
@@ -205,14 +212,8 @@ function PerpTradingForm({
     updateForm,
   ]);
 
-  const leverage = useMemo(() => {
-    return (
-      activeAssetData?.leverage?.value || activeAsset?.universe?.maxLeverage
-    );
-  }, [activeAssetData?.leverage?.value, activeAsset?.universe?.maxLeverage]);
-
   // Reference Price: Get the effective trading price (limit price or market price)
-  const [referencePrice, referencePriceString] = useMemo(() => {
+  const [, referencePriceString] = useMemo(() => {
     let price = new BigNumber(0);
     if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
@@ -234,15 +235,6 @@ function PerpTradingForm({
     activeAsset?.universe?.szDecimals,
   ]);
 
-  const { availableToTradeDisplay } = useMemo(() => {
-    const _availableToTrade = activeAssetData?.availableToTrade || [0, 0];
-    const value = _availableToTrade[formData.side === 'long' ? 0 : 1] || 0;
-    const valueBN = new BigNumber(value);
-    return {
-      availableToTradeDisplay: valueBN.toFixed(2, BigNumber.ROUND_DOWN),
-    };
-  }, [formData.side, activeAssetData?.availableToTrade]);
-
   const [selectedSymbolPositionValue, selectedSymbolPositionSide] =
     useMemo(() => {
       const value = Number(
@@ -255,16 +247,14 @@ function PerpTradingForm({
       return [Math.abs(value), side];
     }, [perpsPositions, perpsSelectedSymbol.coin]);
 
-  // Order calculations: Total value and required margin
-  const totalValue = useMemo(() => {
-    return tradingComputed.computedSizeBN.multipliedBy(referencePrice); // Size × Price = Total Value
-  }, [tradingComputed.computedSizeBN, referencePrice]);
-
-  const marginRequired = useMemo(() => {
-    return tradingComputed.computedSizeBN
-      .multipliedBy(referencePrice)
-      .dividedBy(leverage || 1); // (Size × Price) ÷ Leverage = Required Margin
-  }, [tradingComputed.computedSizeBN, referencePrice, leverage]);
+  const availableToTrade = useMemo(() => {
+    const accountValue = new BigNumber(accountSummary?.accountValue || '0');
+    const totalMarginUsed = new BigNumber(
+      accountSummary?.totalMarginUsed || '0',
+    );
+    const availableToTradeBN = accountValue.minus(totalMarginUsed);
+    return availableToTradeBN.toFixed();
+  }, [accountSummary]);
 
   const switchToManual = useCallback(() => {
     if (tradingComputed.sizeInputMode === EPerpsSizeInputMode.SLIDER) {
@@ -373,180 +363,28 @@ function PerpTradingForm({
     [orderTypeOptions, updateForm],
   );
 
-  if (isMobile) {
-    return (
-      <YStack gap="$2.5">
-        <XStack alignItems="center" flex={1} gap="$2.5">
-          <YStack flex={1}>
-            <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
-          </YStack>
-          <LeverageAdjustModal isMobile={isMobile} />
-        </XStack>
-        <XStack justifyContent="space-between">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.perp_trade_account_overview_available,
-            })}
-          </SizableText>
-          <XStack alignItems="center" gap="$1">
-            <PerpsAccountNumberValue
-              value={accountSummary?.withdrawable ?? ''}
-              skeletonWidth={60}
-            />
-            <MobileDepositButton />
-          </XStack>
-        </XStack>
+  const checkboxSize = isMobile ? '$3.5' : '$4';
+  const tpLabelKey = isMobile
+    ? ETranslations.perp_tp
+    : ETranslations.perp_trade_tp_price;
+  const slLabelKey = isMobile
+    ? ETranslations.perp_sl
+    : ETranslations.perp_trade_sl_price;
 
+  return (
+    <YStack gap={isMobile ? '$2.5' : '$4'}>
+      {isMobile ? (
         <XStack alignItems="center" flex={1} gap="$2.5">
           <YStack flex={1}>
             <OrderTypeSelector
               value={formData.type}
               onChange={(type: 'market' | 'limit') => updateForm({ type })}
               disabled={isSubmitting}
-              isMobile={isMobile}
+              isMobile
             />
           </YStack>
         </XStack>
-        {formData.type === 'limit' ? (
-          <PriceInput
-            onUseMarketPrice={() => {
-              if (activeAssetCtx?.ctx?.markPrice) {
-                updateForm({
-                  price: formatPriceToSignificantDigits(
-                    activeAssetCtx?.ctx?.markPrice,
-                  ),
-                });
-              }
-            }}
-            value={formData.price}
-            onChange={(value) => updateForm({ price: value })}
-            szDecimals={universe?.szDecimals ?? 2}
-            isMobile={isMobile}
-          />
-        ) : (
-          <PriceInput
-            onUseMarketPrice={() => {
-              if (activeAssetCtx?.ctx?.markPrice) {
-                updateForm({
-                  price: formatPriceToSignificantDigits(
-                    activeAssetCtx?.ctx?.markPrice,
-                  ),
-                });
-              }
-            }}
-            value={intl.formatMessage({
-              id: ETranslations.perp_market_price,
-            })}
-            onChange={(value) => updateForm({ price: value })}
-            szDecimals={universe?.szDecimals ?? 2}
-            isMobile={isMobile}
-            disabled
-          />
-        )}
-        <SizeInput
-          referencePrice={referencePriceString}
-          side={formData.side}
-          activeAsset={activeAsset}
-          activeAssetCtx={activeAssetCtx}
-          symbol={perpsSelectedSymbol.coin}
-          value={formData.size}
-          onChange={handleManualSizeChange}
-          sizeInputMode={tradingComputed.sizeInputMode}
-          sliderPercent={tradingComputed.sizePercent}
-          onRequestManualMode={switchToManual}
-          isMobile={isMobile}
-        />
-        <YStack pt="$2" pb="$2">
-          <SegmentSlider
-            min={0}
-            max={100}
-            value={sliderValue}
-            showBubble={false}
-            onChange={handleSliderPercentChange}
-            disabled={sliderDisabled}
-            segments={4}
-            sliderHeight={2}
-          />
-        </YStack>
-        {shouldShowEnableTradingButton && isMobile ? null : (
-          <YStack gap="$1" mt="$1">
-            <XStack alignItems="center" gap="$2">
-              <Checkbox
-                value={formData.hasTpsl}
-                onChange={handleTpslCheckboxChange}
-                disabled={isSubmitting}
-                containerProps={{ p: 0, alignItems: 'center' }}
-                width="$3.5"
-                height="$3.5"
-                p="$0"
-              />
-              <Popover
-                renderContent={() => (
-                  <YStack px="$5" pt="$2" pb="$4">
-                    <SizableText size="$bodyMd">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_tp_sl_tooltip,
-                      })}
-                    </SizableText>
-                  </YStack>
-                )}
-                renderTrigger={
-                  <DashText
-                    size="$bodySm"
-                    dashColor="$textSubdued"
-                    dashThickness={0.5}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_position_tp_sl,
-                    })}
-                  </DashText>
-                }
-                title={intl.formatMessage({
-                  id: ETranslations.perp_position_tp_sl,
-                })}
-              />
-            </XStack>
-            {formData.hasTpsl ? (
-              <YStack gap="$2">
-                <TpSlFormInput
-                  type="tp"
-                  label={intl.formatMessage({
-                    id: ETranslations.perp_tp,
-                  })}
-                  value={formData.tpValue || ''}
-                  inputType={formData.tpType || 'price'}
-                  referencePrice={referencePriceString}
-                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-                  onChange={handleTpValueChange}
-                  onTypeChange={handleTpTypeChange}
-                  disabled={isSubmitting}
-                  isMobile={isMobile}
-                />
-                <TpSlFormInput
-                  type="sl"
-                  label={intl.formatMessage({
-                    id: ETranslations.perp_sl,
-                  })}
-                  value={formData.slValue || ''}
-                  inputType={formData.slType || 'price'}
-                  referencePrice={referencePriceString}
-                  szDecimals={activeAsset?.universe?.szDecimals ?? 2}
-                  onChange={handleSlValueChange}
-                  onTypeChange={handleSlTypeChange}
-                  disabled={isSubmitting}
-                  isMobile={isMobile}
-                />
-              </YStack>
-            ) : null}
-          </YStack>
-        )}
-      </YStack>
-    );
-  }
-
-  return (
-    <>
-      <YStack gap="$4">
+      ) : (
         <YStack>
           <XStack>
             {orderTypeOptions.map((option) => (
@@ -576,36 +414,41 @@ function PerpTradingForm({
           </XStack>
           <Divider />
         </YStack>
+      )}
 
-        <XStack alignItems="center" flex={1} gap="$3">
-          <YStack flex={1}>
-            <MarginModeSelector disabled={isSubmitting} />
-          </YStack>
+      <XStack alignItems="center" flex={1} gap={isMobile ? '$2.5' : '$3'}>
+        <YStack flex={1}>
+          <MarginModeSelector disabled={isSubmitting} isMobile={isMobile} />
+        </YStack>
+        <LeverageAdjustModal isMobile={isMobile} />
+      </XStack>
 
-          <LeverageAdjustModal />
-        </XStack>
-        <YStack
-          flex={1}
-          gap="$2.5"
-          p="$2.5"
-          borderWidth="$px"
-          borderColor="$borderSubdued"
-          borderRadius="$3"
-        >
-          <XStack justifyContent="space-between">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_trade_account_overview_available,
-              })}
-            </SizableText>
-            <XStack alignItems="center" gap="$1">
-              <PerpsAccountNumberValue
-                value={accountSummary?.withdrawable ?? ''}
-                skeletonWidth={60}
-              />
-              <MobileDepositButton />
-            </XStack>
+      <YStack
+        gap="$2.5"
+        {...(!isMobile && {
+          flex: 1,
+          p: '$2.5',
+          borderWidth: '$px',
+          borderColor: '$borderSubdued',
+          borderRadius: '$3',
+        })}
+      >
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.perp_trade_account_overview_available,
+            })}
+          </SizableText>
+          <XStack alignItems="center" gap="$1">
+            <PerpsAccountNumberValue
+              value={availableToTrade}
+              skeletonWidth={60}
+            />
+            <MobileDepositButton />
           </XStack>
+        </XStack>
+
+        {isMobile ? null : (
           <XStack justifyContent="space-between">
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({
@@ -625,76 +468,123 @@ function PerpTradingForm({
               </SizableText>
             )}
           </XStack>
-        </YStack>
-        {formData.type === 'limit' ? (
-          <PriceInput
-            onUseMarketPrice={() => {
-              if (activeAssetCtx?.ctx?.markPrice) {
-                updateForm({
-                  price: formatPriceToSignificantDigits(
-                    activeAssetCtx?.ctx?.markPrice,
-                  ),
-                });
-              }
-            }}
-            value={formData.price}
-            onChange={(value) => updateForm({ price: value })}
-            szDecimals={universe?.szDecimals ?? 2}
-          />
-        ) : null}
+        )}
+      </YStack>
 
-        <SizeInput
-          referencePrice={referencePriceString}
-          side={formData.side}
-          activeAsset={activeAsset}
-          activeAssetCtx={activeAssetCtx}
-          symbol={perpsSelectedSymbol.coin}
-          value={formData.size}
-          onChange={handleManualSizeChange}
-          sizeInputMode={tradingComputed.sizeInputMode}
-          sliderPercent={tradingComputed.sizePercent}
-          onRequestManualMode={switchToManual}
+      {formData.type === 'limit' || isMobile ? (
+        <PriceInput
+          onUseMarketPrice={() => {
+            if (activeAssetCtx?.ctx?.markPrice) {
+              updateForm({
+                price: formatPriceToSignificantDigits(
+                  activeAssetCtx?.ctx?.markPrice,
+                ),
+              });
+            }
+          }}
+          value={
+            formData.type === 'limit'
+              ? formData.price
+              : intl.formatMessage({
+                  id: ETranslations.perp_market_price,
+                })
+          }
+          onChange={(value) => updateForm({ price: value })}
+          szDecimals={universe?.szDecimals ?? 2}
+          isMobile={isMobile}
+          disabled={formData.type === 'market'}
         />
-        <YStack>
-          <SegmentSlider
-            min={0}
-            max={100}
-            showBubble={false}
-            value={sliderValue}
-            onChange={handleSliderPercentChange}
-            disabled={sliderDisabled}
-            segments={4}
-            sliderHeight={4}
-          />
-        </YStack>
+      ) : null}
 
-        <YStack p="$0">
+      <SizeInput
+        referencePrice={referencePriceString}
+        side={formData.side}
+        activeAsset={activeAsset}
+        activeAssetCtx={activeAssetCtx}
+        symbol={perpsSelectedSymbol.coin}
+        value={formData.size}
+        onChange={handleManualSizeChange}
+        sizeInputMode={tradingComputed.sizeInputMode}
+        sliderPercent={tradingComputed.sizePercent}
+        onRequestManualMode={switchToManual}
+        isMobile={isMobile}
+      />
+
+      <YStack {...(isMobile && { pt: '$2', pb: '$2' })}>
+        <SegmentSlider
+          min={0}
+          max={100}
+          value={sliderValue}
+          showBubble={false}
+          onChange={handleSliderPercentChange}
+          disabled={sliderDisabled}
+          segments={4}
+          sliderHeight={isMobile ? 2 : 4}
+        />
+      </YStack>
+
+      {!(shouldShowEnableTradingButton && isMobile) ? (
+        <YStack gap="$1" {...(isMobile && { mt: '$1' })} p="$0">
           <XStack alignItems="center" gap="$2">
             <Checkbox
               value={formData.hasTpsl}
               onChange={handleTpslCheckboxChange}
               disabled={isSubmitting}
-              containerProps={{ alignItems: 'center', cursor: 'pointer' }}
-              width="$4"
-              height="$4"
+              containerProps={{
+                p: 0,
+                alignItems: 'center',
+                ...(!isMobile && { cursor: 'pointer' }),
+              }}
+              width={checkboxSize}
+              height={checkboxSize}
+              {...(isMobile && { p: '$0' })}
             />
-            <Tooltip
-              renderContent={intl.formatMessage({
-                id: ETranslations.perp_tp_sl_tooltip,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodyMd"
-                  dashColor="$textDisabled"
-                  dashThickness={0.5}
-                  cursor="help"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_position_tp_sl,
-                  })}
-                </DashText>
-              }
-            />
+
+            {isMobile ? (
+              <Popover
+                renderContent={() => (
+                  <YStack px="$5" pt="$2" pb="$4">
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.perp_tp_sl_tooltip,
+                      })}
+                    </SizableText>
+                  </YStack>
+                )}
+                renderTrigger={
+                  <DashText
+                    size="$bodySm"
+                    dashColor="$textSubdued"
+                    dashThickness={0.5}
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_tp_sl,
+                    })}
+                  </DashText>
+                }
+                title={intl.formatMessage({
+                  id: ETranslations.perp_position_tp_sl,
+                })}
+              />
+            ) : (
+              <Tooltip
+                renderContent={intl.formatMessage({
+                  id: ETranslations.perp_tp_sl_tooltip,
+                })}
+                renderTrigger={
+                  <DashText
+                    size="$bodyMd"
+                    dashColor="$textDisabled"
+                    dashThickness={0.5}
+                    cursor="help"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.perp_position_tp_sl,
+                    })}
+                  </DashText>
+                }
+              />
+            )}
           </XStack>
 
           {formData.hasTpsl ? (
@@ -702,7 +592,7 @@ function PerpTradingForm({
               <TpSlFormInput
                 type="tp"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_trade_tp_price,
+                  id: tpLabelKey,
                 })}
                 value={formData.tpValue || ''}
                 inputType={formData.tpType || 'price'}
@@ -711,11 +601,12 @@ function PerpTradingForm({
                 onChange={handleTpValueChange}
                 onTypeChange={handleTpTypeChange}
                 disabled={isSubmitting}
+                isMobile={isMobile}
               />
               <TpSlFormInput
                 type="sl"
                 label={intl.formatMessage({
-                  id: ETranslations.perp_trade_sl_price,
+                  id: slLabelKey,
                 })}
                 value={formData.slValue || ''}
                 inputType={formData.slType || 'price'}
@@ -724,12 +615,13 @@ function PerpTradingForm({
                 onChange={handleSlValueChange}
                 onTypeChange={handleSlTypeChange}
                 disabled={isSubmitting}
+                isMobile={isMobile}
               />
             </YStack>
           ) : null}
         </YStack>
-      </YStack>
-    </>
+      ) : null}
+    </YStack>
   );
 }
 

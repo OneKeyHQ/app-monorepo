@@ -3,18 +3,15 @@ import { memo } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { Image, SizableText, XStack } from '@onekeyhq/components';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapPopularTokenGroupProps {
   onSelectToken: (token: ISwapToken) => void;
-  selectedToken?: ISwapToken;
   tokens: ISwapToken[];
 }
 
 const SwapPopularTokenGroup = ({
   onSelectToken,
-  selectedToken,
   tokens,
 }: ISwapPopularTokenGroupProps) => (
   <XStack pt="$1" pb="$3" gap="$1.5" flexWrap="wrap">
@@ -43,12 +40,6 @@ const SwapPopularTokenGroup = ({
           outlineWidth: 2,
           outlineOffset: 2,
         }}
-        disabled={
-          !!equalTokenNoCaseSensitive({
-            token1: selectedToken,
-            token2: token,
-          })
-        }
         onPress={() => {
           onSelectToken(token);
         }}

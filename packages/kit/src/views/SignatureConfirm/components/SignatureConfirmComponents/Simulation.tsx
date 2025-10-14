@@ -19,10 +19,13 @@ function Simulation(props: IProps) {
     <YStack
       px="$4"
       py="$3"
-      bg="white"
       borderRadius="$2"
       borderCurve="continuous"
       $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+      }}
+      $theme-dark={{
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '$borderSubdued',
       }}
@@ -33,7 +36,9 @@ function Simulation(props: IProps) {
       elevation={0.5}
       gap={6}
     >
-      <SizableText>{component.label}</SizableText>
+      <SizableText size="$headingXs" color="$textSubdued">
+        {component.label}
+      </SizableText>
       <YStack gap="$3">
         {component.assets.map((asset, index) => {
           if (asset.type === EParseTxComponentType.NFT) {

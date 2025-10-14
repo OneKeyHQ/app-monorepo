@@ -270,6 +270,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String url = map.getString("downloadUrl");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
+        long fileSize = map.getLong("fileSize");
         if (this.isDownloading) {
             return;
         }
@@ -321,7 +322,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
 
                 ResponseBody body = response.body();
-                long contentLength = body.contentLength();
+                long contentLength = fileSize > 0 ? fileSize : body.contentLength();
                 BufferedSource source = body.source();
 
                 BufferedSink sink = null;

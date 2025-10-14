@@ -35,6 +35,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   numberFormat,
@@ -102,7 +103,6 @@ import {
   useSwapStepsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { calculateFeeForSend } from '../../../utils/gasFee';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import {

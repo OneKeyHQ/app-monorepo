@@ -45,7 +45,8 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
-  clearAllJSBundleData: () => Promise.resolve(),
+  clearAllJSBundleData: () =>
+    Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),
   testDeleteJsBundle: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
