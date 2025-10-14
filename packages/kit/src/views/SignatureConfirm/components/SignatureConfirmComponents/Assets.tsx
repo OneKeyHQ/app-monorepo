@@ -93,7 +93,7 @@ function SignatureAssetDetailItem({
   nativeTokenTransferAmountToUpdate,
   isSendNativeTokenOnly,
   inSimulation,
-  // isSmallSize,
+  isSmallSize,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -121,8 +121,6 @@ function SignatureAssetDetailItem({
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
   });
-
-  const isSmallSize = false;
 
   const renderDetails = useCallback(() => {
     if (isLoading) {

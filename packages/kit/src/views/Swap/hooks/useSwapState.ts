@@ -303,38 +303,8 @@ export function useSwapActionState() {
       swapApprovingMatchLoading ||
       buildTxFetching
     ) {
-      // if (swapApprovingMatchLoading) {
-      //   infoRes.label = intl.formatMessage({
-      //     id: ETranslations.swap_btn_approving,
-      //   });
-      // } else if (buildTxFetching) {
-      //   infoRes.label = intl.formatMessage({
-      //     id: ETranslations.swap_btn_building,
-      //   });
-      // } else {
-      //   infoRes.label = intl.formatMessage({
-      //     id: ETranslations.swap_page_button_fetching_quotes,
-      //   });
-      // }
       infoRes.disable = true;
     } else {
-      // if (isCrossChain && fromToken && toToken) {
-      //   infoRes.label = intl.formatMessage({
-      //     id: ETranslations.swap_page_button_cross_chain,
-      //   });
-      // }
-      // if (quoteCurrentSelect && quoteCurrentSelect.isWrapped) {
-      //   infoRes.label = intl.formatMessage({
-      //     id: ETranslations.swap_page_button_wrap,
-      //   });
-      // }
-      // if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
-      //   infoRes.label = intl.formatMessage({
-      //     id: isBatchTransfer
-      //       ? ETranslations.swap_page_approve_and_swap
-      //       : ETranslations.global_approve,
-      //   });
-      // }
       if (
         quoteCurrentSelect &&
         !quoteCurrentSelect.toAmount &&
@@ -379,9 +349,12 @@ export function useSwapActionState() {
         swapFromAddressInfo.address &&
         balanceBN.lt(fromTokenAmountBN)
       ) {
-        infoRes.label = intl.formatMessage({
-          id: ETranslations.swap_page_button_insufficient_balance,
-        });
+        infoRes.label = intl.formatMessage(
+          {
+            id: ETranslations.swap_page_toast_insufficient_balance_title,
+          },
+          { token: fromToken.symbol },
+        );
         infoRes.disable = true;
       }
 

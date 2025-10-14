@@ -18,6 +18,7 @@ export enum EGalleryRoutes {
   ComponentCryptoGallery = 'component-CryptoGallery',
   ComponentCarousel = 'component-Carousel',
   ComponentDialog = 'component-Dialog',
+  ComponentDiscoveryBrowser = 'component-DiscoveryBrowser',
   ComponentDivider = 'component-Divider',
   ComponentDotMap = 'component-DotMap',
   ComponentEmpty = 'component-Empty',
