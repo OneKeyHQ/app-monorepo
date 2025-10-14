@@ -71,6 +71,7 @@ export { default as AutoPageSize } from './AutoPageSize';
 export { default as Avocado } from './Avocado';
 export { default as Back10 } from './Back10';
 export { default as Backtrack } from './Backtrack';
+export { default as BadgeRecognized } from './BadgeRecognized';
 export { default as BadgeVerified } from './BadgeVerified';
 export { default as BagSmile } from './BagSmile';
 export { default as Bag } from './Bag';

@@ -106,14 +106,15 @@ export type ISignature = HL.Signature;
 export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
-  [ESubscriptionType.USER_EVENTS]: IEventUserEventsParameters;
-  [ESubscriptionType.USER_NOTIFICATIONS]: IEventNotificationParameters;
+
   [ESubscriptionType.ACTIVE_ASSET_DATA]: IEventActiveAssetDataParameters;
   [ESubscriptionType.WEB_DATA2]: IEventWebData2Parameters;
   [ESubscriptionType.ALL_MIDS]: IWsAllMidsParameters;
   [ESubscriptionType.ACTIVE_ASSET_CTX]: IEventActiveAssetCtxParameters;
-  [ESubscriptionType.TRADES]: IEventTradesParameters;
-  [ESubscriptionType.BBO]: IEventBboParameters;
+  // [ESubscriptionType.USER_EVENTS]: IEventUserEventsParameters;
+  // [ESubscriptionType.USER_NOTIFICATIONS]: IEventNotificationParameters;
+  // [ESubscriptionType.TRADES]: IEventTradesParameters;
+  // [ESubscriptionType.BBO]: IEventBboParameters;
 };
 
 export type IWebSocketTransportOptions = HL.WebSocketTransportOptions;
