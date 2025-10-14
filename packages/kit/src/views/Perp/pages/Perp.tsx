@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
+  Button,
+  IconButton,
   Image,
   Page,
   Stack,
@@ -23,6 +25,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
@@ -94,6 +97,32 @@ function PerpNetworkStatus() {
   );
 }
 
+function FooterRefreshButton() {
+  const actions = useHyperliquidActions();
+  const [networkStatus] = usePerpsNetworkStatusAtom();
+  const [loading, setLoading] = useState(false);
+  return (
+    <IconButton
+      loading={loading}
+      disabled={!networkStatus.connected}
+      ml="$2"
+      icon="RefreshCwOutline"
+      variant="tertiary"
+      size="small"
+      onPress={async () => {
+        try {
+          setLoading(true);
+          await actions.current.refreshAllPerpsData();
+        } catch (error) {
+          console.error(error);
+        } finally {
+          setLoading(false);
+        }
+      }}
+    />
+  );
+}
+
 function PerpContentFooter() {
   const { gtSm } = useMedia();
   const { poweredByHyperliquidLogo } = usePerpsLogo();
@@ -109,6 +138,8 @@ function PerpContentFooter() {
         justifyContent="space-between"
       >
         <PerpNetworkStatus />
+        <FooterRefreshButton />
+        <Stack flex={1} />
         <Image
           source={poweredByHyperliquidLogo}
           size={170}
