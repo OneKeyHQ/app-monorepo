@@ -225,7 +225,7 @@ interface INativeBundleUpdateModule {
   getFallbackUpdateBundleData: () => Promise<IJSBundle[]>;
   setCurrentUpdateBundleData: (params: IJSBundle) => Promise<void>;
   clearBundle: () => Promise<void>;
-  clearAllJSBundleData: () => Promise<void>;
+  clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
   getWebEmbedPath: () => Promise<string>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (

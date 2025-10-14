@@ -6,7 +6,6 @@ import { InputAccessoryView } from 'react-native';
 import {
   Badge,
   Button,
-  Dialog,
   Icon,
   Input,
   SizableText,
@@ -14,10 +13,10 @@ import {
   XStack,
   YStack,
   getFontSize,
-  useMedia,
+  useDialogInstance,
+  useInPageDialog,
 } from '@onekeyhq/components';
-import { useDialogInstance } from '@onekeyhq/components/src/composite/Dialog';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDelayedState } from '@onekeyhq/kit/src/hooks/useDelayedState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -47,15 +46,18 @@ const LeverageContent = memo(
     tokenInfo,
     activeAssetData,
   }: ILeverageContentProps) => {
-    const [value, setValue] = useState(initialValue);
+    const [value, setValue] = useDelayedState(initialValue);
     const [loading, setLoading] = useState(false);
     const dialogInstance = useDialogInstance();
     const actions = useHyperliquidActions();
 
-    const handleSliderChange = useCallback((newValue: number) => {
-      const roundedValue = Math.round(newValue);
-      setValue(roundedValue);
-    }, []);
+    const handleSliderChange = useCallback(
+      (newValue: number) => {
+        const roundedValue = Math.round(newValue);
+        setValue(roundedValue);
+      },
+      [setValue],
+    );
 
     const handleInputChange = useCallback(
       (text: string) => {
@@ -74,7 +76,7 @@ const LeverageContent = memo(
         }
         setValue(newValue);
       },
-      [maxLeverage],
+      [maxLeverage, setValue],
     );
 
     const handleConfirm = useCallback(async () => {
@@ -123,7 +125,9 @@ const LeverageContent = memo(
                 InputComponentStyle={{
                   p: 0,
                 }}
-                fontSize={getFontSize('$heading5xl')}
+                fontSize={
+                  platformEnv.isNativeAndroid ? 34 : getFontSize('$heading5xl')
+                }
                 alignItems="center"
                 justifyContent="center"
                 value={value ? value.toString() : ''}
@@ -221,6 +225,7 @@ export const LeverageAdjustModal = memo(
     const [activeAssetData] = usePerpsActiveAssetDataAtom();
 
     const intl = useIntl();
+    const dialog = useInPageDialog();
     const showLeverageDialog = useCallback(() => {
       if (!userAddress || !currentToken || !activeAssetData) return;
 
@@ -230,7 +235,7 @@ export const LeverageAdjustModal = memo(
         1;
       const maxLeverage = currentToken?.universe?.maxLeverage || 25;
 
-      Dialog.show({
+      dialog.show({
         title: intl.formatMessage({
           id: ETranslations.perp_trading_adjust_leverage,
         }),
@@ -248,7 +253,7 @@ export const LeverageAdjustModal = memo(
         ),
         showFooter: false,
       });
-    }, [userAddress, currentToken, activeAssetData, intl]);
+    }, [userAddress, currentToken, activeAssetData, dialog, intl]);
 
     if (!userAddress || !currentToken) return null;
 

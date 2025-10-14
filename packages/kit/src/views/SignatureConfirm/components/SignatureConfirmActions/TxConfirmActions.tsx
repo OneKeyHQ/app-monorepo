@@ -357,6 +357,9 @@ function TxConfirmActions(props: IProps) {
         tronUseRedemptionCode: isTronNetwork
           ? tronResourceRentalInfo?.isResourceRedeemed
           : undefined,
+        tronIsCreditAutoClaimed: isTronNetwork
+          ? transferPayload?.isTronResourceAutoClaimed
+          : undefined,
       });
 
       Toast.success({
@@ -561,6 +564,33 @@ function TxConfirmActions(props: IProps) {
     }
   });
 
+  const confirmText = useMemo(() => {
+    if (signOnly) {
+      intl.formatMessage({ id: ETranslations.global_sign });
+    }
+
+    if (sendFeeStatus.discountPercent === 100) {
+      return intl.formatMessage({ id: ETranslations.wallet_send_free });
+    }
+
+    if (sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0) {
+      return intl.formatMessage({
+        id: ETranslations.wallet_discounted_send,
+      });
+    }
+
+    if (sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0) {
+      return intl.formatMessage(
+        {
+          id: ETranslations.wallet_discount_number,
+        },
+        { number: sendFeeStatus.discountPercent },
+      );
+    }
+
+    return intl.formatMessage({ id: ETranslations.global_confirm });
+  }, [intl, sendFeeStatus.discountPercent, signOnly]);
+
   return (
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
@@ -572,11 +602,7 @@ function TxConfirmActions(props: IProps) {
         cancelButtonProps={{
           disabled: sendTxStatus.isSubmitting,
         }}
-        onConfirmText={
-          signOnly
-            ? intl.formatMessage({ id: ETranslations.global_sign })
-            : intl.formatMessage({ id: ETranslations.global_confirm })
-        }
+        onConfirmText={confirmText}
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
         $gtMd={{
@@ -599,6 +625,7 @@ function TxConfirmActions(props: IProps) {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
             feeInfoEditable={feeInfoEditable}
+            transferPayload={transferPayload}
           />
           {showTakeRiskAlert ? (
             <Checkbox

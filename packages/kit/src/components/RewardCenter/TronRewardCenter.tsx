@@ -176,6 +176,7 @@ function RewardCenterContent({
         sourceFlag: claimSource ?? '',
         isSuccess: true,
         resourceType: 'energy',
+        isAutoClaimed: false,
       });
 
       setIsClaimed(true);

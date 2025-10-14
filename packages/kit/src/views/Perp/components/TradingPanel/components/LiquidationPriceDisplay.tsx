@@ -10,11 +10,13 @@ const LiquidationPriceDisplay = memo(
   ({
     isMobile,
     textSize,
+    side,
   }: {
     isMobile?: boolean;
     textSize?: FontSizeTokens;
+    side?: 'long' | 'short';
   }) => {
-    const liquidationPrice = useLiquidationPrice();
+    const liquidationPrice = useLiquidationPrice(side);
     if (!liquidationPrice) {
       return 'N/A';
     }
