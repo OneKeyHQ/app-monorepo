@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
-import { withStaticProperties } from '../../shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -12,7 +12,7 @@ import { NATIVE_HIT_SLOP } from '../../utils';
 import type {
   TMCheckboxProps,
   CheckedState,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';

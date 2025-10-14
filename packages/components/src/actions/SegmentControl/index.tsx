@@ -1,13 +1,13 @@
 import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
-import { SizableText } from '../../shared/tamagui';
-import { styled } from '../../shared/tamagui';
+import { SizableText } from '@onekeyhq/components/src/shared/tamagui';
+import { styled } from '@onekeyhq/components/src/shared/tamagui';
 
 import { XStack, YStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
-import type { GetProps } from '../../shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;

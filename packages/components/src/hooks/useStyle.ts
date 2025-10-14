@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { getTokens as coreGetTokens, useTheme } from '../../shared/tamagui';
+import { getTokens as coreGetTokens, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SHEET_AND_DIALOG_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
-import type { VariableVal } from '../../shared/tamagui';
-import type { UseThemeResult } from '../../shared/tamagui';
+import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
+import type { UseThemeResult } from '@onekeyhq/components/src/shared/tamagui';
 
 export {
   getTokens,
@@ -16,7 +16,7 @@ export {
   useThemeName,
   useStyle,
   usePropsAndStyle,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export type IThemeColorKeys = keyof UseThemeResult;
 const getValue = (

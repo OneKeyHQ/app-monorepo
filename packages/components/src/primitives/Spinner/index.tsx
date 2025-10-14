@@ -1,4 +1,4 @@
-import { styled } from '../../shared/tamagui';
+import { styled } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Spinner as OriginSpinner } from './Spinner';
 

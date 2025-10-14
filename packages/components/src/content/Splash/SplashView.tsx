@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { AnimatePresence } from '../../shared/tamagui';
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

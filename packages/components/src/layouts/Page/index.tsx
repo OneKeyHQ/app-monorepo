@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 
-import { withStaticProperties } from '../../shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Portal } from '../../hocs';
 

@@ -13,11 +13,11 @@ import {
   useState,
 } from 'react';
 
-import { AnimatePresence } from '../../shared/tamagui';
-import { Dialog as TMDialog } from '../../shared/tamagui';
-import { Sheet } from '../../shared/tamagui';
-import { SizableText } from '../../shared/tamagui';
-import { useMedia } from '../../shared/tamagui';
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
+import { TMDialog } from '@onekeyhq/components/src/shared/tamagui';
+import { Sheet } from '@onekeyhq/components/src/shared/tamagui';
+import { SizableText } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';

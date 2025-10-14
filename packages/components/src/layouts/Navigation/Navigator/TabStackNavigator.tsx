@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useMedia } from '../../shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import { useIntl } from 'react-intl';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

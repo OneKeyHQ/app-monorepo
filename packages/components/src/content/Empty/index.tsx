@@ -1,8 +1,8 @@
 import { Button, Icon, SizableText, YStack } from '../../primitives';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
-import type { YStackProps } from '../../shared/tamagui';
-import type { SizableTextProps } from '../../shared/tamagui';
+import type { YStackProps } from '@onekeyhq/components/src/shared/tamagui';
+import type { SizableTextProps } from '@onekeyhq/components/src/shared/tamagui';
 
 interface IEmptyProps extends YStackProps {
   icon?: IKeyOfIcons;

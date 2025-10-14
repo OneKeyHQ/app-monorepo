@@ -1,4 +1,4 @@
-import { usePropsAndStyle } from '../../shared/tamagui';
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IVideoProps } from './type';
 

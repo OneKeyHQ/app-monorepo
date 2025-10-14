@@ -1,7 +1,7 @@
 import type { ComponentType, PropsWithChildren, ReactElement } from 'react';
 import { cloneElement, useCallback, useContext, useState } from 'react';
 
-import { createStyledContext, styled, useThemeName } from '../../shared/tamagui';
+import { createStyledContext, styled, useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -23,7 +23,7 @@ import type {
   IStackProps,
   IYStackProps,
 } from '../../primitives';
-import type { ColorTokens } from '../../shared/tamagui';
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 
 export type IAlertType =
   | 'info'

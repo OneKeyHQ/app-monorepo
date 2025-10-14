@@ -8,7 +8,7 @@ import {
   styled,
   useThemeName,
   type StackStyle,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { YStack } from '../Stack';

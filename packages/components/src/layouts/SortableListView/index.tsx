@@ -17,8 +17,8 @@ import type {
 } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
-import { useStyle } from '../../shared/tamagui';
-import { withStaticProperties } from '../../shared/tamagui';
+import { useStyle } from '@onekeyhq/components/src/shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { noop } from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';

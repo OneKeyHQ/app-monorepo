@@ -1,7 +1,8 @@
-import { TamaguiProvider as OGProvider } from '../../shared/tamagui';
-import { PortalProvider } from '../../shared/tamagui';
-
-import type { TamaguiProviderProps } from '../../shared/tamagui';
+import {
+  OGProvider,
+  PortalProvider,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { TamaguiProviderProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export const TamaguiProvider = ({
   children,

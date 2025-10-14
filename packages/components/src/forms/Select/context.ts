@@ -3,7 +3,7 @@ import { createContext } from 'react';
 
 import type { ISelectItem, ISelectSection } from './type';
 import type { IPopoverProps } from '../../actions';
-import type { SheetProps } from '../../shared/tamagui';
+import type { SheetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export type IContextType = {
   isOpen?: boolean;

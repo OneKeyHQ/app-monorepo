@@ -3,8 +3,8 @@ import { Children, cloneElement, isValidElement } from 'react';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IIconProps, ISizableTextProps } from '../../primitives';
-import type { XStackProps } from '../../shared/tamagui';
-import type { StackProps } from '../../shared/tamagui';
+import type { XStackProps } from '@onekeyhq/components/src/shared/tamagui';
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export interface IUnOrderedListItemProps extends XStackProps {
   icon?: IIconProps['name'];

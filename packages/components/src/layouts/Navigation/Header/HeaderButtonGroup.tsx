@@ -1,6 +1,6 @@
 import { XStack } from '../../../primitives';
 
-import type { GetProps } from '../../shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
   const { children, ...rest } = props;

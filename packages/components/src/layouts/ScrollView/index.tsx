@@ -10,12 +10,12 @@ import {
   useRef,
 } from 'react';
 
-import { usePropsAndStyle, useStyle } from '../../shared/tamagui';
+import { usePropsAndStyle, useStyle } from '@onekeyhq/components/src/shared/tamagui';
 import { Dimensions, ScrollView as ScrollViewNative } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { StackProps } from '../../shared/tamagui';
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
 import type {
   NativeScrollEvent,
   NativeScrollPoint,

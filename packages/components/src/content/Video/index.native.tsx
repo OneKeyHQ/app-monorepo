@@ -1,4 +1,4 @@
-import { usePropsAndStyle } from '../../shared/tamagui';
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import NativeVideo from 'react-native-video';
 
 import type { IVideoProps } from './type';

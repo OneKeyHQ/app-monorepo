@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 
-import { useProps } from '../../shared/tamagui';
+import { useProps } from '@onekeyhq/components/src/shared/tamagui';
 import { isNil } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 

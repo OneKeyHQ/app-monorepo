@@ -15,9 +15,9 @@ import {
 } from 'react';
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
-import { getFontSize } from '../../shared/tamagui';
-import { Group } from '../../shared/tamagui';
-import { useProps, useThemeName } from '../../shared/tamagui';
+import { getFontSize } from '@onekeyhq/components/src/shared/tamagui';
+import { Group } from '@onekeyhq/components/src/shared/tamagui';
+import { useProps, useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import noop from 'lodash/noop';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
 
-import { usePropsAndStyle } from '../../shared/tamagui';
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';

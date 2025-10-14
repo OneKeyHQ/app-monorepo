@@ -22,16 +22,16 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components/src/primitives';
+import type {
+  AvatarImage,
+  GetProps,
+  TamaguiElement,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import type {
-  AvatarImage,
-  GetProps,
-  TamaguiElement,
-} from '../../../../shared/tamagui';
 import type {
   Animated,
   GestureResponderEvent,

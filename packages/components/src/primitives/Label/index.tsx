@@ -5,7 +5,7 @@ import {
   styled,
   type GetProps,
   type SizeTokens,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export type ILabelProps = Omit<GetProps<typeof TMLabel>, 'variant'> & {
   variant?: SizeTokens;

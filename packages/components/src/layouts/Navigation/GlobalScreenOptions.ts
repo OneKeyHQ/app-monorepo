@@ -14,7 +14,7 @@ import type {
   StackNavigationOptions,
   TransitionPreset,
 } from '@react-navigation/stack';
-import type { VariableVal } from '../../shared/tamagui';
+import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 
 const NULL_ANIMATION_DURATION_PRESET: TransitionPreset = {
   gestureDirection: 'vertical',

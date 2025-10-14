@@ -6,7 +6,7 @@ import {
   type AccordionMultipleProps,
   type AccordionSingleProps,
   type AccordionTriggerProps,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export { Accordion };
 export type IAccordionContentProps = AccordionContentProps;

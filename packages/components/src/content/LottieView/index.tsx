@@ -1,7 +1,7 @@
 import type { LegacyRef } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
-import { usePropsAndStyle } from '../../shared/tamagui';
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import AnimatedLottieView from 'lottie-react-native';
 import { AppState } from 'react-native';
 

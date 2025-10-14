@@ -10,7 +10,7 @@ import {
   type ThemeableStackProps,
   type ColorTokens,
   type FontSizeTokens,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { Icon } from '../Icon';
 import { SizableText } from '../SizeableText';

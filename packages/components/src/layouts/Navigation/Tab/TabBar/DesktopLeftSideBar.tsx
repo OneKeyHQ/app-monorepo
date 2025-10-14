@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
-import { getTokens, useMedia, useTheme } from '../../shared/tamagui';
+import { getTokens, useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 

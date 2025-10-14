@@ -1,6 +1,6 @@
 import { useLayoutEffect } from 'react';
 
-import { getTokenValue } from '../../shared/tamagui';
+import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import {
   setBackgroundColorAsync,
   setButtonStyleAsync,

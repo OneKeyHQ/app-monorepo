@@ -11,7 +11,7 @@ import {
   type ThemeTokens,
   type YStackProps,
   type ColorTokens,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export type ISpinnerProps = Omit<YStackProps, 'children'> & {
   size?: 'small' | 'large';

@@ -1,8 +1,8 @@
-import { Separator } from '../../shared/tamagui';
-import { styled } from '../../shared/tamagui';
+import { Separator } from '@onekeyhq/components/src/shared/tamagui';
+import { styled } from '@onekeyhq/components/src/shared/tamagui';
 import { StyleSheet } from 'react-native';
 
-import type { GetProps } from '../../shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export const Divider = styled(Separator, {
   borderColor: '$borderSubdued',

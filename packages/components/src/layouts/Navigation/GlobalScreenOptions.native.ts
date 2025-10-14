@@ -7,7 +7,7 @@ import { makeHeaderScreenOptions } from './Header';
 import type { IScreenOptionsInfo } from './Navigator/types';
 import type { IStackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
-import type { VariableVal } from '../../shared/tamagui';
+import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;

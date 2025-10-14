@@ -9,7 +9,7 @@ import {
   SizableText,
   type TamaguiTextElement,
   type SizableTextProps,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export interface IAnchorExtraProps {
   href?: string;

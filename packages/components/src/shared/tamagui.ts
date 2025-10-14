@@ -104,7 +104,10 @@ export { Dialog as TMDialog } from '@tamagui/dialog';
 
 // Popover
 export { Popover as TMPopover } from '@tamagui/popover';
-export type { PopoverContentProps } from '@tamagui/popover';
+export type {
+  PopoverContentProps,
+  PopoverProps as TMPopoverProps,
+} from '@tamagui/popover';
 
 // Sheet
 export { Sheet } from '@tamagui/sheet';

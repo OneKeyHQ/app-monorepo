@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { Theme, getTokenValue } from '../../shared/tamagui';
+import { Theme, getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import QRCodeUtil from 'qrcode';
 import Svg, {
   Circle,

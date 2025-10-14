@@ -9,7 +9,7 @@ import {
   type YStackProps,
   type ZStackProps,
   type StackProps,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export const Stack = TMStack;
 

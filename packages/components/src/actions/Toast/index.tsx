@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
 import { createRef, useEffect } from 'react';
 
-import { ToastProvider } from '../../shared/tamagui';
-import { useMedia } from '../../shared/tamagui';
+import { ToastProvider } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import { useWindowDimensions } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';

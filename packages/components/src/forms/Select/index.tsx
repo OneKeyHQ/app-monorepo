@@ -1,7 +1,7 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { withStaticProperties } from '../../shared/tamagui';
-import { useMedia } from '../../shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import { Keyboard } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

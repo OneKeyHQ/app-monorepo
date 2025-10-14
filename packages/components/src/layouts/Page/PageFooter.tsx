@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { memo, useContext, useEffect, useMemo, useState } from 'react';
 
-import { useMedia } from '../../shared/tamagui';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import Animated from 'react-native-reanimated';
 
 import { OptimizationView } from '../../optimization';

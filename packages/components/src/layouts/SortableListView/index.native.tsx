@@ -1,8 +1,8 @@
 import { forwardRef, useCallback } from 'react';
 import type { ForwardedRef } from 'react';
 
-import { usePropsAndStyle, useStyle } from '../../shared/tamagui';
-import { withStaticProperties } from '../../shared/tamagui';
+import { usePropsAndStyle, useStyle } from '@onekeyhq/components/src/shared/tamagui';
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import DraggableFlatList, {
   OpacityDecorator,
   ScaleDecorator,

@@ -6,7 +6,7 @@ import {
   ToggleGroup,
   type ToggleGroupItemProps,
   type ToggleGroupSingleProps,
-} from '../../shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export type IButtonGroup = PropsWithChildren<{
   orientation?: ToggleGroupSingleProps['orientation'];

@@ -1,14 +1,14 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef } from 'react';
 
-import { usePropsAndStyle, useStyle } from '../../shared/tamagui';
+import { usePropsAndStyle, useStyle } from '@onekeyhq/components/src/shared/tamagui';
 import { BlurView as NativeBlurView } from 'expo-blur';
 import { type View as IView, type ViewStyle } from 'react-native';
 
 import { useThemeName } from '../../hooks';
 import { OptimizationView } from '../../optimization';
 
-import type { StackStyle } from '../../shared/tamagui';
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
 import type { BlurViewProps } from 'expo-blur';
 
 export type IBlurViewPros = Omit<BlurViewProps, 'style' | 'intensity'> &

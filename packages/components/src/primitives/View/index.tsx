@@ -1,4 +1,7 @@
-import { View, type GetProps } from '../../shared/tamagui';
+import {
+  type GetProps,
+  View as TMView,
+} from '@onekeyhq/components/src/shared/tamagui';
 
-export { View };
+export const View = TMView;
 export type IViewProps = GetProps<typeof View>;
