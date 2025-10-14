@@ -1,4 +1,11 @@
-import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { ScrollView, XStack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
@@ -16,7 +23,6 @@ interface ISwapNetworkToggleGroupProps {
   selectedNetwork?: IServerNetwork;
   onMoreNetworkSelect: (network: IServerNetwork) => void;
   placement?: IPopoverProps['placement'];
-  showMoreButton?: boolean;
 }
 
 // Layout constants for network filter scrolling calculations
@@ -34,6 +40,8 @@ const LAYOUT_CONSTANTS = {
   LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
 } as const;
 
+const EXTRA_MORE_BUTTON_WIDTH = 64;
+
 export interface IMarketNetworkFilterRef {
   scrollToNetwork: (networkId: string) => void;
 }
@@ -49,14 +57,39 @@ const MarketNetworkFilter = forwardRef<
       onSelectNetwork,
       onMoreNetworkSelect,
       placement,
-      showMoreButton = false,
     },
     ref,
   ) => {
     const [scrollX, setScrollX] = useState(0);
+    const [scrollViewWidth, setScrollViewWidth] = useState(0);
+    const [contentWidth, setContentWidth] = useState(0);
     const scrollViewRef = useRef<ScrollViewType>(null);
-    const shouldShowLeftGradient =
-      scrollX > LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
+
+    const shouldShowLeftGradient = useMemo(() => {
+      return scrollX > LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
+    }, [scrollX]);
+
+    const allowMoreButton = useMemo(() => {
+      return contentWidth > scrollViewWidth;
+    }, [contentWidth, scrollViewWidth]);
+
+    const adjustedContentWidth = useMemo(() => {
+      return allowMoreButton
+        ? contentWidth + EXTRA_MORE_BUTTON_WIDTH
+        : contentWidth;
+    }, [allowMoreButton, contentWidth]);
+
+    const shouldShowRightGradient = useMemo(() => {
+      return (
+        adjustedContentWidth > scrollViewWidth &&
+        scrollX <
+          adjustedContentWidth -
+            scrollViewWidth -
+            LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD
+      );
+    }, [adjustedContentWidth, scrollViewWidth, scrollX]);
+
+    const shouldShowMoreButton = allowMoreButton;
 
     useImperativeHandle(
       ref,
@@ -114,8 +147,19 @@ const MarketNetworkFilter = forwardRef<
               setScrollX(currentScrollX);
             }}
             scrollEventThrottle={16}
+            onLayout={(event) => {
+              const width = event.nativeEvent.layout.width;
+              setScrollViewWidth((prevWidth) =>
+                prevWidth === width ? prevWidth : width,
+              );
+            }}
+            onContentSizeChange={(width) => {
+              setContentWidth((prevWidth) =>
+                prevWidth === width ? prevWidth : width,
+              );
+            }}
           >
-            <XStack gap="$0.5" pr={showMoreButton ? '$4' : undefined}>
+            <XStack gap="$0.5" pr={shouldShowMoreButton ? '$4' : undefined}>
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.id}
@@ -134,10 +178,13 @@ const MarketNetworkFilter = forwardRef<
             opacity={shouldShowLeftGradient ? 1 : 0}
             position="left"
           />
-          <GradientMask position="right" />
+          <GradientMask
+            opacity={shouldShowRightGradient ? 1 : 0}
+            position="right"
+          />
         </XStack>
 
-        {showMoreButton ? (
+        {shouldShowMoreButton ? (
           <MoreButton
             networks={networks}
             selectedNetworkId={selectedNetwork?.id}
