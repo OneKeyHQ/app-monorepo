@@ -60,7 +60,12 @@ export function ConfigProvider({
   );
 
   const config = useMemo(
-    () => require('../../../tamagui.config') as TamaguiConfig,
+    () =>
+      (
+        require('../../../tamagui.config') as {
+          default: TamaguiConfig;
+        }
+      ).default,
     [],
   );
 
