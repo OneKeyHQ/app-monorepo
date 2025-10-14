@@ -18,8 +18,8 @@ import type {
 import type {
   DialogContentProps as TMDialogContentProps,
   DialogProps as TMDialogProps,
-} from '@onekeyhq/components/src/shared/tamagui';
-import type { SheetProps as TMSheetProps } from '@onekeyhq/components/src/shared/tamagui';
+} from '@onekeyhq/components/src/shared/tamagui'';
+import type { SheetProps as TMSheetProps } from '@onekeyhq/components/src/shared/tamagui'';
 import type { UseFormProps, useForm } from 'react-hook-form';
 
 export type IDialogContextType = {

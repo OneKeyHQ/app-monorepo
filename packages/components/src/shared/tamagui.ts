@@ -101,6 +101,7 @@ export type {
 
 // Dialog
 export { Dialog as TMDialog } from '@tamagui/dialog';
+export type { DialogContentProps, DialogProps } from '@tamagui/dialog';
 
 // Popover
 export { Popover as TMPopover } from '@tamagui/popover';
