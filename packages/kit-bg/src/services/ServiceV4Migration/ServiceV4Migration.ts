@@ -29,21 +29,34 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import simpleDb from '../../dbs/simple/simpleDb';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4CoinTypeToNetworkId } from '../../migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4PresetNetworkIds } from '../../migrations/v4ToV5Migration/v4data/networkIds';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4dbHubs from '../../migrations/v4ToV5Migration/v4dbHubs';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   V4_INDEXED_DB_NAME,
   V4_REALM_DB_NAME,
 } from '../../migrations/v4ToV5Migration/v4local/v4localDBConsts';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import v4localDbExists from '../../migrations/v4ToV5Migration/v4local/v4localDbExists';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { EV4LocalDBStoreNames } from '../../migrations/v4ToV5Migration/v4local/v4localDBStoreNames';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAccount } from '../../migrations/v4ToV5Migration/V4MigrationForAccount';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForAddressBook } from '../../migrations/v4ToV5Migration/V4MigrationForAddressBook';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForCustomTokens } from '../../migrations/v4ToV5Migration/V4MigrationForCustomTokens';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForDiscover } from '../../migrations/v4ToV5Migration/V4MigrationForDiscover';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForHistory } from '../../migrations/v4ToV5Migration/V4MigrationForHistory';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForSecurePassword } from '../../migrations/v4ToV5Migration/V4MigrationForSecurePassword';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { V4MigrationForSettings } from '../../migrations/v4ToV5Migration/V4MigrationForSettings';
 import {
   v4migrationAtom,
