@@ -18,7 +18,7 @@ import {
   useTheme,
 } from '@onekeyhq/components/src/shared/tamagui';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
