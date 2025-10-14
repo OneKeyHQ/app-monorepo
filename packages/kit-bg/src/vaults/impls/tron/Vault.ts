@@ -83,6 +83,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -1059,6 +1060,11 @@ export default class Vault extends VaultBase {
   }: {
     unsignedTxs: IUnsignedTxPro[];
   }) {
+    // disable auto claim energy for watching account
+    if (accountUtils.isWatchingAccount({ accountId: this.accountId })) {
+      return;
+    }
+
     const unsignedTx = unsignedTxs[0];
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
