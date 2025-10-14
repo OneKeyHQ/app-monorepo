@@ -11,6 +11,12 @@ export function PerpCandles() {
   const [currentAccount] = usePerpsActiveAccountAtom();
   const [{ reloadHook }] = usePerpsCandlesWebviewReloadHookAtom();
 
+  console.log('PerpCandles__render', {
+    reloadHook,
+    address: currentAccount?.accountAddress,
+    coin: currentToken.coin,
+  });
+
   const content = (
     <Stack w="100%" h="100%">
       {reloadHook > 0 ? (
