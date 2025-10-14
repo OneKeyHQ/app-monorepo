@@ -10,52 +10,55 @@ import type {
   IWsAllMidsParameters,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSubscriptionCategory,
+  ESubscriptionType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 export const SUBSCRIPTION_TYPE_INFO: {
   [type in ESubscriptionType]: {
-    eventType: 'market' | 'account';
+    eventType: EPerpsSubscriptionCategory;
     priority: number;
   };
 } = {
   [ESubscriptionType.ALL_MIDS]: {
-    eventType: 'market',
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 1,
   },
   [ESubscriptionType.ACTIVE_ASSET_CTX]: {
-    eventType: 'market',
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
   [ESubscriptionType.WEB_DATA2]: {
-    eventType: 'account',
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
   [ESubscriptionType.USER_FILLS]: {
-    eventType: 'account',
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
   [ESubscriptionType.L2_BOOK]: {
-    eventType: 'market',
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 3,
   },
   [ESubscriptionType.ACTIVE_ASSET_DATA]: {
-    eventType: 'account',
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 3,
   },
   // [ESubscriptionType.TRADES]: {
-  //   eventType: 'market',
+  //   eventType: EPerpsSubscriptionCategory.MARKET,
   //   priority: 4,
   // },
   // [ESubscriptionType.BBO]: {
-  //   eventType: 'market',
+  //   eventType: EPerpsSubscriptionCategory.MARKET,
   //   priority: 3,
   // },
   // [ESubscriptionType.USER_EVENTS]: {
-  //   eventType: 'account',
+  //   eventType: EPerpsSubscriptionCategory.ACCOUNT,
   //   priority: 2,
   // },
   // [ESubscriptionType.USER_NOTIFICATIONS]: {
-  //   eventType: 'account',
+  //   eventType: EPerpsSubscriptionCategory.ACCOUNT,
   //   priority: 3,
   // },
 };
@@ -165,6 +168,8 @@ export function calculateRequiredSubscriptions(
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
       aggregateByTime: true,
+      // @ts-ignore
+      // reversed: true, // not working
     };
     specs.push(
       buildSubscriptionSpec({

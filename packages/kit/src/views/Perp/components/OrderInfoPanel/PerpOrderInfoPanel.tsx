@@ -9,12 +9,10 @@ import {
   Tabs,
   XStack,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   usePerpsActiveOpenOrdersLengthAtom,
   usePerpsActivePositionLengthAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { perpsTradesHistoryRefreshHookAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
@@ -86,8 +84,6 @@ function PerpOrderInfoPanel() {
     tabsRef.current?.jumpToTab('Open Orders');
   };
 
-  const lastSubscriptionsHandlerDisabledCount = useRef<number>(-1);
-
   return (
     <Tabs.Container
       ref={tabsRef as any}
@@ -95,18 +91,7 @@ function PerpOrderInfoPanel() {
       initialTabName="Positions"
       onTabChange={async (tab) => {
         if (tab.tabName === 'Trades History') {
-          const subscriptionsHandlerDisabledCount =
-            await backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount();
-          if (
-            subscriptionsHandlerDisabledCount >
-            lastSubscriptionsHandlerDisabledCount.current
-          ) {
-            lastSubscriptionsHandlerDisabledCount.current =
-              subscriptionsHandlerDisabledCount;
-            void perpsTradesHistoryRefreshHookAtom.set({
-              refreshHook: Date.now(),
-            });
-          }
+          // do nothing
         }
       }}
       renderTabBar={(props) => (
