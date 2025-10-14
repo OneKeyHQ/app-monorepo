@@ -168,6 +168,9 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
+      onPullToRefresh={async () => {
+        await actions.current.refreshAllPerpsData();
+      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'PerpOpenOrdersList',

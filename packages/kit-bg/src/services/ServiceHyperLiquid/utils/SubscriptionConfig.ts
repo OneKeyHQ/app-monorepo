@@ -1,3 +1,4 @@
+import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IEventActiveAssetCtxParameters,
@@ -190,6 +191,16 @@ export function calculateRequiredSubscriptions(
         }),
       );
     }
+  } else {
+    const webData2Params: IEventWebData2Parameters = {
+      user: PERPS_EMPTY_ADDRESS,
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.WEB_DATA2,
+        params: webData2Params,
+      }),
+    );
   }
 
   return specs.sort((a, b) => a.priority - b.priority);

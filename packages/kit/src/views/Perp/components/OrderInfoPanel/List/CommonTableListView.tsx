@@ -301,6 +301,7 @@ export interface ICommonTableListViewProps {
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
+  onPullToRefresh?: () => Promise<void>;
 }
 
 export function CommonTableListView({
@@ -323,6 +324,7 @@ export function CommonTableListView({
   pageSize = 20,
   listViewDebugRenderTrackerProps,
   onViewAll,
+  onPullToRefresh,
 }: ICommonTableListViewProps) {
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -340,12 +342,6 @@ export function CommonTableListView({
     if (!enablePagination || data.length <= pageSize) return 1;
     return Math.ceil(data.length / pageSize);
   }, [data.length, pageSize, enablePagination]);
-
-  const actions = useHyperliquidActions();
-
-  const onRefresh = useCallback(async () => {
-    await actions.current.refreshAllPerpsData();
-  }, [actions]);
 
   const handlePreviousPage = () => {
     if (currentListPage && currentListPage > 1 && setCurrentListPage) {
@@ -370,7 +366,11 @@ export function CommonTableListView({
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
-          refreshControl={<PullToRefresh onRefresh={onRefresh} />}
+          refreshControl={
+            onPullToRefresh ? (
+              <PullToRefresh onRefresh={onPullToRefresh} />
+            ) : undefined
+          }
           data={paginatedData}
           ListFooterComponent={
             enablePagination &&
