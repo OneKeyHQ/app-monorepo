@@ -520,6 +520,11 @@ export type ITransferPayload = {
   note?: string;
   tokenInfo?: IToken;
   isCustomHexData?: boolean;
+  isTronResourceAutoClaimed?: boolean;
+  txOriginalFee?: {
+    totalNative: string;
+    totalFiat: string;
+  };
 };
 
 export type IWrappedInfo = {

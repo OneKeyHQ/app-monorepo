@@ -4,8 +4,11 @@ import {
   IInjectedProviderNames,
   type IJsBridgeMessagePayload,
 } from '@onekeyfe/cross-inpage-provider-types';
+import { noop } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsTradesHistoryRefreshHookAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -39,6 +42,7 @@ export function usePerpsMessageHandler({
   webRef: React.RefObject<IWebViewRef | null>;
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
+  const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
 
   // Use refs to maintain stable references for callbacks
   const symbolRef = useRef(symbol);
@@ -86,6 +90,7 @@ export function usePerpsMessageHandler({
       targetSymbol: string,
       targetUserAddress: IHex,
     ): Promise<ITradingMark[]> => {
+      noop(refreshHook);
       const now = new Date();
       const startDate = new Date(now);
       startDate.setHours(0, 0, 0, 0);
@@ -115,7 +120,7 @@ export function usePerpsMessageHandler({
 
       return marks;
     },
-    [convertFillToMark],
+    [convertFillToMark, refreshHook],
   );
 
   // Function to send marks update to iframe
@@ -178,15 +183,19 @@ export function usePerpsMessageHandler({
     [webRef, fetchAndFormatMarks],
   );
 
+  const actions = useHyperliquidActions();
+
   // Handle HyperLiquid price scale requests
   const handleGetHyperliquidPriceScale = useCallback(
     async (request: { symbol: string; requestId: string }) => {
       const { symbol: requestSymbol, requestId } = request;
 
       const getValidMidValue = async () => {
-        return backgroundApiProxy.serviceHyperliquid.getSymbolMidValue({
-          coin: requestSymbol,
-        });
+        return (
+          await actions.current.getMidPrice({
+            coin: requestSymbol,
+          })
+        ).mid;
       };
 
       const WAIT_TIMEOUT_MS = timerUtils.getTimeDurationMs({ seconds: 3 });
@@ -261,7 +270,7 @@ export function usePerpsMessageHandler({
         payload: response,
       });
     },
-    [webRef],
+    [actions, webRef],
   );
 
   const customReceiveHandler = useCallback(

@@ -13,6 +13,7 @@ import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowser
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 import { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
@@ -152,4 +153,6 @@ export class SimpleDb {
   approval = new SimpleDbEntityApproval();
 
   aggregateToken = new SimpleDbEntityAggregateToken();
+
+  chainResource = new SimpleDbEntityChainResource();
 }

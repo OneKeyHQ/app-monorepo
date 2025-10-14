@@ -15,6 +15,7 @@ module.exports = [
   'reown',
   '0xxxxxxx',
   'nktkas',
+  'bbo',
   '100vw',
   '10xxxxxx',
   'hardcode',
