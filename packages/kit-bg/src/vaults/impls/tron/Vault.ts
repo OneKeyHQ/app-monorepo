@@ -20,6 +20,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -83,7 +84,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
