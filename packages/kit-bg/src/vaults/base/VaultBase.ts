@@ -128,6 +128,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   ISignTransactionParams,
+  ITransferPayload,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
@@ -465,6 +466,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     | undefined
   > {
     return Promise.resolve({});
+  }
+
+  async preActionsBeforeConfirm(params: {
+    unsignedTxs: IUnsignedTxPro[];
+  }): Promise<Partial<ITransferPayload> | undefined> {
+    return Promise.resolve(undefined);
   }
 
   async buildEstimateFeeParams({

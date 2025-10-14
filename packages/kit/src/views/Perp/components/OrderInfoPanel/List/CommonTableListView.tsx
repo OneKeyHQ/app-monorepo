@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -28,7 +28,6 @@ import {
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -302,6 +301,7 @@ export interface ICommonTableListViewProps {
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
+  onPullToRefresh?: () => Promise<void>;
 }
 
 export function CommonTableListView({
@@ -324,6 +324,7 @@ export function CommonTableListView({
   pageSize = 20,
   listViewDebugRenderTrackerProps,
   onViewAll,
+  onPullToRefresh,
 }: ICommonTableListViewProps) {
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
@@ -341,12 +342,6 @@ export function CommonTableListView({
     if (!enablePagination || data.length <= pageSize) return 1;
     return Math.ceil(data.length / pageSize);
   }, [data.length, pageSize, enablePagination]);
-
-  const actions = useHyperliquidActions();
-
-  const onRefresh = useCallback(async () => {
-    await actions.current.refreshAllPerpsData();
-  }, [actions]);
 
   const handlePreviousPage = () => {
     if (currentListPage && currentListPage > 1 && setCurrentListPage) {
@@ -371,7 +366,11 @@ export function CommonTableListView({
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
-          refreshControl={<PullToRefresh onRefresh={onRefresh} />}
+          refreshControl={
+            onPullToRefresh ? (
+              <PullToRefresh onRefresh={onPullToRefresh} />
+            ) : undefined
+          }
           data={paginatedData}
           ListFooterComponent={
             enablePagination &&
@@ -380,7 +379,7 @@ export function CommonTableListView({
             !paginationToBottom ? (
               <PaginationFooter
                 isMobile={isMobile}
-                currentPage={currentListPage}
+                currentPage={currentListPage ?? 1}
                 totalPages={totalPages}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
