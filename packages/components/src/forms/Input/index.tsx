@@ -37,6 +37,7 @@ import type {
   IStackProps,
   IStackStyle,
 } from '../../primitives';
+import type { IInputProps as ITMInputProps } from '../TextArea/TamaguiInput';
 import type {
   IPasteEventParams,
   IPasteEventPayload,
@@ -50,8 +51,6 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-
-type ITMInputProps = GetProps<typeof TMInput>;
 
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 
@@ -261,7 +260,7 @@ function BaseInput(
     secureTextEntry,
     allowSecureTextEye,
     ...props
-  } = useProps(inputProps);
+  } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
@@ -435,7 +434,6 @@ function BaseInput(
           ref={inputRef}
           keyboardType={keyboardType}
           flex={1}
-          // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
@@ -463,6 +461,7 @@ function BaseInput(
           {...readOnlyStyle}
           {...InputComponentStyle}
           {...props}
+          // @ts-expect-error
           onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
             isNumberKeyboardType ? onNumberPadChangeText : onChangeText
@@ -492,7 +491,7 @@ function BaseInput(
             orientation="horizontal"
             disabled={disabled}
             disablePassBorderRadius="start"
-            {...addOnsContainerProps}
+            {...(addOnsContainerProps as any)}
           >
             {addOns.map(
               (
