@@ -42,7 +42,6 @@ import type {
   IPasteEventParams,
   IPasteEventPayload,
 } from '@onekeyfe/react-native-text-input';
-import type { GetProps } from '@tamagui/core';
 import type {
   HostComponent,
   MeasureLayoutOnSuccessCallback,
