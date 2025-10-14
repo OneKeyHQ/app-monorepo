@@ -774,11 +774,9 @@ const PositionRowMobilePositionSize = memo(() => {
           </XStack>
           <XStack alignItems="center" gap="$1" cursor="pointer">
             <SizableText size="$bodySmMedium">
-              {`$${
-                isSizeViewChange
-                  ? sizeInfo.sizeValue
-                  : sizeInfo.sizeAbsFormatted
-              }`}
+              {isSizeViewChange
+                ? `$${sizeInfo.sizeValue}`
+                : sizeInfo.sizeAbsFormatted}
             </SizableText>
           </XStack>
         </YStack>
@@ -1312,20 +1310,14 @@ const PositionRow = memo(
       currentAssetOpenOrders.forEach((order) => {
         if (order.orderType.startsWith('Take')) {
           if (order.isPositionTpsl) {
-            tpPrice = `${numberFormat(
-              order.triggerPx,
-              formatters.priceFormatter,
-            )}`;
+            tpPrice = order.triggerPx;
           } else {
             hasNonPositionTpslOrder = true;
           }
         }
         if (order.orderType.startsWith('Stop')) {
           if (order.isPositionTpsl) {
-            slPrice = `${numberFormat(
-              order.triggerPx,
-              formatters.priceFormatter,
-            )}`;
+            slPrice = order.triggerPx;
           } else {
             hasNonPositionTpslOrder = true;
           }
@@ -1343,7 +1335,7 @@ const PositionRow = memo(
       // <PositionRowMobileTPSL />
       // <PositionRowDesktopTPSL />
       return { tpsl: `${tpPrice}/${slPrice}`, showOrder };
-    }, [formatters.priceFormatter, currentAssetOpenOrders]);
+    }, [currentAssetOpenOrders]);
 
     const [isSizeViewChange, setIsSizeViewChange] = useState(false);
     const handleSizeViewChange = useCallback(() => {

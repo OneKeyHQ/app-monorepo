@@ -36,7 +36,10 @@ import {
   usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_ETH_NETWORK_ID,
+  PERPS_NETWORK_ID,
+} from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -337,10 +340,10 @@ function DepositWithdrawContent({
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importNetworkId: PERPS_NETWORK_ID,
-        importFromToken: swapDefaultSetTokens[PERPS_NETWORK_ID].fromToken,
+        importNetworkId: PERPS_ETH_NETWORK_ID,
+        importFromToken: swapDefaultSetTokens[PERPS_ETH_NETWORK_ID].fromToken,
         importToToken: swapDefaultSetTokens[PERPS_NETWORK_ID].toToken,
-        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
         swapSource: ESwapSource.PERP,
       },
     });

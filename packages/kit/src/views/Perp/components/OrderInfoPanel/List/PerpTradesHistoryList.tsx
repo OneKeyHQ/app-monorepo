@@ -6,7 +6,10 @@ import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import { usePerpTradesHistory } from '../../../hooks/usePerpOrderInfoPanel';
+import {
+  usePerpTradesHistory,
+  usePerpTradesHistoryViewAllUrl,
+} from '../../../hooks/usePerpOrderInfoPanel';
 import { TradesHistoryRow } from '../Components/TradesHistoryRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -23,6 +26,7 @@ function PerpTradesHistoryList({
   const intl = useIntl();
   const { trades, currentListPage, setCurrentListPage, isLoading } =
     usePerpTradesHistory();
+  const { onViewAllUrl } = usePerpTradesHistoryViewAllUrl();
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
       {
@@ -105,6 +109,7 @@ function PerpTradesHistoryList({
       ),
     [columnsConfig],
   );
+
   const renderTradesHistoryRow = (item: IFill, _index: number) => {
     return (
       <TradesHistoryRow
@@ -142,6 +147,7 @@ function PerpTradesHistoryList({
       enablePagination
       paginationToBottom={isMobile}
       listLoading={isLoading}
+      onViewAll={!isMobile ? onViewAllUrl : undefined}
     />
   );
 }
