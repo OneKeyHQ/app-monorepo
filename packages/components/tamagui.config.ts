@@ -31,6 +31,8 @@ import {
 } from './colors';
 import { webFontFamily } from './src/utils/webFontFamily';
 
+import type { Variable } from '@tamagui/web';
+
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
 const basicFontVariants = {
