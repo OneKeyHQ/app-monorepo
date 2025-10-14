@@ -25,6 +25,7 @@ import { WalletActionSell } from './WalletActionSell';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
 import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
+import { WalletActionVote } from './WalletActionVote';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
@@ -32,7 +33,8 @@ export function WalletActionMore() {
   const { account, network } = activeAccount;
 
   const show = useReviewControl();
-  const { config, getMoreActionGroups } = useWalletActionConfig();
+  const { config, getMoreActionGroups, getActionCustomization } =
+    useWalletActionConfig();
 
   const rewardCenterConfig = getRewardCenterConfig({
     accountId: account?.id ?? '',
@@ -151,6 +153,14 @@ export function WalletActionMore() {
                   rewardCenterConfig={rewardCenterConfig}
                 />
               ) : null;
+            case 'vote':
+              return (
+                <WalletActionVote
+                  key="vote"
+                  onClose={handleActionListClose}
+                  customization={getActionCustomization('vote')}
+                />
+              );
             default:
               return null;
           }
@@ -226,15 +236,16 @@ export function WalletActionMore() {
       );
     },
     [
-      activeAccount?.account?.id,
-      devSettings?.settings?.showDevExportPrivateKey,
-      rewardCenterConfig,
-      show,
-      vaultSettings?.copyAddressDisabled,
-      vaultSettings?.hideBlockExplorer,
-      displaySignAndVerify,
-      config.moreActions,
       getMoreActionGroups,
+      activeAccount?.account?.id,
+      config.moreActions,
+      show,
+      vaultSettings?.hideBlockExplorer,
+      vaultSettings?.copyAddressDisabled,
+      displaySignAndVerify.result,
+      rewardCenterConfig,
+      getActionCustomization,
+      devSettings?.settings?.showDevExportPrivateKey,
     ],
   );
 

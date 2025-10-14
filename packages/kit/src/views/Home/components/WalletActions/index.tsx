@@ -29,6 +29,7 @@ import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
+import { WalletActionStaking } from './WalletActionStaking';
 import { WalletActionSwap } from './WalletActionSwap';
 
 import type { IActionCustomization } from './types';
@@ -210,22 +211,6 @@ function WalletActionSend({
       label={customization?.label}
       icon={customization?.icon}
       trackID="wallet-send"
-    />
-  );
-}
-
-function WalletActionStaking({
-  customization,
-}: {
-  customization?: IActionCustomization;
-}) {
-  const handleStaking = useCallback(() => {}, []);
-  return (
-    <RawActions.Staking
-      onPress={customization?.onPress || handleStaking}
-      label={customization?.label}
-      icon={customization?.icon}
-      disabled={customization?.disabled}
     />
   );
 }

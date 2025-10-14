@@ -24,11 +24,13 @@ function WalletActionPerp({
   const intl = useIntl();
 
   const handlePress = useCallback(() => {
-    if (shouldOpenExpandExtPerp()) {
+    if (customization?.onPress) {
+      void customization.onPress();
+    } else if (shouldOpenExpandExtPerp()) {
       void backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
     }
     onClose?.();
-  }, [onClose]);
+  }, [customization, onClose]);
 
   if (inList) {
     return (
@@ -40,14 +42,14 @@ function WalletActionPerp({
           intl.formatMessage({ id: ETranslations.global_perp })
         }
         onClose={() => {}}
-        onPress={customization?.onPress || handlePress}
+        onPress={handlePress}
       />
     );
   }
 
   return (
     <RawActions.Perp
-      onPress={customization?.onPress || handlePress}
+      onPress={handlePress}
       label={customization?.label}
       icon={customization?.icon}
       disabled={customization?.disabled}

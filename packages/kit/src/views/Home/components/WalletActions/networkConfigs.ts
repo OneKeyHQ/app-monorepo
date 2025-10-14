@@ -1,6 +1,15 @@
+import {
+  TRON_SCAN_STAKING_URL,
+  TRON_SCAN_VOTE_URL,
+} from '@onekeyhq/core/src/chains/tron/constants';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  openUrlExternal,
+  openUrlInDiscovery,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { INetworkWalletActionsConfig } from './types';
 
@@ -41,6 +50,7 @@ export const detailedNetworkConfigs: Record<
       'explorer',
       'copy',
       'sign',
+      'vote',
       'reward',
       'export',
     ],
@@ -52,7 +62,7 @@ export const detailedNetworkConfigs: Record<
       },
       {
         type: 'tools',
-        actions: ['explorer', 'copy', 'sign', 'reward'],
+        actions: ['explorer', 'copy', 'sign', 'vote', 'reward'],
         order: 2,
       },
       {
@@ -66,6 +76,29 @@ export const detailedNetworkConfigs: Record<
         label: appLocale.intl.formatMessage({
           id: ETranslations.wallet_tron_trx_staking,
         }),
+        onPress: () => {
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({
+              url: TRON_SCAN_STAKING_URL,
+            });
+          } else {
+            openUrlExternal(TRON_SCAN_STAKING_URL);
+          }
+        },
+      },
+      vote: {
+        label: appLocale.intl.formatMessage({
+          id: ETranslations.wallet_tron_votes_management,
+        }),
+        onPress: () => {
+          if (platformEnv.isDesktop || platformEnv.isNative) {
+            openUrlInDiscovery({
+              url: TRON_SCAN_VOTE_URL,
+            });
+          } else {
+            openUrlExternal(TRON_SCAN_VOTE_URL);
+          }
+        },
       },
     },
   },

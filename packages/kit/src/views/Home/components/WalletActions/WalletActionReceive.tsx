@@ -71,20 +71,25 @@ function WalletActionReceive({
       source: 'homePage',
       isSoftwareWalletOnlyUser,
     });
-    void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+    if (customization?.onPress) {
+      void customization.onPress();
+    } else {
+      void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+    }
   }, [
-    wallet?.type,
     wallet?.id,
-    network?.id,
-    isSoftwareWalletOnlyUser,
+    wallet?.type,
+    customization,
     handleOnReceive,
     network?.isAllNetworks,
+    network?.id,
+    isSoftwareWalletOnlyUser,
   ]);
 
   return (
     <RawActions.Receive
       disabled={customization?.disabled ?? isReceiveDisabled}
-      onPress={customization?.onPress || handleReceiveOnPress}
+      onPress={handleReceiveOnPress}
       label={customization?.label}
       icon={customization?.icon}
       trackID="wallet-receive"

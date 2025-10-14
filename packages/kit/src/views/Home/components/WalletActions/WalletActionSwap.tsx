@@ -52,21 +52,27 @@ function WalletActionSwap({
       tradeType: ESwapTabSwitchType.SWAP,
       isSoftwareWalletOnlyUser,
     });
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: network?.id ?? '',
-        swapSource: ESwapSource.WALLET_HOME,
-      },
-    });
+
+    if (customization?.onPress) {
+      void customization.onPress();
+    } else {
+      navigation.pushModal(EModalRoutes.SwapModal, {
+        screen: EModalSwapRoutes.SwapMainLand,
+        params: {
+          importNetworkId: network?.id ?? '',
+          swapSource: ESwapSource.WALLET_HOME,
+        },
+      });
+    }
 
     onClose?.();
   }, [
     wallet?.type,
     network?.id,
     isSoftwareWalletOnlyUser,
-    navigation,
+    customization,
     onClose,
+    navigation,
   ]);
 
   if (inList) {
@@ -79,7 +85,7 @@ function WalletActionSwap({
           intl.formatMessage({ id: ETranslations.global_trade })
         }
         onClose={() => {}}
-        onPress={customization?.onPress || handleOnSwap}
+        onPress={handleOnSwap}
         disabled={
           customization?.disabled ??
           (vaultSettings?.disabledSwapAction ||
@@ -91,7 +97,7 @@ function WalletActionSwap({
 
   return (
     <RawActions.Swap
-      onPress={customization?.onPress || handleOnSwap}
+      onPress={handleOnSwap}
       label={customization?.label}
       icon={customization?.icon}
       disabled={
