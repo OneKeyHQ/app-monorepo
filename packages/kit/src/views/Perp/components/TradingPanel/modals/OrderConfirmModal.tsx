@@ -151,7 +151,10 @@ function OrderConfirmContent({
             })}
           </SizableText>
           <SizableText size="$bodyMd">
-            <LiquidationPriceDisplay textSize="$bodyMdMedium" />
+            <LiquidationPriceDisplay
+              textSize="$bodyMdMedium"
+              side={effectiveSide}
+            />
           </SizableText>
         </XStack>
 

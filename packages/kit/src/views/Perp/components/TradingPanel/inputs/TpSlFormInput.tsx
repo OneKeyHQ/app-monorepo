@@ -13,7 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { validateSizeInput } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  validatePriceInput,
+  validateSizeInput,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { TradingFormInput } from './TradingFormInput';
 
@@ -59,8 +62,10 @@ export const TpSlFormInput = memo(
 
     const validator = useCallback(
       (text: string) => {
-        const decimals = inputType === 'percentage' ? 2 : szDecimals;
-        return validateSizeInput(text, decimals);
+        if (inputType === 'percentage') {
+          return validateSizeInput(text, 2);
+        }
+        return validatePriceInput(text, szDecimals);
       },
       [inputType, szDecimals],
     );

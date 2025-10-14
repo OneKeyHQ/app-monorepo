@@ -8,8 +8,8 @@ import {
   Dialog,
   Divider,
   Icon,
+  SegmentSlider,
   SizableText,
-  Slider,
   Toast,
   XStack,
   YStack,
@@ -90,9 +90,17 @@ const ClosePositionForm = memo(
       percentage: 100,
     });
 
+    const [sliderPercentage, setSliderPercentage] = useState(
+      formData.percentage,
+    );
+
     const [userSetPrice, setUserSetPrice] = useState(false);
     const initPriceRef = useRef(false);
     const isMountedRef = useRef(true);
+
+    useEffect(() => {
+      setSliderPercentage(formData.percentage);
+    }, [formData.percentage, setSliderPercentage]);
 
     useEffect(() => {
       if (!midPrice) return;
@@ -464,12 +472,12 @@ const ClosePositionForm = memo(
           ifOnDialog
         />
 
-        <Slider
-          value={formData.percentage}
+        <SegmentSlider
+          value={sliderPercentage}
           onChange={handlePercentageChange}
           max={100}
           min={0}
-          step={1}
+          segments={0}
         />
 
         <XStack justifyContent="space-between" gap="$1">
@@ -513,6 +521,7 @@ export function showClosePositionDialog({
     title: appLocale.intl.formatMessage({
       id: ETranslations.perp_close_position_title,
     }),
+    disableDrag: true,
     renderContent: (
       <PerpsProviderMirror>
         <ClosePositionForm

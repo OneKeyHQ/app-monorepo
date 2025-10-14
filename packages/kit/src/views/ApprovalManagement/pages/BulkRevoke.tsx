@@ -33,6 +33,7 @@ import type {
   IModalApprovalManagementParamList,
 } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   ERevokeProgressState,
@@ -47,7 +48,6 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { calculateFeeForSend } from '../../../utils/gasFee';
 import BulkRevokeItem from '../components/BulkRevokeItem';
 
 import type { RouteProp } from '@react-navigation/core';
