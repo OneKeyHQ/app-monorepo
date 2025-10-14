@@ -87,17 +87,29 @@ const OpenOrdersRow = memo(
             return order.orderType;
         }
       })();
-      const type =
-        order.side === 'B'
-          ? intl.formatMessage({
-              id: ETranslations.perp_long,
-            })
-          : intl.formatMessage({
-              id: ETranslations.perp_short,
-            });
+      const type = (() => {
+        if (order.side === 'B') {
+          if (order.reduceOnly) {
+            return `${intl.formatMessage({
+              id: ETranslations.perp_order_close_short, // Close Short
+            })}`;
+          }
+          return intl.formatMessage({
+            id: ETranslations.perp_long, // Long
+          });
+        }
+        if (order.reduceOnly) {
+          return `${intl.formatMessage({
+            id: ETranslations.perp_order_close_long, // Close Long
+          })}`;
+        }
+        return intl.formatMessage({
+          id: ETranslations.perp_short, // Short
+        });
+      })();
       const typeColor = order.side === 'B' ? '$green11' : '$red11';
       return { assetSymbol, type, orderType, typeColor };
-    }, [order.coin, order.side, order.orderType, intl]);
+    }, [order.coin, order.side, order.orderType, intl, order.reduceOnly]);
     const dateInfo = useMemo(() => {
       const timeDate = new Date(order.timestamp);
       const date = formatTime(timeDate, {
@@ -249,7 +261,11 @@ const OpenOrdersRow = memo(
               })}
             </SizableText>
             <SizableText numberOfLines={1} ellipsizeMode="tail" size="$bodySm">
-              {`${orderBaseInfo.priceFormatted}`}
+              {order.orderType.includes('Market')
+                ? intl.formatMessage({
+                    id: ETranslations.perp_position_market,
+                  })
+                : orderBaseInfo.executePriceLimitFormatted}
             </SizableText>
           </XStack>
           <XStack

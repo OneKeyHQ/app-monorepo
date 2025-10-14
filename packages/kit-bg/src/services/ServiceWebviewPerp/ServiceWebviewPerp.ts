@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { isNumber, isString } from 'lodash';
 import pTimeout from 'p-timeout';
 
+import type { IAlertType } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,
@@ -148,8 +149,12 @@ export enum EPerpDefaultTabType {
 }
 export interface IPerpServerBannerConfig {
   id: string;
+  alertType: IAlertType;
   title: string;
   description: string;
+  href?: string;
+  hrefType?: string;
+  useSystemBrowser?: boolean;
   canClose?: boolean;
 }
 
@@ -725,10 +730,7 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async openExtPerpTab() {
-    if (
-      platformEnv.isExtension &&
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-    ) {
+    if (platformEnv.isExtension) {
       // this.lastExtPerpTab = await extUtils.openUrlInTab(
       //   HYPER_LIQUID_WEBVIEW_TRADE_URL,
       //   {

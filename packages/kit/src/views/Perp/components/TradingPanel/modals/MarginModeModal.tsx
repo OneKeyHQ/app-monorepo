@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { useInPageDialog } from '@onekeyhq/components';
 import {
   Button,
   Checkbox,
@@ -128,12 +129,16 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
   );
 }
 
-export function showMarginModeDialog(symbolCoin: string) {
+export function showMarginModeDialog(
+  symbolCoin: string,
+  dialog?: ReturnType<typeof useInPageDialog>,
+) {
   const title = `${symbolCoin} ${appLocale.intl.formatMessage({
     id: ETranslations.perp_trade_margin_type,
   })}`;
 
-  const dialogInstance = Dialog.show({
+  const DialogInstance = dialog || Dialog;
+  const dialogInstance = DialogInstance.show({
     title,
     floatingPanelProps: {
       width: 400,

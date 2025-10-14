@@ -619,9 +619,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         isDownloading = true;
 
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        long bundleVersion = params.getLong("bundleVersion");
         String downloadUrl = params.getString("downloadUrl");
-        int fileSize = params.getInt("fileSize");
+        long fileSize = params.getLong("fileSize");
         String sha256 = params.getString("sha256");
 
         if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == 0) {
@@ -637,7 +637,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         result.putString("downloadedFile", filePath);
         result.putString("downloadUrl", downloadUrl);
         result.putString("latestVersion", appVersion);
-        result.putInt("bundleVersion", bundleVersion);
+        result.putLong("bundleVersion", bundleVersion);
         result.putString("sha256", sha256);
 
         log("downloadBundle", "filePath: " + filePath);
@@ -650,7 +650,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                     promise.resolve(result);
                     clearDownloadTask();
                     sendEvent("update/complete", null);
-                }, 10000);
+                }, 5000);
                 return;
             } else {
                 downloadedFile.delete();
@@ -688,7 +688,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                     
                     byte[] buffer = new byte[8192];
                     long totalBytesRead = 0;
-                    long contentLength = response.body().contentLength();
+                    long contentLength = fileSize > 0 ? fileSize : response.body().contentLength();
                     
                     int bytesRead;
                     while ((bytesRead = inputStream.read(buffer)) != -1) {

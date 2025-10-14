@@ -12,6 +12,7 @@ import {
   EUpdateFileType,
   EUpdateStrategy,
   getUpdateFileType,
+  isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -36,27 +37,33 @@ export const useDisplaySplash =
             hasLaunchEventsExecutedRef.current = true;
             const appInfo =
               await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-            if (
-              appInfo.status === EAppUpdateStatus.ready &&
-              appInfo.updateStrategy === EUpdateStrategy.seamless
-            ) {
-              const fileType = getUpdateFileType(appInfo);
-              try {
-                defaultLogger.app.appUpdate.startInstallPackage({
-                  fileType,
-                  data: appInfo,
-                });
-                if (fileType === EUpdateFileType.jsBundle) {
-                  await BundleUpdate.installBundle(appInfo.downloadedEvent);
-                } else {
-                  await AppUpdate.installPackage(appInfo);
+
+            if (appInfo.updateStrategy === EUpdateStrategy.seamless) {
+              if (isFirstLaunchAfterUpdated(appInfo)) {
+                await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
+                return;
+              }
+              if (appInfo.status === EAppUpdateStatus.ready) {
+                const fileType = getUpdateFileType(appInfo);
+                try {
+                  defaultLogger.app.appUpdate.startInstallPackage({
+                    fileType,
+                    data: appInfo,
+                  });
+                  if (fileType === EUpdateFileType.jsBundle) {
+                    await BundleUpdate.installBundle(appInfo.downloadedEvent);
+                  } else {
+                    await AppUpdate.installPackage(appInfo);
+                  }
+                  defaultLogger.app.appUpdate.endInstallPackage(true);
+                } catch (e) {
+                  setDisplaySplash(true);
+                  defaultLogger.app.appUpdate.endInstallPackage(
+                    false,
+                    e as Error,
+                  );
+                  await backgroundApiProxy.serviceAppUpdate.reset();
                 }
-                defaultLogger.app.appUpdate.endInstallPackage(true);
-              } catch (e) {
-                defaultLogger.app.appUpdate.endInstallPackage(
-                  false,
-                  e as Error,
-                );
               }
             } else {
               setDisplaySplash(true);
