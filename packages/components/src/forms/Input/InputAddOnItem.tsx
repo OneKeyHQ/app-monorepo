@@ -9,7 +9,7 @@ import { getSharedInputStyles } from './sharedStyles';
 import type { IInputProps } from '.';
 import type { ITooltipProps } from '../../actions';
 import type { IKeyOfIcons, IXStackProps, SizeTokens } from '../../primitives';
-import type { ColorTokens } from '@tamagui/web';
+import type { ColorTokens } from '../../shared/tamagui';
 
 type IExtraProps = {
   label?: string | ReactElement;

@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 
-import { styled } from '@tamagui/core';
-import { withStaticProperties } from '@tamagui/helpers';
-import { createStyledContext } from '@tamagui/web';
+import { styled } from '../../shared/tamagui';
+import { withStaticProperties } from '../../shared/tamagui';
+import { createStyledContext } from '../../shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

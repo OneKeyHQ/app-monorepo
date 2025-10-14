@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { AnimatePresence } from '@tamagui/animate-presence';
+import { AnimatePresence } from '../../shared/tamagui';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components/src/primitives';

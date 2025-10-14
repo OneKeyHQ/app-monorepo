@@ -1,4 +1,4 @@
-import { usePropsAndStyle } from '@tamagui/web';
+import { usePropsAndStyle } from '../../shared/tamagui';
 import { LinearGradient as NativeLinearGradient } from 'expo-linear-gradient';
 
 import { type IThemeColorKeys, useThemeValue } from '../../hooks';

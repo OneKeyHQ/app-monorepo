@@ -9,7 +9,7 @@ import {
   useState,
 } from 'react';
 
-import { Toast, ToastViewport } from '@tamagui/toast';
+import { Toast, ToastViewport } from '../../shared/tamagui';
 import { isNil } from 'lodash';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';

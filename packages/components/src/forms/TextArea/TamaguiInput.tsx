@@ -1,14 +1,14 @@
 import { useRef } from 'react';
 
-import { styled, useComposedRefs, useTheme } from '@tamagui/core';
-import { useFocusable } from '@tamagui/focusable';
+import { styled, useComposedRefs, useTheme } from '../../shared/tamagui';
+import { useFocusable } from '../../shared/tamagui';
 import { TextInput } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { inputSizeVariant } from './sizeVariant';
 
-import type { GetProps } from '@tamagui/core';
+import type { GetProps } from '../../shared/tamagui';
 
 const isWeb = !platformEnv.isNative;
 

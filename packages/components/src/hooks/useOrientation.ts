@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { useMedia } from '@tamagui/web';
+import { useMedia } from '../../shared/tamagui';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Dimensions } from 'react-native';
 

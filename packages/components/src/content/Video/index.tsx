@@ -1,4 +1,4 @@
-import { usePropsAndStyle } from '@tamagui/web';
+import { usePropsAndStyle } from '../../shared/tamagui';
 
 import type { IVideoProps } from './type';
 

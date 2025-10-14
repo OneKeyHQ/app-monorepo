@@ -1,4 +1,4 @@
-import { usePropsAndStyle } from '@tamagui/web';
+import { usePropsAndStyle } from '../../shared/tamagui';
 import NativeVideo from 'react-native-video';
 
 import type { IVideoProps } from './type';

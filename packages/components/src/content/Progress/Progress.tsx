@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
-import { getVariableValue, styled } from '@tamagui/core';
-import { createContextScope } from '@tamagui/create-context';
-import { getSize } from '@tamagui/get-token';
-import { withStaticProperties } from '@tamagui/helpers';
-import { ThemeableStack } from '@tamagui/stacks';
+import { getVariableValue, styled } from '../../shared/tamagui';
+import { createContextScope } from '../../shared/tamagui';
+import { getSize } from '../../shared/tamagui';
+import { withStaticProperties } from '../../shared/tamagui';
+import { ThemeableStack } from '../../shared/tamagui';
 
-import type { GetProps } from '@tamagui/core';
+import type { GetProps } from '../../shared/tamagui';
 import type { LayoutChangeEvent } from 'react-native';
 
 const PROGRESS_NAME = 'Progress';

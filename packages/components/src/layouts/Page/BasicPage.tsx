@@ -1,7 +1,7 @@
 import { useLayoutEffect, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
-import { useMedia } from '@tamagui/web';
+import { useMedia } from '../../shared/tamagui';
 import { useWindowDimensions } from 'react-native';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

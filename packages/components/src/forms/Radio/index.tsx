@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { RadioGroup } from '@tamagui/radio-group';
+import { RadioGroup } from '../../shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

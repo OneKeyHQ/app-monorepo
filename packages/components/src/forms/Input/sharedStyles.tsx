@@ -1,4 +1,4 @@
-import { getTokenValue } from '@tamagui/core';
+import { getTokenValue } from '../../shared/tamagui';
 
 import type { IInputProps } from '.';
 

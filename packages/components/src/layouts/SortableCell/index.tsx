@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 import type { ForwardedRef } from 'react';
 
-import { AnimatePresence } from '@tamagui/animate-presence';
+import { AnimatePresence } from '../../shared/tamagui';
 import {
   ScaleDecorator,
   ShadowDecorator,
@@ -12,8 +12,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { IconButton } from '../../actions/IconButton';
 import { Stack, XStack } from '../../primitives/Stack';
 
-import type { GetProps, TamaguiElement } from '@tamagui/core';
-import type { StackProps } from '@tamagui/web';
+import type { GetProps, TamaguiElement } from '../../shared/tamagui';
+import type { StackProps } from '../../shared/tamagui';
 import type { PressableProps, View } from 'react-native';
 
 export type ISortableCellProps = StackProps & {

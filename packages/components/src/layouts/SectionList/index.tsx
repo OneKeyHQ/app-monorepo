@@ -7,13 +7,14 @@ import {
   useRef,
 } from 'react';
 
-import { withStaticProperties } from '@tamagui/helpers';
-import { getTokenValue } from '@tamagui/web';
+import { withStaticProperties, getTokenValue } from '../../shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SizableText, Stack, XStack } from '../../primitives';
 import { ListView } from '../ListView/list';
+
+import type { Tokens } from '../../shared/tamagui';
 
 import type {
   ISizableTextProps,
@@ -21,7 +22,6 @@ import type {
   IXStackProps,
 } from '../../primitives';
 import type { IListViewProps, IListViewRef } from '../ListView/list';
-import type { Tokens } from '@tamagui/web';
 import type { ListRenderItem } from 'react-native';
 
 type ISectionRenderInfo = (info: {

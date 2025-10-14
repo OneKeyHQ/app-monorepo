@@ -7,7 +7,7 @@ import {
   useRef,
 } from 'react';
 
-import { withStaticProperties } from '@tamagui/web';
+import { withStaticProperties } from '../../shared/tamagui';
 import {
   OpacityDecorator,
   ScaleDecorator,

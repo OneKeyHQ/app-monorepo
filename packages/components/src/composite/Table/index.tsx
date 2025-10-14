@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { withStaticProperties } from '@tamagui/helpers';
-import { getTokenValue, useMedia } from '@tamagui/web';
+import { withStaticProperties } from '../../shared/tamagui';
+import { getTokenValue, useMedia } from '../../shared/tamagui';
 import { StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
 

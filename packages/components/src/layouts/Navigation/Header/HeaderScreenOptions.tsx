@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { getFontSize } from '@tamagui/font-size';
+import { getFontSize } from '../../shared/tamagui';
 
 import { hasNativeHeaderView } from '../Navigator/CommonConfig';
 
@@ -12,7 +12,7 @@ import type {
   IStackNavigationOptions,
 } from '../ScreenProps';
 import type { HeaderBackButtonProps } from '@react-navigation/elements';
-import type { VariableVal } from '@tamagui/core';
+import type { VariableVal } from '../../shared/tamagui';
 
 export type IOnekeyStackHeaderProps = {
   navigation?: IStackHeaderProps['navigation'];

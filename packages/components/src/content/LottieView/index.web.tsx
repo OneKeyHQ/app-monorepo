@@ -1,7 +1,7 @@
 /* eslint-disable  @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
-import { usePropsAndStyle } from '@tamagui/web';
+import { usePropsAndStyle } from '../../shared/tamagui';
 import LottieViewWeb from 'lottie-react';
 
 import type { ILottieViewProps } from './type';

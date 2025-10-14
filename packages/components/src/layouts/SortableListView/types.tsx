@@ -1,4 +1,4 @@
-import type { StackStyle } from '@tamagui/web';
+import type { StackStyle } from '../../shared/tamagui';
 import type {
   DragEndParams,
   DraggableFlatListProps,

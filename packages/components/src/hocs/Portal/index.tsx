@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
-import { withStaticProperties } from '@tamagui/web';
+import { withStaticProperties } from '../../shared/tamagui';
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 

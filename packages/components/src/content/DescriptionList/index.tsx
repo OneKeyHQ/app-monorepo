@@ -1,5 +1,5 @@
-import { withStaticProperties } from '@tamagui/helpers';
-import { styled } from '@tamagui/web';
+import { withStaticProperties } from '../../shared/tamagui';
+import { styled } from '../../shared/tamagui';
 
 import {
   Icon,
@@ -16,7 +16,7 @@ import type {
   IKeyOfIcons,
   ISizableTextProps,
 } from '../../primitives';
-import type { XStackProps } from '@tamagui/stacks';
+import type { XStackProps } from '../../shared/tamagui';
 
 const DescriptionListFrame = styled(Stack, {
   name: 'DescriptionList',

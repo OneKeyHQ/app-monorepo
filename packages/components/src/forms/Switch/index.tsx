@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-import { useTheme } from '@tamagui/core';
-import { Switch as TMSwitch } from '@tamagui/switch';
+import { useTheme } from '../../shared/tamagui';
+import { Switch as TMSwitch } from '../../shared/tamagui';
 
 import type { IFormFieldProps } from '../types';
-import type { GetProps } from '@tamagui/core';
+import type { GetProps } from '../../shared/tamagui';
 
 export enum ESwitchSize {
   'small' = 'small',

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import RNSlider from '@react-native-community/slider';
-import { usePropsAndStyle } from '@tamagui/core';
+import { usePropsAndStyle } from '../../shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

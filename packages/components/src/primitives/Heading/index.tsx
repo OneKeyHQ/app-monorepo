@@ -1,5 +1,5 @@
-import type { HeadingProps } from '@tamagui/text';
+import { Heading, type HeadingProps } from '../../shared/tamagui';
 
-export { Heading } from '@tamagui/text';
+export { Heading };
 
 export type IHeadingProps = HeadingProps;

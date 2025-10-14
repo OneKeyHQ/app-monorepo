@@ -1,4 +1,4 @@
-import { styled } from '@tamagui/web';
+import { styled } from '../../shared/tamagui';
 
 import { Spinner as OriginSpinner } from './Spinner';
 

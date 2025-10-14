@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useMedia, useTheme } from '@tamagui/web';
+import { useMedia, useTheme } from '../../shared/tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

@@ -1,11 +1,17 @@
 import { forwardRef } from 'react';
 
-import { themeable, useTheme, variableToString } from '@tamagui/core';
-import { YStack } from '@tamagui/stacks';
 import { ActivityIndicator } from 'react-native';
 
-import type { ColorTokens, TamaguiElement, ThemeTokens } from '@tamagui/core';
-import type { YStackProps } from '@tamagui/stacks';
+import {
+  themeable,
+  useTheme,
+  variableToString,
+  YStack,
+  type TamaguiElement,
+  type ThemeTokens,
+  type YStackProps,
+  type ColorTokens,
+} from '../../shared/tamagui';
 
 export type ISpinnerProps = Omit<YStackProps, 'children'> & {
   size?: 'small' | 'large';

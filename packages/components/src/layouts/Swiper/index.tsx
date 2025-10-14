@@ -1,7 +1,7 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 
-import { YStack } from '@tamagui/stacks';
+import { YStack } from '../../shared/tamagui';
 
 import { Stack } from '../../primitives';
 import { ListView } from '../ListView/list';

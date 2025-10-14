@@ -1,5 +1,10 @@
-import type { GroupProps } from '@tamagui/group';
+import {
+  Group,
+  XGroup,
+  YGroup,
+  type GroupProps,
+} from '../../shared/tamagui';
 
-export { Group, XGroup, YGroup } from '@tamagui/group';
+export { Group, XGroup, YGroup };
 
 export type IGroupProps = GroupProps;

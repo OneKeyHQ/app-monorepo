@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-import { useMedia } from '@tamagui/web';
+import { useMedia } from '../../shared/tamagui';
 import { createPortal } from 'react-dom';
 import { Toaster as WebToaster } from 'sonner';
 

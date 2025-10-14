@@ -1,13 +1,16 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { useMemo } from 'react';
 
-import { ThemeableStack } from '@tamagui/stacks';
 import {
+  ThemeableStack,
   getTokenValue,
   styled,
   useProps,
   withStaticProperties,
-} from '@tamagui/web';
+  type ThemeableStackProps,
+  type ColorTokens,
+  type FontSizeTokens,
+} from '../../shared/tamagui';
 
 import { Icon } from '../Icon';
 import { SizableText } from '../SizeableText';
@@ -16,8 +19,6 @@ import { Spinner } from '../Spinner';
 import { useSharedPress } from './useEvent';
 
 import type { IIconProps, IKeyOfIcons } from '../Icon';
-import type { ThemeableStackProps } from '@tamagui/stacks';
-import type { ColorTokens, FontSizeTokens } from '@tamagui/web';
 
 export interface IButtonProps extends ThemeableStackProps {
   type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];

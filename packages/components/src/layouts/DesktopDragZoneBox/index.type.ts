@@ -1,4 +1,4 @@
-import type { StackProps } from '@tamagui/web';
+import type { StackProps } from '../../shared/tamagui';
 
 export type IDesktopDragZoneAbsoluteBarProps = StackProps;
 

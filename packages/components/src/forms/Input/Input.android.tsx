@@ -5,17 +5,17 @@ import {
   isWeb,
   styled,
   useComposedRefs,
-} from '@tamagui/core';
-import { getButtonSized } from '@tamagui/get-button-sized';
-import { getFontSized } from '@tamagui/get-font-sized';
-import { getSpace } from '@tamagui/get-token';
+} from '../../shared/tamagui';
+import { getButtonSized } from '../../shared/tamagui';
+import { getFontSized } from '../../shared/tamagui';
+import { getSpace } from '../../shared/tamagui';
 
 import { defaultStyles, useInputProps } from '../TextArea/TamaguiInput';
 
 import TextInput from './TextInput';
 
 import type { IInputExtraProps as InputExtraProps } from '../TextArea/TamaguiInput';
-import type { SizeVariantSpreadFunction } from '@tamagui/core';
+import type { SizeVariantSpreadFunction } from '../../shared/tamagui';
 
 export const textAreaSizeVariant: SizeVariantSpreadFunction<any> = (
   val = '$true',

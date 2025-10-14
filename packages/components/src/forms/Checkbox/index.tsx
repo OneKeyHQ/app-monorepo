@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
-import { withStaticProperties } from '@tamagui/helpers';
+import { withStaticProperties } from '../../shared/tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -9,10 +9,13 @@ import { ListView } from '../../layouts';
 import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 
+import type {
+  TMCheckboxProps,
+  CheckedState,
+} from '../../shared/tamagui';
+
 import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
-import type { CheckboxProps as TMCheckboxProps } from '@tamagui/checkbox';
-import type { CheckedState } from '@tamagui/checkbox-headless';
 import type { GestureResponderEvent, ViewStyle } from 'react-native';
 
 export type ICheckedState = CheckedState;
