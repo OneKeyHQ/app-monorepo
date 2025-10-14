@@ -1,6 +1,6 @@
 import { openPicker as nativeOpenPicker } from 'react-native-image-crop-picker';
-import { withStaticProperties } from 'tamagui';
 
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
