@@ -156,3 +156,14 @@ export interface IBtcFreshAddress {
   totalSent?: string;
   pendingTransactions?: string[];
 }
+
+export interface IBtcFreshAddressStructure {
+  change: {
+    used: IBtcFreshAddress[];
+    unused: IBtcFreshAddress[];
+  };
+  fresh: {
+    used: IBtcFreshAddress[];
+    unused: IBtcFreshAddress[];
+  };
+}

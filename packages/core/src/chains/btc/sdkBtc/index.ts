@@ -48,6 +48,7 @@ import type {
   IBtcForkNetwork,
   IBtcForkSigner,
   IBtcFreshAddress,
+  IBtcFreshAddressStructure,
 } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
@@ -873,19 +874,7 @@ export async function transformAddress({
   addressEncoding: EAddressEncodings;
   derivedInfos: IBtcBlockbookDerivedInfo[];
   // TODO: pendingTransactions?: Record<string, string[]>;
-}): Promise<
-  | {
-      change: {
-        used: IBtcFreshAddress[];
-        unused: IBtcFreshAddress[];
-      };
-      fresh: {
-        used: IBtcFreshAddress[];
-        unused: IBtcFreshAddress[];
-      };
-    }
-  | undefined
-> {
+}): Promise<IBtcFreshAddressStructure | undefined> {
   if (!derivedInfos || !Array.isArray(derivedInfos)) return undefined;
   const addresses = derivedInfos.filter((i) => i.type === 'XPUBAddress');
   if (addresses.length < 1) return undefined;
