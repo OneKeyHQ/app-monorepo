@@ -28,9 +28,9 @@ import {
   success,
   successDark,
 } from './colors';
+import { webFontFamily } from './src/utils/webFontFamily';
 
 import type { Variable } from '@tamagui/web';
-import { webFontFamily } from './src/utils/webFontFamily';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
