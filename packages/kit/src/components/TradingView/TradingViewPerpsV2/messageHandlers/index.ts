@@ -20,7 +20,10 @@ import type {
   IHex,
   IWsUserFills,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSubscriptionCategory,
+  ESubscriptionType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { MESSAGE_TYPES } from '../constants/messageTypes';
 import { EMarksUpdateOperationEnum } from '../types';
@@ -43,6 +46,7 @@ export function usePerpsMessageHandler({
 }) {
   const previousUserAddressRef = useRef<IHex | null | undefined>(userAddress);
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
+  const actions = useHyperliquidActions();
 
   // Use refs to maintain stable references for callbacks
   const symbolRef = useRef(symbol);
@@ -182,8 +186,6 @@ export function usePerpsMessageHandler({
     },
     [webRef, fetchAndFormatMarks],
   );
-
-  const actions = useHyperliquidActions();
 
   // Handle HyperLiquid price scale requests
   const handleGetHyperliquidPriceScale = useCallback(
@@ -341,10 +343,12 @@ export function usePerpsMessageHandler({
 
     const handleUserFillsUpdate = (payload: unknown) => {
       const eventPayload = payload as {
-        type: 'account';
-        subType: string;
+        type: EPerpsSubscriptionCategory;
+        subType: ESubscriptionType;
         data: IWsUserFills;
       };
+
+      if (eventPayload.type !== EPerpsSubscriptionCategory.ACCOUNT) return;
 
       // Only process USER_FILLS events
       if (eventPayload.subType !== ESubscriptionType.USER_FILLS) return;

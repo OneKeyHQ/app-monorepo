@@ -3,6 +3,10 @@ import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/Serv
 import type { IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
+export enum EPerpsSubscriptionCategory {
+  MARKET = 'market',
+  ACCOUNT = 'account',
+}
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
   L2_BOOK = 'l2Book',
