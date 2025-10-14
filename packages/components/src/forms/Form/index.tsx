@@ -13,11 +13,14 @@ import {
   useMemo,
 } from 'react';
 
-import { Form as TMForm } from '@tamagui/form';
-import { withStaticProperties } from '@tamagui/helpers';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 
+import {
+  TMForm,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -38,7 +41,6 @@ import { addFormInstance, removeFormInstance } from './formInstances';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
-import type { GetProps } from '@tamagui/web';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 
 export type IFormProps = IPropsWithTestId<{

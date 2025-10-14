@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import type { TooltipProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import {
   ButtonFrame,
   Icon,
@@ -13,7 +15,6 @@ import { Tooltip } from '../Tooltip';
 
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
-import type { TooltipProps } from '@tamagui/tooltip';
 import type { GestureResponderEvent } from 'react-native';
 
 export interface IIconButtonProps

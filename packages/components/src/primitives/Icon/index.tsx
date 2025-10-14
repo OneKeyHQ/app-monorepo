@@ -1,7 +1,10 @@
 import { forwardRef, useEffect, useState } from 'react';
 
-import { withStaticProperties } from '@tamagui/helpers';
-import { styled } from '@tamagui/web';
+import {
+  type GetProps,
+  styled,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
@@ -9,7 +12,6 @@ import { OptimizationView } from '../../optimization';
 import ICON_CONFIG from './Icons';
 
 import type { IKeyOfIcons } from './Icons';
-import type { GetProps } from '@tamagui/web';
 import type { TextStyle } from 'react-native';
 import type { Svg, SvgProps } from 'react-native-svg';
 

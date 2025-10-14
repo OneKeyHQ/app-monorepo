@@ -12,11 +12,12 @@ import {
   useNavigationBuilder,
 } from '@react-navigation/core';
 import { StackView } from '@react-navigation/stack';
-import { useMedia } from '@tamagui/web';
 import _ from 'lodash';
 import { useWindowDimensions } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../../hocs';
@@ -39,7 +40,6 @@ import type {
   StackNavigationState,
   StackRouterOptions,
 } from '@react-navigation/native';
-import type { TamaguiElement } from '@tamagui/web';
 import type { GestureResponderEvent } from 'react-native';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];

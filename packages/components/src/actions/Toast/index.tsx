@@ -1,10 +1,12 @@
 import type { RefObject } from 'react';
 import { createRef, useEffect } from 'react';
 
-import { ToastProvider } from '@tamagui/toast';
-import { useMedia } from '@tamagui/web';
 import { useWindowDimensions } from 'react-native';
 
+import {
+  ToastProvider,
+  useMedia,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';

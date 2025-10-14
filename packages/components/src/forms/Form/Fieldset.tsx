@@ -1,7 +1,5 @@
-import { styled } from '@tamagui/core';
-import { YStack } from '@tamagui/stacks';
-
-import type { GetProps } from '@tamagui/core';
+import { YStack, styled } from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export const Fieldset = styled(YStack, {
   name: 'Fieldset',

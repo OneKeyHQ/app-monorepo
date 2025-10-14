@@ -1,9 +1,10 @@
 import type { ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { usePropsAndStyle } from '@tamagui/web';
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Skeleton } from '../Skeleton';
 import { YStack } from '../Stack';

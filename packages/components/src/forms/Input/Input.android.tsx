@@ -1,21 +1,23 @@
 import { useRef } from 'react';
 
 import {
+  getButtonSized,
+  getFontSized,
+  getSpace,
   getVariableValue,
-  isWeb,
   styled,
   useComposedRefs,
-} from '@tamagui/core';
-import { getButtonSized } from '@tamagui/get-button-sized';
-import { getFontSized } from '@tamagui/get-font-sized';
-import { getSpace } from '@tamagui/get-token';
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { SizeVariantSpreadFunction } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { defaultStyles, useInputProps } from '../TextArea/TamaguiInput';
 
 import TextInput from './TextInput';
 
 import type { IInputExtraProps as InputExtraProps } from '../TextArea/TamaguiInput';
-import type { SizeVariantSpreadFunction } from '@tamagui/core';
+
+const isWeb = !platformEnv.isNative;
 
 export const textAreaSizeVariant: SizeVariantSpreadFunction<any> = (
   val = '$true',

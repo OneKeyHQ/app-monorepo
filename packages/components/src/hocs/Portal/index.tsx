@@ -3,10 +3,10 @@
 import type { ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
-import { withStaticProperties } from '@tamagui/web';
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
 
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

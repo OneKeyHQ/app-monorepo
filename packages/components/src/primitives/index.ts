@@ -1,8 +1,8 @@
-import { AnimatePresence as TMAnimatePresence } from '@tamagui/animate-presence';
 import {
+  AnimatePresence as TMAnimatePresence,
   Unspaced as TMUnspaced,
   withStaticProperties as TMWithStaticProperties,
-} from '@tamagui/web';
+} from '../shared/tamagui';
 
 export * from './Anchor';
 export * from './Button';
@@ -21,4 +21,4 @@ export * from './View';
 export const AnimatePresence = TMAnimatePresence;
 export const Unspaced = TMUnspaced;
 export const withStaticProperties = TMWithStaticProperties;
-export type { ColorTokens, SizeTokens } from '@tamagui/web';
+export type { ColorTokens, SizeTokens } from '../shared/tamagui';

@@ -17,8 +17,6 @@ import type {
 } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
-import { useStyle } from '@tamagui/core';
-import { withStaticProperties } from '@tamagui/web';
 import { noop } from 'lodash';
 // eslint-disable-next-line spellcheck/spell-checker
 import { DragDropContext, Draggable, Droppable } from 'react-beautiful-dnd';
@@ -29,6 +27,10 @@ import {
 } from 'react-native-draggable-flatlist';
 import Animated from 'react-native-reanimated';
 
+import {
+  useStyle,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 import {
   EAppEventBusNames,
   appEventBus,

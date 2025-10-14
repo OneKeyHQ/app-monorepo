@@ -14,11 +14,19 @@ import {
   useState,
 } from 'react';
 
-import { withStaticProperties } from '@tamagui/helpers';
-import { Popover as TMPopover } from '@tamagui/popover';
-import { useMedia } from '@tamagui/web';
 import { Dimensions } from 'react-native';
 
+import {
+  TMPopover,
+  useMedia,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  PopoverContentProps as PopoverContentTypeProps,
+  SheetProps,
+  TMPopoverProps,
+  UseMediaState,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -43,12 +51,6 @@ import { PopoverContent } from './PopoverContent';
 
 import type { IPopoverTooltip } from './type';
 import type { IIconButtonProps } from '../IconButton';
-import type { UseMediaState } from '@tamagui/core';
-import type {
-  PopoverContentTypeProps,
-  PopoverProps as TMPopoverProps,
-} from '@tamagui/popover';
-import type { SheetProps } from '@tamagui/sheet';
 import type { View } from 'react-native';
 
 const gtMdShFrameStyle = {

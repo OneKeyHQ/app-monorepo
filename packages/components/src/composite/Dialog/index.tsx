@@ -13,15 +13,17 @@ import {
   useState,
 } from 'react';
 
-import { AnimatePresence } from '@tamagui/animate-presence';
-import { Dialog as TMDialog } from '@tamagui/dialog';
-import { Sheet } from '@tamagui/sheet';
-import { SizableText } from '@tamagui/text';
-import { useMedia } from '@tamagui/web';
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import {
+  AnimatePresence,
+  Sheet,
+  SizableText,
+  TMDialog,
+  useMedia,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

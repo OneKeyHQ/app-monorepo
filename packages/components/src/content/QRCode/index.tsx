@@ -1,7 +1,6 @@
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { Theme, getTokenValue } from '@tamagui/web';
 import QRCodeUtil from 'qrcode';
 import Svg, {
   Circle,
@@ -15,6 +14,10 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
+import {
+  TamaguiTheme as Theme,
+  getTokenValue,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 

@@ -1,10 +1,10 @@
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 
-import { useProps } from '@tamagui/web';
 import { isNil } from 'lodash';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
