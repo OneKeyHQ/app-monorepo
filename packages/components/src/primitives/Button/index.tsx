@@ -2,14 +2,14 @@ import type { ButtonHTMLAttributes } from 'react';
 import { useMemo } from 'react';
 
 import {
+  type ColorTokens,
+  type FontSizeTokens,
   ThemeableStack,
+  type ThemeableStackProps,
   getTokenValue,
   styled,
   useProps,
   withStaticProperties,
-  type ThemeableStackProps,
-  type ColorTokens,
-  type FontSizeTokens,
 } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Icon } from '../Icon';

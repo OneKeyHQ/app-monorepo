@@ -7,14 +7,15 @@ import {
   useRef,
 } from 'react';
 
-import { withStaticProperties, getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
-
+import {
+  getTokenValue,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { Tokens } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SizableText, Stack, XStack } from '../../primitives';
 import { ListView } from '../ListView/list';
-
-import type { Tokens } from '@onekeyhq/components/src/shared/tamagui';
 
 import type {
   ISizableTextProps,

@@ -3,11 +3,11 @@ import { forwardRef } from 'react';
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
 
 import {
-  usePropsAndStyle,
-  withStaticProperties,
-  styled,
-  useThemeName,
   type StackStyle,
+  styled,
+  usePropsAndStyle,
+  useThemeName,
+  withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';

@@ -1,12 +1,12 @@
 import { useLayoutEffect } from 'react';
 
-import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import {
   setBackgroundColorAsync,
   setButtonStyleAsync,
 } from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
 
+import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IUseAppearanceTheme } from './type';

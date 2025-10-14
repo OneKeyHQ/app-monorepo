@@ -1,9 +1,9 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components/src/primitives';
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 import type { IAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';

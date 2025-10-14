@@ -1,10 +1,12 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
-import { useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import { Dimensions, StatusBar } from 'react-native';
 
+import {
+  AnimatePresence,
+  useThemeName,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsModalPage } from '../../hocs';

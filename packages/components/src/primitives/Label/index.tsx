@@ -1,10 +1,10 @@
 import type { ComponentType } from 'react';
 
 import {
-  TMLabel,
-  styled,
   type GetProps,
   type SizeTokens,
+  TMLabel,
+  styled,
 } from '@onekeyhq/components/src/shared/tamagui';
 
 export type ILabelProps = Omit<GetProps<typeof TMLabel>, 'variant'> & {

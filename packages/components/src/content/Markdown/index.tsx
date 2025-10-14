@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import RNMarkdown from 'react-native-markdown-display';
+
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 

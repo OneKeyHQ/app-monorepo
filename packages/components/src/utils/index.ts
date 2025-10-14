@@ -1,11 +1,11 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
-  getFontSizeToken,
-  getConfig,
   type FontSizeTokens,
   type FontTokens,
   type Variable,
+  getConfig,
+  getFontSizeToken,
 } from '../shared/tamagui';
 
 type IGetFontSizeOpts = {

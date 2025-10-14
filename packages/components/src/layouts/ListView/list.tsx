@@ -2,14 +2,21 @@ import type { ForwardedRef, MutableRefObject } from 'react';
 import { forwardRef, useMemo } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
-import { usePropsAndStyle, useStyle } from '@onekeyhq/components/src/shared/tamagui';
-import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 import { FlatList } from 'react-native';
+
+import {
+  getTokenValue,
+  usePropsAndStyle,
+  useStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  StackStyle,
+  Tokens,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
 
 import type { IDebugRenderTrackerProps } from '../../utils/DebugRenderTracker';
-import type { StackStyle, Tokens } from '@onekeyhq/components/src/shared/tamagui';
 import type {
   FlatListProps,
   ListRenderItem,

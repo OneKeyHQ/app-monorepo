@@ -1,8 +1,8 @@
 import {
   Group,
+  type GroupProps,
   XGroup,
   YGroup,
-  type GroupProps,
 } from '@onekeyhq/components/src/shared/tamagui';
 
 export { Group, XGroup, YGroup };

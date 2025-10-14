@@ -1,12 +1,15 @@
 import { useState } from 'react';
 
-import { getVariableValue, styled } from '@onekeyhq/components/src/shared/tamagui';
-import { createContextScope } from '@onekeyhq/components/src/shared/tamagui';
-import { getSize } from '@onekeyhq/components/src/shared/tamagui';
-import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
-import { ThemeableStack } from '@onekeyhq/components/src/shared/tamagui';
-
+import {
+  ThemeableStack,
+  createContextScope,
+  getSize,
+  getVariableValue,
+  styled,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 const PROGRESS_NAME = 'Progress';

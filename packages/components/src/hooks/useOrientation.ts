@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Dimensions } from 'react-native';
 
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export const useOrientation = () => {

@@ -1,9 +1,11 @@
 import type { Ref } from 'react';
 import { useEffect, useRef } from 'react';
 
-import { styled, useComposedRefs } from '@onekeyhq/components/src/shared/tamagui';
-import { registerFocusable } from '@onekeyhq/components/src/shared/tamagui';
-
+import {
+  registerFocusable,
+  styled,
+  useComposedRefs,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { textAreaSizeVariant } from './sizeVariant';

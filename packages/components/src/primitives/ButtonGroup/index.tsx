@@ -2,10 +2,10 @@ import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
 import {
-  withStaticProperties,
   ToggleGroup,
   type ToggleGroupItemProps,
   type ToggleGroupSingleProps,
+  withStaticProperties,
 } from '@onekeyhq/components/src/shared/tamagui';
 
 export type IButtonGroup = PropsWithChildren<{

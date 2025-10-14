@@ -2,14 +2,13 @@ import type { Ref } from 'react';
 
 import { Linking } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
 import {
-  styled,
   SizableText,
-  type TamaguiTextElement,
   type SizableTextProps,
+  type TamaguiTextElement,
+  styled,
 } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export interface IAnchorExtraProps {
   href?: string;

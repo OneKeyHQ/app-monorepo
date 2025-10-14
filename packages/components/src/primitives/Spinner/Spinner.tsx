@@ -3,14 +3,14 @@ import { forwardRef } from 'react';
 import { ActivityIndicator } from 'react-native';
 
 import {
+  type ColorTokens,
+  type TamaguiElement,
+  type ThemeTokens,
+  YStack,
+  type YStackProps,
   themeable,
   useTheme,
   variableToString,
-  YStack,
-  type TamaguiElement,
-  type ThemeTokens,
-  type YStackProps,
-  type ColorTokens,
 } from '@onekeyhq/components/src/shared/tamagui';
 
 export type ISpinnerProps = Omit<YStackProps, 'children'> & {

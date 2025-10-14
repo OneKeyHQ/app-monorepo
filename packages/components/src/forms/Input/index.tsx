@@ -15,11 +15,14 @@ import {
 } from 'react';
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
-import { getFontSize } from '@onekeyhq/components/src/shared/tamagui';
-import { Group } from '@onekeyhq/components/src/shared/tamagui';
-import { useProps, useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import noop from 'lodash/noop';
 
+import {
+  Group,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 

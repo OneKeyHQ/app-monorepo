@@ -1,6 +1,10 @@
 import { forwardRef, useEffect, useState } from 'react';
 
-import { withStaticProperties, styled, type GetProps } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  type GetProps,
+  styled,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';

@@ -1,6 +1,9 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 
-import type { ListItemProps, SheetProps } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  ListItemProps,
+  SheetProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IPopoverProps } from '../../actions';
 import type { IInputProps } from '../Input';

@@ -2,7 +2,6 @@ import type { Ref } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
 import { getFontSize } from '@onekeyhq/components/src/shared/tamagui';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSelectionColor } from '../../hooks';

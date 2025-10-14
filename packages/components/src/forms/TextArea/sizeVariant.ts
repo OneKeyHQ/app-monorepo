@@ -1,11 +1,11 @@
-import { getVariableValue } from '@onekeyhq/components/src/shared/tamagui';
-import { getButtonSized } from '@onekeyhq/components/src/shared/tamagui';
-import { getFontSized } from '@onekeyhq/components/src/shared/tamagui';
-import { getSpace } from '@onekeyhq/components/src/shared/tamagui';
-
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
+import {
+  getButtonSized,
+  getFontSized,
+  getSpace,
+  getVariableValue,
+} from '@onekeyhq/components/src/shared/tamagui';
 import type { SizeVariantSpreadFunction } from '@onekeyhq/components/src/shared/tamagui';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const isWeb = !platformEnv.isNative;
 

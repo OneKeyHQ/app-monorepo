@@ -1,7 +1,6 @@
-import { Separator } from '@onekeyhq/components/src/shared/tamagui';
-import { styled } from '@onekeyhq/components/src/shared/tamagui';
 import { StyleSheet } from 'react-native';
 
+import { Separator, styled } from '@onekeyhq/components/src/shared/tamagui';
 import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 export const Divider = styled(Separator, {
