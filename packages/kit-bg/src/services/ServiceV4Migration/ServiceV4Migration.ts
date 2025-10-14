@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */
 import { flatten, uniqBy } from 'lodash';
 
 import { decryptVerifyString } from '@onekeyhq/core/src/secret';
