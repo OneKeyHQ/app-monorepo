@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { Slider as TMSlider } from '@tamagui/slider';
 import { clamp } from 'lodash';
-import { Slider as TMSlider } from 'tamagui';
 
 import { XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';

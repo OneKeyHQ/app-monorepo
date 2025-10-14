@@ -2,12 +2,12 @@ import { forwardRef, useCallback } from 'react';
 import type { ForwardedRef } from 'react';
 
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
+import { withStaticProperties } from '@tamagui/web';
 import DraggableFlatList, {
   OpacityDecorator,
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
-import { withStaticProperties } from 'tamagui';
 
 import {
   EAppEventBusNames,

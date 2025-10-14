@@ -1,9 +1,7 @@
 import { styled } from '@tamagui/core';
-import {
-  SizableText,
-  createStyledContext,
-  withStaticProperties,
-} from 'tamagui';
+import { withStaticProperties } from '@tamagui/helpers';
+import { SizableText } from '@tamagui/text';
+import { createStyledContext } from '@tamagui/web';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

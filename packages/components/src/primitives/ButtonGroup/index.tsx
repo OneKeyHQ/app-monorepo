@@ -1,9 +1,13 @@
 import type { PropsWithChildren } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
-import { ToggleGroup, withStaticProperties } from 'tamagui';
+import { withStaticProperties } from '@tamagui/helpers';
+import { ToggleGroup } from '@tamagui/toggle-group';
 
-import type { ToggleGroupItemProps, ToggleGroupSingleProps } from 'tamagui';
+import type {
+  ToggleGroupItemProps,
+  ToggleGroupSingleProps,
+} from '@tamagui/toggle-group';
 
 export type IButtonGroup = PropsWithChildren<{
   orientation?: ToggleGroupSingleProps['orientation'];

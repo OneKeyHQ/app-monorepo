@@ -15,12 +15,9 @@ import type {
   IXStackProps,
   IYStackProps,
 } from '../../primitives';
+import type { DialogContentProps as TMDialogContentProps } from '@tamagui/dialog';
+import type { SheetProps as TMSheetProps } from '@tamagui/sheet';
 import type { UseFormProps, useForm } from 'react-hook-form';
-import type {
-  DialogContentProps as TMDialogContentProps,
-  DialogProps as TMDialogProps,
-  SheetProps as TMSheetProps,
-} from 'tamagui';
 
 export type IDialogContextType = {
   dialogInstance: IDialogInstanceRef;

@@ -1,21 +1,13 @@
-import { useRef } from 'react';
-
-import {
-  getVariableValue,
-  isWeb,
-  styled,
-  useComposedRefs,
-} from '@tamagui/core';
+import { getVariableValue } from '@tamagui/core';
 import { getButtonSized } from '@tamagui/get-button-sized';
 import { getFontSized } from '@tamagui/get-font-sized';
 import { getSpace } from '@tamagui/get-token';
 
-import { defaultStyles, useInputProps } from '../TextArea/TamaguiInput';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import TextInput from './TextInput';
-
-import type { IInputExtraProps as InputExtraProps } from '../TextArea/TamaguiInput';
 import type { SizeVariantSpreadFunction } from '@tamagui/core';
+
+const isWeb = !platformEnv.isNative;
 
 export const textAreaSizeVariant: SizeVariantSpreadFunction<any> = (
   val = '$true',
@@ -71,46 +63,3 @@ export const inputSizeVariant: SizeVariantSpreadFunction<any> = (
     paddingHorizontal,
   };
 };
-
-export const InputFrame = styled(
-  TextInput,
-  {
-    name: 'Input',
-
-    variants: {
-      unstyled: {
-        false: defaultStyles,
-      },
-
-      size: {
-        '...size': inputSizeVariant,
-      },
-
-      disabled: {
-        true: {},
-      },
-    } as const,
-
-    defaultVariants: {
-      unstyled: process.env.TAMAGUI_HEADLESS === '1',
-    },
-  },
-  {
-    isInput: true,
-
-    accept: {
-      placeholderTextColor: 'color',
-      selectionColor: 'color',
-    } as const,
-  },
-);
-
-export const Input = InputFrame.styleable<InputExtraProps, any, any>(
-  (propsIn: InputExtraProps, forwardedRef: any) => {
-    const ref = useRef<typeof Input>(null);
-    const composedRefs = useComposedRefs(forwardedRef, ref);
-    const props = useInputProps(propsIn, composedRefs);
-
-    return <InputFrame {...(props as any)} />;
-  },
-);

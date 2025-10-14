@@ -2,7 +2,6 @@ import type { PropsWithChildren } from 'react';
 import { memo, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { TamaguiProvider } from 'tamagui';
 
 import type { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
@@ -14,6 +13,7 @@ import config from '../../../tamagui.config';
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
+import { TamaguiProvider } from './TamaguiProvider';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**

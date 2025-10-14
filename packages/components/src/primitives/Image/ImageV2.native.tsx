@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { usePropsAndStyle } from '@tamagui/web';
 import { Image as ExpoImage } from 'expo-image';
 import { StyleSheet } from 'react-native';
-import { usePropsAndStyle } from 'tamagui';
 
 import { Skeleton } from '../Skeleton';
 import { Stack } from '../Stack';

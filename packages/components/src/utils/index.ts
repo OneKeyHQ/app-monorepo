@@ -1,5 +1,5 @@
 import { getConfig } from '@tamagui/core';
-import { getFontSizeToken } from 'tamagui';
+import { getFontSizeToken } from '@tamagui/font-size';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -29,7 +29,7 @@ export const getFontToken = (
   };
 };
 
-export { getFontSize } from 'tamagui';
+export { getFontSize } from '@tamagui/font-size';
 
 export const NATIVE_HIT_SLOP = platformEnv.isNative
   ? { top: 8, left: 8, right: 8, bottom: 8 }

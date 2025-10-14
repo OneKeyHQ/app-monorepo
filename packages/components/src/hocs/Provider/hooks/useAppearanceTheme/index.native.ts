@@ -1,11 +1,11 @@
 import { useLayoutEffect } from 'react';
 
+import { getTokenValue } from '@tamagui/web';
 import {
   setBackgroundColorAsync,
   setButtonStyleAsync,
 } from 'expo-navigation-bar';
 import { StatusBar } from 'react-native';
-import { getTokenValue } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

@@ -1,5 +1,5 @@
+import { usePropsAndStyle } from '@tamagui/web';
 import NativeVideo from 'react-native-video';
-import { usePropsAndStyle } from 'tamagui';
 
 import type { IVideoProps } from './type';
 import type { ViewStyle } from 'react-native';

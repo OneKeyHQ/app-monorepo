@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useMedia } from 'tamagui';
+import { useMedia } from '@tamagui/web';
 
 import { XStack } from '../../../primitives';
 import { SearchBar } from '../../SearchBar';

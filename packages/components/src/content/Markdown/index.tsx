@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
+import { useMedia } from '@tamagui/web';
 import RNMarkdown from 'react-native-markdown-display';
-import { useMedia } from 'tamagui';
 
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 

@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 
+import { useProps } from '@tamagui/web';
 import { isNil } from 'lodash';
-import { useProps } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

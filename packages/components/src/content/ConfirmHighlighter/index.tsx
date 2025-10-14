@@ -1,5 +1,5 @@
+import { getTokenValue } from '@tamagui/web';
 import { MotiView } from 'moti';
-import { getTokenValue } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -7,7 +7,7 @@ import { useThemeValue } from '../../hooks';
 import { Stack } from '../../primitives';
 
 import type { IStackProps } from '../../primitives';
-import type { Token } from 'tamagui';
+import type { Token } from '@tamagui/web';
 
 interface IConfirmHighlighter extends Partial<IStackProps> {
   highlight?: boolean;

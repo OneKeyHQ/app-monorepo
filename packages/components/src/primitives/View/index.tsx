@@ -1,4 +1,4 @@
-import type { GetProps, View } from 'tamagui';
+import type { GetProps, View } from '@tamagui/web';
 
-export { View } from 'tamagui';
+export { View } from '@tamagui/core';
 export type IViewProps = GetProps<typeof View>;

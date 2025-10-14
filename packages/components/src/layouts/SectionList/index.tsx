@@ -7,7 +7,8 @@ import {
   useRef,
 } from 'react';
 
-import { getTokenValue, withStaticProperties } from 'tamagui';
+import { withStaticProperties } from '@tamagui/helpers';
+import { getTokenValue } from '@tamagui/web';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

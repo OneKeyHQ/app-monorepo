@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useMedia } from 'tamagui';
+import { useMedia } from '@tamagui/web';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

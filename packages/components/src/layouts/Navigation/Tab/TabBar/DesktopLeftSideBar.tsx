@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
+import { getTokens, useMedia, useTheme } from '@tamagui/web';
 import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
-import { getTokens, useMedia, useTheme } from 'tamagui';
 
 import { type IActionListSection } from '@onekeyhq/components/src/actions';
 import {

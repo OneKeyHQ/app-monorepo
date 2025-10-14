@@ -5,9 +5,9 @@ import type {
   AccordionMultipleProps,
   AccordionSingleProps,
   AccordionTriggerProps,
-} from 'tamagui';
+} from '@tamagui/accordion';
 
-export { Accordion } from 'tamagui';
+export { Accordion } from '@tamagui/accordion';
 export type IAccordionContentProps = AccordionContentProps;
 export type IAccordionHeaderProps = AccordionHeaderProps;
 export type IAccordionItemProps = AccordionItemProps;

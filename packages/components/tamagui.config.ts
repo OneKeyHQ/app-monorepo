@@ -1,8 +1,9 @@
 import { createAnimations } from '@tamagui/animations-moti';
+import { createTamagui } from '@tamagui/core';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
-import { createFont, createTamagui, createTokens } from 'tamagui';
+import { createFont, createTokens } from '@tamagui/web';
 
 import {
   brand,

@@ -1,12 +1,13 @@
 import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
-import { SizableText, styled } from 'tamagui';
+import { SizableText } from '@tamagui/text';
+import { styled } from '@tamagui/web';
 
 import { XStack, YStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
-import type { GetProps } from 'tamagui';
+import type { GetProps } from '@tamagui/web';
 
 export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;

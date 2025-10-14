@@ -1,4 +1,4 @@
-import { useMedia } from 'tamagui';
+import { useMedia } from '@tamagui/web';
 
 import { useOrientation } from '@onekeyhq/components/src/hooks/useOrientation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

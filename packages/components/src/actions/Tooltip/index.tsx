@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Tooltip as TMTooltip } from 'tamagui';
+import { Tooltip as TMTooltip } from '@tamagui/tooltip';
 
 import {
   EAppEventBusNames,
@@ -18,7 +18,7 @@ import { Shortcut } from '../Shortcut';
 
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
-import type { PopoverContentProps } from 'tamagui';
+import type { PopoverContentProps } from '@tamagui/popover';
 
 export function TooltipText({
   children,

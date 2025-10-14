@@ -27,13 +27,14 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import type { AvatarImage } from '@tamagui/avatar';
+import type { GetProps, TamaguiElement } from '@tamagui/web';
 import type {
   Animated,
   GestureResponderEvent,
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import type { AvatarImage, GetProps, TamaguiElement } from 'tamagui';
 
 export interface IDesktopTabItemProps {
   size?: 'small' | 'medium';

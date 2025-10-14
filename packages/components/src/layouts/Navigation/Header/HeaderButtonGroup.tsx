@@ -1,6 +1,6 @@
 import { XStack } from '../../../primitives';
 
-import type { GetProps } from 'tamagui';
+import type { GetProps } from '@tamagui/web';
 
 export default function HeaderButtonGroup(props: GetProps<typeof XStack>) {
   const { children, ...rest } = props;
