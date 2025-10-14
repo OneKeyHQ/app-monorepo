@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 
-import { withStaticProperties } from 'tamagui';
+import { withStaticProperties } from '@tamagui/helpers';
 
 import { Portal } from '../../hocs';
 

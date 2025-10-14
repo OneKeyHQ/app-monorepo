@@ -1,8 +1,9 @@
 import type { ComponentType } from 'react';
 
-import { Label as TMLabel, styled } from 'tamagui';
+import { Label as TMLabel } from '@tamagui/label';
+import { styled } from '@tamagui/web';
 
-import type { GetProps, SizeTokens } from 'tamagui';
+import type { GetProps, SizeTokens } from '@tamagui/web';
 
 export type ILabelProps = Omit<GetProps<typeof TMLabel>, 'variant'> & {
   variant?: SizeTokens;

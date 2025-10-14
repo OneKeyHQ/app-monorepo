@@ -2,8 +2,9 @@ import type { PropsWithChildren, ReactElement } from 'react';
 
 import type { IPopoverProps } from '../../actions';
 import type { IInputProps } from '../Input';
+import type { ListItemProps } from '@tamagui/list-item';
+import type { SheetProps } from '@tamagui/sheet';
 import type { GestureResponderEvent } from 'react-native';
-import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
   value?: string | number | boolean;

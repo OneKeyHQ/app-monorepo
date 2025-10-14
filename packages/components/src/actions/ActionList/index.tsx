@@ -1,10 +1,11 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { withStaticProperties } from '@tamagui/helpers';
+import { useMedia } from '@tamagui/web';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';

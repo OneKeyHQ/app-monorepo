@@ -1,8 +1,8 @@
 import { memo } from 'react';
 
+import { useMedia } from '@tamagui/web';
 import { createPortal } from 'react-dom';
 import { Toaster as WebToaster } from 'sonner';
-import { useMedia } from 'tamagui';
 
 import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 

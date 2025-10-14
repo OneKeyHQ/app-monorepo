@@ -1,7 +1,7 @@
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import type { ISizableTextProps } from '../../primitives/SizeableText';
-import type { XStackProps } from 'tamagui';
+import type { XStackProps } from '@tamagui/stacks';
 
 export type IShortcutProps = XStackProps & {
   shortcutKey?: EShortcutEvents;

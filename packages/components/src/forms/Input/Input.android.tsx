@@ -9,12 +9,13 @@ import {
 import { getButtonSized } from '@tamagui/get-button-sized';
 import { getFontSized } from '@tamagui/get-font-sized';
 import { getSpace } from '@tamagui/get-token';
-import { defaultStyles, useInputProps } from 'tamagui';
+
+import { defaultStyles, useInputProps } from '../TextArea/TamaguiInput';
 
 import TextInput from './TextInput';
 
+import type { IInputExtraProps as InputExtraProps } from '../TextArea/TamaguiInput';
 import type { SizeVariantSpreadFunction } from '@tamagui/core';
-import type { InputExtraProps } from 'tamagui';
 
 export const textAreaSizeVariant: SizeVariantSpreadFunction<any> = (
   val = '$true',

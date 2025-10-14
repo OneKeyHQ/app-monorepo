@@ -2,8 +2,8 @@ import type { RefObject } from 'react';
 import { createRef, useEffect } from 'react';
 
 import { ToastProvider } from '@tamagui/toast';
+import { useMedia } from '@tamagui/web';
 import { useWindowDimensions } from 'react-native';
-import { Spinner, useMedia } from 'tamagui';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
@@ -13,6 +13,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Icon, View, XStack, YStack } from '../../primitives';
+import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';

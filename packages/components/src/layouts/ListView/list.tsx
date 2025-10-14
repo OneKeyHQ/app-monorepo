@@ -3,8 +3,8 @@ import { forwardRef, useMemo } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
 import { usePropsAndStyle, useStyle } from '@tamagui/core';
+import { getTokenValue } from '@tamagui/web';
 import { FlatList } from 'react-native';
-import { getTokenValue } from 'tamagui';
 
 import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
 

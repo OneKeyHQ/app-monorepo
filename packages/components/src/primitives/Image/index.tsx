@@ -1,5 +1,5 @@
+import { withStaticProperties } from '@tamagui/helpers';
 import { useImage } from 'expo-image';
-import { withStaticProperties } from 'tamagui';
 
 import { ImageFallback, ImageSkeleton } from './ImageFallback';
 import { ImageLoading } from './ImageLoading';

@@ -1,8 +1,9 @@
 import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
+import { AnimatePresence } from '@tamagui/animate-presence';
+import { useThemeName } from '@tamagui/web';
 import { Dimensions, StatusBar } from 'react-native';
-import { AnimatePresence, useThemeName } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

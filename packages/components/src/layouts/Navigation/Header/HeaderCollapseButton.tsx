@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { AnimatePresence } from '@tamagui/animate-presence';
 import { useIntl } from 'react-intl';
-import { AnimatePresence } from 'tamagui';
 
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';

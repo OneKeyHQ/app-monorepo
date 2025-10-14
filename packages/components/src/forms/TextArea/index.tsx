@@ -1,7 +1,7 @@
 import type { Ref } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 
-import { TextArea as TMTextArea, getFontSize } from 'tamagui';
+import { getFontSize } from '@tamagui/font-size';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -9,13 +9,15 @@ import { useSelectionColor } from '../../hooks';
 import { useScrollToLocation } from '../../layouts/ScrollView';
 import { getSharedInputStyles } from '../Input/sharedStyles';
 
+import { TextArea as TMTextArea } from './TamaguiTextArea';
+
+import type { ITextAreaProps as TextAreaProps } from './TamaguiTextArea';
 import type { IInputProps } from '../Input';
 import type {
   NativeSyntheticEvent,
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { TextAreaProps } from 'tamagui';
 
 export type ITextAreaProps = Pick<
   IInputProps,

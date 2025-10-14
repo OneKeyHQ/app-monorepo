@@ -255,7 +255,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       currentUser: this._currentState.currentUser,
       currentSymbol: this._currentState.currentSymbol,
       isConnected: this._currentState.isConnected,
-      activeSubscriptions: Array.from(this._activeSubscriptions.values())
+      activeSubscriptions: Array.from(this._activeSubscriptions.values() || [])
         .filter(Boolean)
         .map((sub) => ({
           key: sub.key,
@@ -704,7 +704,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const allSpecs: ISubscriptionSpec<ESubscriptionType>[] = [
       ...Object.values(this.allSubSpecsMap),
       ...Object.values(this.pendingSubSpecsMap),
-      ...this._activeSubscriptions.values().map((subInfo) => subInfo.spec),
+      ...Array.from(this._activeSubscriptions.values() || []).map(
+        (subInfo) => subInfo.spec,
+      ),
     ];
     allSpecs.forEach((spec) => {
       void this._destroySubscription(spec);

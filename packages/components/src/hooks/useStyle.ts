@@ -16,7 +16,7 @@ export {
   useThemeName,
   useStyle,
   usePropsAndStyle,
-} from 'tamagui';
+} from '@tamagui/web';
 
 export type IThemeColorKeys = keyof UseThemeResult;
 const getValue = (

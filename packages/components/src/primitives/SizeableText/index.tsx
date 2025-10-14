@@ -1,6 +1,6 @@
-import { SizableText as TamaguiSizableText } from 'tamagui';
+import { SizableText as TamaguiSizableText } from '@tamagui/text';
 
-import type { SizableTextProps } from 'tamagui';
+import type { SizableTextProps } from '@tamagui/text';
 
 export const StyledSizableText = TamaguiSizableText;
 

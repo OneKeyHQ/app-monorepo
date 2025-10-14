@@ -7,12 +7,12 @@ import {
   useRef,
 } from 'react';
 
+import { withStaticProperties } from '@tamagui/web';
 import {
   OpacityDecorator,
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
-import { withStaticProperties } from 'tamagui';
 
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';

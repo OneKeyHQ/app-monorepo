@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 
+import { useMedia } from '@tamagui/web';
 import { createPortal } from 'react-dom';
-import { useMedia } from 'tamagui';
 
 import { SHEET_POPOVER_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 

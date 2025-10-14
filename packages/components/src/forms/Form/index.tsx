@@ -13,9 +13,10 @@ import {
   useMemo,
 } from 'react';
 
+import { Form as TMForm } from '@tamagui/form';
+import { withStaticProperties } from '@tamagui/helpers';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
-import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,12 +33,13 @@ import {
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
+import { Fieldset } from './Fieldset';
 import { addFormInstance, removeFormInstance } from './formInstances';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
+import type { GetProps } from '@tamagui/web';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
-import type { GetProps } from 'tamagui';
 
 export type IFormProps = IPropsWithTestId<{
   form: UseFormReturn<any> & {

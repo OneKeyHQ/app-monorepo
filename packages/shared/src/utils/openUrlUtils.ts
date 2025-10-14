@@ -9,12 +9,47 @@ import {
   EModalRoutes,
   EModalWebViewRoutes,
   ERootRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
 import appGlobals from '../appGlobals';
 
 import type { IPrefType } from '../../types/desktop';
 import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
+
+// ========== Discovery Browser ==========
+
+export interface IOpenUrlInDiscoveryParams {
+  url: string;
+  title?: string;
+}
+
+/**
+ * Pending URL to be opened in Discovery browser
+ * This is checked by the Discovery component on mount/focus
+ */
+let pendingDiscoveryUrl: { url: string; title?: string } | null = null;
+
+/**
+ * Get and clear the pending Discovery URL
+ * Used internally by Discovery component
+ */
+export function getPendingDiscoveryUrl(): {
+  url: string;
+  title?: string;
+} | null {
+  const pending = pendingDiscoveryUrl;
+  pendingDiscoveryUrl = null;
+  return pending;
+}
+
+/**
+ * Set a pending Discovery URL to be opened
+ * Used internally by openUrlInDiscovery
+ */
+export function setPendingDiscoveryUrl(url: string, title?: string): void {
+  pendingDiscoveryUrl = { url, title };
+}
 
 const openUrlByWebview = (url: string, title?: string) => {
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
@@ -93,11 +128,55 @@ export const openSettings = (prefType: IPrefType) => {
   }
 };
 
-export default {
+/**
+ * Navigate to the Discovery tab
+ * Useful when you want to direct users to the Discovery browser without opening a specific URL
+ *
+ * @example
+ * ```ts
+ * import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+ *
+ * openUrlUtils.gotoDiscoveryTab();
+ * ```
+ */
+export function gotoDiscoveryTab(): void {
+  appGlobals.$navigationRef.current?.navigate(ETabRoutes.Discovery);
+}
+
+/**
+ * Open a URL in the Discovery browser from anywhere in the app
+ * Navigates to Discovery tab and opens the URL in a new browser tab
+ *
+ * @example
+ * ```ts
+ * import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
+ *
+ * // Open in Discovery browser (creates new tab in Discovery)
+ * openUrlUtils.openUrlInDiscovery({
+ *   url: 'https://uniswap.org',
+ *   title: 'Uniswap'
+ * });
+ * ```
+ */
+export function openUrlInDiscovery(params: IOpenUrlInDiscoveryParams): void {
+  const { url, title } = params;
+
+  // Store URL and navigate to Discovery tab
+  setPendingDiscoveryUrl(url, title);
+  gotoDiscoveryTab();
+}
+
+const openUrlUtils = {
   openUrlByWebviewPro,
   openUrlInApp,
   openUrlExternal,
+  openUrlInDiscovery,
+  gotoDiscoveryTab,
+  getPendingDiscoveryUrl,
+  setPendingDiscoveryUrl,
   openSettings,
   linkingCanOpenURL,
   linkingOpenURL,
 };
+
+export default openUrlUtils;

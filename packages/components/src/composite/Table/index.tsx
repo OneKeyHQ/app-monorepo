@@ -1,9 +1,10 @@
 import type { RefObject } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { withStaticProperties } from '@tamagui/helpers';
+import { getTokenValue, useMedia } from '@tamagui/web';
 import { StyleSheet } from 'react-native';
 import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
-import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';

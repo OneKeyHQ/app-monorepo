@@ -5,7 +5,7 @@ import { useCallback, useRef } from 'react';
 import { mainnet, solana } from '@reown/appkit/networks';
 import { EventsController } from '@reown/appkit-controllers';
 
-import { tamaguiWebFontFamily } from '@onekeyhq/components/tamagui.config';
+import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -19,6 +19,7 @@ import { createOneKeyAppKit } from './OneKeyAppKitClient';
 
 import type { IWalletConnectModalShared } from './types';
 import type { AppKit, PublicStateControllerState } from '@reown/appkit/core';
+import type { TamaguiConfig } from 'tamagui';
 
 if (process.env.NODE_ENV !== 'production') {
   EventsController.subscribe((state) => {
@@ -93,6 +94,7 @@ const modal: IWalletConnectModalShared = {
     const uriRef = useRef<string | undefined>(undefined);
     const openModal = useCallback(async ({ uri }: { uri: string }) => {
       uriRef.current = uri;
+      const tamaguiWebFontFamily = webFontFamily;
       if (!modalRef.current) {
         // modalRef.current = new WalletConnectModal({
         //   projectId: WALLET_CONNECT_V2_PROJECT_ID,

@@ -1,8 +1,9 @@
 import { forwardRef } from 'react';
 
 import { usePropsAndStyle } from '@tamagui/core';
+import { withStaticProperties } from '@tamagui/helpers';
+import { styled, useThemeName } from '@tamagui/web';
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
-import { styled, useThemeName, withStaticProperties } from 'tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { YStack } from '../Stack';

@@ -28,6 +28,7 @@ import {
   success,
   successDark,
 } from './colors';
+import { webFontFamily } from './src/utils/webFontFamily';
 
 import type { Variable } from '@tamagui/web';
 
@@ -131,8 +132,7 @@ const basicFontVariants = {
   },
 } as const;
 
-export const tamaguiWebFontFamily =
-  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"';
+const tamaguiWebFontFamily = webFontFamily;
 
 const font = createFont({
   family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,

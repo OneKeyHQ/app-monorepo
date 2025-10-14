@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useState } from 'react';
 
-import { styled, withStaticProperties } from 'tamagui';
+import { withStaticProperties } from '@tamagui/helpers';
+import { styled } from '@tamagui/web';
 
 import { useThemeValue } from '../../hooks/useStyle';
 import { OptimizationView } from '../../optimization';
@@ -8,9 +9,9 @@ import { OptimizationView } from '../../optimization';
 import ICON_CONFIG from './Icons';
 
 import type { IKeyOfIcons } from './Icons';
+import type { GetProps } from '@tamagui/web';
 import type { TextStyle } from 'react-native';
 import type { Svg, SvgProps } from 'react-native-svg';
-import type { GetProps } from 'tamagui';
 
 export type IIconContainerProps = Omit<SvgProps, 'color' | 'style'> & {
   name?: IKeyOfIcons;

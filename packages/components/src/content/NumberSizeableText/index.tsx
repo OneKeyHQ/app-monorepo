@@ -10,7 +10,7 @@ import { SizableText } from '../../primitives';
 import { getFontSize } from '../../utils';
 
 import type { ISizableTextProps } from '../../primitives';
-import type { FontSizeTokens } from 'tamagui';
+import type { FontSizeTokens } from '@tamagui/web';
 
 export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
   INumberFormatProps & {

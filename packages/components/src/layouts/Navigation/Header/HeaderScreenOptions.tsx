@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { getFontSize } from 'tamagui';
+import { getFontSize } from '@tamagui/font-size';
 
 import { hasNativeHeaderView } from '../Navigator/CommonConfig';
 

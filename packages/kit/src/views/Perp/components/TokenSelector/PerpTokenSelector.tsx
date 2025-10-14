@@ -16,6 +16,7 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -191,7 +192,12 @@ function PerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   return isOpen ? (
-    <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
+    <DelayedRender
+      // wait popover open animation done, otherwise the list layout will be wrong
+      delay={200}
+    >
+      <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
+    </DelayedRender>
   ) : null;
 }
 

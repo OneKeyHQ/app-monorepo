@@ -1,7 +1,8 @@
+import { Separator } from '@tamagui/separator';
+import { styled } from '@tamagui/web';
 import { StyleSheet } from 'react-native';
-import { Separator, styled } from 'tamagui';
 
-import type { GetProps } from 'tamagui';
+import type { GetProps } from '@tamagui/web';
 
 export const Divider = styled(Separator, {
   borderColor: '$borderSubdued',
