@@ -30,9 +30,9 @@ import {
 } from './colors';
 import { webFontFamily } from './src/utils/webFontFamily';
 
+import type TamaguiCore from '@tamagui/core';
 import type { Variable } from '@tamagui/web';
 import type Tamagui from 'tamagui';
-import type TamaguiCore from '@tamagui/core';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
