@@ -1,10 +1,9 @@
-import { getConfig } from '@tamagui/core';
 import { getFontSizeToken } from '@tamagui/font-size';
+import { getConfig } from '@tamagui/web';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { FontSizeTokens, FontTokens } from '@tamagui/core';
-import type { Variable } from '@tamagui/web';
+import type { FontSizeTokens, FontTokens, Variable } from '@tamagui/web';
 
 type IGetFontSizeOpts = {
   relativeSize?: number;
