@@ -56,6 +56,7 @@ const MarketTokenListNetworkSelectorNormal = forwardRef<
 
     return (
       <MarketNetworkFilter
+        showMoreButton
         ref={marketNetworkFilterRef}
         networks={marketNetworks}
         selectedNetwork={currentSelectNetwork}
