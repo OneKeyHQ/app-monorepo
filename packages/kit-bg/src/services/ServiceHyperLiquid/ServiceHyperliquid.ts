@@ -54,7 +54,6 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
-  perpsCurrentMidAtom,
   perpsCustomSettingsAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -222,11 +221,6 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getHyperLiquidCache() {
-    return { allMids: hyperLiquidCache.allMids };
-  }
-
-  @backgroundMethod()
   async updatePerpsConfigByServerWithCache() {
     return this._updatePerpsConfigByServerWithCache();
   }
@@ -242,7 +236,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
-  private _getUserFillsByTimeMemo = cacheUtils.memoizee(
+  _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
       return infoClient.userFillsByTime({ ...params, reversed: true } as any);
@@ -335,33 +329,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return meta;
   }
 
-  @backgroundMethod()
-  async getSymbolMidValue({ coin }: { coin: string }) {
-    const { allMids } = await this.getHyperLiquidCache();
-    const mid = allMids?.mids?.[coin];
-    const midBN = new BigNumber(mid);
-    if (midBN.isNaN() || midBN.isLessThanOrEqualTo(0)) {
-      return undefined;
-    }
-    return mid;
-  }
-
-  async refreshCurrentMid() {
-    const selectedSymbol = await perpsActiveAssetAtom.get();
-    const currentMid = await perpsCurrentMidAtom.get();
-    const midValue = await this.getSymbolMidValue({
-      coin: selectedSymbol.coin,
-    });
-    const newMid = {
-      coin: selectedSymbol.coin,
-      mid: midValue,
-    };
-    if (isEqual(currentMid, newMid)) {
-      return;
-    }
-    await perpsCurrentMidAtom.set(newMid);
-  }
-
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
@@ -416,7 +383,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       activeAccount?.accountAddress?.toLowerCase() ===
         webData2?.user?.toLowerCase()
     ) {
-      // TODO deep compare
+      // Note: Deep compare not suitable here due to real-time data requirements
+      const positions = webData2.clearinghouseState?.assetPositions || [];
+      const totalUnrealizedPnlBN = positions.reduce((sum, position) => {
+        const pnl = position.position?.unrealizedPnl;
+        return pnl ? sum.plus(pnl) : sum;
+      }, new BigNumber(0));
+
       await perpsActiveAccountSummaryAtom.set({
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
@@ -429,6 +402,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
+        totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       });
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
@@ -539,7 +513,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (oldCoin !== newCoin) {
       await perpsActiveAssetCtxAtom.set(undefined);
     }
-    await this.refreshCurrentMid();
     return {
       universeItems,
       selectedUniverse,

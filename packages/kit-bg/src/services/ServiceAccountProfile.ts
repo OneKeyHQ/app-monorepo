@@ -610,9 +610,11 @@ class ServiceAccountProfile extends ServiceBase {
   async sendProxyRequestWithTrxRes<T>({
     networkId,
     body,
+    returnRawData,
   }: {
     networkId: string;
     body: IProxyRequestParam;
+    returnRawData?: boolean;
   }): Promise<T> {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     const request: {
@@ -622,6 +624,10 @@ class ServiceAccountProfile extends ServiceBase {
       '/wallet/v1/proxy/trxres',
       request,
     );
+
+    if (returnRawData) {
+      return resp.data as T;
+    }
 
     if (resp.data.code !== 0) {
       throw new OneKeyLocalError(
