@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useCallback } from 'react';
 
 import { Divider } from '@onekeyhq/components';
@@ -8,17 +9,21 @@ import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HomeTokenListProviderMirrorWrapper } from '../HomeTokenListProvider';
 
 import { RawActions } from './RawActions';
+import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionCopy } from './WalletActionCopy';
 import { WalletActionExport } from './WalletActionExport';
+import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionRewardCenter } from './WalletActionRewardCenter';
 import { WalletActionSell } from './WalletActionSell';
 import { WalletActionSignAndVerify } from './WalletActionSignAndVerify';
+import { WalletActionSwap } from './WalletActionSwap';
 import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 
 export function WalletActionMore() {
@@ -27,6 +32,7 @@ export function WalletActionMore() {
   const { account, network } = activeAccount;
 
   const show = useReviewControl();
+  const { config, getMoreActionGroups } = useWalletActionConfig();
 
   const rewardCenterConfig = getRewardCenterConfig({
     accountId: account?.id ?? '',
@@ -50,6 +56,160 @@ export function WalletActionMore() {
     }: {
       handleActionListClose: () => void;
     }) => {
+      const groups = getMoreActionGroups();
+      const elements: ReactNode[] = [];
+
+      const renderTradingGroup = () => {
+        const tradingGroup = groups.find((group) => group.type === 'trading');
+        if (!tradingGroup) return null;
+
+        const actions = tradingGroup.actions.filter((action) => {
+          if (action === 'buy' || action === 'sell') {
+            return show;
+          }
+          return config.moreActions.includes(action);
+        });
+
+        if (actions.length === 0) return null;
+
+        return actions.map((action) => {
+          switch (action) {
+            case 'buy':
+              return (
+                <WalletActionBuy key="buy" onClose={handleActionListClose} />
+              );
+            case 'sell':
+              return (
+                <WalletActionSell key="sell" onClose={handleActionListClose} />
+              );
+            case 'swap':
+              return platformEnv.isExtensionUiPopup ? (
+                <WalletActionPerp
+                  key="perp"
+                  inList
+                  onClose={handleActionListClose}
+                />
+              ) : (
+                <WalletActionSwap
+                  key="swap"
+                  onClose={handleActionListClose}
+                  inList
+                />
+              );
+            default:
+              return null;
+          }
+        });
+      };
+
+      const renderToolsGroup = () => {
+        const toolsGroup = groups.find((group) => group.type === 'tools');
+        if (!toolsGroup) return [];
+
+        const actions = toolsGroup.actions.filter((action) => {
+          switch (action) {
+            case 'explorer':
+              return !vaultSettings?.hideBlockExplorer;
+            case 'copy':
+              return !vaultSettings?.copyAddressDisabled;
+            case 'sign':
+              return displaySignAndVerify.result;
+            case 'reward':
+              return !!rewardCenterConfig;
+            default:
+              return config.moreActions.includes(action);
+          }
+        });
+
+        if (actions.length === 0) return [];
+
+        return actions.map((action) => {
+          switch (action) {
+            case 'explorer':
+              return (
+                <WalletActionViewInExplorer
+                  key="explorer"
+                  onClose={handleActionListClose}
+                />
+              );
+            case 'copy':
+              return (
+                <WalletActionCopy key="copy" onClose={handleActionListClose} />
+              );
+            case 'sign':
+              return (
+                <WalletActionSignAndVerify
+                  key="sign"
+                  onClose={handleActionListClose}
+                />
+              );
+            case 'reward':
+              return rewardCenterConfig ? (
+                <WalletActionRewardCenter
+                  key="reward"
+                  onClose={handleActionListClose}
+                  rewardCenterConfig={rewardCenterConfig}
+                />
+              ) : null;
+            default:
+              return null;
+          }
+        });
+      };
+
+      const renderDeveloperGroup = () => {
+        const developerGroup = groups.find(
+          (group) => group.type === 'developer',
+        );
+        if (!developerGroup) return [];
+
+        const actions = developerGroup.actions.filter((action) => {
+          switch (action) {
+            case 'export':
+              return devSettings?.settings?.showDevExportPrivateKey;
+            default:
+              return config.moreActions.includes(action);
+          }
+        });
+
+        if (actions.length === 0) return [];
+
+        return actions.map((action) => {
+          switch (action) {
+            case 'export':
+              return (
+                <WalletActionExport
+                  key="export"
+                  onClose={handleActionListClose}
+                />
+              );
+            default:
+              return null;
+          }
+        });
+      };
+
+      const tradingElements = renderTradingGroup();
+      if (tradingElements && tradingElements.length > 0) {
+        elements.push(...tradingElements);
+      }
+
+      const toolsElements = renderToolsGroup();
+      if (toolsElements.length > 0) {
+        if (elements.length > 0) {
+          elements.push(<Divider key="divider-1" mx="$2" my="$1" />);
+        }
+        elements.push(...toolsElements);
+      }
+
+      const devElements = renderDeveloperGroup();
+      if (devElements.length > 0) {
+        if (elements.length > 0) {
+          elements.push(<Divider key="divider-2" mx="$2" my="$1" />);
+        }
+        elements.push(...devElements);
+      }
+
       return (
         <AccountSelectorProviderMirror
           config={{
@@ -60,38 +220,7 @@ export function WalletActionMore() {
           <HomeTokenListProviderMirrorWrapper
             accountId={activeAccount?.account?.id ?? ''}
           >
-            {show ? (
-              <>
-                <WalletActionBuy onClose={handleActionListClose} />
-                <WalletActionSell onClose={handleActionListClose} />
-              </>
-            ) : null}
-            {!vaultSettings?.copyAddressDisabled ||
-            !vaultSettings?.hideBlockExplorer ||
-            rewardCenterConfig ? (
-              <Divider mx="$2" my="$1" />
-            ) : null}
-            {!vaultSettings?.hideBlockExplorer ? (
-              <WalletActionViewInExplorer onClose={handleActionListClose} />
-            ) : null}
-            {!vaultSettings?.copyAddressDisabled ? (
-              <WalletActionCopy onClose={handleActionListClose} />
-            ) : null}
-            {displaySignAndVerify.result ? (
-              <WalletActionSignAndVerify onClose={handleActionListClose} />
-            ) : null}
-            {rewardCenterConfig ? (
-              <WalletActionRewardCenter
-                onClose={handleActionListClose}
-                rewardCenterConfig={rewardCenterConfig}
-              />
-            ) : null}
-            {devSettings?.settings?.showDevExportPrivateKey ? (
-              <>
-                <Divider mx="$2" my="$1" />
-                <WalletActionExport onClose={handleActionListClose} />
-              </>
-            ) : null}
+            {elements}
           </HomeTokenListProviderMirrorWrapper>
         </AccountSelectorProviderMirror>
       );
@@ -104,6 +233,8 @@ export function WalletActionMore() {
       vaultSettings?.copyAddressDisabled,
       vaultSettings?.hideBlockExplorer,
       displaySignAndVerify,
+      config.moreActions,
+      getMoreActionGroups,
     ],
   );
 
