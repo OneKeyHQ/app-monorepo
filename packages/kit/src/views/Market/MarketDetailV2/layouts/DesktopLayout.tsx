@@ -11,6 +11,7 @@ import {
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
+  TokenSupplementaryInfo,
 } from '../components';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -62,6 +63,10 @@ export function DesktopLayout() {
               <Divider mx="$5" my="$2" />
 
               <TokenActivityOverview />
+
+              <Divider mx="$5" />
+
+              <TokenSupplementaryInfo />
             </Stack>
           </ScrollView>
         </Stack>
