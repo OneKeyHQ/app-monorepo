@@ -2,7 +2,7 @@ import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
-import { createFont, createTamagui, createTokens } from 'tamagui';
+import { createFont, createTokens } from '@tamagui/web';
 
 import {
   brand,
@@ -31,6 +31,8 @@ import {
 import { webFontFamily } from './src/utils/webFontFamily';
 
 import type { Variable } from '@tamagui/web';
+import type Tamagui from 'tamagui';
+import type TamaguiCore from '@tamagui/core';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
@@ -536,6 +538,10 @@ const mergedTokens = createTokens({
     ...blackA,
   },
 });
+
+const createTamagui = __DEV__
+  ? (require('tamagui') as typeof Tamagui).createTamagui
+  : (require('@tamagui/core') as typeof TamaguiCore).createTamagui;
 
 const config = createTamagui({
   animations,
