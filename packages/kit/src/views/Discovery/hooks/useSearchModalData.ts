@@ -12,6 +12,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { useReviewControl } from '../../../components/ReviewControl';
+
 export interface ILocalDataType {
   bookmarkData: Array<{
     url: string;
@@ -50,11 +52,16 @@ export function useSearchModalData(searchValue: string) {
       };
     }, [serviceDiscovery, searchValue]);
 
+  const showSearchResult = useReviewControl();
+
   // Search for DApps
   const { result: searchResult } = usePromiseResult(async () => {
+    if (!showSearchResult) {
+      return [] as IDApp[];
+    }
     const res = await serviceDiscovery.searchDApp(searchValue);
     return res;
-  }, [searchValue, serviceDiscovery]);
+  }, [searchValue, serviceDiscovery, showSearchResult]);
 
   // Process search results
   useEffect(() => {

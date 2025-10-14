@@ -40,9 +40,9 @@ export function useSwapAnalytics() {
         default:
           amountEnterType = EAmountEnterType.Manual;
       }
-      setAnalyticsState({ ...analyticsState, amountEnterType });
+      setAnalyticsState((prev) => ({ ...prev, amountEnterType }));
     },
-    [setAnalyticsState, analyticsState],
+    [setAnalyticsState],
   );
 
   // Set slippage setting
@@ -51,12 +51,12 @@ export function useSwapAnalytics() {
       const slippageSetting = isManual
         ? ESlippageSetting.Manual
         : ESlippageSetting.Auto;
-      setAnalyticsState({
-        ...analyticsState,
+      setAnalyticsState((prev) => ({
+        ...prev,
         slippageSetting,
-      });
+      }));
     },
-    [setAnalyticsState, analyticsState],
+    [setAnalyticsState],
   );
 
   // Reset analytics

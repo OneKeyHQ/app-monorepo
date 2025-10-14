@@ -28,7 +28,6 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
   usePerpsActiveOrderBookOptionsAtom,
-  usePerpsCurrentMidAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -41,7 +40,6 @@ import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
 
 function DebugButton() {
-  const [currentMid] = usePerpsCurrentMidAtom(); // TODO remove
   const [allMids] = usePerpsAllMidsAtom();
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const { assetCtx: btcAssetCtx } = usePerpsAssetCtx({ assetId: 0 });
@@ -68,12 +66,8 @@ function DebugButton() {
         onPress={async () => {
           const simpleDbPerpData =
             await backgroundApiProxy.simpleDb.perp.getPerpData();
-          const bgHyperLiquidCache =
-            await backgroundApiProxy.serviceHyperliquid.getHyperLiquidCache();
           console.log('PerpsHeaderRight__DebugButton', {
             simpleDbPerpData,
-            bgHyperLiquidCache,
-            currentMid,
             allMids,
             allAssetCtxs,
             btcAssetCtx,

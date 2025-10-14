@@ -25,13 +25,6 @@ import {
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  calculateCkbTotalFee,
-  calculateNeoN3TotalFee,
-  calculateSolTotalFee,
-  calculateSuiTotalFee,
-  calculateTotalFeeNative,
-} from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -40,6 +33,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  calculateCkbTotalFee,
+  calculateNeoN3TotalFee,
+  calculateSolTotalFee,
+  calculateSuiTotalFee,
+  calculateTotalFeeNative,
+} from '@onekeyhq/shared/src/utils/feeUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import type {
   IEstimateFeeParams,

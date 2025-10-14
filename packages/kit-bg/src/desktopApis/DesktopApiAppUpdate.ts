@@ -54,11 +54,11 @@ async function clearUpdateCache() {
   }
 }
 
-function buildFeedUrl(useTestFeedUrl: boolean) {
+function buildFeedUrl(useTestFeedUrl: boolean, latestVersion: string) {
   return `${buildServiceEndpoint({
     serviceName: EServiceEndpointEnum.Utility,
     env: useTestFeedUrl ? 'test' : 'prod',
-  })}/utility/v1/app-update/electron-feed-url`;
+  })}/utility/v1/app-update/electron-feed-url?version=${latestVersion}`;
 }
 
 export interface ILatestVersion {
@@ -302,9 +302,15 @@ class DesktopApiAppUpdate {
   async checkForUpdates(
     isManual = false,
     requestHeaders = {},
+    latestVersion: string,
   ): Promise<UpdateCheckResult['updateInfo'] | null> {
     if (isManual) {
       this.isManualCheck = true;
+    }
+
+    logger.info('auto-updater', 'latestVersion is ', latestVersion);
+    if (!latestVersion) {
+      return null;
     }
     logger.info(
       'auto-updater',
@@ -313,7 +319,7 @@ class DesktopApiAppUpdate {
 
     const updateSettings = store.getUpdateSettings();
 
-    const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl);
+    const feedUrl = buildFeedUrl(updateSettings.useTestFeedUrl, latestVersion);
     autoUpdater.setFeedURL({
       url: feedUrl,
       requestHeaders,
@@ -324,7 +330,7 @@ class DesktopApiAppUpdate {
     logger.info('current feed url: ', feedUrl);
     try {
       const result = await autoUpdater.checkForUpdates();
-      console.log('checkForUpdates result: =>>>> ', result);
+      logger.info('auto-updater', 'checkForUpdates result: =>>>> ', result);
       if (result) {
         return result.updateInfo;
       }

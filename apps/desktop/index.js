@@ -1,3 +1,12 @@
+/* eslint-disable import/first */
+/* eslint-disable unicorn/prefer-global-this */
+if (typeof window === 'undefined') {
+  window.$$onekeyJsReadyAt = Date.now();
+  if (typeof window.nativePerformanceNow === 'function') {
+    window.$$onekeyJsReadyFromPerformanceNow = window.nativePerformanceNow();
+  }
+}
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';
