@@ -89,8 +89,6 @@ const MarketNetworkFilter = forwardRef<
       );
     }, [adjustedContentWidth, scrollViewWidth, scrollX]);
 
-    const shouldShowMoreButton = allowMoreButton;
-
     useImperativeHandle(
       ref,
       () => ({
@@ -159,7 +157,7 @@ const MarketNetworkFilter = forwardRef<
               );
             }}
           >
-            <XStack gap="$0.5" pr={shouldShowMoreButton ? '$4' : undefined}>
+            <XStack gap="$0.5" pr={allowMoreButton ? '$4' : undefined}>
               {networks.map((network) => (
                 <NetworksFilterItem
                   key={network.id}
@@ -184,7 +182,7 @@ const MarketNetworkFilter = forwardRef<
           />
         </XStack>
 
-        {shouldShowMoreButton ? (
+        {allowMoreButton ? (
           <MoreButton
             networks={networks}
             selectedNetworkId={selectedNetwork?.id}
