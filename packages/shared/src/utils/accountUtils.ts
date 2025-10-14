@@ -863,6 +863,9 @@ function getBTCFreshAddressKey({
   networkId: string;
   xpubSegwit: string;
 }) {
+  if (!xpubSegwit) {
+    throw new OneKeyLocalError('xpubSegwit is required');
+  }
   return `${networkId}__${xpubSegwit}`;
 }
 

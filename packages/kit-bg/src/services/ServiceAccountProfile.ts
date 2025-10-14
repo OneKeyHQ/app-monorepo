@@ -5,12 +5,14 @@ import {
   getBtcForkNetwork,
   transformAddress,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -47,6 +49,7 @@ import {
   btcFreshAddressLastUpdateAtom,
   btcFreshAddressTxCountAtom,
   currencyPersistAtom,
+  settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
 
@@ -54,6 +57,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
 import type VaultBtc from '../vaults/impls/btc/Vault';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -764,12 +768,53 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  async syncBTCFreshAddressByIndexedAccountId({
+    indexedAccountId,
+    networkId,
+  }: {
+    indexedAccountId: string;
+    networkId: string;
+  }) {
+    if (
+      networkId !== getNetworkIdsMap().onekeyall &&
+      !networkUtils.isBTCNetwork(networkId)
+    ) {
+      return;
+    }
+    const enableBTCFreshAddress = (await settingsPersistAtom.get())
+      .enableBTCFreshAddress;
+    if (!enableBTCFreshAddress) {
+      return;
+    }
+
+    const btcAccounts =
+      await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId: getNetworkIdsMap().btc,
+          indexedAccountId,
+          excludeEmptyAccount: true,
+        },
+      );
+    btcAccounts.networkAccounts?.forEach((account) => {
+      if (account.account?.id) {
+        void this.syncBTCFreshAddress({
+          networkId: btcAccounts.network.id,
+          accountId: account.account.id,
+          deriveType: account.deriveType,
+        });
+      }
+    });
+  }
+
+  @backgroundMethod()
   async syncBTCFreshAddress({
     networkId,
     accountId,
+    deriveType,
   }: {
     networkId: string;
     accountId: string;
+    deriveType: IAccountDeriveTypes;
   }) {
     const account = (await this.backgroundApi.serviceAccount.getDBAccount({
       accountId,
@@ -779,7 +824,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     const key = accountUtils.getBTCFreshAddressKey({
       networkId,
-      xpubSegwit: account.xpubSegwit || account.xpub,
+      xpubSegwit: deriveType === 'BIP86' ? account.xpubSegwit : account.xpub,
     });
 
     const lastUpdateTime = (await btcFreshAddressLastUpdateAtom.get())
@@ -847,7 +892,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     const derivedInfos = await transformAddress({
       network,
-      xpub: account.xpubSegwit || account.xpub,
+      xpub: account.xpub,
       addressEncoding: encoding,
       derivedInfos: accountDetailsWithXpubDerivedTokens.xpubDerivedTokens,
     });
@@ -855,7 +900,10 @@ class ServiceAccountProfile extends ServiceBase {
       await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
         {
           networkId,
-          xpubSegwit: account.xpubSegwit || account.xpub,
+          xpubSegwit:
+            encoding === EAddressEncodings.P2TR
+              ? account.xpubSegwit
+              : account.xpub,
           value: derivedInfos,
         },
       );
