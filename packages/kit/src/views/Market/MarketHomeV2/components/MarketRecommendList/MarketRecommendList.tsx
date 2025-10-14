@@ -41,6 +41,7 @@ export function MarketRecommendList({
   const intl = useIntl();
   const actions = useWatchListV2Action();
   const { gtMd } = useMedia();
+
   const defaultTokens = useMemo(
     () => recommendedTokens?.slice(0, maxSize) || [],
     [recommendedTokens, maxSize],
@@ -136,7 +137,7 @@ export function MarketRecommendList({
   const stackPaddingBottom = useMemo(() => {
     if (platformEnv.isNativeAndroid) return 80;
     if (platformEnv.isExtension) return 50;
-    if (platformEnv.isWeb && !gtMd) return 130;
+    if (platformEnv.isWeb && !gtMd) return 50;
     return 0;
   }, [gtMd]);
 
