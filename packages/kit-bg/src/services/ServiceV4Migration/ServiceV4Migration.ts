@@ -53,6 +53,7 @@ import { vaultFactory } from '../../vaults/factory';
 import ServiceBase from '../ServiceBase';
 
 import type { IDBIndexedAccount } from '../../dbs/local/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type {
   IV4MigrationBackupSectionData,
   IV4MigrationBackupSectionDataItem,
@@ -60,11 +61,14 @@ import type {
   IV4OnAccountMigrated,
   IV4OnWalletMigrated,
 } from '../../migrations/v4ToV5Migration/types';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type {
   IV4DBNetwork,
   IV4DBVariantAccount,
 } from '../../migrations/v4ToV5Migration/v4local/v4localDBTypesSchema';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { V4LocalDbRealm } from '../../migrations/v4ToV5Migration/v4local/v4realm/V4LocalDbRealm';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import type { IV4Token } from '../../migrations/v4ToV5Migration/v4types';
 import type { IV4MigrationAtom } from '../../states/jotai/atoms/v4migration';
 import type { VaultBase } from '../../vaults/base/VaultBase';
