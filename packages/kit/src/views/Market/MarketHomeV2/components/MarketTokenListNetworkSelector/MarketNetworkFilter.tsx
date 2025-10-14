@@ -1,6 +1,7 @@
 import {
   forwardRef,
   memo,
+  useCallback,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -15,7 +16,10 @@ import { GradientMask } from './GradientMask';
 import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
-import type { ScrollView as ScrollViewType } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  ScrollView as ScrollViewType,
+} from 'react-native';
 
 interface ISwapNetworkToggleGroupProps {
   networks: IServerNetwork[];
@@ -89,6 +93,25 @@ const MarketNetworkFilter = forwardRef<
       );
     }, [adjustedContentWidth, scrollViewWidth, scrollX]);
 
+    const handleLayout = useCallback(
+      (event: LayoutChangeEvent) => {
+        const width = event.nativeEvent.layout.width;
+        setScrollViewWidth((prevWidth) =>
+          prevWidth === width ? prevWidth : width,
+        );
+      },
+      [setScrollViewWidth],
+    );
+
+    const handleContentSizeChange = useCallback(
+      (width: number) => {
+        setContentWidth((prevWidth) =>
+          prevWidth === width ? prevWidth : width,
+        );
+      },
+      [setContentWidth],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
@@ -145,17 +168,8 @@ const MarketNetworkFilter = forwardRef<
               setScrollX(currentScrollX);
             }}
             scrollEventThrottle={16}
-            onLayout={(event) => {
-              const width = event.nativeEvent.layout.width;
-              setScrollViewWidth((prevWidth) =>
-                prevWidth === width ? prevWidth : width,
-              );
-            }}
-            onContentSizeChange={(width) => {
-              setContentWidth((prevWidth) =>
-                prevWidth === width ? prevWidth : width,
-              );
-            }}
+            onLayout={handleLayout}
+            onContentSizeChange={handleContentSizeChange}
           >
             <XStack gap="$0.5" pr={allowMoreButton ? '$4' : undefined}>
               {networks.map((network) => (
