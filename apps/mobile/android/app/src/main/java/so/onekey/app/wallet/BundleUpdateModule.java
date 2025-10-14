@@ -178,17 +178,16 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     public static boolean validateMetadataFileSha256(Context context, String currentBundleVersion, String signature) throws IOException {
-        // String metadataFilePath = getMetadataFilePath(context, currentBundleVersion);
-        // if (metadataFilePath == null) {
-        //     staticLog(TAG, "metadataFilePath is null");
-        //     return false;
-        // }
-        // String extractedSha256 = readMetadataFileSha256(context, signature);
-        // if (extractedSha256 == null || extractedSha256.isEmpty()) {
-        //     return false;
-        // }
-        // return calculateSHA256(metadataFilePath).equals(extractedSha256);
-        return true;
+        String metadataFilePath = getMetadataFilePath(context, currentBundleVersion);
+        if (metadataFilePath == null) {
+            staticLog(TAG, "metadataFilePath is null");
+            return false;
+        }
+        String extractedSha256 = readMetadataFileSha256(context, signature);
+        if (extractedSha256 == null || extractedSha256.isEmpty()) {
+            return false;
+        }
+        return calculateSHA256(metadataFilePath).equals(extractedSha256);
     }
 
     public static int compareVersion(String version1, String version2) {
