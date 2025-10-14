@@ -1,5 +1,8 @@
-import type { HeadingProps } from 'tamagui';
+import {
+  Heading,
+  type HeadingProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 
-export { Heading } from 'tamagui';
+export { Heading };
 
 export type IHeadingProps = HeadingProps;
