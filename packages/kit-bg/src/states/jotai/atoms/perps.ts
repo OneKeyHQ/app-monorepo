@@ -48,6 +48,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
+      totalUnrealizedPnl: string | undefined;
     }
   | undefined;
 export const {
@@ -294,17 +295,6 @@ export const {
 
 // #endregion
 
-// TODO remove
-export type IPerpsCurrentMid = {
-  coin: string;
-  mid: string | undefined;
-};
-export const { target: perpsCurrentMidAtom, use: usePerpsCurrentMidAtom } =
-  globalAtom<IPerpsCurrentMid | undefined>({
-    name: EAtomNames.perpsCurrentMidAtom,
-    initialValue: undefined,
-  });
-
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
   lastMessageAt: number | null;
@@ -337,4 +327,39 @@ export const {
     const readyState = get(perpsWebSocketReadyStateAtom.atom());
     return readyState?.readyState === WebSocket.OPEN;
   },
+});
+
+export const {
+  target: perpsTradesHistoryRefreshHookAtom,
+  use: usePerpsTradesHistoryRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
+});
+
+export const {
+  target: perpsCandlesWebviewReloadHookAtom,
+  use: usePerpsCandlesWebviewReloadHookAtom,
+} = globalAtom<{ reloadHook: number }>({
+  name: EAtomNames.perpsCandlesWebviewReloadHookAtom,
+  initialValue: { reloadHook: 100 },
+});
+
+export const {
+  target: perpsCandlesWebviewMountedAtom,
+  use: usePerpsCandlesWebviewMountedAtom,
+} = globalAtom<{ mounted: boolean }>({
+  name: EAtomNames.perpsCandlesWebviewMountedAtom,
+  initialValue: { mounted: false },
+});
+
+export const {
+  target: perpsWebSocketDataUpdateTimesAtom,
+  use: usePerpsWebSocketDataUpdateTimesAtom,
+} = globalAtom<{
+  wsDataReceiveTimes: number;
+  wsDataUpdateTimes: number;
+}>({
+  name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
+  initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });

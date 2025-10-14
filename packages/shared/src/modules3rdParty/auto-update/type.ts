@@ -12,6 +12,7 @@ export interface IDownloadPackageParams {
   signature?: string;
   downloadedFile?: string;
   headers?: Record<string, string>;
+  targetVersion?: string;
 }
 
 export type IUpdateDownloadedEvent =

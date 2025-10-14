@@ -6,7 +6,6 @@ import { Markdown, Page, ScrollView } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
@@ -15,10 +14,8 @@ import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 function WhatsNew() {
   const intl = useIntl();
-  const { version = '' } = platformEnv;
   const [appUpdateInfo] = useAppUpdatePersistAtom();
-  const response = useAppChangeLog(version);
-  const { changeLog } = response ?? {};
+  const changeLog = useAppChangeLog();
   const navigation = useAppNavigation();
   const handleClose = useCallback(() => {
     setTimeout(() => {

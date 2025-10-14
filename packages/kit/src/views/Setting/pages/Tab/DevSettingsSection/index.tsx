@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -281,9 +282,22 @@ const BaseDevSettingsSection = () => {
       <SectionPressItem
         icon="CodeOutline"
         title="Envs"
-        onPress={() => {
+        onPress={async () => {
           Dialog.debugMessage({
             debugMessage: {
+              startupTimeAt: await LaunchOptionsManager.getStartupTimeAt(),
+              jsReadyTimeAt: await LaunchOptionsManager.getJSReadyTimeAt(),
+              uiVisibleTimeAt: await LaunchOptionsManager.getUIVisibleTimeAt(),
+              jsReadyTime: await LaunchOptionsManager.getJSReadyTime(),
+              uiVisibleTime: await LaunchOptionsManager.getUIVisibleTime(),
+              bundleStartTime: await LaunchOptionsManager.getBundleStartTime(),
+              jsReadyFromPerformanceNow:
+                await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
+              appWillMountFromPerformanceNow:
+                (globalThis.$$onekeyAppWillMountFromPerformanceNow || 0) -
+                __BUNDLE_START_TIME__,
+              uiVisibleFromPerformanceNow:
+                await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
               deskChannel: globalThis?.desktopApi?.deskChannel,
               arch: globalThis?.desktopApi?.arch,
               platform: globalThis?.desktopApi?.platform,
@@ -960,6 +974,15 @@ const BaseDevSettingsSection = () => {
           navigation.push(EModalSettingRoutes.SettingDevPerpGalleryModal);
         }}
       />
+      <SectionFieldItem
+        icon="CreditCardOutline"
+        name="showPerpsRenderStats"
+        title="显示 Perps 渲染统计"
+        subtitle="显示 Perps 渲染统计"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <SectionPressItem
         icon="LockOutline"
         title="CryptoGallery"

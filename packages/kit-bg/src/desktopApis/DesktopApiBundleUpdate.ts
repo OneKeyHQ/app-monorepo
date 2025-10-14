@@ -486,9 +486,12 @@ class DesktopApiAppBundleUpdate {
     await this.clearDownload();
     await this.clearBundleExtract();
     store.clearUpdateBundleData();
-    return new Promise<void>((resolve) => {
+    return new Promise<{ success: boolean; message: string }>((resolve) => {
       setTimeout(() => {
-        resolve();
+        resolve({
+          success: true,
+          message: 'Successfully cleared all JS bundle data',
+        });
       }, 300);
     });
   }
