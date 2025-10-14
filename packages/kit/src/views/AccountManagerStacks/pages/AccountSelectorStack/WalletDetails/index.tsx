@@ -32,7 +32,10 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  accountSelectorAccountsListIsLoadingAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
@@ -60,8 +63,7 @@ export interface IWalletDetailsProps {
 
 function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
-  const { serviceAccount, serviceAccountSelector, serviceNetwork } =
-    backgroundApiProxy;
+  const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
@@ -91,12 +93,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const selectedNetworkId = selectedAccount?.networkId;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
   });
-
-  const navigation = useAppNavigation();
 
   // TODO move to hooks
   const isOthers = selectedAccount?.focusedWallet === '$$others';
@@ -535,6 +536,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 listDataResult?.mergeDeriveAssetsEnabled
               }
               hideAddress={hideAddress}
+              enableBTCFreshAddress={enableBTCFreshAddress}
             />
           )}
           renderSectionFooter={({
@@ -607,6 +609,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     sectionData,
     sectionDataOriginal?.length,
     selectedAccount,
+    enableBTCFreshAddress,
   ]);
 
   // Used to find out which deps cause redraws by binary search

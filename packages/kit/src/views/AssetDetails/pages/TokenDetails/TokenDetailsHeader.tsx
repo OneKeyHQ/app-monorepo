@@ -85,6 +85,7 @@ function TokenDetailsHeader(props: IProps) {
 
   const { receiveAddress } = useReceiveAddress({
     networkAccount: account,
+    allNetworkAccountInfo: undefined,
     networkId,
   });
 

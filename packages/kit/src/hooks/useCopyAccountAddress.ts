@@ -62,7 +62,8 @@ export const useCopyAccountAddress = () => {
         ]);
         const { receiveAddress } =
           await backgroundApiProxy.serviceAccount.getReceiveAddress({
-            account,
+            networkAccount: account,
+            allNetworkAccountInfo: undefined,
             networkId,
           });
         if (

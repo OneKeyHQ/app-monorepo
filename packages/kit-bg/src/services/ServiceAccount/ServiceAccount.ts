@@ -27,6 +27,7 @@ import type {
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   backgroundClass,
   backgroundMethod,
@@ -5080,26 +5081,46 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getReceiveAddress({
-    account,
+    networkAccount,
+    allNetworkAccountInfo,
     networkId,
   }: {
-    account: INetworkAccount | undefined;
+    networkAccount: INetworkAccount | undefined;
+    allNetworkAccountInfo: IAllNetworkAccountInfo | undefined;
     networkId: string;
-  }) {
+  }): Promise<{
+    receiveAddress: string;
+    receiveAddressPath: string | undefined;
+  }> {
     const enableBTCFreshAddress =
       await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
-    if (enableBTCFreshAddress) {
-      if (networkUtils.isBTCNetwork(networkId)) {
+    if (!networkUtils.isBTCNetwork(networkId) || !enableBTCFreshAddress) {
+      if (networkAccount) {
         return {
-          receiveAddress:
-            account?.addressDetail.receiveAddress || account?.address || '',
-          receiveAddressPath: account?.addressDetail.receiveAddressPath,
+          receiveAddress: networkAccount.address || '',
+          receiveAddressPath: undefined,
+        };
+      }
+      if (allNetworkAccountInfo) {
+        return {
+          receiveAddress: allNetworkAccountInfo.apiAddress || '',
+          receiveAddressPath: undefined,
         };
       }
     }
+
+    let account: INetworkAccount | undefined = networkAccount;
+    if (!networkAccount && allNetworkAccountInfo) {
+      account = await this.getAccount({
+        accountId: allNetworkAccountInfo.accountId,
+        networkId,
+      });
+    }
+
     return {
-      receiveAddress: account?.address || '',
-      receiveAddressPath: undefined,
+      receiveAddress:
+        account?.addressDetail.receiveAddress || account?.address || '',
+      receiveAddressPath: account?.addressDetail.receiveAddressPath,
     };
   }
 }

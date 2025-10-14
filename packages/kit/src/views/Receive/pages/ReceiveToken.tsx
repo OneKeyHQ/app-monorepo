@@ -114,6 +114,7 @@ function ReceiveToken() {
 
   const { receiveAddress, receiveAddressPath } = useReceiveAddress({
     networkAccount: currentAccount,
+    allNetworkAccountInfo: undefined,
     networkId,
   });
 

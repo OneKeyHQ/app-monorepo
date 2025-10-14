@@ -11,6 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
+import { useReceiveAddress } from '../../hooks/useReceiveAddress';
 import { ListItem } from '../ListItem';
 
 import AddressTypeCheckMark from './AddressTypeCheckMark';
@@ -36,6 +37,12 @@ function AddressTypeSelectorItem(props: IProps) {
   const intl = useIntl();
   const { isCreatingAddress } = useAddressTypeSelectorDynamicContext();
 
+  const { receiveAddress } = useReceiveAddress({
+    networkAccount: account,
+    allNetworkAccountInfo: undefined,
+    networkId: account?.addressDetail.networkId || '',
+  });
+
   return (
     <ListItem
       disabled={isCreatingAddress}
@@ -59,7 +66,7 @@ function AddressTypeSelectorItem(props: IProps) {
       subtitle={
         account
           ? accountUtils.shortenAddress({
-              address: account.addressDetail.displayAddress,
+              address: receiveAddress,
             })
           : intl.formatMessage({ id: ETranslations.global_create_address })
       }
