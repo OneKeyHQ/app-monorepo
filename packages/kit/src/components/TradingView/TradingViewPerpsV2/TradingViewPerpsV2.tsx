@@ -11,7 +11,7 @@ import WebView from '../../WebView';
 import { useNavigationHandler, useTradingViewUrl } from '../hooks';
 
 import { useTradeUpdates } from './hooks';
-import { usePerpsMessageHandler } from './messageHandlers';
+import { usePerpsTradingViewMessageHandler } from './messageHandlers';
 
 import type { ITradeEvent } from './types';
 import type { IWebViewRef } from '../../WebView/types';
@@ -133,7 +133,7 @@ export function TradingViewPerpsV2(
     symbol,
   });
 
-  const { customReceiveHandler } = usePerpsMessageHandler({
+  const { customReceiveHandler } = usePerpsTradingViewMessageHandler({
     symbol,
     userAddress,
     webRef,

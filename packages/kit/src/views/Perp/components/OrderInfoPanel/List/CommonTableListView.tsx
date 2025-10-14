@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -28,7 +28,6 @@ import {
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -380,7 +379,7 @@ export function CommonTableListView({
             !paginationToBottom ? (
               <PaginationFooter
                 isMobile={isMobile}
-                currentPage={currentListPage}
+                currentPage={currentListPage ?? 1}
                 totalPages={totalPages}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
