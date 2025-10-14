@@ -51,8 +51,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -82,6 +84,7 @@ import {
   EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
+import { settingsPersistAtom } from '../../../states/jotai/atoms';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHardware } from './KeyringHardware';
@@ -116,10 +119,42 @@ export default class VaultBtc extends VaultBase {
   ): Promise<INetworkAccountAddressDetail> {
     const { account, networkId } = params;
     // btc and tbtc use different cointype, so they do not share same db account, just use db account address only
-    const { address } = account;
+    const dbAccount = account as IDBUtxoAccount;
+    const address = dbAccount.address;
     // const { normalizedAddress, displayAddress } = await this.validateAddress(
     //   account.address,
     // );
+
+    let receiveAddress = address;
+    let receiveAddressPath: string | undefined;
+    if (networkUtils.isBTCNetwork(networkId)) {
+      const enableBTCFreshAddress = (await settingsPersistAtom.get())
+        .enableBTCFreshAddress;
+      if (enableBTCFreshAddress && dbAccount.xpubSegwit) {
+        const addresses =
+          await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses(
+            {
+              networkId,
+              xpubSegwit: dbAccount.xpubSegwit,
+            },
+          );
+        if (
+          Array.isArray(addresses?.fresh?.unused) &&
+          addresses.fresh?.unused.length > 0
+        ) {
+          if (
+            addresses.fresh.unused[0].address &&
+            addresses.fresh.unused[0].isDerivedByApp
+          ) {
+            receiveAddress = addresses.fresh.unused[0].address;
+            receiveAddressPath = addresses.fresh.unused[0].path;
+          } else {
+            // TODO: re-generate fresh address
+          }
+        }
+      }
+    }
+
     return {
       networkId,
       normalizedAddress: address,
@@ -128,6 +163,8 @@ export default class VaultBtc extends VaultBase {
       baseAddress: address,
       isValid: true,
       allowEmptyAddress: false,
+      receiveAddress,
+      receiveAddressPath,
     };
   }
 

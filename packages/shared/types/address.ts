@@ -115,6 +115,7 @@ export type INetworkAccountAddressDetail = {
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
   allowEmptyAddress: boolean; // allow empty address, like lightning network
+  receiveAddress?: string; // used for btc fresh address
 };
 
 export enum EServerInteractedStatus {

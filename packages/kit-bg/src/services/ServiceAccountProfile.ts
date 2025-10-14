@@ -787,10 +787,15 @@ class ServiceAccountProfile extends ServiceBase {
       return;
     }
 
+    const currentNetworkId =
+      networkId === getNetworkIdsMap().onekeyall
+        ? getNetworkIdsMap().btc
+        : networkId;
+
     const btcAccounts =
       await this.backgroundApi.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
         {
-          networkId: getNetworkIdsMap().btc,
+          networkId: currentNetworkId,
           indexedAccountId,
           excludeEmptyAccount: true,
         },
