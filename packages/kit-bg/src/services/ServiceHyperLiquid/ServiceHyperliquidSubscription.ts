@@ -21,7 +21,7 @@ import type {
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
-  IWsAllMids,
+  IWsUserFills,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -40,7 +40,6 @@ import {
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
-import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -112,75 +111,83 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
 
+  async buildRequiredSubscriptionsMap() {
+    const client = await this.getWebSocketClient();
+    if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAsset = await perpsActiveAssetAtom.get();
+    const activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+
+    if (
+      activeOrderBookOptions?.coin &&
+      activeOrderBookOptions?.coin !== activeAsset.coin
+    ) {
+      console.warn(
+        'updateSubscriptionsDebounced ERROR: orderbook coin not matched',
+      );
+      return;
+    }
+
+    // TODO update isConnected by websocket connect/disconnect event
+    const isConnected = this._currentState.isConnected;
+
+    // Validate parameters before proceeding
+    if (
+      activeOrderBookOptions?.mantissa !== undefined &&
+      activeOrderBookOptions?.mantissa !== null
+    ) {
+      if (![2, 5].includes(activeOrderBookOptions?.mantissa)) {
+        console.warn(
+          '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
+          activeOrderBookOptions?.mantissa,
+          'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
+        );
+      }
+    }
+
+    const l2BookOptions: IPerpsActiveOrderBookOptionsAtom | undefined =
+      activeOrderBookOptions
+        ? {
+            ...activeOrderBookOptions,
+          }
+        : undefined;
+    delete l2BookOptions?.assetId;
+    const params: ISubscriptionState = {
+      isConnected,
+      l2BookOptions,
+      currentSymbol: activeAsset?.coin,
+      currentUser: activeAccount?.accountAddress,
+    };
+
+    const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+    return { requiredSubSpecsMap, params };
+  }
+
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      const client = await this.getWebSocketClient();
-      if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+      if (!requiredSubInfo) {
         return;
       }
 
-      const activeAccount = await perpsActiveAccountAtom.get();
-      const activeAsset = await perpsActiveAssetAtom.get();
-      const activeOrderBookOptions =
-        await perpsActiveOrderBookOptionsAtom.get();
-
-      if (
-        activeOrderBookOptions?.coin &&
-        activeOrderBookOptions?.coin !== activeAsset.coin
-      ) {
-        console.warn(
-          'updateSubscriptionsDebounced ERROR: orderbook coin not matched',
-        );
-        return;
-      }
-
-      // TODO update isConnected by websocket connect/disconnect event
-      const isConnected = this._currentState.isConnected;
-
-      // Validate parameters before proceeding
-      if (
-        activeOrderBookOptions?.mantissa !== undefined &&
-        activeOrderBookOptions?.mantissa !== null
-      ) {
-        if (![2, 5].includes(activeOrderBookOptions?.mantissa)) {
-          console.warn(
-            '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
-            activeOrderBookOptions?.mantissa,
-            'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
-          );
-        }
-      }
-
-      const l2BookOptions: IPerpsActiveOrderBookOptionsAtom | undefined =
-        activeOrderBookOptions
-          ? {
-              ...activeOrderBookOptions,
-            }
-          : undefined;
-      delete l2BookOptions?.assetId;
-      const params: ISubscriptionState = {
-        isConnected,
-        l2BookOptions,
-        currentSymbol: activeAsset?.coin,
-        currentUser: activeAccount?.accountAddress,
-      };
-
-      const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
       this.allSubSpecsMap = {
         ...this.allSubSpecsMap,
-        ...requiredSubSpecsMap,
+        ...requiredSubInfo.requiredSubSpecsMap,
       };
       this.pendingSubSpecsMap = {
-        ...requiredSubSpecsMap,
+        ...requiredSubInfo.requiredSubSpecsMap,
       };
 
       const newState: ISubscriptionState = { ...this._currentState };
 
-      this._applyStateUpdates(newState, params);
+      this._applyStateUpdates(newState, requiredSubInfo.params);
 
-      console.log('updateSubscriptions', requiredSubSpecsMap, {
+      console.log('updateSubscriptions', requiredSubInfo.requiredSubSpecsMap, {
         newState,
-        params,
+        params: requiredSubInfo.params,
       });
 
       this._emitConnectionStatus();
@@ -198,6 +205,22 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async updateSubscriptions(): Promise<void> {
     await this._updateSubscriptionsDebounced();
+  }
+
+  @backgroundMethod()
+  async updateSubscriptionForUserFills(): Promise<void> {
+    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    if (!requiredSubInfo) {
+      return;
+    }
+    Object.values(requiredSubInfo.requiredSubSpecsMap || {}).forEach((spec) => {
+      if (spec.type === ESubscriptionType.USER_FILLS) {
+        void (async () => {
+          await this._destroySubscription(spec);
+          await this._createSubscription(spec);
+        })();
+      }
+    });
   }
 
   @backgroundMethod()
@@ -266,6 +289,8 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     });
   }
 
+  hasNewUserFills = false;
+
   subscriptionsHandlerDisabled = false;
 
   subscriptionsHandlerDisabledCount = 0;
@@ -279,6 +304,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async enableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = false;
+    if (this.hasNewUserFills) {
+      this.hasNewUserFills = false;
+      void perpsTradesHistoryRefreshHookAtom.set({
+        refreshHook: Date.now(),
+      });
+    }
   }
 
   @backgroundMethod()
@@ -708,6 +739,21 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (this.subscriptionsHandlerDisabled) {
+        if (subscriptionType === ESubscriptionType.USER_FILLS) {
+          const userFills = event?.detail as IWsUserFills;
+          const isSnapshot = userFills?.isSnapshot;
+          const fillsLength = userFills?.fills?.length;
+          console.log(
+            'userFills__handleSubscriptionData',
+            userFills?.user,
+            isSnapshot,
+            fillsLength,
+            userFills,
+          );
+          if (userFills?.user && fillsLength > 0 && !isSnapshot) {
+            this.hasNewUserFills = true;
+          }
+        }
         return;
       }
 
