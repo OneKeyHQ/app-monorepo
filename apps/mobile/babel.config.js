@@ -4,6 +4,10 @@ const babelTools = require('../../development/babelTools');
 console.log('process.env.TAMAGUI_TARGET: ', process.env.TAMAGUI_TARGET);
 if (process.env.TAMAGUI_TARGET !== 'native') {
   process.env.TAMAGUI_TARGET = 'native';
+  console.log(
+    'fixed: process.env.TAMAGUI_TARGET: ',
+    process.env.TAMAGUI_TARGET,
+  );
 }
 
 module.exports = function (api) {
