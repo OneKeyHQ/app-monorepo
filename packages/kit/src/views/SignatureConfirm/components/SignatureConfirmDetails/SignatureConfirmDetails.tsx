@@ -115,8 +115,8 @@ function SignatureConfirmDetails(props: IProps) {
             showAddressLocalTags
           />
         );
-      // case EParseTxComponentType.Simulation:
-      //   return <Simulation component={component} />;
+      case EParseTxComponentType.Simulation:
+        return <Simulation component={component} />;
       default:
         return null;
     }

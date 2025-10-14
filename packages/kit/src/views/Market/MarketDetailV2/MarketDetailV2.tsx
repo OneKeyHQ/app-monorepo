@@ -7,6 +7,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   ETabMarketRoutes,
   ITabMarketParamList,
@@ -61,6 +62,10 @@ function MarketDetailV2(
   props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
   useEffect(() => {
+    if (platformEnv.isExtension) {
+      return;
+    }
+
     appEventBus.emit(EAppEventBusNames.HideTabBar, true);
 
     return () => {
