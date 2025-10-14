@@ -60,6 +60,7 @@ import {
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type { IStakeTx } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
   IFetchBuildTxResponse,
@@ -1740,6 +1741,36 @@ export function useSwapBuildTx() {
               encodedTx = buildSwapRes.tx as string;
             }
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          } else if (buildSwapRes.btcData || buildSwapRes.suiBase64Data) {
+            let inputTx: IStakeTx | undefined;
+            if (buildSwapRes.btcData) {
+              if (
+                buildSwapRes.btcData.addressType.includes(
+                  swapFromAddressInfo.accountInfo.deriveInfo?.addressEncoding ??
+                    '',
+                )
+              ) {
+                inputTx = {
+                  psbtHex: buildSwapRes.btcData.hexStr,
+                };
+              } else {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.feedback_derivation_path_restriction,
+                  }),
+                });
+              }
+            }
+            if (buildSwapRes.suiBase64Data) {
+              inputTx = buildSwapRes.suiBase64Data;
+            }
+            if (inputTx) {
+              encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
+                accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                networkId: swapFromAddressInfo.networkId ?? '',
+                tx: inputTx,
+              });
+            }
           } else if (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.cowSwapOrderId ||
@@ -1840,12 +1871,14 @@ export function useSwapBuildTx() {
     },
     [
       checkOtherFee,
+      intl,
       isFirstTimeSwap,
       isModalPage,
       setSwapSteps,
       slippageItem,
       swapBuildFinish,
       swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.address,
       swapFromAddressInfo.networkId,
