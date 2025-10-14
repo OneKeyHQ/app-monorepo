@@ -1,9 +1,8 @@
 import { createAnimations } from '@tamagui/animations-moti';
-import { createTamagui } from '@tamagui/core';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
-import { createFont, createTokens } from '@tamagui/web';
+import { createFont, createTamagui, createTokens } from 'tamagui';
 
 import {
   brand,
@@ -31,6 +30,7 @@ import {
 } from './colors';
 
 import type { Variable } from '@tamagui/web';
+import { webFontFamily } from './src/utils/webFontFamily';
 
 const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
@@ -132,8 +132,7 @@ const basicFontVariants = {
   },
 } as const;
 
-export const tamaguiWebFontFamily =
-  'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"';
+const tamaguiWebFontFamily = webFontFamily;
 
 const font = createFont({
   family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,

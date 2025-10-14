@@ -8,12 +8,12 @@ import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import config from '../../../tamagui.config';
-
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
 import { TamaguiProvider } from './TamaguiProvider';
+
+import type { TamaguiConfig } from 'tamagui';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -57,6 +57,11 @@ export function ConfigProvider({
       HyperlinkText,
     }),
     [theme, locale, HyperlinkText],
+  );
+
+  const config = useMemo(
+    () => require('../../../tamagui.config') as TamaguiConfig,
+    [],
   );
 
   useAppearanceTheme(theme);

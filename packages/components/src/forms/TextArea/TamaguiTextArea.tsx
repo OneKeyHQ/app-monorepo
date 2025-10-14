@@ -60,7 +60,7 @@ export const TextArea = TextAreaFrame.styleable<IInputExtraProps, any, any>(
       [isWeb ? 'rows' : 'numberOfLines']: propsIn.unstyled ? undefined : 4,
     };
 
-    if (process.env.TAMAGUI_TARGET === 'native') {
+    if (platformEnv.isNative) {
       useEffect(() => {
         if (!props.id) return;
         if (props.disabled) return;
