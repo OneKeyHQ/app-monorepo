@@ -162,11 +162,11 @@ export const verifyMetadataFileSha256 = async ({
     bundleVersion,
   });
   logger.info('bundle-verifyBundleASC', metadataFilePath);
-  // const metadataFilesSha256 = await readMetadataFileSha256(signature);
-  // const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
-  // if (!isVerified) {
-  //   throw new OneKeyLocalError('Invalid asc file');
-  // }
+  const metadataFilesSha256 = await readMetadataFileSha256(signature);
+  const isVerified = verifySha256(metadataFilePath, metadataFilesSha256);
+  if (!isVerified) {
+    throw new OneKeyLocalError('Invalid asc file');
+  }
   return true;
 };
 
@@ -182,7 +182,7 @@ export const getMetadata = async ({
   signature: string;
 }) => {
   const metadataPath = path.join(bundleDir, '..', 'metadata.json');
-  // await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
+  await verifyMetadataFileSha256({ appVersion, bundleVersion, signature });
   const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8')) as Record<
     string,
     string
