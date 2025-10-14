@@ -36,6 +36,7 @@ import type {
   IWsAllMids,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { EPerpsSubscriptionCategory } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -83,7 +84,7 @@ function useHyperliquidEventBusListener() {
   useEffect(() => {
     const handleDataUpdate = (payload: unknown) => {
       const eventPayload = payload as {
-        type: 'market' | 'account';
+        type: EPerpsSubscriptionCategory;
         subType: ESubscriptionType;
         data: any;
       };
