@@ -601,6 +601,20 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async setEnableBTCFreshAddress(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      enableBTCFreshAddress: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getEnableBTCFreshAddress() {
+    const { enableBTCFreshAddress } = await settingsPersistAtom.get();
+    return enableBTCFreshAddress ?? false;
+  }
+
+  @backgroundMethod()
   public async abortFetchWalletConfig() {
     this._fetchWalletConfigControllers.forEach((controller) =>
       controller.abort(),

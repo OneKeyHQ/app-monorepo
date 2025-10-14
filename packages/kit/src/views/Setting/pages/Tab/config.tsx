@@ -59,6 +59,7 @@ import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
+  BTCFreshAddressListItem,
   BiologyAuthListItem,
   CleanDataListItem,
   ClearAppCacheListItem,
@@ -386,6 +387,15 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : null,
+          ],
+          [
+            {
+              icon: 'FlashCardsOutline',
+              title: 'BTC multiple addresses',
+              subtitle:
+                'Shows a new receiving address after each payment, change goes to a fresh change address to reduce reuse and improve privacy.',
+              renderElement: <BTCFreshAddressListItem />,
+            },
           ],
         ],
       },

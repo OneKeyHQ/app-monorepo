@@ -642,3 +642,25 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
     </TabSettingsListItem>
   );
 }
+
+export function BTCFreshAddressListItem(props: ICustomElementProps) {
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
+      defaultLogger.setting.page.settingsEnableBTCFreshAddress({
+        enabled: value,
+      });
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={enableBTCFreshAddress}
+        onChange={toggleBTCFreshAddress}
+      />
+    </TabSettingsListItem>
+  );
+}

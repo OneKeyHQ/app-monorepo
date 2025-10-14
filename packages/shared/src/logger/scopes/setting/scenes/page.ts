@@ -163,4 +163,10 @@ export class PageScene extends BaseScene {
   public settingsEnableBluetooth({ enabled }: { enabled: boolean }) {
     return { enabled };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public settingsEnableBTCFreshAddress({ enabled }: { enabled: boolean }) {
+    return { enabled };
+  }
 }

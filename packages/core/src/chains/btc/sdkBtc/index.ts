@@ -906,6 +906,7 @@ export async function transformAddress({
     totalSent: info.totalSent,
   });
 
+  // TODO: sort by address_index
   const transformUnusedAddresses = async (
     unusedAddresses: IBtcBlockbookDerivedInfo[],
   ): Promise<IBtcFreshAddress[]> => {

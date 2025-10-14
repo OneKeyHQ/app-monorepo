@@ -616,6 +616,7 @@ const icons = {
   FaceSadOutline: () => import("./react/outline/FaceSad"),
   FaceSmileOutline: () => import("./react/outline/FaceSmile"),
   FaceSmileyOutline: () => import("./react/outline/FaceSmiley"),
+  FlashCardsOutline: () => import("./react/outline/FlashCards"),
   FeaturesOutline: () => import("./react/outline/Features"),
   File1Outline: () => import("./react/outline/File1"),
   FileCloudOutline: () => import("./react/outline/FileCloud"),
