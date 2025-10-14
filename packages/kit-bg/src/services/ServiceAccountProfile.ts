@@ -1,5 +1,10 @@
 import BigNumber from 'bignumber.js';
+import { isNil } from 'lodash';
 
+import {
+  getBtcForkNetwork,
+  transformAddress,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
@@ -12,6 +17,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
@@ -38,6 +44,8 @@ import type {
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   activeAccountValueAtom,
+  btcFreshAddressLastUpdateAtom,
+  btcFreshAddressTxCountAtom,
   currencyPersistAtom,
 } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
@@ -45,6 +53,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
+import type VaultBtc from '../vaults/impls/btc/Vault';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -752,6 +761,117 @@ class ServiceAccountProfile extends ServiceBase {
       return;
     }
     await this.updateAccountValue(params);
+  }
+
+  @backgroundMethod()
+  async syncBTCFreshAddress({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }) {
+    const account = (await this.backgroundApi.serviceAccount.getDBAccount({
+      accountId,
+    })) as IDBUtxoAccount;
+    if (!account?.xpub || !account?.xpubSegwit) {
+      throw new OneKeyLocalError('Account xpub not found');
+    }
+    const key = accountUtils.getBTCFreshAddressKey({
+      networkId,
+      xpubSegwit: account.xpubSegwit || account.xpub,
+    });
+
+    const lastUpdateTime = (await btcFreshAddressLastUpdateAtom.get())
+      .lastUpdateTime[key];
+    if (
+      lastUpdateTime &&
+      Date.now() - lastUpdateTime <
+        timerUtils.getTimeDurationMs({
+          seconds: 10,
+        })
+    ) {
+      // Throttle sync requests within 10 seconds
+      return;
+    }
+
+    const currentTxCount = (await btcFreshAddressTxCountAtom.get()).txCount[
+      key
+    ];
+    if (!isNil(currentTxCount)) {
+      const accountDetailsWithTxCount = await this.fetchAccountDetails({
+        accountId,
+        networkId,
+        withTransactionCount: true,
+      });
+      if (
+        (accountDetailsWithTxCount.transactionCount || 0) === currentTxCount
+      ) {
+        void btcFreshAddressLastUpdateAtom.set((prev) => ({
+          lastUpdateTime: {
+            ...prev.lastUpdateTime,
+            [key]: Date.now(),
+          },
+        }));
+        return;
+      }
+    }
+
+    const accountDetailsWithXpubDerivedTokens = await this.fetchAccountDetails({
+      accountId,
+      networkId,
+      withXpubDerivedTokens: true,
+      withTransactionCount: true,
+    });
+    if (
+      !Array.isArray(accountDetailsWithXpubDerivedTokens.xpubDerivedTokens) ||
+      !accountDetailsWithXpubDerivedTokens.xpubDerivedTokens.length
+    ) {
+      void btcFreshAddressLastUpdateAtom.set((prev) => ({
+        lastUpdateTime: {
+          ...prev.lastUpdateTime,
+          [key]: Date.now(),
+        },
+      }));
+      return;
+    }
+
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as VaultBtc;
+    const network = await vault.getBtcForkNetwork();
+    const { encoding } = await vault.validateAddress(account.address);
+    if (!encoding) {
+      throw new OneKeyLocalError('Invalid account address');
+    }
+    const derivedInfos = await transformAddress({
+      network,
+      xpub: account.xpubSegwit || account.xpub,
+      addressEncoding: encoding,
+      derivedInfos: accountDetailsWithXpubDerivedTokens.xpubDerivedTokens,
+    });
+    if (derivedInfos) {
+      await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
+        {
+          networkId,
+          xpubSegwit: account.xpubSegwit || account.xpub,
+          value: derivedInfos,
+        },
+      );
+    }
+    void btcFreshAddressTxCountAtom.set((prev) => ({
+      txCount: {
+        ...prev.txCount,
+        [key]: accountDetailsWithXpubDerivedTokens.transactionCount || 0,
+      },
+    }));
+    void btcFreshAddressLastUpdateAtom.set((prev) => ({
+      lastUpdateTime: {
+        ...prev.lastUpdateTime,
+        [key]: Date.now(),
+      },
+    }));
   }
 
   @backgroundMethod()

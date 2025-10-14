@@ -856,6 +856,16 @@ function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
   return isNumber(index) && !isNaN(index) ? index : undefined;
 }
 
+function getBTCFreshAddressKey({
+  networkId,
+  xpubSegwit,
+}: {
+  networkId: string;
+  xpubSegwit: string;
+}) {
+  return `${networkId}__${xpubSegwit}`;
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
@@ -924,4 +934,5 @@ export default {
   isValidWalletXfp,
   buildFullXfp,
   getShortXfp,
+  getBTCFreshAddressKey,
 };

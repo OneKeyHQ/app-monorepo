@@ -1,4 +1,5 @@
 import type { IBtcFreshAddressStructure } from '@onekeyhq/core/src/chains/btc/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -11,10 +12,6 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
 
   override enableCache = false;
 
-  private getKey(networkId: string, xpubSegwit: string) {
-    return `${networkId}__${xpubSegwit}`;
-  }
-
   async getBTCFreshAddresses({
     networkId,
     xpubSegwit,
@@ -22,7 +19,7 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
     networkId: string;
     xpubSegwit: string;
   }) {
-    const key = this.getKey(networkId, xpubSegwit);
+    const key = accountUtils.getBTCFreshAddressKey({ networkId, xpubSegwit });
     const data = await this.getRawData();
     return data?.data[key];
   }
@@ -38,7 +35,7 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
   }) {
     await this.setRawData((data) => {
       const oldData = data ?? { data: {} };
-      const key = this.getKey(networkId, xpubSegwit);
+      const key = accountUtils.getBTCFreshAddressKey({ networkId, xpubSegwit });
       oldData.data[key] = value;
       return oldData;
     });
