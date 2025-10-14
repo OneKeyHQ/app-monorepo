@@ -5077,6 +5077,31 @@ class ServiceAccount extends ServiceBase {
     }
     return { addedAccounts };
   }
+
+  @backgroundMethod()
+  async getReceiveAddress({
+    account,
+    networkId,
+  }: {
+    account: INetworkAccount | undefined;
+    networkId: string;
+  }) {
+    const enableBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (enableBTCFreshAddress) {
+      if (networkUtils.isBTCNetwork(networkId)) {
+        return {
+          receiveAddress:
+            account?.addressDetail.receiveAddress || account?.address || '',
+          receiveAddressPath: account?.addressDetail.receiveAddressPath,
+        };
+      }
+    }
+    return {
+      receiveAddress: account?.address || '',
+      receiveAddressPath: undefined,
+    };
+  }
 }
 
 export default ServiceAccount;

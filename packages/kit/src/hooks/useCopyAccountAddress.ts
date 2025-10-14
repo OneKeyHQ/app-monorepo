@@ -60,13 +60,18 @@ export const useCopyAccountAddress = () => {
             networkId,
           }),
         ]);
+        const { receiveAddress } =
+          await backgroundApiProxy.serviceAccount.getReceiveAddress({
+            account,
+            networkId,
+          });
         if (
           networkUtils
             .getDefaultDeriveTypeVisibleNetworks()
             .includes(networkId) &&
           deriveInfo
         ) {
-          copyText(account.address, undefined, false);
+          copyText(receiveAddress, undefined, false);
           Toast.success({
             title: intl.formatMessage(
               {
@@ -81,10 +86,10 @@ export const useCopyAccountAddress = () => {
                   : deriveInfo.label ?? '',
               },
             ),
-            message: account.address,
+            message: receiveAddress,
           });
         } else {
-          copyText(account.address, undefined, false);
+          copyText(receiveAddress, undefined, false);
           Toast.success({
             title: intl.formatMessage(
               {
@@ -94,7 +99,7 @@ export const useCopyAccountAddress = () => {
                 network: network?.shortname ?? '',
               },
             ),
-            message: account.address,
+            message: receiveAddress,
           });
         }
       }
