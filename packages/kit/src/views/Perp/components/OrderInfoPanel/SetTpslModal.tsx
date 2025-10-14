@@ -9,14 +9,13 @@ import {
   Dialog,
   Divider,
   Page,
-  SegmentSlider,
   SizableText,
-  Slider,
   Toast,
   XStack,
   YStack,
   getFontSize,
 } from '@onekeyhq/components';
+import { PerpsSlider } from '../PerpsSlider';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useHyperliquidActions,
@@ -25,7 +24,6 @@ import {
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EModalPerpRoutes,
   type IModalPerpParamList,
@@ -595,23 +593,13 @@ const SetTpslForm = memo(
                 </YStack>
 
                 <YStack flex={1} width="100%">
-                  {platformEnv.isNativeIOS ? (
-                    <SegmentSlider
-                      value={formData.percentage}
-                      onChange={handlePercentageChange}
-                      max={100}
-                      min={0}
-                      segments={0}
-                    />
-                  ) : (
-                    <Slider
-                      value={formData.percentage}
-                      onChange={handlePercentageChange}
-                      max={100}
-                      min={0}
-                      step={1}
-                    />
-                  )}
+                  <PerpsSlider
+                    value={formData.percentage}
+                    onChange={handlePercentageChange}
+                    max={100}
+                    min={0}
+                    segments={0}
+                  />
                 </YStack>
               </YStack>
             ) : null}
