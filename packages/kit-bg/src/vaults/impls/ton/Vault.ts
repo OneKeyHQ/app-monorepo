@@ -418,7 +418,7 @@ export default class Vault extends VaultBase {
         validUntil === null ||
         validUntil < Date.now() / 1000)
     ) {
-      throw new OneKeyLocalError('Bad request: Invalid validUntil');
+      throw new OneKeyLocalError('Transaction has expired');
     }
 
     // check messages
@@ -444,23 +444,24 @@ export default class Vault extends VaultBase {
       contract: wallet,
       encodedTx,
     });
+
     return {
       encodedTx: {
         ...encodedTx,
-        body: Buffer.from(await serializeUnsignedTx.body.toBoc(false)).toString(
-          'base64',
-        ),
+        body: Buffer.from(
+          serializeUnsignedTx.signingMessage.toBoc({ idx: false }),
+        ).toString('base64'),
         // eslint-disable-next-line spellcheck/spell-checker
         ignore_chksig: true,
-        init_code: serializeUnsignedTx.code
-          ? Buffer.from(await serializeUnsignedTx.code.toBoc(false)).toString(
-              'base64',
-            )
+        init_code: serializeUnsignedTx.init_code
+          ? Buffer.from(
+              serializeUnsignedTx.init_code.toBoc({ idx: false }),
+            ).toString('base64')
           : undefined,
-        init_data: serializeUnsignedTx.data
-          ? Buffer.from(await serializeUnsignedTx.data.toBoc(false)).toString(
-              'base64',
-            )
+        init_data: serializeUnsignedTx.init_data
+          ? Buffer.from(
+              serializeUnsignedTx.init_data.toBoc({ idx: false }),
+            ).toString('base64')
           : undefined,
       } as unknown as IEncodedTx,
     };
