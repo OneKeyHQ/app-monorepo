@@ -56,11 +56,6 @@ export * from '@onekeyhq/shared/src/appCrypto/modules/hash';
 export * from './ton-mnemonic';
 export { ecc };
 
-export enum EMnemonicType {
-  BIP39 = 'bip39',
-  TON = 'ton',
-}
-
 const EncryptPrefixImportedCredential = '|PK|'; // private key
 const EncryptPrefixHdCredential = '|RP|'; // recovery phrase
 const EncryptPrefixVerifyString = '|VS|'; // verify string

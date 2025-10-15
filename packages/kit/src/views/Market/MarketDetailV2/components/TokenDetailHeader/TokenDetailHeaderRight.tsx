@@ -10,13 +10,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
-
-import { MarketStarV2 } from '../../../components/MarketStarV2';
-import { useTokenDetail } from '../../hooks/useTokenDetail';
-
-import { ShareButton } from './ShareButton';
 
 interface IStatItemProps {
   label: string;
@@ -38,16 +32,11 @@ function StatItem({ label, value }: IStatItemProps) {
 
 interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
-  networkId?: string;
-  showStats: boolean;
 }
 
 export function TokenDetailHeaderRight({
   tokenDetail,
-  networkId,
-  showStats,
 }: ITokenDetailHeaderRightProps) {
-  const { isNative } = useTokenDetail();
   const intl = useIntl();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
@@ -58,32 +47,7 @@ export function TokenDetailHeaderRight({
     marketCap = '0',
     liquidity = '0',
     holders = 0,
-    address = '',
   } = tokenDetail || {};
-
-  const marketStar = networkId ? (
-    <MarketStarV2
-      chainId={networkId}
-      contractAddress={address}
-      size="medium"
-      from={EWatchlistFrom.Detail}
-      tokenSymbol={symbol}
-      isNative={isNative}
-    />
-  ) : null;
-
-  const shareButton = networkId ? (
-    <ShareButton networkId={networkId} address={address} isNative={isNative} />
-  ) : null;
-
-  if (!showStats) {
-    return (
-      <XStack gap="$3" ai="center">
-        {marketStar}
-        {shareButton}
-      </XStack>
-    );
-  }
 
   return (
     <XStack gap="$6" ai="center">
@@ -146,9 +110,6 @@ export function TokenDetailHeaderRight({
           </NumberSizeableText>
         }
       />
-
-      {marketStar}
-      {shareButton}
     </XStack>
   );
 }
