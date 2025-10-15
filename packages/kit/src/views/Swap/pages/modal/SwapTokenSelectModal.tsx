@@ -15,6 +15,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -283,6 +284,14 @@ const SwapTokenSelectPage = () => {
     }
   }, [getClipboard]);
 
+  const disableNetworksOnClick = useCallback(() => {
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.swap_toast_bridge_tip,
+      }),
+    });
+  }, [intl]);
+
   const disableNetworks = useMemo(() => {
     let res: string[] = [];
     const networkIds = swapNetworksIncludeAllNetwork.map(
@@ -350,7 +359,7 @@ const SwapTokenSelectPage = () => {
             : undefined,
         onPress: !disableNetworks.includes(rawItem.networkId)
           ? () => onSelectToken(rawItem)
-          : undefined,
+          : () => disableNetworksOnClick(),
         disabled: disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
@@ -425,6 +434,7 @@ const SwapTokenSelectPage = () => {
       copyText,
       disableNetworks,
       intl,
+      disableNetworksOnClick,
       md,
       onSelectToken,
       searchKeywordDebounce,
@@ -558,6 +568,7 @@ const SwapTokenSelectPage = () => {
           disableNetworks={disableNetworks}
           disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
+          onDisableNetworksClick={disableNetworksOnClick}
         />
         {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
           <Divider mt="$2" />
