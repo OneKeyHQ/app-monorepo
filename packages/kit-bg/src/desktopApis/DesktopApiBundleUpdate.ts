@@ -21,6 +21,7 @@ import type {
   IDownloadPackageParams,
   IUpdateDownloadedEvent,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update/type';
+import type { IDesktopStoreUpdateBundleData } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './base/types';
 import type { BrowserWindow } from 'electron';
@@ -389,12 +390,45 @@ class DesktopApiAppBundleUpdate {
     if (!appVersion || !bundleVersion || !signature) {
       throw new OneKeyLocalError('Invalid parameters');
     }
-    store.setFallbackUpdateBundleData(store.getUpdateBundleData());
+    const currentUpdateBundleData = store.getUpdateBundleData();
+
     store.setUpdateBundleData({
       appVersion,
       bundleVersion,
       signature,
     });
+    logger.info('installBundle', {
+      appVersion,
+      bundleVersion,
+      signature,
+    });
+    store.setNativeVersion(app.getVersion());
+    logger.info('installBundle setNativeVersion', {
+      nativeVersion: app.getVersion(),
+    });
+    const fallbackUpdateBundleData = store.getFallbackUpdateBundleData();
+    if (
+      currentUpdateBundleData &&
+      currentUpdateBundleData.appVersion &&
+      currentUpdateBundleData.bundleVersion &&
+      currentUpdateBundleData.signature
+    ) {
+      fallbackUpdateBundleData.push(currentUpdateBundleData);
+    }
+
+    if (fallbackUpdateBundleData.length > 3) {
+      const shiftUpdateBundleData = fallbackUpdateBundleData.shift();
+      if (shiftUpdateBundleData) {
+        const dirName = `${shiftUpdateBundleData.appVersion}-${shiftUpdateBundleData.bundleVersion}`;
+        const bundleDir = getBundleDirName();
+        const bundleDirPath = path.join(bundleDir, dirName);
+        if (fs.existsSync(bundleDirPath)) {
+          fs.rmSync(bundleDirPath, { recursive: true, force: true });
+        }
+      }
+    }
+    logger.info('fallbackUpdateBundleData', fallbackUpdateBundleData);
+    store.setFallbackUpdateBundleData(fallbackUpdateBundleData);
     setTimeout(() => {
       if (!process.mas) {
         app.relaunch();
@@ -412,6 +446,22 @@ class DesktopApiAppBundleUpdate {
         resolve();
       }, 100);
     });
+  }
+
+  async getFallbackUpdateBundleData() {
+    return store.getFallbackUpdateBundleData();
+  }
+
+  async setCurrentUpdateBundleData(
+    updateBundleData: IDesktopStoreUpdateBundleData,
+  ) {
+    store.setUpdateBundleData(updateBundleData);
+    setTimeout(() => {
+      if (!process.mas) {
+        app.relaunch();
+      }
+      app.exit(0);
+    }, 1200);
   }
 
   async clearBundleExtract() {
@@ -436,9 +486,12 @@ class DesktopApiAppBundleUpdate {
     await this.clearDownload();
     await this.clearBundleExtract();
     store.clearUpdateBundleData();
-    return new Promise<void>((resolve) => {
+    return new Promise<{ success: boolean; message: string }>((resolve) => {
       setTimeout(() => {
-        resolve();
+        resolve({
+          success: true,
+          message: 'Successfully cleared all JS bundle data',
+        });
       }, 300);
     });
   }

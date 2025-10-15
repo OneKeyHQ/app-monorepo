@@ -2,7 +2,7 @@ import {
   decodeSensitiveTextAsync,
   encodeKeyPrefix,
   encodeSensitiveTextAsync,
-} from '@onekeyhq/core/src/secret';
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -10,7 +10,6 @@ import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureS
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
-const biologyAuthNativeError = 'biology_native_error';
 class BiologyAuthUtils implements IBiologyAuth {
   isSupportBiologyAuth() {
     return biologyAuth.isSupportBiologyAuth();
@@ -57,5 +56,4 @@ class BiologyAuthUtils implements IBiologyAuth {
     await secureStorageInstance.removeSecureItem('password');
   };
 }
-const biologyAuthUtils = new BiologyAuthUtils();
-export { biologyAuthNativeError, biologyAuthUtils };
+export const biologyAuthUtils = new BiologyAuthUtils();

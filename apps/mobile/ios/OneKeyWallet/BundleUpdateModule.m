@@ -44,9 +44,13 @@ RCT_EXPORT_MODULE();
     return @[@"update/start", @"update/downloading", @"update/complete", @"update/error"];
 }
 
++ (NSString *)documentDirectory {
+    return [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask, YES) objectAtIndex:0];
+}
+
 + (NSString *)downloadBundleDir {
-    NSString *homeDir = NSHomeDirectory();
-    NSString *bundleUpdateDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle-download"];
+    NSString *documentDirectory = [BundleUpdateModule documentDirectory];
+    NSString *bundleUpdateDir = [documentDirectory stringByAppendingPathComponent:@"onekey-bundle-download"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:bundleUpdateDir]) {
         [[NSFileManager defaultManager] createDirectoryAtPath:bundleUpdateDir withIntermediateDirectories:YES attributes:nil error:nil];
     }
@@ -54,17 +58,31 @@ RCT_EXPORT_MODULE();
 }
 
 + (NSString *)bundleDir {
-    NSString *homeDir = NSHomeDirectory();
-    NSString *bundleDir = [homeDir stringByAppendingPathComponent:@"onekey-bundle"];
+    NSString *documentDirectory = [BundleUpdateModule documentDirectory];
+    NSString *bundleDir = [documentDirectory stringByAppendingPathComponent:@"onekey-bundle"];
     if (![[NSFileManager defaultManager] fileExistsAtPath:bundleDir]) {
         [[NSFileManager defaultManager] createDirectoryAtPath:bundleDir withIntermediateDirectories:YES attributes:nil error:nil];
     }
     return bundleDir;
 }
 
++ (NSString *)setNativeVersion:(NSString *)nativeVersion {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    [userDefaults setObject:nativeVersion forKey:@"nativeVersion"];
+    [userDefaults synchronize];
+    return nativeVersion;
+}
+
++ (NSString *)getNativeVersion {
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    return [userDefaults objectForKey:@"nativeVersion"];
+}
+
 + (NSString *)currentBundleVersion {
     NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
-    return [userDefaults objectForKey:@"currentBundleVersion"];
+    NSString *currentBundleVersion = [userDefaults objectForKey:@"currentBundleVersion"];
+    DDLogDebug(@"currentBundleVersion: %@", currentBundleVersion);
+    return currentBundleVersion;
 }
 
 + (NSString *)currentBundleDir {
@@ -130,20 +148,19 @@ RCT_EXPORT_MODULE();
 }
 
 + (NSString *)currentBundleMainJSBundle {
-    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
     NSString *currentBundleVersion = [self currentBundleVersion];
-    DDLogDebug(@"currentAppVersion: %@, currentBundleVersion: %@", currentAppVersion, currentBundleVersion);
     if (currentBundleVersion == nil) {
         return nil;
     }
-    if (currentAppVersion != nil && ![currentAppVersion isEqualToString: currentBundleVersion]) {
-        NSString *bundleAppVersion = [currentBundleVersion componentsSeparatedByString:@"-"][0];
-        // Compare versions using semantic versioning
-        NSComparisonResult result = [self compareVersion:currentAppVersion withVersion:bundleAppVersion];
-        if (result == NSOrderedAscending) {
-            DDLogDebug(@"currentAppVersion is less than currentBundleVersion");
-            return nil;
-        }
+
+    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *prevNativeVersion = [self getNativeVersion];
+    if (prevNativeVersion == nil) {
+        return nil;
+    }
+    if (![currentAppVersion isEqualToString: prevNativeVersion]) {
+       DDLogDebug(@"currentAppVersion is not equal to prevNativeVersion %@ %@", currentAppVersion, prevNativeVersion);
+       return nil;
     }
     NSString *folderName = [self currentBundleDir];
     if (!folderName || ![[NSFileManager defaultManager] fileExistsAtPath:folderName]) {
@@ -168,6 +185,7 @@ RCT_EXPORT_MODULE();
     }
     NSString *manJsBundleName = @"main.jsbundle.hbc";
     NSString *mainJSBundle = [folderName stringByAppendingPathComponent:manJsBundleName];
+    DDLogDebug(@"mainJSBundle path: %@", mainJSBundle);
     if (![[NSFileManager defaultManager] fileExistsAtPath:mainJSBundle]) {
         DDLogDebug(@"mainJSBundleFile does not exist");
         return nil;
@@ -373,6 +391,49 @@ RCT_EXPORT_MODULE();
     return extractedSha256;
 }
 
++ (NSString *)getFallbackUpdateBundleDataPath { 
+    NSString *bundleDir = [self bundleDir];
+    NSString *fallbackUpdateBundleDataPath = [bundleDir stringByAppendingPathComponent:@"fallbackUpdateBundleData.json"];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:fallbackUpdateBundleDataPath]) {
+        [[NSFileManager defaultManager] createFileAtPath:fallbackUpdateBundleDataPath contents:nil attributes:nil];
+    }
+    return fallbackUpdateBundleDataPath;
+}
+
++ (void)writeFallbackUpdateBundleDataFile:(NSArray *)fallbackUpdateBundleData { 
+    NSString *fallbackUpdateBundleDataPath = [self getFallbackUpdateBundleDataPath];
+    NSError *writeError;
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:fallbackUpdateBundleData options:0 error:&writeError];
+    if (writeError) {
+        DDLogError(@"Failed to write fallback update bundle data file: %@", writeError.localizedDescription);
+        return;
+    }
+    NSString *fallbackUpdateBundleDataString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    BOOL success = [fallbackUpdateBundleDataString writeToFile:fallbackUpdateBundleDataPath 
+                                                    atomically:YES 
+                                                      encoding:NSUTF8StringEncoding 
+                                                         error:&writeError];
+    if (!success) {
+        DDLogError(@"Failed to write fallback update bundle data file: %@", writeError.localizedDescription);
+    }
+}
+
++ (NSArray *)readFallbackUpdateBundleDataFile { 
+   NSString *fallbackUpdateBundleDataPath = [self getFallbackUpdateBundleDataPath];
+   NSString *fallbackUpdateBundleDataString = [NSString stringWithContentsOfFile:fallbackUpdateBundleDataPath encoding:NSUTF8StringEncoding error:nil];
+   if (!fallbackUpdateBundleDataString || [fallbackUpdateBundleDataString isEqualToString:@""] || fallbackUpdateBundleDataString == nil) {
+       return [[NSArray alloc] init];
+   }
+   NSError *error;
+   NSData *jsonData = [fallbackUpdateBundleDataString dataUsingEncoding:NSUTF8StringEncoding];
+   NSArray *fallbackUpdateBundleData = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
+   if (error) {
+       DDLogError(@"Failed to read fallback update bundle data file: %@", error.localizedDescription);
+       return nil;
+   }
+   return fallbackUpdateBundleData;
+}
+
 
 + (BOOL)validateMetadataFileSha256:(NSString *)currentBundleVersion signature:(NSString *)signature {
     NSString *metadataFilePath = [self getMetadataFilePath:currentBundleVersion];
@@ -441,6 +502,7 @@ totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite {
     self.isDownloading = NO;
     self.downloadTask = nil;
     if (error) {
+        DDLogDebug(@"downloadBundle: error: %@", error.localizedDescription);
         [self sendEventWithName:@"update/error" body:@{
             @"error": error.localizedDescription,
         }];
@@ -452,11 +514,42 @@ didFinishDownloadingToURL:(NSURL *)location {
         NSError *moveError;
         NSString *filePath = self.downloadBundleResult[@"downloadedFile"];
         NSString *sha256 = self.downloadBundleResult[@"sha256"];
-        [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
-        BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
+        NSString *downloadDir = [BundleUpdateModule downloadBundleDir];
+        BOOL isExist = [[NSFileManager defaultManager] fileExistsAtPath:downloadDir];
+        DDLogDebug(@"downloadBundle: downloadDir path: %@", downloadDir);
+        DDLogDebug(@"downloadBundle: isExist: %@", isExist ? @"YES" : @"NO");
+        DDLogDebug(@"downloadBundle: location.path: %@", location.path);
+        DDLogDebug(@"downloadBundle: filePath: %@", filePath);
+        DDLogDebug(@"downloadBundle: Attempting to move file from %@ to %@", location.path, filePath);
         
+        // Check if source file exists
+        BOOL sourceExists = [[NSFileManager defaultManager] fileExistsAtPath:location.path];
+        DDLogDebug(@"downloadBundle: Source file exists: %@", sourceExists ? @"YES" : @"NO");
+        
+        // Check if destination directory exists, create if needed
+        NSString *destinationDir = [filePath stringByDeletingLastPathComponent];
+        BOOL destDirExists = [[NSFileManager defaultManager] fileExistsAtPath:destinationDir];
+        DDLogDebug(@"downloadBundle: destinationDir path: %@", destinationDir);
+        DDLogDebug(@"downloadBundle: Destination directory exists: %@", destDirExists ? @"YES" : @"NO");
+        
+        if (!destDirExists) {
+            NSError *createDirError;
+            BOOL createSuccess = [[NSFileManager defaultManager] createDirectoryAtPath:destinationDir withIntermediateDirectories:YES attributes:nil error:&createDirError];
+            DDLogDebug(@"downloadBundle: Create directory success: %@, error: %@", createSuccess ? @"YES" : @"NO", createDirError.localizedDescription);
+        }
+        // Check if destination file already exists and remove it
+        BOOL destFileExists = [[NSFileManager defaultManager] fileExistsAtPath:filePath];
+        if (destFileExists) {
+            NSError *removeError;
+            BOOL removeSuccess = [[NSFileManager defaultManager] removeItemAtPath:filePath error:&removeError];
+            DDLogDebug(@"downloadBundle: Removed existing destination file: %@, error: %@", removeSuccess ? @"YES" : @"NO", removeError.localizedDescription);
+        }
+        
+        BOOL success = [[NSFileManager defaultManager] moveItemAtURL:location toURL:[NSURL fileURLWithPath:filePath] error:&moveError];
+        DDLogDebug(@"downloadBundle: success: %@, moveError: %@", success ? @"YES" : @"NO");
         if (!success) {
             [self clearDownloadTask];
+            DDLogDebug(@"downloadBundle: error: %@", moveError.localizedDescription);
             [self sendEventWithName:@"update/error" body:@{
                 @"error": [NSString stringWithFormat:@"%ld", (long)moveError.code],
                 @"errorMessage": moveError.localizedDescription,
@@ -467,6 +560,7 @@ didFinishDownloadingToURL:(NSURL *)location {
         if (![self verifyBundleSHA256:filePath sha256:sha256]) {
             [self clearDownloadTask];
             [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+            DDLogDebug(@"downloadBundle: error: Bundle signature verification failed");
             [self sendEventWithName:@"update/error" body:@{
                 @"error": @"Bundle signature verification failed",
             }];
@@ -669,10 +763,61 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
         reject(@"INVALID_PARAMS", @"filePath and appVersion and bundleVersion are required", nil);
         return;
     }
+
+    NSString *currentFolderName = [BundleUpdateModule currentBundleVersion];
     
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
+  NSString *currentNativeVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    [userDefaults setObject:currentNativeVersion forKey:@"nativeVersion"];
+    [userDefaults synchronize];
+
+    NSMutableArray *fallbackUpdateBundleData = [[BundleUpdateModule readFallbackUpdateBundleDataFile] mutableCopy];
+    if (!fallbackUpdateBundleData) {
+        fallbackUpdateBundleData = [NSMutableArray array];
+    }
+
+    if (currentFolderName) {
+        NSArray *currentFolderData = [currentFolderName componentsSeparatedByString:@"-"];
+        NSString *currentAppVersion = currentFolderData[0];
+        NSString *currentBundleVersion = currentFolderData[1];
+        NSString *currentSignature = [userDefaults objectForKey:currentFolderName];
+        [fallbackUpdateBundleData addObject:@{
+            @"appVersion": currentAppVersion,
+            @"bundleVersion": currentBundleVersion,
+            @"signature": currentSignature,
+        }];
+    }
+
+    // If fallbackUpdateBundleData has more than 3 items, remove the first one and delete corresponding folder
+    if (fallbackUpdateBundleData.count > 3) {
+        NSDictionary *shiftUpdateBundleData = [fallbackUpdateBundleData firstObject];
+        [fallbackUpdateBundleData removeObjectAtIndex:0];
+        
+        if (shiftUpdateBundleData) {
+
+            NSString *shiftAppVersion = shiftUpdateBundleData[@"appVersion"];
+            NSString *shiftBundleVersion = shiftUpdateBundleData[@"bundleVersion"];
+            if (shiftAppVersion && shiftBundleVersion) {
+                NSString *dirName = [NSString stringWithFormat:@"%@-%@", shiftAppVersion, shiftBundleVersion];
+                // Remove signature for the old bundle
+                [userDefaults removeObjectForKey:dirName];
+                NSString *bundleDir = [BundleUpdateModule bundleDir];
+                NSString *bundleDirPath = [bundleDir stringByAppendingPathComponent:dirName];
+                
+                if ([[NSFileManager defaultManager] fileExistsAtPath:bundleDirPath]) {
+                    NSError *removeError;
+                    [[NSFileManager defaultManager] removeItemAtPath:bundleDirPath error:&removeError];
+                    if (removeError) {
+                        DDLogError(@"Failed to remove old bundle directory: %@", removeError.localizedDescription);
+                    }
+                }
+            }
+        }
+    }
+
+   [BundleUpdateModule writeFallbackUpdateBundleDataFile:fallbackUpdateBundleData];
     [userDefaults synchronize];
     resolve(nil);
 }
@@ -828,5 +973,67 @@ RCT_EXPORT_METHOD(testWriteEmptyMetadataJson:(NSString *)appVersion
         reject(@"SERIALIZE_ERROR", error.localizedDescription, error);
     }
 }
+
+RCT_EXPORT_METHOD(getFallbackUpdateBundleData:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSArray *fallbackUpdateBundleData = [BundleUpdateModule readFallbackUpdateBundleDataFile];
+    resolve(fallbackUpdateBundleData);
+}
+
+RCT_EXPORT_METHOD(setCurrentUpdateBundleData:(NSDictionary *)params) {
+    NSString *appVersion = params[@"appVersion"];
+    NSString *jsBundleVersion = params[@"bundleVersion"];
+    NSString *signature = params[@"signature"];
+    NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+    NSString *bundleVersion = [NSString stringWithFormat:@"%@-%@", appVersion, jsBundleVersion];
+    [userDefaults setObject:bundleVersion forKey:@"currentBundleVersion"];
+    [userDefaults setObject:signature forKey:bundleVersion];
+    [userDefaults synchronize];
+}
+
+RCT_EXPORT_METHOD(clearAllJSBundleData:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    @try {
+        NSString *bundleDir = [BundleUpdateModule bundleDir];
+        NSFileManager *fileManager = [NSFileManager defaultManager];
+        
+        if ([fileManager fileExistsAtPath:bundleDir]) {
+            NSError *error;
+            BOOL success = [fileManager removeItemAtPath:bundleDir error:&error];
+            if (!success) {
+                DDLogDebug(@"clearAllJSBundleData: Error removing bundle directory: %@", error.localizedDescription);
+                reject(@"DELETE_ERROR", error.localizedDescription, error);
+                return;
+            }
+        }
+        
+        // Clear all bundle-related preferences
+        NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+        NSString *currentBundleVersion = [userDefaults stringForKey:@"currentBundleVersion"];
+        if (currentBundleVersion) {
+            [userDefaults removeObjectForKey:currentBundleVersion];
+            [userDefaults removeObjectForKey:@"currentBundleVersion"];
+        }
+        [userDefaults removeObjectForKey:@"nativeVersion"];
+        [userDefaults synchronize];
+        
+        DDLogDebug(@"clearAllJSBundleData: Successfully cleared all JS bundle data");
+        resolve(@{@"success": @YES, @"message": @"Successfully cleared all JS bundle data"});
+    } @catch (NSException *exception) {
+        DDLogDebug(@"clearAllJSBundleData: Exception: %@", exception.reason);
+        reject(@"CLEAR_ERROR", exception.reason, nil);
+    }
+}
+
+
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
+    NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
+    if (jsBundlePath == nil) {
+        return @"";
+    }
+    return jsBundlePath;
+}
+
 
 @end

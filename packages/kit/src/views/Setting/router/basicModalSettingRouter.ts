@@ -112,6 +112,13 @@ const PerpUserConfigModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/PerpUserConfig'),
 );
 
+const DevAppUpdateModalSettingModal = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal'
+    ),
+);
+
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   EModalSettingRoutes | EModalAddressBookRoutes,
   IModalSettingParamList & IModalAddressBookParamList
@@ -156,6 +163,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevFirmwareUpdateModal,
     component: FirmwareUpdateDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevAppUpdateModal,
+    component: DevAppUpdateModalSettingModal,
   },
   {
     name: EModalSettingRoutes.SettingDevV4MigrationModal,

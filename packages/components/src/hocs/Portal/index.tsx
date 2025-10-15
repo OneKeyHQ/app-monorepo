@@ -5,8 +5,8 @@ import { memo, useEffect, useMemo, useState } from 'react';
 
 import ChildrenWrapper from 'react-native-root-siblings/lib/ChildrenWrapper';
 import wrapRootComponent from 'react-native-root-siblings/lib/wrapRootComponent';
-import { withStaticProperties } from 'tamagui';
 
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

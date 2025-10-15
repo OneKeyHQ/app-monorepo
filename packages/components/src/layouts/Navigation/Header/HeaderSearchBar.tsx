@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { useMedia } from 'tamagui';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 
 import { XStack } from '../../../primitives';
 import { SearchBar } from '../../SearchBar';

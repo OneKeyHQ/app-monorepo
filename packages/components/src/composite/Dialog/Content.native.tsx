@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { AnimatePresence } from 'tamagui';
-
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Spinner, Stack, YStack } from '../../primitives';
 
 import type { IDialogContentProps } from './type';
 import type { LayoutChangeEvent, View } from 'react-native';
-import type { TamaguiElement } from 'tamagui';
 
 const MAX_ANIMATION_DURATION = 550;
 export function Content({

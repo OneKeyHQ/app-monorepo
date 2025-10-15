@@ -1,8 +1,5 @@
 import * as store from '@onekeyhq/desktop/app/libs/store';
-import type {
-  EDesktopStoreKeys,
-  IDesktopStoreMap,
-} from '@onekeyhq/shared/types/desktop';
+import type { IDesktopStoreMap } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 
@@ -13,20 +10,22 @@ class DesktopApiStorage {
 
   desktopApi: IDesktopApi;
 
-  async storeSetItemAsync<T extends EDesktopStoreKeys>(
+  async storeSetItemAsync<T extends keyof IDesktopStoreMap>(
     key: T,
     value: IDesktopStoreMap[T],
   ): Promise<void> {
     store.instance.set(key, value);
   }
 
-  async storeGetItemAsync<T extends EDesktopStoreKeys>(
+  async storeGetItemAsync<T extends keyof IDesktopStoreMap>(
     key: T,
   ): Promise<IDesktopStoreMap[T]> {
     return store.instance.get(key);
   }
 
-  async storeDelItemAsync<T extends EDesktopStoreKeys>(key: T): Promise<void> {
+  async storeDelItemAsync<T extends keyof IDesktopStoreMap>(
+    key: T,
+  ): Promise<void> {
     store.instance.delete(key);
   }
 
