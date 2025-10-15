@@ -116,7 +116,9 @@ function RewardCenterDetails() {
           ) {
             state.account = activeAccount.account;
             state.network = activeAccount.network;
-            state.isClaimResourceAvailable = true;
+            state.isClaimResourceAvailable = !accountUtils.isWatchingAccount({
+              accountId: activeAccount?.account?.id ?? '',
+            });
           } else {
             state.isClaimResourceAvailable = false;
           }

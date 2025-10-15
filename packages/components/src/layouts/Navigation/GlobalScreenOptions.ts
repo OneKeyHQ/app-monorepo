@@ -2,6 +2,7 @@
 
 import { TransitionPresets } from '@react-navigation/stack';
 
+import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { extAnimConfig } from './ExtAnimConfig';
@@ -14,7 +15,6 @@ import type {
   StackNavigationOptions,
   TransitionPreset,
 } from '@react-navigation/stack';
-import type { VariableVal } from '@tamagui/core';
 
 const NULL_ANIMATION_DURATION_PRESET: TransitionPreset = {
   gestureDirection: 'vertical',

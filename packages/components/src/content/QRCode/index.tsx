@@ -13,8 +13,11 @@ import Svg, {
   Rect,
   Stop,
 } from 'react-native-svg';
-import { Theme, getTokenValue } from 'tamagui';
 
+import {
+  TamaguiTheme as Theme,
+  getTokenValue,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 

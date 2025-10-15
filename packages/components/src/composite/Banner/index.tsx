@@ -2,9 +2,9 @@ import type { ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useProps } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { useProps } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';

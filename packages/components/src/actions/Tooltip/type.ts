@@ -1,6 +1,5 @@
+import type { TooltipProps as TMTooltipProps } from '@onekeyhq/components/src/shared/tamagui';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-
-import type { TooltipProps as TMTooltipProps } from 'tamagui';
 
 export interface ITooltipProps extends TMTooltipProps {
   renderTrigger: React.ReactNode;

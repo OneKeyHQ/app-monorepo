@@ -1,9 +1,10 @@
 import type { FC } from 'react';
 
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import { Stack } from '../../primitives';
 
 import type { IDesktopDragZoneBoxProps } from './index.type';
-import type { StackProps } from 'tamagui';
 
 export type IDesktopDragZoneAbsoluteBarProps = StackProps;
 export const DesktopDragZoneAbsoluteBar: FC<

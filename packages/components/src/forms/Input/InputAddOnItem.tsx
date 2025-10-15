@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
+
 import { Tooltip } from '../../actions/Tooltip';
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
 
@@ -9,7 +11,6 @@ import { getSharedInputStyles } from './sharedStyles';
 import type { IInputProps } from '.';
 import type { ITooltipProps } from '../../actions';
 import type { IKeyOfIcons, IXStackProps, SizeTokens } from '../../primitives';
-import type { ColorTokens } from 'tamagui';
 
 type IExtraProps = {
   label?: string | ReactElement;
