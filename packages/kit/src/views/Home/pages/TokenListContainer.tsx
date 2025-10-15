@@ -80,6 +80,7 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -1921,6 +1922,10 @@ function TokenListContainer({
     }
     return false;
   }, [allNetworksState.visibleCount, network?.isAllNetworks]);
+
+  if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+    return null;
+  }
 
   return (
     <TokenListView

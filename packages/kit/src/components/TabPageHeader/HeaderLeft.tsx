@@ -14,7 +14,6 @@ import {
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,6 +29,8 @@ import {
 import { useSpotlight } from '../Spotlight';
 
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 export function HeaderLeftCloseButton() {
   return (
@@ -86,7 +87,7 @@ const MemoizedAccountSelectorTriggerWithSpotlight = memo(
   AccountSelectorTriggerWithSpotlight,
 );
 
-export function HeaderLeft({
+function HeaderLeftContent({
   sceneName,
   tabRoute,
   customHeaderLeftItems,
@@ -98,6 +99,19 @@ export function HeaderLeft({
   const { gtMd } = useMedia();
 
   const [isFocus, setIsFocus] = useState(false);
+
+  const {
+    activeAccount: { wallet },
+  } = useActiveAccount({
+    num: 0,
+  });
+
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
 
   useListenTabFocusState(
     ETabRoutes.Home,
@@ -170,23 +184,48 @@ export function HeaderLeft({
     return (
       <XStack gap="$3" ai="center">
         {accountSelectorTrigger}
-        {tabRoute === ETabRoutes.Home && gtMd ? (
+        {!isWalletNotBackedUp && tabRoute === ETabRoutes.Home && gtMd ? (
           <NetworkSelectorTriggerHome
             num={0}
             recordNetworkHistoryEnabled
             hideOnNoAccount
           />
         ) : null}
-        <AccountSelectorActiveAccountHome
-          num={0}
-          showAccountAddress={false}
-          showCopyButton={tabRoute === ETabRoutes.Home}
-          showCreateAddressButton={false}
-          showNoAddressTip={false}
-        />
+        {isWalletNotBackedUp ? null : (
+          <AccountSelectorActiveAccountHome
+            num={0}
+            showAccountAddress={false}
+            showCopyButton={tabRoute === ETabRoutes.Home}
+            showCreateAddressButton={false}
+            showNoAddressTip={false}
+          />
+        )}
       </XStack>
     );
-  }, [customHeaderLeftItems, sceneName, isFocus, tabRoute, gtMd]);
+  }, [
+    customHeaderLeftItems,
+    sceneName,
+    isFocus,
+    tabRoute,
+    gtMd,
+    isWalletNotBackedUp,
+  ]);
+  return (
+    <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
+      {items}
+    </DebugRenderTracker>
+  );
+}
+
+export function HeaderLeft({
+  sceneName,
+  tabRoute,
+  customHeaderLeftItems,
+}: {
+  sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+  customHeaderLeftItems?: ReactNode;
+}) {
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -195,9 +234,11 @@ export function HeaderLeft({
         sceneUrl: '',
       }}
     >
-      <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
-        {items}
-      </DebugRenderTracker>
+      <HeaderLeftContent
+        sceneName={sceneName}
+        tabRoute={tabRoute}
+        customHeaderLeftItems={customHeaderLeftItems}
+      />
     </AccountSelectorProviderMirror>
   );
 }

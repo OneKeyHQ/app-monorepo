@@ -40,6 +40,7 @@ import {
 import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
@@ -395,6 +396,10 @@ function TxHistoryListContainer() {
   useEffect(() => {
     void initAddressesInfoDataFromStorage();
   }, [initAddressesInfoDataFromStorage]);
+
+  if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+    return null;
+  }
 
   return (
     <TxHistoryListView

@@ -41,6 +41,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -64,6 +65,13 @@ function HomeOverviewContainer() {
     useAccountOverviewActions().current;
 
   const [settings] = useSettingsPersistAtom();
+
+  const isWalletNotBackedUp = useMemo(() => {
+    if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+      return true;
+    }
+    return false;
+  }, [wallet]);
 
   useEffect(() => {
     if (account?.id && network?.id && wallet?.id) {
@@ -189,11 +197,11 @@ function HomeOverviewContainer() {
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
-    if (isRefreshingWorth) return;
+    if (isRefreshingWorth || isWalletNotBackedUp) return;
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
     defaultLogger.account.wallet.walletManualRefresh();
-  }, [isRefreshingWorth]);
+  }, [isRefreshingWorth, isWalletNotBackedUp]);
 
   const isLoading =
     isRefreshingWorth ||

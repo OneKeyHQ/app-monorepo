@@ -31,6 +31,7 @@ import {
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 const networkIdsMap = getNetworkIdsMap();
 
@@ -335,6 +336,10 @@ function NFTListContainer() {
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, fn);
     };
   }, [handleRefreshAllNetworkData, isFocused, network?.isAllNetworks, run]);
+
+  if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+    return null;
+  }
 
   return (
     <NFTListView

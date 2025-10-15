@@ -26,6 +26,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { useApprovalListActions } from '../../../states/jotai/contexts/approvalList';
 import { HomeApprovalListProviderMirror } from '../components/HomeApprovalListProvider/HomeApprovalListProviderMirror';
 import { onHomePageRefresh } from '../components/PullToRefresh';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function ApprovalListContainer() {
   const {
@@ -162,6 +163,10 @@ function ApprovalListContainer() {
       appEventBus.off(EAppEventBusNames.RefreshApprovalList, refreshAnyway);
     };
   }, [isFocused, run]);
+
+  if (wallet && wallet.type === WALLET_TYPE_HD && !wallet.backuped) {
+    return null;
+  }
 
   return (
     <ApprovalListView
