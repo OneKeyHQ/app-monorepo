@@ -24,6 +24,7 @@ import { ManualBackupRouter } from '../../views/ManualBackup/router';
 import { ModalMarketStack } from '../../views/Market/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { OnboardingRouterV2 } from '../../views/Onboardingv2/router';
 import { ModalPerpStack } from '../../views/Perp/router';
 import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
@@ -56,7 +57,7 @@ const onboardingRouterConfig = {
     await backgroundApiProxy.serviceV4Migration.clearV4MigrationPayload();
   },
   name: EModalRoutes.OnboardingModal,
-  children: OnboardingRouter,
+  children: OnboardingRouterV2,
 };
 
 const router: IModalRootNavigatorConfig<EModalRoutes>[] = [

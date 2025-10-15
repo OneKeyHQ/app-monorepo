@@ -7,6 +7,7 @@ import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EOnboardingPages,
+  EOnboardingPagesV2,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -28,7 +29,7 @@ export const useToOnBoardingPage = () => {
         params,
       }: {
         isFullModal?: boolean;
-        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
+        params?: IOnboardingParamList[EOnboardingPagesV2.GetStarted];
       } = {}) => {
         if (platformEnv.isWebDappMode) {
           navigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -45,7 +46,7 @@ export const useToOnBoardingPage = () => {
             routes: [
               isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
               EModalRoutes.OnboardingModal,
-              EOnboardingPages.GetStarted,
+              EOnboardingPagesV2.GetStarted,
             ],
             params: {
               ...params,
@@ -60,7 +61,7 @@ export const useToOnBoardingPage = () => {
           navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
             EModalRoutes.OnboardingModal,
             {
-              screen: EOnboardingPages.GetStarted,
+              screen: EOnboardingPagesV2.GetStarted,
               params: {
                 ...params,
                 isFullModal,
