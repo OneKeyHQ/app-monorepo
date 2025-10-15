@@ -8,6 +8,7 @@ export enum EEarnProviderEnum {
   Falcon = 'Falcon',
   Ethena = 'Ethena',
   Momentum = 'Momentum',
+  Lista = 'Lista',
 }
 
 export type ISupportedSymbol =

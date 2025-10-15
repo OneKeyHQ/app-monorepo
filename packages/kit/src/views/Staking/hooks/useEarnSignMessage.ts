@@ -3,23 +3,28 @@ import { useCallback } from 'react';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-export function useFalconUSDfRegister() {
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+
+export function useEarnSignMessage() {
   return useCallback(
     async ({
       accountId,
       networkId,
-      details,
+      provider,
+      symbol,
+      request,
     }: {
       networkId: string;
       accountId: string;
-      details: IStakeProtocolDetails | undefined;
+      request: IJsBridgeMessagePayload;
+      provider: string | undefined;
+      symbol: string | undefined;
     }) => {
-      if (!details) {
-        throw new OneKeyLocalError('details is required');
+      if (!provider || !symbol) {
+        throw new OneKeyLocalError('provider and symbol is required');
       }
       const account = await backgroundApiProxy.serviceAccount.getAccount({
         accountId,
@@ -29,8 +34,8 @@ export function useFalconUSDfRegister() {
       const unsignedMessage =
         await backgroundApiProxy.serviceStaking.buildRegisterSignMessageData({
           networkId,
-          provider: details.provider.name,
-          symbol: details.token.info.symbol,
+          provider,
+          symbol,
           accountAddress: account.address,
         });
 
@@ -46,7 +51,7 @@ export function useFalconUSDfRegister() {
         (await backgroundApiProxy.serviceDApp.openSignMessageModal({
           accountId,
           networkId,
-          request: { origin: 'https://app.falcon.finance/', scope: 'ethereum' },
+          request,
           unsignedMessage: {
             type: EMessageTypesEth.PERSONAL_SIGN,
             message,
@@ -58,8 +63,8 @@ export function useFalconUSDfRegister() {
       const verifyResult =
         await backgroundApiProxy.serviceStaking.verifyRegisterSignMessage({
           networkId,
-          provider: details.provider.name,
-          symbol: details.token.info.symbol,
+          provider,
+          symbol,
           accountAddress: account.address,
           signature: signHash,
           message: unsignedMessage.message,

@@ -591,6 +591,12 @@ export interface IEarnCloseActionIcon {
   text: IEarnText;
 }
 
+export interface IEarnListaCheckActionIcon {
+  type: 'listaCheck';
+  disabled: boolean;
+  text: IEarnText;
+}
+
 export type IEarnActionIcon =
   | IEarnPopupActionIcon
   | IEarnLinkActionIcon
@@ -600,7 +606,8 @@ export type IEarnActionIcon =
   | IEarnActivateActionIcon
   | IEarnReceiveActionIcon
   | IEarnTradeActionIcon
-  | IEarnCloseActionIcon;
+  | IEarnCloseActionIcon
+  | IEarnListaCheckActionIcon;
 
 interface IEarnGridItem {
   title: IEarnText;

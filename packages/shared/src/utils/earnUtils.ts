@@ -32,6 +32,8 @@ const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
 
 const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
+const isListaProvider = createProviderCheck(EEarnProviderEnum.Lista);
+
 const isFalconProvider = createProviderCheck(EEarnProviderEnum.Falcon);
 
 const isEthenaProvider = createProviderCheck(EEarnProviderEnum.Ethena);
@@ -40,7 +42,9 @@ const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
 
 const useVaultProvider = ({ providerName }: { providerName: string }) => {
   return (
-    isMorphoProvider({ providerName }) || isMomentumProvider({ providerName })
+    isMorphoProvider({ providerName }) ||
+    isListaProvider({ providerName }) ||
+    isMomentumProvider({ providerName })
   );
 };
 
