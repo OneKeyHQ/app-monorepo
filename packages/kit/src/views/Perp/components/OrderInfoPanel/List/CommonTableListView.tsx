@@ -25,7 +25,6 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -297,6 +296,7 @@ export interface ICommonTableListViewProps {
   currentListPage?: number;
   setCurrentListPage?: (page: number) => void;
   useTabsList?: boolean;
+  disableListScroll?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
@@ -308,6 +308,7 @@ export function CommonTableListView({
   columns,
   data,
   useTabsList,
+  disableListScroll,
   renderRow,
   currentListPage,
   listLoading,
@@ -326,6 +327,10 @@ export function CommonTableListView({
   onViewAll,
   onPullToRefresh,
 }: ICommonTableListViewProps) {
+  // Use explicit prop if provided, otherwise default to true (for backward compatibility)
+  // When used inside Tabs.Container, should be true; when used in standalone ScrollView, should be false
+  const shouldUseTabsList = useTabsList ?? true;
+
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -360,17 +365,18 @@ export function CommonTableListView({
       setCurrentListPage(page);
     }
   };
-  const ListComponent = useTabsList ? Tabs.FlatList : ListView;
+  const ListComponent = shouldUseTabsList ? Tabs.FlatList : ListView;
 
   if (isMobile) {
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
           refreshControl={
-            onPullToRefresh ? (
+            shouldUseTabsList && onPullToRefresh ? (
               <PullToRefresh onRefresh={onPullToRefresh} />
             ) : undefined
           }
+          scrollEnabled={shouldUseTabsList || !disableListScroll}
           data={paginatedData}
           ListFooterComponent={
             enablePagination &&
