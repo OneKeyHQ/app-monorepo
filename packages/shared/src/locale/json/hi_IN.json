@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "अनुमोदन रद्द करना सफल रहा",
   "swap.stablecoin_0_fee": "0 शुल्क",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "यह चेन चुनी गई है, कृपया क्रॉस-चेन ट्रांसफर के लिए कोई दूसरी चेन चुनें।",
   "swap.toast_go_to_swap": "स्वैप पर जाएं",
   "swap.toast_go_to_swap_desc": "{num} {token} को {provider} के लिए स्वीकृत करें",
   "swap.toast_go_to_swap_desc_unlimited_approve": "असीमित {token} को {provider} के लिए स्वीकृत करें",

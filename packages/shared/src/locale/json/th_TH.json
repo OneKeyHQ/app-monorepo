@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "การเพิกถอนการอนุมัติสำเร็จ",
   "swap.stablecoin_0_fee": "0 ค่าธรรมเนียม",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "เชนนี้ถูกเลือกอยู่แล้ว โปรดเลือกเชนอื่นสำหรับการโอนข้ามเชน",
   "swap.toast_go_to_swap": "ไปที่การแลกเปลี่ยน",
   "swap.toast_go_to_swap_desc": "อนุมัติ {num} {token} สำหรับ {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "อนุมัติ {token} ไม่จำกัดให้กับ {provider}",

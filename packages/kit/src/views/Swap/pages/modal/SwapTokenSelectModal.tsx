@@ -15,6 +15,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -283,6 +284,14 @@ const SwapTokenSelectPage = () => {
     }
   }, [getClipboard]);
 
+  const disableNetworksOnClick = useCallback(() => {
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.swap_toast_bridge_tip,
+      }),
+    });
+  }, [intl]);
+
   const disableNetworks = useMemo(() => {
     let res: string[] = [];
     const networkIds = swapNetworksIncludeAllNetwork.map(
@@ -321,9 +330,6 @@ const SwapTokenSelectPage = () => {
       item: ISwapToken | IFuseResult<ISwapToken>;
       index: number;
     }) => {
-      if (disableNetworks.includes((item as ISwapToken).networkId)) {
-        return null;
-      }
       const rawItem = (item as IFuseResult<ISwapToken>).item
         ? (item as IFuseResult<ISwapToken>).item
         : (item as ISwapToken);
@@ -351,7 +357,9 @@ const SwapTokenSelectPage = () => {
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress: () => onSelectToken(rawItem),
+        onPress: !disableNetworks.includes(rawItem.networkId)
+          ? () => onSelectToken(rawItem)
+          : () => disableNetworksOnClick(),
         disabled: disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
@@ -426,6 +434,7 @@ const SwapTokenSelectPage = () => {
       copyText,
       disableNetworks,
       intl,
+      disableNetworksOnClick,
       md,
       onSelectToken,
       searchKeywordDebounce,
@@ -559,6 +568,7 @@ const SwapTokenSelectPage = () => {
           disableNetworks={disableNetworks}
           disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
+          onDisableNetworksClick={disableNetworksOnClick}
         />
         {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
           <Divider mt="$2" />

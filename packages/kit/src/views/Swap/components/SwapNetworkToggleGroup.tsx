@@ -17,6 +17,7 @@ interface ISwapNetworkToggleGroupProps {
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
   onMoreNetwork: () => void;
+  onDisableNetworksClick: () => void;
 }
 
 const SwapNetworkToggleGroup = ({
@@ -27,22 +28,21 @@ const SwapNetworkToggleGroup = ({
   disableNetworks,
   moreNetworksCount,
   onMoreNetwork,
+  onDisableNetworksClick,
 }: ISwapNetworkToggleGroupProps) => {
   const { width } = useWindowDimensions();
   const intl = useIntl();
   const isWiderScreen = width > 380;
   const filteredNetworks = useMemo(
-    () =>
-      (isWiderScreen ? networks : networks.slice(0, 4)).filter(
-        (network) => !disableNetworks?.includes(network.networkId),
-      ),
-    [networks, isWiderScreen, disableNetworks],
+    () => (isWiderScreen ? networks : networks.slice(0, 4)),
+    [networks, isWiderScreen],
   );
   return (
     <XStack px="$5" pt="$1" pb="$3" gap="$2">
       {filteredNetworks.map((network) => (
         <NetworksFilterItem
           key={network.networkId}
+          disabled={Boolean(disableNetworks?.includes(network.networkId))}
           networkImageUri={network.logoURI}
           isAllNetworks={network.isAllNetworks}
           tooltipContent={
@@ -53,7 +53,9 @@ const SwapNetworkToggleGroup = ({
           isSelected={network?.networkId === selectedNetwork?.networkId}
           onPress={
             disableNetworks?.includes(network.networkId)
-              ? undefined
+              ? () => {
+                  onDisableNetworksClick();
+                }
               : () => {
                   onSelectNetwork(network);
                 }
