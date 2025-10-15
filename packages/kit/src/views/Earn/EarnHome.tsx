@@ -5,11 +5,16 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 import { useThrottledCallback } from 'use-debounce';
 
-import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
+import type {
+  IKeyOfIcons,
+  ISizableTextProps,
+  IYStackProps,
+} from '@onekeyhq/components';
 import {
   Badge,
   Banner,
   Button,
+  Empty,
   Icon,
   IconButton,
   Image,
@@ -643,12 +648,68 @@ function Overview({
   );
 }
 
+function EarnBlockedOverview(props: {
+  icon: IKeyOfIcons;
+  title: string;
+  description: string;
+  refresh: () => Promise<void>;
+  refreshing: boolean;
+}) {
+  const intl = useIntl();
+  const { title, description, icon, refresh, refreshing } = props;
+
+  return (
+    <Page fullPage>
+      <TabPageHeader
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+      />
+      <Page.Body>
+        <Empty
+          icon={icon}
+          title={title}
+          description={description}
+          button={
+            <Button
+              mt="$6"
+              size="medium"
+              variant="primary"
+              onPress={refresh}
+              loading={refreshing}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_refresh,
+              })}
+            </Button>
+          }
+        />
+      </Page.Body>
+    </Page>
+  );
+}
+
 function BasicEarnHome() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const media = useMedia();
   const actions = useEarnActions();
   const allNetworkId = useAllNetworkId();
+
+  const {
+    isLoading: isFetchingBlockResult,
+    run: refreshBlockResult,
+    result: blockResult,
+  } = usePromiseResult(
+    async () => {
+      const blockData =
+        await backgroundApiProxy.serviceStaking.getBlockRegion();
+      return { blockData };
+    },
+    [],
+    {
+      revalidateOnFocus: true,
+    },
+  );
 
   const { isLoading: isFetchingAccounts, run: refreshOverViewData } =
     usePromiseResult(
@@ -970,6 +1031,18 @@ function BasicEarnHome() {
     const height = e.nativeEvent.layout.height - 20;
     setTabPageHeight(height);
   }, []);
+
+  if (!isFetchingBlockResult && blockResult?.blockData) {
+    return (
+      <EarnBlockedOverview
+        refresh={refreshBlockResult}
+        refreshing={!!isFetchingBlockResult}
+        icon={blockResult.blockData.icon.icon}
+        title={blockResult.blockData.title.text}
+        description={blockResult.blockData.description.text}
+      />
+    );
+  }
 
   if (platformEnv.isNative && media.md) {
     return (
