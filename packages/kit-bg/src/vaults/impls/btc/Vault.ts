@@ -51,6 +51,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -156,7 +157,7 @@ export default class VaultBtc extends VaultBase {
       networkId,
       normalizedAddress: receiveAddress,
       displayAddress: receiveAddress,
-      address,
+      address: receiveAddress,
       baseAddress: receiveAddress,
       isValid: true,
       allowEmptyAddress: false,
@@ -1197,9 +1198,11 @@ export default class VaultBtc extends VaultBase {
   async _getRelPathsToAddressByApi({
     addresses, // addresses in tx.inputs
     account,
+    xpubSegwit,
   }: {
     addresses: string[];
-    account: IDBAccount;
+    account: INetworkAccount;
+    xpubSegwit: string | undefined;
   }) {
     const { utxoList: utxos } = await this._collectUTXOsInfoByApi();
 
@@ -1232,15 +1235,44 @@ export default class VaultBtc extends VaultBase {
       }
     }
 
+    const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
+
     // always add first account (path=0/0) address
     const firstRelPath = '0/0';
     const firstFullPath = [account.path, firstRelPath].join('/');
     if (!pathToAddresses[firstFullPath]) {
       pathToAddresses[firstFullPath] = {
-        address: account.address,
+        address: isEnabledBtcFreshAddress
+          ? account.addressDetail.masterAddress || account.address
+          : account.address,
         relPath: firstRelPath,
         fullPath: firstFullPath,
       };
+    }
+
+    // add current address path into map when btcFreshAddress enabled
+    if (
+      xpubSegwit &&
+      isEnabledBtcFreshAddress &&
+      (accountUtils.isHdAccount({ accountId: account.id }) ||
+        accountUtils.isHwAccount({ accountId: account.id }))
+    ) {
+      const currentAddress = account.address;
+      const freshAddressesMap =
+        await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddressMap(
+          {
+            networkId: this.networkId,
+            xpubSegwit,
+          },
+        );
+      const currentAddressItem = freshAddressesMap[currentAddress];
+      if (currentAddressItem) {
+        pathToAddresses[currentAddressItem.path] = {
+          address: currentAddress,
+          relPath: currentAddressItem.relPath,
+          fullPath: currentAddressItem.path,
+        };
+      }
     }
 
     const relPaths: string[] = [];
@@ -1298,6 +1330,7 @@ export default class VaultBtc extends VaultBase {
     relPaths?: string[]; // used for get privateKey of other utxo address
   }> {
     const account = await this.getAccount();
+    const xpubSegwit = await this.getXpubFromAccount(account);
 
     let addresses: string[] = [];
     if (unsignedMessage) {
@@ -1323,6 +1356,7 @@ export default class VaultBtc extends VaultBase {
     } = await this._getRelPathsToAddressByApi({
       addresses,
       account,
+      xpubSegwit,
     });
 
     const btcExtraInfo: ICoreApiSignBtcExtraInfo = {
@@ -1570,5 +1604,13 @@ export default class VaultBtc extends VaultBase {
       historyTx.replacedType === EReplaceTxType.SpeedUp &&
         historyTx.replacedMethod === EReplaceTxMethod.BTC_F2POOL,
     );
+  }
+
+  private async isEnabledBtcFreshAddress(): Promise<boolean> {
+    if (!networkUtils.isBTCNetwork(this.networkId)) {
+      return false;
+    }
+
+    return this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
   }
 }
