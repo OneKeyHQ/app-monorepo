@@ -19,9 +19,15 @@ import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
 }
 
-function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
+function PerpOpenOrdersList({
+  isMobile,
+  useTabsList,
+  disableListScroll,
+}: IPerpOpenOrdersListProps) {
   const intl = useIntl();
   const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -178,7 +184,8 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         }),
         [],
       )}
-      useTabsList
+      useTabsList={useTabsList}
+      disableListScroll={disableListScroll}
       enablePagination={!isMobile}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
