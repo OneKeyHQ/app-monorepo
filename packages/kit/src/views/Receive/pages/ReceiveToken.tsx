@@ -460,8 +460,8 @@ function ReceiveToken() {
 
     if (shouldShowAddress) {
       addressContent =
-        currentAccount?.address.match(/.{1,4}/g)?.join(' ') ||
-        currentAccount?.address;
+        currentAccount.address.match(/.{1,4}/g)?.join(' ') ||
+        currentAccount.address;
     } else {
       addressContent = Array.from({ length: 11 })
         .map(() => '****')
@@ -498,13 +498,7 @@ function ReceiveToken() {
         <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
       </XStack>
     );
-  }, [
-    currentAccount?.address,
-    network,
-    wallet,
-    shouldShowAddress,
-    handleCopyAddress,
-  ]);
+  }, [currentAccount, network, wallet, shouldShowAddress, handleCopyAddress]);
 
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
@@ -652,7 +646,7 @@ function ReceiveToken() {
         >
           {shouldShowQRCode ? (
             <YStack>
-              <QRCode value={currentAccount?.address} size={224} />
+              <QRCode value={currentAccount.address} size={224} />
               {network.isCustomNetwork ? null : (
                 <YStack
                   position="absolute"

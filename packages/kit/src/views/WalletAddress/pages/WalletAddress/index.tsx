@@ -288,7 +288,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
         subtitle={subtitle}
         subtitleProps={{
           color:
-            !isEnabledNetwork && account.apiAddress
+            !isEnabledNetwork && account?.apiAddress
               ? '$textDisabled'
               : '$textSubdued',
         }}
