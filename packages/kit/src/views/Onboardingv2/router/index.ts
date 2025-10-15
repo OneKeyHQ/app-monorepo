@@ -4,13 +4,34 @@ import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
+const AddExistingWallet = LazyLoadPage(
+  () => import('../pages/AddExistingWallet'),
+);
+const ImportPhraseOrPrivateKey = LazyLoadPage(
+  () => import('../pages/ImportPhraseOrPrivateKey'),
+);
+const FinalizeWalletSetup = LazyLoadPage(
+  () => import('../pages/FinalizeWalletSetup'),
+);
 
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
-  EOnboardingPages,
+  EOnboardingPagesV2,
   IOnboardingParamListV2
 >[] = [
   {
     name: EOnboardingPagesV2.GetStarted,
     component: GetStarted,
+  },
+  {
+    name: EOnboardingPagesV2.AddExistingWallet,
+    component: AddExistingWallet,
+  },
+  {
+    name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
+    component: ImportPhraseOrPrivateKey,
+  },
+  {
+    name: EOnboardingPagesV2.FinalizeWalletSetup,
+    component: FinalizeWalletSetup,
   },
 ];
