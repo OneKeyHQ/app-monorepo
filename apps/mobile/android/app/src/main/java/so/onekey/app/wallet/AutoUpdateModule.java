@@ -8,7 +8,6 @@ import android.icu.text.SimpleDateFormat;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
-import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -21,11 +20,11 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
-import java.io.InputStreamReader;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.security.MessageDigest;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.betomorrow.rnfilelogger.FileLoggerModule;
@@ -37,8 +36,6 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-
-import javax.net.ssl.HttpsURLConnection;
 
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
@@ -191,6 +188,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             log("verifyASC", "Error verifying ASC file: " + e.getMessage());
             promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
         }
+        promise.resolve(null);
     }
 
     @ReactMethod
@@ -200,7 +198,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
          // Fetch the signature file
          String ascFileUrl = url + ".SHA256SUMS.asc";
          String ascFilePath = filePath + ".SHA256SUMS.asc";
-         
+         promise.resolve(null);
          try {
             OkHttpClient client = new OkHttpClient();
             Request request = new Request.Builder()
@@ -272,6 +270,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String url = map.getString("downloadUrl");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
+        long fileSize = map.getLong("fileSize");
         if (this.isDownloading) {
             return;
         }
@@ -323,7 +322,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
 
                 ResponseBody body = response.body();
-                long contentLength = body.contentLength();
+                long contentLength = fileSize > 0 ? fileSize : body.contentLength();
                 BufferedSource source = body.source();
 
                 BufferedSink sink = null;

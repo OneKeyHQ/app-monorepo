@@ -5,7 +5,6 @@ import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog, Toast } from '@onekeyhq/components';
-import { tonMnemonicToKeyPair } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -1166,6 +1165,9 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const { servicePassword } = backgroundApiProxy;
       const { mnemonic: realMnemonic } = await serviceAccount.validateMnemonic(
         mnemonic,
+      );
+      const { tonMnemonicToKeyPair } = await import(
+        '@onekeyhq/core/src/secret/ton-mnemonic'
       );
       const keyPair = await tonMnemonicToKeyPair(realMnemonic.split(' '));
       const secretKeyUint8Array = platformEnv.isNative

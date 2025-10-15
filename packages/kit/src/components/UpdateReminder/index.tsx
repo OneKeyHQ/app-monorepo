@@ -15,7 +15,10 @@ import {
   XStack,
   usePopoverContext,
 } from '@onekeyhq/components';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  displayAppUpdateVersion,
+} from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -39,7 +42,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_update_app_available },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
           },
@@ -139,7 +142,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_app_version_ready_for_update },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
           },
