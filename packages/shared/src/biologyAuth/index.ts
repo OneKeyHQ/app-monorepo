@@ -15,6 +15,8 @@ const biologyAuthenticate: () => Promise<LocalAuthenticationResult> = () =>
 const getBiologyAuthType: () => Promise<AuthenticationType[]> = () =>
   Promise.resolve([]);
 
+export const biologyAuthNativeError = 'biology_native_error';
+
 const biologyAuth: IBiologyAuth = {
   isSupportBiologyAuth,
   biologyAuthenticate,

@@ -1660,6 +1660,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-fast-pbkdf2 (0.3.1):
+    - React-Core
   - react-native-get-random-values (1.9.0):
     - React-Core
   - react-native-keyboard-controller (1.17.5):
@@ -2982,6 +2984,7 @@ DEPENDENCIES:
   - react-native-capture-protection (from `../../../node_modules/react-native-capture-protection`)
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
   - "react-native-compat (from `../../../node_modules/@walletconnect/react-native-compat`)"
+  - react-native-fast-pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - react-native-get-random-values (from `../../../node_modules/react-native-get-random-values`)
   - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-lite-card (from `../../../node_modules/@onekeyfe/react-native-lite-card`)"
@@ -3232,6 +3235,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-cloud-fs"
   react-native-compat:
     :path: "../../../node_modules/@walletconnect/react-native-compat"
+  react-native-fast-pbkdf2:
+    :path: "../../../node_modules/react-native-fast-pbkdf2"
   react-native-get-random-values:
     :path: "../../../node_modules/react-native-get-random-values"
   react-native-keyboard-controller:
@@ -3447,6 +3452,7 @@ SPEC CHECKSUMS:
   react-native-capture-protection: 8df17cfa486df1c267f9de32f4877f75be216670
   react-native-cloud-fs: c86a54591a932e41d94b0965f16d0713150b1fd0
   react-native-compat: 792f9cfc926dd4edb1e1e73ebf0f08308083a825
+  react-native-fast-pbkdf2: 329e89b9929a51ed4d9ba88bf355a266f13d9d93
   react-native-get-random-values: 419569b6ed3d15bfb9b6781b2f2e058f8e8d2698
   react-native-keyboard-controller: 9c9a77993f7449e8b7d8c5989289f65e08c7ab74
   react-native-lite-card: da6e268aa346e8ab6b80e272364637f228fe09cd

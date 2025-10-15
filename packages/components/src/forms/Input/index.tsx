@@ -16,8 +16,13 @@ import {
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 import noop from 'lodash/noop';
-import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
+import {
+  Group,
+  getFontSize,
+  useProps,
+  useThemeName,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -35,6 +40,7 @@ import type {
   IStackProps,
   IStackStyle,
 } from '../../primitives';
+import type { IInputProps as ITMInputProps } from '../TextArea/TamaguiInput';
 import type {
   IPasteEventParams,
   IPasteEventPayload,
@@ -47,9 +53,6 @@ import type {
   TextInput,
   TextInputFocusEventData,
 } from 'react-native';
-import type { GetProps } from 'tamagui';
-
-type ITMInputProps = GetProps<typeof TMInput>;
 
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 
@@ -259,7 +262,7 @@ function BaseInput(
     secureTextEntry,
     allowSecureTextEye,
     ...props
-  } = useProps(inputProps);
+  } = useProps(inputProps) as IInputProps;
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
 
   const sharedStyles = getSharedInputStyles({
@@ -413,7 +416,7 @@ function BaseInput(
       {leftAddOnProps ? (
         <Group.Item>
           <InputAddOnItem
-            {...(leftAddOnProps as any)}
+            {...leftAddOnProps}
             size={size}
             error={error}
             loading={leftAddOnProps.loading}
@@ -433,7 +436,6 @@ function BaseInput(
           ref={inputRef}
           keyboardType={keyboardType}
           flex={1}
-          // @ts-expect-error
           pointerEvents={readonly ? 'none' : 'auto'}
           /* 
           use height instead of lineHeight because of a RN issue while render TextInput on iOS
@@ -461,7 +463,8 @@ function BaseInput(
           {...readOnlyStyle}
           {...InputComponentStyle}
           {...props}
-          onPaste={platformEnv.isNative ? (onPaste as any) : undefined}
+          // @ts-expect-error
+          onPaste={platformEnv.isNative ? onPaste : undefined}
           onChangeText={
             isNumberKeyboardType ? onNumberPadChangeText : onChangeText
           }
@@ -530,7 +533,7 @@ function BaseInput(
                         error={error}
                         onPress={onPress}
                         tooltipProps={tooltipProps}
-                        {...(addOnsItemProps as any)}
+                        {...addOnsItemProps}
                       />
                     )}
                   </Group.Item>
