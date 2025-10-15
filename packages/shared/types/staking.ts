@@ -281,6 +281,16 @@ export type IStakeTxEthLido = {
   data: string;
 };
 
+export enum EInternalDappEnum {
+  Staking = 'staking',
+  Swap = 'swap',
+}
+
+export type IInternalDappTxParams = {
+  internalDappTx: IStakeTx;
+  internalDappType: EInternalDappEnum;
+};
+
 // Cosmos dapp interface signAmino
 export type IStakeTxCosmosAmino = {
   readonly chain_id: string;
