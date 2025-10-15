@@ -9,7 +9,6 @@ import {
   Divider,
   IconButton,
   Popover,
-  SegmentSlider,
   SizableText,
   Skeleton,
   Tooltip,
@@ -42,6 +41,7 @@ import {
   type ITradeSide,
   getTradingSideTextColor,
 } from '../../../utils/styleUtils';
+import { PerpsSlider } from '../../PerpsSlider';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
@@ -511,7 +511,7 @@ function PerpTradingForm({
       />
 
       <YStack {...(isMobile && { pt: '$2', pb: '$2' })}>
-        <SegmentSlider
+        <PerpsSlider
           min={0}
           max={100}
           value={sliderValue}

@@ -17,11 +17,15 @@ import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
 }
 
 function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
+  useTabsList,
+  disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -175,7 +179,8 @@ function PerpPositionsList({
         }),
         [],
       )}
-      useTabsList
+      useTabsList={useTabsList}
+      disableListScroll={disableListScroll}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       enablePagination={!isMobile}
