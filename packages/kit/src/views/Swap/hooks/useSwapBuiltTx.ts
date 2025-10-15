@@ -60,7 +60,10 @@ import {
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
-import type { IStakeTx } from '@onekeyhq/shared/types/staking';
+import {
+  EInternalDappEnum,
+  type IStakeTx,
+} from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
   IFetchBuildTxResponse,
@@ -1765,11 +1768,13 @@ export function useSwapBuildTx() {
               inputTx = buildSwapRes.suiBase64Data;
             }
             if (inputTx) {
-              encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-                accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-                networkId: swapFromAddressInfo.networkId ?? '',
-                tx: inputTx,
-              });
+              encodedTx =
+                await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                  networkId: swapFromAddressInfo.networkId ?? '',
+                  tx: inputTx,
+                  internalDappType: EInternalDappEnum.Swap,
+                });
             }
           } else if (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
