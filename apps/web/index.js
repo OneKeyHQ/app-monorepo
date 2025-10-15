@@ -1,7 +1,7 @@
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable import/first */
 
-if (typeof window === 'undefined') {
+if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();
 }
 
