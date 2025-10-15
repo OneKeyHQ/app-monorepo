@@ -134,6 +134,13 @@ export {};
   const $$perfEnd = typeof globalThis.nativePerformanceNow === 'function' ? globalThis.nativePerformanceNow() : Date.now();
   const $$perfDuration = $$perfEnd - (globalThis as any).$$perfStart_${varName};
   if (__DEV__) {
+    if (globalThis.$rn_startup_performance_times === undefined) {
+      globalThis.$rn_startup_performance_times = [];
+    }
+    globalThis.$rn_startup_performance_times.push({
+      path: '${relativePath.replace(/\\/g, '/')}',
+      duration: $$perfDuration,
+    });
     console.log('[Performance] ${relativePath.replace(/\\/g, '/')}: ' + $$perfDuration + 'ms');
   }
 }
