@@ -1164,3 +1164,24 @@ export interface IEarnSummary {
     button?: IEarnActionIcon;
   }[];
 }
+
+export type IStakeBlockRegionResponse =
+  | {
+      isBlockedRegion: true;
+      countryCode: string;
+      notification: {
+        icon: {
+          icon: IKeyOfIcons;
+        };
+        title: {
+          text: string;
+        };
+        description: {
+          text: string;
+        };
+      };
+    }
+  | {
+      isBlockedRegion: false;
+      countryCode: string;
+    };
