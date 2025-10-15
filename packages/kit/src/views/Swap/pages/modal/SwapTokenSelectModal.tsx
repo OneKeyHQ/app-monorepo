@@ -321,6 +321,9 @@ const SwapTokenSelectPage = () => {
       item: ISwapToken | IFuseResult<ISwapToken>;
       index: number;
     }) => {
+      if (disableNetworks.includes((item as ISwapToken).networkId)) {
+        return null;
+      }
       const rawItem = (item as IFuseResult<ISwapToken>).item
         ? (item as IFuseResult<ISwapToken>).item
         : (item as ISwapToken);
@@ -348,9 +351,7 @@ const SwapTokenSelectPage = () => {
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress: !disableNetworks.includes(rawItem.networkId)
-          ? () => onSelectToken(rawItem)
-          : undefined,
+        onPress: () => onSelectToken(rawItem),
         disabled: disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',

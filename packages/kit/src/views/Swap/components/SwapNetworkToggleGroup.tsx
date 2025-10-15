@@ -32,15 +32,17 @@ const SwapNetworkToggleGroup = ({
   const intl = useIntl();
   const isWiderScreen = width > 380;
   const filteredNetworks = useMemo(
-    () => (isWiderScreen ? networks : networks.slice(0, 4)),
-    [networks, isWiderScreen],
+    () =>
+      (isWiderScreen ? networks : networks.slice(0, 4)).filter(
+        (network) => !disableNetworks?.includes(network.networkId),
+      ),
+    [networks, isWiderScreen, disableNetworks],
   );
   return (
     <XStack px="$5" pt="$1" pb="$3" gap="$2">
       {filteredNetworks.map((network) => (
         <NetworksFilterItem
           key={network.networkId}
-          disabled={Boolean(disableNetworks?.includes(network.networkId))}
           networkImageUri={network.logoURI}
           isAllNetworks={network.isAllNetworks}
           tooltipContent={
