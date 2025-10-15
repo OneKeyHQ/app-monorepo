@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "Aprovação de revogação bem-sucedida",
   "swap.stablecoin_0_fee": "0 Taxa",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "Esta rede já foi selecionada, por favor selecione outra rede para transferência entre redes.",
   "swap.toast_go_to_swap": "Ir para swap",
   "swap.toast_go_to_swap_desc": "Aprovar {num} {token} para {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "Aprovar {token} ilimitado para {provider}",

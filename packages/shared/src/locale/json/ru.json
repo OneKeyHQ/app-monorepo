@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "Отзыв одобрения успешен",
   "swap.stablecoin_0_fee": "0 Плата",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "Эта сеть уже выбрана, пожалуйста, выберите другую сеть для межсетевого перевода.",
   "swap.toast_go_to_swap": "Перейти к обмену",
   "swap.toast_go_to_swap_desc": "Одобрить {num} {token} для {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "Одобрить неограниченное количество {token} для {provider}",

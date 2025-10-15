@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "Pencabutan persetujuan berhasil",
   "swap.stablecoin_0_fee": "0 Biaya",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "Rantai ini telah dipilih, silakan pilih rantai lain untuk transfer lintas rantai.",
   "swap.toast_go_to_swap": "Pergi ke swap",
   "swap.toast_go_to_swap_desc": "Setujui {num} {token} untuk {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "Setujui {token} tanpa batas ke {provider}",
