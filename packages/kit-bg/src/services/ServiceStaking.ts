@@ -55,6 +55,7 @@ import type {
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
+  IStakeBlockRegionResponse,
   IStakeClaimBaseParams,
   IStakeEarnDetail,
   IStakeHistoriesResponse,
@@ -1628,6 +1629,24 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getEthenaKycAddress() {
     return this.backgroundApi.simpleDb.earnExtra.getEthenaKycAddress();
+  }
+
+  @backgroundMethod()
+  async getBlockRegion() {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: IStakeBlockRegionResponse;
+      }>('/earn/v1/block-region');
+      const blockResult = response.data.data;
+      const blockData = blockResult.isBlockedRegion
+        ? blockResult.notification
+        : null;
+
+      return blockData;
+    } catch (error) {
+      return null;
+    }
   }
 }
 

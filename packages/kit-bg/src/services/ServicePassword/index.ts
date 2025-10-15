@@ -20,7 +20,9 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import biologyAuth, {
+  biologyAuthNativeError,
+} from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -64,7 +66,7 @@ import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
-import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
+import { biologyAuthUtils } from './biologyAuthUtils';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {

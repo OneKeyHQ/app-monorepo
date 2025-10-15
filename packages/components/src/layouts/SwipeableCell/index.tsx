@@ -1,16 +1,19 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
 import type { ComponentType, ForwardedRef } from 'react';
 
-import { usePropsAndStyle } from '@tamagui/core';
 import { Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  ColorTokens,
+  StackStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { SizableText } from '../../primitives/SizeableText';
 import { Stack, XStack } from '../../primitives/Stack';
 
-import type { StackStyle } from '@tamagui/web';
 import type { SwipeableProps } from 'react-native-gesture-handler/Swipeable';
-import type { ColorTokens } from 'tamagui';
 
 type ISwipeableCellItemProps = {
   title: string;

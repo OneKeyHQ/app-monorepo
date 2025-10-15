@@ -1,7 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { clamp } from 'lodash';
-import { Slider as TMSlider } from 'tamagui';
+
+import { TMSlider } from '@onekeyhq/components/src/shared/tamagui';
+import type { GestureReponderEvent } from '@onekeyhq/components/src/shared/tamagui';
 
 import { XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
@@ -9,7 +11,6 @@ import { NATIVE_HIT_SLOP } from '../../utils';
 import type { IBaseSliderProps } from './type';
 // spell mistake in tamagui components.
 // eslint-disable-next-line spellcheck/spell-checker
-import type { GestureReponderEvent } from '@tamagui/core';
 import type { LayoutChangeEvent } from 'react-native';
 
 function SliderSegment({
