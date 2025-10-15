@@ -37,7 +37,6 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useReceiveAddress } from '@onekeyhq/kit/src/hooks/useReceiveAddress';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
@@ -130,24 +129,19 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [networkAccountMap, network.id],
   );
 
-  const { receiveAddress } = useReceiveAddress({
-    networkAccount: undefined,
-    allNetworkAccountInfo: account,
-    networkId: network.id,
-  });
   const subtitle = useMemo(() => {
     if (account) {
       if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
         return '';
       }
 
-      return accountUtils.shortenAddress({ address: receiveAddress });
+      return accountUtils.shortenAddress({ address: account.apiAddress });
     }
 
     return intl.formatMessage({
       id: ETranslations.copy_address_modal_item_create_address_instruction,
     });
-  }, [account, intl, network.id, receiveAddress]);
+  }, [account, intl, network.id]);
 
   const onPress = useCallback(async () => {
     if (!account) {
@@ -195,7 +189,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     if (actionType === EWalletAddressActionType.ViewInExplorer) {
       await openExplorerAddressUrl({
         networkId: network.id,
-        address: receiveAddress,
+        address: account.apiAddress,
       });
       return;
     }
@@ -208,7 +202,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
           accountId: account.accountId,
         },
       });
-    } else if (account && receiveAddress) {
+    } else if (account && account.apiAddress) {
       await copyAccountAddress({
         accountId: account.accountId,
         networkId: network.id,
@@ -220,7 +214,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     }
   }, [
     account,
-    receiveAddress,
     actionType,
     network.id,
     createAddress,
@@ -295,7 +288,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
         subtitle={subtitle}
         subtitleProps={{
           color:
-            !isEnabledNetwork && receiveAddress
+            !isEnabledNetwork && account.apiAddress
               ? '$textDisabled'
               : '$textSubdued',
         }}
@@ -320,7 +313,6 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       loading,
       network.id,
       network.name,
-      receiveAddress,
       onPress,
       refreshLocalData,
       subtitle,

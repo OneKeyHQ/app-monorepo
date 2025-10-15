@@ -61,7 +61,6 @@ export function AccountSelectorAccountListItem({
   focusedWalletInfo,
   mergeDeriveAssetsEnabled,
   hideAddress,
-  enableBTCFreshAddress,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -87,7 +86,6 @@ export function AccountSelectorAccountListItem({
     | undefined;
   mergeDeriveAssetsEnabled: boolean | undefined;
   hideAddress?: boolean;
-  enableBTCFreshAddress?: boolean;
 }) {
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
@@ -136,12 +134,6 @@ export function AccountSelectorAccountListItem({
       const associateAccount = indexedAccount?.associateAccount;
       address = associateAccount?.address;
 
-      if (enableBTCFreshAddress && networkUtils.isBTCNetwork(network?.id)) {
-        address =
-          associateAccount?.addressDetail?.receiveAddress ||
-          associateAccount?.address;
-      }
-
       if (
         associateAccount?.addressDetail?.isValid &&
         associateAccount?.addressDetail?.normalizedAddress
@@ -180,8 +172,6 @@ export function AccountSelectorAccountListItem({
     isOthersUniversal,
     linkedNetworkId,
     hideAddress,
-    network?.id,
-    enableBTCFreshAddress,
   ]);
 
   const subTitleInfo = useMemo(() => buildSubTitleInfo(), [buildSubTitleInfo]);

@@ -51,7 +51,6 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -126,7 +125,6 @@ export default class VaultBtc extends VaultBase {
     // );
 
     let receiveAddress = address;
-    let receiveAddressPath: string | undefined;
     if (networkUtils.isBTCNetwork(networkId)) {
       const enableBTCFreshAddress = (await settingsPersistAtom.get())
         .enableBTCFreshAddress;
@@ -147,7 +145,6 @@ export default class VaultBtc extends VaultBase {
             addresses.fresh.unused[0].isDerivedByApp
           ) {
             receiveAddress = addresses.fresh.unused[0].address;
-            receiveAddressPath = addresses.fresh.unused[0].path;
           } else {
             // TODO: re-generate fresh address
           }
@@ -157,14 +154,13 @@ export default class VaultBtc extends VaultBase {
 
     return {
       networkId,
-      normalizedAddress: address,
-      displayAddress: address,
+      normalizedAddress: receiveAddress,
+      displayAddress: receiveAddress,
       address,
-      baseAddress: address,
+      baseAddress: receiveAddress,
       isValid: true,
       allowEmptyAddress: false,
-      receiveAddress,
-      receiveAddressPath,
+      masterAddress: address,
     };
   }
 

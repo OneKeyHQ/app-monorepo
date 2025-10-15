@@ -5080,7 +5080,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getReceiveAddress({
+  async getMasterAddress({
     networkAccount,
     allNetworkAccountInfo,
     networkId,
@@ -5089,22 +5089,19 @@ class ServiceAccount extends ServiceBase {
     allNetworkAccountInfo: IAllNetworkAccountInfo | undefined;
     networkId: string;
   }): Promise<{
-    receiveAddress: string;
-    receiveAddressPath: string | undefined;
+    masterAddress: string;
   }> {
     const enableBTCFreshAddress =
       await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
     if (!networkUtils.isBTCNetwork(networkId) || !enableBTCFreshAddress) {
       if (networkAccount) {
         return {
-          receiveAddress: networkAccount.address || '',
-          receiveAddressPath: undefined,
+          masterAddress: networkAccount.address || '',
         };
       }
       if (allNetworkAccountInfo) {
         return {
-          receiveAddress: allNetworkAccountInfo.apiAddress || '',
-          receiveAddressPath: undefined,
+          masterAddress: allNetworkAccountInfo.apiAddress || '',
         };
       }
     }
@@ -5118,9 +5115,8 @@ class ServiceAccount extends ServiceBase {
     }
 
     return {
-      receiveAddress:
-        account?.addressDetail.receiveAddress || account?.address || '',
-      receiveAddressPath: account?.addressDetail.receiveAddressPath,
+      masterAddress:
+        account?.addressDetail.masterAddress || account?.address || '',
     };
   }
 }

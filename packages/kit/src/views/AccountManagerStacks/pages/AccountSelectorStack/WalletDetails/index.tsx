@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -32,10 +31,7 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import {
-  accountSelectorAccountsListIsLoadingAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
@@ -93,7 +89,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const selectedNetworkId = selectedAccount?.networkId;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
-  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
@@ -536,7 +531,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                 listDataResult?.mergeDeriveAssetsEnabled
               }
               hideAddress={hideAddress}
-              enableBTCFreshAddress={enableBTCFreshAddress}
             />
           )}
           renderSectionFooter={({
@@ -609,7 +603,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     sectionData,
     sectionDataOriginal?.length,
     selectedAccount,
-    enableBTCFreshAddress,
   ]);
 
   // Used to find out which deps cause redraws by binary search

@@ -40,7 +40,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -52,7 +51,6 @@ import { useAccountData } from '../../../hooks/useAccountData';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useReceiveAddress } from '../../../hooks/useReceiveAddress';
 import { useWalletBanner } from '../../../hooks/useWalletBanner';
 import { EAddressState } from '../types';
 
@@ -111,12 +109,6 @@ function ReceiveToken() {
   const [currentAccount, setCurrentAccount] = useState<
     INetworkAccount | undefined
   >(account);
-
-  const { receiveAddress, receiveAddressPath } = useReceiveAddress({
-    networkAccount: currentAccount,
-    allNetworkAccountInfo: undefined,
-    networkId,
-  });
 
   const { bottom } = useSafeAreaInsets();
 
@@ -212,19 +204,19 @@ function ReceiveToken() {
   const handleCopyAddress = useCallback(() => {
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
       copyAddressWithDeriveType({
-        address: receiveAddress ?? '',
+        address: currentAccount?.address ?? '',
         deriveInfo: currentDeriveInfo,
         networkName: network?.shortname,
       });
     } else {
       copyAddressWithDeriveType({
-        address: receiveAddress ?? '',
+        address: currentAccount?.address ?? '',
         networkName: network?.shortname,
       });
     }
   }, [
     copyAddressWithDeriveType,
-    receiveAddress,
+    currentAccount?.address,
     currentDeriveInfo,
     network?.shortname,
     vaultSettings?.mergeDeriveAssetsEnabled,
@@ -245,7 +237,8 @@ function ReceiveToken() {
         });
 
       const isSameAddress =
-        addresses?.[0]?.toLowerCase() === receiveAddress?.toLowerCase();
+        addresses?.[0]?.toLowerCase() ===
+        currentAccount?.address?.toLowerCase();
 
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -290,7 +283,7 @@ function ReceiveToken() {
       throw e;
     }
   }, [
-    receiveAddress,
+    currentAccount?.address,
     currentAccount?.indexedAccountId,
     currentDeriveType,
     intl,
@@ -467,7 +460,8 @@ function ReceiveToken() {
 
     if (shouldShowAddress) {
       addressContent =
-        receiveAddress.match(/.{1,4}/g)?.join(' ') || receiveAddress;
+        currentAccount?.address.match(/.{1,4}/g)?.join(' ') ||
+        currentAccount?.address;
     } else {
       addressContent = Array.from({ length: 11 })
         .map(() => '****')
@@ -505,8 +499,7 @@ function ReceiveToken() {
       </XStack>
     );
   }, [
-    receiveAddress,
-    currentAccount,
+    currentAccount?.address,
     network,
     wallet,
     shouldShowAddress,
@@ -659,7 +652,7 @@ function ReceiveToken() {
         >
           {shouldShowQRCode ? (
             <YStack>
-              <QRCode value={receiveAddress} size={224} />
+              <QRCode value={currentAccount?.address} size={224} />
               {network.isCustomNetwork ? null : (
                 <YStack
                   position="absolute"
@@ -703,7 +696,6 @@ function ReceiveToken() {
       </YStack>
     );
   }, [
-    receiveAddress,
     currentAccount,
     network,
     wallet,

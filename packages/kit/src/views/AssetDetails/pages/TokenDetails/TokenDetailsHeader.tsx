@@ -23,7 +23,6 @@ import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useReceiveAddress } from '@onekeyhq/kit/src/hooks/useReceiveAddress';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
@@ -81,12 +80,6 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
-  });
-
-  const { receiveAddress } = useReceiveAddress({
-    networkAccount: account,
-    allNetworkAccountInfo: undefined,
-    networkId,
   });
 
   const tokenDetailsKey = `${accountId}_${networkId}`;
@@ -406,9 +399,9 @@ function TokenDetailsHeader(props: IProps) {
                   {accountUtils.isHwWallet({ walletId }) ||
                   accountUtils.isQrWallet({ walletId })
                     ? accountUtils.shortenAddress({
-                        address: receiveAddress,
+                        address: account?.address ?? '',
                       })
-                    : receiveAddress}
+                    : account?.address}
                 </SizableText>
                 <Icon
                   name="Copy3Outline"
