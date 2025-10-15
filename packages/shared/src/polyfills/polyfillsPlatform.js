@@ -59,69 +59,36 @@ if (platformEnv.isNative) {
     AssetSourceResolver.prototype.defaultAsset = wrap(
       AssetSourceResolver.prototype.defaultAsset,
       function (func, ...args) {
-        const defaultLogger =
-          require('@onekeyhq/shared/src/logger/logger').defaultLogger;
-        defaultLogger.app.error.log(`mainBundlePath: ${mainBundlePath}`);
         const isLoadedFromServer = this.isLoadedFromServer();
-        console.log('isLoadedFromServer: ', isLoadedFromServer);
-        defaultLogger.app.error.log(
-          `isLoadedFromServer: ${isLoadedFromServer}`,
-        );
-        defaultLogger.app.error.log(`jsBundleUrl: ${this.jsbundleUrl}`);
         if (isLoadedFromServer) {
           const serverUrl = this.assetServerURL();
-          console.log('serverUrl: ', serverUrl);
-          defaultLogger.app.error.log(`serverUrl: ${serverUrl}`);
           return serverUrl;
         }
         if (Platform.OS === 'android') {
-          defaultLogger.app.error.log(`isNativeAndroid start`);
           const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
-          defaultLogger.app.error.log(
-            `isLoadedFromFileSystem: ${isLoadedFromFileSystem}`,
-          );
-
           if (useJsBundle) {
-            defaultLogger.app.error.log(
-              `android useJsBundle start`,
-              assetsPath,
-            );
             const asset = this.fromSource(
               assetsPath + getAssetPathInDrawableFolder(this.asset),
             );
             asset.uri = asset.uri
               .replace('__packages', 'packages')
               .replace('__node_modules', 'node_modules');
-            defaultLogger.app.error.log(`android useJsBundle end`, asset.uri);
             return asset;
           }
           if (isLoadedFromFileSystem) {
             const resolvedAssetSource = this.drawableFolderInBundle();
-            defaultLogger.app.error.log(
-              `resolvedAssetSource: ${resolvedAssetSource.uri}`,
-            );
             return resolvedAssetSource;
           }
           const resolvedAssetSource = this.resourceIdentifierWithoutScale();
-          defaultLogger.app.error.log(
-            `resolvedAssetSource: ${resolvedAssetSource.uri}`,
-          );
           return resolvedAssetSource;
         }
-        defaultLogger.app.error.log(`Platform.OS: ${Platform.OS}`);
         if (Platform.OS === 'ios') {
-          defaultLogger.app.error.log(`iOSAsset start`);
           const iOSAsset = this.scaledAssetURLNearBundle();
-          console.log('iOSAsset: ', iOSAsset);
-          defaultLogger.app.error.log(`iOSAsset: ${iOSAsset.uri}`);
-          defaultLogger.app.error.log(`iOSAsset end`);
           if (useJsBundle) {
-            defaultLogger.app.error.log(`useJsBundle start`, assetsPath);
             iOSAsset.uri = iOSAsset.uri
               .replace(this.jsbundleUrl, assetsPath)
               .replace('__packages', 'packages')
               .replace('__node_modules', 'node_modules');
-            defaultLogger.app.error.log(`useJsBundle end`, iOSAsset.uri);
           }
           return iOSAsset;
         }
