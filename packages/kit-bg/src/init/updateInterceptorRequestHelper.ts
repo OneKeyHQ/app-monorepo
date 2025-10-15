@@ -1,11 +1,11 @@
 import requestHelper from '@onekeyhq/shared/src/request/requestHelper';
 
 import { checkIsOneKeyDomain } from '../endpoints';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 import {
-  devSettingsPersistAtom,
   settingsPersistAtom,
   settingsValuePersistAtom,
-} from '../states/jotai/atoms';
+} from '../states/jotai/atoms/settings';
 
 export function updateInterceptorRequestHelper() {
   requestHelper.overrideMethods({

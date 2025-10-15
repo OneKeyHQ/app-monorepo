@@ -11,6 +11,7 @@ import {
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
+  TokenSupplementaryInfo,
 } from '../components';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
@@ -20,55 +21,56 @@ export function DesktopLayout() {
     useTokenDetail();
 
   return (
-    <>
-      {/* Header */}
-      <TokenDetailHeader />
+    <XStack flex={1}>
+      {/* Left column */}
+      <YStack flex={1}>
+        {/* Header */}
+        <TokenDetailHeader />
 
-      {/* Main Content */}
-      <XStack flex={1}>
-        {/* Left column */}
-        <YStack flex={1}>
-          {/* Trading view */}
-          <Stack flex={1} minHeight={300}>
-            {networkId && tokenDetail?.symbol ? (
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail?.symbol}
-                isNative={isNative}
-                dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
-              />
-            ) : null}
-          </Stack>
-
-          {/* Info tabs */}
-          {!isNative ? (
-            <Stack h="30vh">
-              <DesktopInformationTabs />
-            </Stack>
+        {/* Trading view */}
+        <Stack flex={1} minHeight={300}>
+          {networkId && tokenDetail?.symbol ? (
+            <MarketTradingView
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              tokenSymbol={tokenDetail?.symbol}
+              isNative={isNative}
+              dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+            />
           ) : null}
-        </YStack>
+        </Stack>
 
-        {/* Right column */}
+        {/* Info tabs */}
         {!isNative ? (
-          <Stack w={320}>
-            <ScrollView>
-              <Stack w={320}>
-                <Stack px="$5" py="$4">
-                  <SwapPanel
-                    networkId={networkId}
-                    tokenAddress={tokenDetail?.address}
-                  />
-                </Stack>
-
-                <Divider mx="$5" my="$2" />
-
-                <TokenActivityOverview />
-              </Stack>
-            </ScrollView>
+          <Stack h="30vh">
+            <DesktopInformationTabs />
           </Stack>
         ) : null}
-      </XStack>
-    </>
+      </YStack>
+
+      {/* Right column */}
+      {!isNative ? (
+        <Stack w={320}>
+          <ScrollView>
+            <Stack w={320}>
+              <Stack px="$5" py="$4">
+                <SwapPanel
+                  networkId={networkId}
+                  tokenAddress={tokenDetail?.address}
+                />
+              </Stack>
+
+              <Divider mx="$5" my="$2" />
+
+              <TokenActivityOverview />
+
+              <Divider mx="$5" />
+
+              <TokenSupplementaryInfo />
+            </Stack>
+          </ScrollView>
+        </Stack>
+      ) : null}
+    </XStack>
   );
 }

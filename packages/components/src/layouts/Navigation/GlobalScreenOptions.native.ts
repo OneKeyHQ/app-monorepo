@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import type { VariableVal } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { makeHeaderScreenOptions } from './Header';
@@ -7,7 +8,6 @@ import { makeHeaderScreenOptions } from './Header';
 import type { IScreenOptionsInfo } from './Navigator/types';
 import type { IStackNavigationOptions } from './ScreenProps';
 import type { RouteProp } from '@react-navigation/native';
-import type { VariableVal } from '@tamagui/core';
 
 export function clearStackNavigatorOptions(options?: {
   bgColor?: string;

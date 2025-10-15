@@ -4,6 +4,7 @@ import axios from 'axios';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import { bech32Decode } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IInvoiceDecodedResponse,
@@ -12,8 +13,6 @@ import type {
   ILNURLError,
   ILNURLPaymentInfo,
 } from '@onekeyhq/shared/types/lightning';
-
-import { bech32Decode } from './bech32';
 
 const parseLightingAddress = (emailAddress: string) => {
   if (

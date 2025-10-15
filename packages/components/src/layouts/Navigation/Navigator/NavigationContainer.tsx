@@ -13,8 +13,9 @@ import {
   DefaultTheme,
   NavigationContainer as RNNavigationContainer,
 } from '@react-navigation/native';
-import { useTheme } from 'tamagui';
 
+import { useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
@@ -22,7 +23,6 @@ import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sent
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
 import type { NavigationContainerRef } from '@react-navigation/native';
-import type { GetProps } from 'tamagui';
 
 type IBasicNavigationContainerProps = GetProps<typeof RNNavigationContainer>;
 export type INavigationContainerProps = Partial<IBasicNavigationContainerProps>;

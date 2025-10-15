@@ -9,7 +9,7 @@ import {
 import { useWindowDimensions } from 'react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getTokens, useIsHorizontalLayout, useMedia } from '../../hooks';
