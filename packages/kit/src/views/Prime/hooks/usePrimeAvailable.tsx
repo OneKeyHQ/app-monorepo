@@ -17,12 +17,11 @@ export function usePrimeAvailable() {
     if (platformEnv.isMas && !user?.primeSubscription?.isActive) {
       return false;
     }
-    return user?.isEnablePrime === true;
+    return true;
   }, [
     devSettings.enabled,
     devSettings.settings?.showPrimeTest,
     user?.primeSubscription?.isActive,
-    user?.isEnablePrime,
   ]);
   return useMemo(
     () => ({
