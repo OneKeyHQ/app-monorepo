@@ -20,6 +20,7 @@ import {
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -1059,6 +1060,11 @@ export default class Vault extends VaultBase {
   }: {
     unsignedTxs: IUnsignedTxPro[];
   }) {
+    // disable auto claim energy for watching account
+    if (accountUtils.isWatchingAccount({ accountId: this.accountId })) {
+      return;
+    }
+
     const unsignedTx = unsignedTxs[0];
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
 
