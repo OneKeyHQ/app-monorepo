@@ -3,7 +3,7 @@
 if (typeof window !== 'undefined') {
   window.$$onekeyJsReadyAt = Date.now();
   if (typeof window.nativePerformanceNow === 'function') {
-    window.$$onekeyJsReadyFromPerformanceNow = window.nativePerformanceNow();
+    window.$$onekeyJsReadyFromPerformanceNow = Date.now();
   }
 }
 
