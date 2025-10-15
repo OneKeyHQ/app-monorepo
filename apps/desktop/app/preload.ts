@@ -8,10 +8,7 @@ import { ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
-import type {
-  IDesktopAppState,
-  IDesktopStoreUpdateSettings,
-} from '@onekeyhq/shared/types/desktop';
+import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 

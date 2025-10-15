@@ -3,12 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
-import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 import { showTonMnemonicDialog } from '../../components/TonMnemonicDialog';

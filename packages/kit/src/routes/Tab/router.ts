@@ -258,9 +258,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               marginTop: getTokenValue('$4', 'size'),
             })
           : undefined,
-      ].filter<ITabNavigatorConfig<ETabRoutes>>(
-        (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
-      ),
+      ].filter((i) => !!i),
     [
       params,
       handleMarketTabPress,
@@ -271,7 +269,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       isShowMDDiscover,
       isShowDesktopDiscover,
     ],
-  );
+  ) as ITabNavigatorConfig<ETabRoutes>[];
 };
 
 export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =

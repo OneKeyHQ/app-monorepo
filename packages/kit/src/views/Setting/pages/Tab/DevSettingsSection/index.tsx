@@ -34,6 +34,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import {
   requestPermissionsAsync,
   setBadgeCountAsync,
@@ -63,7 +64,6 @@ import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
-import { AutoUpdateSettings } from './AutoUpdateSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { DeviceToken } from './DeviceToken';
 import { HapticsPanel } from './HapticsPanel';
@@ -282,9 +282,22 @@ const BaseDevSettingsSection = () => {
       <SectionPressItem
         icon="CodeOutline"
         title="Envs"
-        onPress={() => {
+        onPress={async () => {
           Dialog.debugMessage({
             debugMessage: {
+              startupTimeAt: await LaunchOptionsManager.getStartupTimeAt(),
+              jsReadyTimeAt: await LaunchOptionsManager.getJSReadyTimeAt(),
+              uiVisibleTimeAt: await LaunchOptionsManager.getUIVisibleTimeAt(),
+              jsReadyTime: await LaunchOptionsManager.getJSReadyTime(),
+              uiVisibleTime: await LaunchOptionsManager.getUIVisibleTime(),
+              bundleStartTime: await LaunchOptionsManager.getBundleStartTime(),
+              jsReadyFromPerformanceNow:
+                await LaunchOptionsManager.getJsReadyFromPerformanceNow(),
+              appWillMountFromPerformanceNow:
+                (globalThis.$$onekeyAppWillMountFromPerformanceNow || 0) -
+                __BUNDLE_START_TIME__,
+              uiVisibleFromPerformanceNow:
+                await LaunchOptionsManager.getUIVisibleFromPerformanceNow(),
               deskChannel: globalThis?.desktopApi?.deskChannel,
               arch: globalThis?.desktopApi?.arch,
               platform: globalThis?.desktopApi?.platform,
@@ -571,8 +584,13 @@ const BaseDevSettingsSection = () => {
         />
       </ListItem>
 
-      <AutoUpdateSettings />
-
+      <SectionPressItem
+        icon="ArrowTopCircleOutline"
+        title="Dev App Update Settings"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevAppUpdateModal);
+        }}
+      />
       <SectionFieldItem
         icon="WalletOutline"
         name="allowAddSameHDWallet"

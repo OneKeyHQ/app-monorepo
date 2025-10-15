@@ -1,3 +1,6 @@
+/* eslint-disable no-inner-declarations */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable prefer-template */
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
@@ -20,6 +23,110 @@ if (typeof process === 'undefined') {
       // @ts-ignore
       process[p] = bProcess[p];
     }
+  }
+}
+
+if (platformEnv.isNative) {
+  const useJsBundle =
+    require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle();
+  if (useJsBundle) {
+    const getJsBundlePath =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
+    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
+    const assetsPath = `file://${mainBundlePath}/assets/`;
+    const { Platform, PixelRatio } = require('react-native');
+    const AssetSourceResolver =
+      require('react-native/Libraries/Image/AssetSourceResolver').default;
+    const wrap = require('lodash/wrap');
+
+    const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
+
+    let getAndroidResourceFolderName;
+    let getAndroidResourceIdentifier;
+    if (Platform.OS === 'android') {
+      const pathSupport = require('@react-native/assets-registry/path-support');
+      getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
+      getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
+    }
+
+    function getAssetPathInDrawableFolder(asset) {
+      const scale = pickScale(asset.scales, PixelRatio.get());
+      const drawableFolder = getAndroidResourceFolderName(asset, scale);
+      const fileName = getAndroidResourceIdentifier(asset);
+      return drawableFolder + '/' + fileName + '.' + asset.type;
+    }
+
+    AssetSourceResolver.prototype.defaultAsset = wrap(
+      AssetSourceResolver.prototype.defaultAsset,
+      function (func, ...args) {
+        const defaultLogger =
+          require('@onekeyhq/shared/src/logger/logger').defaultLogger;
+        defaultLogger.app.error.log(`mainBundlePath: ${mainBundlePath}`);
+        const isLoadedFromServer = this.isLoadedFromServer();
+        console.log('isLoadedFromServer: ', isLoadedFromServer);
+        defaultLogger.app.error.log(
+          `isLoadedFromServer: ${isLoadedFromServer}`,
+        );
+        defaultLogger.app.error.log(`jsBundleUrl: ${this.jsbundleUrl}`);
+        if (isLoadedFromServer) {
+          const serverUrl = this.assetServerURL();
+          console.log('serverUrl: ', serverUrl);
+          defaultLogger.app.error.log(`serverUrl: ${serverUrl}`);
+          return serverUrl;
+        }
+        if (Platform.OS === 'android') {
+          defaultLogger.app.error.log(`isNativeAndroid start`);
+          const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
+          defaultLogger.app.error.log(
+            `isLoadedFromFileSystem: ${isLoadedFromFileSystem}`,
+          );
+
+          if (useJsBundle) {
+            defaultLogger.app.error.log(
+              `android useJsBundle start`,
+              assetsPath,
+            );
+            const asset = this.fromSource(
+              assetsPath + getAssetPathInDrawableFolder(this.asset),
+            );
+            asset.uri = asset.uri
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
+            defaultLogger.app.error.log(`android useJsBundle end`, asset.uri);
+            return asset;
+          }
+          if (isLoadedFromFileSystem) {
+            const resolvedAssetSource = this.drawableFolderInBundle();
+            defaultLogger.app.error.log(
+              `resolvedAssetSource: ${resolvedAssetSource.uri}`,
+            );
+            return resolvedAssetSource;
+          }
+          const resolvedAssetSource = this.resourceIdentifierWithoutScale();
+          defaultLogger.app.error.log(
+            `resolvedAssetSource: ${resolvedAssetSource.uri}`,
+          );
+          return resolvedAssetSource;
+        }
+        defaultLogger.app.error.log(`Platform.OS: ${Platform.OS}`);
+        if (Platform.OS === 'ios') {
+          defaultLogger.app.error.log(`iOSAsset start`);
+          const iOSAsset = this.scaledAssetURLNearBundle();
+          console.log('iOSAsset: ', iOSAsset);
+          defaultLogger.app.error.log(`iOSAsset: ${iOSAsset.uri}`);
+          defaultLogger.app.error.log(`iOSAsset end`);
+          if (useJsBundle) {
+            defaultLogger.app.error.log(`useJsBundle start`, assetsPath);
+            iOSAsset.uri = iOSAsset.uri
+              .replace(this.jsbundleUrl, assetsPath)
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
+            defaultLogger.app.error.log(`useJsBundle end`, iOSAsset.uri);
+          }
+          return iOSAsset;
+        }
+      },
+    );
   }
 }
 
