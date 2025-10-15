@@ -41,6 +41,7 @@ export const useDisplaySplash =
             if (appInfo.updateStrategy === EUpdateStrategy.seamless) {
               if (isFirstLaunchAfterUpdated(appInfo)) {
                 await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
+                setDisplaySplash(true);
                 return;
               }
               if (appInfo.status === EAppUpdateStatus.ready) {
@@ -64,6 +65,8 @@ export const useDisplaySplash =
                   );
                   await backgroundApiProxy.serviceAppUpdate.reset();
                 }
+              } else {
+                setDisplaySplash(true);
               }
             } else {
               setDisplaySplash(true);
