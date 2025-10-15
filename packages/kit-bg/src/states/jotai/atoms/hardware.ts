@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils.ts';
+import type { EHardwareUiStateAction } from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
   EFirmwareUpdateTipMessages,
   EOneKeyDeviceMode,

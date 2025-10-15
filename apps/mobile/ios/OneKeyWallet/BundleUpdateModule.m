@@ -775,6 +775,9 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     [userDefaults synchronize];
 
     NSMutableArray *fallbackUpdateBundleData = [[BundleUpdateModule readFallbackUpdateBundleDataFile] mutableCopy];
+    if (!fallbackUpdateBundleData) {
+        fallbackUpdateBundleData = [NSMutableArray array];
+    }
 
     if (currentFolderName) {
         NSArray *currentFolderData = [currentFolderName componentsSeparatedByString:@"-"];

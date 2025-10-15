@@ -28,6 +28,7 @@ export class AppUpdateScene extends BaseScene {
     return updateInfo;
   }
 
+  @LogToLocal({ level: 'info' })
   isNeedSyncAppUpdateInfo(isNeedSync: boolean) {
     return isNeedSync;
   }
