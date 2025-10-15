@@ -4,6 +4,7 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -161,9 +162,12 @@ function PerpPositionsList({
       />
     );
   };
-
+  const actions = useHyperliquidActions();
   return (
     <CommonTableListView
+      onPullToRefresh={async () => {
+        await actions.current.refreshAllPerpsData();
+      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'PerpPositionsList',
