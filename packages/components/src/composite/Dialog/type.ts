@@ -7,6 +7,12 @@ import type {
   SetStateAction,
 } from 'react';
 
+import type {
+  DialogContentProps as TMDialogContentProps,
+  DialogProps as TMDialogProps,
+  SheetProps as TMSheetProps,
+} from '@onekeyhq/components/src/shared/tamagui';
+
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
 import type {
   IButtonProps,
@@ -16,11 +22,6 @@ import type {
   IYStackProps,
 } from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
-import type {
-  DialogContentProps as TMDialogContentProps,
-  DialogProps as TMDialogProps,
-  SheetProps as TMSheetProps,
-} from 'tamagui';
 
 export type IDialogContextType = {
   dialogInstance: IDialogInstanceRef;
@@ -70,7 +71,6 @@ export interface IDialogHeaderContextType {
   headerProps: IDialogHeaderProps;
   setHeaderProps: Dispatch<SetStateAction<IDialogHeaderProps>>;
 }
-
 interface IBasicDialogProps extends TMDialogProps {
   /* If true, the content will be rendered later and fit content height. */
   isAsync?: boolean;
@@ -83,16 +83,16 @@ interface IBasicDialogProps extends TMDialogProps {
   title?: string;
   description?: string | ReactElement;
   trackID?: string;
-  /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
+  /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered. */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
-  // close on overlay or backdrop press
+  // Close on overlay or backdrop press
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
   sheetOverlayProps?: IYStackProps;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
-  disableDrag?: boolean; // disable drag gesture to close
+  disableDrag?: boolean; // Disable drag gesture to close
   testID?: string;
   onConfirm?: IOnDialogConfirm;
   onCancel?: (close: () => Promise<void>) => void;
@@ -128,7 +128,7 @@ export interface IDialogShowProps
    * @platform iOS, Web
    */
   isOverTopAllViews?: boolean;
-  /* Run it after dialog is closed  */
+  /* Run it after dialog is closed */
   onClose?: (extra?: { flag?: string }) => void | Promise<void>;
 }
 
