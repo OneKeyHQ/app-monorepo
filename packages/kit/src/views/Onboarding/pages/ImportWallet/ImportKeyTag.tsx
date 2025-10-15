@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, Stack, YStack } from '@onekeyhq/components';
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { BIP39_DOT_MAP_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -11,6 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import { PhaseInputArea } from '../../components/PhaseInputArea';
 

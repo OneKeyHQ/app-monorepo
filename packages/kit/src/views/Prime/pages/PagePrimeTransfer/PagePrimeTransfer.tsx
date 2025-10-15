@@ -5,7 +5,6 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Button, Dialog, Page } from '@onekeyhq/components';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';

@@ -12,6 +12,7 @@ export interface IDownloadPackageParams {
   signature?: string;
   downloadedFile?: string;
   headers?: Record<string, string>;
+  targetVersion?: string;
 }
 
 export type IUpdateDownloadedEvent =
@@ -103,6 +104,12 @@ export type ITestWriteEmptyMetadataJson = (
   bundleVersion: string,
 ) => Promise<{ success: boolean; message: string }>;
 
+export interface IJSBundle {
+  appVersion: string;
+  bundleVersion: string;
+  signature: string;
+}
+
 export interface IBundleUpdate {
   downloadBundle: IDownloadBundle;
   verifyBundle: IVerifyBundle;
@@ -110,7 +117,9 @@ export interface IBundleUpdate {
   downloadBundleASC: IDownloadBundleASC;
   installBundle: IInstallBundle;
   clearBundle: IClearBundle;
-  clearAllJSBundleData: () => Promise<void>;
+  clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
+  getFallbackBundles: () => Promise<IJSBundle[]>;
+  switchBundle: (params: IJSBundle) => Promise<void>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: ITestDeleteJsBundle;
   testDeleteJsRuntimeDir: ITestDeleteJsRuntimeDir;
