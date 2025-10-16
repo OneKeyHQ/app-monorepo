@@ -1,28 +1,23 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IModalNavigationProp,
-  ITabContainerRef,
+import type { ITabContainerRef } from '@onekeyhq/components';
+import {
+  DebugRenderTracker,
+  SizableText,
+  Tabs,
+  XStack,
 } from '@onekeyhq/components';
-import { IconButton, SizableText, Tabs, XStack } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsActiveOpenOrdersLengthAtom,
+  usePerpsActivePositionLengthAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-
-import { usePerpsActivePositionAtom } from '../../hooks';
 
 import { PerpOpenOrdersList } from './List/PerpOpenOrdersList';
 import { PerpPositionsList } from './List/PerpPositionsList';
 import { PerpTradesHistoryList } from './List/PerpTradesHistoryList';
-
-interface IPerpOrderInfoPanelProps {
-  isMobile?: boolean;
-}
 
 const tabNameToTranslationKey = {
   'Positions': ETranslations.perp_position_title,
@@ -40,56 +35,53 @@ function TabBarItem({
   onPress: (name: string) => void;
 }) {
   const intl = useIntl();
-  const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
-  const [{ activePositions: positions }] = usePerpsActivePositionAtom();
+
+  const [openOrdersLength] = usePerpsActiveOpenOrdersLengthAtom();
+  const [positionsLength] = usePerpsActivePositionLengthAtom();
 
   const tabCount = useMemo(() => {
     if (name === 'Trades History') {
       return '';
     }
-    if (name === 'Positions' && positions.length > 0) {
-      return `(${positions.length})`;
+    if (name === 'Positions' && positionsLength > 0) {
+      return `(${positionsLength})`;
     }
-    if (name === 'Open Orders' && orders.length > 0) {
-      return `(${orders.length})`;
+    if (name === 'Open Orders' && openOrdersLength > 0) {
+      return `(${openOrdersLength})`;
     }
     return '';
-  }, [positions.length, orders.length, name]);
+  }, [positionsLength, openOrdersLength, name]);
 
   return (
-    <XStack
-      py="$3"
-      ml="$5"
-      mr="$2"
-      borderBottomWidth={isFocused ? '$0.5' : '$0'}
-      borderBottomColor="$borderActive"
-      onPress={() => onPress(name)}
+    <DebugRenderTracker
+      position="bottom-center"
+      name={`PerpOrderInfoPanel_TabBarItem_${name}`}
     >
-      <SizableText size="$headingXs">
-        {`${intl.formatMessage({
-          id: tabNameToTranslationKey[
-            name as keyof typeof tabNameToTranslationKey
-          ],
-        })} ${tabCount}`}
-      </SizableText>
-    </XStack>
+      <XStack
+        py="$3"
+        ml="$5"
+        mr="$2"
+        borderBottomWidth={isFocused ? '$0.5' : '$0'}
+        borderBottomColor="$borderActive"
+        onPress={() => onPress(name)}
+      >
+        <SizableText size="$headingXs">
+          {`${intl.formatMessage({
+            id: tabNameToTranslationKey[
+              name as keyof typeof tabNameToTranslationKey
+            ],
+          })} ${tabCount}`}
+        </SizableText>
+      </XStack>
+    </DebugRenderTracker>
   );
 }
 
-function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
-  const intl = useIntl();
-
+function PerpOrderInfoPanel() {
   const tabsRef = useRef<ITabContainerRef | null>(null);
 
   const handleViewTpslOrders = () => {
     tabsRef.current?.jumpToTab('Open Orders');
-  };
-  const navigation =
-    useAppNavigation<IModalNavigationProp<IModalPerpParamList>>();
-  const handleViewTradesHistory = () => {
-    navigation.pushModal(EModalRoutes.PerpModal, {
-      screen: EModalPerpRoutes.PerpTradersHistoryList,
-    });
   };
 
   return (
@@ -97,23 +89,14 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       ref={tabsRef as any}
       headerHeight={80}
       initialTabName="Positions"
+      onTabChange={async (tab) => {
+        if (tab.tabName === 'Trades History') {
+          // do nothing
+        }
+      }}
       renderTabBar={(props) => (
         <Tabs.TabBar
           {...props}
-          renderToolbar={
-            isMobile
-              ? () => (
-                  <IconButton
-                    variant="tertiary"
-                    size="small"
-                    mr="$2"
-                    borderRadius="$full"
-                    icon="ClockTimeHistoryOutline"
-                    onPress={handleViewTradesHistory}
-                  />
-                )
-              : undefined
-          }
           renderItem={({ name, isFocused, onPress }) => (
             <TabBarItem name={name} isFocused={isFocused} onPress={onPress} />
           )}
@@ -126,19 +109,14 @@ function PerpOrderInfoPanel({ isMobile }: IPerpOrderInfoPanelProps) {
       )}
     >
       <Tabs.Tab name="Positions">
-        <PerpPositionsList
-          handleViewTpslOrders={handleViewTpslOrders}
-          isMobile={isMobile}
-        />
+        <PerpPositionsList handleViewTpslOrders={handleViewTpslOrders} />
       </Tabs.Tab>
       <Tabs.Tab name="Open Orders">
-        <PerpOpenOrdersList isMobile={isMobile} />
+        <PerpOpenOrdersList />
       </Tabs.Tab>
-      {!isMobile ? (
-        <Tabs.Tab name="Trades History">
-          <PerpTradesHistoryList useTabsList />
-        </Tabs.Tab>
-      ) : null}
+      <Tabs.Tab name="Trades History">
+        <PerpTradesHistoryList useTabsList />
+      </Tabs.Tab>
     </Tabs.Container>
   );
 }

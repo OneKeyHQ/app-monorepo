@@ -8,6 +8,12 @@ export enum ESendFeeStatus {
   Error = 'Error',
 }
 
+export enum ESendFeeDiscountStatus {
+  None = 'None',
+  Discounted = 'Discounted',
+  Free = 'Free',
+}
+
 export enum EFeeType {
   Standard = 'Standard',
   Custom = 'Custom',
@@ -73,6 +79,12 @@ export type IFeeUTXO = {
 };
 
 export type IFeeTron = {
+  accountInfo: {
+    energyTotal: number;
+    energyUsed: number;
+    freeEnergyTotal: number;
+    freeEnergyUsed: number;
+  };
   requiredBandwidth: number;
   requiredEnergy: number;
   originalFee: number;

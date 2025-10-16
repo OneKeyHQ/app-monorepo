@@ -9,6 +9,15 @@ export interface ILaunchOptionsManagerInterface {
   getLaunchOptions(): Promise<ILaunchOptions | null>;
   clearLaunchOptions(): Promise<boolean>;
   getDeviceToken(): Promise<string | null>;
+  getStartupTime(): Promise<number>;
+  getStartupTimeAt(): Promise<number>;
+  getJSReadyTimeAt(): Promise<number>;
+  getUIVisibleTimeAt(): Promise<number>;
+  getJSReadyTime(): Promise<number>;
+  getUIVisibleTime(): Promise<number>;
+  getBundleStartTime(): Promise<number>;
+  getJsReadyFromPerformanceNow(): Promise<number>;
+  getUIVisibleFromPerformanceNow(): Promise<number>;
 }
 
 export enum ELaunchOptionsLaunchType {

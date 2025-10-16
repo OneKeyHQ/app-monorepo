@@ -3,21 +3,27 @@ import { useMemo } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
-import { getTokens, useMedia, useTheme } from 'tamagui';
 
 import { type IActionListSection } from '@onekeyhq/components/src/actions';
 import {
   EPortalContainerConstantName,
   Portal,
 } from '@onekeyhq/components/src/hocs';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import {
+  getTokens,
+  useMedia,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -100,7 +106,7 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
-  const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
+  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
   const getSizeTokens = getTokens().size;
@@ -133,7 +139,10 @@ export function DesktopLeftSideBar({
                 merge: true,
                 params:
                   route.name === ETabRoutes.Market
-                    ? { from: EEnterWay.HomeTab }
+                    ? {
+                        screen: ETabMarketRoutes.TabMarket,
+                        params: { from: EEnterWay.HomeTab },
+                      }
                     : undefined,
               }),
               target: state.key,

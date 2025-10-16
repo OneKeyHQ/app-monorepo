@@ -247,10 +247,7 @@ function TokenDetailsHeader(props: IProps) {
   }, [wallet?.type, networkId, wallet?.backuped]);
 
   return (
-    <DebugRenderTracker
-      timesBadgePosition="top-right"
-      name="TokenDetailsHeader"
-    >
+    <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
         {/* Overview */}
         <Stack px="$5" py="$5">

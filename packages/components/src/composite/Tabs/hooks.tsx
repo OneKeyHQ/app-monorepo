@@ -8,9 +8,10 @@ import {
 
 import { useWindowDimensions } from 'react-native';
 
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import useProviderSideBarValue from '../../hocs/Provider/hooks/useProviderSideBarValue';
 import { getTokens, useIsHorizontalLayout, useMedia } from '../../hooks';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -85,7 +86,8 @@ const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
 export const useTabContainerWidth = platformEnv.isNative
   ? useNativeTabContainerWidth
   : () => {
-      const { leftSidebarCollapsed = false } = useProviderSideBarValue() || {};
+      const [{ collapsed: leftSidebarCollapsed = false }] =
+        useAppSideBarStatusAtom();
       const { md } = useMedia();
       const sideBarWidth = useMemo(() => {
         if (md) {

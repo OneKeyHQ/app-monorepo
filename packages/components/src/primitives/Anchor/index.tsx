@@ -1,10 +1,10 @@
 import { forwardRef } from 'react';
 
-import { Anchor as TamaguiAnchor } from 'tamagui';
+import { Anchor as TamaguiAnchor } from './Anchor';
 
-import type { AnchorProps } from 'tamagui';
+import type { IAnchorProps as ITamaguiAnchorProps } from './Anchor';
 
-export type IAnchorProps = AnchorProps;
+export type IAnchorProps = ITamaguiAnchorProps;
 
 export const Anchor = forwardRef<
   React.ElementRef<typeof TamaguiAnchor>,

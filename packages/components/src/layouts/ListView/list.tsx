@@ -2,13 +2,21 @@ import type { ForwardedRef, MutableRefObject } from 'react';
 import { forwardRef, useMemo } from 'react';
 
 import { FlashList } from '@shopify/flash-list';
-import { usePropsAndStyle, useStyle } from '@tamagui/core';
 import { FlatList } from 'react-native';
-import { getTokenValue } from 'tamagui';
+
+import {
+  getTokenValue,
+  usePropsAndStyle,
+  useStyle,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  StackStyle,
+  Tokens,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { DebugRenderTracker } from '../../utils/DebugRenderTracker';
 
-import type { StackStyle, Tokens } from '@tamagui/web';
+import type { IDebugRenderTrackerProps } from '../../utils/DebugRenderTracker';
 import type {
   FlatListProps,
   ListRenderItem,
@@ -59,6 +67,7 @@ export type IListViewProps<T> = Omit<
       offsetEnd: number;
       blankArea: number;
     }) => void;
+    debugRenderTrackerProps?: IDebugRenderTrackerProps;
   };
 
 function BaseListView<T>(
@@ -71,6 +80,7 @@ function BaseListView<T>(
     ListFooterComponentStyle = {},
     estimatedItemSize,
     useFlashList,
+    debugRenderTrackerProps,
     ...props
   }: IListViewProps<T>,
   ref: ForwardedRef<IListViewRef<T>>,
@@ -127,7 +137,11 @@ function BaseListView<T>(
 
   const ListViewComponent = useFlashList ? FlashList<T> : FlatList<T>;
   return (
-    <DebugRenderTracker timesBadgePosition="top-right" name="ListView">
+    <DebugRenderTracker
+      position="top-right"
+      name="ListView"
+      {...debugRenderTrackerProps}
+    >
       <ListViewComponent
         ref={ref}
         style={style as StyleProp<ViewStyle>}

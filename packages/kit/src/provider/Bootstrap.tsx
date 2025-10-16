@@ -274,6 +274,11 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          case EShortcutEvents.TabPerps:
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Perp);
+            });
+            break;
           case EShortcutEvents.TabReferAFriend:
             if (!isOpenedReferFriendsPage()) {
               ensureModalClosedAndNavigate(() => {
@@ -373,6 +378,12 @@ export const useFetchCurrencyList = () => {
 export const useFetchMarketBasicConfig = () => {
   useEffect(() => {
     void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+  }, []);
+};
+
+export const useFetchPerpConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
   }, []);
 };
 
@@ -606,6 +617,7 @@ export function Bootstrap() {
 
   useFetchCurrencyList();
   useFetchMarketBasicConfig();
+  useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();

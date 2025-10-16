@@ -52,6 +52,7 @@ import {
   COINTYPE_DNX,
   COINTYPE_ETH,
   FIRST_EVM_ADDRESS_PATH,
+  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
@@ -4982,9 +4983,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const accountId = account.id;
           const { indexedAccountId, address, addressDetail, type } = account;
 
+          const impl = networkUtils.getNetworkImpl({ networkId });
           let id = address ? `${networkId}--${address}` : '';
-          if (type === EDBAccountType.SIMPLE) {
-            const impl = networkUtils.getNetworkImpl({ networkId });
+          if (type === EDBAccountType.SIMPLE || impl === IMPL_EVM) {
             const normalizedAddress =
               addressDetail?.normalizedAddress || address;
             id = normalizedAddress ? `${impl}--${normalizedAddress}` : '';

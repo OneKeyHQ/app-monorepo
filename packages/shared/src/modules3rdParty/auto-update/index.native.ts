@@ -16,6 +16,7 @@ import type {
   IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
+  IJSBundle,
   IManualInstallPackage,
   IUseDownloadProgress,
   IVerifyASC,
@@ -221,8 +222,11 @@ interface INativeBundleUpdateModule {
   verifyBundleASC: (params: any) => Promise<void>;
   downloadBundleASC: (params: any) => Promise<void>;
   installBundle: (params: any) => Promise<void>;
+  getFallbackUpdateBundleData: () => Promise<IJSBundle[]>;
+  setCurrentUpdateBundleData: (params: IJSBundle) => Promise<void>;
   clearBundle: () => Promise<void>;
-  clearAllJSBundleData: () => Promise<void>;
+  clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
+  getWebEmbedPath: () => Promise<string>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (
     appVersion: string,
@@ -299,4 +303,15 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
     BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
+  getWebEmbedPath: () =>
+    BundleUpdateModule && BundleUpdateModule.getWebEmbedPath
+      ? BundleUpdateModule.getWebEmbedPath()
+      : Promise.resolve(''),
+  getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
+  switchBundle: async (params) => {
+    await BundleUpdateModule.setCurrentUpdateBundleData(params);
+    setTimeout(() => {
+      RNRestart.restart();
+    }, 2500);
+  },
 };

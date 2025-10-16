@@ -5,7 +5,7 @@ import { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, useIsModalPage } from '../../hocs';
+import { useIsModalPage } from '../../hocs';
 import {
   updateHeightWhenKeyboardHide,
   updateHeightWhenKeyboardShown,

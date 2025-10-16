@@ -14,6 +14,7 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    LaunchOptionsManager.sharedInstance().saveStartupTime(NSNumber(value: Date().timeIntervalSince1970))
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -88,11 +89,11 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
     // Check for updated bundle in Documents directory first
-    // let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
+    let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
 
-    // if bundlePath != nil {
-    //   return URL(string: bundlePath!)
-    // }
+    if bundlePath != nil {
+      return URL(string: bundlePath!)
+    }
 
     // Fallback to main bundle
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")

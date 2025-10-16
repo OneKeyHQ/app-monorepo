@@ -38,13 +38,15 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
+  getWebEmbedPath: () => Promise.resolve(''),
   downloadBundle: () => Promise.resolve({} as IUpdateDownloadedEvent),
   verifyBundle: () => Promise.resolve(),
   verifyBundleASC: () => Promise.resolve(),
   downloadBundleASC: () => Promise.resolve(),
   installBundle: () => Promise.resolve(),
   clearBundle: () => Promise.resolve(),
-  clearAllJSBundleData: () => Promise.resolve(),
+  clearAllJSBundleData: () =>
+    Promise.resolve({ success: false, message: 'Not supported on web' }),
   testVerification: () => Promise.resolve(false),
   testDeleteJsBundle: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
@@ -54,6 +56,8 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   testWriteEmptyMetadataJson: () =>
     Promise.resolve({ success: false, message: 'Not supported on web' }),
+  getFallbackBundles: () => Promise.resolve([]),
+  switchBundle: () => Promise.resolve(),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;

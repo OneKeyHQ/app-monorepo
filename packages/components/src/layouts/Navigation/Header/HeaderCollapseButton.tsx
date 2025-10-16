@@ -1,16 +1,18 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { AnimatePresence } from 'tamagui';
 
 import { Stack } from '@onekeyhq/components/src/primitives';
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
+import type { IAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { Tooltip } from '../../../actions';
-import useProviderSideBarValue from '../../../hocs/Provider/hooks/useProviderSideBarValue';
 import { useShortcuts } from '../../../hooks/useShortcuts';
 
 import HeaderIconButton from './HeaderIconButton';
@@ -22,7 +24,7 @@ export const useHeaderCollapseButtonVisibility = ({
   hideWhenOpen?: boolean;
   hideWhenCollapse?: boolean;
 }) => {
-  const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
+  const [{ collapsed: isCollapse = false }] = useAppSideBarStatusAtom();
 
   const shouldHideWhenCollapse = hideWhenCollapse && isCollapse;
   const shouldHideWhenOpen = hideWhenOpen && !isCollapse;
@@ -44,10 +46,9 @@ function HeaderCollapseButton({
   hideWhenCollapse?: boolean;
 }) {
   const intl = useIntl();
-  const {
-    leftSidebarCollapsed: isCollapse,
-    setLeftSidebarCollapsed: setIsCollapse,
-  } = useProviderSideBarValue();
+
+  const [{ collapsed: isCollapse }, setAppSideBarStatus] =
+    useAppSideBarStatusAtom();
 
   const { shouldHide } = useHeaderCollapseButtonVisibility({
     hideWhenOpen,
@@ -55,9 +56,11 @@ function HeaderCollapseButton({
   });
 
   const onPressCall = useCallback(() => {
-    setIsCollapse?.(!isCollapse);
+    setAppSideBarStatus(
+      (prev): IAppSideBarStatusAtom => ({ ...prev, collapsed: !isCollapse }),
+    );
     defaultLogger.app.page.navigationToggle();
-  }, [isCollapse, setIsCollapse]);
+  }, [isCollapse, setAppSideBarStatus]);
 
   useShortcuts(EShortcutEvents.SideBar, onPressCall);
 

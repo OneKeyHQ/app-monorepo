@@ -17,6 +17,7 @@ import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBr
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityChainResource } from '../entity/SimpleDbEntityChainResource';
 import type { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
@@ -255,4 +256,8 @@ export class SimpleDbProxy
   aggregateToken = this._createProxyService(
     'aggregateToken',
   ) as SimpleDbEntityAggregateToken;
+
+  chainResource = this._createProxyService(
+    'chainResource',
+  ) as SimpleDbEntityChainResource;
 }

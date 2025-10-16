@@ -14,10 +14,7 @@ import { SecureQRToast } from '../../../components/SecureQRToast';
 import useScanQrCode from '../../../views/ScanQrCode/hooks/useScanQrCode';
 
 export function AirGapQrcodeDialogContainer() {
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
+  const { start: startScan } = useScanQrCode();
 
   useEffect(() => {
     let hideQrToast: (extra?: { flag?: string }) => Promise<void>;
@@ -48,7 +45,11 @@ export function AirGapQrcodeDialogContainer() {
               qrWalletScene: true,
               autoHandleResult: false,
             });
-            console.log(result, result.raw);
+            console.log(
+              'AirGapQrcodeDialogContainer__startScan',
+              result,
+              result.raw,
+            );
             if (event.promiseId) {
               await backgroundApiProxy.servicePromise.resolveCallback({
                 id: event.promiseId,

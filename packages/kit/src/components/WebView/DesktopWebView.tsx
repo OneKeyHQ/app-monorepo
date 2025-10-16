@@ -19,7 +19,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import {
+  checkOneKeyCardGoogleOauthUrl,
+  needEraseElectronFeatureUrl,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
 import { createMessageInjectedScript } from './utils';
@@ -51,21 +54,17 @@ export type {
 const isDev = process.env.NODE_ENV !== 'production';
 
 function usePreloadJsUrl() {
-  const { preloadJsUrl } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
+  const [preloadJsUrl, setPreloadJsUrl] = useState('');
   useEffect(() => {
-    if (preloadJsUrl) {
-      return;
+    if (!preloadJsUrl) {
+      void globalThis.desktopApiProxy.webview
+        .getPreloadJsContent()
+        .then((url) => {
+          setPreloadJsUrl(url);
+        });
     }
-    const timer = setTimeout(() => {
-      if (!preloadJsUrl) {
-        console.error(`Webview render failed:
-      Please send messages of channel SET_ONEKEY_DESKTOP_GLOBALS at app start
-      `);
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
   }, [preloadJsUrl]);
-  return preloadJsUrl as string;
+  return preloadJsUrl;
 }
 
 // Used for webview type referencing
@@ -147,6 +146,22 @@ const DesktopWebView = forwardRef(
           }
         };
 
+        const checkEraseElectronFeature = (checkUrl: string) => {
+          try {
+            if (needEraseElectronFeatureUrl({ url: checkUrl })) {
+              const originUA = webview.getUserAgent();
+              const updatedUserAgent = originUA.replace(
+                / Electron\/[\d.]+/,
+                '',
+              );
+              webview.setUserAgent(updatedUserAgent);
+            }
+          } catch (e) {
+            // debugLogger.webview.error('handleNavigation', e);
+            console.error(e);
+          }
+        };
+
         const innerHandleDidFailLoad = (event: any) => {
           if (event.errorCode !== -3) {
             // TODO iframe error also show ErrorView
@@ -167,6 +182,7 @@ const DesktopWebView = forwardRef(
             setIsDomReady(false);
           }
           checkGoogleOauth(url);
+          checkEraseElectronFeature(url);
           onDidStartNavigation?.(event);
         };
 
@@ -386,6 +402,8 @@ const DesktopWebView = forwardRef(
     if (!preloadJsUrl) {
       return null;
     }
+
+    console.log('preloadJsUrl', preloadJsUrl);
 
     return (
       <>

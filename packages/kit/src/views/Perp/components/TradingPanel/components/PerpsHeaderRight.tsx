@@ -9,6 +9,7 @@ import {
   IconButton,
   SizableText,
   XStack,
+  useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,11 +21,13 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
-  usePerpsCurrentMidAtom,
+  usePerpsActiveOrderBookOptionsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,20 +40,22 @@ import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
 
 function DebugButton() {
-  const [currentMid] = usePerpsCurrentMidAtom(); // TODO remove
   const [allMids] = usePerpsAllMidsAtom();
   const [allAssetCtxs] = usePerpsAllAssetCtxsAtom();
   const { assetCtx: btcAssetCtx } = usePerpsAssetCtx({ assetId: 0 });
   const { mid: btcMid, midFormattedByDecimals: btcMidFormattedByDecimals } =
-    usePerpsMidPrice({ coin: 'BTC', szDecimals: 2 });
+    usePerpsMidPrice({ coin: 'BTC' });
 
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [activeAccountSummary] = usePerpsActiveAccountSummaryAtom();
+  const [activeAccountStatus] = usePerpsActiveAccountStatusAtom();
+  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
   const [activeOpenOrders] = usePerpsActiveOpenOrdersAtom();
   const [activePositions] = usePerpsActivePositionAtom();
+  const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
 
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DebugButton">
@@ -61,12 +66,8 @@ function DebugButton() {
         onPress={async () => {
           const simpleDbPerpData =
             await backgroundApiProxy.simpleDb.perp.getPerpData();
-          const bgHyperLiquidCache =
-            await backgroundApiProxy.serviceHyperliquid.getHyperLiquidCache();
           console.log('PerpsHeaderRight__DebugButton', {
             simpleDbPerpData,
-            bgHyperLiquidCache,
-            currentMid,
             allMids,
             allAssetCtxs,
             btcAssetCtx,
@@ -79,6 +80,9 @@ function DebugButton() {
             activeAssetData,
             activeOpenOrders,
             activePositions,
+            activeOrderBookOptions,
+            activeAccountStatus,
+            isAgentReady,
           });
         }}
       />
@@ -86,62 +90,89 @@ function DebugButton() {
   );
 }
 
-export function PerpsHeaderRight() {
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+function DepositButton() {
   const { gtSm } = useMedia();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+
   const accountValue = accountSummary?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
+  const dialogInTab = useInTabDialog();
+  const content = activeAccount.accountAddress ? (
+    <Badge
+      borderRadius="$full"
+      size="medium"
+      variant="secondary"
+      onPress={() =>
+        showDepositWithdrawModal(
+          {
+            actionType: 'deposit',
+          },
+          dialogInTab,
+        )
+      }
+      alignItems="center"
+      justifyContent="center"
+      flexDirection="row"
+      gap="$2"
+      px="$3"
+      h={32}
+      hoverStyle={{
+        bg: '$bgStrongHover',
+      }}
+      pressStyle={{
+        bg: '$bgStrongActive',
+      }}
+      cursor="pointer"
+    >
+      <Icon name="WalletOutline" size="$4" />
+
+      {gtSm ? (
+        <PerpsAccountNumberValue
+          value={accountValue ?? ''}
+          skeletonWidth={60}
+          textSize="$bodySmMedium"
+        />
+      ) : null}
+      <Divider
+        borderWidth={0.33}
+        borderBottomWidth={12}
+        borderColor="$borderSubdued"
+      />
+      {gtSm ? (
+        <SizableText size="$bodySmMedium" color="$text">
+          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+        </SizableText>
+      ) : (
+        <PerpsAccountNumberValue
+          value={accountValue ?? ''}
+          skeletonWidth={60}
+          textSize="$bodySmMedium"
+        />
+      )}
+    </Badge>
+  ) : null;
   return (
+    <DebugRenderTracker name="PerpsHeaderRight__DepositButton">
+      {content}
+    </DebugRenderTracker>
+  );
+}
+
+export function PerpsHeaderRight() {
+  const { gtMd } = useMedia();
+  const content = (
     <XStack alignItems="center" gap="$5">
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
-      {activeAccount.accountAddress ? (
-        <Badge
-          borderRadius="$full"
-          size="medium"
-          variant="secondary"
-          onPress={() =>
-            showDepositWithdrawModal({
-              actionType: 'deposit',
-              withdrawable: accountSummary?.withdrawable || '0',
-            })
-          }
-          alignItems="center"
-          justifyContent="center"
-          flexDirection="row"
-          gap="$2"
-          px="$3"
-          h={32}
-          hoverStyle={{
-            bg: '$bgStrongHover',
-          }}
-          pressStyle={{
-            bg: '$bgStrongActive',
-          }}
-          cursor="pointer"
-        >
-          <Icon name="WalletOutline" size="$4" />
-
-          {gtSm ? (
-            <PerpsAccountNumberValue
-              value={accountValue ?? ''}
-              skeletonWidth={60}
-              textSize="$bodySmMedium"
-            />
-          ) : null}
-          <Divider
-            borderWidth={0.33}
-            borderBottomWidth={12}
-            borderColor="$borderSubdued"
-          />
-          <SizableText size="$bodySmMedium" color="$text">
-            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-          </SizableText>
-        </Badge>
-      ) : null}
-      {platformEnv.isNative ? null : (
+      <DepositButton />
+      {gtMd ? (
         <PerpSettingsButton testID="perp-header-settings-button" />
-      )}
+      ) : null}
     </XStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpsHeaderRight" position="bottom-center">
+      {content}
+    </DebugRenderTracker>
   );
 }

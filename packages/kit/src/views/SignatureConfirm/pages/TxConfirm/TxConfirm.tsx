@@ -14,7 +14,6 @@ import {
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { calculateTxExtraFee } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -26,6 +25,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -112,6 +112,7 @@ function TxConfirm() {
             networkId,
             unsignedTxs: reactiveUnsignedTxs,
             transferPayload,
+            sourceInfo,
           });
 
         let extraFeeNativeTotal = new BigNumber(0);
@@ -137,6 +138,7 @@ function TxConfirm() {
         accountId,
         networkId,
         transferPayload,
+        sourceInfo,
         updateExtraFeeInfo,
         updateDecodedTxsInit,
       ],

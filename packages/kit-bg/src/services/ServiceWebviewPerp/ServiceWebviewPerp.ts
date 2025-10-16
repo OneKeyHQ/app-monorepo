@@ -1,8 +1,9 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEqual, isNil, isNumber, isString } from 'lodash';
+import { isNumber, isString } from 'lodash';
 import pTimeout from 'p-timeout';
 
+import type { IAlertType } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,
@@ -25,7 +26,10 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  EPerpUserType,
+  IHyperLiquidErrorLocaleItem,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   perpsUserConfigPersistAtom,
@@ -149,8 +153,12 @@ export enum EPerpDefaultTabType {
 }
 export interface IPerpServerBannerConfig {
   id: string;
+  alertType: IAlertType;
   title: string;
   description: string;
+  href?: string;
+  hrefType?: string;
+  useSystemBrowser?: boolean;
   canClose?: boolean;
 }
 
@@ -187,6 +195,7 @@ export interface IPerpServerConfigResponse {
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
   depositTokenConfig?: IPerpServerDepositConfig[];
+  hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {

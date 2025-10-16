@@ -1,34 +1,24 @@
-import { useMemo } from 'react';
+import { noop } from 'lodash';
 
-import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useHyperliquidActions,
+  usePerpsAllMidsAtom,
+} from '../../../states/jotai/contexts/hyperliquid';
 
-import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
-
-import { usePerpsAllMidsAtom } from '../../../states/jotai/contexts/hyperliquid';
-
-export function usePerpsMidPrice({
-  coin,
-  szDecimals,
-}: {
-  coin: string;
-  szDecimals?: number;
-}): {
+export function usePerpsMidPrice({ coin }: { coin: string }): {
   mid: string | undefined;
   midFormattedByDecimals: string | undefined;
 } {
   const [allMids] = usePerpsAllMidsAtom();
-  const mid = allMids?.mids?.[coin];
-  const midValue = new BigNumber(mid || '');
-  const midFormattedByDecimals = useMemo(() => {
-    if (isNil(szDecimals) || Number.isNaN(szDecimals)) {
-      return mid;
-    }
-    const result = formatPriceToSignificantDigits(mid, szDecimals);
-    return result;
-  }, [mid, szDecimals]);
-  if (midValue.isNaN() || midValue.isLessThanOrEqualTo(0)) {
+  const actions = useHyperliquidActions();
+  const { result } = usePromiseResult(async () => {
+    noop(allMids);
+    return actions.current.getMidPrice({ coin });
+  }, [allMids, coin, actions]);
+
+  if (!result) {
     return { mid: undefined, midFormattedByDecimals: undefined };
   }
-  return { mid, midFormattedByDecimals };
+  return result;
 }

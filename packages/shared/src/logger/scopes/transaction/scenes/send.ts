@@ -64,6 +64,7 @@ export class SendScene extends BaseScene {
     tronPayCoinCode,
     tronUseCredit,
     tronUseRedemptionCode,
+    tronIsCreditAutoClaimed,
   }: {
     network: string | undefined;
     txnType: string | undefined;
@@ -77,6 +78,7 @@ export class SendScene extends BaseScene {
     tronPayCoinCode: string | undefined;
     tronUseCredit: boolean | undefined;
     tronUseRedemptionCode: boolean | undefined;
+    tronIsCreditAutoClaimed: boolean | undefined;
   }) {
     return {
       network,
@@ -91,6 +93,7 @@ export class SendScene extends BaseScene {
       tronPayCoinCode,
       tronUseCredit,
       tronUseRedemptionCode,
+      tronIsCreditAutoClaimed,
     };
   }
 

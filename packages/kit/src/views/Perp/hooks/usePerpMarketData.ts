@@ -52,45 +52,6 @@ export function useL2Book(options?: IL2BookOptions): {
 } {
   const [l2BookData] = useL2BookAtom();
   const [currentToken] = usePerpsActiveAssetAtom();
-  const actions = useHyperliquidActions();
-  const prevOptionsRef = useRef<typeof options>(undefined);
-
-  // Monitor precision parameter changes and trigger resubscription
-  useEffect(() => {
-    const currentOptions = options;
-    const prevOptions = prevOptionsRef.current;
-
-    // Check if nSigFigs or mantissa have changed
-    const hasChanged =
-      currentOptions?.nSigFigs !== prevOptions?.nSigFigs ||
-      currentOptions?.mantissa !== prevOptions?.mantissa;
-
-    if (hasChanged && currentToken.coin) {
-      // Cancel current subscription and establish new one with updated parameters
-      const resubscribe = async () => {
-        try {
-          // Update subscription with new precision parameters
-          await actions.current.updateL2BookSubscription(
-            currentOptions || undefined,
-          );
-        } catch (error) {
-          console.error('Failed to update L2Book subscription:', error);
-          // Fallback to general subscription update
-          await actions.current.updateSubscriptions();
-        }
-      };
-
-      void resubscribe();
-    }
-
-    prevOptionsRef.current = currentOptions;
-  }, [
-    options?.nSigFigs,
-    options?.mantissa,
-    currentToken.coin,
-    actions,
-    options,
-  ]);
 
   const l2Book = useMemo((): IL2BookData | null => {
     if (!l2BookData || !currentToken.coin) return null;
