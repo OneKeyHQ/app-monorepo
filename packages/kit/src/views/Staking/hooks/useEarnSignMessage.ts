@@ -39,11 +39,8 @@ export function useEarnSignMessage() {
           accountAddress: account.address,
         });
 
-      // Ensure newline characters are escaped for signing,
-      // but avoid extra quotes from JSON.stringify.
-      const escapedMessage = unsignedMessage.message.replace(/\n/g, '\\n');
       let message = autoFixPersonalSignMessage({
-        message: escapedMessage,
+        message: unsignedMessage.message,
       });
       message = `0x${Buffer.from(message, 'utf8').toString('hex')}`;
 
