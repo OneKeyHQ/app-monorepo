@@ -59,7 +59,7 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
-        protocolVault: earnUtils.useVaultProvider({
+        protocolVault: earnUtils.isVaultBasedProvider({
           providerName,
         })
           ? vault
@@ -103,7 +103,7 @@ const WithdrawPage = () => {
     if (fromPage === EModalStakingRoutes.WithdrawOptions) {
       return BigNumber(initialAmount ?? 0).toFixed();
     }
-    return earnUtils.isMorphoProvider({ providerName })
+    return earnUtils.isVaultBasedProvider({ providerName })
       ? BigNumber(protocolInfo?.maxUnstakeAmount ?? active ?? 0).toFixed()
       : BigNumber(active ?? 0)
           .plus(overflow ?? 0)
@@ -132,7 +132,7 @@ const WithdrawPage = () => {
         providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
-      protocolVault: earnUtils.useVaultProvider({
+      protocolVault: earnUtils.isVaultBasedProvider({
         providerName,
       })
         ? vault

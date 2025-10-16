@@ -144,7 +144,7 @@ export function UniversalStake({
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
   const useVaultProvider = useMemo(
-    () => earnUtils.useVaultProvider({ providerName }),
+    () => earnUtils.isVaultBasedProvider({ providerName }),
     [providerName],
   );
   const [

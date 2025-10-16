@@ -261,7 +261,7 @@ export function ProtocolApyRewards({
     return null;
   }
 
-  if (earnUtils.isMorphoProvider({ providerName })) {
+  if (earnUtils.isVaultBasedProvider({ providerName })) {
     return (
       <MorphoApyInternal
         apys={apys}

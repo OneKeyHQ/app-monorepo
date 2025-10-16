@@ -188,7 +188,7 @@ export function UniversalWithdraw({
           networkId: networkId || '',
           provider: providerName || '',
           symbol: tokenSymbol || '',
-          vault: earnUtils.useVaultProvider({
+          vault: earnUtils.isVaultBasedProvider({
             providerName: providerName ?? '',
           })
             ? protocolVault || ''
