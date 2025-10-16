@@ -50,8 +50,7 @@ export const useHandleClaim = ({
     }) => {
       if (!accountId) return;
       const provider = protocolInfo?.provider || '';
-      const vault =
-        protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
+      const vault = protocolInfo?.vault || '';
       const stakingConfig =
         await backgroundApiProxy.serviceStaking.getStakingConfigs({
           networkId,

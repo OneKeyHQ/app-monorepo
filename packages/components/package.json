@@ -15,19 +15,12 @@
     "lodash": "^4.17.21",
     "moti": "^0.25.3",
     "qrcode": "^1.5.0",
-    "react-content-loader": "^6.2.1",
-    "react-dropzone": "^14.2.3",
     "react-hook-form": "^7.22.1",
     "react-native-keyboard-aware-scroll-view": "^0.9.5",
     "react-native-markdown-display": "7.0.2",
-    "react-native-modalize": "^2.1.1",
-    "react-native-progress": "^5.0.0",
     "react-native-root-siblings": "^5.0.1",
     "react-native-svg": "15.12.1",
-    "react-native-tab-view": "^3.5.1",
-    "react-native-typewriter": "^0.7.0",
-    "react-player": "^2.11.2",
-    "recyclerlistview": "^4.2.0"
+    "react-native-tab-view": "^3.5.1"
   },
   "devDependencies": {
     "@svgr/cli": "8.1.0",
