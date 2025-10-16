@@ -38,7 +38,11 @@ import type {
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
-import { estimateTxSize, getBIP44Path } from '@onekeyhq/core/src/utils';
+import {
+  checkIfValidPath,
+  estimateTxSize,
+  getBIP44Path,
+} from '@onekeyhq/core/src/utils';
 import {
   coinSelectWithWitness,
   getCoinSelectTxType,
@@ -982,15 +986,13 @@ export default class VaultBtc extends VaultBase {
     const btcForkNetwork = await this.getBtcForkNetwork();
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
     const txType = await this.getCoinSelectTxType(dbAccount.address);
+    const changeAddress = await this.getChangeAddress({ dbAccount });
     const { inputs, outputs, fee, bytes } = coinSelectWithWitness({
       inputsForCoinSelect,
       outputsForCoinSelect,
       feeRate,
       network: btcForkNetwork,
-      changeAddress: {
-        address: dbAccount.address,
-        path: getBIP44Path(dbAccount, dbAccount.address),
-      },
+      changeAddress,
       txType,
     });
 
@@ -1611,5 +1613,41 @@ export default class VaultBtc extends VaultBase {
     }
 
     return this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+  }
+
+  private async getChangeAddress({ dbAccount }: { dbAccount: IDBUtxoAccount }) {
+    const isHwOrHdWallet =
+      accountUtils.isHwWallet({ walletId: this.walletId }) ||
+      accountUtils.isHdWallet({ walletId: this.walletId });
+    const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
+    if (
+      (!isHwOrHdWallet || !isEnabledBtcFreshAddress) &&
+      dbAccount.xpubSegwit
+    ) {
+      return {
+        address: dbAccount.address,
+        path: getBIP44Path(dbAccount, dbAccount.address),
+      };
+    }
+
+    const freshAddress =
+      await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses({
+        networkId: this.networkId,
+        xpubSegwit: dbAccount.xpubSegwit || dbAccount.xpub,
+      });
+    const firstChangeAddresses = freshAddress?.change.unused;
+    if (Array.isArray(firstChangeAddresses) && firstChangeAddresses.length) {
+      const changeAddress = firstChangeAddresses[0];
+      return {
+        // TODO: re-generate address
+        address: checkIsDefined(changeAddress.address),
+        path: checkIfValidPath(changeAddress.path),
+      };
+    }
+
+    return {
+      address: dbAccount.address,
+      path: getBIP44Path(dbAccount, dbAccount.address),
+    };
   }
 }
