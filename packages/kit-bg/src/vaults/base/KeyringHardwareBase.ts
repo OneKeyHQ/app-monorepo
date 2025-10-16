@@ -71,11 +71,12 @@ export abstract class KeyringHardwareBase extends KeyringBase {
     ) => IDeviceResponse<Array<T>>;
     errorMessage: string;
   }): Promise<T[]> {
-    const { deriveInfo, deviceParams } = params;
+    const { deriveInfo, deviceParams, chainExtraParams } = params;
     const { dbDevice, confirmOnDevice } = deviceParams;
     const { connectId, deviceId } = dbDevice;
     const { template, coinName } = deriveInfo;
     const { pathPrefix, pathSuffix } = slicePathTemplate(template);
+    const { receiveAddressPath } = chainExtraParams ?? {};
 
     const showOnOnekeyFn = (arrIndex: number) => {
       if (confirmOnDevice === EConfirmOnDeviceType.EveryItem) {
@@ -97,6 +98,7 @@ export abstract class KeyringHardwareBase extends KeyringBase {
         pathSuffix,
         template,
         coinName,
+        receiveAddressPath,
         showOnOnekeyFn,
       }),
     );

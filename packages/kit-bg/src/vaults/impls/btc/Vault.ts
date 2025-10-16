@@ -94,11 +94,7 @@ import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientBtc } from './sdkBtc/ClientBtc';
 
-import type {
-  IDBAccount,
-  IDBUtxoAccount,
-  IDBWalletType,
-} from '../../../dbs/local/types';
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IBroadcastTransactionByCustomRpcParams,
@@ -126,6 +122,7 @@ export default class VaultBtc extends VaultBase {
     // );
 
     let receiveAddress = address;
+    let receiveAddressPath: string | undefined;
     if (networkUtils.isBTCNetwork(networkId)) {
       const enableBTCFreshAddress = (await settingsPersistAtom.get())
         .enableBTCFreshAddress;
@@ -146,6 +143,7 @@ export default class VaultBtc extends VaultBase {
             addresses.fresh.unused[0].isDerivedByApp
           ) {
             receiveAddress = addresses.fresh.unused[0].address;
+            receiveAddressPath = addresses.fresh.unused[0].path;
           } else {
             // TODO: re-generate fresh address
           }
@@ -162,6 +160,7 @@ export default class VaultBtc extends VaultBase {
       isValid: true,
       allowEmptyAddress: false,
       masterAddress: address,
+      receiveAddressPath,
     };
   }
 

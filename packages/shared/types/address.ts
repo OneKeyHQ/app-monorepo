@@ -116,6 +116,7 @@ export type INetworkAccountAddressDetail = {
   displayAddress: string; // checksum address in EVM
   allowEmptyAddress: boolean; // allow empty address, like lightning network
   masterAddress?: string; // master address of this address, like first address in BTC
+  receiveAddressPath?: string | undefined; // btc fresh address path
 };
 
 export enum EServerInteractedStatus {
