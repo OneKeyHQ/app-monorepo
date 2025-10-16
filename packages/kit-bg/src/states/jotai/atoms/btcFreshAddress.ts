@@ -30,3 +30,12 @@ export const {
     txCount: {},
   },
 });
+
+export const {
+  target: btcLocalUsedAddressesHashAtom,
+  use: useBtcLocalUsedAddressesHashAtom,
+} = globalAtom<Record<string, string>>({
+  persist: true,
+  name: EAtomNames.btcLocalUsedAddressesHashAtom,
+  initialValue: {},
+});

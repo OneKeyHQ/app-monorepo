@@ -1,6 +1,8 @@
-import { getBtcForkNetwork, transformAddress } from '.';
+import { getBtcForkNetwork } from '.';
 
 import { EAddressEncodings } from '../../../types';
+
+import { transformAddress } from './fresh-address';
 
 import type { IBtcBlockbookDerivedInfo } from '../types';
 

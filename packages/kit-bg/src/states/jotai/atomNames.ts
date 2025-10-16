@@ -78,6 +78,7 @@ export enum EAtomNames {
 
   btcFreshAddressLastUpdateAtom = 'btcFreshAddressLastUpdateAtom',
   btcFreshAddressTxCountAtom = 'btcFreshAddressTxCountAtom',
+  btcLocalUsedAddressesHashAtom = 'btcLocalUsedAddressesHashAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

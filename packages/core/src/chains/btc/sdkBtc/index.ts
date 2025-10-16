@@ -43,13 +43,7 @@ import type {
   ICurveName,
   ITxInputToSign,
 } from '../../../types';
-import type {
-  IBtcBlockbookDerivedInfo,
-  IBtcForkNetwork,
-  IBtcForkSigner,
-  IBtcFreshAddress,
-  IBtcFreshAddressStructure,
-} from '../types';
+import type { IBtcForkNetwork, IBtcForkSigner } from '../types';
 import type { BIP32API } from 'bip32/types/bip32';
 import type { Payment, Psbt, networks } from 'bitcoinjs-lib';
 import type { TinySecp256k1Interface } from 'bitcoinjs-lib/src/types';
@@ -860,93 +854,4 @@ export async function convertLtcXpub({
   }
 
   return undefined;
-}
-
-export async function transformAddress({
-  network,
-  xpub,
-  addressEncoding,
-  derivedInfos,
-}: // pendingTransactions,
-{
-  network: IBtcForkNetwork;
-  xpub: string;
-  addressEncoding: EAddressEncodings;
-  derivedInfos: IBtcBlockbookDerivedInfo[];
-  // TODO: pendingTransactions?: Record<string, string[]>;
-}): Promise<IBtcFreshAddressStructure | undefined> {
-  if (!derivedInfos || !Array.isArray(derivedInfos)) return undefined;
-  const addresses = derivedInfos.filter((i) => i.type === 'XPUBAddress');
-  if (addresses.length < 1) return undefined;
-  const internal = addresses.filter((i) => i.path.split('/')[4] === '1');
-  const external = addresses.filter((i) => internal.indexOf(i) < 0);
-
-  const toFreshAddress = (
-    info: IBtcBlockbookDerivedInfo,
-    address: string | undefined,
-  ): IBtcFreshAddress => ({
-    address,
-    name: info.name,
-    path: info.path,
-    transfers: info.transfers,
-    isDerivedByApp: true,
-    balance: info.balance,
-    totalReceived: info.totalReceived,
-    totalSent: info.totalSent,
-  });
-
-  // TODO: sort by address_index
-  const transformUnusedAddresses = async (
-    unusedAddresses: IBtcBlockbookDerivedInfo[],
-  ): Promise<IBtcFreshAddress[]> => {
-    if (unusedAddresses.length === 0) return [];
-
-    // Only verify the first address to avoid unnecessary async overhead
-    const firstAddress = unusedAddresses[0];
-    const relativePath = `${firstAddress.path.split('/')[4]}/${
-      firstAddress.path.split('/')[5]
-    }`;
-    const derivedAddress = await getAddressFromXpub({
-      curve: 'secp256k1',
-      network,
-      xpub,
-      relativePaths: [relativePath],
-      addressEncoding,
-      encodeAddress: (encodedAddress) => encodedAddress,
-    });
-
-    if (derivedAddress.addresses[relativePath] !== firstAddress.name) {
-      throw new OneKeyInternalError(
-        `transformAddress: derived address not match, xpub: ${xpub}, path: ${firstAddress.path}, address: ${firstAddress.name}, generatedAddress: ${derivedAddress.addresses[0]}`,
-      );
-    }
-
-    // Map all addresses synchronously for better performance
-    return unusedAddresses.map((i, index) =>
-      toFreshAddress(
-        i,
-        index === 0 ? derivedAddress.addresses[relativePath] : undefined,
-      ),
-    );
-  };
-
-  const [unusedChangeAddresses, unusedFreshAddresses] = await Promise.all([
-    transformUnusedAddresses(internal.filter((i) => i.transfers === 0)),
-    transformUnusedAddresses(external.filter((i) => i.transfers === 0)),
-  ]);
-
-  return {
-    change: {
-      used: internal
-        .filter((i) => i.transfers > 0)
-        .map((i) => toFreshAddress(i, i.name)),
-      unused: unusedChangeAddresses,
-    },
-    fresh: {
-      used: external
-        .filter((i) => i.transfers > 0)
-        .map((i) => toFreshAddress(i, i.name)),
-      unused: unusedFreshAddresses,
-    },
-  };
 }

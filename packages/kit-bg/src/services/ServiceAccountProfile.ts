@@ -2,9 +2,9 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
 import {
-  getBtcForkNetwork,
+  getLocalUsedAddressFromLocalPendingTxs,
   transformAddress,
-} from '@onekeyhq/core/src/chains/btc/sdkBtc';
+} from '@onekeyhq/core/src/chains/btc/sdkBtc/fresh-address';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
@@ -18,6 +18,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -48,6 +49,7 @@ import {
   activeAccountValueAtom,
   btcFreshAddressLastUpdateAtom,
   btcFreshAddressTxCountAtom,
+  btcLocalUsedAddressesHashAtom,
   currencyPersistAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
@@ -845,6 +847,17 @@ class ServiceAccountProfile extends ServiceBase {
       return;
     }
 
+    const { localUsedAddressesHash, localUsedAddressesMap } =
+      await this.getLocalPendingTxsForFreshAddress({
+        networkId,
+      });
+    const lastLocalUsedAddressesHash =
+      await btcLocalUsedAddressesHashAtom.get();
+
+    const isSameLocalUsedAddressesHash =
+      lastLocalUsedAddressesHash[key] &&
+      lastLocalUsedAddressesHash[key] === localUsedAddressesHash;
+
     const currentTxCount = (await btcFreshAddressTxCountAtom.get()).txCount[
       key
     ];
@@ -855,7 +868,8 @@ class ServiceAccountProfile extends ServiceBase {
         withTransactionCount: true,
       });
       if (
-        (accountDetailsWithTxCount.transactionCount || 0) === currentTxCount
+        (accountDetailsWithTxCount.transactionCount || 0) === currentTxCount &&
+        isSameLocalUsedAddressesHash
       ) {
         void btcFreshAddressLastUpdateAtom.set((prev) => ({
           lastUpdateTime: {
@@ -900,6 +914,7 @@ class ServiceAccountProfile extends ServiceBase {
       xpub: account.xpub,
       addressEncoding: encoding,
       derivedInfos: accountDetailsWithXpubDerivedTokens.xpubDerivedTokens,
+      localUsedAddressesMap,
     });
     if (derivedInfos) {
       await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
@@ -925,7 +940,30 @@ class ServiceAccountProfile extends ServiceBase {
         [key]: Date.now(),
       },
     }));
+    void btcLocalUsedAddressesHashAtom.set((prev) => ({
+      ...prev,
+      // TODO: key is temporary solution for type safe
+      [key]: localUsedAddressesHash ?? key,
+    }));
   }
+
+  private getLocalPendingTxsForFreshAddress = memoizee(
+    async ({ networkId }: { networkId: string }) => {
+      const localPendingTxs =
+        await this.backgroundApi.simpleDb.localHistory.getLocalPendingHistoryByNetwork(
+          {
+            networkId,
+          },
+        );
+      return getLocalUsedAddressFromLocalPendingTxs({
+        pendingTxs: localPendingTxs.pendingTxs,
+      });
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }),
+    },
+  );
 
   @backgroundMethod()
   async isSoftwareWalletOnlyUser() {
