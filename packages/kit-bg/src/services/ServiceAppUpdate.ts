@@ -418,7 +418,7 @@ class ServiceAppUpdate extends ServiceBase {
           status: hasVersionChanged ? EAppUpdateStatus.notify : prev.status,
           previousAppVersion: hasVersionChanged
             ? platformEnv.version
-            : undefined,
+            : prev.previousAppVersion,
           downloadedEvent,
         };
       });
