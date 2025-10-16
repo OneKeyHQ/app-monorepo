@@ -57,7 +57,6 @@
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
     "@alephium/web3": "^1.5.2",
-    "@atlaskit/pragmatic-drag-and-drop": "1.7.4",
     "@benfen/bfc.js": "0.2.7",
     "@cityofzion/neon-core": "^5.7.0",
     "@cowprotocol/contracts": "^1.7.0",
@@ -98,7 +97,6 @@
     "@tamagui/themes": "1.108.0",
     "@tamagui/toast": "1.108.0",
     "@ungap/structured-clone": "^1.2.0",
-    "@vespaiach/axios-fetch-adapter": "^0.3.1",
     "@wagmi/core": "2.21.0",
     "@walletconnect/sign-client": "2.21.7",
     "@walletconnect/universal-provider": "2.21.7",
@@ -154,7 +152,6 @@
     "socket.io-client": "^4.7.5",
     "sonner": "^1.4.41",
     "stream-browserify": "^3.0.0",
-    "superagent": "6.1.0",
     "systeminformation": "^5.25.11",
     "tamagui": "1.108.0",
     "text-encoding": "^0.7.0",
