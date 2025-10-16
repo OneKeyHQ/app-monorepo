@@ -26,6 +26,7 @@ import type {
   IEarnClaimActionIcon,
   IEarnClaimWithKycActionIcon,
   IEarnIcon,
+  IEarnListaCheckActionIcon,
   IEarnPopupActionIcon,
   IEarnPortfolioActionIcon,
   IEarnText,
@@ -34,6 +35,7 @@ import type {
   IProtocolInfo,
 } from '@onekeyhq/shared/types/staking';
 
+import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { useHandleClaim } from '../../pages/ProtocolDetails/useHandleClaim';
 
 import { EarnIcon } from './EarnIcon';
@@ -308,6 +310,50 @@ function BasicClaimActionIcon({
 
 const ClaimActionIcon = memo(BasicClaimActionIcon);
 
+function BasicListaCheckActionIcon({
+  actionIcon,
+  protocolInfo,
+  token,
+}: {
+  actionIcon: IEarnListaCheckActionIcon;
+  protocolInfo?: IProtocolInfo;
+  token?: IEarnToken;
+}) {
+  const [loading, setLoading] = useState(false);
+  const signMessage = useEarnSignMessage();
+
+  const handlePress = useCallback(async () => {
+    if (!protocolInfo) {
+      return;
+    }
+    setLoading(true);
+
+    void signMessage({
+      accountId: protocolInfo.earnAccount?.accountId ?? '',
+      networkId: protocolInfo.earnAccount?.networkId ?? '',
+      provider: protocolInfo.provider,
+      symbol: token?.symbol,
+      request: { origin: 'https://lista.org/', scope: 'ethereum' },
+    }).finally(() => setLoading(false));
+  }, [protocolInfo, signMessage, token]);
+
+  return (
+    <Button
+      size="small"
+      variant="primary"
+      loading={loading}
+      disabled={loading || actionIcon?.disabled}
+      onPress={handlePress}
+    >
+      {typeof actionIcon.text === 'string'
+        ? actionIcon.text
+        : actionIcon.text.text}
+    </Button>
+  );
+}
+
+const ListaCheckActionIcon = memo(BasicListaCheckActionIcon);
+
 function BasicClaimWithKycActionIcon({
   actionIcon,
   protocolInfo,
@@ -441,6 +487,14 @@ function BasicEarnActionIcon({
           actionIcon={actionIcon}
           protocolInfo={protocolInfo}
           tokenInfo={tokenInfo}
+        />
+      );
+    case 'listaCheck':
+      return (
+        <ListaCheckActionIcon
+          actionIcon={actionIcon}
+          protocolInfo={protocolInfo}
+          token={token}
         />
       );
     case 'claim':
