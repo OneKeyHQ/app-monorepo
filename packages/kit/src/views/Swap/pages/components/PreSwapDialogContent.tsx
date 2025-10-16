@@ -345,7 +345,6 @@ const PreSwapDialogContent = ({
               <YStack gap="$2">
                 {preSwapData?.isHWAndExBatchTransfer ? (
                   <XStack gap="$1" alignItems="center">
-                    <Icon name="InfoCircleOutline" size="$4" />
                     <SizableText size="$bodyMd">
                       {intl.formatMessage({
                         id: quoteResult?.allowanceResult?.shouldResetApprove

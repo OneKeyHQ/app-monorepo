@@ -1,4 +1,4 @@
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';

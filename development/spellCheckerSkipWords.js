@@ -23,6 +23,7 @@ module.exports = [
   'reown',
   'wui',
   'deeplinks',
+  'minmov',
   'appkit',
   'wcm',
   'perp',

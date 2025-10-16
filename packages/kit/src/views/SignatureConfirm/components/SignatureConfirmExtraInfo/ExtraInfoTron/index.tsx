@@ -10,16 +10,12 @@ import type {
 import { Icon, XStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
-import {
-  useSendSelectedFeeInfoAtom,
-  useTronResourceRentalInfoAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { useSendSelectedFeeInfoAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
 
-import ClaimResourceEntry from './ClaimResourceEntry';
 import ResourceRental from './ResourceRental';
 
 function ExtraInfoTron({
@@ -35,7 +31,6 @@ function ExtraInfoTron({
 }) {
   const intl = useIntl();
   const [selectedFeeInfo] = useSendSelectedFeeInfoAtom();
-  const [resourceRentalInfo] = useTronResourceRentalInfoAtom();
 
   const feeTron = selectedFeeInfo?.feeInfos?.[0]?.feeInfo?.feeTron;
 
@@ -86,9 +81,6 @@ function ExtraInfoTron({
           </SignatureConfirmItem.Label>
           <Icon name="InfoCircleOutline" size="$4.5" color="$iconSubdued" />
         </XStack>
-        {resourceRentalInfo.isResourceRentalNeeded ? (
-          <ClaimResourceEntry accountId={accountId} networkId={networkId} />
-        ) : null}
       </XStack>
       <SignatureConfirmItem.Value>
         {intl.formatMessage(
