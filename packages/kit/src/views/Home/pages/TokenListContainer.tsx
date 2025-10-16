@@ -20,6 +20,7 @@ import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { IRiskTokenManagementDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityRiskTokenManagement';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -80,7 +81,6 @@ import {
 } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 const networkIdsMap = getNetworkIdsMap();
 

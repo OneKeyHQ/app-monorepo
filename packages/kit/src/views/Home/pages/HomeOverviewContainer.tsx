@@ -16,6 +16,7 @@ import {
   settingsValuePersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -41,7 +42,6 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 import { showBalanceDetailsDialog } from '../components/BalanceDetailsDialog';
 
 import type { FontSizeTokens } from 'tamagui';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function HomeOverviewContainer() {
   const num = 0;
@@ -197,11 +197,11 @@ function HomeOverviewContainer() {
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
 
   const handleRefreshWorth = useCallback(() => {
-    if (isRefreshingWorth || isWalletNotBackedUp) return;
+    if (isRefreshingWorth) return;
     setIsRefreshingWorth(true);
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
     defaultLogger.account.wallet.walletManualRefresh();
-  }, [isRefreshingWorth, isWalletNotBackedUp]);
+  }, [isRefreshingWorth]);
 
   const isLoading =
     isRefreshingWorth ||
@@ -211,7 +211,7 @@ function HomeOverviewContainer() {
     isRefreshingApprovalList;
 
   const refreshButton = useMemo(() => {
-    return platformEnv.isNative ? undefined : (
+    return platformEnv.isNative || isWalletNotBackedUp ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
         variant="tertiary"
@@ -220,7 +220,7 @@ function HomeOverviewContainer() {
         trackID="wallet-refresh-manually"
       />
     );
-  }, [handleRefreshWorth, isLoading]);
+  }, [handleRefreshWorth, isLoading, isWalletNotBackedUp]);
 
   const handleBalanceOnPress = useCallback(async () => {
     const settingsValue = await settingsValuePersistAtom.get();

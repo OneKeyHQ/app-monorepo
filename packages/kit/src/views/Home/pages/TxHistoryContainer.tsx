@@ -9,6 +9,7 @@ import {
   useCurrencyPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
@@ -40,7 +41,6 @@ import {
 import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
 import { onHomePageRefresh } from '../components/PullToRefresh';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =

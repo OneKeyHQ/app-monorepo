@@ -14,6 +14,7 @@ import {
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -22,6 +23,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
+import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import {
   AccountSelectorProviderMirror,
   AccountSelectorTriggerHome,
@@ -29,8 +31,6 @@ import {
 import { useSpotlight } from '../Spotlight';
 
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
-import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 
 export function HeaderLeftCloseButton() {
   return (
