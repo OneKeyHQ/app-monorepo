@@ -2953,6 +2953,7 @@
   swap_revoke_successful = 'swap.revoke_successful',
   swap_stablecoin_0_fee = 'swap.stablecoin_0_fee',
   swap_step_1 = 'swap.step_1',
+  swap_toast_bridge_tip = 'swap.toast_bridge_tip',
   swap_toast_go_to_swap = 'swap.toast_go_to_swap',
   swap_toast_go_to_swap_desc = 'swap.toast_go_to_swap_desc',
   swap_toast_go_to_swap_desc_unlimited_approve = 'swap.toast_go_to_swap_desc_unlimited_approve',
