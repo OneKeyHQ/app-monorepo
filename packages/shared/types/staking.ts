@@ -281,6 +281,16 @@ export type IStakeTxEthLido = {
   data: string;
 };
 
+export enum EInternalDappEnum {
+  Staking = 'staking',
+  Swap = 'swap',
+}
+
+export type IInternalDappTxParams = {
+  internalDappTx: IStakeTx;
+  internalDappType: EInternalDappEnum;
+};
+
 // Cosmos dapp interface signAmino
 export type IStakeTxCosmosAmino = {
   readonly chain_id: string;
@@ -1171,3 +1181,24 @@ export interface IEarnSummary {
     button?: IEarnActionIcon;
   }[];
 }
+
+export type IStakeBlockRegionResponse =
+  | {
+      isBlockedRegion: true;
+      countryCode: string;
+      notification: {
+        icon: {
+          icon: IKeyOfIcons;
+        };
+        title: {
+          text: string;
+        };
+        description: {
+          text: string;
+        };
+      };
+    }
+  | {
+      isBlockedRegion: false;
+      countryCode: string;
+    };

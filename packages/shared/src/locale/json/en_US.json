@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "Revoke approval successful",
   "swap.stablecoin_0_fee": "0 Fee",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "This chain has been selected, please select another chain for cross-chain transfer.",
   "swap.toast_go_to_swap": "Go to swap",
   "swap.toast_go_to_swap_desc": "Approve {num} {token} for {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "Approve unlimited {token} to {provider}",
