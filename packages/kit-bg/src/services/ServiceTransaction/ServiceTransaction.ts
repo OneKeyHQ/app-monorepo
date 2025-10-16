@@ -80,11 +80,11 @@ class ServiceTransaction extends ServiceBase {
           });
           break;
         case 'parseInfo':
-          txParseInfoVerifyResult = await this.verifyTransactionParseInfo(
+          txParseInfoVerifyResult = await this.verifyTransactionParseInfo({
             autoToastVerifyError,
             skipVerifyError,
             ...rest,
-          );
+          });
           break;
         default:
       }
