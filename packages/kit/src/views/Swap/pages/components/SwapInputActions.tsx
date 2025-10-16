@@ -22,13 +22,11 @@ const SwapInputActions = ({
   showPercentageInput,
   showActionBuy,
   onSelectStage,
-  stagePopoverContent,
   fromToken,
   accountInfo,
 }: {
   showPercentageInput: boolean;
   showActionBuy: boolean;
-  stagePopoverContent?: React.ReactNode;
   onSelectStage?: (stage: number) => void;
   fromToken?: ISwapToken;
   accountInfo?: IAccountSelectorActiveAccountInfo;
@@ -105,9 +103,6 @@ const SwapInputActions = ({
                   key={`swap-percentage-input-stage-${stage}`}
                   stage={stage}
                   onSelectStage={onSelectStage}
-                  popoverContent={
-                    stage === 100 ? stagePopoverContent : undefined
-                  }
                 />
               ))}
             </>

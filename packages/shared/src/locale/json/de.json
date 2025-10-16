@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "Widerruf der Genehmigung erfolgreich",
   "swap.stablecoin_0_fee": "0 Gebühr",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "Diese Chain wurde ausgewählt. Bitte wählen Sie für die Chain-übergreifende Übertragung eine andere Chain aus.",
   "swap.toast_go_to_swap": "Zum Tausch gehen",
   "swap.toast_go_to_swap_desc": "Genehmige {num} {token} für {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "Unbegrenzte {token} für {provider} genehmigen",

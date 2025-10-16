@@ -1,5 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -753,6 +753,11 @@ export interface IFetchBuildTxResponse {
   ctx?: any;
   socketBridgeScanUrl?: string;
   orderId?: string;
+  btcData?: {
+    hexStr: string;
+    addressType: (EAddressEncodings | string)[];
+  };
+  suiBase64Data?: string;
 }
 
 export interface ISwapTips {
