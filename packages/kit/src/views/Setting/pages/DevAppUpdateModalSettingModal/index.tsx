@@ -306,7 +306,9 @@ export default function DevAppUpdateModalSettingModal() {
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
           <SizableText size="$headingSm">
-            {`Native App Version: ${nativeAppVersion}-${nativeBuildNumber}`}
+            {`Native App Version: ${nativeAppVersion}${
+              nativeBuildNumber ? `-${nativeBuildNumber}` : ''
+            }`}
           </SizableText>
           {jsBundlePath ? (
             <SizableText size="$headingSm">
