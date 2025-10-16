@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "승인 취소 성공",
   "swap.stablecoin_0_fee": "0 수수료",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "이 체인은 이미 선택되었습니다. 크로스체인 전송을 위해 다른 체인을 선택해 주세요.",
   "swap.toast_go_to_swap": "스왑으로 이동",
   "swap.toast_go_to_swap_desc": "{provider}에 대해 {num} {token} 승인",
   "swap.toast_go_to_swap_desc_unlimited_approve": "{token}을(를) {provider}에게 무제한으로 승인",

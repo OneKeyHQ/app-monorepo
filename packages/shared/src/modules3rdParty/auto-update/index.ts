@@ -58,6 +58,9 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   getFallbackBundles: () => Promise.resolve([]),
   switchBundle: () => Promise.resolve(),
+  getNativeAppVersion: () => Promise.resolve(''),
+  getNativeBuildNumber: () => Promise.resolve(''),
+  getJsBundlePath: () => Promise.resolve(''),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;

@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "Скасування схвалення успішне",
   "swap.stablecoin_0_fee": "0 комісій",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "Цю мережу вже обрано, будь ласка, оберіть іншу мережу для міжмережевого переказу.",
   "swap.toast_go_to_swap": "Перейти до обміну",
   "swap.toast_go_to_swap_desc": "Схвалити {num} {token} для {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "Схвалити необмежену кількість {token} для {provider}",
