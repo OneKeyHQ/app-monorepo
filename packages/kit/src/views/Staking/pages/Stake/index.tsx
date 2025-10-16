@@ -131,7 +131,6 @@ function BasicStakePage() {
       symbol,
       providerName,
       protocolInfo?.providerDetail.logoURI,
-      protocolInfo?.approve?.approveTarget,
       protocolInfo?.vault,
       token,
       actionTag,

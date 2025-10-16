@@ -106,7 +106,6 @@ const ClaimOptions = () => {
       handleClaim,
       symbol,
       provider,
-      protocolInfo?.approve?.approveTarget,
       protocolInfo?.vault,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
