@@ -244,6 +244,8 @@ interface INativeBundleUpdateModule {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<{ success: boolean; message: string }>;
+  getNativeAppVersion: () => Promise<string>;
+  getJsBundlePath: () => Promise<string>;
 }
 
 const { BundleUpdateModule } = NativeModules as {
@@ -314,4 +316,7 @@ export const BundleUpdate: IBundleUpdate = {
       RNRestart.restart();
     }, 2500);
   },
+  getNativeAppVersion: () => BundleUpdateModule.getNativeAppVersion(),
+  getNativeBuildNumber: () => Promise.resolve(''),
+  getJsBundlePath: () => BundleUpdateModule.getJsBundlePath(),
 };

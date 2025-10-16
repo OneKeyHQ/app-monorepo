@@ -212,4 +212,10 @@ export const BundleUpdate: IBundleUpdate = {
       appVersion,
       bundleVersion,
     ),
+  getNativeAppVersion: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getNativeAppVersion(),
+  getNativeBuildNumber: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getNativeBuildNumber(),
+  getJsBundlePath: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath(),
 };

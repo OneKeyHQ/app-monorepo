@@ -1005,6 +1005,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
+    @ReactMethod
+    public void getNativeAppVersion(Promise promise) {
+        String nativeVersion = getAppVersion(reactContext);
+        if (nativeVersion == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(nativeVersion);
+    }
+
+    @ReactMethod
+    public void getJsBundlePath(Promise promise) {
+        String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
+        if (jsBundlePath == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(jsBundlePath);
+    }
+
     @ReactMethod(isBlockingSynchronousMethod = true)
     public String jsBundlePath() {
         String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
