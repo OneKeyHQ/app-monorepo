@@ -315,8 +315,10 @@ export default function DevAppUpdateModalSettingModal() {
               {`js bundle path: ${jsBundlePath}`}
             </SizableText>
           ) : null}
+
           {fallbackBundles.length > 0 ? (
             <YStack gap="$2">
+              <Divider />
               <SizableText size="$bodyMd">Available Bundles</SizableText>
               <YStack gap="$2">
                 {fallbackBundles.map((bundle) => (
@@ -333,15 +335,11 @@ export default function DevAppUpdateModalSettingModal() {
               </YStack>
             </YStack>
           ) : null}
-          {platformEnv.isNativeAndroid ||
-          (platformEnv.isDesktop &&
-            !platformEnv.isMas &&
-            !platformEnv.isDesktopLinuxSnap &&
-            !platformEnv.isDesktopWinMsStore) ? (
-            <Button variant="secondary" onPress={showFailedTestsDialog}>
-              Auto Update Failed Tests
-            </Button>
-          ) : null}
+
+          <Divider />
+          <Button variant="secondary" onPress={showFailedTestsDialog}>
+            Auto Update Failed Tests
+          </Button>
 
           <Button variant="secondary" onPress={showVerificationTestsDialog}>
             Verification Tests
