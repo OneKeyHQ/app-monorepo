@@ -41,7 +41,12 @@ class ServiceTransaction extends ServiceBase {
 
   @backgroundMethod()
   async verifyTransaction(params: IVerifyTxParams): Promise<IVerifyTxResponse> {
-    const { verifyTxTasks = DEFAULT_VERIFY_TASKS } = params;
+    const {
+      verifyTxTasks = DEFAULT_VERIFY_TASKS,
+      autoToastVerifyError = true,
+      skipVerifyError = false,
+      ...rest
+    } = params;
 
     let txFeeInfoVerifyResult = {
       checked: false,
@@ -61,14 +66,24 @@ class ServiceTransaction extends ServiceBase {
     for (const task of verifyTxTasks) {
       switch (task) {
         case 'feeInfo':
-          txFeeInfoVerifyResult = await this.verifyTransactionFeeInfo(params);
+          txFeeInfoVerifyResult = await this.verifyTransactionFeeInfo({
+            autoToastVerifyError,
+            skipVerifyError,
+            ...rest,
+          });
           break;
         case 'dappInfo':
-          txDappInfoVerifyResult = await this.verifyTransactionDappInfo(params);
+          txDappInfoVerifyResult = await this.verifyTransactionDappInfo({
+            autoToastVerifyError,
+            skipVerifyError,
+            ...rest,
+          });
           break;
         case 'parseInfo':
           txParseInfoVerifyResult = await this.verifyTransactionParseInfo(
-            params,
+            autoToastVerifyError,
+            skipVerifyError,
+            ...rest,
           );
           break;
         default:
@@ -84,7 +99,7 @@ class ServiceTransaction extends ServiceBase {
 
   @backgroundMethod()
   async verifyTransactionFeeInfo(
-    params: IVerifyTxParams,
+    params: Omit<IVerifyTxParams, 'verifyTxTasks'>,
   ): Promise<IVerifyTxFeeInfoResult> {
     const {
       networkId,
@@ -164,7 +179,7 @@ class ServiceTransaction extends ServiceBase {
 
   @backgroundMethod()
   async verifyTransactionDappInfo(
-    params: IVerifyTxParams,
+    params: Omit<IVerifyTxParams, 'verifyTxTasks'>,
   ): Promise<IVerifyTxDappInfoResult> {
     const { verifyTxDappInfoParams, skipVerifyError, autoToastVerifyError } =
       params;
@@ -200,7 +215,7 @@ class ServiceTransaction extends ServiceBase {
 
   @backgroundMethod()
   async verifyTransactionParseInfo(
-    params: IVerifyTxParams,
+    params: Omit<IVerifyTxParams, 'verifyTxTasks'>,
   ): Promise<IVerifyTxParseInfoResult> {
     const {
       accountId,
