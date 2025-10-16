@@ -112,10 +112,6 @@ export function UniversalWithdraw({
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const isMorphoProvider = useMemo(
-    () => (providerName ? earnUtils.isMorphoProvider({ providerName }) : false),
-    [providerName],
-  );
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
@@ -192,21 +188,18 @@ export function UniversalWithdraw({
           networkId: networkId || '',
           provider: providerName || '',
           symbol: tokenSymbol || '',
-          vault: isMorphoProvider ? protocolVault || '' : '',
+          vault: earnUtils.isVaultBasedProvider({
+            providerName: providerName ?? '',
+          })
+            ? protocolVault || ''
+            : '',
           accountAddress,
           action: ECheckAmountActionType.UNSTAKING,
           amount,
         });
       return resp;
     },
-    [
-      accountAddress,
-      isMorphoProvider,
-      protocolVault,
-      networkId,
-      providerName,
-      tokenSymbol,
-    ],
+    [accountAddress, protocolVault, networkId, providerName, tokenSymbol],
   );
 
   const debouncedFetchTransactionConfirmation = useDebouncedCallback(

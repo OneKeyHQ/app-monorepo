@@ -447,6 +447,13 @@ const MarkdownGallery = LazyLoadPage(
     ),
 );
 
+const NetworkStatusBadgeGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkStatusBadge'
+    ),
+);
+
 const NotificationGallery = LazyLoadPage(
   () =>
     import(
@@ -844,6 +851,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentMarkdown,
     component: MarkdownGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNetworkStatusBadge,
+    component: NetworkStatusBadgeGallery,
   },
   {
     name: EGalleryRoutes.ComponentNotification,

@@ -661,6 +661,20 @@ class DesktopApiAppBundleUpdate {
       );
     }
   }
+
+  async getNativeAppVersion() {
+    return app.getVersion();
+  }
+
+  async getNativeBuildNumber() {
+    return process.env.BUILD_NUMBER || '';
+  }
+
+  async getJsBundlePath() {
+    return (
+      globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || ''
+    );
+  }
 }
 
 export default DesktopApiAppBundleUpdate;

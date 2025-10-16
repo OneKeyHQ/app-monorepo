@@ -126,4 +126,7 @@ export interface IBundleUpdate {
   testDeleteMetadataJson: ITestDeleteMetadataJson;
   testWriteEmptyMetadataJson: ITestWriteEmptyMetadataJson;
   getWebEmbedPath: () => Promise<string>;
+  getNativeAppVersion: () => Promise<string>;
+  getNativeBuildNumber: () => Promise<string>;
+  getJsBundlePath: () => Promise<string>;
 }

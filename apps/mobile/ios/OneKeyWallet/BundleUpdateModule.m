@@ -147,13 +147,17 @@ RCT_EXPORT_MODULE();
     return NSOrderedSame;
 }
 
++ (NSString *)getCurrentNativeVersion {
+    return [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+}
+
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentBundleVersion = [self currentBundleVersion];
     if (currentBundleVersion == nil) {
         return nil;
     }
 
-    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *currentAppVersion = [self getCurrentNativeVersion];
     NSString *prevNativeVersion = [self getNativeVersion];
     if (prevNativeVersion == nil) {
         return nil;
@@ -770,7 +774,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
-  NSString *currentNativeVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *currentNativeVersion = [BundleUpdateModule getCurrentNativeVersion];
     [userDefaults setObject:currentNativeVersion forKey:@"nativeVersion"];
     [userDefaults synchronize];
 
@@ -1026,7 +1030,17 @@ RCT_EXPORT_METHOD(clearAllJSBundleData:(RCTPromiseResolveBlock)resolve
     }
 }
 
+RCT_EXPORT_METHOD(getNativeAppVersion:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *nativeVersion = [BundleUpdateModule getCurrentNativeVersion];
+    resolve(nativeVersion);
+}
 
+RCT_EXPORT_METHOD(getJsBundlePath:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
+    resolve(jsBundlePath);
+}
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
@@ -1035,6 +1049,5 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     }
     return jsBundlePath;
 }
-
 
 @end
