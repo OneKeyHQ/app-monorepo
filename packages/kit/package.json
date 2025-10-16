@@ -7,8 +7,6 @@
     "@onekeyhq/components": "*",
     "@types/url-parse": "^1.4.8",
     "date-fns": "^2.29.3",
-    "dequal": "^2.0.3",
-    "eth-chains": "^1.0.0",
     "expo-camera": "16.1.10",
     "fuse.js": "^7.0.0",
     "lightweight-charts": "^3.8.0",
@@ -17,10 +15,8 @@
     "react-freeze": "^1.0.3",
     "react-intl": "^6.6.8",
     "redux-persist": "^6.0.0",
-    "swr": "^2.1.5",
     "url-parse": "^1.5.10",
     "use-debounce": "^9.0.4",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.19.1/xlsx-0.19.1.tgz",
     "zbar.wasm": "^2.1.1"
   },
   "scripts": {
