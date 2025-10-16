@@ -7931,6 +7931,7 @@ __metadata:
     react-native-performance-stats: "npm:0.2.3"
     react-native-permissions: "npm:5.4.2"
     react-native-purchases: "npm:8.11.9"
+    react-native-qrcode-styled: "npm:0.4.0"
     react-native-reanimated: "npm:3.18.0"
     react-native-restart: "npm:react-native-restart-newarch@1.0.80"
     react-native-safe-area-context: "npm:5.4.1"
@@ -25463,7 +25464,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-text-encoding@npm:1.0.6":
+"fast-text-encoding@npm:1.0.6, fast-text-encoding@npm:^1.0.6":
   version: 1.0.6
   resolution: "fast-text-encoding@npm:1.0.6"
   checksum: 10/f7b9e2e7a21e4ae5f4b8d3729850be83fb45052b28c9c38c09b8366463a291d6dc5448359238bdaf87f6a9e907d5895a94319a2c5e0e9f0786859ad6312d1d06
@@ -34307,7 +34308,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"qrcode@npm:^1.5.1":
+"qrcode@npm:1.5.4, qrcode@npm:^1.5.1":
   version: 1.5.4
   resolution: "qrcode@npm:1.5.4"
   dependencies:
@@ -35158,6 +35159,21 @@ __metadata:
     react: ">= 16.6.3"
     react-native: "*"
   checksum: 10/9194e08e65f730a50b852de15ef654b3da478d0bfef55137c749b96f3c1e068d7c910d4c3ee89ccabadd8361e45e9d59ecce1da8e999cb3e19a79c2478c71282
+  languageName: node
+  linkType: hard
+
+"react-native-qrcode-styled@npm:0.4.0":
+  version: 0.4.0
+  resolution: "react-native-qrcode-styled@npm:0.4.0"
+  dependencies:
+    fast-text-encoding: "npm:^1.0.6"
+    qrcode: "npm:1.5.4"
+    react-fast-compare: "npm:^3.2.2"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-svg: "*"
+  checksum: 10/db2fa369750ed02456cd224afbf34946a029124b3dfa1185fc2571dd7bda4486d91d758362398ff3a38915d2d0636fbea117a35fa5116f0dcf8a3e7985076462
   languageName: node
   linkType: hard
 
