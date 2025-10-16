@@ -40,6 +40,7 @@ export enum EGalleryRoutes {
   ComponentLogger = 'component-Logger',
   ComponentLottieView = 'component-LottieView',
   ComponentMarkdown = 'component-Markdown',
+  ComponentNetworkStatusBadge = 'component-NetworkStatusBadge',
   ComponentNavigation = 'component-Navigation',
   ComponentNotification = 'component-Notification',
   ComponentNumberSizeableTextGallery = 'component-NumberSizeableText',
