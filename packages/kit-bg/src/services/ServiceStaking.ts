@@ -33,6 +33,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type {
   ECheckAmountActionType,
+  EInternalDappEnum,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
@@ -1348,17 +1349,22 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildEarnTx({
+  async buildInternalDappTx({
     accountId,
     networkId,
     tx,
+    internalDappType,
   }: {
     accountId: string;
     networkId: string;
     tx: IStakeTx;
+    internalDappType: EInternalDappEnum;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const encodedTx = await vault.buildStakeEncodedTx(tx as any);
+    const encodedTx = await vault.buildInternalDappEncodedTx({
+      internalDappTx: tx as any,
+      internalDappType,
+    });
     return encodedTx;
   }
 

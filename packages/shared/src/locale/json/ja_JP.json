@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "承認の取り消しに成功しました",
   "swap.stablecoin_0_fee": "0 手数料",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "このチェーンは選択済みです。クロスチェーン転送には別のチェーンを選択してください。",
   "swap.toast_go_to_swap": "スワップに行く",
   "swap.toast_go_to_swap_desc": "{provider}に{num} {token}を承認する",
   "swap.toast_go_to_swap_desc_unlimited_approve": "{provider}に無制限の{token}を承認する",
