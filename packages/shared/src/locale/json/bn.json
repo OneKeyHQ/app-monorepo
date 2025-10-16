@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "অনুমোদন প্রত্যাহার সফল হয়েছে",
   "swap.stablecoin_0_fee": "০ ফি",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "এই চেইনটি নির্বাচিত হয়েছে, ক্রস-চেইন ট্রান্সফারের জন্য অনুগ্রহ করে আরেকটি চেইন নির্বাচন করুন।",
   "swap.toast_go_to_swap": "স্বাপে যান",
   "swap.toast_go_to_swap_desc": "অনুমোদন করুন {num} {token} {provider} এর জন্য",
   "swap.toast_go_to_swap_desc_unlimited_approve": "অসীম {token} {provider}-এ অনুমোদন করুন",
