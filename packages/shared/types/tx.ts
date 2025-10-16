@@ -9,6 +9,8 @@ import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
+import type { IDappSourceInfo } from '.';
+import type { IHostSecurity } from './discovery';
 import type { IFeeInfoUnit, ITronResourceRentalInfo } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 import type { ENFTType } from './nft';
@@ -266,3 +268,56 @@ export enum EBtcF2poolReplaceState {
   ACCELERATED_PENDING = 1,
   ACCELERATED_CONFIRMED = 2,
 }
+
+export type IVerifyTxTask = 'feeInfo' | 'dappInfo' | 'parseInfo';
+
+export type IVerifyTxFeeInfoParams = {
+  feeAmount: string;
+  feeTokenSymbol: string;
+  doubleConfirm?: boolean;
+};
+
+export type IVerifyTxDappInfoParams = {
+  sourceInfo: IDappSourceInfo | undefined;
+};
+
+export type IVerifyTxParams = {
+  networkId: string;
+  accountId: string;
+  accountAddress: string;
+  encodedTx: IEncodedTx;
+  verifyTxTasks?: IVerifyTxTask[];
+  verifyTxFeeInfoParams?: IVerifyTxFeeInfoParams;
+  verifyTxDappInfoParams?: IVerifyTxDappInfoParams;
+  skipVerifyError?: boolean;
+  autoToastVerifyError?: boolean;
+};
+
+export type IVerifyTxBaseResult = {
+  checked: boolean;
+  skipReason?: string;
+};
+
+export type IVerifyTxFeeInfoResult = IVerifyTxBaseResult & {
+  isFeeInfoOverflow?: boolean;
+};
+
+export type IVerifyTxDappInfoResult = IVerifyTxBaseResult & {
+  urlSecurityInfo: IHostSecurity;
+};
+
+export type IVerifyTxParseInfoResult = IVerifyTxBaseResult & {
+  to?: {
+    address: string;
+    name: null | string;
+    labels: null | string[];
+    isContract: boolean;
+    riskLevel: number;
+  };
+};
+
+export type IVerifyTxResponse = {
+  txFeeInfoVerifyResult: IVerifyTxFeeInfoResult;
+  txDappInfoVerifyResult: IVerifyTxDappInfoResult;
+  txParseInfoVerifyResult: IVerifyTxParseInfoResult;
+};
