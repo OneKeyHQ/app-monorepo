@@ -43,16 +43,24 @@ export function useOrderConfirm(
         return;
       }
 
+      const formDataSnapshot = overrideSide
+        ? { ...formData, side: overrideSide }
+        : { ...formData };
+
       // Reset form before placing order
       hyperliquidActions.current.resetTradingForm();
 
-      let effectiveFormData = overrideSide
-        ? { ...formData, side: overrideSide }
-        : formData;
+      let effectiveFormData = formDataSnapshot;
 
-      const { tpValue, slValue, tpType, slType, leverage = 1 } = formData;
+      const {
+        tpValue,
+        slValue,
+        tpType,
+        slType,
+        leverage = 1,
+      } = formDataSnapshot;
       const leverageBN = new BigNumber(leverage);
-      if (formData.hasTpsl && (tpValue || slValue)) {
+      if (formDataSnapshot.hasTpsl && (tpValue || slValue)) {
         const entryPrice =
           effectiveFormData.type === 'market'
             ? new BigNumber(activeAssetCtx?.ctx?.markPrice || '0')
