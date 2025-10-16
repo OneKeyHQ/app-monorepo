@@ -2948,6 +2948,7 @@
   "swap.revoke_successful": "取消授權成功",
   "swap.stablecoin_0_fee": "0 手續費",
   "swap.step_1": "1. ",
+  "swap.toast_bridge_tip": "此鏈已被選擇，請選擇另一條鏈進行跨鏈轉帳",
   "swap.toast_go_to_swap": "前往兌換",
   "swap.toast_go_to_swap_desc": "授權 {num} {token} 給 {provider}",
   "swap.toast_go_to_swap_desc_unlimited_approve": "無限授權 {token} 給 {provider}",
