@@ -116,6 +116,8 @@ export function normalizeToEarnProvider(
     'everstake': EEarnProviderEnum.Everstake,
     'babylon': EEarnProviderEnum.Babylon,
     'morpho': EEarnProviderEnum.Morpho,
+    'lista': EEarnProviderEnum.Lista,
+    'stakefish': EEarnProviderEnum.Stakefish,
     'falcon': EEarnProviderEnum.Falcon,
     'ethena': EEarnProviderEnum.Ethena,
     'momentum': EEarnProviderEnum.Momentum,
