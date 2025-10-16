@@ -150,7 +150,7 @@ function DownloadVerify({
   );
   const fileUrl = useMemo(() => {
     if (platformEnv.isNativeAndroid) {
-      return data.downloadUrl;
+      return data.downloadedEvent?.downloadUrl || data.downloadUrl || '';
     }
     return data.downloadedEvent?.downloadUrl || '';
   }, [data.downloadUrl, data.downloadedEvent?.downloadUrl]);
