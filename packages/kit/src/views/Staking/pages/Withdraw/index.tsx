@@ -43,8 +43,7 @@ const WithdrawPage = () => {
   const active = protocolInfo?.activeBalance;
   const overflow = protocolInfo?.overflowBalance;
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
-  const vault =
-    protocolInfo?.approve?.approveTarget || protocolInfo?.vault || '';
+  const vault = protocolInfo?.vault || '';
   const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });

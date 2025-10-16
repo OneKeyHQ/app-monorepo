@@ -89,7 +89,7 @@ function BasicStakePage() {
         protocolVault: earnUtils.isVaultBasedProvider({
           providerName,
         })
-          ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
+          ? protocolInfo?.vault
           : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
