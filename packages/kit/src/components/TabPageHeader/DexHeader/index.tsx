@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/components';
 
 import { HeaderNotificationIconButton } from '../components';
+import { MoreActionButton } from '../MoreActionButton';
 
 import { DownloadButton, LanguageButton, ThemeButton } from './components';
 import { useDexHeaderNavigation } from './hooks';
@@ -54,6 +55,7 @@ export function DexHeaderContainer({
 
   return (
     <DexHeader leftContent={leftContent}>
+      <MoreActionButton key="more-action" />
       {showNotificationButton ? (
         <HeaderNotificationIconButton
           size={BUTTON_SIZE}
