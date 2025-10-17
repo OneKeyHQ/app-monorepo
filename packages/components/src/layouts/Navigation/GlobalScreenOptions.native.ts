@@ -174,7 +174,7 @@ export function makeOnboardingScreenOptions(): IStackNavigationOptions {
     headerShown: true,
     presentation: 'card',
     gestureEnabled: false,
-    gestureDirection: "horizontal",
-    animation: "fade"
+    gestureDirection: 'horizontal',
+    animation: 'fade',
   };
 }
