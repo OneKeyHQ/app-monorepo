@@ -554,7 +554,7 @@ export function useSwapBuildTx() {
         verifyTxTasks: ['feeInfo'],
         verifyTxFeeInfoParams: {
           feeAmount: totalNative,
-          feeTokenSymbol: gasInfo.common?.feeSymbol ?? '',
+          feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
           doubleConfirm: true,
         },
         encodedTx: updatedUnsignedTxItem.encodedTx,
