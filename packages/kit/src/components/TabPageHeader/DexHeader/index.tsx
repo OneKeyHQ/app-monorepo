@@ -1,16 +1,14 @@
-import { useMemo } from 'react';
-
 import {
   DexHeader,
   HeaderNavigation,
   Icon,
   XStack,
 } from '@onekeyhq/components';
-import type { IHeaderNavigationItem } from '@onekeyhq/components';
 
 import { HeaderNotificationIconButton } from '../components';
 
 import { DownloadButton, LanguageButton, ThemeButton } from './components';
+import { useDexHeaderNavigation } from './hooks';
 
 export interface IDexHeaderContainerProps {
   showNotificationButton?: boolean;
@@ -42,24 +40,22 @@ export function DexHeaderContainer({
   activeNavigationKey,
   onNavigationChange,
 }: IDexHeaderContainerProps = {}) {
-  const navigationItems: IHeaderNavigationItem[] = useMemo(
-    () => [
-      { key: 'market', label: '市场' },
-      { key: 'contract', label: '合约' },
-      { key: 'defi', label: 'DeFi' },
-      { key: 'swap', label: '兑换' },
-      { key: 'commission', label: '返佣' },
-    ],
-    [],
-  );
+  const {
+    navigationItems,
+    activeNavigationKey: derivedActiveKey,
+    handleNavigationChange,
+  } = useDexHeaderNavigation({
+    onNavigationChange,
+    activeNavigationKey,
+  });
 
   const leftContent = (
     <XStack ai="center" gap="$2">
       <OneKeyLogo />
       <HeaderNavigation
         items={navigationItems}
-        activeKey={activeNavigationKey}
-        onTabChange={onNavigationChange}
+        activeKey={derivedActiveKey}
+        onTabChange={handleNavigationChange}
       />
     </XStack>
   );
