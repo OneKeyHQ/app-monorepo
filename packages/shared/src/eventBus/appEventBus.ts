@@ -384,6 +384,7 @@ export interface IAppEventBusPayload {
     };
   };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
+  [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

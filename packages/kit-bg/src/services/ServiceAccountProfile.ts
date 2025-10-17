@@ -14,6 +14,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
@@ -976,6 +980,7 @@ class ServiceAccountProfile extends ServiceBase {
       // TODO: key is temporary solution for type safe
       [key]: localUsedAddressesHash ?? key,
     }));
+    appEventBus.emit(EAppEventBusNames.BtcFreshAddressUpdated, undefined);
   }
 
   private getLocalPendingTxsForFreshAddress = memoizee(

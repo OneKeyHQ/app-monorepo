@@ -116,4 +116,5 @@ export enum EAppEventBusNames {
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
+  BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
 }

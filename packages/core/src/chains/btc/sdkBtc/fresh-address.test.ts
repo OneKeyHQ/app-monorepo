@@ -664,6 +664,7 @@ describe('BTC - Fresh Address', () => {
         xpub: f.xpub,
         addressEncoding: f.addressEncoding,
         derivedInfos: f.tokens,
+        localUsedAddressesMap: {},
       });
       expect(addresses).toBeDefined();
       expect(addresses?.fresh.unused[0].address).toBe(
