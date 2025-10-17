@@ -1,11 +1,8 @@
 import { useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-
-import { Badge } from '@onekeyhq/components/src/content/Badge';
+import { NetworkStatusBadge } from '@onekeyhq/components/src/content/NetworkStatusBadge';
 import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
-import { SizableText, View, XStack } from '@onekeyhq/components/src/primitives';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { XStack } from '@onekeyhq/components/src/primitives';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
@@ -39,27 +36,7 @@ const LINKS = [
 ];
 
 export function Footer() {
-  const intl = useIntl();
   const { isInternetReachable } = useNetInfo();
-
-  const status = useMemo(() => {
-    if (isInternetReachable === false) {
-      return {
-        badgeType: 'critical' as const,
-        dotColor: '$bgCriticalPressed',
-        text: intl.formatMessage({
-          id: ETranslations.perp_offline,
-        }),
-      };
-    }
-    return {
-      badgeType: 'success' as const,
-      dotColor: '$bgSuccessStrong',
-      text: intl.formatMessage({
-        id: ETranslations.perp_online,
-      }),
-    };
-  }, [intl, isInternetReachable]);
 
   const linkItems = useMemo(
     () =>
@@ -81,19 +58,11 @@ export function Footer() {
       alignItems="center"
       justifyContent="space-between"
     >
-      <Badge
+      <NetworkStatusBadge
+        connected={isInternetReachable !== false}
         badgeSize="sm"
-        badgeType={status.badgeType}
-        px="$2"
-        py="$px"
-        gap="$1.5"
-        ai="center"
-      >
-        <View width={8} height={8} borderRadius="$full" bg={status.dotColor} />
-        <SizableText size="$bodySmMedium" color="$textSubdued">
-          {status.text}
-        </SizableText>
-      </Badge>
+        labelFontSize={13}
+      />
       <FooterNavigation>{linkItems}</FooterNavigation>
     </XStack>
   );
