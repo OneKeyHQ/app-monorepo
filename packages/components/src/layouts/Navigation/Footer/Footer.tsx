@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { NetworkStatusBadge } from '@onekeyhq/components/src/content/NetworkStatusBadge';
 import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
 import { XStack } from '@onekeyhq/components/src/primitives';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
@@ -10,40 +13,45 @@ import { FooterNavigation } from './components/FooterNavigation';
 const LINKS = [
   {
     id: 'about',
-    label: '关于',
+    translationKey: ETranslations.global_about,
     href: 'https://help.onekey.so/articles/11461135',
   },
   {
     id: 'docs',
-    label: '文档',
+    translationKey: ETranslations.menu_help,
     href: 'https://help.onekey.so/collections/15988402',
   },
   {
     id: 'guide',
-    label: '新手教程',
+    translationKey: ETranslations.global_view_tutorial,
     href: 'https://help.onekey.so/articles/12568192',
   },
   {
     id: 'terms',
-    label: '使用条款',
+    translationKey: ETranslations.settings_user_agreement,
     href: 'https://help.onekey.so/articles/11461292',
   },
   {
     id: 'privacy',
-    label: '隐私',
+    translationKey: ETranslations.settings_privacy_policy,
     href: 'https://help.onekey.so/articles/11461298',
   },
 ];
 
 export function Footer() {
+  const intl = useIntl();
   const { isInternetReachable } = useNetInfo();
 
   const linkItems = useMemo(
     () =>
       LINKS.map((item) => (
-        <FooterLink key={item.id} label={item.label} href={item.href} />
+        <FooterLink
+          key={item.id}
+          label={intl.formatMessage({ id: item.translationKey })}
+          href={item.href}
+        />
       )),
-    [],
+    [intl],
   );
 
   return (
