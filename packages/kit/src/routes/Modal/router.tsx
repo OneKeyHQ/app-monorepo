@@ -2,11 +2,7 @@ import type { IModalRootNavigatorConfig } from '@onekeyhq/components/src/layouts
 import { ModalSettingStack } from '@onekeyhq/kit/src/views/Setting/router';
 import { v4migrationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalRoutes,
-  EOnboardingPagesV2,
-  EOnboardingV2Routes,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EOnboardingV2Routes } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountManagerStacks } from '../../views/AccountManagerStacks/router';
