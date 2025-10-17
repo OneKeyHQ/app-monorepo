@@ -1240,6 +1240,11 @@ class ServiceHistory extends ServiceBase {
       xpub,
       pendingTxs: [newHistoryTx],
     });
+
+    // refresh BTC fresh address for HD or HW accounts if needed
+    void this.backgroundApi.serviceAccountProfile.syncBTCFreshAddressByAccountId(
+      { accountId, networkId },
+    );
   }
 
   @backgroundMethod()

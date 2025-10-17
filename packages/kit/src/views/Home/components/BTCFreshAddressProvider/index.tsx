@@ -23,7 +23,6 @@ export function BTCFreshAddressProvider() {
         },
       );
     }
-    console.log(1);
   }, [indexedAccount?.id, previousIndexedAccountId, network?.id]);
 
   return null;

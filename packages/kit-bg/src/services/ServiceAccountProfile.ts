@@ -770,6 +770,37 @@ class ServiceAccountProfile extends ServiceBase {
   }
 
   @backgroundMethod()
+  async syncBTCFreshAddressByAccountId({
+    accountId,
+    networkId,
+  }: {
+    accountId: string;
+    networkId: string;
+  }) {
+    if (
+      (networkUtils.isBTCNetwork(networkId) &&
+        accountUtils.isHdAccount({ accountId })) ||
+      accountUtils.isHwAccount({ accountId })
+    ) {
+      const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      });
+      const indexedAccount =
+        await this.backgroundApi.serviceAccount.getIndexedAccountByAccount({
+          account: dbAccount,
+        });
+      if (indexedAccount) {
+        void this.backgroundApi.serviceAccountProfile.syncBTCFreshAddressByIndexedAccountId(
+          {
+            indexedAccountId: indexedAccount.id,
+            networkId,
+          },
+        );
+      }
+    }
+  }
+
+  @backgroundMethod()
   async syncBTCFreshAddressByIndexedAccountId({
     indexedAccountId,
     networkId,
