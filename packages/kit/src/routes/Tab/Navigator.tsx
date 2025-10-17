@@ -4,6 +4,7 @@ import { noop } from 'lodash';
 
 import {
   EPortalContainerConstantName,
+  Footer,
   Portal,
   Stack,
   TabStackNavigator,
@@ -37,6 +38,7 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
+      {platformEnv.isWeb ? <Footer /> : null}
       <Portal.Container
         name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
       />

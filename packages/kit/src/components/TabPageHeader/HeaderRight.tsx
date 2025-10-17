@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useIsHorizontalLayout,
@@ -15,6 +14,7 @@ import {
 import {
   HeaderButtonGroup,
   HeaderIconButton,
+  HeaderNotificationButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
@@ -59,59 +59,16 @@ function NotificationsButton() {
     });
   }, [navigation]);
   return (
-    <Stack
+    <HeaderNotificationButton
       key="notifications"
       testID="headerRightNotificationsButton"
+      title={intl.formatMessage({
+        id: ETranslations.global_notifications,
+      })}
+      showBadge={!firstTimeGuideOpened || !!badge}
+      badgeCount={firstTimeGuideOpened ? badge : undefined}
       onPress={openNotificationsModal}
-    >
-      <HeaderIconButton
-        title={intl.formatMessage({
-          id: ETranslations.global_notifications,
-        })}
-        trackID="header-right-notifications"
-        icon="BellOutline"
-      />
-      {!firstTimeGuideOpened || badge ? (
-        <Stack
-          position="absolute"
-          right="$-2.5"
-          top="$-2"
-          alignItems="flex-end"
-          w="$10"
-          pointerEvents="none"
-        >
-          <Stack
-            bg="$bgApp"
-            borderRadius="$full"
-            borderWidth={2}
-            borderColor="$transparent"
-          >
-            <Stack
-              px="$1"
-              borderRadius="$full"
-              bg="$bgCriticalStrong"
-              minWidth="$4"
-              height="$4"
-              alignItems="center"
-              justifyContent="center"
-            >
-              {!firstTimeGuideOpened ? (
-                <Stack
-                  width="$1"
-                  height="$1"
-                  backgroundColor="white"
-                  borderRadius="$full"
-                />
-              ) : (
-                <SizableText color="$textOnColor" size="$bodySm">
-                  {badge && badge > 99 ? '99+' : badge}
-                </SizableText>
-              )}
-            </Stack>
-          </Stack>
-        </Stack>
-      ) : null}
-    </Stack>
+    />
   );
 }
 
