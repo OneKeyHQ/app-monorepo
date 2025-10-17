@@ -274,6 +274,7 @@ export type IVerifyTxTask = 'feeInfo' | 'dappInfo' | 'parseInfo';
 export type IVerifyTxFeeInfoParams = {
   feeAmount: string;
   feeTokenSymbol: string;
+  // if true, will show a double confirm dialog to the user
   doubleConfirm?: boolean;
 };
 
@@ -289,7 +290,9 @@ export type IVerifyTxParams = {
   verifyTxTasks?: IVerifyTxTask[];
   verifyTxFeeInfoParams?: IVerifyTxFeeInfoParams;
   verifyTxDappInfoParams?: IVerifyTxDappInfoParams;
+  // if true, will skip the verify error and not show any toast
   skipVerifyError?: boolean;
+  // if true, will auto toast the verify error
   autoToastVerifyError?: boolean;
 };
 

@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { isNil } from 'lodash';
 
 import {
@@ -17,7 +18,9 @@ import {
   type IHostSecurity,
 } from '@onekeyhq/shared/types/discovery';
 import type {
+  IVerifyTxDappInfoParams,
   IVerifyTxDappInfoResult,
+  IVerifyTxFeeInfoParams,
   IVerifyTxFeeInfoResult,
   IVerifyTxParams,
   IVerifyTxParseInfoResult,
@@ -35,66 +38,93 @@ const DEFAULT_VERIFY_TASKS: IVerifyTxTask[] = [
 
 @backgroundClass()
 class ServiceTransaction extends ServiceBase {
+  private verifyMutex = new Semaphore(1);
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   @backgroundMethod()
   async verifyTransaction(params: IVerifyTxParams): Promise<IVerifyTxResponse> {
-    const {
-      verifyTxTasks = DEFAULT_VERIFY_TASKS,
-      autoToastVerifyError = true,
-      skipVerifyError = false,
-      ...rest
-    } = params;
+    return this.verifyMutex.runExclusive(async () => {
+      const {
+        verifyTxTasks = DEFAULT_VERIFY_TASKS,
+        autoToastVerifyError = true,
+        skipVerifyError = false,
+        ...rest
+      } = params;
 
-    let txFeeInfoVerifyResult = {
-      checked: false,
-      skipReason: 'non in tasks',
-    } as IVerifyTxFeeInfoResult;
+      const verifyPromises = verifyTxTasks.map(async (task) => {
+        try {
+          switch (task) {
+            case 'feeInfo':
+              return {
+                task,
+                result: await this.verifyTransactionFeeInfo({
+                  autoToastVerifyError,
+                  skipVerifyError,
+                  ...rest,
+                }),
+              };
+            case 'dappInfo':
+              return {
+                task,
+                result: await this.verifyTransactionDappInfo({
+                  autoToastVerifyError,
+                  skipVerifyError,
+                  ...rest,
+                }),
+              };
+            case 'parseInfo':
+              return {
+                task,
+                result: await this.verifyTransactionParseInfo({
+                  autoToastVerifyError,
+                  skipVerifyError,
+                  ...rest,
+                }),
+              };
+            default:
+              return { task, result: null };
+          }
+        } catch (error) {
+          console.error(`Verify task ${task} failed:`, error);
+          return { task, result: null, error };
+        }
+      });
 
-    let txDappInfoVerifyResult = {
-      checked: false,
-      skipReason: 'non in tasks',
-    } as IVerifyTxDappInfoResult;
+      const results = await Promise.all(verifyPromises);
 
-    let txParseInfoVerifyResult = {
-      checked: false,
-      skipReason: 'non in tasks',
-    } as IVerifyTxParseInfoResult;
+      const response: IVerifyTxResponse = {
+        txFeeInfoVerifyResult: { checked: false, skipReason: 'not in tasks' },
+        txDappInfoVerifyResult: {
+          checked: false,
+          skipReason: 'not in tasks',
+          urlSecurityInfo: {} as IHostSecurity,
+        },
+        txParseInfoVerifyResult: { checked: false, skipReason: 'not in tasks' },
+      };
 
-    for (const task of verifyTxTasks) {
-      switch (task) {
-        case 'feeInfo':
-          txFeeInfoVerifyResult = await this.verifyTransactionFeeInfo({
-            autoToastVerifyError,
-            skipVerifyError,
-            ...rest,
-          });
-          break;
-        case 'dappInfo':
-          txDappInfoVerifyResult = await this.verifyTransactionDappInfo({
-            autoToastVerifyError,
-            skipVerifyError,
-            ...rest,
-          });
-          break;
-        case 'parseInfo':
-          txParseInfoVerifyResult = await this.verifyTransactionParseInfo({
-            autoToastVerifyError,
-            skipVerifyError,
-            ...rest,
-          });
-          break;
-        default:
-      }
-    }
+      results.forEach(({ task, result }) => {
+        if (result) {
+          switch (task) {
+            case 'feeInfo':
+              response.txFeeInfoVerifyResult = result;
+              break;
+            case 'dappInfo':
+              response.txDappInfoVerifyResult = result;
+              break;
+            case 'parseInfo':
+              response.txParseInfoVerifyResult = result;
+              break;
+            default:
+              break;
+          }
+        }
+      });
 
-    return {
-      txFeeInfoVerifyResult,
-      txDappInfoVerifyResult,
-      txParseInfoVerifyResult,
-    };
+      return response;
+    });
   }
 
   @backgroundMethod()
@@ -110,18 +140,16 @@ class ServiceTransaction extends ServiceBase {
       autoToastVerifyError,
     } = params;
 
-    if (
-      !verifyTxFeeInfoParams ||
-      isNil(verifyTxFeeInfoParams.feeAmount) ||
-      isNil(verifyTxFeeInfoParams.feeTokenSymbol)
-    ) {
+    // 参数验证
+    const validationError = this.validateFeeInfoParams(verifyTxFeeInfoParams);
+    if (validationError) {
       return {
         checked: false,
-        skipReason: 'Missing fee info params',
+        skipReason: validationError,
       };
     }
 
-    const { feeAmount, feeTokenSymbol, doubleConfirm } = verifyTxFeeInfoParams;
+    const { feeAmount, feeTokenSymbol, doubleConfirm } = verifyTxFeeInfoParams!;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -154,20 +182,26 @@ class ServiceTransaction extends ServiceBase {
             isFeeInfoOverflow,
           };
         } catch (e) {
-          throw new OneKeyLocalError({
+          this.handleVerifyError(
+            new OneKeyLocalError({
+              message: appLocale.intl.formatMessage({
+                id: ETranslations.fee_alert_dialog_description,
+              }),
+            }),
+            autoToastVerifyError ?? true,
+            skipVerifyError ?? false,
+          );
+        }
+      } else {
+        this.handleVerifyError(
+          new OneKeyLocalError({
             message: appLocale.intl.formatMessage({
               id: ETranslations.fee_alert_dialog_description,
             }),
-            autoToast: autoToastVerifyError,
-          });
-        }
-      } else if (!skipVerifyError) {
-        throw new OneKeyLocalError({
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.fee_alert_dialog_description,
           }),
-          autoToast: autoToastVerifyError,
-        });
+          autoToastVerifyError ?? true,
+          skipVerifyError ?? false,
+        );
       }
     }
 
@@ -183,30 +217,35 @@ class ServiceTransaction extends ServiceBase {
   ): Promise<IVerifyTxDappInfoResult> {
     const { verifyTxDappInfoParams, skipVerifyError, autoToastVerifyError } =
       params;
-    if (
-      !verifyTxDappInfoParams ||
-      !verifyTxDappInfoParams.sourceInfo ||
-      !verifyTxDappInfoParams.sourceInfo.origin
-    )
+
+    const validationError = this.validateDappInfoParams(verifyTxDappInfoParams);
+    if (validationError) {
       return {
         checked: false,
-        skipReason: 'Missing dapp source info',
+        skipReason: validationError,
         urlSecurityInfo: {} as IHostSecurity,
       };
+    }
+
+    const { origin } = verifyTxDappInfoParams!.sourceInfo!;
     const urlSecurityInfo =
       await this.backgroundApi.serviceDiscovery.checkUrlSecurity({
         url: origin,
         from: 'app',
       });
 
-    if (urlSecurityInfo.level === EHostSecurityLevel.High && !skipVerifyError) {
-      throw new OneKeyLocalError({
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp,
+    if (urlSecurityInfo.level === EHostSecurityLevel.High) {
+      this.handleVerifyError(
+        new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp,
+          }),
         }),
-        autoToast: autoToastVerifyError,
-      });
+        autoToastVerifyError ?? true,
+        skipVerifyError ?? false,
+      );
     }
+
     return {
       checked: true,
       urlSecurityInfo,
@@ -224,6 +263,7 @@ class ServiceTransaction extends ServiceBase {
       skipVerifyError,
       autoToastVerifyError,
     } = params;
+
     const resp =
       await this.backgroundApi.serviceSignatureConfirm.parseTransaction({
         networkId,
@@ -231,19 +271,51 @@ class ServiceTransaction extends ServiceBase {
         encodedTx,
       });
 
-    if (resp.parsedTx.to.riskLevel >= TX_RISKY_LEVEL_SCAM && !skipVerifyError) {
-      throw new OneKeyLocalError({
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.send_label_scam,
+    if (resp.parsedTx.to.riskLevel >= TX_RISKY_LEVEL_SCAM) {
+      this.handleVerifyError(
+        new OneKeyLocalError({
+          message: appLocale.intl.formatMessage({
+            id: ETranslations.send_label_scam,
+          }),
         }),
-        autoToast: autoToastVerifyError,
-      });
+        autoToastVerifyError ?? true,
+        skipVerifyError ?? false,
+      );
     }
 
     return {
       checked: true,
       to: resp.parsedTx.to,
     };
+  }
+
+  private validateFeeInfoParams(
+    params: IVerifyTxFeeInfoParams | undefined,
+  ): string | null {
+    if (!params) return 'Missing fee info params';
+    if (isNil(params.feeAmount)) return 'Missing fee amount';
+    if (isNil(params.feeTokenSymbol)) return 'Missing fee token symbol';
+    return null;
+  }
+
+  private validateDappInfoParams(
+    params: IVerifyTxDappInfoParams | undefined,
+  ): string | null {
+    if (!params) return 'Missing dapp info params';
+    if (!params.sourceInfo) return 'Missing dapp source info';
+    if (!params.sourceInfo.origin) return 'Missing dapp origin';
+    return null;
+  }
+
+  private handleVerifyError(
+    error: OneKeyLocalError,
+    autoToast: boolean,
+    skipError: boolean,
+  ): void {
+    if (!skipError) {
+      error.autoToast = autoToast;
+      throw error;
+    }
   }
 }
 
