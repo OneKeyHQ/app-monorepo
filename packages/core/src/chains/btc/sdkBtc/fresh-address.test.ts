@@ -1,10 +1,19 @@
+import crypto from 'crypto';
+
 import { getBtcForkNetwork } from '.';
+
+import type { ILocalHistory } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalHistory';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { EAddressEncodings } from '../../../types';
 
-import { transformAddress } from './fresh-address';
+import {
+  getLocalUsedAddressFromLocalPendingTxs,
+  transformAddress,
+} from './fresh-address';
 
-import type { IBtcBlockbookDerivedInfo } from '../types';
+import type { IBtcBlockbookDerivedInfo, IEncodedTxBtc } from '../types';
 
 const fixtures = [
   {
@@ -674,5 +683,109 @@ describe('BTC - Fresh Address', () => {
         f.firstUnusedChangeAddress,
       );
     }
+  });
+});
+
+describe('getLocalUsedAddressFromLocalPendingTxs', () => {
+  const buildHistoryTx = ({
+    id,
+    txid,
+    outputs,
+  }: {
+    id: string;
+    txid: string;
+    outputs: IEncodedTxBtc['outputs'];
+  }): IAccountHistoryTx => ({
+    id,
+    decodedTx: {
+      txid,
+      owner: 'owner',
+      signer: 'signer',
+      nonce: 0,
+      actions: [],
+      status: EDecodedTxStatus.Pending,
+      networkId: 'btc--0',
+      accountId: 'account',
+      extraInfo: null,
+      encodedTx: {
+        inputs: [],
+        outputs,
+        inputsForCoinSelect: [],
+        outputsForCoinSelect: [],
+        fee: '1',
+        txSize: 0,
+      },
+    },
+  });
+
+  it('should return stable hash for empty pending txs', () => {
+    const { localUsedAddressesHash, localUsedAddressesMap } =
+      getLocalUsedAddressFromLocalPendingTxs({});
+
+    expect(localUsedAddressesMap).toEqual({});
+    const expectedHash = crypto.createHash('sha256').update('').digest('hex');
+    expect(localUsedAddressesHash).toBe(expectedHash);
+  });
+
+  it('should merge outputs, dedupe txIds, and produce deterministic hash', () => {
+    const pendingTxs: ILocalHistory['pendingTxs'] = {
+      btc_account: [
+        buildHistoryTx({
+          id: 'local-1',
+          txid: 'chain-1',
+          outputs: [
+            { address: 'addrA', value: '1000' },
+            { address: 'addrB', value: '2000' },
+          ],
+        }),
+        buildHistoryTx({
+          id: 'local-2',
+          txid: 'chain-2',
+          outputs: [
+            { address: 'addrA', value: '500' },
+            { address: 'addrA', value: '700' },
+            { address: 'addrC', value: '3000' },
+          ],
+        }),
+      ],
+      btc_account_other: [
+        buildHistoryTx({
+          id: 'local-3',
+          txid: 'chain-3',
+          outputs: [
+            { address: 'addrB', value: '1500' },
+            { address: 'addrD', value: '4000' },
+          ],
+        }),
+        buildHistoryTx({
+          id: 'local-4',
+          txid: 'chain-3',
+          outputs: [{ address: 'addrB', value: '1500' }],
+        }),
+      ],
+    };
+
+    const { localUsedAddressesHash, localUsedAddressesMap } =
+      getLocalUsedAddressFromLocalPendingTxs({
+        pendingTxs,
+      });
+
+    const expectedMap = {
+      addrA: ['chain-1', 'chain-2'],
+      addrB: ['chain-1', 'chain-3'],
+      addrC: ['chain-2'],
+      addrD: ['chain-3'],
+    };
+    expect(localUsedAddressesMap).toEqual(expectedMap);
+
+    const sortedEntries = Object.entries(expectedMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([address, txIds]) => `${address}:${txIds.join(',')}`)
+      .join('|');
+    const expectedHash = crypto
+      .createHash('sha256')
+      .update(sortedEntries)
+      .digest('hex');
+    expect(localUsedAddressesHash).toBe(expectedHash);
   });
 });
