@@ -135,7 +135,6 @@ class ServiceTransaction extends ServiceBase {
       autoToastVerifyError,
     } = params;
 
-    // 参数验证
     const validationError = this.validateFeeInfoParams(verifyTxFeeInfoParams);
     if (validationError) {
       return {
