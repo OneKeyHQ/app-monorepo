@@ -7,6 +7,7 @@ import { getColors } from 'react-native-image-colors';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
+  Alert,
   Badge,
   Button,
   Dialog,
@@ -24,6 +25,7 @@ import {
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -243,6 +245,8 @@ function ReceiveToken() {
     network?.shortname,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
+
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
@@ -746,50 +750,62 @@ function ReceiveToken() {
       />
       <Page.Body flex={1} pb="$5" px="$5">
         {renderReceiveQrCode()}
-        {banner && shouldShowQRCode ? (
-          <XStack
-            py="$2.5"
-            px="$3"
-            gap="$3"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor={
-              networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
-            }
-            bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
-            borderRadius="$2"
-            borderCurve="continuous"
-            userSelect="none"
-            {...(banner?.href
-              ? {
-                  focusable: true,
-                  focusVisibleStyle: {
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: 0,
-                  },
-                  hoverStyle: {
-                    bg: networkLogoColor ? `${networkLogoColor}1A` : '$bgHover',
-                  },
-                  pressStyle: {
-                    bg: networkLogoColor
-                      ? `${networkLogoColor}2A`
-                      : '$bgActive',
-                  },
-                  onPress: () => handleBannerOnPress(banner),
-                }
-              : null)}
-          >
-            <Image
-              size="$5"
-              source={{ uri: banner.src }}
-              fallback={<NetworkAvatar size="$5" networkId={networkId} />}
+        <YStack gap="$2">
+          {banner && shouldShowQRCode ? (
+            <XStack
+              py="$2.5"
+              px="$3"
+              gap="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor={
+                networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
+              }
+              bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
+              borderRadius="$2"
+              borderCurve="continuous"
+              userSelect="none"
+              {...(banner?.href
+                ? {
+                    focusable: true,
+                    focusVisibleStyle: {
+                      outlineColor: '$focusRing',
+                      outlineWidth: 2,
+                      outlineStyle: 'solid',
+                      outlineOffset: 0,
+                    },
+                    hoverStyle: {
+                      bg: networkLogoColor
+                        ? `${networkLogoColor}1A`
+                        : '$bgHover',
+                    },
+                    pressStyle: {
+                      bg: networkLogoColor
+                        ? `${networkLogoColor}2A`
+                        : '$bgActive',
+                    },
+                    onPress: () => handleBannerOnPress(banner),
+                  }
+                : null)}
+            >
+              <Image
+                size="$5"
+                source={{ uri: banner.src }}
+                fallback={<NetworkAvatar size="$5" networkId={networkId} />}
+              />
+              <SizableText size="$bodyMd" flex={1}>
+                {banner.title}
+              </SizableText>
+            </XStack>
+          ) : null}
+
+          {networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress ? (
+            <Alert
+              icon="ShieldExclamationSolid"
+              description="For privacy reasons, a new address is generated for each transaction. Previous addresses remain valid."
+              type="info"
             />
-            <SizableText size="$bodyMd" flex={1}>
-              {banner.title}
-            </SizableText>
-          </XStack>
-        ) : null}
+          ) : null}
+        </YStack>
       </Page.Body>
       <Page.Footer>{renderReceiveFooter()}</Page.Footer>
     </Page>
