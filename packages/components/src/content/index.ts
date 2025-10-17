@@ -21,3 +21,4 @@ export * from './Theme';
 export * from './Keyboard';
 export * from './DashText';
 export * from './NetworkStatusBadge';
+export * from './OneKeyLogo';

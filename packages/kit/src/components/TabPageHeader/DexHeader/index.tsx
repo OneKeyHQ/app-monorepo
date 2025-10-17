@@ -1,7 +1,7 @@
 import {
   DexHeader,
   HeaderNavigation,
-  Icon,
+  OneKeyLogo,
   XStack,
 } from '@onekeyhq/components';
 
@@ -22,14 +22,6 @@ export interface IDexHeaderContainerProps {
 
 const BUTTON_SIZE = 'large' as const;
 const BUTTON_ICON_SIZE = '$5' as const;
-
-function OneKeyLogo() {
-  return (
-    <XStack px="$4" py="$3">
-      <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
-    </XStack>
-  );
-}
 
 export function DexHeaderContainer({
   showNotificationButton = true,
