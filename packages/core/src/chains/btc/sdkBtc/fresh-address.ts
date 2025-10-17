@@ -156,9 +156,11 @@ export function getLocalUsedAddressFromLocalPendingTxs({
     .sort(([addressA], [addressB]) => addressA.localeCompare(addressB))
     .map(([address, txIds]) => `${address}:${txIds.join(',')}`);
 
-  const localUsedAddressesHash = sortedEntries.length
-    ? crypto.createHash('sha256').update(sortedEntries.join('|')).digest('hex')
-    : undefined;
+  const serializedEntries = sortedEntries.join('|');
+  const localUsedAddressesHash = crypto
+    .createHash('sha256')
+    .update(serializedEntries)
+    .digest('hex');
 
   return {
     localUsedAddressesHash,
