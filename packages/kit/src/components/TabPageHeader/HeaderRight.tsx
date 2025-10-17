@@ -27,11 +27,11 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
+import { OneKeyIdButton } from './components';
 import { MoreActionButton } from './MoreActionButton';
 
 function GiftAction() {
@@ -82,22 +82,6 @@ export function SelectorTrigger() {
       num={0}
       size="small"
       recordNetworkHistoryEnabled
-    />
-  );
-}
-
-function PeopleAction() {
-  const { loginOneKeyId } = useLoginOneKeyId();
-  const handlePress = useCallback(async () => {
-    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-  }, [loginOneKeyId]);
-  return (
-    <HeaderIconButton
-      key="onekey-id"
-      title="OneKey ID"
-      icon="PeopleOutline"
-      onPress={handlePress}
-      testID="header-right-onekey-id"
     />
   );
 }
@@ -161,7 +145,9 @@ export function HeaderRight({
       <>
         {isHorizontal ? <NotificationsButton /> : null}
         <MoreAction />
-        {isHorizontal ? <PeopleAction /> : null}
+        {isHorizontal ? (
+          <OneKeyIdButton testID="header-right-onekey-id" />
+        ) : null}
       </>
     );
 
