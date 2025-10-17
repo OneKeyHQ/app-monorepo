@@ -55,41 +55,36 @@ class ServiceTransaction extends ServiceBase {
       } = params;
 
       const verifyPromises = verifyTxTasks.map(async (task) => {
-        try {
-          switch (task) {
-            case 'feeInfo':
-              return {
-                task,
-                result: await this.verifyTransactionFeeInfo({
-                  autoToastVerifyError,
-                  skipVerifyError,
-                  ...rest,
-                }),
-              };
-            case 'dappInfo':
-              return {
-                task,
-                result: await this.verifyTransactionDappInfo({
-                  autoToastVerifyError,
-                  skipVerifyError,
-                  ...rest,
-                }),
-              };
-            case 'parseInfo':
-              return {
-                task,
-                result: await this.verifyTransactionParseInfo({
-                  autoToastVerifyError,
-                  skipVerifyError,
-                  ...rest,
-                }),
-              };
-            default:
-              return { task, result: null };
-          }
-        } catch (error) {
-          console.error(`Verify task ${task} failed:`, error);
-          return { task, result: null, error };
+        switch (task) {
+          case 'feeInfo':
+            return {
+              task,
+              result: await this.verifyTransactionFeeInfo({
+                autoToastVerifyError,
+                skipVerifyError,
+                ...rest,
+              }),
+            };
+          case 'dappInfo':
+            return {
+              task,
+              result: await this.verifyTransactionDappInfo({
+                autoToastVerifyError,
+                skipVerifyError,
+                ...rest,
+              }),
+            };
+          case 'parseInfo':
+            return {
+              task,
+              result: await this.verifyTransactionParseInfo({
+                autoToastVerifyError,
+                skipVerifyError,
+                ...rest,
+              }),
+            };
+          default:
+            return { task, result: null };
         }
       });
 
@@ -180,28 +175,36 @@ class ServiceTransaction extends ServiceBase {
           return {
             checked: true,
             isFeeInfoOverflow,
+            userConfirmed: true,
           };
         } catch (e) {
-          this.handleVerifyError(
-            new OneKeyLocalError({
+          if (!skipVerifyError) {
+            throw new OneKeyLocalError({
               message: appLocale.intl.formatMessage({
                 id: ETranslations.fee_alert_dialog_description,
               }),
-            }),
-            autoToastVerifyError ?? true,
-            skipVerifyError ?? false,
-          );
+              autoToast: autoToastVerifyError,
+            });
+          }
+          return {
+            checked: true,
+            isFeeInfoOverflow,
+            userConfirmed: false,
+          };
         }
       } else {
-        this.handleVerifyError(
-          new OneKeyLocalError({
+        if (!skipVerifyError) {
+          throw new OneKeyLocalError({
             message: appLocale.intl.formatMessage({
               id: ETranslations.fee_alert_dialog_description,
             }),
-          }),
-          autoToastVerifyError ?? true,
-          skipVerifyError ?? false,
-        );
+            autoToast: autoToastVerifyError,
+          });
+        }
+        return {
+          checked: true,
+          isFeeInfoOverflow,
+        };
       }
     }
 
@@ -234,16 +237,13 @@ class ServiceTransaction extends ServiceBase {
         from: 'app',
       });
 
-    if (urlSecurityInfo.level === EHostSecurityLevel.High) {
-      this.handleVerifyError(
-        new OneKeyLocalError({
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.explore_malicious_dapp,
-          }),
+    if (urlSecurityInfo.level === EHostSecurityLevel.High && !skipVerifyError) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp,
         }),
-        autoToastVerifyError ?? true,
-        skipVerifyError ?? false,
-      );
+        autoToast: autoToastVerifyError,
+      });
     }
 
     return {
@@ -271,16 +271,13 @@ class ServiceTransaction extends ServiceBase {
         encodedTx,
       });
 
-    if (resp.parsedTx.to.riskLevel >= TX_RISKY_LEVEL_SCAM) {
-      this.handleVerifyError(
-        new OneKeyLocalError({
-          message: appLocale.intl.formatMessage({
-            id: ETranslations.send_label_scam,
-          }),
+    if (resp.parsedTx.to.riskLevel >= TX_RISKY_LEVEL_SCAM && !skipVerifyError) {
+      throw new OneKeyLocalError({
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.send_label_scam,
         }),
-        autoToastVerifyError ?? true,
-        skipVerifyError ?? false,
-      );
+        autoToast: autoToastVerifyError,
+      });
     }
 
     return {
@@ -305,17 +302,6 @@ class ServiceTransaction extends ServiceBase {
     if (!params.sourceInfo) return 'Missing dapp source info';
     if (!params.sourceInfo.origin) return 'Missing dapp origin';
     return null;
-  }
-
-  private handleVerifyError(
-    error: OneKeyLocalError,
-    autoToast: boolean,
-    skipError: boolean,
-  ): void {
-    if (!skipError) {
-      error.autoToast = autoToast;
-      throw error;
-    }
   }
 }
 

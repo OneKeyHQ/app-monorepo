@@ -285,7 +285,6 @@ export type IVerifyTxDappInfoParams = {
 export type IVerifyTxParams = {
   networkId: string;
   accountId: string;
-  accountAddress: string;
   encodedTx: IEncodedTx;
   verifyTxTasks?: IVerifyTxTask[];
   verifyTxFeeInfoParams?: IVerifyTxFeeInfoParams;
@@ -303,6 +302,7 @@ export type IVerifyTxBaseResult = {
 
 export type IVerifyTxFeeInfoResult = IVerifyTxBaseResult & {
   isFeeInfoOverflow?: boolean;
+  userConfirmed?: boolean;
 };
 
 export type IVerifyTxDappInfoResult = IVerifyTxBaseResult & {
