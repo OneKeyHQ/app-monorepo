@@ -8,6 +8,7 @@ import { EPageType } from '../../../hocs';
 import { PageTypeContext } from '../../../hocs/PageType/context';
 import { useThemeValue } from '../../../hooks';
 import { makeModalStackNavigatorOptions } from '../GlobalScreenOptions';
+import createOnBoardingNavigator from '../Modal/createOnBoardingNavigator';
 import createWebModalNavigator from '../Modal/createWebModalNavigator';
 import { createStackNavigator } from '../StackNavigator';
 
@@ -39,6 +40,10 @@ interface IModalFlowNavigatorProps<
 const ModalStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createWebModalNavigator();
+
+const OnBoardingStack = hasStackNavigatorModal
+  ? createStackNavigator()
+  : createOnBoardingNavigator();
 
 /**
  * Renders a modal stack navigator with configurable screens and lifecycle hooks.
@@ -84,9 +89,14 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     }),
     [pageTypeFromProps],
   );
+  const ModalStackComponent = useMemo(() => {
+    return pageTypeFromProps === EPageType.onboarding
+      ? OnBoardingStack
+      : ModalStack;
+  }, [pageTypeFromProps]);
   return (
     <PageTypeContext.Provider value={contextValue}>
-      <ModalStack.Navigator screenOptions={makeScreenOptions}>
+      <ModalStackComponent.Navigator screenOptions={makeScreenOptions}>
         {config.map(
           ({
             name,
@@ -117,7 +127,7 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
             );
           },
         )}
-      </ModalStack.Navigator>
+      </ModalStackComponent.Navigator>
     </PageTypeContext.Provider>
   );
 }
