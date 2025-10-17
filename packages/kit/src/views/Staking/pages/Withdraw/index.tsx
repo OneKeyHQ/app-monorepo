@@ -126,7 +126,7 @@ const WithdrawPage = () => {
       provider: providerName,
       symbol: tokenSymbol,
       action: 'unstake',
-      amount: earnUtils.isMomentumProvider({ providerName }) ? balance : '1',
+      amount: balance ?? '1',
       txId:
         providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
