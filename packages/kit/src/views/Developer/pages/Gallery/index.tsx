@@ -66,6 +66,12 @@ const DialogGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Dialog'
     ),
 );
+const DiscoveryBrowserGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DiscoveryBrowserGallery'
+    ),
+);
 const DividerGallery = LazyLoadPage(
   () =>
     import(
@@ -441,6 +447,13 @@ const MarkdownGallery = LazyLoadPage(
     ),
 );
 
+const NetworkStatusBadgeGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkStatusBadge'
+    ),
+);
+
 const NotificationGallery = LazyLoadPage(
   () =>
     import(
@@ -754,6 +767,10 @@ export const galleryScreenList: {
     component: SegmentControlGallery,
   },
   { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
+  {
+    name: EGalleryRoutes.ComponentDiscoveryBrowser,
+    component: DiscoveryBrowserGallery,
+  },
   { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
   {
@@ -834,6 +851,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentMarkdown,
     component: MarkdownGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNetworkStatusBadge,
+    component: NetworkStatusBadgeGallery,
   },
   {
     name: EGalleryRoutes.ComponentNotification,

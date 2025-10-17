@@ -4,8 +4,8 @@ import { type ChangeEvent, useCallback, useRef, useState } from 'react';
 
 import { Cropper } from 'react-mobile-cropper';
 import 'react-mobile-cropper/dist/style.css';
-import { withStaticProperties } from 'tamagui';
 
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 

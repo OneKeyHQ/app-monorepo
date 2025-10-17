@@ -1,29 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
 import {
-  Badge,
-  Button,
   IconButton,
   Image,
   Page,
   Stack,
   XStack,
   YStack,
-  useIsFocusedTab,
   useMedia,
 } from '@onekeyhq/components';
-import { useFocusedTab } from '@onekeyhq/components/src/composite/Tabs/useFocusedTab';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
@@ -48,53 +43,10 @@ function PerpLayout() {
 }
 
 function PerpNetworkStatus() {
-  const intl = useIntl();
   const [networkStatus] = usePerpsNetworkStatusAtom();
-  const isNetworkStable = networkStatus.connected;
-  const networkStyle = useMemo(() => {
-    return {
-      badgeType: isNetworkStable ? 'success' : 'critical',
-      indicatorBg: isNetworkStable ? '$success10' : '$critical10',
-      text: isNetworkStable
-        ? intl.formatMessage({ id: ETranslations.perp_online })
-        : intl.formatMessage({ id: ETranslations.perp_offline }),
-    };
-  }, [isNetworkStable, intl]);
-  return useMemo(
-    () => (
-      <Badge
-        badgeType={networkStyle.badgeType}
-        badgeSize="md"
-        height={26}
-        borderRadius="$full"
-        pl="$2"
-        px="$3"
-        gap="$1.5"
-        cursor="default"
-      >
-        <Stack
-          position="relative"
-          w={8}
-          h={8}
-          borderRadius="$full"
-          alignItems="center"
-          justifyContent="center"
-          bg="$neutral3"
-          p="$1.5"
-        >
-          <Stack
-            position="absolute"
-            w={6}
-            h={6}
-            borderRadius="$full"
-            bg={networkStyle.indicatorBg}
-          />
-        </Stack>
-        <Badge.Text style={{ fontSize: 12 }}>{networkStyle.text}</Badge.Text>
-      </Badge>
-    ),
-    [networkStyle],
-  );
+  const connected = Boolean(networkStatus?.connected);
+
+  return <NetworkStatusBadge connected={connected} />;
 }
 
 function FooterRefreshButton() {

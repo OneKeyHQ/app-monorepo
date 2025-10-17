@@ -10,6 +10,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   AppUpdate,
@@ -26,6 +27,7 @@ import ServiceBase from './ServiceBase';
 
 let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
+let firstLaunch = true;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -101,6 +103,12 @@ class ServiceAppUpdate extends ServiceBase {
     ) {
       return false;
     }
+
+    if (firstLaunch) {
+      firstLaunch = false;
+      return true;
+    }
+
     const timeout =
       timerUtils.getTimeDurationMs({
         hour: 1,
@@ -172,6 +180,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else if (statusNumber === 404 || statusNumber === 403) {
       errorText = ETranslations.update_server_not_responding_try_later;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
   }
 
@@ -241,6 +250,7 @@ class ServiceAppUpdate extends ServiceBase {
         errorText =
           ETranslations.update_signature_verification_failed_alert_text;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: errorText as ETranslations,
@@ -259,6 +269,7 @@ class ServiceAppUpdate extends ServiceBase {
         errorText = ETranslations.update_installation_not_safe_alert_text;
       }
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: errorText as ETranslations,
@@ -277,6 +288,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else {
       errorText = ETranslations.update_network_instability_check_connection;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadASCFailed, errorText);
   }
 
@@ -294,13 +306,14 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
-      latestVersion: '0.0.0',
+      latestVersion: platformEnv.version,
+      jsBundleVersion: platformEnv.bundleVersion,
       updateStrategy: EUpdateStrategy.manual,
       updateAt: 0,
       summary: '',
       status: EAppUpdateStatus.done,
-      jsBundleVersion: undefined,
       jsBundle: undefined,
+      previousAppVersion: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
@@ -359,21 +372,41 @@ class ServiceAppUpdate extends ServiceBase {
   public async fetchAppUpdateInfo(forceUpdate = false) {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
-    if (!(await this.isNeedSyncAppUpdateInfo(forceUpdate))) {
+    const isNeedSync = await this.isNeedSyncAppUpdateInfo(forceUpdate);
+    defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
+    if (!isNeedSync) {
       return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
+    defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
     if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
       const shouldUpdate = gtVersion(
         releaseInfo.version,
         releaseInfo.jsBundleVersion,
       );
       await appUpdatePersistAtom.set((prev) => {
-        const isUpdating = releaseInfo.jsBundleVersion
-          ? prev.jsBundleVersion === releaseInfo.jsBundleVersion &&
-            prev.latestVersion === releaseInfo.version
-          : prev.latestVersion === releaseInfo.version;
+        const isUpdating = prev.status !== EAppUpdateStatus.done;
+        const hasVersionChanged = shouldUpdate && !isUpdating;
+        let downloadedEvent: IUpdateDownloadedEvent | undefined;
+        if (hasVersionChanged) {
+          if (
+            releaseInfo.downloadUrl &&
+            releaseInfo.downloadUrl.startsWith('https')
+          ) {
+            downloadedEvent = {
+              ...prev.downloadedEvent,
+              downloadUrl: releaseInfo.downloadUrl,
+            };
+          }
+
+          if (releaseInfo.jsBundle && releaseInfo.jsBundle.downloadUrl) {
+            downloadedEvent = {
+              ...prev.downloadedEvent,
+              downloadUrl: releaseInfo.jsBundle.downloadUrl,
+            };
+          }
+        }
         return {
           ...prev,
           ...releaseInfo,
@@ -382,8 +415,11 @@ class ServiceAppUpdate extends ServiceBase {
           summary: releaseInfo?.summary || '',
           latestVersion: releaseInfo.version || prev.latestVersion,
           updateAt: Date.now(),
-          status:
-            shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
+          status: hasVersionChanged ? EAppUpdateStatus.notify : prev.status,
+          previousAppVersion: hasVersionChanged
+            ? platformEnv.version
+            : undefined,
+          downloadedEvent,
         };
       });
     } else {

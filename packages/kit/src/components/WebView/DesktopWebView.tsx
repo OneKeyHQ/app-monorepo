@@ -53,23 +53,11 @@ export type {
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-function usePreloadJsUrl() {
-  const { preloadJsUrl } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
-  useEffect(() => {
-    if (preloadJsUrl) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (!preloadJsUrl) {
-        console.error(`Webview render failed:
-      Please send messages of channel SET_ONEKEY_DESKTOP_GLOBALS at app start
-      `);
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [preloadJsUrl]);
-  return preloadJsUrl as string;
-}
+let preloadJsUrl = '';
+
+void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
+  preloadJsUrl = url;
+});
 
 // Used for webview type referencing
 const WEBVIEW_TAG = 'webview';
@@ -401,11 +389,11 @@ const DesktopWebView = forwardRef(
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
 
-    const preloadJsUrl = usePreloadJsUrl();
-
     if (!preloadJsUrl) {
       return null;
     }
+
+    console.log('preloadJsUrl', preloadJsUrl);
 
     return (
       <>

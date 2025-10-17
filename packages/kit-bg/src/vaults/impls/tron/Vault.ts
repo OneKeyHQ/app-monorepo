@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isEmpty, isNil, noop } from 'lodash';
 import TronWeb from 'tronweb';
 
 import {
@@ -13,19 +13,18 @@ import type {
   IEncodedTxTron,
 } from '@onekeyhq/core/src/chains/tron/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import type {
-  IEncodedTx,
-  ISignedTxPro,
-  IUnsignedTxPro,
-} from '@onekeyhq/core/src/types';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   InsufficientBalance,
-  InvalidAddress,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -41,13 +40,9 @@ import type {
 import {
   ETronResourceRentalPayType,
   type IFeeInfoUnit,
-  type IFeeTron,
   type ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
-import {
-  EOnChainHistoryTxStatus,
-  type IOnChainHistoryTx,
-} from '@onekeyhq/shared/types/history';
+import { type IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -75,7 +70,6 @@ import type { KeyringBase } from '../../base/KeyringBase';
 import type {
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
-  IBroadcastTransactionParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -1059,5 +1053,134 @@ export default class Vault extends VaultBase {
         txid: uploadResult?.tx_ids?.[0] ?? '',
       },
     };
+  }
+
+  override async preActionsBeforeConfirm({
+    unsignedTxs,
+  }: {
+    unsignedTxs: IUnsignedTxPro[];
+  }) {
+    // disable auto claim energy for watching account
+    if (accountUtils.isWatchingAccount({ accountId: this.accountId })) {
+      return;
+    }
+
+    const unsignedTx = unsignedTxs[0];
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxTron;
+
+    const accountAddress = await this.getAccountAddress();
+
+    // 1. Check if the transaction requires consuming additional energy
+    if (encodedTx.raw_data.contract[0].type === 'TransferContract') {
+      return;
+    }
+
+    const feeResp = await this.backgroundApi.serviceGas.estimateFee({
+      networkId: this.networkId,
+      accountId: this.accountId,
+      accountAddress,
+      encodedTx,
+    });
+
+    const feeInfo: IFeeInfoUnit = {
+      common: feeResp.common,
+      feeTron: feeResp.feeTron?.[1] ?? feeResp.feeTron?.[0],
+    };
+
+    if (!feeInfo.feeTron) {
+      return;
+    }
+
+    const availableEnergy = new BigNumber(
+      feeInfo.feeTron.accountInfo?.energyTotal ?? 0,
+    ).minus(feeInfo.feeTron.accountInfo?.energyUsed ?? 0);
+
+    if (availableEnergy.gt(feeInfo.feeTron.requiredEnergy)) {
+      return;
+    }
+
+    const feeResult = calculateFeeForSend({
+      feeInfo,
+      nativeTokenPrice: feeResp.common.nativeTokenPrice ?? 0,
+    });
+
+    // 2. Check if the address has attempted to claim the subsidy within the last 24 hours
+    const tronClaimResourceInfo =
+      await this.backgroundApi.simpleDb.chainResource.getTronClaimResourceInfo({
+        accountAddress,
+      });
+
+    if (
+      tronClaimResourceInfo &&
+      tronClaimResourceInfo.lastClaimTime &&
+      Date.now() - tronClaimResourceInfo.lastClaimTime <
+        timerUtils.getTimeDurationMs({ hour: 24 })
+    ) {
+      return;
+    }
+
+    // 3. If more than 24 hours have passed since the last attempt, try to claim the subsidy again
+    const { timestamp, signed, claimSource } =
+      chainResourceUtils.buildTronClaimResourceParams({
+        accountAddress,
+        isTestnet: (await this.getNetwork()).isTestnet,
+      });
+
+    try {
+      const resp =
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequestWithTrxRes<{
+          code: number;
+          message: string;
+          success: boolean;
+          error?: string;
+        }>({
+          networkId: this.networkId,
+          body: {
+            method: 'post',
+            url: '/api/tronRent/addFreeTronRentRecord',
+            data: {
+              fromAddress: accountAddress,
+              sourceFlag: claimSource,
+              timestamp,
+              signed,
+            },
+            params: {},
+          },
+          returnRawData: true,
+        });
+
+      // 4. Update the local tron claim resource state
+      await this.backgroundApi.simpleDb.chainResource.updateTronClaimResourceInfo(
+        {
+          accountAddress,
+          lastClaimTime: timestamp,
+        },
+      );
+
+      defaultLogger.reward.tronReward.claimResource({
+        networkId: this.networkId,
+        address: accountAddress,
+        sourceFlag: claimSource ?? '',
+        isSuccess: true,
+        resourceType: 'energy',
+        isAutoClaimed: true,
+      });
+
+      if (resp.code === 0) {
+        await timerUtils.wait(1000);
+      }
+
+      // 5. Return the claim flag, which will be used for special status display at the transaction confirm page
+      return {
+        isTronResourceAutoClaimed: resp.code === 0,
+        txOriginalFee: {
+          totalNative: feeResult.totalNative,
+          totalFiat: feeResult.totalFiat,
+        },
+      };
+    } catch (error) {
+      console.log(JSON.stringify(error));
+      noop();
+    }
   }
 }

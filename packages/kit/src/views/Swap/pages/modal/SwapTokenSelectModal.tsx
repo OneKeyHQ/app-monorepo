@@ -15,6 +15,7 @@ import {
   SizableText,
   Skeleton,
   Stack,
+  Toast,
   XStack,
   YStack,
   useClipboard,
@@ -88,12 +89,20 @@ const SwapTokenSelectPage = () => {
   const [swapAllSupportNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const [swapNetworksIncludeAllNetwork] =
     useSwapNetworksIncludeAllNetworkAtom();
-  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
-  const [toToken] = useSwapSelectToTokenAtom();
+  const [toToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
+  const fromTokenRef = useRef<ISwapToken | undefined>(fromToken);
+  const toTokenRef = useRef<ISwapToken | undefined>(toToken);
+  if (fromTokenRef.current !== fromToken) {
+    fromTokenRef.current = fromToken;
+  }
+  if (toTokenRef.current !== toToken) {
+    toTokenRef.current = toToken;
+  }
   const { selectFromToken, selectToToken, syncNetworksSort } =
     useSwapActions().current;
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
@@ -204,12 +213,35 @@ const SwapTokenSelectPage = () => {
     (token: ISwapToken) => {
       navigation.popStack();
       if (type === ESwapDirectionType.FROM) {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: toTokenRef.current,
+            token2: token,
+          })
+        ) {
+          setSwapSelectToToken(fromTokenRef.current);
+        }
         void selectFromToken(token);
       } else {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: fromTokenRef.current,
+            token2: token,
+          })
+        ) {
+          setSwapSelectFromToken(toTokenRef.current);
+        }
         void selectToToken(token);
       }
     },
-    [navigation, selectFromToken, selectToToken, type],
+    [
+      navigation,
+      selectFromToken,
+      selectToToken,
+      setSwapSelectFromToken,
+      setSwapSelectToToken,
+      type,
+    ],
   );
 
   const onSelectToken = useCallback(
@@ -242,33 +274,6 @@ const SwapTokenSelectPage = () => {
     });
   }, []);
 
-  const sameTokenDisabled = useCallback(
-    (token: ISwapToken) =>
-      equalTokenNoCaseSensitive({
-        token1: {
-          networkId:
-            type === ESwapDirectionType.FROM
-              ? toToken?.networkId
-              : fromToken?.networkId,
-          contractAddress:
-            type === ESwapDirectionType.FROM
-              ? toToken?.contractAddress
-              : fromToken?.contractAddress,
-        },
-        token2: {
-          networkId: token.networkId,
-          contractAddress: token.contractAddress,
-        },
-      }),
-    [
-      fromToken?.contractAddress,
-      fromToken?.networkId,
-      toToken?.contractAddress,
-      toToken?.networkId,
-      type,
-    ],
-  );
-
   const { md } = useMedia();
   const { copyText, getClipboard } = useClipboard();
 
@@ -278,6 +283,14 @@ const SwapTokenSelectPage = () => {
       setSearchKeyword(text.trim());
     }
   }, [getClipboard]);
+
+  const disableNetworksOnClick = useCallback(() => {
+    Toast.message({
+      title: intl.formatMessage({
+        id: ETranslations.swap_toast_bridge_tip,
+      }),
+    });
+  }, [intl]);
 
   const disableNetworks = useMemo(() => {
     let res: string[] = [];
@@ -344,14 +357,10 @@ const SwapTokenSelectPage = () => {
                 currency: settingsPersistAtom.currencyInfo.symbol,
               }
             : undefined,
-        onPress:
-          !sameTokenDisabled(rawItem) &&
-          !disableNetworks.includes(rawItem.networkId)
-            ? () => onSelectToken(rawItem)
-            : undefined,
-        disabled:
-          sameTokenDisabled(rawItem) ||
-          disableNetworks.includes(rawItem.networkId),
+        onPress: !disableNetworks.includes(rawItem.networkId)
+          ? () => onSelectToken(rawItem)
+          : () => disableNetworksOnClick(),
+        disabled: disableNetworks.includes(rawItem.networkId),
         titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
           (v) => v.key === 'symbol',
         ),
@@ -425,9 +434,9 @@ const SwapTokenSelectPage = () => {
       copyText,
       disableNetworks,
       intl,
+      disableNetworksOnClick,
       md,
       onSelectToken,
-      sameTokenDisabled,
       searchKeywordDebounce,
       settingsPersistAtom.currencyInfo.symbol,
     ],
@@ -559,6 +568,7 @@ const SwapTokenSelectPage = () => {
           disableNetworks={disableNetworks}
           disableMoreNetworks={disableMoreNetworks}
           onSelectNetwork={onSelectCurrentNetwork}
+          onDisableNetworksClick={disableNetworksOnClick}
         />
         {currentNetworkPopularTokens.length > 0 && !searchKeywordDebounce ? (
           <Divider mt="$2" />
@@ -580,9 +590,6 @@ const SwapTokenSelectPage = () => {
                   </SizableText>
                   <SwapPopularTokenGroup
                     onSelectToken={onSelectToken}
-                    selectedToken={
-                      type === ESwapDirectionType.FROM ? toToken : fromToken
-                    }
                     tokens={currentNetworkPopularTokens}
                   />
                 </YStack>
