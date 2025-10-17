@@ -1,3 +1,7 @@
+export enum EOnboardingV2Routes {
+  OnboardingV2 = 'OnboardingV2',
+}
+
 export enum EOnboardingPagesV2 {
   GetStarted = 'GetStarted',
   AddExistingWallet = 'AddExistingWallet',

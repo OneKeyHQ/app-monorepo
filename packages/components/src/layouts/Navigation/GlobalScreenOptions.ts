@@ -128,6 +128,24 @@ export function makeModalScreenOptions(info: {
   };
 }
 
+export function makeOnboardingScreenOptions(info: {
+  isVerticalLayout?: boolean;
+  optionsInfo: IScreenOptionsInfo<any>;
+}): StackNavigationOptions {
+  return {
+    detachPreviousScreen: false,
+    headerShown: false,
+    presentation: 'transparentModal',
+    cardStyle: { backgroundColor: 'transparent' },
+    // Keep this field to preserve animation timing when removing pages in react-navigation v7
+    // The stack navigator checks for the presence of the animation field to reserve time for page removal animations
+    // https://github.com/react-navigation/react-navigation/blob/858a8746a5c007a623206c920f70d55935ed39b4/packages/stack/src/views/Stack/StackView.tsx#L145
+    // @ts-expect-error
+    animation:  'custom-animation-on-web',
+    ...makeModalOpenAnimationOptions(info),
+  };
+}
+
 export function makeRootModalStackOptions(): StackNavigationOptions {
   return {
     detachPreviousScreen: false,
