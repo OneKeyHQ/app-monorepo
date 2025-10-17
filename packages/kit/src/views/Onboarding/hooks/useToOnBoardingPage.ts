@@ -8,6 +8,7 @@ import {
   EModalRoutes,
   EOnboardingPages,
   EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -25,7 +26,6 @@ export const useToOnBoardingPage = () => {
   return useMemo(
     () =>
       async ({
-        isFullModal = false,
         params,
       }: {
         isFullModal?: boolean;
@@ -44,13 +44,12 @@ export const useToOnBoardingPage = () => {
         ) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [
-              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-              EModalRoutes.OnboardingModal,
+              ERootRoutes.Onboarding,
+              EOnboardingV2Routes.OnboardingV2,
               EOnboardingPagesV2.GetStarted,
             ],
             params: {
               ...params,
-              isFullModal,
               fromExt: true,
             },
           });
@@ -58,16 +57,15 @@ export const useToOnBoardingPage = () => {
             window.close();
           }
         } else {
-          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
-            EModalRoutes.OnboardingModal,
-            {
+          navigation.navigate(ERootRoutes.Onboarding, {
+            screen: EOnboardingV2Routes.OnboardingV2,
+            params: {
               screen: EOnboardingPagesV2.GetStarted,
               params: {
                 ...params,
-                isFullModal,
               },
             },
-          );
+          });
         }
       },
     [navigation],
