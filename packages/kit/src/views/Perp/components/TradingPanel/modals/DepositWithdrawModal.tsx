@@ -71,6 +71,7 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
@@ -766,7 +767,19 @@ function DepositWithdrawContent({
     depositTokensWithPrice,
     renderTokenItem,
   ]);
-
+  const {
+    perpDepositQuote,
+    perpDepositQuoteLoading,
+    perpDepositActionLoading,
+    buildPerpDepositTx,
+    multipleStepText,
+    shouldApprove,
+  } = usePerpDeposit(
+    amount,
+    selectedAccount.accountId ?? '',
+    selectedAction,
+    currentPerpsDepositSelectedToken,
+  );
   const content = (
     <YStack
       gap="$4"

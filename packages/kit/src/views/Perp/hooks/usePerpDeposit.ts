@@ -49,8 +49,9 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 const usePerpDeposit = (
   amount: string,
-  token: IPerpsDepositToken,
   accountId: string,
+  selectedAction: 'withdraw' | 'deposit',
+  token?: IPerpsDepositToken,
 ) => {
   const [perpDepositQuote, setPerpDepositQuote] = useState<
     IPerpDepositQuoteRes | undefined
@@ -62,7 +63,8 @@ const usePerpDeposit = (
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
   const { result } = usePromiseResult(
     async () => {
-      if (accountId) {
+      if (selectedAction !== 'deposit') return;
+      if (accountId && token?.networkId) {
         const fromTokenAccount =
           await backgroundApiProxy.serviceAccount.getAccount({
             accountId,
@@ -72,21 +74,20 @@ const usePerpDeposit = (
           accountId,
           networkId: PERPS_NETWORK_ID,
         });
-        console.log('perp__fromTokenAccount', fromTokenAccount);
-        console.log('perp__Account', perpAccount);
         return {
           fromUserAddress: fromTokenAccount.address,
           perpReceiverAddress: perpAccount.address,
         };
       }
     },
-    [accountId, token.networkId],
+    [selectedAction, accountId, token?.networkId],
     {
       watchLoading: true,
     },
   );
 
   useEffect(() => {
+    if (selectedAction !== 'deposit' || !token) return;
     void (async () => {
       if (result?.fromUserAddress && result?.perpReceiverAddress) {
         setPerpDepositQuoteLoading(true);
@@ -103,11 +104,13 @@ const usePerpDeposit = (
       }
     })();
   }, [
+    selectedAction,
     amount,
     result?.fromUserAddress,
     result?.perpReceiverAddress,
-    token.contractAddress,
-    token.networkId,
+    token?.contractAddress,
+    token?.networkId,
+    token,
   ]);
 
   const buildQuoteRes = useCallback(
@@ -115,7 +118,7 @@ const usePerpDeposit = (
       let transferInfo: ITransferInfo | undefined;
       let encodedTx: IEncodedTx | undefined;
       let swapInfo: ISwapTxInfo | undefined;
-      if (buildSwapRes.tx) {
+      if (buildSwapRes.tx && token) {
         transferInfo = undefined;
         if (typeof buildSwapRes.tx !== 'string' && buildSwapRes.tx.data) {
           const valueHex = toBigIntHex(
@@ -258,7 +261,7 @@ const usePerpDeposit = (
         data?.toAmount &&
         result?.fromUserAddress &&
         result?.perpReceiverAddress &&
-        token.networkId &&
+        token?.networkId &&
         accountId
       ) {
         let prevNonce: number | undefined;
@@ -288,7 +291,7 @@ const usePerpDeposit = (
     [
       result?.fromUserAddress,
       result?.perpReceiverAddress,
-      token.networkId,
+      token?.networkId,
       accountId,
       getApproveUnsignedTx,
     ],
@@ -518,9 +521,12 @@ const usePerpDeposit = (
       if (!gasInfo.common) {
         throw new OneKeyError('gasInfo.common is required');
       }
+      if (!token?.networkId) {
+        throw new OneKeyError('token.networkId is required');
+      }
       const updatedUnsignedTxItem =
         await backgroundApiProxy.serviceSend.updateUnsignedTx({
-          networkId: token.networkId,
+          networkId: token?.networkId,
           accountId,
           unsignedTx: unsignedTxItem,
           feeInfo: {
@@ -544,12 +550,12 @@ const usePerpDeposit = (
           },
         });
       await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
-        networkId: token.networkId,
+        networkId: token?.networkId,
         accountId,
         unsignedTxs: [updatedUnsignedTxItem],
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
-
+      // todo verify transaction
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId: token.networkId,
         accountId,
@@ -558,7 +564,7 @@ const usePerpDeposit = (
       });
       return res;
     },
-    [accountId, token.networkId],
+    [accountId, token?.networkId],
   );
 
   const perpSendTxAction = useCallback(
@@ -812,6 +818,9 @@ const usePerpDeposit = (
     if (!perpDepositQuote) {
       throw new OneKeyError('perpDepositQuote is not found');
     }
+    if (!token?.networkId) {
+      throw new OneKeyError('token.networkId is required');
+    }
     setPerpDepositActionLoading(true);
     const { transferInfo, encodedTx, swapInfo } = await buildQuoteRes(
       perpDepositQuote,
@@ -819,7 +828,7 @@ const usePerpDeposit = (
     const { unsignedTxArr } = await getApproveUnSignedTxArr(perpDepositQuote);
     const gasFeeInfos = await estimateNetworkFee(
       {
-        networkId: token.networkId,
+        networkId: token?.networkId,
         accountId,
         transfersInfo: transferInfo ? [transferInfo] : undefined,
         encodedTx,
@@ -829,7 +838,7 @@ const usePerpDeposit = (
     );
     const res = await perpSendTxAction(
       {
-        networkId: token.networkId,
+        networkId: token?.networkId,
         accountId,
         transfersInfo: transferInfo ? [transferInfo] : undefined,
         encodedTx,
@@ -851,7 +860,7 @@ const usePerpDeposit = (
     buildQuoteRes,
     getApproveUnSignedTxArr,
     estimateNetworkFee,
-    token.networkId,
+    token?.networkId,
     accountId,
     perpSendTxAction,
     intl,
@@ -868,7 +877,7 @@ const usePerpDeposit = (
     return (isExternalAccount || isHDAccount) && isShouldApprove;
   }, [perpDepositQuote?.allowanceResult, accountId]);
 
-  const multipleStepTest = useMemo(() => {
+  const multipleStepText = useMemo(() => {
     if (!perpDepositQuote?.allowanceResult || !shouldSignEveryTime) {
       return '';
     }
@@ -883,7 +892,7 @@ const usePerpDeposit = (
     perpDepositQuote,
     perpDepositQuoteLoading,
     shouldApprove: !!perpDepositQuote?.allowanceResult,
-    multipleStepTest,
+    multipleStepText,
     perpDepositActionLoading,
     buildPerpDepositTx,
   };
