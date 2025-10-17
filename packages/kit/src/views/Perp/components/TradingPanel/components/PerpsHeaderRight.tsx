@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActivePositionAtom,
@@ -31,13 +32,15 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
+import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 function DebugButton() {
   const [allMids] = usePerpsAllMidsAtom();
@@ -93,7 +96,7 @@ function DebugButton() {
 function DepositButton() {
   const { gtSm } = useMedia();
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-
+  const navigation = useAppNavigation();
   const accountValue = accountSummary?.accountValue;
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
@@ -103,14 +106,18 @@ function DepositButton() {
       borderRadius="$full"
       size="medium"
       variant="secondary"
-      onPress={() =>
-        showDepositWithdrawModal(
-          {
-            actionType: 'deposit',
-          },
-          dialogInTab,
-        )
-      }
+      onPress={async () => {
+        if (gtSm) {
+          await showDepositWithdrawDialog(
+            { actionType: 'deposit' },
+            dialogInTab,
+          );
+        } else {
+          navigation.pushModal(EModalRoutes.PerpModal, {
+            screen: EModalPerpRoutes.MobileDepositWithdrawModal,
+          });
+        }
+      }}
       alignItems="center"
       justifyContent="center"
       flexDirection="row"

@@ -31,7 +31,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
 
-import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
+import { showDepositWithdrawDialog } from './modals/DepositWithdrawModal';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -81,7 +81,7 @@ export function PerpTradingButton({
       perpsAccount.accountAddress &&
       perpsAccount.accountId
     ) {
-      await showDepositWithdrawModal(
+      await showDepositWithdrawDialog(
         {
           actionType: 'deposit',
         },

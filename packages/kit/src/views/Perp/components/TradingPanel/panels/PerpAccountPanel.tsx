@@ -27,7 +27,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 export function PerpAccountDebugInfo() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -251,7 +251,7 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal(
+              showDepositWithdrawDialog(
                 {
                   actionType: 'deposit',
                 },
@@ -271,7 +271,7 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal(
+              showDepositWithdrawDialog(
                 {
                   actionType: 'withdraw',
                 },

@@ -16,7 +16,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
 
-import { showDepositWithdrawModal } from './TradingPanel/modals/DepositWithdrawModal';
+import { showDepositWithdrawDialog } from './TradingPanel/modals/DepositWithdrawModal';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
@@ -51,7 +51,7 @@ function TradingGuardWrapperInternal({
         accountInfo.accountAddress &&
         accountInfo.accountId
       ) {
-        void showDepositWithdrawModal(
+        void showDepositWithdrawDialog(
           {
             actionType: 'deposit',
           },

@@ -46,7 +46,7 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
@@ -66,7 +66,7 @@ function MobileDepositButton() {
       iconSize="$3.5"
       icon="PlusCircleSolid"
       onPress={() =>
-        showDepositWithdrawModal(
+        showDepositWithdrawDialog(
           {
             actionType: 'deposit',
           },

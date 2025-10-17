@@ -25,6 +25,10 @@ const MobileSetTpslModal = LazyLoadPage(
   () => import('../components/OrderInfoPanel/SetTpslModal'),
 );
 
+const MobileDepositWithdrawModal = LazyLoadPage(
+  () => import('../components/TradingPanel/modals/DepositWithdrawModal'),
+);
+
 export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
@@ -42,6 +46,10 @@ export const perpRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: EModalPerpRoutes.MobileSetTpsl,
     component: MobileSetTpslModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositWithdrawModal,
+    component: MobileDepositWithdrawModal,
   },
 ];
 
@@ -65,5 +73,9 @@ export const ModalPerpStack: IModalFlowNavigatorConfig<
   {
     name: EModalPerpRoutes.MobileSetTpsl,
     component: MobileSetTpslModal,
+  },
+  {
+    name: EModalPerpRoutes.MobileDepositWithdrawModal,
+    component: MobileDepositWithdrawModal,
   },
 ];
