@@ -94,8 +94,13 @@ const usePreloadTabs = platformEnv.isNative
   : () => {
       const navigation = useNavigation();
       useEffect(() => {
-        void whenAppUnlocked().then(() => {
-          preloadTabs(navigation as NavigationProp<any>);
+        void Promise.race([
+          new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+          whenAppUnlocked(),
+        ]).then(() => {
+          setTimeout(() => {
+            preloadTabs(navigation as NavigationProp<any>);
+          });
         });
       }, [navigation]);
     };
