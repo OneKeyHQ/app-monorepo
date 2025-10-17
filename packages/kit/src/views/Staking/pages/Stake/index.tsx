@@ -86,10 +86,10 @@ function BasicStakePage() {
         // TODO: remove term after babylon remove term
         term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
-        protocolVault: earnUtils.useVaultProvider({
+        protocolVault: earnUtils.isVaultBasedProvider({
           providerName,
         })
-          ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
+          ? protocolInfo?.vault
           : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
@@ -131,7 +131,6 @@ function BasicStakePage() {
       symbol,
       providerName,
       protocolInfo?.providerDetail.logoURI,
-      protocolInfo?.approve?.approveTarget,
       protocolInfo?.vault,
       token,
       actionTag,
