@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
 
 import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -64,54 +63,54 @@ export function TokenList({
   ]);
 
   // fetch token details
-  const tokensWithDetails = usePromiseResult(async (): Promise<
-    IEnhancedToken[]
-  > => {
-    if (!tokens.length || !networkAccount.result) {
-      return tokens.map((token) => ({
-        ...token,
-        error: 'Failed to fetch details',
-      }));
-    }
-
-    const promises = tokens.map(async (token): Promise<IEnhancedToken> => {
-      try {
-        const details =
-          await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-            networkId: token.networkId,
-            contractAddress: token.contractAddress,
-            accountId: networkAccount.result?.id,
-            accountAddress: networkAccount.result?.address,
-          });
-
-        const swapTokenDetail = details?.[0];
-        const networkConfig = Object.values(presetNetworksMap).find(
-          (n) => n.id === token.networkId,
-        );
-        const priceBN = new BigNumber(swapTokenDetail?.price || 0);
-        const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
-        const valueProps =
-          swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
-            ? {
-                value: priceBN.multipliedBy(balanceBN).toFixed(2),
-                currency: currencySymbol,
-              }
-            : undefined;
-        return {
+  const tokensWithDetails = usePromiseResult(
+    async (): Promise<IEnhancedToken[]> => {
+      if (!tokens.length || !networkAccount.result) {
+        return tokens.map((token) => ({
           ...token,
-          balance: swapTokenDetail?.balanceParsed ?? '0',
-          price: swapTokenDetail?.price,
-          networkImageSrc: networkConfig?.logoURI,
-          valueProps,
-        };
-      } catch (error) {
-        console.error(`Failed to fetch details for ${token.symbol}:`, error);
-        return { ...token, error: 'Failed to fetch details' };
+          error: 'Failed to fetch details',
+        }));
       }
-    });
+      const promises = tokens.map(async (token): Promise<IEnhancedToken> => {
+        try {
+          const details =
+            await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+              networkId: token.networkId,
+              contractAddress: token.contractAddress,
+              accountId: networkAccount.result?.id,
+              accountAddress: networkAccount.result?.address,
+            });
 
-    return Promise.all(promises);
-  }, [tokens, networkAccount.result, currencySymbol]);
+          const swapTokenDetail = details?.[0];
+          const networkConfig = Object.values(presetNetworksMap).find(
+            (n) => n.id === token.networkId,
+          );
+          const priceBN = new BigNumber(swapTokenDetail?.price || 0);
+          const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
+          const valueProps =
+            swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
+              ? {
+                  value: priceBN.multipliedBy(balanceBN).toFixed(2),
+                  currency: currencySymbol,
+                }
+              : undefined;
+          return {
+            ...token,
+            balance: swapTokenDetail?.balanceParsed ?? '0',
+            price: swapTokenDetail?.price,
+            networkImageSrc: networkConfig?.logoURI,
+            valueProps,
+          };
+        } catch (error) {
+          console.error(`Failed to fetch details for ${token.symbol}:`, error);
+          return { ...token, error: 'Failed to fetch details' };
+        }
+      });
+      return Promise.all(promises);
+    },
+    [tokens, networkAccount.result, currencySymbol],
+    { watchLoading: true },
+  );
 
   const displayTokens = useMemo(() => {
     return tokens
@@ -135,7 +134,7 @@ export function TokenList({
       <YStack gap="$1" px="$1" py="$1">
         {displayTokens?.map((token: IEnhancedToken) => (
           <TokenListItem
-            isLoading={Boolean(isNil(token.balance) && !token.error)}
+            isLoading={tokensWithDetails.isLoading}
             key={`${token.networkId}-${token.contractAddress}`}
             tokenImageSrc={token.logoURI}
             networkImageSrc={token.networkImageSrc}
