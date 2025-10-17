@@ -2061,6 +2061,7 @@
   perp_account_panel_account_value = 'perp.account_panel_account_value',
   perp_account_panel_account_value_tooltip = 'perp.account_panel_account_value_tooltip',
   perp_account_panel_withrawable_value = 'perp.account_panel_withrawable_value',
+  perp_account_unrealized_pnl = 'perp.account_unrealized_pnl',
   perp_available_balance = 'perp.available_balance',
   perp_button_disable_perp = 'perp.button_disable_perp',
   perp_button_ip_restricted = 'perp.button_ip_restricted',
