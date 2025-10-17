@@ -208,7 +208,11 @@ function BasicStakePage() {
           approveTarget={{
             accountId,
             networkId,
-            spenderAddress: protocolInfo?.approve?.approveTarget ?? '',
+            spenderAddress: earnUtils.isVaultBasedProvider({
+              providerName: protocolInfo?.provider || '',
+            })
+              ? protocolInfo?.vault ?? ''
+              : protocolInfo?.approve?.approveTarget ?? '',
             token: tokenInfo?.token,
           }}
         />
