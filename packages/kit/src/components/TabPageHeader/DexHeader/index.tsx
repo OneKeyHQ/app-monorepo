@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 
-import { DexHeader, HeaderNavigation } from '@onekeyhq/components';
+import {
+  DexHeader,
+  HeaderNavigation,
+  Icon,
+  XStack,
+} from '@onekeyhq/components';
 import type { IHeaderNavigationItem } from '@onekeyhq/components';
 
 import { HeaderNotificationIconButton } from '../components';
@@ -12,7 +17,6 @@ export interface IDexHeaderContainerProps {
   showDownloadButton?: boolean;
   showLanguageButton?: boolean;
   showThemeButton?: boolean;
-  showNavigation?: boolean;
   downloadUrl?: string;
   activeNavigationKey?: string;
   onNavigationChange?: (key: string) => void;
@@ -21,12 +25,19 @@ export interface IDexHeaderContainerProps {
 const BUTTON_SIZE = 'large' as const;
 const BUTTON_ICON_SIZE = '$5' as const;
 
+function OneKeyLogo() {
+  return (
+    <XStack px="$4" py="$3">
+      <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
+    </XStack>
+  );
+}
+
 export function DexHeaderContainer({
   showNotificationButton = true,
   showDownloadButton = true,
   showLanguageButton = true,
   showThemeButton = true,
-  showNavigation = true,
   downloadUrl,
   activeNavigationKey,
   onNavigationChange,
@@ -42,13 +53,16 @@ export function DexHeaderContainer({
     [],
   );
 
-  const leftContent = showNavigation ? (
-    <HeaderNavigation
-      items={navigationItems}
-      activeKey={activeNavigationKey}
-      onTabChange={onNavigationChange}
-    />
-  ) : null;
+  const leftContent = (
+    <XStack ai="center" gap="$2">
+      <OneKeyLogo />
+      <HeaderNavigation
+        items={navigationItems}
+        activeKey={activeNavigationKey}
+        onTabChange={onNavigationChange}
+      />
+    </XStack>
+  );
 
   return (
     <DexHeader leftContent={leftContent}>
