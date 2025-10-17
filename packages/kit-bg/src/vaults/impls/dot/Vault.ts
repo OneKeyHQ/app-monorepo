@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { ApiPromise, HttpProvider, WsProvider } from '@polkadot/api';
-import { hexToNumber, u8aToHex } from '@polkadot/util';
+import { hexToNumber } from '@polkadot/util';
 import {
   checkAddress,
   decodeAddress,
   encodeAddress,
 } from '@polkadot/util-crypto';
-import { decode, methods } from '@substrate/txwrapper-polkadot';
+import { decode } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
 import { md5 } from 'js-md5';
 import { isEmpty, isNaN, isNil, isObject, omit, orderBy } from 'lodash';
@@ -22,7 +22,6 @@ import type {
 import {
   BalanceLowerMinimum,
   InvalidTransferValue,
-  NotImplemented,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -87,6 +86,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { createVaultDotSub } from './subs';
 import {
   getBlockInfo,
   getGenesisHash,
@@ -97,6 +97,7 @@ import {
   getTransactionTypeFromTxInfo,
 } from './utils';
 
+import type { VaultDotSubBase } from './subs';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -126,6 +127,16 @@ export default class VaultDot extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  private subVaultInstance?: VaultDotSubBase;
+
+  private async getSubVault(): Promise<VaultDotSubBase> {
+    if (!this.subVaultInstance) {
+      const chainId = await this.getNetworkChainId();
+      this.subVaultInstance = createVaultDotSub(this, this.networkId, chainId);
+    }
+    return this.subVaultInstance;
+  }
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
@@ -195,6 +206,10 @@ export default class VaultDot extends VaultBase {
     };
   }
 
+  public async getTxBaseInfoForSub() {
+    return this._getTxBaseInfo();
+  }
+
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTx> {
@@ -211,14 +226,6 @@ export default class VaultDot extends VaultBase {
       true,
       networkInfo?.addressPrefix ? +networkInfo.addressPrefix : 0,
     );
-
-    const chainId = await this.getNetworkChainId();
-    let toAccount = { id: to };
-    if (chainId === 'joystream' || chainId === 'hydration') {
-      toAccount = hexUtils.addHexPrefix(
-        bufferUtils.bytesToHex(toAccountId),
-      ) as unknown as { id: string };
-    }
 
     let amountValue;
 
@@ -238,111 +245,39 @@ export default class VaultDot extends VaultBase {
       registry: txBaseInfo.registry,
     };
 
+    const subVault = await this.getSubVault();
+
     let unsigned;
     if (tokenInfo && tokenInfo?.address && !tokenInfo.isNative) {
       amountValue = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)
         .toFixed(0);
 
-      if (chainId === 'asset-hub') {
-        const asset = {
-          parents: 0,
-          interior: {
-            X2: [
-              {
-                palletInstance: 50,
-              },
-              {
-                generalIndex: parseInt(tokenInfo.address, 10),
-              },
-            ],
-          },
-        };
+      const unsignedToken = await subVault.buildTokenTransfer({
+        tokenInfo,
+        to,
+        amountValue,
+        keepAlive,
+        info,
+        option,
+      });
 
-        if (keepAlive) {
-          unsigned = methods.assets.transferKeepAlive(
-            {
-              id: parseInt(tokenInfo.address, 10),
-              target: to,
-              amount: amountValue,
-            },
-            {
-              ...info,
-              assetId: asset,
-            },
-            option,
-          );
-        } else {
-          unsigned = methods.assets.transfer(
-            {
-              id: parseInt(tokenInfo.address, 10),
-              target: to,
-              amount: amountValue,
-            },
-            {
-              ...info,
-              assetId: asset,
-            },
-            option,
-          );
-        }
-      } else if (keepAlive) {
-        unsigned = methods.assets.transferKeepAlive(
-          {
-            id: parseInt(tokenInfo.address, 10),
-            target: to,
-            amount: amountValue,
-          },
-          info,
-          option,
-        );
-      } else {
-        unsigned = methods.assets.transfer(
-          {
-            id: parseInt(tokenInfo.address, 10),
-            target: to,
-            amount: amountValue,
-          },
-          info,
-          option,
-        );
-      }
+      unsigned = unsignedToken;
     } else {
       console.log('======>>>>>> buildEncodedTx tokenInfo send native');
 
       amountValue = new BigNumber(amount)
         .shiftedBy(network.decimals)
         .toFixed(0);
-      if (keepAlive) {
-        unsigned = methods.balances.transferKeepAlive(
-          {
-            value: amountValue,
-            dest: toAccount,
-          },
-          info,
-          option,
-        );
-      } else if (chainId === 'joystream') {
-        unsigned = methods.balances.transfer(
-          {
-            value: amountValue,
-            dest: toAccount,
-          },
-          info,
-          option,
-        );
-      } else {
-        console.log('=====>>>>> ', `sssssss ${amountValue} ${toAccount}`);
 
-        unsigned = methods.balances.transferAllowDeath(
-          {
-            value: amountValue,
-            dest: toAccount,
-          },
-          info,
-          option,
-        );
-      }
+      unsigned = await subVault.buildNativeTransfer({
+        to,
+        amountValue,
+        keepAlive,
+        info,
+        option,
+        toAccountId,
+      });
     }
 
     return {
@@ -386,18 +321,18 @@ export default class VaultDot extends VaultBase {
   }
 
   private async _getAddressByTxArgs(args: Args): Promise<string> {
-    const chainId = await this.getNetworkChainId();
-    if (chainId === 'joystream' || chainId === 'hydration') {
-      return args.dest as string;
+    const subVault = await this.getSubVault();
+    const subAddress = await subVault.getAddressByTxArgs(args);
+    if (subAddress) {
+      return subAddress;
     }
-    if (chainId === 'asset-hub') {
-      const arg = args as {
-        target?: { id?: string }; // asset hub token transfer
-        dest?: { id?: string }; // asset hub native transfer
-      };
-      return arg.target?.id ?? arg.dest?.id ?? '';
+    const arg = args as {
+      dest?: string | { id?: string };
+    };
+    if (typeof arg.dest === 'string') {
+      return arg.dest;
     }
-    return (args.dest as { id: string }).id;
+    return arg.dest?.id ?? '';
   }
 
   override async buildDecodedTx(
@@ -424,11 +359,15 @@ export default class VaultDot extends VaultBase {
       const networkInfo = await this.getNetworkInfo();
       let assetId = '';
 
-      if (
-        chainId === 'asset-hub' &&
-        decodeUnsignedTx.method.pallet === 'assets'
-      ) {
-        assetId = decodeUnsignedTx.method.args.id?.toString() ?? '';
+      const subVault = await this.getSubVault();
+      const subAssetId = await subVault.extractAssetId({
+        chainId,
+        pallet: decodeUnsignedTx.method.pallet,
+        method: decodeUnsignedTx.method.name,
+        args: decodeUnsignedTx.method.args,
+      });
+      if (subAssetId) {
+        assetId = subAssetId;
       }
 
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
@@ -532,9 +471,7 @@ export default class VaultDot extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    console.log('========>>>>>>> updateUnsignedTx start: ', params);
-
-    const { unsignedTx, nativeAmountInfo } = params;
+    const { unsignedTx } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
       encodedTx.nonce = hexUtils.hexlify(params.nonceInfo.nonce, {
@@ -549,175 +486,18 @@ export default class VaultDot extends VaultBase {
       .toFixed();
 
     const customRpcClient = await this.getCustomApiPromise();
-    const chainId = await this.getNetworkChainId();
-    const { decodedUnsigned: decodeUnsignedTx } = await this._decodeUnsignedTx(
+    const { decodedUnsigned: decodedUnsignedTx } = await this._decodeUnsignedTx(
       encodedTx,
     );
 
-    // send max amount
-    if (nativeAmountInfo) {
-      const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
-      if (type === EDecodedTxActionType.ASSET_TRANSFER) {
-        const txBaseInfo = await this._getTxBaseInfo();
-        const from = await this.getAccountAddress();
-
-        const info = {
-          ...txBaseInfo,
-          address: from,
-          eraPeriod: 64,
-          nonce: decodeUnsignedTx.nonce ?? 0,
-          tip: 0,
-        };
-
-        const option = {
-          metadataRpc: txBaseInfo.metadataRpc,
-          registry: txBaseInfo.registry,
-        };
-
-        const network = await this.getNetwork();
-        const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
-          .shiftedBy(network.decimals)
-          .minus(extraTip)
-          .toFixed(0);
-        const dest = decodeUnsignedTx.method.args.dest as { id: string };
-
-        let tx;
-        if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
-          tx = methods.balances.transferKeepAlive(
-            {
-              value: amountValue,
-              dest,
-            },
-            info,
-            option,
-          );
-        } else {
-          tx = methods.balances.transferAll(
-            {
-              dest,
-              keepAlive: false,
-            },
-            info,
-            option,
-          );
-        }
-        encodedTx = {
-          ...tx,
-          specName: txBaseInfo.specName,
-          chainName: network.name,
-          metadataRpc: '' as `0x${string}`,
-        };
-      }
-    } else if (
-      chainId === 'asset-hub' &&
-      decodeUnsignedTx.method.pallet === 'assets'
-    ) {
-      const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
-      if (type === EDecodedTxActionType.ASSET_TRANSFER) {
-        const assetId = decodeUnsignedTx.method.args.id?.toString() ?? '';
-        const amount = decodeUnsignedTx.method.args.amount as string;
-
-        const txBaseInfo = await this._getTxBaseInfo();
-        const from = await this.getAccountAddress();
-
-        const info = {
-          ...txBaseInfo,
-          address: from,
-          eraPeriod: 64,
-          nonce: decodeUnsignedTx.nonce ?? 0,
-          tip: 0,
-        };
-
-        const option = {
-          metadataRpc: txBaseInfo.metadataRpc,
-          registry: txBaseInfo.registry,
-        };
-        const to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
-
-        const tokenList = await this.fetchTokenList({
-          accountId: this.accountId,
-          requestApiParams: {
-            accountAddress: from,
-            networkId: this.networkId,
-            contractList: [assetId],
-            hiddenTokens: [],
-          },
-          flag: 'dot-updateUnsignedTx-send-token',
-        });
-        const tokenInfo = tokenList.data.data.tokens.data.find(
-          (token) => token.address === assetId,
-        );
-
-        if (!tokenInfo) {
-          throw new OneKeyInternalError({
-            message: 'updateUnsignedTx not found tokenInfo',
-            key: ETranslations.send_engine_incorrect_token_address,
-          });
-        }
-        const token = tokenList.data.data.tokens.map[tokenInfo?.$key];
-
-        if (new BigNumber(amount).gte(new BigNumber(token.balance))) {
-          const minBalance = await getMinAmount(
-            this.networkId,
-            this.backgroundApi,
-            assetId,
-          );
-          const amountValue = new BigNumber(amount ?? '0')
-            .minus(minBalance)
-            .toFixed(0);
-
-          const asset = {
-            parents: 0,
-            interior: {
-              X2: [
-                {
-                  palletInstance: 50,
-                },
-                {
-                  generalIndex: parseInt(tokenInfo.address, 10),
-                },
-              ],
-            },
-          };
-
-          let tx;
-          if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
-            tx = methods.assets.transferKeepAlive(
-              {
-                id: parseInt(tokenInfo.address, 10),
-                target: to,
-                amount: amountValue,
-              },
-              {
-                ...info,
-                assetId: asset,
-              },
-              option,
-            );
-          } else {
-            tx = methods.assets.transfer(
-              {
-                id: parseInt(tokenInfo.address, 10),
-                target: to,
-                amount: amountValue,
-              },
-              {
-                ...info,
-                assetId: asset,
-              },
-              option,
-            );
-          }
-
-          const network = await this.getNetwork();
-          encodedTx = {
-            ...tx,
-            specName: txBaseInfo.specName,
-            chainName: network.name,
-            metadataRpc: '' as `0x${string}`,
-          };
-        }
-      }
+    const subVault = await this.getSubVault();
+    const updatedUnsigned = await subVault.updateUnsignedTx({
+      encodedTx,
+      decodedUnsignedTx,
+      params,
+    });
+    if (updatedUnsigned) {
+      encodedTx = updatedUnsigned;
     }
 
     if (!params.nonceInfo && !encodedTx.isFromDapp) {
@@ -969,7 +749,8 @@ export default class VaultDot extends VaultBase {
   ): Promise<ProviderInterface | undefined> => {
     if (url.startsWith('http')) {
       return new HttpProvider(url);
-    } else if (!isEmpty(url)) {
+    }
+    if (!isEmpty(url)) {
       return new WsProvider(url);
     }
     return undefined;
@@ -1092,8 +873,10 @@ export default class VaultDot extends VaultBase {
   ): Promise<IFetchServerTokenDetailResponse> {
     const networkInfo = await this.getNetworkInfo();
     const network = await this.getNetwork();
+    const apiPromise = await this.getCustomApiPromise();
+    const subVault = await this.getSubVault();
 
-    const resp = await Promise.all(
+    const resp: (IFetchTokenDetailItem | undefined)[] = await Promise.all(
       params.contractList?.map(async (contract) => {
         if (contract === networkInfo.nativeTokenAddress) {
           const accountDetails = (
@@ -1108,7 +891,7 @@ export default class VaultDot extends VaultBase {
             return undefined;
           }
 
-          return {
+          const nativeItem: IFetchTokenDetailItem = {
             info: {
               decimals: network.decimals,
               name: network.shortname,
@@ -1119,55 +902,37 @@ export default class VaultDot extends VaultBase {
             },
             balance: accountDetails.balance,
             balanceParsed: accountDetails.balanceParsed,
-            frozenBalance: accountDetails.frozenBalance,
-            frozenBalanceParsed: accountDetails.frozenBalanceParsed,
             fiatValue: '0',
             price: 0,
           };
-        }
-        if (network.chainId === 'asset-hub') {
-          const apiPromise = await this.getCustomApiPromise();
 
-          const asset = await apiPromise?.query.assets.metadata(contract);
-
-          const account = await apiPromise?.query.assets.account(
-            contract,
-            params.accountAddress ?? '',
-          );
-
-          // const assetInfo = await apiPromise?.query.assets.asset(contract);
-          // const assetFrozen = assetInfo?.value?.minBalance;
-
-          const accountValue = account?.value;
-          if (!asset || !accountValue) {
-            return undefined;
+          if (accountDetails.frozenBalance) {
+            nativeItem.frozenBalance = accountDetails.frozenBalance;
+          }
+          if (accountDetails.frozenBalanceParsed) {
+            nativeItem.frozenBalanceParsed = accountDetails.frozenBalanceParsed;
           }
 
-          return {
-            info: {
-              decimals: asset.decimals.toNumber(),
-              name: asset.name.toUtf8(),
-              symbol: asset.symbol.toUtf8(),
-              address: contract,
-              logoURI: '',
-              isNative: false,
-            },
-            balance: accountValue.balance.toString(),
-            balanceParsed: new BigNumber(accountValue.balance.toString())
-              .shiftedBy(-asset.decimals.toNumber())
-              .toFixed(),
-            fiatValue: '0',
-            price: 0,
-          };
+          return nativeItem;
         }
 
-        return undefined;
+        const subToken = await subVault.fetchTokenDetailByRpc({
+          contract,
+          params,
+          apiPromise: apiPromise ?? undefined,
+        });
+
+        return subToken;
       }) ?? [],
+    );
+
+    const items = resp.filter((item): item is IFetchTokenDetailItem =>
+      Boolean(item),
     );
 
     return {
       data: {
-        data: resp.filter((item) => item !== undefined),
+        data: items,
       },
     };
   }
@@ -1233,6 +998,7 @@ export default class VaultDot extends VaultBase {
     }
 
     const networkInfo = await this.getNetworkInfo();
+    const subVault = await this.getSubVault();
     const tokenDetails = await this.fetchTokenDetailsByRpc({
       accountAddress: params.requestApiParams.accountAddress ?? '',
       networkId: params.requestApiParams.networkId,
@@ -1257,68 +1023,11 @@ export default class VaultDot extends VaultBase {
       price24h: 0,
     });
 
-    const chainId = await this.getNetworkChainId();
-    if (chainId === 'asset-hub') {
-      const assetIds: number[] = [];
-      const assetMetadataEntries = await provider.query.assets.asset.entries();
-      for (const [key] of assetMetadataEntries) {
-        assetIds.push(key.args[0].toNumber());
-      }
-
-      const accountIdHex = u8aToHex(
-        decodeAddress(params.requestApiParams.accountAddress),
-      );
-      const queries = assetIds.map((assetId) => [assetId, accountIdHex]);
-      const balances = await provider.query.assets.account.multi(queries);
-
-      const existsBalances: {
-        assetId: string;
-        balance: string;
-        isFrozen: boolean;
-        isSufficient: boolean;
-      }[] = [];
-      balances.forEach((balanceOption, index) => {
-        if (balanceOption.isSome) {
-          const balanceInfo = balanceOption.unwrap();
-
-          if (!balanceInfo.balance.isZero()) {
-            existsBalances.push({
-              assetId: assetIds[index].toString(),
-              balance: balanceInfo.balance.toString(),
-              isFrozen: balanceInfo.status.isFrozen,
-              isSufficient: balanceInfo.reason.isSufficient,
-            });
-          }
-        }
-      });
-
-      for (const item of existsBalances) {
-        const assetId = item.assetId;
-        const balance = item.balance;
-
-        const assetMetadata = await provider.query.assets.metadata(assetId);
-
-        const balanceParsed = new BigNumber(balance)
-          .shiftedBy(-assetMetadata.decimals.toNumber())
-          .toFixed()
-          .toString();
-
-        accountTokenArray.push({
-          info: {
-            decimals: assetMetadata.decimals.toNumber(),
-            name: assetMetadata.name.toUtf8(),
-            symbol: assetMetadata.symbol.toUtf8(),
-            address: assetId.toString(),
-            isNative: false,
-          },
-          balance,
-          balanceParsed,
-          fiatValue: '0',
-          price: '0',
-          price24h: 0,
-        });
-      }
-    }
+    const subTokens = await subVault.fetchAdditionalAccountTokens({
+      apiPromise: provider,
+      accountAddress: params.requestApiParams.accountAddress ?? '',
+    });
+    accountTokenArray.push(...subTokens);
 
     const hiddenTokenSet = new Set(params.requestApiParams.hiddenTokens ?? []);
     const sortedAccountTokenArray = orderBy(

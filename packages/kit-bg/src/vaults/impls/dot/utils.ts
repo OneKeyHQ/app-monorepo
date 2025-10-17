@@ -248,34 +248,38 @@ export const getMinAmount = memoizee(
         return new BigNumber(res?.value?.minBalance?.toString() ?? '0');
       }
 
-      // const [tokenInfo] =
-      //   await backgroundApi.serviceAccountProfile.sendProxyRequest<{
-      //     'owner': string;
-      //     'issuer': string;
-      //     'admin': string;
-      //     'freezer': string;
-      //     'supply': string;
-      //     'deposit': string;
-      //     'minBalance': string;
-      //     'isSufficient': boolean;
-      //     'accounts': string;
-      //     'sufficients': string;
-      //     'approvals': string;
-      //     'status': string;
-      //   }>({
-      //     networkId,
-      //     body: [
-      //       {
-      //         route: 'clientQuery',
-      //         params: {
-      //           method: 'assets.asset',
-      //           params: [tokenContract],
-      //         },
-      //       },
-      //     ],
-      //   });
-      // return new BigNumber(tokenInfo.minBalance);
-      return new BigNumber('10000');
+      try {
+        const [tokenInfo] =
+          await backgroundApi.serviceAccountProfile.sendProxyRequest<{
+            'owner': string;
+            'issuer': string;
+            'admin': string;
+            'freezer': string;
+            'supply': string;
+            'deposit': string;
+            'minBalance': string;
+            'isSufficient': boolean;
+            'accounts': string;
+            'sufficients': string;
+            'approvals': string;
+            'status': string;
+          }>({
+            networkId,
+            body: [
+              {
+                route: 'clientQuery',
+                params: {
+                  method: 'assets.asset',
+                  params: [tokenContract],
+                },
+              },
+            ],
+          });
+        return new BigNumber(tokenInfo.minBalance);
+      } catch (e) {
+        console.error('Dot Vault getMinAmount error', e);
+        return new BigNumber('0');
+      }
     }
 
     if (apiPromise) {
