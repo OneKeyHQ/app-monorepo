@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { SizableText, Stack } from '@onekeyhq/components/src/primitives';
+import { SizableText, Stack } from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export interface IFooterLinkProps {
@@ -21,3 +21,4 @@ export function FooterLink({ label, href }: IFooterLinkProps) {
     </Stack>
   );
 }
+

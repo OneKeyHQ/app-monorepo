@@ -5,12 +5,10 @@ import { noop } from 'lodash';
 
 import {
   EPortalContainerConstantName,
-  Footer,
   Portal,
   Stack,
   TabStackNavigator,
 } from '@onekeyhq/components';
-import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -22,7 +20,9 @@ import {
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { Footer } from '../../components/Footer';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
+import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';

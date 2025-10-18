@@ -3,7 +3,6 @@ export * from './StackNavigator';
 export * from './ScreenProps';
 export * from './Navigator';
 export * from './Header';
-export * from './Footer';
 export { DexHeader } from './DexHeader';
 export type { IDexHeaderProps } from './DexHeader';
 export { HeaderNavigation } from './DexHeader/components';

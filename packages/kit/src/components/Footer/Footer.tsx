@@ -2,13 +2,12 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { NetworkStatusBadge } from '@onekeyhq/components/src/content/NetworkStatusBadge';
-import { useNetInfo } from '@onekeyhq/components/src/hooks/useNetInfo';
-import { XStack } from '@onekeyhq/components/src/primitives';
+import { XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
+import { NetworkStatus } from './components/NetworkStatus';
 
 const LINKS = [
   {
@@ -40,7 +39,6 @@ const LINKS = [
 
 export function Footer() {
   const intl = useIntl();
-  const { isInternetReachable } = useNetInfo();
 
   const linkItems = useMemo(
     () =>
@@ -66,11 +64,7 @@ export function Footer() {
       alignItems="center"
       justifyContent="space-between"
     >
-      <NetworkStatusBadge
-        connected={isInternetReachable !== false}
-        badgeSize="sm"
-        labelFontSize={13}
-      />
+      <NetworkStatus />
       <FooterNavigation>{linkItems}</FooterNavigation>
     </XStack>
   );
