@@ -78,28 +78,38 @@ function FooterRefreshButton() {
 function PerpContentFooter() {
   const { gtSm } = useMedia();
   const { poweredByHyperliquidLogo } = usePerpsLogo();
-  return gtSm ? (
-    <Page.Footer>
-      <XStack
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-        bg="$bgApp"
-        h={40}
-        alignItems="center"
-        p="$2"
-        justifyContent="space-between"
-      >
-        <PerpNetworkStatus />
-        <FooterRefreshButton />
-        <Stack flex={1} />
-        <Image
-          source={poweredByHyperliquidLogo}
-          size={170}
-          resizeMode="contain"
-        />
-      </XStack>
-    </Page.Footer>
-  ) : null;
+
+  if (gtSm) {
+    return (
+      <Page.Footer>
+        <XStack
+          borderTopWidth="$px"
+          borderTopColor="$borderSubdued"
+          bg="$bgApp"
+          h={40}
+          alignItems="center"
+          p="$2"
+          justifyContent="space-between"
+        >
+          <PerpNetworkStatus />
+          <FooterRefreshButton />
+          <Stack flex={1} />
+          <Image
+            source={poweredByHyperliquidLogo}
+            size={170}
+            resizeMode="contain"
+          />
+        </XStack>
+      </Page.Footer>
+    );
+  }
+
+  // Small screen - floating network status at bottom left
+  return (
+    <Stack position="absolute" bottom="$4" left="$4" zIndex={100}>
+      <PerpNetworkStatus />
+    </Stack>
+  );
 }
 
 console.log('PerpContent js loaded');
@@ -154,9 +164,9 @@ function PerpContent() {
         <Stack position="relative" flex={1}>
           <PerpLayout />
           <HyperliquidTermsOverlay />
+          <PerpContentFooter />
         </Stack>
       </Page.Body>
-      <PerpContentFooter />
     </Page>
   );
 }

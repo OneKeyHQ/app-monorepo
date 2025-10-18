@@ -13,6 +13,7 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { NetworkStatus } from '@onekeyhq/kit/src/components/NetworkStatus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -133,7 +134,7 @@ export function MobileLayout() {
   );
 
   return (
-    <YStack flex={1}>
+    <YStack flex={1} position="relative">
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}
@@ -151,6 +152,11 @@ export function MobileLayout() {
       {isNative ? null : (
         <SwapPanel networkId={networkId} tokenAddress={tokenDetail?.address} />
       )}
+
+      {/* Small screen - floating network status at bottom left */}
+      <Stack position="absolute" bottom="$4" left="$4" zIndex={100}>
+        <NetworkStatus />
+      </Stack>
     </YStack>
   );
 }
