@@ -151,8 +151,8 @@ export function WebHeaderNavigation({
   return (
     <XStack ai="center" gap="$4" width="100%" jc="space-between">
       {leftContent ?? (
-        <XStack ai="center" gap="$3">
-          <OneKeyLogo />
+        <XStack ai="center" gap="$4">
+          <OneKeyLogo px="$0" />
           <HeaderNavigation
             items={navigationItems}
             activeKey={activeNavigationKey}
