@@ -38,11 +38,5 @@ export function NetworkStatus() {
     return isInternetReachable !== false;
   }, [currentTab, perpsNetworkStatus?.connected, isInternetReachable]);
 
-  return (
-    <NetworkStatusBadge
-      connected={isConnected}
-      badgeSize="sm"
-      labelFontSize={13}
-    />
-  );
+  return <NetworkStatusBadge connected={isConnected} badgeSize="sm" />;
 }
