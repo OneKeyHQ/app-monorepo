@@ -96,8 +96,9 @@ function DepositAction() {
 }
 
 export function SearchInput() {
-  const { gtLg } = useMedia();
-  return <UniversalSearchInput size={gtLg ? 'large' : 'small'} />;
+  const { gtXl, gtLg } = useMedia();
+  const size = platformEnv.isWeb ? gtXl : gtLg;
+  return <UniversalSearchInput size={size ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({
@@ -115,6 +116,7 @@ export function HeaderRight({
   }) => ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
+  const { gtXl } = useMedia();
 
   const items = useMemo(() => {
     if (customHeaderRightItems) {
@@ -131,8 +133,8 @@ export function HeaderRight({
           <OneKeyIdButton testID="header-right-onekey-id" />
         ) : null}
         {isHorizontal ? <DownloadButton /> : null}
-        {isHorizontal ? <LanguageButton /> : null}
-        {isHorizontal ? <ThemeButton /> : null}
+        {isHorizontal && gtXl ? <LanguageButton /> : null}
+        {isHorizontal && gtXl ? <ThemeButton /> : null}
       </>
     );
 
@@ -203,6 +205,7 @@ export function HeaderRight({
     }
   }, [
     isHorizontal,
+    gtXl,
     tabRoute,
     customHeaderRightItems,
     renderCustomHeaderRightItems,
