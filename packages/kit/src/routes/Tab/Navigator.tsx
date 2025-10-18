@@ -8,9 +8,7 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
-  useMedia,
 } from '@onekeyhq/components';
-import { DexHeaderContainer } from '@onekeyhq/kit/src/components/TabPageHeader/DexHeader';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -34,12 +32,9 @@ export function TabNavigator() {
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
   const isFocused = useIsIOSTabNavigatorFocused();
-  const { gtMd } = useMedia();
-  const showDexHeader = platformEnv.isWeb && gtMd;
 
   return (
     <>
-      {showDexHeader ? <DexHeaderContainer /> : null}
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}

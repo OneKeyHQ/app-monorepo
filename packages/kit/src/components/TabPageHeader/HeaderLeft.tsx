@@ -14,7 +14,6 @@ import {
 import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,6 +29,7 @@ import {
 import { useSpotlight } from '../Spotlight';
 
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
+import { WebHeaderNavigation } from './WebHeaderNavigation';
 
 export function HeaderLeftCloseButton() {
   return (
@@ -106,11 +106,22 @@ export function HeaderLeft({
     },
   );
   const items = useMemo(() => {
+    const withWebNavigation = (content: ReactNode) => {
+      if (!(platformEnv.isWeb && gtMd)) {
+        return content;
+      }
+      return (
+        <XStack gap="$6" ai="center">
+          <WebHeaderNavigation />
+          {content}
+        </XStack>
+      );
+    };
     if (customHeaderLeftItems) {
       return customHeaderLeftItems;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return (
+      return withWebNavigation(
         <XStack gap="$1.5">
           <NavBackButton
             onPress={() => {
@@ -126,7 +137,7 @@ export function HeaderLeft({
             }}
           />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
-        </XStack>
+        </XStack>,
       );
     }
 
@@ -149,25 +160,25 @@ export function HeaderLeft({
     );
 
     if (tabRoute === ETabRoutes.Discovery) {
-      return (
+      return withWebNavigation(
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>
+        </SizableText>,
       );
     }
 
     if (tabRoute === ETabRoutes.WebviewPerpTrade) {
-      return (
+      return withWebNavigation(
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>
+        </SizableText>,
       );
     }
-    return (
+    return withWebNavigation(
       <XStack gap="$3" ai="center">
         {accountSelectorTrigger}
         {tabRoute === ETabRoutes.Home && gtMd ? (
@@ -184,7 +195,7 @@ export function HeaderLeft({
           showCreateAddressButton={false}
           showNoAddressTip={false}
         />
-      </XStack>
+      </XStack>,
     );
   }, [customHeaderLeftItems, sceneName, isFocus, tabRoute, gtMd]);
   return (

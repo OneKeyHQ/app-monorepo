@@ -11,11 +11,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 export interface IHeaderNotificationIconButtonProps {
   size?: IIconButtonProps['size'];
   iconSize?: IIconButtonProps['iconSize'];
+  testID?: string;
 }
 
 export function HeaderNotificationIconButton({
   size,
   iconSize,
+  testID,
 }: IHeaderNotificationIconButtonProps) {
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
@@ -41,7 +43,7 @@ export function HeaderNotificationIconButton({
       showBadge={notificationBadge.show}
       badgeCount={notificationBadge.count}
       onPress={handleNotificationPress}
-      testID="dex-notification-button"
+      testID={testID ?? 'dex-notification-button'}
     />
   );
 }

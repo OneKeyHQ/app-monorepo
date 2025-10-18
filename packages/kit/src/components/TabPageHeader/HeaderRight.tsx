@@ -31,7 +31,13 @@ import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
-import { OneKeyIdButton } from './components';
+import {
+  DownloadButton,
+  HeaderNotificationIconButton,
+  LanguageButton,
+  OneKeyIdButton,
+  ThemeButton,
+} from './components';
 import { MoreActionButton } from './MoreActionButton';
 
 function GiftAction() {
@@ -45,29 +51,6 @@ function GiftAction() {
       title={intl.formatMessage({ id: ETranslations.referral_title })}
       icon="GiftOutline"
       onPress={handleShareReferRewards}
-    />
-  );
-}
-
-function NotificationsButton() {
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  const openNotificationsModal = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.NotificationsModal, {
-      screen: EModalNotificationsRoutes.NotificationList,
-    });
-  }, [navigation]);
-  return (
-    <HeaderNotificationButton
-      key="notifications"
-      testID="headerRightNotificationsButton"
-      title={intl.formatMessage({
-        id: ETranslations.global_notifications,
-      })}
-      showBadge={!firstTimeGuideOpened || !!badge}
-      badgeCount={firstTimeGuideOpened ? badge : undefined}
-      onPress={openNotificationsModal}
     />
   );
 }
@@ -143,7 +126,12 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {isHorizontal ? <NotificationsButton /> : null}
+        {isHorizontal ? (
+          <HeaderNotificationIconButton testID="header-right-notification" />
+        ) : null}
+        {isHorizontal ? <DownloadButton /> : null}
+        {isHorizontal ? <LanguageButton /> : null}
+        {isHorizontal ? <ThemeButton /> : null}
         <MoreAction />
         {isHorizontal ? (
           <OneKeyIdButton testID="header-right-onekey-id" />

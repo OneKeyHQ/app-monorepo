@@ -1,29 +1,36 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useOnRouterChange } from '@onekeyhq/components';
+import {
+  HeaderNavigation,
+  OneKeyLogo,
+  XStack,
+  useMedia,
+  useOnRouterChange,
+} from '@onekeyhq/components';
 import type { IHeaderNavigationItem } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-interface IUseDexHeaderNavigationParams {
+interface IUseWebHeaderNavigationParams {
   onNavigationChange?: (key: string) => void;
   activeNavigationKey?: string;
 }
 
-export function useDexHeaderNavigation({
+function useWebHeaderNavigation({
   onNavigationChange,
   activeNavigationKey: controlledActiveKey,
-}: IUseDexHeaderNavigationParams = {}) {
+}: IUseWebHeaderNavigationParams = {}) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toReferFriendsModal = useToReferFriendsModalByRootNavigation();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
 
-  // Listen to route changes to update active tab
   useOnRouterChange((state) => {
     if (!state) {
       setCurrentTab(ETabRoutes.Home);
@@ -38,7 +45,6 @@ export function useDexHeaderNavigation({
     setCurrentTab(currentTabName);
   });
 
-  // Map tab routes to navigation keys
   const getActiveNavigationKey = useCallback(() => {
     if (controlledActiveKey) {
       return controlledActiveKey;
@@ -59,10 +65,8 @@ export function useDexHeaderNavigation({
 
   const handleNavigationChange = useCallback(
     (key: string) => {
-      // Call custom handler if provided
       onNavigationChange?.(key);
 
-      // Handle navigation based on key
       switch (key) {
         case 'market':
           navigation.switchTab(ETabRoutes.Market);
@@ -77,7 +81,6 @@ export function useDexHeaderNavigation({
           navigation.switchTab(ETabRoutes.Swap);
           break;
         case 'commission':
-          // Open referral modal instead of switching tab
           void toReferFriendsModal();
           break;
         default:
@@ -107,7 +110,9 @@ export function useDexHeaderNavigation({
       },
       {
         key: 'commission',
-        label: intl.formatMessage({ id: ETranslations.sidebar_refer_a_friend }),
+        label: intl.formatMessage({
+          id: ETranslations.sidebar_refer_a_friend,
+        }),
       },
     ],
     [intl],
@@ -119,3 +124,43 @@ export function useDexHeaderNavigation({
     handleNavigationChange,
   };
 }
+
+interface IWebHeaderNavigationProps extends IUseWebHeaderNavigationParams {
+  children?: ReactNode;
+  leftContent?: ReactNode;
+  rightContent?: ReactNode;
+}
+
+export function WebHeaderNavigation({
+  children,
+  leftContent,
+  rightContent,
+  ...rest
+}: IWebHeaderNavigationProps) {
+  const { gtMd } = useMedia();
+
+  const { navigationItems, activeNavigationKey, handleNavigationChange } =
+    useWebHeaderNavigation(rest);
+
+  if (!(platformEnv.isWeb && gtMd)) {
+    return <>{children ?? null}</>;
+  }
+
+  return (
+    <XStack ai="center" gap="$4" width="100%" jc="space-between">
+      {leftContent ?? (
+        <XStack ai="center" gap="$3">
+          <OneKeyLogo />
+          <HeaderNavigation
+            items={navigationItems}
+            activeKey={activeNavigationKey}
+            onTabChange={handleNavigationChange}
+          />
+        </XStack>
+      )}
+      {children ?? rightContent ?? null}
+    </XStack>
+  );
+}
+
+export { useWebHeaderNavigation };

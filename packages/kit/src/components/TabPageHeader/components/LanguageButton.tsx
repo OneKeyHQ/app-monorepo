@@ -18,7 +18,6 @@ export function LanguageButton({ size, iconSize }: ILanguageButtonProps) {
   const localeOptions = useLocaleOptions();
   const [{ locale }] = useSettingsPersistAtom();
 
-  // Fix issue where en-US is deprecated but still exists in user settings
   const options = useMemo(() => {
     return localeOptions.filter((item) => item.value !== 'en-US');
   }, [localeOptions]);
