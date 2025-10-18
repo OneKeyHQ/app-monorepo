@@ -1,7 +1,4 @@
-import { useCallback } from 'react';
-
-import { SizableText, Stack } from '@onekeyhq/components';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { Anchor } from '@onekeyhq/components';
 
 export interface IFooterLinkProps {
   label: string;
@@ -9,15 +6,26 @@ export interface IFooterLinkProps {
 }
 
 export function FooterLink({ label, href }: IFooterLinkProps) {
-  const handlePress = useCallback(() => {
-    openUrlExternal(href);
-  }, [href]);
-
   return (
-    <Stack role="link" onPress={handlePress} cursor="pointer">
-      <SizableText size="$bodyMd" color="$textSubdued">
-        {label}
-      </SizableText>
-    </Stack>
+    <Anchor
+      href={href}
+      target="_blank"
+      size="$bodyMd"
+      color="$textSubdued"
+      textDecorationLine="none"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      px="$2"
+      py="$1"
+      mx="$-1"
+      my="$-1"
+      borderRadius="$2"
+    >
+      {label}
+    </Anchor>
   );
 }

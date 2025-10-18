@@ -8,7 +8,7 @@ export interface IFooterNavigationProps {
 
 export function FooterNavigation({ children }: IFooterNavigationProps) {
   return (
-    <XStack gap="$3.75" alignItems="center">
+    <XStack gap="$2" alignItems="center">
       {children}
     </XStack>
   );
