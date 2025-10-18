@@ -24,8 +24,9 @@ export default function TabBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
+  const { gtMd } = useMedia();
 
-  if (platformEnv.isWeb) {
+  if (platformEnv.isWeb && gtMd) {
     return null;
   }
 

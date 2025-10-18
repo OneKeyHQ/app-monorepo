@@ -8,6 +8,7 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
+  useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -111,6 +112,7 @@ export function TabNavigator() {
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
   const isFocused = useIsIOSTabNavigatorFocused();
+  const { gtMd } = useMedia();
 
   usePreloadTabs();
 
@@ -120,7 +122,7 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
-      {platformEnv.isWeb ? <Footer /> : null}
+      {platformEnv.isWeb && gtMd ? <Footer /> : null}
       <Portal.Container
         name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
       />
