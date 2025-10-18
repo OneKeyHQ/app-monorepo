@@ -15,9 +15,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-import { WalletConnectionGroup } from './components/WalletConnectionGroup';
+import { WalletConnectionGroup, WebHeaderNavigation } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
-import { WebHeaderNavigation } from './WebHeaderNavigation';
 
 export function HeaderLeftCloseButton() {
   return (

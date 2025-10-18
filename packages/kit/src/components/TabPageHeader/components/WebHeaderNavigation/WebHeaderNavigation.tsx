@@ -4,18 +4,20 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  HeaderNavigation,
   OneKeyLogo,
   XStack,
   useMedia,
   useOnRouterChange,
 } from '@onekeyhq/components';
-import type { IHeaderNavigationItem } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+
+import { HeaderNavigation } from './HeaderNavigation';
+
+import type { IHeaderNavigationItem } from './HeaderNavigation';
 
 interface IUseWebHeaderNavigationParams {
   onNavigationChange?: (key: string) => void;

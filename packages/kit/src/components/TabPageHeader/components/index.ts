@@ -12,3 +12,7 @@ export {
   WalletConnectionForWeb,
   WalletConnectionGroup,
 } from './WalletConnectionGroup';
+export {
+  WebHeaderNavigation,
+  useWebHeaderNavigation,
+} from './WebHeaderNavigation/WebHeaderNavigation';

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-import { Button, XStack } from '@onekeyhq/components/src/primitives';
+import { ButtonFrame } from '@onekeyhq/components/src/primitives/Button';
+import { SizableText } from '@onekeyhq/components/src/primitives/SizeableText';
+import { XStack } from '@onekeyhq/components/src/primitives/Stack';
 
 import type { GetProps } from 'tamagui';
 
@@ -38,21 +40,41 @@ export function HeaderNavigation({
   };
 
   return (
-    <XStack gap="$2" alignItems="center" testID="Header-Navigation" {...rest}>
+    <XStack gap="$1" alignItems="center" testID="Header-Navigation" {...rest}>
       {items.map((item) => {
         const isActive = item.key === activeKey;
         return (
-          <Button
+          <ButtonFrame
             key={item.key}
-            variant="tertiary"
-            size="medium"
+            py="$1"
+            px="$2"
+            bg="$transparent"
+            borderWidth="$0"
+            borderRadius="$2"
+            cursor="pointer"
             onPress={() => handleTabPress(item)}
-            {...(isActive && {
-              backgroundColor: '$bgActive',
-            })}
+            hoverStyle={{
+              bg: '$bgHover',
+            }}
+            pressStyle={{
+              bg: '$bgActive',
+            }}
+            focusable
+            focusVisibleStyle={{
+              outlineColor: '$focusRing',
+              outlineStyle: 'solid',
+              outlineWidth: 2,
+            }}
           >
-            {item.label}
-          </Button>
+            <SizableText
+              size="$bodyMd"
+              fontWeight="500"
+              color={isActive ? '$text' : '$textSubdued'}
+              userSelect="none"
+            >
+              {item.label}
+            </SizableText>
+          </ButtonFrame>
         );
       })}
     </XStack>
