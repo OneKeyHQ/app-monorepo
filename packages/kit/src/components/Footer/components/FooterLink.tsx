@@ -21,4 +21,3 @@ export function FooterLink({ label, href }: IFooterLinkProps) {
     </Stack>
   );
 }
-

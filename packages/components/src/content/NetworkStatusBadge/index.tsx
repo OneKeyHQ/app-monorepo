@@ -81,4 +81,3 @@ export function NetworkStatusBadge({
     </Badge>
   );
 }
-

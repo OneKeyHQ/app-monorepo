@@ -13,4 +13,3 @@ export function FooterNavigation({ children }: IFooterNavigationProps) {
     </XStack>
   );
 }
-
