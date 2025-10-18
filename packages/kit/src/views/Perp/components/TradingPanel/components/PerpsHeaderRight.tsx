@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   DebugRenderTracker,
   Divider,
   Icon,
@@ -31,7 +30,6 @@ import {
   usePerpsActiveOrderBookOptionsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
