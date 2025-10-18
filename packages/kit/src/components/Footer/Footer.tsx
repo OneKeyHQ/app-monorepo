@@ -5,9 +5,10 @@ import { useIntl } from 'react-intl';
 import { XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { NetworkStatus } from '../NetworkStatus';
+
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
-import { NetworkStatus } from './components/NetworkStatus';
 
 const LINKS = [
   {
