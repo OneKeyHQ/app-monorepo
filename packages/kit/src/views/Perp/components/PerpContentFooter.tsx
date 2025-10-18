@@ -9,6 +9,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { NetworkStatusBadge } from '../../../components/NetworkStatusBadge';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
@@ -51,7 +52,7 @@ export function PerpContentFooter() {
   const { gtSm } = useMedia();
   const { poweredByHyperliquidLogo } = usePerpsLogo();
 
-  if (gtSm) {
+  if (gtSm && !platformEnv.isWeb) {
     return (
       <Page.Footer>
         <XStack
@@ -77,7 +78,7 @@ export function PerpContentFooter() {
   }
 
   // Small screen - floating network status at bottom left
-  return (
+  return gtSm ? null : (
     <Stack position="absolute" bottom="$4" left="$4" zIndex={100}>
       <PerpNetworkStatus />
     </Stack>

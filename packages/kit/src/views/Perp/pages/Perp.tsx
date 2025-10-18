@@ -11,6 +11,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
+import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
@@ -82,7 +83,7 @@ function PerpContent() {
         <Stack position="relative" flex={1}>
           <PerpLayout />
           <HyperliquidTermsOverlay />
-          {/* <PerpContentFooter /> */}
+          <PerpContentFooter />
         </Stack>
       </Page.Body>
     </Page>
