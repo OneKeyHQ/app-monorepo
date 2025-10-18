@@ -14,19 +14,14 @@ import {
 import {
   HeaderButtonGroup,
   HeaderIconButton,
-  HeaderNotificationButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
@@ -37,6 +32,7 @@ import {
   LanguageButton,
   OneKeyIdButton,
   ThemeButton,
+  WalletConnectionForWeb,
 } from './components';
 import { MoreActionButton } from './MoreActionButton';
 
@@ -119,6 +115,7 @@ export function HeaderRight({
   }) => ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
+
   const items = useMemo(() => {
     if (customHeaderRightItems) {
       return customHeaderRightItems;
@@ -149,17 +146,29 @@ export function HeaderRight({
           <>
             {isHorizontal ? <SearchInput /> : undefined}
             {isHorizontal ? undefined : <SelectorTrigger />}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
       case ETabRoutes.Swap:
-        return fixedItems;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
       case ETabRoutes.WebviewPerpTrade:
-        return fixedItems;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
       case ETabRoutes.Market:
         return (
           <>
             {isHorizontal ? <SearchInput /> : undefined}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
@@ -170,6 +179,7 @@ export function HeaderRight({
             {isHorizontal || !platformEnv.isNative ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
@@ -177,11 +187,17 @@ export function HeaderRight({
         return (
           <>
             <GiftAction />
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
       case ETabRoutes.Perp:
-        return <DepositAction />;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            <DepositAction />
+          </>
+        );
       default:
         break;
     }
