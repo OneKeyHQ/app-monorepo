@@ -126,13 +126,13 @@ export function HeaderRight({
         {isHorizontal ? (
           <HeaderNotificationIconButton testID="header-right-notification" />
         ) : null}
-        {isHorizontal ? <DownloadButton /> : null}
-        {isHorizontal ? <LanguageButton /> : null}
-        {isHorizontal ? <ThemeButton /> : null}
         <MoreAction />
         {isHorizontal ? (
           <OneKeyIdButton testID="header-right-onekey-id" />
         ) : null}
+        {isHorizontal ? <DownloadButton /> : null}
+        {isHorizontal ? <LanguageButton /> : null}
+        {isHorizontal ? <ThemeButton /> : null}
       </>
     );
 
