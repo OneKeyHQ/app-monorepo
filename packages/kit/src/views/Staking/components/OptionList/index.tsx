@@ -244,6 +244,7 @@ export const OptionList = ({
     <OptionListContext.Provider value={ctx}>
       <Stack>
         <ListView
+          useFlashList
           estimatedItemSize="$5"
           data={items}
           renderItem={renderItem}
