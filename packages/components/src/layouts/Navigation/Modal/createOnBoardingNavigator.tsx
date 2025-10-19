@@ -142,20 +142,21 @@ function OnBoardingModalNavigator({
         MODAL_ANIMATED_VIEW_REF_LIST.forEach((element, index) => {
           const transform = media.gtMd
             ? {
-                translateY: `${
-                  newIndex < index ? screenHeight : -30 * (newIndex - index)
-                }px`,
-                scale: `${1 - 0.05 * (newIndex - index)}`,
+                opacity: newIndex < index ? '0' : '1',
+                transition:
+                  'opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
               }
             : {
-                translateY: `${newIndex < index ? screenHeight : 0}px`,
-                scale: '1',
+                opacity: newIndex < index ? '0' : '1',
+                transition:
+                  'opacity 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
               };
           // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          element.style.transform = Object.entries(transform)
-            .map(([key, value]) => `${key}(${value})`)
-            .join(' ');
+          element.style.opacity = transform.opacity;
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          element.style.transition = transform.transition;
         });
       },
     );
@@ -164,15 +165,6 @@ function OnBoardingModalNavigator({
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
-  useLayoutEffect(() => {
-    const element = MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex];
-    if (element) {
-      (
-        element as HTMLElement
-      ).style.transform = `translateY(${screenHeight}px)`;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   useEffect(() => {
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -314,16 +306,6 @@ function OnBoardingModalNavigator({
               height="100%"
               borderTopStartRadius="$6"
               borderTopEndRadius="$6"
-              // $gtMd={{
-              //   width: '90%',
-              //   height: '90%',
-              //   maxWidth: '$160',
-              //   maxHeight: '$160',
-              //   borderRadius: '$4',
-              //   outlineWidth: '$px',
-              //   outlineStyle: 'solid',
-              //   outlineColor: '$borderSubdued',
-              // }}
               ref={(ref) => {
                 if (ref) {
                   MODAL_ANIMATED_VIEW_REF_LIST[currentRouteIndex] = ref;
