@@ -92,6 +92,7 @@ export enum EAppEventBusNames {
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
+  doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
   UnlockApp = 'UnlockApp',
   // AccountNameChanged = 'AccountNameChanged',
