@@ -4,6 +4,7 @@ import { cloneDeep, isEmpty, isNil, uniq } from 'lodash';
 
 import {
   convertBtcXprvtToHex,
+  getAddressFromXpub,
   getBtcForkNetwork,
   getBtcXpubFromXprvt,
   getBtcXpubSupportedAddressEncodings,
@@ -1620,10 +1621,8 @@ export default class VaultBtc extends VaultBase {
       accountUtils.isHwWallet({ walletId: this.walletId }) ||
       accountUtils.isHdWallet({ walletId: this.walletId });
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
-    if (
-      (!isHwOrHdWallet || !isEnabledBtcFreshAddress) &&
-      dbAccount.xpubSegwit
-    ) {
+    const isBTCNetwork = networkUtils.isBTCNetwork(this.networkId);
+    if (!isHwOrHdWallet || !isEnabledBtcFreshAddress || !isBTCNetwork) {
       return {
         address: dbAccount.address,
         path: getBIP44Path(dbAccount, dbAccount.address),
@@ -1638,10 +1637,33 @@ export default class VaultBtc extends VaultBase {
     const firstChangeAddresses = freshAddress?.change.unused;
     if (Array.isArray(firstChangeAddresses) && firstChangeAddresses.length) {
       const changeAddress = firstChangeAddresses[0];
+      const changeAddressPath = checkIfValidPath(changeAddress.path);
+      const relativePath = `${changeAddressPath.split('/')[4]}/${
+        changeAddressPath.split('/')[5]
+      }`;
+      const network = await this.getBtcForkNetwork();
+      const { encoding } = await this.validateAddress(dbAccount.address);
+      const regenerateChangeAddressRet = await getAddressFromXpub({
+        curve: 'secp256k1',
+        network,
+        xpub: dbAccount.xpub,
+        relativePaths: [relativePath],
+        addressEncoding: encoding,
+        encodeAddress: (encodedAddress) => encodedAddress,
+      });
+      const regenerateChangeAddress =
+        regenerateChangeAddressRet.addresses[relativePath];
+      if (
+        regenerateChangeAddress !== changeAddress.address ||
+        regenerateChangeAddress !== changeAddress.name
+      ) {
+        throw new OneKeyInternalError(
+          'Change address not match, Please contact support.',
+        );
+      }
       return {
-        // TODO: re-generate address
-        address: checkIsDefined(changeAddress.address),
-        path: checkIfValidPath(changeAddress.path),
+        address: regenerateChangeAddress,
+        path: changeAddressPath,
       };
     }
 
