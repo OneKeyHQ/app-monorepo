@@ -39,7 +39,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
         <Anchor
           href={link}
           size="$bodySm"
-          color="$text"
+          color="$textSubdued"
           target="_blank"
           textDecorationLine="none"
         >
@@ -64,8 +64,6 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
       size="$bodySm"
       color="$textDisabled"
       textAlign="center"
-      p="$5"
-      pt="$0"
       {...props?.contentContainerProps}
     >
       {intl.formatMessage(

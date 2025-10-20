@@ -391,6 +391,7 @@ const icons = {
   ChecklistBoxNotificationOutline: () =>
     import("./react/outline/ChecklistBoxNotification"),
   ChecklistBoxSearchOutline: () => import("./react/outline/ChecklistBoxSearch"),
+  Checkmark2SmallOutline: () => import("./react/outline/Checkmark2Small"),
   ChevronBottomOutline: () => import("./react/outline/ChevronBottom"),
   ChevronDoubleDownOutline: () => import("./react/outline/ChevronDoubleDown"),
   ChevronDoubleLeftOutline: () =>

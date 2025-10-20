@@ -204,6 +204,7 @@ export { default as ChecklistBoxNotification } from './ChecklistBoxNotification'
 export { default as ChecklistBoxSearch } from './ChecklistBoxSearch';
 export { default as ChecklistBox } from './ChecklistBox';
 export { default as Checklist } from './Checklist';
+export { default as Checkmark2Small } from './Checkmark2Small';
 export { default as ChevronBottom } from './ChevronBottom';
 export { default as ChevronDoubleDown } from './ChevronDoubleDown';
 export { default as ChevronDoubleLeft } from './ChevronDoubleLeft';

@@ -647,6 +647,13 @@ const CarouselGallery = LazyLoadPage(
     ),
 );
 
+const PlaygroundGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/playground/index'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -947,5 +954,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentCarousel,
     component: CarouselGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentPlayground,
+    component: PlaygroundGallery,
   },
 ];
