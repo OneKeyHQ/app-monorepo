@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Establecer rango",
   "global.bulk_revoke": "Revocar en lote",
   "global.bulk_revoke_desc": "Protege tus activos revocando múltiples autorizaciones de dApp de una sola vez.",
-  "global.button_switch_now": "Cambiar ahora",
+  "global.button_switch": "Cambiar",
   "global.buy": "Comprar",
   "global.buy_one": "Compra uno",
   "global.cancel": "Cancelar",

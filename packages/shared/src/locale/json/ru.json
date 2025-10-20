@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Установить диапазон",
   "global.bulk_revoke": "Отменить все",
   "global.bulk_revoke_desc": "Защитите свои активы, отменив сразу несколько разрешений dApp.",
-  "global.button_switch_now": "Переключиться сейчас",
+  "global.button_switch": "Переключить",
   "global.buy": "Купить",
   "global.buy_one": "Купи один",
   "global.cancel": "Отмена",

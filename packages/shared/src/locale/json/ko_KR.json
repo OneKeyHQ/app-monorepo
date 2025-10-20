@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "범위 설정",
   "global.bulk_revoke": "일괄 취소",
   "global.bulk_revoke_desc": "여러 dApp 승인을 한 번에 취소하여 자산을 안전하게 보호하세요.",
-  "global.button_switch_now": "지금 전환",
+  "global.button_switch": "전환",
   "global.buy": "구매",
   "global.buy_one": "지금 구매하세요",
   "global.cancel": "취소",

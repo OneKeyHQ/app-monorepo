@@ -1094,9 +1094,9 @@ export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage:
-          'Connection requires single address mode. Please disable Multiple addresses before proceeding.',
-        // defaultKey: ETranslations.manage_token_account_no_found,
+        defaultMessage: 'BTCFreshAddressCanNotConnectDappError',
+        defaultKey:
+          ETranslations.wallet_banner_single_address_required_description,
       }),
     );
   }

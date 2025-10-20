@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Atur Rentang",
   "global.bulk_revoke": "Cabut massal",
   "global.bulk_revoke_desc": "Amankan aset Anda dengan mencabut beberapa persetujuan dApp sekaligus.",
-  "global.button_switch_now": "Beralih sekarang",
+  "global.button_switch": "Beralih",
   "global.buy": "Beli",
   "global.buy_one": "Beli satu",
   "global.cancel": "Batalkan",

@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "ตั้งค่าช่วง",
   "global.bulk_revoke": "ยกเลิกทั้งหมด",
   "global.bulk_revoke_desc": "ปกป้องสินทรัพย์ของคุณด้วยการยกเลิกการอนุญาต dApp หลายรายการในคราวเดียว",
-  "global.button_switch_now": "สลับตอนนี้",
+  "global.button_switch": "สลับ",
   "global.buy": "ซื้อ",
   "global.buy_one": "ซื้อหนึ่ง",
   "global.cancel": "ยกเลิก",

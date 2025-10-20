@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Встановити діапазон",
   "global.bulk_revoke": "Скасувати всі",
   "global.bulk_revoke_desc": "Захистіть свої активи, скасувавши одразу кілька дозволів dApp.",
-  "global.button_switch_now": "Переключити зараз",
+  "global.button_switch": "Перемкнути",
   "global.buy": "Купити",
   "global.buy_one": "Купіть один",
   "global.cancel": "Скасувати",

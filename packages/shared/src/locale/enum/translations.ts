@@ -1127,7 +1127,7 @@
   global_bulk_copy_addresses_tabs_set_range = 'global.bulk_copy_addresses_tabs_set_range',
   global_bulk_revoke = 'global.bulk_revoke',
   global_bulk_revoke_desc = 'global.bulk_revoke_desc',
-  global_button_switch_now = 'global.button_switch_now',
+  global_button_switch = 'global.button_switch',
   global_buy = 'global.buy',
   global_buy_one = 'global.buy_one',
   global_cancel = 'global.cancel',

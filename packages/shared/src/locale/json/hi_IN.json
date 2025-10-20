@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "रेंज सेट करें",
   "global.bulk_revoke": "एकसाथ रद्द करें",
   "global.bulk_revoke_desc": "एक साथ कई dApp अनुमतियों को रद्द करके अपनी संपत्ति को सुरक्षित रखें।",
-  "global.button_switch_now": "अभी स्विच करें",
+  "global.button_switch": "स्विच",
   "global.buy": "खरीदें",
   "global.buy_one": "एक खरीदें",
   "global.cancel": "रद्द करें",

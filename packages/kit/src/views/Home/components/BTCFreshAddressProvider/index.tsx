@@ -8,14 +8,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { FRESH_ADDRESS_LEARN_MORE_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
-
-import { ESettingsTabNames } from '../../../Setting/pages/Tab/config';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 export function BTCFreshAddressProvider() {
   const intl = useIntl();
@@ -64,6 +64,9 @@ export function BTCFreshAddressProvider() {
               size="small"
               variant="tertiary"
               alignSelf="flex-start"
+              onPress={() => {
+                openUrlExternal(FRESH_ADDRESS_LEARN_MORE_URL);
+              }}
             >
               {intl.formatMessage({
                 id: ETranslations.global_learn_more,
@@ -72,7 +75,7 @@ export function BTCFreshAddressProvider() {
           </YStack>
         ),
         onConfirmText: intl.formatMessage({
-          id: ETranslations.global_button_switch_now,
+          id: ETranslations.global_button_switch,
         }),
         onConfirm: () => {
           resetRef();

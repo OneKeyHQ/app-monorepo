@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "设置范围",
   "global.bulk_revoke": "批量取消",
   "global.bulk_revoke_desc": "批量取消多个 dApp 授权，保护您的资产安全。",
-  "global.button_switch_now": "切换",
+  "global.button_switch": "切换",
   "global.buy": "购买",
   "global.buy_one": "购买",
   "global.cancel": "取消",

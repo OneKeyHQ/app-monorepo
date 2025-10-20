@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Bereich festlegen",
   "global.bulk_revoke": "Mehrfach widerrufen",
   "global.bulk_revoke_desc": "Schützen Sie Ihr Vermögen durch gleichzeitiges Widerrufen mehrerer dApp-Berechtigungen.",
-  "global.button_switch_now": "Jetzt wechseln",
+  "global.button_switch": "Wechseln",
   "global.buy": "Kaufen",
   "global.buy_one": "Kaufen Sie eins",
   "global.cancel": "Abbrechen",

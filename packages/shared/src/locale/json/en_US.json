@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Set range",
   "global.bulk_revoke": "Bulk revoke",
   "global.bulk_revoke_desc": "Safeguard your assets by revoking multiple dApp approvals in bulk.",
-  "global.button_switch_now": "Switch now",
+  "global.button_switch": "Switch",
   "global.buy": "Buy",
   "global.buy_one": "Buy one",
   "global.cancel": "Cancel",

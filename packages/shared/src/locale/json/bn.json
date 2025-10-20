@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "রেঞ্জ সেট করুন",
   "global.bulk_revoke": "একসাথে বাতিল",
   "global.bulk_revoke_desc": "একসাথে একাধিক dApp অনুমোদন বাতিল করে আপনার সম্পদ নিরাপদ রাখুন।",
-  "global.button_switch_now": "এখনই পরিবর্তন করুন",
+  "global.button_switch": "স্যুইচ",
   "global.buy": "কিনুন",
   "global.buy_one": "একটি কিনুন",
   "global.cancel": "বাতিল করুন",

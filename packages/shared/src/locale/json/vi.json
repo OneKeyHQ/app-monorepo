@@ -1122,7 +1122,7 @@
   "global.bulk_copy_addresses_tabs_set_range": "Đặt phạm vi",
   "global.bulk_revoke": "Thu hồi hàng loạt",
   "global.bulk_revoke_desc": "Bảo vệ tài sản bằng cách thu hồi nhiều quyền truy cập dApp cùng một lúc.",
-  "global.button_switch_now": "Chuyển ngay",
+  "global.button_switch": "Chuyển đổi",
   "global.buy": "Mua",
   "global.buy_one": "Mua một cái",
   "global.cancel": "Hủy",
