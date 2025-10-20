@@ -12,7 +12,7 @@ import { useWindowDimensions } from 'react-native';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getTokens, useIsHorizontalLayout, useMedia } from '../../hooks';
+import { useIsHorizontalLayout } from '../../hooks';
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
