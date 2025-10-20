@@ -90,39 +90,43 @@ export function TabStackNavigator<RouteName extends string>({
 
   const tabBarPosition = useTabBarPosition();
 
-  const tabScreens = tabComponents.map(({ name, children, ...options }) => (
-    <Tab.Screen
-      key={name}
-      name={name}
-      options={{
-        ...options,
-        tabBarLabel: intl.formatMessage({ id: options.translationId }),
-        tabBarPosition,
-        // @ts-expect-error Custom property for tab bar handling
-        tabbarOnPress: options.tabbarOnPress,
-      }}
-    >
-      {children}
-    </Tab.Screen>
-  ));
-
-  if (extraConfig) {
-    const children = () => (
-      <TabSubStackNavigatorMemo config={extraConfig.children} />
-    );
-    tabScreens.push(
+  const tabScreens = useMemo(() => {
+    const screens = tabComponents.map(({ name, children, ...options }) => (
       <Tab.Screen
-        key={extraConfig.name}
-        name={extraConfig.name}
+        key={name}
+        name={name}
         options={{
-          freezeOnBlur: true,
+          ...options,
+          tabBarLabel: intl.formatMessage({ id: options.translationId }),
           tabBarPosition,
+          // @ts-expect-error Custom property for tab bar handling
+          tabbarOnPress: options.tabbarOnPress,
         }}
       >
         {children}
-      </Tab.Screen>,
-    );
-  }
+      </Tab.Screen>
+    ));
+
+    if (extraConfig) {
+      const children = () => (
+        <TabSubStackNavigatorMemo config={extraConfig.children} />
+      );
+      screens.push(
+        <Tab.Screen
+          key={extraConfig.name}
+          name={extraConfig.name}
+          options={{
+            freezeOnBlur: true,
+            tabBarPosition,
+          }}
+        >
+          {children}
+        </Tab.Screen>,
+      );
+    }
+    return screens;
+  }, [extraConfig, intl, tabBarPosition, tabComponents]);
+
   return (
     <Tab.Navigator
       tabBar={tabBarCallback}
