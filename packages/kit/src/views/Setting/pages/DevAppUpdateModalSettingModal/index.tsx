@@ -274,7 +274,7 @@ export default function DevAppUpdateModalSettingModal() {
     });
   };
 
-  const showAppUpdateInofDialog = async () => {
+  const showAppUpdateInfoDialog = async () => {
     const appUpdateInfo =
       await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
     Dialog.show({
@@ -360,7 +360,7 @@ export default function DevAppUpdateModalSettingModal() {
 
           <Divider />
 
-          <Button variant="secondary" onPress={showAppUpdateInofDialog}>
+          <Button variant="secondary" onPress={showAppUpdateInfoDialog}>
             Show App Update Info
           </Button>
 
