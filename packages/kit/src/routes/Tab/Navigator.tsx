@@ -90,7 +90,7 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
 };
 
 const usePreloadTabs =
-  !platformEnv.isDev && platformEnv.isNative
+  platformEnv.isDev || platformEnv.isNative
     ? () => {}
     : () => {
         const navigation = useNavigation();
