@@ -53,19 +53,11 @@ export type {
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-function usePreloadJsUrl() {
-  const [preloadJsUrl, setPreloadJsUrl] = useState('');
-  useEffect(() => {
-    if (!preloadJsUrl) {
-      void globalThis.desktopApiProxy.webview
-        .getPreloadJsContent()
-        .then((url) => {
-          setPreloadJsUrl(url);
-        });
-    }
-  }, [preloadJsUrl]);
-  return preloadJsUrl;
-}
+let preloadJsUrl = '';
+
+void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
+  preloadJsUrl = url;
+});
 
 // Used for webview type referencing
 const WEBVIEW_TAG = 'webview';
@@ -396,8 +388,6 @@ const DesktopWebView = forwardRef(
     useEffect(() => {
       flushPendingScripts();
     }, [flushPendingScripts, isWebviewReady]);
-
-    const preloadJsUrl = usePreloadJsUrl();
 
     if (!preloadJsUrl) {
       return null;
