@@ -207,15 +207,15 @@ function ExternalWalletList({ impl }: { impl?: string }) {
         {/* detected wallets - filter out injected wallets and OneKey wallets */}
         {walletItems}
 
-        {/* OKX Wallet fallback - always show in Others tab */}
-        {!hasOkxWalletDetected ? (
+        {/* Phantom Wallet fallback - always show in Others tab */}
+        {!hasPhantomDetected ? (
           <WalletItemView
-            key="wallet-okx-store"
+            key="wallet-phantom-store"
             onPress={() => {
-              void openUrlExternal(WALLET_STORE_URLS.okx);
+              void openUrlExternal(WALLET_STORE_URLS.phantom);
             }}
-            logo={okxWalletInfo.logo}
-            name={okxWalletInfo.name}
+            logo={phantomWalletInfo.logo}
+            name={phantomWalletInfo.name}
             networkType="EVM"
           />
         ) : null}
@@ -233,16 +233,16 @@ function ExternalWalletList({ impl }: { impl?: string }) {
           />
         ) : null}
 
-        {/* Phantom Wallet fallback - always show in Others tab */}
-        {!hasPhantomDetected ? (
+        {/* OKX Wallet fallback - always show in Others tab */}
+        {!hasOkxWalletDetected ? (
           <WalletItemView
-            key="wallet-phantom-store"
+            key="wallet-okx-store"
             onPress={() => {
-              void openUrlExternal(WALLET_STORE_URLS.phantom);
+              void openUrlExternal(WALLET_STORE_URLS.okx);
             }}
-            logo={phantomWalletInfo.logo}
-            name={phantomWalletInfo.name}
-            networkType="SOL"
+            logo={okxWalletInfo.logo}
+            name={okxWalletInfo.name}
+            networkType="EVM"
           />
         ) : null}
 
