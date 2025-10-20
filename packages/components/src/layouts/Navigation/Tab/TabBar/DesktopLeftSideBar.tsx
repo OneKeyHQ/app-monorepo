@@ -1,10 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 
-import { type IActionListSection } from '@onekeyhq/components/src/actions';
+import {
+  type IActionListSection,
+  IconButton,
+} from '@onekeyhq/components/src/actions';
 import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import { Portal } from '@onekeyhq/components/src/hocs';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
@@ -95,9 +98,11 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
-  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
+  const [{ collapsed: isCollapse }, setAppSideBarStatus] =
+    useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
+  const [isHovering, setIsHovering] = useState(false);
 
   const { gtMd } = useMedia();
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
@@ -183,7 +188,7 @@ export function DesktopLeftSideBar({
         paddingTop: top,
         borderRightColor: theme.neutral4.val,
         borderRightWidth: StyleSheet.hairlineWidth,
-        overflow: 'hidden',
+        zIndex: 2,
       }}
     >
       {platformEnv.isDesktopMac ? (
@@ -235,6 +240,39 @@ export function DesktopLeftSideBar({
           </YStack>
         </MotiView>
       </YStack>
+      {isCollapse ? (
+        <YStack
+          testID="Desktop-AppSideBar-Separator"
+          position="absolute"
+          onHoverIn={() => {
+            setIsHovering(true);
+          }}
+          onHoverOut={() => {
+            setIsHovering(false);
+          }}
+          zIndex={1000}
+          right={-2}
+          top={0}
+          bottom={0}
+          width={4}
+          ai="center"
+          jc="center"
+        >
+          {isHovering ? (
+            <IconButton
+              onPress={() => {
+                console.log('onPress');
+                setAppSideBarStatus((prev) => ({ ...prev, collapsed: false }));
+              }}
+              icon="ChevronRightSmallOutline"
+              size="large"
+              iconProps={{
+                color: '$iconSubdued',
+              }}
+            />
+          ) : null}
+        </YStack>
+      ) : null}
     </MotiView>
   );
 }
