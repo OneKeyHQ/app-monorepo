@@ -141,7 +141,8 @@ export default function DesktopApiProxyTestDevSettings() {
   // New system methods tests
   const testSystemGetVersion = useCallback(async () => {
     try {
-      const result = await globalThis.desktopApiProxy.system.getVersion();
+      const result =
+        await globalThis.desktopApiProxy.bundleUpdate.getNativeAppVersion();
       Dialog.debugMessage({
         debugMessage: { version: result },
       });
