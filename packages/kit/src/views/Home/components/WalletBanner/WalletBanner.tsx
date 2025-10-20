@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 import { StyleSheet } from 'react-native';
@@ -31,6 +31,8 @@ function WalletBanner() {
     activeAccount: { account, network, wallet, indexedAccount },
   } = useActiveAccount({ num: 0 });
 
+  const closedBannerInitRef = useRef(false);
+
   const { gtSm } = useMedia();
   const themeVariant = useThemeVariant();
 
@@ -62,6 +64,8 @@ function WalletBanner() {
 
   const { result: filteredBanners } = usePromiseResult(
     async () => {
+      if (!closedBannerInitRef.current) return [];
+
       if (banners.length === 0) {
         return banners;
       }
@@ -105,6 +109,7 @@ function WalletBanner() {
     const fetchClosedForeverBanners = async () => {
       const resp =
         await backgroundApiProxy.serviceWalletBanner.getClosedForeverBanners();
+      closedBannerInitRef.current = true;
       setClosedForeverBanners({
         ...closedBanners,
         ...resp,
