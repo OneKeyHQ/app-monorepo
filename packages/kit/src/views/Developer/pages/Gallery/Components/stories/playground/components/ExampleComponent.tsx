@@ -1,0 +1,1517 @@
+import type { ComponentProps } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { EDeviceType } from '@onekeyfe/hd-shared';
+import { MotiView } from 'moti';
+import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
+
+import type { IImageProps, IKeyOfIcons } from '@onekeyhq/components';
+import {
+  Anchor,
+  AnimatePresence,
+  Badge,
+  Button,
+  Empty,
+  HeightTransition,
+  Icon,
+  IconButton,
+  Image,
+  LinearGradient,
+  LottieView,
+  ScrollView,
+  SegmentControl,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import firmwareCheckDark from '@onekeyhq/kit/assets/onboarding/firmware-check-dark.png';
+import firmwareCheck from '@onekeyhq/kit/assets/onboarding/firmware-check.png';
+import genuineCheckDark from '@onekeyhq/kit/assets/onboarding/genuine-check-dark.png';
+import genuineCheck from '@onekeyhq/kit/assets/onboarding/genuine-check.png';
+import gridPatternDark from '@onekeyhq/kit/assets/onboarding/grid-pattern-dark.png';
+import gridPattern from '@onekeyhq/kit/assets/onboarding/grid-pattern.png';
+import logoDecorative from '@onekeyhq/kit/assets/onboarding/logo-decorative.png';
+import radialGradient from '@onekeyhq/kit/assets/onboarding/radial-gradient.png';
+import pickClassic from '@onekeyhq/kit/assets/pick-classic.png';
+import pickMini from '@onekeyhq/kit/assets/pick-mini.png';
+import pickPro from '@onekeyhq/kit/assets/pick-pro.png';
+import pickTouch from '@onekeyhq/kit/assets/pick-touch.png';
+import { ConnectionTroubleShootingAccordion } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
+
+const ContainerHeader = ({ children }: { children: React.ReactNode }) => (
+  <XStack
+    h="$6"
+    px={56}
+    borderWidth={0}
+    borderTopWidth={1}
+    borderBottomWidth={1}
+    borderStyle="dashed"
+    borderColor="$neutral4"
+    alignItems="center"
+  >
+    {children}
+  </XStack>
+);
+
+const ContainerClose = () => (
+  <IconButton size="small" icon="CrossedLargeOutline" variant="tertiary" />
+);
+
+const ContainerBack = () => (
+  <IconButton size="small" icon="ArrowLeftOutline" variant="tertiary" />
+);
+
+const ContainerLanguage = () => (
+  <Button size="small" icon="GlobusOutline" variant="tertiary" ml="auto">
+    English
+  </Button>
+);
+
+const ContainerTitle = ({ children }: { children: React.ReactNode }) => (
+  <SizableText
+    size="$headingLg"
+    textAlign="center"
+    position="absolute"
+    left="50%"
+    style={{ transform: [{ translateX: '-50%' }] }}
+  >
+    {children}
+  </SizableText>
+);
+
+const ContainerBody = ({
+  children,
+  scrollable = true,
+}: {
+  children: React.ReactNode;
+  scrollable?: boolean;
+}) => {
+  const themeVariant = useThemeVariant();
+  return (
+    <YStack
+      px="$10"
+      flex={1}
+      borderWidth={0}
+      borderTopWidth={1}
+      borderBottomWidth={1}
+      borderStyle="dashed"
+      borderColor="$neutral4"
+    >
+      {scrollable ? <ScrollView>{children}</ScrollView> : children}
+      {scrollable ? (
+        <LinearGradient
+          position="absolute"
+          left={41}
+          right={41}
+          bottom={0}
+          h="$10"
+          colors={[
+            themeVariant === 'light' ? 'rgba(255,255,255,0)' : 'rgba(0,0,0,0)',
+            themeVariant === 'light' ? 'rgba(255,255,255,1)' : 'rgba(0,0,0,1)',
+          ]}
+        />
+      ) : null}
+    </YStack>
+  );
+};
+
+function ContainerContent({
+  children,
+  ...rest
+}: { children: React.ReactNode } & ComponentProps<typeof YStack>) {
+  return (
+    <YStack
+      animation="quick"
+      animateOnly={['opacity', 'transform']}
+      enterStyle={{
+        opacity: 0,
+        x: 24,
+      }}
+      w="100%"
+      maxWidth={400}
+      alignSelf="center"
+      py="$10"
+      gap="$5"
+      {...rest}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function ContainerFooter({ children }: { children?: React.ReactNode }) {
+  return (
+    <YStack
+      h="$6"
+      borderWidth={0}
+      borderTopWidth={1}
+      borderBottomWidth={1}
+      borderStyle="dashed"
+      borderColor="$neutral4"
+      justifyContent="center"
+      alignItems="center"
+    >
+      {children}
+    </YStack>
+  );
+}
+
+const ContainerRoot = ({ children }: { children: React.ReactNode }) => (
+  <Stack
+    w="100%"
+    h="800px"
+    bg="$bgApp"
+    borderRadius={40}
+    style={{
+      boxShadow:
+        '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+    }}
+    $theme-dark={{
+      borderWidth: 1,
+      borderColor: '$neutral3',
+    }}
+  >
+    <YStack h="100%" px="$10">
+      <YStack
+        py="$10"
+        h="100%"
+        borderWidth={0}
+        borderLeftWidth={1}
+        borderRightWidth={1}
+        borderStyle="dashed"
+        borderColor="$neutral4"
+      >
+        <YStack h="100%" gap="$10" mx="$-10">
+          {children}
+        </YStack>
+      </YStack>
+    </YStack>
+  </Stack>
+);
+
+export const Container = Object.assign(ContainerRoot, {
+  Header: ContainerHeader,
+  Body: ContainerBody,
+  Content: ContainerContent,
+  Footer: ContainerFooter,
+  Close: ContainerClose,
+  Language: ContainerLanguage,
+  Back: ContainerBack,
+  Title: ContainerTitle,
+});
+
+export const ExampleComponent = () => {
+  const DEVICE_SIZE = 24;
+  const themeVariant = useThemeVariant();
+
+  const DEVICE_DATA: (keyof typeof HwWalletAvatarImages)[] = [
+    themeVariant === 'light' ? `${EDeviceType.Pro}White` : EDeviceType.Pro,
+    EDeviceType.Classic,
+    EDeviceType.Touch,
+    EDeviceType.Mini,
+  ];
+
+  return (
+    <Container>
+      <Container.Header>
+        <Container.Close />
+        <Container.Language />
+      </Container.Header>
+      <Container.Body scrollable={false}>
+        <YStack gap={31} pt={168} flex={1} alignItems="center">
+          <Image
+            source={themeVariant === 'light' ? gridPattern : gridPatternDark}
+            position="absolute"
+            left="50%"
+            top="$0"
+            style={{
+              width: 1200,
+              height: 640,
+              transform: [{ translateX: '-50%' }],
+              zIndex: 0,
+            }}
+          />
+
+          <Image source={logoDecorative} width={82.33} height={82} zIndex={1} />
+          <Stack gap="$4" zIndex={1}>
+            <Button size="large" variant="primary" alignSelf="stretch">
+              <XStack alignItems="center" gap="$2">
+                <YStack
+                  w="$5"
+                  h={DEVICE_SIZE}
+                  overflow="hidden"
+                  alignItems="center"
+                >
+                  <MotiView
+                    from={{
+                      translateY: 0,
+                    }}
+                    animate={{
+                      translateY: Array.from(
+                        { length: DEVICE_DATA.length },
+                        (_, index) => ({
+                          type: 'spring',
+                          // mass: 1,
+                          // stiffness: 400,
+                          // damping: 48,
+                          value: -index * DEVICE_SIZE,
+                          delay: 1000,
+                        }),
+                      ),
+                    }}
+                    transition={{
+                      loop: true,
+                    }}
+                  >
+                    <YStack>
+                      {DEVICE_DATA.map((device, index) => (
+                        <WalletAvatar
+                          key={index}
+                          wallet={undefined}
+                          img={device}
+                          size={DEVICE_SIZE}
+                        />
+                      ))}
+                    </YStack>
+                  </MotiView>
+                </YStack>
+                <SizableText size="$bodyLgMedium" color="$textInverse">
+                  Get started
+                </SizableText>
+              </XStack>
+            </Button>
+            <Button size="large" icon="PlusLargeOutline">
+              Create or import wallet
+            </Button>
+          </Stack>
+        </YStack>
+      </Container.Body>
+      <Container.Footer>
+        <TermsAndPrivacy />
+      </Container.Footer>
+    </Container>
+  );
+};
+
+export const AnotherExample = () => {
+  const intl = useIntl();
+  const DEVICES = [
+    {
+      name: 'OneKey Pro',
+      image: pickPro,
+    },
+    {
+      name: 'OneKey Classic',
+      tags: ['1S', '1S Pure'],
+      image: pickClassic,
+    },
+    {
+      name: 'OneKey Touch',
+      image: pickTouch,
+    },
+    {
+      name: 'OneKey Mini',
+      image: pickMini,
+    },
+  ];
+
+  return (
+    <Container>
+      <Container.Header>
+        <Container.Back />
+        <Container.Language />
+        <Container.Title>Pick your device</Container.Title>
+      </Container.Header>
+      <Container.Body scrollable={false}>
+        <XStack
+          h="100%"
+          flexWrap="wrap"
+          gap="$px"
+          bg="$neutral3"
+          className="pick-device-clip-path"
+        >
+          {DEVICES.map(({ name, tags, image }) => (
+            <YStack
+              key={name}
+              animateOnly={['backgroundColor']}
+              animation="quick"
+              flexGrow={1}
+              flexBasis={0}
+              minWidth="45%"
+              bg="$bgApp"
+              hoverStyle={{ bg: '$bgSubdued' }}
+              onPress={() => {}}
+              userSelect="none"
+              p="$10"
+              gap="$3"
+              group
+            >
+              <SizableText size="$heading2xl">{name}</SizableText>
+              {tags?.length ? (
+                <XStack gap="$2">
+                  {tags.map((tag) => (
+                    <YStack
+                      key={tag}
+                      px="$2"
+                      py="$1"
+                      borderRadius="$1"
+                      borderCurve="continuous"
+                      borderWidth={1}
+                      borderColor="$borderActive"
+                    >
+                      <SizableText size="$bodySmMedium">{tag}</SizableText>
+                    </YStack>
+                  ))}
+                </XStack>
+              ) : null}
+              <YStack
+                position="absolute"
+                top="50%"
+                right="0"
+                style={{
+                  transform: [{ translateY: '-50%' }],
+                }}
+              >
+                <Image
+                  $group-hover={{
+                    y: -4,
+                  }}
+                  style={{
+                    transition:
+                      'transform 150ms cubic-bezier(.455, .03, .515, .955)',
+                  }}
+                  source={image}
+                  width={256}
+                  height={256}
+                  resizeMode="contain"
+                />
+              </YStack>
+            </YStack>
+          ))}
+        </XStack>
+      </Container.Body>
+      <Container.Footer>
+        <XStack
+          px="$5"
+          py="$0.5"
+          mt="auto"
+          justifyContent="center"
+          alignItems="center"
+        >
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              // eslint-disable-next-line spellcheck/spell-checker
+              id: ETranslations.global_onekey_prompt_dont_have_yet,
+            })}
+          </SizableText>
+          <Anchor
+            display="flex"
+            color="$text"
+            hoverStyle={{
+              color: '$textSubdued',
+            }}
+            href="https://bit.ly/3YsKilK"
+            target="_blank"
+            size="$bodySm"
+            p="$2"
+            pl="$0"
+            style={{
+              textDecoration: 'none',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.global_buy_one })}
+          </Anchor>
+        </XStack>
+      </Container.Footer>
+    </Container>
+  );
+};
+
+function CardHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <XStack alignItems="center" p="$5" gap="$3" bg="$neutral2">
+      {children}
+    </XStack>
+  );
+}
+
+function CardTitle({
+  children,
+  ...rest
+}: { children: React.ReactNode } & ComponentProps<typeof SizableText>) {
+  return (
+    <SizableText size="$bodyMdMedium" {...rest}>
+      {children}
+    </SizableText>
+  );
+}
+
+function CardBody({
+  children,
+  ...rest
+}: { children: React.ReactNode } & ComponentProps<typeof YStack>) {
+  return (
+    <YStack
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$neutral3"
+      p="$5"
+      {...rest}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function CardRoot({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      $theme-dark={{
+        borderWidth: 1,
+        borderColor: '$borderSubdued',
+      }}
+      borderRadius="$5"
+      borderCurve="continuous"
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+      }}
+      $platform-web={{
+        boxShadow:
+          '0 0.5px 0.5px 0 rgba(255, 255, 255, 0.1) inset, 0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      }}
+      overflow="hidden"
+    >
+      {children}
+    </YStack>
+  );
+}
+
+export const Card = Object.assign(CardRoot, {
+  Header: CardHeader,
+  Title: CardTitle,
+  Body: CardBody,
+});
+
+export const CreateOrImportWallet = () => {
+  const [expanded, setExpanded] = useState(false);
+
+  const walletKeys = ['metamask', 'okx', 'rainbow', 'tokenpocket'] as const;
+
+  const handleExpand = useCallback(() => {
+    setExpanded((prev) => !prev);
+  }, []);
+
+  return (
+    <Container>
+      <Container.Header>
+        <Container.Back />
+        <Container.Title>Create or import wallet</Container.Title>
+        <Container.Language />
+      </Container.Header>
+      <Container.Body>
+        <Container.Content>
+          <Card>
+            <Card.Header>
+              <YStack
+                w={38}
+                h={38}
+                alignItems="center"
+                justifyContent="center"
+                borderRadius="$2"
+                borderCurve="continuous"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$neutral5"
+                bg="$brand8"
+              >
+                <Icon name="PlusLargeOutline" color="$iconOnColor" />
+              </YStack>
+              <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                <Card.Title>Create new wallet</Card.Title>
+                <Button
+                  px="$1"
+                  py="$0.5"
+                  mx="$-1"
+                  my="$-0.5"
+                  borderWidth={0}
+                  size="small"
+                  variant="tertiary"
+                  onPress={handleExpand}
+                  hitSlop={10}
+                >
+                  <XStack alignItems="center">
+                    <SizableText size="$bodySm" color="$textSubdued">
+                      Learn more
+                    </SizableText>
+                    <YStack
+                      animation="quick"
+                      animateOnly={['transform']}
+                      rotate={expanded ? '0' : '90deg'}
+                    >
+                      <Icon
+                        name="ChevronRightSmallOutline"
+                        size="$4"
+                        color="$iconDisabled"
+                      />
+                    </YStack>
+                  </XStack>
+                </Button>
+              </YStack>
+              <Button size="small" minWidth="$20">
+                Create
+              </Button>
+            </Card.Header>
+            <Card.Body>
+              <XStack gap="$2" flexWrap="wrap">
+                {[
+                  'Most used',
+                  'Recovery phrase consists of 12 words',
+                  'Recovery phrase is like a “password”',
+                  'Need to keep it safe yourself',
+                  'Handwritten backup',
+                  'Supports hundreds of networks',
+                ].map((item, index) => (
+                  <Badge
+                    key={index}
+                    {...(index === 0 && { badgeType: 'success' })}
+                  >
+                    <Badge.Text size="$bodySm">{item}</Badge.Text>
+                  </Badge>
+                ))}
+              </XStack>
+              <HeightTransition initialHeight={0}>
+                <AnimatePresence>
+                  {expanded ? (
+                    <YStack
+                      pt="$5"
+                      animation="quick"
+                      animateOnly={['opacity']}
+                      enterStyle={{
+                        opacity: 0,
+                      }}
+                      exitStyle={{
+                        opacity: 0,
+                      }}
+                    >
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        The recovery phrase is the core of your wallet’s
+                        security. It’s made up of 12 common English words used
+                        to create and restore your private key and wallet
+                        address. Write it down by hand and store it safely —
+                        only you have access to your assets.
+                      </SizableText>
+                    </YStack>
+                  ) : null}
+                </AnimatePresence>
+              </HeightTransition>
+            </Card.Body>
+          </Card>
+          <Card>
+            <Card.Header>
+              <YStack
+                w={38}
+                h={38}
+                alignItems="center"
+                justifyContent="center"
+                borderRadius="$2"
+                borderCurve="continuous"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$neutral5"
+                bg="$info9"
+              >
+                <Icon name="ArrowBottomOutline" color="$iconOnColor" />
+              </YStack>
+              <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                <Card.Title>Add existing wallet</Card.Title>
+                <SizableText size="$bodySm" color="$textSubdued">
+                  Transfer, restore or import
+                </SizableText>
+              </YStack>
+              <Button size="small" minWidth="$20">
+                Add
+              </Button>
+            </Card.Header>
+            <Card.Body>
+              <XStack gap="$2" flexWrap="wrap">
+                {[
+                  'Supports 12–24 word recovery  phrases',
+                  'Supports hundreds of networks',
+                ].map((item, index) => (
+                  <Badge key={index}>
+                    <Badge.Text size="$bodySm">{item}</Badge.Text>
+                  </Badge>
+                ))}
+                <Badge>
+                  <Badge.Text size="$bodySm">Supports</Badge.Text>
+                  <XStack gap="$1" ml="$1">
+                    {walletKeys.map((key) => (
+                      <Image
+                        key={key}
+                        source={externalWalletLogoUtils.getLogoInfo(key).logo}
+                        width={12}
+                        height={12}
+                        borderRadius={3}
+                      />
+                    ))}
+                  </XStack>
+                </Badge>
+              </XStack>
+            </Card.Body>
+          </Card>
+          <Card>
+            <Card.Header>
+              <XStack
+                w={38}
+                h={38}
+                p={3}
+                gap={2}
+                alignItems="center"
+                justifyContent="center"
+                flexWrap="wrap"
+                borderRadius="$2"
+                borderCurve="continuous"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$neutral2"
+                bg="$neutral2"
+              >
+                {walletKeys.map((key) => (
+                  <Image
+                    key={key}
+                    source={externalWalletLogoUtils.getLogoInfo(key).logo}
+                    width={14}
+                    height={14}
+                    borderRadius={5}
+                  />
+                ))}
+              </XStack>
+              <YStack gap="$0.5" flex={1} alignItems="flex-start">
+                <Card.Title flex={1}>Connect external wallet</Card.Title>
+              </YStack>
+              <Button size="small">Connect</Button>
+            </Card.Header>
+          </Card>
+        </Container.Content>
+      </Container.Body>
+      <Container.Footer />
+    </Container>
+  );
+};
+
+export function AddExitingWallet() {
+  const DATA: {
+    title: string;
+    icon: IKeyOfIcons;
+    description?: string | string[];
+  }[] = [
+    {
+      title: 'Transfer',
+      icon: 'MultipleDevicesOutline',
+      description: 'Safely transfer wallets between devices',
+    },
+    {
+      title: 'Import phrase or private key',
+      icon: 'SecretPhraseOutline',
+    },
+    {
+      title: 'OneKey KeyTag',
+      icon: 'OnekeyKeytagOutline',
+    },
+    {
+      title: 'OneKey Lite',
+      icon: 'OnekeyLiteOutline',
+    },
+    {
+      title: 'iCloud',
+      icon: 'CloudOutline',
+    },
+    {
+      title: 'Watch-only address',
+      icon: 'EyeOutline',
+      description: [
+        "👀 Watch other's transactions. ",
+        '🙅 You cannot manage the wallet.',
+      ],
+    },
+  ];
+
+  return (
+    <Container>
+      <Container.Header>
+        <Container.Back />
+        <Container.Title>Add existing wallet</Container.Title>
+        <Container.Language />
+      </Container.Header>
+      <Container.Body>
+        <Container.Content>
+          {DATA.map(({ title, icon, description }) => (
+            <XStack
+              key={title}
+              animation="quick"
+              animateOnly={['transform', 'backgroundColor']}
+              gap="$3"
+              bg="$bg"
+              $platform-web={{
+                boxShadow:
+                  '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+              }}
+              $theme-dark={{
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: '$neutral3',
+              }}
+              $platform-native={{
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: '$borderSubdued',
+              }}
+              borderRadius="$5"
+              borderCurve="continuous"
+              p="$3"
+              alignItems="center"
+              hoverStyle={{
+                bg: '$bgSubdued',
+              }}
+              pressStyle={{
+                scale: 0.985,
+              }}
+              onPress={() => {}}
+              focusable
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+                outlineWidth: 2,
+                outlineOffset: 2,
+              }}
+              userSelect="none"
+            >
+              <YStack
+                borderRadius="$2"
+                borderCurve="continuous"
+                bg="$neutral2"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderColor="$neutral2"
+                p="$2"
+              >
+                <Icon name={icon} />
+              </YStack>
+              <YStack gap={2} flex={1}>
+                <SizableText size="$bodyMdMedium">{title}</SizableText>
+                {description ? (
+                  <SizableText size="$bodySm" color="$textSubdued">
+                    {Array.isArray(description)
+                      ? description.join('\n')
+                      : description}
+                  </SizableText>
+                ) : null}
+              </YStack>
+              <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
+            </XStack>
+          ))}
+        </Container.Content>
+      </Container.Body>
+      <Container.Footer />
+    </Container>
+  );
+}
+
+function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      borderRadius={10}
+      borderCurve="continuous"
+      $platform-web={{
+        boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
+      }}
+      bg="$bg"
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function ConnectionIndicatorAnimation({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <YStack h={320} overflow="hidden">
+      {children}
+    </YStack>
+  );
+}
+
+function ConnectionIndicatorContent({
+  children,
+  ...rest
+}: {
+  children: React.ReactNode;
+} & ComponentProps<typeof YStack>) {
+  return (
+    <YStack
+      px="$5"
+      py="$4"
+      borderWidth={0}
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+      borderStyle="dashed"
+      {...rest}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function ConnectionIndicatorTitle({ children }: { children: React.ReactNode }) {
+  return <SizableText size="$bodyMdMedium">{children}</SizableText>;
+}
+
+function connectionIndicatorFooter({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <YStack
+      pt="$5"
+      pb="$2"
+      gap="$2"
+      animation="quick"
+      animateOnly={['opacity']}
+      enterStyle={{
+        opacity: 0,
+      }}
+    >
+      <Image
+        source={radialGradient}
+        position="absolute"
+        left="50%"
+        bottom="0"
+        style={{
+          transform: [{ translateX: '-50%' }, { translateY: '50%' }],
+        }}
+        width={520}
+        height={226}
+        zIndex={0}
+      />
+      {children}
+    </YStack>
+  );
+}
+
+function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
+  const [showHelper, setShowHelper] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowHelper(true);
+    }, 10_000);
+
+    return () => clearTimeout(timer);
+  }, [showHelper]);
+
+  return (
+    <>
+      {showHelper ? (
+        <YStack
+          bg="$bgSubdued"
+          $platform-web={{
+            boxShadow:
+              '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+          }}
+          $theme-dark={{
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: '$neutral3',
+            bg: '$neutral3',
+          }}
+          $platform-native={{
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: '$neutral3',
+          }}
+          borderRadius="$2.5"
+          borderCurve="continuous"
+          overflow="hidden"
+        >
+          <HeightTransition initialHeight={0}>
+            <XStack
+              animation="quick"
+              animateOnly={['opacity']}
+              enterStyle={{ opacity: 0 }}
+              m="0"
+              px="$5"
+              py="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+                outlineWidth: 2,
+                outlineOffset: 2,
+              }}
+              userSelect="none"
+              onPress={() => setShowTroubleshooting(!showTroubleshooting)}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                Having trouble connecting your device?
+              </SizableText>
+              <Icon
+                name={
+                  showTroubleshooting ? 'MinusSmallOutline' : 'PlusSmallOutline'
+                }
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          </HeightTransition>
+          {showTroubleshooting ? (
+            <ConnectionTroubleShootingAccordion connectionType={type} />
+          ) : null}
+        </YStack>
+      ) : null}
+    </>
+  );
+}
+
+function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      $platform-web={{
+        boxShadow:
+          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+      }}
+      $theme-dark={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+        bg: '$neutral3',
+      }}
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+      }}
+      overflow="hidden"
+      borderRadius={10}
+      borderCurve="continuous"
+      bg="$bgSubdued"
+      animation="quick"
+      animateOnly={['opacity', 'transform']}
+      enterStyle={{
+        opacity: 0,
+        x: 24,
+      }}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+export const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
+  Animation: ConnectionIndicatorAnimation,
+  Card: ConnectionIndicatorCard,
+  Content: ConnectionIndicatorContent,
+  Title: ConnectionIndicatorTitle,
+  Footer: connectionIndicatorFooter,
+});
+
+function USBConnectionIndicator() {
+  return (
+    <>
+      <TroubleShootingButton type="usb" />
+      <ConnectionIndicator>
+        <ConnectionIndicator.Card>
+          <ConnectionIndicator.Animation>
+            <SizableText>Placeholder</SizableText>
+          </ConnectionIndicator.Animation>
+          <ConnectionIndicator.Content gap="$2">
+            <ConnectionIndicator.Title>
+              Connect OneKey Pro to your computer via USB
+            </ConnectionIndicator.Title>
+            {platformEnv.isExtension ? (
+              <>
+                <SizableText color="$textSubdued">
+                  Click the button below then select your device in the popup to
+                  connect
+                </SizableText>
+                <Button variant="primary" onPress={() => {}} mt="$2">
+                  Start connection
+                </Button>
+              </>
+            ) : null}
+          </ConnectionIndicator.Content>
+        </ConnectionIndicator.Card>
+      </ConnectionIndicator>
+    </>
+  );
+}
+
+function BluetoothConnectionIndicator() {
+  const intl = useIntl();
+  const [bluetoothStatus, _setBluetoothStatus] = useState<
+    | 'enabled'
+    | 'disabledInSystem'
+    | 'disabledInApp'
+    | 'checking'
+    | 'noSystemPermission'
+  >('enabled');
+  const [devices, setDevices] = useState<
+    Array<{ id: string; name: string; type: string }>
+  >([]);
+
+  // Simulate loading devices after a delay
+  const handleToggleDevices = useCallback(() => {
+    if (devices.length > 0) {
+      setDevices([]);
+    } else {
+      setDevices([
+        { id: '1', name: 'Pro 062B', type: EDeviceType.Pro },
+        { id: '2', name: 'Classic 1A3F', type: EDeviceType.Classic },
+      ]);
+    }
+  }, [devices.length]);
+
+  if (bluetoothStatus === 'disabledInApp') {
+    return (
+      <Empty
+        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_enable_in_app_settings,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.onboarding_enable_bluetooth,
+          }),
+        }}
+      />
+    );
+  }
+
+  if (bluetoothStatus === 'noSystemPermission') {
+    return (
+      <Empty
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_bluetooth_permission_needed,
+        })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_permission_prompt,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.global_go_to_settings,
+          }),
+        }}
+      />
+    );
+  }
+
+  if (bluetoothStatus === 'disabledInSystem') {
+    return (
+      <Empty
+        title={intl.formatMessage({ id: ETranslations.bluetooth_disabled })}
+        description={intl.formatMessage({
+          id: ETranslations.bluetooth_enable_in_system_settings,
+        })}
+        buttonProps={{
+          variant: 'primary',
+          children: intl.formatMessage({
+            id: ETranslations.onboarding_enable_bluetooth,
+          }),
+        }}
+      />
+    );
+  }
+
+  return (
+    <>
+      <TroubleShootingButton type="bluetooth" />
+      <ConnectionIndicator>
+        <ConnectionIndicator.Card>
+          <ConnectionIndicator.Animation>
+            <YStack
+              w="100%"
+              h="100%"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <YStack
+                position="absolute"
+                w={420}
+                h={420}
+                left="50%"
+                top="50%"
+                transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
+                p={60}
+                flex={1}
+                borderWidth={3}
+                borderColor="$neutral1"
+                borderRadius="$full"
+              >
+                <YStack
+                  p={50}
+                  flex={1}
+                  borderWidth={2}
+                  borderColor="$neutral2"
+                  borderRadius="$full"
+                >
+                  <YStack
+                    flex={1}
+                    borderWidth={1}
+                    borderColor="$neutral3"
+                    borderRadius="$full"
+                  />
+                </YStack>
+              </YStack>
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/bluetooth_signal_spreading.json')}
+                width={320}
+                height={320}
+              />
+            </YStack>
+          </ConnectionIndicator.Animation>
+          <ConnectionIndicator.Content>
+            <ConnectionIndicator.Title>
+              Keep your device near the computer to pair
+            </ConnectionIndicator.Title>
+          </ConnectionIndicator.Content>
+        </ConnectionIndicator.Card>
+        <ConnectionIndicator.Footer>
+          <YStack px="$5">
+            <XStack alignItems="center" justifyContent="space-between">
+              <SizableText color="$textDisabled">
+                Looking for your device...
+              </SizableText>
+              <Button
+                size="small"
+                variant="tertiary"
+                onPress={handleToggleDevices}
+              >
+                {devices.length > 0 ? 'Delete data' : 'Mock data'}
+              </Button>
+            </XStack>
+          </YStack>
+          <HeightTransition initialHeight={0}>
+            {devices.length > 0 ? (
+              <>
+                {devices.map((device) => (
+                  <ListItem
+                    key={device.id}
+                    drillIn
+                    onPress={() => {
+                      console.log('clicked', device);
+                    }}
+                    userSelect="none"
+                  >
+                    <WalletAvatar wallet={undefined} img={device.type as any} />
+                    <ListItem.Text primary={device.name} flex={1} />
+                  </ListItem>
+                ))}
+              </>
+            ) : null}
+          </HeightTransition>
+        </ConnectionIndicator.Footer>
+      </ConnectionIndicator>
+    </>
+  );
+}
+
+function QRCodeConnectionIndicator() {
+  return (
+    <ConnectionIndicator>
+      <ConnectionIndicator.Card>
+        <ConnectionIndicator.Animation>
+          <SizableText>Placeholder</SizableText>
+        </ConnectionIndicator.Animation>
+        <ConnectionIndicator.Content gap="$4">
+          <SizableText>
+            Swipe up and choose Connect App Wallet → QR Code → OneKey App.
+          </SizableText>
+          <SizableText>Tap below to scan the QR code.</SizableText>
+          <Button variant="primary" onPress={() => {}}>
+            Scan QR code
+          </Button>
+        </ConnectionIndicator.Content>
+      </ConnectionIndicator.Card>
+    </ConnectionIndicator>
+  );
+}
+
+export function ConnectDevice() {
+  const [value, setValue] = useState('usb');
+
+  return (
+    <Container>
+      <Container.Header>
+        <Container.Back />
+        <Container.Title>Connect your device</Container.Title>
+        <Container.Language />
+      </Container.Header>
+      <Container.Body>
+        <Container.Content pt="$0">
+          <SegmentControl
+            fullWidth
+            value={value}
+            onChange={(v) => setValue(v as string)}
+            options={[
+              { label: 'USB', value: 'usb' },
+              { label: 'Bluetooth', value: 'bluetooth' },
+              { label: 'QR Code', value: 'qr' },
+            ]}
+          />
+          {value === 'usb' ? <USBConnectionIndicator /> : null}
+          {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
+          {value === 'qr' ? <QRCodeConnectionIndicator /> : null}
+        </Container.Content>
+      </Container.Body>
+      <Container.Footer />
+    </Container>
+  );
+}
+
+function CheckItemImage({
+  children,
+  state,
+  ...rest
+}: {
+  children: React.ReactNode;
+  state?: 'running' | 'success';
+} & ComponentProps<typeof YStack>) {
+  return (
+    <YStack
+      w="$16"
+      h="$16"
+      borderRadius="$2"
+      bg="$bg"
+      borderCurve="continuous"
+      $platform-web={{
+        boxShadow:
+          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+      }}
+      $theme-dark={{
+        bg: '$whiteA1',
+        borderWidth: 1,
+        borderColor: '$neutral3',
+      }}
+      $platform-native={{
+        borderWidth: 1,
+        borderColor: '$neutral3',
+      }}
+      alignItems="center"
+      justifyContent="center"
+      {...rest}
+    >
+      {children}
+      {state ? (
+        <YStack
+          position="absolute"
+          right={-9}
+          bottom={-9}
+          w={26}
+          h={26}
+          borderWidth={1}
+          bg="$bg"
+          borderRadius="$full"
+          borderColor="$borderSubdued"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <AnimatePresence exitBeforeEnter initial={false}>
+            {state === 'running' ? (
+              <Spinner
+                key="spinner"
+                size="small"
+                animation="quick"
+                enterStyle={{ scale: 0.7, opacity: 0 }}
+                exitStyle={{ scale: 0.7, opacity: 0 }}
+                scale={0.8}
+              />
+            ) : null}
+            {state === 'success' ? (
+              <Icon
+                animation="quick"
+                enterStyle={{ scale: 0.8, opacity: 0 }}
+                exitStyle={{ scale: 0.8, opacity: 0 }}
+                key="checkmark"
+                name="Checkmark2SmallOutline"
+                color="$iconActive"
+                size="$5"
+              />
+            ) : null}
+          </AnimatePresence>
+        </YStack>
+      ) : null}
+    </YStack>
+  );
+}
+
+function CheckItemContent({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack gap="$1" flex={1}>
+      {children}
+    </YStack>
+  );
+}
+
+function CheckItemTitle({ children }: { children: React.ReactNode }) {
+  return <SizableText size="$bodyMdMedium">{children}</SizableText>;
+}
+
+function CheckItemDescription({ children }: { children: React.ReactNode }) {
+  return <SizableText color="$textSubdued">{children}</SizableText>;
+}
+
+function CheckItemRoot({
+  children,
+  running,
+}: {
+  children: React.ReactNode;
+  running?: boolean;
+}) {
+  return (
+    <XStack alignItems="center" gap="$5">
+      <AnimatePresence>
+        {running ? (
+          <YStack
+            animation="quick"
+            animateOnly={['opacity', 'transform']}
+            enterStyle={{
+              opacity: 0,
+              scale: 0.97,
+            }}
+            exitStyle={{
+              opacity: 0,
+              scale: 0.97,
+            }}
+            position="absolute"
+            left={-16}
+            top={-16}
+            right={-16}
+            bottom={-16}
+            bg="$bgSubdued"
+            borderRadius="$4"
+            borderCurve="continuous"
+            $platform-web={{
+              boxShadow:
+                '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+            }}
+            zIndex={0}
+          />
+        ) : null}
+      </AnimatePresence>
+      {children}
+    </XStack>
+  );
+}
+
+const CheckItem = Object.assign(CheckItemRoot, {
+  Image: CheckItemImage,
+  Content: CheckItemContent,
+  Title: CheckItemTitle,
+  Description: CheckItemDescription,
+});
+
+export function CheckAndUpdate() {
+  const themeVariant = useThemeVariant();
+  const [steps, setSteps] = useState<
+    {
+      image: IImageProps['source'];
+      title: string;
+      description?: string;
+      state?: 'running' | 'success';
+    }[]
+  >([
+    {
+      image: themeVariant === 'light' ? genuineCheck : genuineCheckDark,
+      title: 'Genuine check',
+      description: 'Make sure your OneKey Pro is authentic',
+    },
+    {
+      image: themeVariant === 'light' ? firmwareCheck : firmwareCheckDark,
+      title: 'Firmware check',
+      description: 'See if your OneKey Pro has the latest software',
+    },
+  ]);
+
+  const handleCheck = useCallback(() => {
+    // Set first step to running
+    setSteps((prev) => {
+      const newSteps = [...prev];
+      newSteps[0] = { ...newSteps[0], state: 'running' };
+      return newSteps;
+    });
+
+    // Simulate first check completing after 2 seconds
+    setTimeout(() => {
+      setSteps((prev) => {
+        const newSteps = [...prev];
+        newSteps[0] = { ...newSteps[0], state: 'success' };
+        // Start second step
+        newSteps[1] = { ...newSteps[1], state: 'running' };
+        return newSteps;
+      });
+
+      // Simulate second check completing after another 2 seconds
+      setTimeout(() => {
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = { ...newSteps[1], state: 'success' };
+          return newSteps;
+        });
+      }, 2000);
+    }, 2000);
+  }, []);
+
+  return (
+    <Container>
+      <Container.Header>
+        <Container.Back />
+        <Container.Title>Check & Update</Container.Title>
+        <Container.Language />
+      </Container.Header>
+      <Container.Body>
+        <Container.Content gap="$10">
+          {steps.map((step, index) => (
+            <CheckItem key={step.title} running={step.state === 'running'}>
+              {index !== steps.length - 1 ? (
+                <YStack
+                  w={2}
+                  borderWidth={0}
+                  borderLeftWidth={2}
+                  borderStyle="dashed"
+                  borderColor="$neutral3"
+                  position="absolute"
+                  left={31}
+                  top={64}
+                  bottom={-40}
+                />
+              ) : null}
+              <CheckItem.Image state={step.state}>
+                <Image source={step.image} width={64} height={64} />
+              </CheckItem.Image>
+              <CheckItem.Content>
+                <CheckItem.Title>{step.title}</CheckItem.Title>
+                <CheckItem.Description>
+                  {step.description}
+                </CheckItem.Description>
+              </CheckItem.Content>
+            </CheckItem>
+          ))}
+          <Button variant="primary" size="large" onPress={() => handleCheck()}>
+            Check my OneKey Pro
+          </Button>
+        </Container.Content>
+      </Container.Body>
+      <Container.Footer />
+    </Container>
+  );
+}
