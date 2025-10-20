@@ -142,10 +142,14 @@ export function UniversalWithdraw({
       action: 'unstake',
       amount: amountValue || balance || '1',
       txId:
-        providerName?.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
+        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
-      protocolVault,
+      protocolVault: earnUtils.isVaultBasedProvider({
+        providerName,
+      })
+        ? protocolVault
+        : undefined,
       identity,
       accountAddress: account.address,
     });

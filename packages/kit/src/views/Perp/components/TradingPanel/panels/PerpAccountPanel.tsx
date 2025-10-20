@@ -154,7 +154,9 @@ function PerpAccountPanel() {
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
-            Unrealized PNL
+            {intl.formatMessage({
+              id: ETranslations.perp_account_unrealized_pnl,
+            })}
           </SizableText>
           <SizableText size="$bodySmMedium" color={unrealizedPnlInfo.pnlColor}>
             {`${unrealizedPnlInfo.pnlPlusOrMinus}${unrealizedPnlInfo.pnlFormatted}`}
