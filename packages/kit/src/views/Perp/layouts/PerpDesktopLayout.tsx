@@ -49,7 +49,7 @@ function PerpDesktopLayout() {
                   <Stack
                     position="absolute"
                     top="50%"
-                    right={-6}
+                    right={isOrderBookVisible ? -4 : 3.5}
                     zIndex={2}
                     marginTop={-2}
                   >
@@ -64,15 +64,17 @@ function PerpDesktopLayout() {
                       bg="$bg"
                       borderWidth="$px"
                       borderColor="$borderSubdued"
-                      borderRadius="$2"
+                      borderRadius="$1"
                       p="$0"
-                      h={40}
+                      h={30}
+                      w={16}
                       hoverStyle={{
-                        bg: '$bgHover',
+                        borderColor: '$border',
                       }}
                       pressStyle={{
-                        bg: '$bgActive',
+                        borderColor: '$border',
                       }}
+                      cursor="pointer"
                       onPress={() => setIsOrderBookVisible((prev) => !prev)}
                     />
                   </Stack>
@@ -84,7 +86,6 @@ function PerpDesktopLayout() {
                   borderLeftWidth="$px"
                   borderLeftColor="$borderSubdued"
                   w={270}
-                  paddingLeft="$2"
                 >
                   <PerpOrderBook />
                 </YStack>

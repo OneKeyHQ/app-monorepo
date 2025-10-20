@@ -46,7 +46,8 @@ import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
   ONEKEY_URL,
-  TWITTER_URL,
+  TWITTER_FOLLOW_URL,
+  TWITTER_FOLLOW_URL_CN,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
@@ -533,6 +534,7 @@ function SupportButton({ text }: { text: string }) {
 export function SocialButtonGroup() {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const [{ locale }] = useSettingsPersistAtom();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const isTabNavigator = useIsTabNavigator();
   const version = useMemo(() => {
@@ -569,6 +571,14 @@ export function SocialButtonGroup() {
     }
     return appUpdateInfo.latestVersion === platformEnv.version;
   }, [appUpdateInfo.jsBundleVersion, appUpdateInfo.latestVersion]);
+  const twitterFollowUrl = useMemo(() => {
+    if (!locale) {
+      return TWITTER_FOLLOW_URL;
+    }
+    return ['zh-CN', 'zh-HK', 'zh-TW'].includes(locale)
+      ? TWITTER_FOLLOW_URL_CN
+      : TWITTER_FOLLOW_URL;
+  }, [locale]);
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
@@ -585,7 +595,7 @@ export function SocialButtonGroup() {
         />
         <SocialButton
           icon="Xbrand"
-          url={TWITTER_URL}
+          url={twitterFollowUrl}
           text={intl.formatMessage({ id: ETranslations.global_x })}
         />
         <SocialButton

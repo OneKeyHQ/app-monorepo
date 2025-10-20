@@ -6,6 +6,7 @@ import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EApproveType,
   EStakingActionType,
@@ -110,14 +111,24 @@ export const useHandleStake = () => {
       if (protocolInfo?.approve?.approveTarget) {
         setStakeLoading?.(true);
         try {
+          // For vault-based providers, check allowance against vault address
+          const isVaultBased = earnUtils.isVaultBasedProvider({
+            providerName: protocolInfo.provider,
+          });
+
+          // Determine the correct spender address for allowance check
+          let spenderAddress = protocolInfo.approve.approveTarget;
+          if (protocolInfo.approve?.approveType === EApproveType.Permit) {
+            spenderAddress = MorphoBundlerContract;
+          } else if (isVaultBased) {
+            spenderAddress = protocolInfo.vault ?? '';
+          }
+
           const { allowanceParsed } =
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
               accountId,
               networkId,
-              spenderAddress:
-                protocolInfo.approve?.approveType === EApproveType.Permit
-                  ? MorphoBundlerContract
-                  : protocolInfo.approve.approveTarget,
+              spenderAddress,
               tokenAddress: tokenInfo?.token.address || '',
             });
           appNavigation.push(EModalStakingRoutes.Stake, {
