@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { analytics } from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import { setUser as setSentryUser } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -42,6 +43,14 @@ const LastActivityTracker = () => {
         platform: platformEnv.appPlatform || '',
         appChannel: platformEnv.appChannel || '',
       });
+      const jsReadyTime = await LaunchOptionsManager.getJSReadyTime();
+      if (jsReadyTime > 0) {
+        defaultLogger.app.page.jsReadyTime(jsReadyTime);
+      }
+      const uiVisibleTime = await LaunchOptionsManager.getUIVisibleTime();
+      if (uiVisibleTime > 0) {
+        defaultLogger.app.page.uiVisibleTime(uiVisibleTime);
+      }
     }, 0);
     defaultLogger.app.page.appStart();
   }, []);

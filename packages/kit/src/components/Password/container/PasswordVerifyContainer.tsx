@@ -6,10 +6,7 @@ import { useIntl } from 'react-intl';
 import { SizableText, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import {
-  biologyAuthNativeError,
-  biologyAuthUtils,
-} from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
+import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
@@ -17,6 +14,7 @@ import {
   usePasswordModeAtom,
   usePasswordPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

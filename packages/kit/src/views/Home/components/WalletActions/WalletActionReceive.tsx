@@ -14,7 +14,13 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { RawActions } from './RawActions';
 
-function WalletActionReceive() {
+import type { IActionCustomization } from './types';
+
+function WalletActionReceive({
+  customization,
+}: {
+  customization?: IActionCustomization;
+} = {}) {
   const {
     activeAccount: {
       network,
@@ -65,20 +71,27 @@ function WalletActionReceive() {
       source: 'homePage',
       isSoftwareWalletOnlyUser,
     });
-    void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+    if (customization?.onPress) {
+      void customization.onPress();
+    } else {
+      void handleOnReceive({ withAllAggregateTokens: network?.isAllNetworks });
+    }
   }, [
-    wallet?.type,
     wallet?.id,
-    network?.id,
-    isSoftwareWalletOnlyUser,
+    wallet?.type,
+    customization,
     handleOnReceive,
     network?.isAllNetworks,
+    network?.id,
+    isSoftwareWalletOnlyUser,
   ]);
 
   return (
     <RawActions.Receive
-      disabled={isReceiveDisabled}
+      disabled={customization?.disabled ?? isReceiveDisabled}
       onPress={handleReceiveOnPress}
+      label={customization?.label}
+      icon={customization?.icon}
       trackID="wallet-receive"
     />
   );

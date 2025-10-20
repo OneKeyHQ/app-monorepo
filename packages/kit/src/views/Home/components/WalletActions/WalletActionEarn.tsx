@@ -1,10 +1,14 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { showProtocolListDialog } from '@onekeyhq/kit/src/views/Earn/components/showProtocolListDialog';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
@@ -31,6 +35,8 @@ export function WalletActionEarn(props: {
 
   const navigation = useAppNavigation();
 
+  const intl = useIntl();
+
   const { result } = usePromiseResult(async () => {
     const symbolInfo =
       await backgroundApiProxy.serviceStaking.findSymbolByTokenAddress({
@@ -49,11 +55,29 @@ export function WalletActionEarn(props: {
       .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
-    return { symbolInfo, maxApr, protocolList };
+    const blockData = await backgroundApiProxy.serviceStaking.getBlockRegion();
+    return { symbolInfo, maxApr, protocolList, blockData };
   }, [networkId, tokenAddress]);
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
   const handleEarnTokenOnPress = useCallback(async () => {
+    if (result?.blockData) {
+      Dialog.show({
+        icon: result.blockData.icon.icon,
+        title: result.blockData.title.text,
+        description: result.blockData.description.text,
+        showCancelButton: false,
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_got_it,
+        }),
+        onConfirm: async ({ close }) => {
+          await close?.();
+        },
+      });
+
+      return;
+    }
+
     const symbol = result?.symbolInfo?.symbol ?? '';
     const protocolList = result?.protocolList ?? [];
 
@@ -105,8 +129,10 @@ export function WalletActionEarn(props: {
       },
     });
   }, [
+    intl,
     result?.symbolInfo?.symbol,
     result?.protocolList,
+    result?.blockData,
     networkId,
     accountId,
     walletType,

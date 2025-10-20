@@ -1,24 +1,117 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   Button,
   Dialog,
   Divider,
   Input,
+  Page,
   SizableText,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IJSBundle } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import { getJsBundlePathAsync } from '@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { SectionPressItem } from './SectionPressItem';
-
-export function AutoUpdateSettings() {
+function BundleTestsContent({
+  showTestResult,
+  showTestError,
+}: {
+  showTestResult: (
+    result: boolean | { success: boolean; message: string },
+  ) => void;
+  showTestError: (error: unknown) => void;
+}) {
   const [appVersion, setAppVersion] = useState('1.0.0');
   const [bundleVersion, setBundleVersion] = useState('1');
+  return (
+    <YStack p="$4" gap="$2">
+      <YStack gap="$2" mb="$3">
+        <SizableText size="$bodyMd">Version Configuration</SizableText>
+        <Input
+          placeholder="App Version (e.g., 1.0.0)"
+          value={appVersion}
+          onChangeText={setAppVersion}
+        />
+        <Input
+          placeholder="Bundle Version (e.g., 1)"
+          value={bundleVersion}
+          onChangeText={setBundleVersion}
+        />
+      </YStack>
+      <Divider />
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testDeleteJsBundle(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Delete JsBundle
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testDeleteJsRuntimeDir(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Delete Js Runtime Directory
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testDeleteMetadataJson(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Delete Metadata.json
+      </Button>
+      <Button
+        variant="secondary"
+        onPress={async () => {
+          try {
+            const result = await BundleUpdate.testWriteEmptyMetadataJson(
+              appVersion,
+              bundleVersion,
+            );
+            showTestResult(result);
+          } catch (error) {
+            showTestError(error);
+          }
+        }}
+      >
+        Test Write Empty Metadata.json
+      </Button>
+    </YStack>
+  );
+}
 
+export default function DevAppUpdateModalSettingModal() {
   const showTestResult = (
     result: boolean | { success: boolean; message: string },
   ) => {
@@ -46,36 +139,6 @@ export function AutoUpdateSettings() {
           <SizableText>
             Error: {(error as Error)?.message || 'Unknown error'}
           </SizableText>
-        </YStack>
-      ),
-    });
-  };
-
-  const showVersionConfigDialog = () => {
-    const dialogInstance = Dialog.show({
-      title: 'Version Configuration',
-      renderContent: (
-        <YStack p="$4" gap="$3">
-          <Input
-            placeholder="App Version (e.g., 1.0.0)"
-            value={appVersion}
-            onChangeText={setAppVersion}
-          />
-          <Input
-            placeholder="Bundle Version (e.g., 1)"
-            value={bundleVersion}
-            onChangeText={setBundleVersion}
-          />
-          <Button
-            variant="primary"
-            onPress={async () => {
-              await dialogInstance.close();
-              // eslint-disable-next-line @typescript-eslint/no-use-before-define
-              await showMainDialog();
-            }}
-          >
-            Continue
-          </Button>
         </YStack>
       ),
     });
@@ -203,121 +266,75 @@ export function AutoUpdateSettings() {
         w: '$96',
       },
       renderContent: (
-        <YStack p="$4" gap="$2">
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testDeleteJsBundle(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Delete JsBundle
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testDeleteJsRuntimeDir(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Delete Js Runtime Directory
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testDeleteMetadataJson(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Delete Metadata.json
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={async () => {
-              try {
-                const result = await BundleUpdate.testWriteEmptyMetadataJson(
-                  appVersion,
-                  bundleVersion,
-                );
-                showTestResult(result);
-              } catch (error) {
-                showTestError(error);
-              }
-            }}
-          >
-            Test Write Empty Metadata.json
-          </Button>
-        </YStack>
+        <BundleTestsContent
+          showTestResult={showTestResult}
+          showTestError={showTestError}
+        />
       ),
     });
   };
 
-  async function showMainDialog() {
-    const currentAppVersion = String(platformEnv.version);
-    const currentBuildNumber = String(platformEnv.buildNumber);
-    const currentBundleVersion = String(platformEnv.bundleVersion);
+  const currentAppVersion = String(platformEnv.version);
+  const currentBuildNumber = String(platformEnv.buildNumber);
+  const currentBundleVersion = String(platformEnv.bundleVersion);
+  const [jsBundlePath, setJsBundlePath] = useState('');
+  const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
 
-    const dialogInstance = Dialog.show({
-      title: 'Auto Update Test Suite',
-      renderContent: (
-        <YStack p="$1" gap="$1">
+  useEffect(() => {
+    void getJsBundlePathAsync().then((path) => {
+      setJsBundlePath(path);
+    });
+    void BundleUpdate.getFallbackBundles().then((bundles) => {
+      setFallbackBundles(bundles);
+    });
+  }, []);
+
+  return (
+    <Page scrollEnabled>
+      <Page.Header title="Dev App Update Modal Setting" />
+      <Page.Body>
+        <YStack p="$4" gap="$4">
           <SizableText size="$headingSm">
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
+          {jsBundlePath ? (
+            <SizableText size="$headingSm">
+              {`js bundle path: ${jsBundlePath}`}
+            </SizableText>
+          ) : null}
+          {fallbackBundles.length > 0 ? (
+            <YStack gap="$2">
+              <SizableText size="$bodyMd">Available Bundles</SizableText>
+              <YStack gap="$2">
+                {fallbackBundles.map((bundle) => (
+                  <Button
+                    key={`${bundle.appVersion}-${bundle.bundleVersion}`}
+                    variant="secondary"
+                    onPress={() => {
+                      void BundleUpdate.switchBundle(bundle);
+                    }}
+                  >
+                    {`${bundle.appVersion}-${bundle.bundleVersion}`}
+                  </Button>
+                ))}
+              </YStack>
+            </YStack>
+          ) : null}
           {platformEnv.isNativeAndroid ||
           (platformEnv.isDesktop &&
             !platformEnv.isMas &&
             !platformEnv.isDesktopLinuxSnap &&
             !platformEnv.isDesktopWinMsStore) ? (
-            <Button
-              variant="secondary"
-              onPress={() => {
-                void dialogInstance.close();
-                showFailedTestsDialog();
-              }}
-            >
+            <Button variant="secondary" onPress={showFailedTestsDialog}>
               Auto Update Failed Tests
             </Button>
           ) : null}
 
-          <Button
-            variant="secondary"
-            onPress={() => {
-              void dialogInstance.close();
-              showVerificationTestsDialog();
-            }}
-          >
+          <Button variant="secondary" onPress={showVerificationTestsDialog}>
             Verification Tests
           </Button>
 
-          <Button
-            variant="secondary"
-            onPress={() => {
-              void dialogInstance.close();
-              showBundleTestsDialog();
-            }}
-          >
+          <Button variant="secondary" onPress={showBundleTestsDialog}>
             Bundle Tests
           </Button>
 
@@ -325,35 +342,27 @@ export function AutoUpdateSettings() {
 
           <Button
             variant="secondary"
-            onPress={() => {
-              void dialogInstance.close();
-              showVersionConfigDialog();
-            }}
-          >
-            Configure Versions
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={() => {
-              void BundleUpdate.clearAllJSBundleData();
+            onPress={async () => {
+              try {
+                const result = await BundleUpdate.clearAllJSBundleData();
+                Dialog.confirm({
+                  title: 'Clear JSBundle Data',
+                  description: JSON.stringify(result),
+                });
+              } catch (error) {
+                Dialog.confirm({
+                  title: 'Clear JSBundle Data',
+                  description: `Error: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                });
+              }
             }}
           >
             Clear All JSBundle Data
           </Button>
         </YStack>
-      ),
-    });
-  }
-
-  const showAutoUpdateDialog = () => {
-    void showMainDialog();
-  };
-
-  return (
-    <SectionPressItem
-      icon="SettingsOutline"
-      title="Open Auto Update Test Suite"
-      onPress={showAutoUpdateDialog}
-    />
+      </Page.Body>
+    </Page>
   );
 }

@@ -1,7 +1,8 @@
 import type { PropsWithChildren } from 'react';
 
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { IStackStyle } from '../Stack';
-import type { StackStyle } from '@tamagui/web';
 import type {
   ImageErrorEventData,
   ImageLoadEventData,

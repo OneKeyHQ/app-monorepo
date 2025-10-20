@@ -1,3 +1,10 @@
+/* eslint-disable unicorn/prefer-global-this */
+/* eslint-disable import/first */
+
+if (typeof window !== 'undefined') {
+  window.$$onekeyJsReadyAt = Date.now();
+}
+
 import '@onekeyhq/shared/src/polyfills';
 import { registerRootComponent } from 'expo';
 

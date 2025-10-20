@@ -2,7 +2,8 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 
 import LottieViewWeb from 'lottie-react';
-import { usePropsAndStyle } from 'tamagui';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { ILottieViewProps } from './type';
 

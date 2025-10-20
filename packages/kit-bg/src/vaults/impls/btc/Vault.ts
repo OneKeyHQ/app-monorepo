@@ -69,7 +69,10 @@ import type {
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
-import type { IStakeTxBtcBabylon } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTxBtcBabylon,
+} from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
   EBtcF2poolReplaceState,
@@ -1420,10 +1423,10 @@ export default class VaultBtc extends VaultBase {
     return encodedTx;
   }
 
-  override async buildStakeEncodedTx(
-    params: IStakeTxBtcBabylon,
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
   ): Promise<IEncodedTxBtc> {
-    const { psbtHex } = params;
+    const { psbtHex } = params.internalDappTx as IStakeTxBtcBabylon;
     const network = await this.getNetwork();
     const formattedPsbtHex = formatPsbtHex(psbtHex);
     const psbtNetwork = toPsbtNetwork(network);

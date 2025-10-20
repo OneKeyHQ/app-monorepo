@@ -369,11 +369,11 @@ export const useDownloadPackage = () => {
         latestVersion,
         bundleVersion: jsBundleVersion,
         downloadUrl: isJsBundle ? jsBundle?.downloadUrl : downloadUrl,
-        fileSize: isJsBundle ? jsBundle?.fileSize : undefined,
+        fileSize: isJsBundle ? jsBundle?.fileSize : params.fileSize ?? 0,
         sha256: isJsBundle ? jsBundle?.sha256 : undefined,
         headers,
       };
-      defaultLogger.app.appUpdate.endDownload(downloadParams);
+      defaultLogger.app.appUpdate.startDownload(downloadParams);
       const result =
         fileType === EUpdateFileType.jsBundle
           ? await BundleUpdate.downloadBundle(downloadParams)
@@ -663,13 +663,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     };
 
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
-      onViewReleaseInfo();
-      setTimeout(() => {
-        void backgroundApiProxy.serviceAppUpdate
-          .refreshUpdateStatus()
-          .then(() => {
-            fetchUpdateInfo();
-          });
+      if (appUpdateInfo.updateStrategy !== EUpdateStrategy.seamless) {
+        onViewReleaseInfo();
+      }
+      setTimeout(async () => {
+        await backgroundApiProxy.serviceAppUpdate.refreshUpdateStatus();
+        fetchUpdateInfo();
       }, 250);
       return;
     }
