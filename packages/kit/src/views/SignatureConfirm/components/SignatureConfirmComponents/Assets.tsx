@@ -237,7 +237,7 @@ function SignatureAssetDetailItem({
     if (inSimulation) {
       return 'md';
     }
-    return isSmallSize ? 'sm' : 'lg';
+    return isSmallSize ? 'xs' : 'lg';
   }, [inSimulation, isSmallSize]);
 
   return (
