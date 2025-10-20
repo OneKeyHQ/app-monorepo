@@ -165,23 +165,6 @@ function OnBoardingModalNavigator({
 
   const stackChildrenRefList = useRef<TamaguiElement[]>([]);
 
-  useEffect(() => {
-    // @ts-expect-error
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    const listener = navigation.addListener('state', () => {
-      const newIndex = navigation?.getState?.().index ?? 0;
-      stackChildrenRefList.current.forEach((element, routeIndex) => {
-        const transform =
-          routeIndex <= newIndex ? 'translateX(0px)' : 'translateX(640px)';
-        // @ts-expect-error
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        element.style.transform = transform;
-      });
-    });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return listener;
-  }, [navigation]);
-
   const stopPropagation = useCallback((e: GestureResponderEvent) => {
     // Prevents bubbling to prevent the background click event from being triggered when clicking on the modal window
     e?.stopPropagation();
@@ -216,15 +199,6 @@ function OnBoardingModalNavigator({
         }}
         flex={1}
         bg="$bg"
-        style={{
-          transform: [{ translateX: routeIndex !== 0 ? 640 : 0 }],
-          transition: 'transform .25s cubic-bezier(0.4, 0, 0.2, 1)',
-          willChange: 'transform',
-          shadowColor: 'black',
-          shadowOpacity: 0.3,
-          shadowRadius: 10,
-          shadowOffset: { width: -5, height: 0 },
-        }}
       >
         {render()}
       </Stack>
