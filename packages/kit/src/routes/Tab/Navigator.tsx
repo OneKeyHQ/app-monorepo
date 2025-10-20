@@ -89,20 +89,21 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
   );
 };
 
-const usePreloadTabs = platformEnv.isNative
-  ? () => {}
-  : () => {
-      const navigation = useNavigation();
-      useEffect(() => {
-        setTimeout(async () => {
-          await Promise.race([
-            new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-            whenAppUnlocked(),
-          ]);
-          preloadTabs(navigation as NavigationProp<any>);
-        });
-      }, [navigation]);
-    };
+const usePreloadTabs =
+  platformEnv.isDev || platformEnv.isNative
+    ? () => {}
+    : () => {
+        const navigation = useNavigation();
+        useEffect(() => {
+          setTimeout(async () => {
+            await Promise.race([
+              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+              whenAppUnlocked(),
+            ]);
+            preloadTabs(navigation as NavigationProp<any>);
+          });
+        }, [navigation]);
+      };
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
