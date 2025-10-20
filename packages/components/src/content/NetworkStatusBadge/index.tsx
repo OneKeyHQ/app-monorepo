@@ -10,7 +10,6 @@ export type INetworkStatusBadgeProps = {
   connected: boolean;
   indicator?: ReactElement;
   label?: string;
-  labelFontSize?: number;
   badgeSize?: ComponentProps<typeof Badge>['badgeSize'];
 };
 
@@ -18,7 +17,6 @@ export function NetworkStatusBadge({
   connected,
   indicator,
   label,
-  labelFontSize = 12,
   badgeSize = 'md',
 }: INetworkStatusBadgeProps) {
   const intl = useIntl();
@@ -77,7 +75,7 @@ export function NetworkStatusBadge({
       cursor="default"
     >
       {indicatorElement}
-      <Badge.Text style={{ fontSize: labelFontSize }}>{badgeLabel}</Badge.Text>
+      <Badge.Text size="$bodySmMedium">{badgeLabel}</Badge.Text>
     </Badge>
   );
 }

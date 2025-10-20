@@ -66,7 +66,7 @@ import openUrlUtils, {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { useLocaleOptions, useResetApp } from '../../hooks';
+import { useLanguageSelector, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
@@ -102,25 +102,7 @@ export function CurrencyListItem(props: ICustomElementProps) {
 }
 
 export function LanguageListItem(props: ICustomElementProps) {
-  const locales = useLocaleOptions();
-  const [{ locale }] = useSettingsPersistAtom();
-
-  // Fix issue where en-US is deprecated but still exists in user settings
-  const options = useMemo(() => {
-    return locales.filter((item) => item.value !== 'en-US');
-  }, [locales]);
-  const value = useMemo(() => {
-    return locale === 'en-US' ? 'en' : locale;
-  }, [locale]);
-  const onChange = useCallback(async (text: string) => {
-    await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
-    setTimeout(() => {
-      if (platformEnv.isDesktop) {
-        void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
-      }
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
-  }, []);
+  const { options, value, onChange } = useLanguageSelector();
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
