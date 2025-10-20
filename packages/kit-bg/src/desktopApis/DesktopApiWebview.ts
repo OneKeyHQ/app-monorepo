@@ -1,7 +1,7 @@
-import fs from 'fs';
 import path from 'path';
 
 import { session } from 'electron';
+import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
 import {
@@ -68,7 +68,11 @@ class DesktopApiNetwork {
         url: preloadJsPath.replace(`${bundleDirPath}/`, ''),
       });
     }
-    return `file://${preloadJsPath}?t=${Date.now()}`;
+    // ref: https://github.com/electron/electron/blob/7e031f7e33dcc66cbe5e0e4153a0fc0544618612/lib/sandboxed_renderer/preload.ts#L47
+    // Add timestamp to prevent Node.js require cache from loading the same file only once
+    return isDev
+      ? `file://${preloadJsPath}?t=${Date.now()}`
+      : `file://${preloadJsPath}`;
   }
 }
 
