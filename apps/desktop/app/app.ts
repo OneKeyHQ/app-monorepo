@@ -474,7 +474,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 20, y: 18 },
+    trafficLightPosition: { x: 10, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,

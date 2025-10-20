@@ -13,11 +13,7 @@ import {
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
-import {
-  getTokens,
-  useMedia,
-  useTheme,
-} from '@onekeyhq/components/src/shared/tamagui';
+import { useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -39,6 +35,9 @@ import type {
 } from '@react-navigation/bottom-tabs';
 import type { NavigationState } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
+
+const MAX_SIDEBAR_WIDTH = 208;
+const MIN_SIDEBAR_WIDTH = 72;
 
 function TabItemView({
   isActive,
@@ -102,9 +101,6 @@ export function DesktopLeftSideBar({
   const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
-  const getSizeTokens = getTokens().size;
-
-  const sidebarWidth = getSizeTokens.sideBarWidth.val;
 
   const { gtMd } = useMedia();
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
@@ -178,7 +174,7 @@ export function DesktopLeftSideBar({
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
-      animate={{ width: isCollapse ? 0 : sidebarWidth }}
+      animate={{ width: isCollapse ? MIN_SIDEBAR_WIDTH : MAX_SIDEBAR_WIDTH }}
       transition={
         {
           duration: 200,
@@ -213,12 +209,13 @@ export function DesktopLeftSideBar({
         testID="Desktop-AppSideBar-Content-Container"
       >
         <MotiView
-          animate={{ left: isCollapse ? -sidebarWidth : 0 }}
+          animate={{
+            width: isCollapse ? MIN_SIDEBAR_WIDTH : MAX_SIDEBAR_WIDTH,
+          }}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
-            width: sidebarWidth,
             bottom: 0,
           }}
           transition={
@@ -238,7 +235,6 @@ export function DesktopLeftSideBar({
             <YStack flex={1} pt="$3" px="$3">
               {tabs}
             </YStack>
-            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
           </YStack>
         </MotiView>
       </YStack>

@@ -50,11 +50,6 @@ function HeaderCollapseButton({
   const [{ collapsed: isCollapse }, setAppSideBarStatus] =
     useAppSideBarStatusAtom();
 
-  const { shouldHide } = useHeaderCollapseButtonVisibility({
-    hideWhenOpen,
-    hideWhenCollapse,
-  });
-
   const onPressCall = useCallback(() => {
     setAppSideBarStatus(
       (prev): IAppSideBarStatusAtom => ({ ...prev, collapsed: !isCollapse }),
@@ -72,7 +67,7 @@ function HeaderCollapseButton({
 
   return (
     <AnimatePresence>
-      {shouldHide ? null : (
+      {isCollapse ? null : (
         <Stack
           pl={paddingLeft}
           testID="Desktop-AppSideBar-Button"
