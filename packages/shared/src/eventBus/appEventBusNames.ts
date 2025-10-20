@@ -117,4 +117,5 @@ export enum EAppEventBusNames {
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
+  BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
 }

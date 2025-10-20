@@ -1089,3 +1089,15 @@ export class ManageTokenInsufficientBalanceError extends OneKeyAppError<IManageT
     );
   }
 }
+
+export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage:
+          'Connection requires single address mode. Please disable Multiple addresses before proceeding.',
+        // defaultKey: ETranslations.manage_token_account_no_found,
+      }),
+    );
+  }
+}
