@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -22,6 +23,7 @@ export function BTCFreshAddressProvider() {
   const {
     activeAccount: { network, indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const dialogRef = useRef<IDialogInstance | null>(null);
 
   const previousIndexedAccountId = usePrevious(indexedAccount?.id);
 
@@ -41,7 +43,13 @@ export function BTCFreshAddressProvider() {
 
   useEffect(() => {
     const fn = () => {
-      Dialog.show({
+      if (dialogRef.current) {
+        return;
+      }
+      const resetRef = () => {
+        dialogRef.current = null;
+      };
+      dialogRef.current = Dialog.show({
         icon: 'SwitchHorOutline',
         title: intl.formatMessage({
           id: ETranslations.wallet_banner_single_address_required_title,
@@ -67,14 +75,19 @@ export function BTCFreshAddressProvider() {
           id: ETranslations.global_button_switch_now,
         }),
         onConfirm: () => {
+          resetRef();
           navigation.pushModal(EModalRoutes.SettingModal, {
             screen: EModalSettingRoutes.SettingListModal,
           });
         },
+        onCancel: resetRef,
+        onClose: resetRef,
       });
     };
     appEventBus.on(EAppEventBusNames.BtcFreshAddressConnectDappRejected, fn);
     return () => {
+      void dialogRef.current?.close?.();
+      dialogRef.current = null;
       appEventBus.off(EAppEventBusNames.BtcFreshAddressConnectDappRejected, fn);
     };
   }, [intl, navigation]);
