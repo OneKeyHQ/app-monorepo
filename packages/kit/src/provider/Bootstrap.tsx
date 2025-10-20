@@ -46,6 +46,7 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../hooks/useOnLock';
+import { useReactScan } from '../hooks/useReactScan';
 import {
   isOpenedReferFriendsPage,
   useReferFriends,
@@ -54,8 +55,6 @@ import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
 } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
-
-import { useReactScan } from './hooks/useReactScan';
 
 import type { IntlShape } from 'react-intl';
 

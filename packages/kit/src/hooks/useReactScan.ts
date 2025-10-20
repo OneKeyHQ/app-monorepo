@@ -30,11 +30,12 @@ export const useReactScan =
               await scanAsync({
                 enabled: true,
                 showToolbar: devSettings.settings.reactScanShowToolbar ?? true,
-                animationSpeed: (animationSpeed === 'fast' ||
-                animationSpeed === 'slow' ||
-                animationSpeed === 'off'
-                  ? animationSpeed
-                  : 'fast') as 'fast' | 'slow' | 'off',
+                animationSpeed:
+                  animationSpeed === 'fast' ||
+                  animationSpeed === 'slow' ||
+                  animationSpeed === 'off'
+                    ? animationSpeed
+                    : 'fast',
                 trackUnnecessaryRenders:
                   devSettings.settings.reactScanTrackUnnecessaryRenders ?? true,
               });
