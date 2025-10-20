@@ -1,8 +1,8 @@
 // Native platform does not support react-scan
-export const scan = () => {
+export const scanAsync = async () => {
   // noop
 };
 
-export const initReactScan = () => {
+export const initReactScan = async () => {
   // noop
 };

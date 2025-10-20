@@ -1,9 +1,14 @@
-// Re-export scan from react-scan for use in Bootstrap
-import { scan } from 'react-scan';
-
-export const initReactScan = () => {
-  // Initialize with disabled state, will be enabled by devSettings in Bootstrap
-  scan({ enabled: false, showToolbar: false });
+// Lazy load react-scan for use in Bootstrap
+export const scanAsync = async (options: {
+  enabled: boolean;
+  showToolbar?: boolean;
+  animationSpeed?: 'fast' | 'slow' | 'off';
+  trackUnnecessaryRenders?: boolean;
+}) => {
+  const { scan } = await import('react-scan');
+  scan(options);
 };
 
-export { scan };
+export const initReactScan = async () => {
+  await scanAsync({ enabled: false, showToolbar: false });
+};

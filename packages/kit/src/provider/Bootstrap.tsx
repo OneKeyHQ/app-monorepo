@@ -28,7 +28,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import { scan } from '@onekeyhq/shared/src/modules3rdParty/react-scan';
 import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -39,7 +38,6 @@ import {
   EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -56,6 +54,8 @@ import {
   isOpenedMyOneKeyModal,
   useToMyOneKeyModal,
 } from '../views/DeviceManagement/hooks/useToMyOneKeyModal';
+
+import { useReactScan } from './hooks/useReactScan';
 
 import type { IntlShape } from 'react-intl';
 
@@ -570,32 +570,6 @@ export const useRemindDevelopmentBuildExtension =
             });
           })();
         }, []);
-      }
-    : noop;
-
-export const useReactScan =
-  (platformEnv.isWeb || platformEnv.isDesktop) && platformEnv.isDev
-    ? () => {
-        const [devSettings] = useDevSettingsPersistAtom();
-        useEffect(() => {
-          if (devSettings.settings?.enableReactScan) {
-            scan({
-              enabled: true,
-              showToolbar: devSettings.settings.reactScanShowToolbar ?? true,
-              animationSpeed:
-                devSettings.settings.reactScanAnimationSpeed ?? 'fast',
-              trackUnnecessaryRenders:
-                devSettings.settings.reactScanTrackUnnecessaryRenders ?? true,
-            });
-          } else {
-            scan({ enabled: false });
-          }
-        }, [
-          devSettings.settings?.enableReactScan,
-          devSettings.settings?.reactScanShowToolbar,
-          devSettings.settings?.reactScanAnimationSpeed,
-          devSettings.settings?.reactScanTrackUnnecessaryRenders,
-        ]);
       }
     : noop;
 
