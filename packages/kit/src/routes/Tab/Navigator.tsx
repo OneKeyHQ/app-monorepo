@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
@@ -89,21 +89,36 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
   );
 };
 
-const usePreloadTabs =
-  platformEnv.isDev || platformEnv.isNative
-    ? () => {}
-    : () => {
-        const navigation = useNavigation();
-        useEffect(() => {
-          setTimeout(async () => {
-            await Promise.race([
-              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-              whenAppUnlocked(),
-            ]);
-            preloadTabs(navigation as NavigationProp<any>);
-          });
-        }, [navigation]);
-      };
+const usePreloadTabs = platformEnv.isNative
+  ? () => {}
+  : () => {
+      const navigation = useNavigation();
+      useEffect(() => {
+        setTimeout(async () => {
+          await Promise.race([
+            new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+            whenAppUnlocked(),
+          ]);
+          preloadTabs(navigation as NavigationProp<any>);
+        });
+      }, [navigation]);
+    };
+
+// When using navigation.preload, the web layer will re-render the interface with sidebar,
+// which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
+let isRendered = false;
+function InPageTabContainer() {
+  const isRenderedRef = useRef(isRendered);
+  if (isRenderedRef.current) {
+    return null;
+  }
+  isRendered = true;
+  return (
+    <Portal.Container
+      name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
+    />
+  );
+}
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
@@ -118,9 +133,7 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
-      <Portal.Container
-        name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
-      />
+      <InPageTabContainer />
       {!isFocused ? (
         <Stack
           position="absolute"
