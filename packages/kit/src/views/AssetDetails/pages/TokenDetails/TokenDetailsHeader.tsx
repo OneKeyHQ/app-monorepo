@@ -22,6 +22,7 @@ import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
+import { useDisplayAccountAddress } from '@onekeyhq/kit/src/hooks/useDisplayAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
@@ -238,13 +239,16 @@ function TokenDetailsHeader(props: IProps) {
     [accountId],
   );
 
+  const { hideAccountAddress } = useDisplayAccountAddress({ networkId });
   const shouldShowAddressBlock = useMemo(() => {
     if (networkUtils.isLightningNetworkByNetworkId(networkId)) return false;
 
     if (wallet?.type === WALLET_TYPE_HD && !wallet?.backuped) return false;
 
+    if (hideAccountAddress) return false;
+
     return true;
-  }, [wallet?.type, networkId, wallet?.backuped]);
+  }, [wallet?.type, networkId, wallet?.backuped, hideAccountAddress]);
 
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
