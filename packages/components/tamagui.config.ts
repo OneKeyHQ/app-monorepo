@@ -467,7 +467,6 @@ const mergedTokens = createTokens({
     100: 400,
     160: 640,
     180: 720,
-    sideBarWidth: 208,
   },
   radius: {
     0: 0,

@@ -6,10 +6,7 @@ import { StyleSheet } from 'react-native';
 
 import { type IActionListSection } from '@onekeyhq/components/src/actions';
 import { OneKeyLogo } from '@onekeyhq/components/src/content';
-import {
-  EPortalContainerConstantName,
-  Portal,
-} from '@onekeyhq/components/src/hocs';
+import { Portal } from '@onekeyhq/components/src/hocs';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
@@ -36,8 +33,8 @@ import type {
 import type { NavigationState } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
 
-const MAX_SIDEBAR_WIDTH = 208;
-const MIN_SIDEBAR_WIDTH = 72;
+export const MAX_SIDEBAR_WIDTH = 208;
+export const MIN_SIDEBAR_WIDTH = 72;
 
 function TabItemView({
   isActive,
@@ -185,7 +182,7 @@ export function DesktopLeftSideBar({
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
         borderRightColor: theme.neutral4.val,
-        borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
+        borderRightWidth: StyleSheet.hairlineWidth,
         overflow: 'hidden',
       }}
     >

@@ -4,16 +4,12 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  EPortalContainerConstantName,
   Heading,
   Icon,
   Image,
-  Portal,
   SizableText,
   Stack,
   YStack,
-  useIsIpadLandscape,
-  useMedia,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
@@ -202,15 +198,4 @@ function BottomMenu() {
       <DownloadButton />
     </YStack>
   );
-}
-
-export function SidebarBanner() {
-  const { gtMd } = useMedia();
-  const isIpadLandscape = useIsIpadLandscape();
-  const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
-  return isShowBottomMenu ? (
-    <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
-      <BottomMenu />
-    </Portal.Body>
-  ) : null;
 }
