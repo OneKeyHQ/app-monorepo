@@ -126,35 +126,11 @@ export default class VaultBtc extends VaultBase {
     //   account.address,
     // );
 
-    let receiveAddress = address;
-    let receiveAddressPath: string | undefined;
-    if (networkUtils.isBTCNetwork(networkId)) {
-      const enableBTCFreshAddress = (await settingsPersistAtom.get())
-        .enableBTCFreshAddress;
-      if (enableBTCFreshAddress && dbAccount.xpubSegwit) {
-        const addresses =
-          await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses(
-            {
-              networkId,
-              xpubSegwit: dbAccount.xpubSegwit,
-            },
-          );
-        if (
-          Array.isArray(addresses?.fresh?.unused) &&
-          addresses.fresh?.unused.length > 0
-        ) {
-          if (
-            addresses.fresh.unused[0].address &&
-            addresses.fresh.unused[0].isDerivedByApp
-          ) {
-            receiveAddress = addresses.fresh.unused[0].address;
-            receiveAddressPath = addresses.fresh.unused[0].path;
-          } else {
-            // TODO: re-generate fresh address
-          }
-        }
-      }
-    }
+    const { address: receiveAddress, path: receiveAddressPath } =
+      await this.getReceiveAddress({
+        dbAccount,
+        networkId,
+      });
 
     return {
       networkId,
@@ -1616,60 +1592,259 @@ export default class VaultBtc extends VaultBase {
     return this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
   }
 
+  private memoizedDeriveReceiveAddress = memoizee(
+    async ({
+      deriveXpub,
+      relativePath,
+      addressEncoding,
+    }: {
+      deriveXpub: string;
+      fullPath: string;
+      relativePath: string;
+      addressEncoding: EAddressEncodings | undefined;
+      networkId: string;
+      accountAddress: string;
+    }) => {
+      const network = await this.getBtcForkNetwork();
+      const deriveResult = await getAddressFromXpub({
+        curve: 'secp256k1',
+        network,
+        xpub: deriveXpub,
+        relativePaths: [relativePath],
+        addressEncoding,
+        encodeAddress: (encodedAddress) => encodedAddress,
+      });
+      const derivedAddress = deriveResult.addresses[relativePath];
+      if (!derivedAddress) {
+        throw new OneKeyInternalError(
+          'Failed to derive receive address, please contact support.',
+        );
+      }
+      return derivedAddress;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      normalizer: ([options]) =>
+        [
+          options.networkId,
+          options.deriveXpub,
+          options.fullPath,
+          options.relativePath,
+          options.addressEncoding,
+          options.accountAddress,
+        ].join('__'),
+    },
+  );
+
+  private async getReceiveAddress({
+    dbAccount,
+    networkId,
+  }: {
+    dbAccount: IDBUtxoAccount;
+    networkId: string;
+  }): Promise<{ address: string; path?: string }> {
+    const fallback = {
+      address: dbAccount.address,
+      path: undefined as string | undefined,
+    };
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return fallback;
+    }
+
+    const { enableBTCFreshAddress } = await settingsPersistAtom.get();
+    if (!enableBTCFreshAddress) {
+      return fallback;
+    }
+
+    const xpubSegwit = dbAccount.xpubSegwit || dbAccount.xpub;
+    if (!xpubSegwit) {
+      return fallback;
+    }
+
+    const freshAddresses =
+      await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses({
+        networkId,
+        xpubSegwit,
+      });
+
+    const firstFreshAddress = freshAddresses?.fresh?.unused?.[0];
+    if (!firstFreshAddress) {
+      return fallback;
+    }
+
+    const receiveAddressPath = checkIfValidPath(firstFreshAddress.path);
+    const pathSegments = receiveAddressPath.split('/');
+    if (pathSegments.length < 6) {
+      throw new OneKeyInternalError(
+        'Receive address path invalid, please contact support.',
+      );
+    }
+
+    const relativePath = `${pathSegments[4]}/${pathSegments[5]}`;
+    const deriveXpub = dbAccount.xpub;
+    if (!deriveXpub) {
+      return fallback;
+    }
+
+    const { encoding } = await this.validateAddress(dbAccount.address);
+    const derivedAddress = await this.memoizedDeriveReceiveAddress({
+      deriveXpub,
+      fullPath: receiveAddressPath,
+      relativePath,
+      addressEncoding: encoding,
+      networkId,
+      accountAddress: dbAccount.address,
+    });
+
+    if (
+      firstFreshAddress.address &&
+      firstFreshAddress.address !== derivedAddress
+    ) {
+      throw new OneKeyInternalError(
+        'Receive address mismatch, please contact support.',
+      );
+    }
+
+    if (firstFreshAddress.name !== derivedAddress) {
+      throw new OneKeyInternalError(
+        'Receive address name mismatch, please contact support.',
+      );
+    }
+
+    const shouldUpdateCache =
+      !firstFreshAddress.isDerivedByApp ||
+      firstFreshAddress.address !== derivedAddress;
+
+    if (shouldUpdateCache && freshAddresses) {
+      const restFreshAddresses = freshAddresses.fresh.unused.slice(1);
+      await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
+        {
+          networkId,
+          xpubSegwit,
+          value: {
+            ...freshAddresses,
+            fresh: {
+              ...freshAddresses.fresh,
+              unused: [
+                {
+                  ...firstFreshAddress,
+                  address: derivedAddress,
+                  isDerivedByApp: true,
+                },
+                ...restFreshAddresses,
+              ],
+            },
+          },
+        },
+      );
+    }
+
+    return {
+      address: derivedAddress,
+      path: receiveAddressPath,
+    };
+  }
+
   private async getChangeAddress({ dbAccount }: { dbAccount: IDBUtxoAccount }) {
+    const fallbackAddress =
+      (dbAccount as INetworkAccount).addressDetail.masterAddress ||
+      dbAccount.address;
+    const fallback = {
+      address: fallbackAddress,
+      path: checkIfValidPath(getBIP44Path(dbAccount, fallbackAddress)),
+    };
+
     const isHwOrHdWallet =
       accountUtils.isHwWallet({ walletId: this.walletId }) ||
       accountUtils.isHdWallet({ walletId: this.walletId });
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
     const isBTCNetwork = networkUtils.isBTCNetwork(this.networkId);
     if (!isHwOrHdWallet || !isEnabledBtcFreshAddress || !isBTCNetwork) {
-      return {
-        address: dbAccount.address,
-        path: getBIP44Path(dbAccount, dbAccount.address),
-      };
+      return fallback;
     }
 
-    const freshAddress =
+    const freshAddresses =
       await this.backgroundApi.simpleDb.btcFreshAddress.getBTCFreshAddresses({
         networkId: this.networkId,
         xpubSegwit: dbAccount.xpubSegwit || dbAccount.xpub,
       });
-    const firstChangeAddresses = freshAddress?.change.unused;
-    if (Array.isArray(firstChangeAddresses) && firstChangeAddresses.length) {
-      const changeAddress = firstChangeAddresses[0];
-      const changeAddressPath = checkIfValidPath(changeAddress.path);
-      const relativePath = `${changeAddressPath.split('/')[4]}/${
-        changeAddressPath.split('/')[5]
-      }`;
-      const network = await this.getBtcForkNetwork();
-      const { encoding } = await this.validateAddress(dbAccount.address);
-      const regenerateChangeAddressRet = await getAddressFromXpub({
-        curve: 'secp256k1',
-        network,
-        xpub: dbAccount.xpub,
-        relativePaths: [relativePath],
-        addressEncoding: encoding,
-        encodeAddress: (encodedAddress) => encodedAddress,
-      });
-      const regenerateChangeAddress =
-        regenerateChangeAddressRet.addresses[relativePath];
-      if (
-        regenerateChangeAddress !== changeAddress.address ||
-        regenerateChangeAddress !== changeAddress.name
-      ) {
-        throw new OneKeyInternalError(
-          'Change address not match, Please contact support.',
-        );
-      }
-      return {
-        address: regenerateChangeAddress,
-        path: changeAddressPath,
-      };
+
+    const firstChangeAddress = freshAddresses?.change?.unused?.[0];
+    if (!firstChangeAddress) {
+      return fallback;
+    }
+
+    const changeAddressPath = checkIfValidPath(firstChangeAddress.path);
+    const pathSegments = changeAddressPath.split('/');
+    if (pathSegments.length < 6) {
+      throw new OneKeyInternalError(
+        'Change address path invalid, please contact support.',
+      );
+    }
+
+    const relativePath = `${pathSegments[4]}/${pathSegments[5]}`;
+    const deriveXpub = dbAccount.xpub;
+    if (!deriveXpub) {
+      return fallback;
+    }
+
+    const { encoding } = await this.validateAddress(dbAccount.address);
+    const derivedAddress = await this.memoizedDeriveReceiveAddress({
+      deriveXpub,
+      fullPath: changeAddressPath,
+      relativePath,
+      addressEncoding: encoding,
+      networkId: this.networkId,
+      accountAddress: dbAccount.address,
+    });
+
+    if (
+      firstChangeAddress.address &&
+      firstChangeAddress.address !== derivedAddress
+    ) {
+      throw new OneKeyInternalError(
+        'Change address mismatch, please contact support.',
+      );
+    }
+
+    if (firstChangeAddress.name !== derivedAddress) {
+      throw new OneKeyInternalError(
+        'Change address name mismatch, please contact support.',
+      );
+    }
+
+    const shouldUpdateCache =
+      !firstChangeAddress.isDerivedByApp ||
+      firstChangeAddress.address !== derivedAddress;
+
+    if (shouldUpdateCache && freshAddresses) {
+      const restChangeAddresses = freshAddresses.change.unused.slice(1);
+      await this.backgroundApi.simpleDb.btcFreshAddress.updateBTCFreshAddresses(
+        {
+          networkId: this.networkId,
+          xpubSegwit: dbAccount.xpubSegwit || dbAccount.xpub,
+          value: {
+            ...freshAddresses,
+            change: {
+              ...freshAddresses.change,
+              unused: [
+                {
+                  ...firstChangeAddress,
+                  address: derivedAddress,
+                  isDerivedByApp: true,
+                },
+                ...restChangeAddresses,
+              ],
+            },
+          },
+        },
+      );
     }
 
     return {
-      address: dbAccount.address,
-      path: getBIP44Path(dbAccount, dbAccount.address),
+      address: derivedAddress,
+      path: changeAddressPath,
     };
   }
 }
