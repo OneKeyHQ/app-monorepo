@@ -8,6 +8,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { WALLET_STORE_URLS } from '@onekeyhq/shared/src/consts/walletConsts';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
@@ -20,14 +21,6 @@ const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
 const okxWalletInfo = externalWalletLogoUtils.getLogoInfo('okx');
 const coinbaseWalletInfo = externalWalletLogoUtils.getLogoInfo('coinbase');
 const phantomWalletInfo = externalWalletLogoUtils.getLogoInfo('phantom');
-
-const WALLET_STORE_URLS: Record<string, string> = {
-  okx: 'https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge',
-  coinbase:
-    'https://chromewebstore.google.com/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad',
-  phantom:
-    'https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
-};
 
 function WalletItemView({
   onPress,
