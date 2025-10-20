@@ -17,6 +17,7 @@ export interface ISimpleDBAppStatus {
   lastDBBackupTime?: number;
   filterScamHistorySettingMigrated?: boolean;
   fixHardwareLtcXPubMigrated?: boolean;
+  btcFreshAddressSettingMigrated?: boolean;
 }
 
 export class SimpleDbEntityAppStatus extends SimpleDbEntityBase<ISimpleDBAppStatus> {
