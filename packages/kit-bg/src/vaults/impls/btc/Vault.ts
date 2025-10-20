@@ -1673,6 +1673,17 @@ export default class VaultBtc extends VaultBase {
       return fallback;
     }
 
+    if (
+      firstFreshAddress.address &&
+      firstFreshAddress.isDerivedByApp &&
+      firstFreshAddress.address === firstFreshAddress.name
+    ) {
+      return {
+        address: firstFreshAddress.address,
+        path: checkIfValidPath(firstFreshAddress.path),
+      };
+    }
+
     const receiveAddressPath = checkIfValidPath(firstFreshAddress.path);
     const pathSegments = receiveAddressPath.split('/');
     if (pathSegments.length < 6) {
