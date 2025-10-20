@@ -23,7 +23,6 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
-  useSwapNativeTokenReserveGasAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -37,8 +36,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
@@ -161,7 +158,6 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
-  const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setInAppNotification] = useInAppNotificationAtom();
 
   const fromInputHasError = useMemo(() => {

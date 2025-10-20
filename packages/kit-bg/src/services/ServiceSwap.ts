@@ -62,6 +62,7 @@ import type {
   IFetchTokensParams,
   IOKXTransactionObject,
   IPerpDepositQuoteRes,
+  IPerpDepositQuoteResponse,
   ISpeedSwapConfig,
   ISwapApproveAllowanceResponse,
   ISwapApproveTransaction,
@@ -103,6 +104,8 @@ export default class ServiceSwap extends ServiceBase {
   private _checkTokenApproveAllowanceAbortController?: AbortController;
 
   private _tokenListAbortController?: AbortController;
+
+  private _perpDepositQuoteController?: AbortController;
 
   private _quoteEventSource?: EventSource;
 
@@ -168,6 +171,14 @@ export default class ServiceSwap extends ServiceBase {
     if (this._tokenListAbortController) {
       this._tokenListAbortController.abort();
       this._tokenListAbortController = undefined;
+    }
+  }
+
+  @backgroundMethod()
+  async cancelFetchPerpDepositQuote() {
+    if (this._perpDepositQuoteController) {
+      this._perpDepositQuoteController.abort();
+      this._perpDepositQuoteController = undefined;
     }
   }
 
@@ -2299,8 +2310,10 @@ export default class ServiceSwap extends ServiceBase {
     accountId?: string;
   }) {
     try {
+      await this.cancelFetchPerpDepositQuote();
       const { accountId } = params;
       let headers = await getRequestHeaders();
+      this._perpDepositQuoteController = new AbortController();
       const walletType =
         await this.backgroundApi.serviceAccountProfile._getRequestWalletType({
           accountId,
@@ -2321,17 +2334,24 @@ export default class ServiceSwap extends ServiceBase {
         receivingAddress: params.receivingAddress,
       };
       const client = await this.getClient(EServiceEndpointEnum.Swap);
-      const { data } = await client.post<{ data: IPerpDepositQuoteRes }>(
-        '/swap/v1/perp-deposit-quote',
+      const { data } = await client.post<{ data: IPerpDepositQuoteResponse }>(
+        '/swap/v1/build-tx/perp-deposit-quote',
         fetchParams,
         {
           headers,
+          signal: this._perpDepositQuoteController.signal,
         },
       );
+      console.log('perp__data__', data);
       return data?.data;
     } catch (e) {
-      console.error(e);
-      return undefined;
+      if (axios.isCancel(e)) {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error('perp deposit quote cancel', {
+          cause: ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL,
+        });
+      }
+      throw e;
     }
   }
 }

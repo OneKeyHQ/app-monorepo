@@ -38,9 +38,13 @@ import type {
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EProtocolOfExchange,
-  type IPerpDepositQuoteRes,
-  type ISwapGasInfo,
-  type ISwapTxInfo,
+  ESwapFetchCancelCause,
+} from '@onekeyhq/shared/types/swap/types';
+import type {
+  IPerpDepositQuoteRes,
+  IPerpDepositQuoteResponse,
+  ISwapGasInfo,
+  ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
@@ -54,7 +58,7 @@ const usePerpDeposit = (
   token?: IPerpsDepositToken,
 ) => {
   const [perpDepositQuote, setPerpDepositQuote] = useState<
-    IPerpDepositQuoteRes | undefined
+    IPerpDepositQuoteResponse | undefined
   >();
   const intl = useIntl();
   const [perpDepositActionLoading, setPerpDepositActionLoading] =
@@ -89,18 +93,37 @@ const usePerpDeposit = (
   useEffect(() => {
     if (selectedAction !== 'deposit' || !token) return;
     void (async () => {
-      if (result?.fromUserAddress && result?.perpReceiverAddress) {
-        setPerpDepositQuoteLoading(true);
-        const quoteRes =
-          await backgroundApiProxy.serviceSwap.fetchPerpDepositQuote({
-            fromNetworkId: token.networkId,
-            fromTokenAmount: amount,
-            fromTokenAddress: token.contractAddress,
-            userAddress: result.fromUserAddress,
-            receivingAddress: result.perpReceiverAddress,
-          });
-        setPerpDepositQuote(quoteRes);
-        setPerpDepositQuoteLoading(false);
+      const amountBN = new BigNumber(amount ?? '0');
+      try {
+        if (
+          result?.fromUserAddress &&
+          result?.perpReceiverAddress &&
+          !amountBN.isZero() &&
+          !amountBN.isNaN()
+        ) {
+          setPerpDepositQuoteLoading(true);
+          const quoteRes =
+            await backgroundApiProxy.serviceSwap.fetchPerpDepositQuote({
+              fromNetworkId: token.networkId,
+              fromTokenAmount: amountBN.toFixed(),
+              fromTokenAddress: token.contractAddress,
+              userAddress: result.fromUserAddress,
+              receivingAddress: result.perpReceiverAddress,
+            });
+          if (quoteRes) {
+            setPerpDepositQuote(quoteRes);
+          }
+          setPerpDepositQuoteLoading(false);
+        } else {
+          await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
+          setPerpDepositQuoteLoading(false);
+        }
+      } catch (e: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (e?.cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
+          setPerpDepositQuoteLoading(false);
+          throw e;
+        }
       }
     })();
   }, [
@@ -823,9 +846,11 @@ const usePerpDeposit = (
     }
     setPerpDepositActionLoading(true);
     const { transferInfo, encodedTx, swapInfo } = await buildQuoteRes(
-      perpDepositQuote,
+      perpDepositQuote?.result,
     );
-    const { unsignedTxArr } = await getApproveUnSignedTxArr(perpDepositQuote);
+    const { unsignedTxArr } = await getApproveUnSignedTxArr(
+      perpDepositQuote?.result,
+    );
     const gasFeeInfos = await estimateNetworkFee(
       {
         networkId: token?.networkId,
@@ -873,25 +898,25 @@ const usePerpDeposit = (
     const isHDAccount = accountUtils.isHwOrQrAccount({
       accountId: accountId ?? '',
     });
-    const isShouldApprove = Boolean(perpDepositQuote?.allowanceResult);
+    const isShouldApprove = Boolean(perpDepositQuote?.result?.allowanceResult);
     return (isExternalAccount || isHDAccount) && isShouldApprove;
-  }, [perpDepositQuote?.allowanceResult, accountId]);
+  }, [perpDepositQuote?.result?.allowanceResult, accountId]);
 
   const multipleStepText = useMemo(() => {
-    if (!perpDepositQuote?.allowanceResult || !shouldSignEveryTime) {
+    if (!perpDepositQuote?.result?.allowanceResult || !shouldSignEveryTime) {
       return '';
     }
     return intl.formatMessage({
-      id: perpDepositQuote?.allowanceResult?.shouldResetApprove
+      id: perpDepositQuote?.result?.allowanceResult?.shouldResetApprove
         ? ETranslations.swap_review_confirm_3_on_device
         : ETranslations.swap_review_confirm_2_on_device,
     });
-  }, [perpDepositQuote?.allowanceResult, intl, shouldSignEveryTime]);
+  }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
   return {
     perpDepositQuote,
     perpDepositQuoteLoading,
-    shouldApprove: !!perpDepositQuote?.allowanceResult,
+    shouldApprove: !!perpDepositQuote?.result?.allowanceResult,
     multipleStepText,
     perpDepositActionLoading,
     buildPerpDepositTx,

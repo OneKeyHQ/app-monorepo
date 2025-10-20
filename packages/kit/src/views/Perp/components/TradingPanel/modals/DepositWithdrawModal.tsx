@@ -35,6 +35,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   IPerpsActiveAccountAtom,
@@ -47,13 +48,8 @@ import {
   usePerpsDepositTokensAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  PERPS_ETH_NETWORK_ID,
-  PERPS_NETWORK_ID,
-} from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -65,11 +61,6 @@ import {
   USDC_TOKEN_INFO,
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
@@ -349,13 +340,23 @@ function DepositWithdrawContent({
     [availableBalance.balance],
   );
 
+  const checkFromTokenFiatValue = useMemo(() => {
+    const fromTokenPrice = currentPerpsDepositSelectedToken?.price;
+    const fromTokenFiatValue = new BigNumber(
+      fromTokenPrice || '0',
+    ).multipliedBy(amountBN);
+    return fromTokenFiatValue.isPositive() && !fromTokenFiatValue?.isNaN()
+      ? fromTokenFiatValue.gte(MIN_DEPOSIT_AMOUNT)
+      : false;
+  }, [amountBN, currentPerpsDepositSelectedToken?.price]);
+
   const isValidAmount = useMemo(() => {
     if (amountBN.isNaN() || amountBN.lte(0)) return false;
 
     if (selectedAction === 'deposit') {
       return (
         amountBN.lte(availableBalanceBN) &&
-        (!showMinAmountError || amountBN.gte(MIN_DEPOSIT_AMOUNT))
+        (!showMinAmountError || checkFromTokenFiatValue)
       );
     }
 
@@ -367,7 +368,13 @@ function DepositWithdrawContent({
     }
 
     return true;
-  }, [amountBN, availableBalanceBN, selectedAction, showMinAmountError]);
+  }, [
+    amountBN,
+    availableBalanceBN,
+    selectedAction,
+    showMinAmountError,
+    checkFromTokenFiatValue,
+  ]);
 
   const errorMessage = useMemo(() => {
     if (!amount) return '';
@@ -377,10 +384,10 @@ function DepositWithdrawContent({
     }
 
     if (selectedAction === 'deposit') {
-      if (showMinAmountError && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+      if (showMinAmountError && !checkFromTokenFiatValue) {
         return intl.formatMessage(
           { id: ETranslations.perp_mini_deposit },
-          { num: MIN_DEPOSIT_AMOUNT, token: 'USDC' },
+          { num: `$${MIN_DEPOSIT_AMOUNT}` },
         );
       }
     }
@@ -395,11 +402,20 @@ function DepositWithdrawContent({
     }
 
     return '';
-  }, [amount, amountBN, selectedAction, showMinAmountError, intl]);
+  }, [
+    amount,
+    amountBN,
+    selectedAction,
+    showMinAmountError,
+    checkFromTokenFiatValue,
+    intl,
+  ]);
 
   const handleAmountChange = useCallback(
     (value: string) => {
-      if (value === '' || /^\d*\.?\d{0,2}$/.test(value)) {
+      if (
+        validateAmountInput(value, currentPerpsDepositSelectedToken?.decimals)
+      ) {
         setAmount(value);
         // Clear minimum amount error when user changes amount
         if (showMinAmountError) {
@@ -407,18 +423,20 @@ function DepositWithdrawContent({
         }
       }
     },
-    [showMinAmountError],
+    [currentPerpsDepositSelectedToken?.decimals, showMinAmountError],
   );
   const calculateFinalAmount = (withdrawFee: number): string => {
     const finalResult = new BigNumber(amount || '0').minus(
       selectedAction === 'withdraw' ? withdrawFee : 0,
     );
 
-    return finalResult.isPositive() ? finalResult.toFixed() : '0';
+    return finalResult.isPositive() && !finalResult?.isNaN()
+      ? finalResult.toFixed()
+      : '0';
   };
   const handleAmountBlur = useCallback(() => {
     if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
-      if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+      if (selectedAction === 'deposit' && !checkFromTokenFiatValue) {
         setShowMinAmountError(true);
       } else if (
         selectedAction === 'withdraw' &&
@@ -427,26 +445,13 @@ function DepositWithdrawContent({
         setShowMinAmountError(true);
       }
     }
-  }, [selectedAction, amount, amountBN]);
+  }, [amount, amountBN, selectedAction, checkFromTokenFiatValue]);
 
   const handleMaxPress = useCallback(() => {
     if (availableBalance) {
       setAmount(availableBalance.displayBalance);
     }
   }, [availableBalance]);
-
-  const handleTrade = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: PERPS_ETH_NETWORK_ID,
-        importFromToken: swapDefaultSetTokens[PERPS_ETH_NETWORK_ID].fromToken,
-        importToToken: swapDefaultSetTokens[PERPS_NETWORK_ID].toToken,
-        swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
-        swapSource: ESwapSource.PERP,
-      },
-    });
-  }, [navigation]);
 
   const validateAmountBeforeSubmit = useCallback(() => {
     if (amountBN.isNaN() || amountBN.lte(0)) {
@@ -465,11 +470,11 @@ function DepositWithdrawContent({
       return false;
     }
 
-    if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
+    if (selectedAction === 'deposit' && !checkFromTokenFiatValue) {
       setShowMinAmountError(true);
       const message = intl.formatMessage(
         { id: ETranslations.perp_mini_deposit },
-        { num: MIN_DEPOSIT_AMOUNT, token: 'USDC' },
+        { num: `$${MIN_DEPOSIT_AMOUNT}` },
       );
       Toast.error({ title: message });
       return false;
@@ -490,13 +495,20 @@ function DepositWithdrawContent({
     }
 
     return true;
-  }, [amountBN, availableBalanceBN, intl, selectedAction, showMinAmountError]);
+  }, [
+    amountBN,
+    availableBalanceBN,
+    checkFromTokenFiatValue,
+    intl,
+    selectedAction,
+    showMinAmountError,
+  ]);
   const leftContent = useMemo(() => {
     return selectedAction === 'deposit' ? (
       <SizableText size="$bodyLgMedium" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.perp_size_least },
-          { amount: `${MIN_DEPOSIT_AMOUNT} USDC` },
+          { amount: `$${MIN_DEPOSIT_AMOUNT}` },
         )}
       </SizableText>
     ) : (
@@ -959,29 +971,6 @@ function DepositWithdrawContent({
             {errorMessage}
           </SizableText>
         ) : null}
-        {isInsufficientBalance && selectedAction === 'deposit' ? (
-          <XStack gap="$1">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.earn_not_enough_token },
-                { token: 'USDC' },
-              )}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_deposit_try_to,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$green11"
-              onPress={handleTrade}
-              cursor="pointer"
-            >
-              {intl.formatMessage({ id: ETranslations.global_trade })}
-            </SizableText>
-          </XStack>
-        ) : null}
       </YStack>
       {/* Available Balance & You Will Get */}
       <YStack gap="$3">
@@ -1007,20 +996,10 @@ function DepositWithdrawContent({
                 onPress={handleMaxPress}
                 size="$bodyMd"
               >
-                {`${availableBalance.displayBalance || '0.00'} USDC`}
+                {`${availableBalance.displayBalance || '0.00'} ${
+                  currentPerpsDepositSelectedToken?.symbol ?? '-'
+                }`}
               </DashText>
-            )}
-            {selectedAction === 'withdraw' ? null : (
-              <SizableText
-                size="$bodyMd"
-                color="$green11"
-                cursor="pointer"
-                onPress={handleTrade}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_trade,
-                })}
-              </SizableText>
             )}
           </XStack>
         </XStack>
@@ -1086,18 +1065,42 @@ function DepositWithdrawContent({
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
           </SizableText>
-          <SizableText color="$text" size="$bodyMd">
-            ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
-            {intl.formatMessage(
-              {
-                id: ETranslations.perp_deposit_on,
-              },
-              {
-                chain:
-                  selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One',
-              },
-            )}
-          </SizableText>
+          {selectedAction === 'withdraw' ? (
+            <SizableText color="$text" size="$bodyMd">
+              ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
+              {intl.formatMessage(
+                {
+                  id: ETranslations.perp_deposit_on,
+                },
+                {
+                  chain: 'Arbitrum One',
+                },
+              )}
+            </SizableText>
+          ) : (
+            <XStack>
+              {perpDepositQuoteLoading ? (
+                <Skeleton w={60} h={14} />
+              ) : (
+                <SizableText color="$text" size="$bodyMd">
+                  $
+                  {numberFormat(perpDepositQuote?.result?.toAmount ?? '0', {
+                    formatter: 'balance',
+                  })}{' '}
+                </SizableText>
+              )}
+              <SizableText color="$text" size="$bodyMd">
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.perp_deposit_on,
+                  },
+                  {
+                    chain: 'Hyperliquid',
+                  },
+                )}
+              </SizableText>
+            </XStack>
+          )}
         </XStack>
       </YStack>
 

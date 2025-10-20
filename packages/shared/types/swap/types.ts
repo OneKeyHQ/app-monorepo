@@ -607,6 +607,7 @@ export enum ESwapFetchCancelCause {
   SWAP_TOKENS_CANCEL = 'SWAP_TOKENS_CANCEL',
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
+  SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
 }
 
 // swap action&alert state
@@ -758,6 +759,11 @@ export interface IFetchBuildTxResponse {
     addressType: (EAddressEncodings | string)[];
   };
   suiBase64Data?: string;
+}
+
+export interface IPerpDepositQuoteResponse {
+  result: IPerpDepositQuoteRes;
+  tx: ITransaction;
 }
 
 export interface IPerpDepositQuoteRes {
