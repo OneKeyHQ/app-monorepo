@@ -391,9 +391,12 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
           [
             {
               icon: 'FlashCardsOutline',
-              title: 'BTC multiple addresses',
-              subtitle:
-                'Shows a new receiving address after each payment, change goes to a fresh change address to reduce reuse and improve privacy.',
+              title: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses,
+              }),
+              subtitle: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses_description,
+              }),
               renderElement: <BTCFreshAddressListItem />,
             },
           ],

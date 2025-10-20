@@ -801,7 +801,9 @@ function ReceiveToken() {
           {networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress ? (
             <Alert
               icon="ShieldExclamationSolid"
-              description="For privacy reasons, a new address is generated for each transaction. Previous addresses remain valid."
+              description={intl.formatMessage({
+                id: ETranslations.wallet_receive_note_fresh_address,
+              })}
               type="info"
             />
           ) : null}

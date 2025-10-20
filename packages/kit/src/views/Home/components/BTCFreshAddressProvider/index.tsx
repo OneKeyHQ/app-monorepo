@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
@@ -8,8 +10,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function BTCFreshAddressProvider() {
+  const intl = useIntl();
   const {
     activeAccount: { network, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -34,9 +38,12 @@ export function BTCFreshAddressProvider() {
     const fn = () => {
       Dialog.show({
         icon: 'SwitchHorOutline',
-        title: 'Single address required',
-        description:
-          'Connection requires single address mode. Please disable Multiple addresses before proceeding.',
+        title: intl.formatMessage({
+          id: ETranslations.wallet_banner_single_address_required_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.wallet_banner_single_address_required_description,
+        }),
         renderContent: (
           <YStack mt="$-1.5">
             <Button
@@ -45,11 +52,15 @@ export function BTCFreshAddressProvider() {
               variant="tertiary"
               alignSelf="flex-start"
             >
-              Learn more
+              {intl.formatMessage({
+                id: ETranslations.global_learn_more,
+              })}
             </Button>
           </YStack>
         ),
-        onConfirmText: 'Switch now',
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_button_switch_now,
+        }),
         onConfirm: () => {
           console.log('switch');
         },
