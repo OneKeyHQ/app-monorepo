@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, Dialog, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -11,9 +12,13 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+
+import { ESettingsTabNames } from '../../../Setting/pages/Tab/config';
 
 export function BTCFreshAddressProvider() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const {
     activeAccount: { network, indexedAccount },
   } = useActiveAccount({ num: 0 });
@@ -62,7 +67,9 @@ export function BTCFreshAddressProvider() {
           id: ETranslations.global_button_switch_now,
         }),
         onConfirm: () => {
-          console.log('switch');
+          navigation.pushModal(EModalRoutes.SettingModal, {
+            screen: EModalSettingRoutes.SettingListModal,
+          });
         },
       });
     };
@@ -70,7 +77,7 @@ export function BTCFreshAddressProvider() {
     return () => {
       appEventBus.off(EAppEventBusNames.BtcFreshAddressConnectDappRejected, fn);
     };
-  }, []);
+  }, [intl, navigation]);
 
   return null;
 }
