@@ -133,7 +133,7 @@ export function MobileLayout() {
   );
 
   return (
-    <YStack flex={1}>
+    <YStack flex={1} position="relative">
       <Tabs.TabBar
         divider={false}
         onTabPress={handleTabChange}

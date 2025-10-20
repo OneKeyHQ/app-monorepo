@@ -23,7 +23,7 @@ export function MarketDetailHeader() {
     () => (
       <XStack gap="$3" ai="center">
         <NavBackButton onPress={handleBackPress} />
-        <AccountSelectorTriggerHome num={0} />
+        {platformEnv.isWeb ? null : <AccountSelectorTriggerHome num={0} />}
       </XStack>
     ),
     [handleBackPress],
