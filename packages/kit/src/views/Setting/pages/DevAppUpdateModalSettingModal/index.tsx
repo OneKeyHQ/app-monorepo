@@ -274,6 +274,15 @@ export default function DevAppUpdateModalSettingModal() {
     });
   };
 
+  const showAppUpdateInofDialog = async () => {
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    Dialog.show({
+      title: 'App Update Info',
+      renderContent: <SizableText>{JSON.stringify(appUpdateInfo)}</SizableText>,
+    });
+  };
+
   const currentAppVersion = String(platformEnv.version);
   const currentBuildNumber = String(platformEnv.buildNumber);
   const currentBundleVersion = String(platformEnv.bundleVersion);
@@ -347,6 +356,12 @@ export default function DevAppUpdateModalSettingModal() {
 
           <Button variant="secondary" onPress={showBundleTestsDialog}>
             Bundle Tests
+          </Button>
+
+          <Divider />
+
+          <Button variant="secondary" onPress={showAppUpdateInofDialog}>
+            Show App Update Info
           </Button>
 
           <Divider />
