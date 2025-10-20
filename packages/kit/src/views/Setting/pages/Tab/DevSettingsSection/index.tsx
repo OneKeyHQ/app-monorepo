@@ -617,8 +617,6 @@ const BaseDevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
-      <AutoUpdateSettings />
-
       <SectionPressItem
         icon="ArrowTopCircleOutline"
         title="Dev App Update Settings"
