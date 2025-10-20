@@ -755,6 +755,17 @@ async function createMainWindow() {
       PROTOCOL,
       (request, callback) => {
         console.log('request url', request);
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in dev mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(jsSdkIndex + jsSdkPattern.length);
+          callback({
+            path: path.join(staticPath, 'js-sdk', fileName),
+          });
+          return;
+        }
         callback(request.url);
       },
     );
