@@ -141,10 +141,9 @@ export function UniversalWithdraw({
       symbol: tokenSymbol,
       action: 'unstake',
       amount: amountValue || balance || '1',
-      txId:
-        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-          ? identity
-          : undefined,
+      txId: earnUtils.isBabylonProvider({ providerName })
+        ? identity
+        : undefined,
       protocolVault: earnUtils.isVaultBasedProvider({
         providerName,
       })
