@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -16,6 +17,17 @@ import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
 
 const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
+const okxWalletInfo = externalWalletLogoUtils.getLogoInfo('okx');
+const coinbaseWalletInfo = externalWalletLogoUtils.getLogoInfo('coinbase');
+const phantomWalletInfo = externalWalletLogoUtils.getLogoInfo('phantom');
+
+const WALLET_STORE_URLS: Record<string, string> = {
+  okx: 'https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge',
+  coinbase:
+    'https://chromewebstore.google.com/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad',
+  phantom:
+    'https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
+};
 
 function WalletItemView({
   onPress,
@@ -147,34 +159,92 @@ function ExternalWalletList({ impl }: { impl?: string }) {
     [impl],
   );
 
+  const detectedWallets =
+    allWallets?.wallets?.[impl || '--']?.filter?.((item) => {
+      // filter out injected wallets
+      if (item.connectionInfo?.evmInjected) {
+        return false;
+      }
+      // filter out OneKey wallets (already shown in the first tab)
+      if (item.name?.toLowerCase().includes('onekey')) {
+        return false;
+      }
+      return true;
+    }) ?? [];
+
+  const networkLabel = impl === 'sol' ? 'SOL' : 'EVM';
+
+  let hasOkxWalletDetected = false;
+  let hasCoinbaseWalletDetected = false;
+  let hasPhantomDetected = false;
+
+  const walletItems = detectedWallets.map((item, index) => {
+    const { name, icon, connectionInfo } = item;
+    const loweredName = name?.toLowerCase() || '';
+    if (loweredName.includes('okx')) {
+      hasOkxWalletDetected = true;
+    }
+    if (loweredName.includes('coinbase')) {
+      hasCoinbaseWalletDetected = true;
+    }
+    if (loweredName.includes('phantom')) {
+      hasPhantomDetected = true;
+    }
+    return (
+      <WalletItem
+        key={`wallet-${index}`}
+        logo={icon}
+        name={name || 'unknown'}
+        connectionInfo={connectionInfo}
+        networkType={networkLabel}
+      />
+    );
+  });
+
   return (
     <Stack px="$5" py="$4">
       <XStack flexWrap="wrap" mx="$-1.5">
         {/* detected wallets - filter out injected wallets and OneKey wallets */}
-        {allWallets?.wallets?.[impl || '--']
-          ?.filter?.((item) => {
-            // filter out injected wallets
-            if (item.connectionInfo?.evmInjected) {
-              return false;
-            }
-            // filter out OneKey wallets (already shown in the first tab)
-            if (item.name?.toLowerCase().includes('onekey')) {
-              return false;
-            }
-            return true;
-          })
-          ?.map?.((item, index) => {
-            const { name, icon, connectionInfo } = item;
-            return (
-              <WalletItem
-                key={index}
-                logo={icon}
-                name={name || 'unknown'}
-                connectionInfo={connectionInfo}
-                networkType={impl === 'sol' ? 'SOL' : 'EVM'}
-              />
-            );
-          })}
+        {walletItems}
+
+        {/* OKX Wallet fallback - always show in Others tab */}
+        {!hasOkxWalletDetected ? (
+          <WalletItemView
+            key="wallet-okx-store"
+            onPress={() => {
+              void openUrlExternal(WALLET_STORE_URLS.okx);
+            }}
+            logo={okxWalletInfo.logo}
+            name={okxWalletInfo.name}
+            networkType="EVM"
+          />
+        ) : null}
+
+        {/* Coinbase Wallet fallback - always show in Others tab */}
+        {!hasCoinbaseWalletDetected ? (
+          <WalletItemView
+            key="wallet-coinbase-store"
+            onPress={() => {
+              void openUrlExternal(WALLET_STORE_URLS.coinbase);
+            }}
+            logo={coinbaseWalletInfo.logo}
+            name={coinbaseWalletInfo.name}
+            networkType="EVM"
+          />
+        ) : null}
+
+        {/* Phantom Wallet fallback - always show in Others tab */}
+        {!hasPhantomDetected ? (
+          <WalletItemView
+            key="wallet-phantom-store"
+            onPress={() => {
+              void openUrlExternal(WALLET_STORE_URLS.phantom);
+            }}
+            logo={phantomWalletInfo.logo}
+            name={phantomWalletInfo.name}
+            networkType="SOL"
+          />
+        ) : null}
 
         {/* WalletConnect - put at the end */}
         <WalletConnectItem impl={impl} />
