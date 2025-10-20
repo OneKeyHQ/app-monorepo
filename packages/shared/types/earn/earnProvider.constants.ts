@@ -58,6 +58,16 @@ const earnTradeDefaultSetSui = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
 };
 
+const earnTradeDefaultSetBNB = {
+  'networkId': 'evm--56',
+  'contractAddress': '',
+  'name': 'BNB',
+  'symbol': 'BNB',
+  'decimals': 18,
+  'isNative': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
+};
+
 export const isSupportStaking = (symbol: string) =>
   [
     'BTC',
@@ -83,6 +93,7 @@ export const earnMainnetNetworkIds = [
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
   getNetworkIdsMap().sui,
+  getNetworkIdsMap().bsc,
 ];
 
 export function normalizeToEarnSymbol(
@@ -116,6 +127,8 @@ export function normalizeToEarnProvider(
     'everstake': EEarnProviderEnum.Everstake,
     'babylon': EEarnProviderEnum.Babylon,
     'morpho': EEarnProviderEnum.Morpho,
+    'lista': EEarnProviderEnum.Lista,
+    'stakefish': EEarnProviderEnum.Stakefish,
     'falcon': EEarnProviderEnum.Falcon,
     'ethena': EEarnProviderEnum.Ethena,
     'momentum': EEarnProviderEnum.Momentum,
@@ -178,6 +191,10 @@ export function getImportFromToken({
       importFromToken = earnTradeDefaultSetSui;
       swapTabSwitchType = ESwapTabSwitchType.SWAP;
       break;
+    case networkIdsMap.bsc:
+      importFromToken = earnTradeDefaultSetBNB;
+      swapTabSwitchType = ESwapTabSwitchType.SWAP;
+      break;
     default:
       break;
   }
@@ -203,7 +220,7 @@ export function getSymbolSupportedNetworks(): Record<
     'ATOM': [networkIdsMap.cosmoshub],
     'POL': [networkIdsMap.eth],
     'USDC': [networkIdsMap.eth, networkIdsMap.sui],
-    'USDT': [networkIdsMap.eth],
+    'USDT': [networkIdsMap.eth, networkIdsMap.bsc],
     'DAI': [networkIdsMap.eth],
     'WETH': [networkIdsMap.eth],
     'cbBTC': [networkIdsMap.eth],

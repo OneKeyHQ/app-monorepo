@@ -28,6 +28,7 @@ import { PasswordVerifyPortalContainer } from './PasswordVerifyPortalContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
+import { VerifyTxContainer } from './VerifyTxContainer';
 import { WebPerformanceMonitorContainer } from './WebPerformanceMonitor';
 
 const PageTrackerContainer = LazyLoad(
@@ -54,6 +55,7 @@ export function Container() {
           <CreateAddressContainer />
           <PrevCheckBeforeSendingContainer />
           <WalletBackupPreCheckContainer />
+          <VerifyTxContainer />
           <HardwareUiStateContainer />
           <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
