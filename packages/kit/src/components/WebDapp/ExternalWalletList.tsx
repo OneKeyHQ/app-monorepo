@@ -8,7 +8,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { WALLET_STORE_URLS } from '@onekeyhq/shared/src/consts/walletConsts';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
@@ -17,37 +16,9 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
 
-const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
-const okxWalletInfo = externalWalletLogoUtils.getLogoInfo('okx');
-const coinbaseWalletInfo = externalWalletLogoUtils.getLogoInfo('coinbase');
-const phantomWalletInfo = externalWalletLogoUtils.getLogoInfo('phantom');
+import { useFallbackWallets } from './hooks/useFallbackWallets';
 
-const FALLBACK_WALLETS = [
-  {
-    key: 'phantom',
-    detectKeywords: ['phantom'],
-    storeUrl: WALLET_STORE_URLS.phantom,
-    logo: phantomWalletInfo.logo,
-    name: phantomWalletInfo.name,
-    networkType: 'EVM',
-  },
-  {
-    key: 'coinbase',
-    detectKeywords: ['coinbase'],
-    storeUrl: WALLET_STORE_URLS.coinbase,
-    logo: coinbaseWalletInfo.logo,
-    name: coinbaseWalletInfo.name,
-    networkType: 'EVM',
-  },
-  {
-    key: 'okx',
-    detectKeywords: ['okx'],
-    storeUrl: WALLET_STORE_URLS.okx,
-    logo: okxWalletInfo.logo,
-    name: okxWalletInfo.name,
-    networkType: 'EVM',
-  },
-];
+const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
 
 function WalletItemView({
   onPress,
@@ -195,12 +166,13 @@ function ExternalWalletList({ impl }: { impl?: string }) {
   const networkLabel = impl === 'sol' ? 'SOL' : 'EVM';
 
   const detectedFallbackKeys = new Set<string>();
+  const fallbackWallets = useFallbackWallets();
 
   const walletItems = detectedWallets.map((item, index) => {
     const { name, icon, connectionInfo } = item;
     const loweredName = name?.toLowerCase() || '';
 
-    FALLBACK_WALLETS.forEach(({ key, detectKeywords }) => {
+    fallbackWallets.forEach(({ key, detectKeywords }) => {
       if (detectKeywords.some((keyword) => loweredName.includes(keyword))) {
         detectedFallbackKeys.add(key);
       }
@@ -217,19 +189,19 @@ function ExternalWalletList({ impl }: { impl?: string }) {
     );
   });
 
-  const fallbackWalletItems = FALLBACK_WALLETS.filter(
-    ({ key }) => !detectedFallbackKeys.has(key),
-  ).map(({ key, storeUrl, logo, name, networkType }) => (
-    <WalletItemView
-      key={`wallet-${key}-store`}
-      onPress={() => {
-        void openUrlExternal(storeUrl);
-      }}
-      logo={logo}
-      name={name}
-      networkType={networkType}
-    />
-  ));
+  const fallbackWalletItems = fallbackWallets
+    .filter(({ key }) => !detectedFallbackKeys.has(key))
+    .map(({ key, storeUrl, logo, name, networkType }) => (
+      <WalletItemView
+        key={`wallet-${key}-store`}
+        onPress={() => {
+          void openUrlExternal(storeUrl);
+        }}
+        logo={logo}
+        name={name}
+        networkType={networkType}
+      />
+    ));
 
   return (
     <Stack px="$5" py="$4">
