@@ -354,6 +354,7 @@ function AddCustomTokenModal() {
           });
 
           if (
+            isAllNetwork &&
             accountIdForNetwork &&
             selectedNetworkIdValue &&
             !isEnabledNetworksInAllNetworks({
@@ -400,6 +401,7 @@ function AddCustomTokenModal() {
       dappApprove,
       selectedNetworkIdValue,
       indexedAccountId,
+      isAllNetwork,
       allNetworksState.disabledNetworks,
       allNetworksState.enabledNetworks,
       onSuccess,
