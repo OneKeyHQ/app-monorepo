@@ -8,6 +8,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TermsAndPrivacy } from '@onekeyhq/kit/src/views/Onboarding/pages/GetStarted/components/TermsAndPrivacy';
 import { useImportAddressForm } from '@onekeyhq/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   type EOnboardingPages,
   ERootRoutes,
@@ -57,6 +58,8 @@ function ConnectWalletContent() {
     id: ETranslations.global_watch_only_wallet,
   });
 
+  const showWatchOnlyTab = !platformEnv.isWeb;
+
   const initialTabName = useMemo(() => {
     return defaultTab === 'others' ? othersTitle : onekeyTitle;
   }, [defaultTab, othersTitle, onekeyTitle]);
@@ -92,9 +95,11 @@ function ConnectWalletContent() {
         <Tabs.Tab name={othersTitle}>
           <ExternalWalletList impl="evm" />
         </Tabs.Tab>
-        <Tabs.Tab name={watchOnlyTitle}>
-          <WatchOnlyWalletContent {...watchOnlyFormState} />
-        </Tabs.Tab>
+        {showWatchOnlyTab ? (
+          <Tabs.Tab name={watchOnlyTitle}>
+            <WatchOnlyWalletContent {...watchOnlyFormState} />
+          </Tabs.Tab>
+        ) : null}
       </Tabs.Container>
     ),
     [
@@ -103,6 +108,7 @@ function ConnectWalletContent() {
       watchOnlyTitle,
       watchOnlyFormState,
       initialTabName,
+      showWatchOnlyTab,
     ],
   );
 
