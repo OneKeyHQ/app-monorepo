@@ -1,4 +1,5 @@
 import { HYPERLIQUID_EXPLORER_URL } from '@onekeyhq/shared/src/config/appConfig';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -24,7 +25,7 @@ export const openExplorerAddressUrl = async ({
     type: 'address' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal) {
+  if (openInExternal ?? platformEnv.isDesktop) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -49,7 +50,7 @@ export const openTransactionDetailsUrl = async ({
     type: 'transaction' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal) {
+  if (openInExternal ?? platformEnv.isDesktop) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -74,7 +75,7 @@ export const openTokenDetailsUrl = async ({
     type: 'token' as const,
   };
   const url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl(params);
-  if (openInExternal) {
+  if (openInExternal ?? platformEnv.isDesktop) {
     openUrlExternal(url);
   } else {
     openUrlInApp(url);
@@ -90,7 +91,7 @@ export const openHyperLiquidExplorerUrl = async ({
 }) => {
   if (address) {
     const url = `${HYPERLIQUID_EXPLORER_URL}${address}`;
-    if (openInExternal) {
+    if (openInExternal ?? platformEnv.isDesktop) {
       openUrlExternal(url);
     } else {
       openUrlInApp(url);
