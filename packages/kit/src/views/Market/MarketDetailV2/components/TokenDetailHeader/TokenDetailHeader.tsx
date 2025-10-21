@@ -1,13 +1,21 @@
 import type { ComponentProps } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
-import { XStack, useMedia } from '@onekeyhq/components';
+import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { TokenDetailHeaderLeft } from './TokenDetailHeaderLeft';
 import { TokenDetailHeaderRight } from './TokenDetailHeaderRight';
+
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
+
+const SCROLL_THRESHOLD = 2;
 
 export function TokenDetailHeader({
   showStats = true,
@@ -19,21 +27,64 @@ export function TokenDetailHeader({
   containerProps?: ComponentProps<typeof XStack>;
 }) {
   const { tokenDetail, networkId, isNative } = useTokenDetail();
-  const media = useMedia();
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [scrollX, setScrollX] = useState(0);
+  const [scrollViewWidth, setScrollViewWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+
+  const shouldScroll = useMemo(() => {
+    if (!containerWidth) {
+      return false;
+    }
+    return containerWidth < 740;
+  }, [containerWidth]);
 
   const networkData = useMemo(() => {
     return networkId ? networkUtils.getLocalNetworkInfo(networkId) : undefined;
   }, [networkId]);
 
-  return (
+  const shouldShowRightGradient = useMemo(() => {
+    if (!shouldScroll) {
+      return false;
+    }
+    return (
+      contentWidth > scrollViewWidth &&
+      scrollX < contentWidth - scrollViewWidth - SCROLL_THRESHOLD
+    );
+  }, [contentWidth, scrollViewWidth, scrollX, shouldScroll]);
+
+  const handleScroll = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      if (!shouldScroll) {
+        return;
+      }
+      setScrollX(event.nativeEvent.contentOffset.x);
+    },
+    [shouldScroll],
+  );
+
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setScrollViewWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const handleContentSizeChange = useCallback((width: number) => {
+    setContentWidth(width);
+  }, []);
+
+  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  }, []);
+
+  const renderHeaderContent = () => (
     <XStack
-      width={media.lg ? '90%' : '100%'}
+      position="relative"
+      width={shouldScroll ? '90%' : '100%'}
       px="$5"
       pt="$4"
       pb="$2"
       jc="space-between"
       ai="center"
-      bg="green3"
+      minWidth={740}
       {...containerProps}
     >
       <TokenDetailHeaderLeft
@@ -50,6 +101,36 @@ export function TokenDetailHeader({
         isNative={isNative}
         showStats={showStats}
       />
+    </XStack>
+  );
+
+  return (
+    <XStack position="relative" onLayout={handleContainerLayout}>
+      {shouldScroll ? (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
+            onLayout={handleLayout}
+            onContentSizeChange={handleContentSizeChange}
+          >
+            {renderHeaderContent()}
+          </ScrollView>
+
+          <GradientMask
+            opacity={scrollX > SCROLL_THRESHOLD ? 1 : 0}
+            position="left"
+          />
+          <GradientMask
+            opacity={shouldShowRightGradient ? 1 : 0}
+            position="right"
+          />
+        </>
+      ) : (
+        renderHeaderContent()
+      )}
     </XStack>
   );
 }
