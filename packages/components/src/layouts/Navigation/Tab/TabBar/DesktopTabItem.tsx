@@ -58,6 +58,7 @@ export interface IDesktopTabItemProps {
   trackId?: string;
   showDot?: boolean;
   onPressWhenSelected?: () => void; // New: Click event when already selected
+  verticalText?: boolean; // New: Display text vertically
 }
 
 function BasicDesktopTabItemImage({
@@ -111,6 +112,7 @@ export function DesktopTabItem(
     children,
     showDot,
     onPressWhenSelected,
+    verticalText = false,
     ...rest
   } = props;
 
@@ -159,8 +161,9 @@ export function DesktopTabItem(
   );
   const trigger = useMemo(
     () => (
-      <XStack
+      <Stack
         {...tabBarItemStyle}
+        flexDirection={verticalText ? 'column' : 'row'}
         alignItems="center"
         py={size === 'small' ? '$1.5' : '$2'}
         $gtMd={
@@ -265,12 +268,13 @@ export function DesktopTabItem(
           />
         ) : null}
         {children}
-      </XStack>
+      </Stack>
     ),
     [
       tabBarItemStyle,
       size,
       selected,
+      verticalText,
       isContextMenuOpened,
       isHovered,
       onMouseEnter,
