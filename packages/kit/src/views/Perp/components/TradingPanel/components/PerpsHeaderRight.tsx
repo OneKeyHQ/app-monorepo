@@ -1,3 +1,4 @@
+import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -96,10 +97,12 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const isEmptyAccount = !accountValue || parseFloat(accountValue) <= 0;
-  if (!activeAccount.accountAddress) {
+
+  if (!activeAccount?.accountAddress) {
     return null;
   }
+
+  const isEmptyAccount = !accountValue || new BigNumber(accountValue).lte(0);
   const content = (
     <Badge
       borderRadius="$full"

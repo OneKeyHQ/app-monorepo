@@ -21,5 +21,8 @@ export { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 export { showDepositWithdrawDialog } from './modals/DepositWithdrawModal';
 export { LeverageAdjustModal } from './modals/LeverageAdjustModal';
 
+// Hooks
+export { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
+
 // Types
 export type { ISide } from './selectors/TradeSideToggle';
