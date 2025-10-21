@@ -14,7 +14,6 @@ import {
   Tooltip,
   XStack,
   YStack,
-  useInTabDialog,
 } from '@onekeyhq/components';
 import type { ICheckedState } from '@onekeyhq/components';
 import {
@@ -37,6 +36,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
+import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -46,7 +46,6 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { PriceInput } from '../inputs/PriceInput';
 import { SizeInput } from '../inputs/SizeInput';
 import { TpSlFormInput } from '../inputs/TpSlFormInput';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
 import { LeverageAdjustModal } from '../modals/LeverageAdjustModal';
 import { MarginModeSelector } from '../selectors/MarginModeSelector';
 import { OrderTypeSelector } from '../selectors/OrderTypeSelector';
@@ -57,7 +56,7 @@ interface IPerpTradingFormProps {
 }
 
 function MobileDepositButton() {
-  const dialogInTab = useInTabDialog();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   return (
     <IconButton
       testID="perp-trading-form-mobile-deposit-button"
@@ -65,14 +64,7 @@ function MobileDepositButton() {
       variant="tertiary"
       iconSize="$3.5"
       icon="PlusCircleSolid"
-      onPress={() =>
-        showDepositWithdrawModal(
-          {
-            actionType: 'deposit',
-          },
-          dialogInTab,
-        )
-      }
+      onPress={() => void showDepositWithdrawModal('deposit')}
       color="$iconSubdued"
       cursor="pointer"
     />

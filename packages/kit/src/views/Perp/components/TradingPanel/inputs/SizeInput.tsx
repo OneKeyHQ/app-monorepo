@@ -15,6 +15,7 @@ import type {
   IPerpsActiveAssetAtom,
   IPerpsActiveAssetCtxAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsTradingPreferencesAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatWithPrecision,
@@ -64,7 +65,16 @@ export const SizeInput = memo(
     const szDecimals = activeAsset?.universe?.szDecimals ?? 2;
     const isDisabled = disabled || !activeAssetCtx || !activeAsset;
 
-    const [inputMode, setInputMode] = useState<'token' | 'usd'>('usd');
+    const [tradingPreferences, setTradingPreferences] =
+      usePerpsTradingPreferencesAtom();
+    const inputMode = tradingPreferences.sizeInputUnit;
+    const setInputMode = useCallback(
+      (mode: 'token' | 'usd') => {
+        setTradingPreferences((prev) => ({ ...prev, sizeInputUnit: mode }));
+      },
+      [setTradingPreferences],
+    );
+
     const [tokenAmount, setTokenAmount] = useState('');
     const [usdAmount, setUsdAmount] = useState('');
     const [isUserTyping, setIsUserTyping] = useState(false);
@@ -234,7 +244,13 @@ export const SizeInput = memo(
           if (usdValue) setUsdAmount(usdValue);
         }
       },
-      [inputMode, tokenAmount, calcUsdFromToken, onRequestManualMode],
+      [
+        inputMode,
+        tokenAmount,
+        calcUsdFromToken,
+        onRequestManualMode,
+        setInputMode,
+      ],
     );
 
     const validator = useCallback(

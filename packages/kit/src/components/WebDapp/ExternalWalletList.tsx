@@ -9,11 +9,14 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useWalletConnection } from '../../hooks/useWebDapp/useWalletConnection';
+
+import { useFallbackWallets } from './hooks/useFallbackWallets';
 
 const walletConnectInfo = externalWalletLogoUtils.getLogoInfo('walletconnect');
 
@@ -147,34 +150,65 @@ function ExternalWalletList({ impl }: { impl?: string }) {
     [impl],
   );
 
+  const detectedWallets =
+    allWallets?.wallets?.[impl || '--']?.filter?.((item) => {
+      // filter out injected wallets
+      if (item.connectionInfo?.evmInjected) {
+        return false;
+      }
+      // filter out OneKey wallets (already shown in the first tab)
+      if (item.name?.toLowerCase().includes('onekey')) {
+        return false;
+      }
+      return true;
+    }) ?? [];
+
+  const networkLabel = impl === 'sol' ? 'SOL' : 'EVM';
+
+  const detectedFallbackKeys = new Set<string>();
+  const fallbackWallets = useFallbackWallets();
+
+  const walletItems = detectedWallets.map((item, index) => {
+    const { name, icon, connectionInfo } = item;
+    const loweredName = name?.toLowerCase() || '';
+
+    fallbackWallets.forEach(({ key, detectKeywords }) => {
+      if (detectKeywords.some((keyword) => loweredName.includes(keyword))) {
+        detectedFallbackKeys.add(key);
+      }
+    });
+
+    return (
+      <WalletItem
+        key={`wallet-${index}`}
+        logo={icon}
+        name={name || 'unknown'}
+        connectionInfo={connectionInfo}
+        networkType={networkLabel}
+      />
+    );
+  });
+
+  const fallbackWalletItems = fallbackWallets
+    .filter(({ key }) => !detectedFallbackKeys.has(key))
+    .map(({ key, storeUrl, logo, name, networkType }) => (
+      <WalletItemView
+        key={`wallet-${key}-store`}
+        onPress={() => {
+          void openUrlExternal(storeUrl);
+        }}
+        logo={logo}
+        name={name}
+        networkType={networkType}
+      />
+    ));
+
   return (
     <Stack px="$5" py="$4">
       <XStack flexWrap="wrap" mx="$-1.5">
         {/* detected wallets - filter out injected wallets and OneKey wallets */}
-        {allWallets?.wallets?.[impl || '--']
-          ?.filter?.((item) => {
-            // filter out injected wallets
-            if (item.connectionInfo?.evmInjected) {
-              return false;
-            }
-            // filter out OneKey wallets (already shown in the first tab)
-            if (item.name?.toLowerCase().includes('onekey')) {
-              return false;
-            }
-            return true;
-          })
-          ?.map?.((item, index) => {
-            const { name, icon, connectionInfo } = item;
-            return (
-              <WalletItem
-                key={index}
-                logo={icon}
-                name={name || 'unknown'}
-                connectionInfo={connectionInfo}
-                networkType={impl === 'sol' ? 'SOL' : 'EVM'}
-              />
-            );
-          })}
+        {walletItems}
+        {fallbackWalletItems}
 
         {/* WalletConnect - put at the end */}
         <WalletConnectItem impl={impl} />

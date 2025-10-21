@@ -250,6 +250,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             
             if (!currentAppVersion.equals(prevNativeVersion)) {
                 staticLog(TAG, "currentAppVersion is not equal to prevNativeVersion " + currentAppVersion + " " + prevNativeVersion);
+                BundleUpdateModule.clearUpdateBundleData(context);
                 return null;
             }
             
@@ -838,15 +839,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
-    @ReactMethod
-    public void getWebEmbedPath(Promise promise) {
-        String currentBundleDir = getCurrentBundleDir(reactContext, getCurrentBundleVersion(reactContext));
+    public static String getWebEmbedPath(Context context) {
+        String currentBundleDir = getCurrentBundleDir(context, getCurrentBundleVersion(context));
         if (currentBundleDir == null) {
-            promise.resolve("");
-            return;
+            return "";
         }
-        String webEmbedPath = new File(currentBundleDir, "web-embed").getAbsolutePath();
+        return new File(currentBundleDir, "web-embed").getAbsolutePath();
+    }
+
+    @ReactMethod
+    public void getWebEmbedPathAsync(Promise promise) {
+        String webEmbedPath = BundleUpdateModule.getWebEmbedPath(reactContext);
+        staticLog("getWebEmbedPathAsync", "webEmbedPath: " + webEmbedPath);
         promise.resolve(webEmbedPath);
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public String getWebEmbedPath() {
+        String webEmbedPath = BundleUpdateModule.getWebEmbedPath(reactContext);
+        staticLog("getWebEmbedPath", "webEmbedPath: " + webEmbedPath);
+        return webEmbedPath;
     }
 
     @ReactMethod
@@ -1002,6 +1014,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             log("testWriteEmptyMetadataJson", "Error writing empty metadata.json: " + e.getMessage());
             promise.reject("WRITE_ERROR", "Failed to write empty metadata.json: " + e.getMessage());
         }
+    }
+
+    @ReactMethod
+    public void getNativeAppVersion(Promise promise) {
+        String nativeVersion = getAppVersion(reactContext);
+        if (nativeVersion == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(nativeVersion);
+    }
+
+    @ReactMethod
+    public void getJsBundlePath(Promise promise) {
+        String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);
+        if (jsBundlePath == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(jsBundlePath);
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)

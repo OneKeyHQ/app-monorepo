@@ -1286,6 +1286,10 @@ class ServiceDApp extends ServiceBase {
     const privateProvider = this.backgroundApi.providers.$private as
       | ProviderApiPrivate
       | undefined;
+    defaultLogger.app.webembed.privateProviderStatus({
+      init: Boolean(privateProvider),
+      isWebEmbedApiReady: privateProvider?.isWebEmbedApiReady,
+    });
     return Promise.resolve(privateProvider?.isWebEmbedApiReady);
   }
 

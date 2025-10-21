@@ -410,13 +410,12 @@ function TokenListFooter(props: IProps) {
             size="small"
             variant="tertiary"
             onPress={handleOnPressManageTokens}
+            iconAfter="ArrowRightOutline"
+            iconColor="$iconSubdued"
           >
-            <XStack alignItems="center" gap="$1">
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.add_token_label })}
-              </SizableText>
-              <Icon name="ArrowRightOutline" size="$4" color="$iconSubdued" />
-            </XStack>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.add_token_label })}
+            </SizableText>
           </Button>
         </XStack>
       ) : null}
