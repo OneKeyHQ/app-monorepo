@@ -87,7 +87,7 @@ export function Footer() {
       alignItems="center"
       justifyContent="space-between"
     >
-      <XStack gap="$2">
+      <XStack gap="$2" alignItems="center">
         <NetworkStatus />
         {isInPerpRoute ? (
           <PerpsProviderMirror>
