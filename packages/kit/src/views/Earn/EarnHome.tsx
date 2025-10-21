@@ -318,6 +318,7 @@ function Recommended() {
   const {
     activeAccount: { account, indexedAccount },
   } = useActiveAccount({ num: 0 });
+  const [{ refreshTrigger = 0 }] = useEarnAtom();
 
   const { result: tokens } = usePromiseResult(
     async () => {
@@ -329,7 +330,14 @@ function Recommended() {
         });
       return recommendedAssets?.tokens || [];
     },
-    [account?.id, allNetworkId, account?.indexedAccountId, indexedAccount?.id],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      account?.id,
+      allNetworkId,
+      account?.indexedAccountId,
+      indexedAccount?.id,
+      refreshTrigger,
+    ],
     {
       watchLoading: true,
       initResult: [],
