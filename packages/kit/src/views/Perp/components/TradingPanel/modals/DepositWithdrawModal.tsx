@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -12,8 +12,9 @@ import type {
 import {
   Button,
   DashText,
-  Icon,
+  Divider,
   Input,
+  Page,
   Popover,
   SegmentControl,
   SizableText,
@@ -34,6 +35,7 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   perpsActiveAccountAtom,
+  usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IPerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -42,9 +44,11 @@ import {
   PERPS_NETWORK_ID,
 } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
   HYPERLIQUID_DEPOSIT_ADDRESS,
@@ -76,83 +80,11 @@ interface IDepositWithdrawContentProps {
   params: IDepositWithdrawParams;
   selectedAccount: IPerpsActiveAccountAtom;
   onClose?: () => void;
+  isMobile?: boolean;
 }
-
-function DepositWithdrawContent({
-  params,
-  selectedAccount,
-  onClose,
-}: IDepositWithdrawContentProps) {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-  const { gtMd } = useMedia();
-  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
-  const accountValue = accountSummary?.accountValue ?? '';
-  const withdrawable = accountSummary?.withdrawable ?? '';
-  const accountValueInfoTrigger = useMemo(
-    () => (
-      <XStack
-        alignItems="center"
-        gap="$1"
-        cursor={!platformEnv.isNative ? 'pointer' : undefined}
-      >
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_account_panel_account_value,
-          })}
-        </SizableText>
-        <Icon name="InfoCircleSolid" size="$4" color="$iconSubdued" />
-      </XStack>
-    ),
-    [intl],
-  );
-  const accountValuePopoverContent = useMemo(
-    () => (
-      <YStack flex={1} px="$5" pb="$5">
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.perp_account_panel_account_value_tooltip,
-          })}
-        </SizableText>
-      </YStack>
-    ),
-    [intl],
-  );
-  const useTooltipForAccountValue = !platformEnv.isNative && gtMd;
-  const accountValueInfoNode = useMemo(() => {
-    if (useTooltipForAccountValue) {
-      return (
-        <Tooltip
-          placement="top"
-          renderContent={intl.formatMessage({
-            id: ETranslations.perp_account_panel_account_value_tooltip,
-          })}
-          renderTrigger={accountValueInfoTrigger}
-        />
-      );
-    }
-    return (
-      <Popover
-        title={intl.formatMessage({
-          id: ETranslations.perp_account_panel_account_value,
-        })}
-        renderTrigger={accountValueInfoTrigger}
-        renderContent={accountValuePopoverContent}
-      />
-    );
-  }, [
-    intl,
-    accountValueInfoTrigger,
-    accountValuePopoverContent,
-    useTooltipForAccountValue,
-  ]);
-  const [selectedAction, setSelectedAction] =
-    useState<IPerpsDepositWithdrawActionType>(params.actionType);
-  const [amount, setAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showMinAmountError, setShowMinAmountError] = useState(false);
-
+function usePerpsAccountResult(selectedAccount: IPerpsActiveAccountAtom) {
   const { serviceAccount } = backgroundApiProxy;
+
   const { result: accountResult } = usePromiseResult(async () => {
     const isOtherAccount = accountUtils.isOthersAccount({
       accountId: selectedAccount.accountId ?? '',
@@ -175,24 +107,87 @@ function DepositWithdrawContent({
       });
     }
 
-    console.log('accountResult--', {
-      wallet,
-      account,
-      indexedAccount,
-      isOtherAccount,
-    });
-
-    return {
-      wallet,
-      account,
-      indexedAccount,
-      isOtherAccount,
-    };
+    return { wallet, account, indexedAccount, isOtherAccount };
   }, [
     selectedAccount.indexedAccountId,
     selectedAccount.accountId,
     serviceAccount,
   ]);
+
+  return accountResult;
+}
+function PerpsAccountAvatar({
+  selectedAccount,
+}: {
+  selectedAccount: IPerpsActiveAccountAtom;
+}) {
+  const accountResult = usePerpsAccountResult(selectedAccount);
+
+  if (!accountResult) return null;
+
+  return (
+    <XStack alignItems="center" gap="$2" pb="$3">
+      <AccountAvatar
+        size="small"
+        account={
+          accountResult.isOtherAccount ? accountResult.account : undefined
+        }
+        indexedAccount={
+          accountResult.isOtherAccount
+            ? undefined
+            : accountResult.indexedAccount
+        }
+        wallet={accountResult.wallet}
+      />
+      <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
+        <SizableText
+          flex={1}
+          size="$bodyMdMedium"
+          color="$text"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {accountResult?.isOtherAccount
+            ? accountResult?.account?.name
+            : accountResult?.indexedAccount?.name}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
+PerpsAccountAvatar.displayName = 'PerpsAccountAvatar';
+function DepositWithdrawContent({
+  params,
+  selectedAccount,
+  onClose,
+  isMobile = false,
+}: IDepositWithdrawContentProps) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
+  const [accountSummary] = usePerpsActiveAccountSummaryAtom();
+  const accountValue = accountSummary?.accountValue ?? '';
+  const withdrawable = accountSummary?.withdrawable ?? '';
+  const unrealizedPnl = accountSummary?.totalUnrealizedPnl ?? '0';
+  const unrealizedPnlInfo = useMemo(() => {
+    const pnlBn = new BigNumber(unrealizedPnl || '0');
+    const pnlAbs = pnlBn.abs().toFixed();
+    const pnlFormatted = numberFormat(pnlAbs, {
+      formatter: 'value',
+      formatterOptions: {
+        currency: '$',
+      },
+    });
+    const pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    const pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    return { pnlFormatted, pnlColor, pnlPlusOrMinus };
+  }, [unrealizedPnl]);
+
+  const [selectedAction, setSelectedAction] =
+    useState<IPerpsDepositWithdrawActionType>(params.actionType);
+  const [amount, setAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showMinAmountError, setShowMinAmountError] = useState(false);
 
   const { normalizeTxConfirm } = useSignatureConfirm({
     accountId: selectedAccount.accountId || '',
@@ -323,13 +318,17 @@ function DepositWithdrawContent({
     },
     [showMinAmountError],
   );
-  const calculateFinalAmount = (withdrawFee: number): string => {
-    const result = new BigNumber(amount || '0').minus(
-      selectedAction === 'withdraw' ? withdrawFee : 0,
-    );
 
-    return result.isPositive() ? result.toFixed() : '0';
-  };
+  const calculateFinalAmount = useCallback(
+    (withdrawFee: number): string => {
+      const result = new BigNumber(amount || '0').minus(
+        selectedAction === 'withdraw' ? withdrawFee : 0,
+      );
+
+      return result.isPositive() ? result.toFixed() : '0';
+    },
+    [amount, selectedAction],
+  );
   const handleAmountBlur = useCallback(() => {
     if (amount && !amountBN.isNaN() && amountBN.gt(0)) {
       if (selectedAction === 'deposit' && amountBN.lt(MIN_DEPOSIT_AMOUNT)) {
@@ -487,127 +486,109 @@ function DepositWithdrawContent({
       return intl.formatMessage({
         id: ETranslations.earn_insufficient_balance,
       });
+    const finalAmount = calculateFinalAmount(WITHDRAW_FEE);
+    const showAmount = finalAmount !== '0' && parseFloat(finalAmount) > 0;
     return selectedAction === 'deposit'
-      ? intl.formatMessage({ id: ETranslations.perp_trade_deposit })
-      : intl.formatMessage({ id: ETranslations.perp_trade_withdraw });
-  }, [isInsufficientBalance, selectedAction, intl]);
-
+      ? `${intl.formatMessage({
+          id: ETranslations.perp_trade_deposit,
+        })}${showAmount ? ` $${finalAmount}` : ''}`
+      : `${intl.formatMessage({
+          id: ETranslations.perp_trade_withdraw,
+        })}${showAmount ? ` ${finalAmount} USDC` : ''}`;
+  }, [isInsufficientBalance, selectedAction, intl, calculateFinalAmount]);
   const content = (
     <YStack
       gap="$4"
       px="$1"
       pt="$1"
       style={{
-        marginTop: -22,
+        marginTop: isMobile ? 0 : -22,
       }}
+      flex={1}
     >
       <YStack gap="$2.5">
-        <XStack alignItems="center" gap="$2" pb="$3">
-          <AccountAvatar
-            size="small"
-            account={
-              accountResult?.isOtherAccount ? accountResult?.account : undefined
-            }
-            indexedAccount={
-              accountResult?.isOtherAccount
-                ? undefined
-                : accountResult?.indexedAccount
-            }
-            wallet={accountResult?.wallet}
-          />
-          <XStack flex={1} minWidth={0} maxWidth="70%" overflow="hidden">
+        {isMobile ? null : (
+          <PerpsAccountAvatar selectedAccount={selectedAccount} />
+        )}
+
+        <YStack bg="$bgSubdued" borderRadius="$3">
+          <XStack
+            alignItems="center"
+            gap="$2"
+            justifyContent="space-between"
+            py="$3"
+            px="$4"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_account_panel_account_value,
+              })}
+            </SizableText>
+            <PerpsAccountNumberValue
+              value={accountValue}
+              skeletonWidth={120}
+              textSize="$bodyMdMedium"
+            />
+          </XStack>
+          <Divider borderWidth="$0.3" borderColor="$bgApp" />
+          <XStack
+            alignItems="center"
+            gap="$2"
+            justifyContent="space-between"
+            py="$3"
+            px="$4"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_account_unrealized_pnl,
+              })}
+            </SizableText>
             <SizableText
-              flex={1}
               size="$bodyMdMedium"
-              color="$text"
-              numberOfLines={1}
-              ellipsizeMode="tail"
+              color={unrealizedPnlInfo.pnlColor}
             >
-              {accountResult?.isOtherAccount
-                ? accountResult?.account?.name
-                : accountResult?.indexedAccount?.name}
+              {`${unrealizedPnlInfo.pnlPlusOrMinus}${unrealizedPnlInfo.pnlFormatted}`}
             </SizableText>
           </XStack>
-        </XStack>
-        <YStack gap="$1" alignItems="flex-start">
+        </YStack>
+        {/* <YStack gap="$1" alignItems="flex-start">
           {accountValueInfoNode}
           <PerpsAccountNumberValue
             value={accountValue}
             skeletonWidth={120}
             textSize="$heading4xl"
           />
-        </YStack>
+        </YStack> */}
       </YStack>
-      <SegmentControl
-        height={38}
-        segmentControlItemStyleProps={{
-          height: '100%',
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: 80,
-        }}
-        value={selectedAction}
-        onChange={setSelectedAction as ISegmentControlProps['onChange']}
-        options={[
-          {
-            label: intl.formatMessage({
-              id: ETranslations.perp_trade_deposit,
-            }),
-            value: 'deposit',
-          },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.perp_trade_withdraw,
-            }),
-            value: 'withdraw',
-          },
-        ]}
-      />
-      <XStack
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-        px="$3"
-        bg="$bgSubdued"
-        alignItems="center"
-        gap="$3"
-      >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {selectedAction === 'withdraw'
-            ? intl.formatMessage({ id: ETranslations.perp_withdraw_chain })
-            : intl.formatMessage({ id: ETranslations.perp_deposit_chain })}
-        </SizableText>
-        <Input
-          flex={1}
-          value="Arbitrum One"
-          onChangeText={() => {}}
-          keyboardType="default"
-          readonly
-          borderWidth={0}
-          size="medium"
-          fontSize={getFontSize('$bodyMd')}
-          containerProps={{
-            flex: 1,
-            borderWidth: 0,
-            bg: 'transparent',
-            p: 0,
+      <YStack gap="$4" flex={1}>
+        <SegmentControl
+          height={38}
+          segmentControlItemStyleProps={{
+            height: '100%',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
           }}
-          InputComponentStyle={{
-            p: 0,
-            bg: 'transparent',
-            justifyContent: 'flex-end',
-          }}
-          alignContent="flex-end"
-          textAlign="right"
+          value={selectedAction}
+          onChange={setSelectedAction as ISegmentControlProps['onChange']}
+          options={[
+            {
+              label: intl.formatMessage({
+                id: ETranslations.perp_trade_deposit,
+              }),
+              value: 'deposit',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.perp_trade_withdraw,
+              }),
+              value: 'withdraw',
+            },
+          ]}
         />
-      </XStack>
-
-      <YStack gap="$2">
         <XStack
           borderWidth="$px"
-          borderColor={
-            errorMessage || isInsufficientBalance ? '$red7' : '$borderSubdued'
-          }
+          borderColor="$borderSubdued"
           borderRadius="$3"
           px="$3"
           bg="$bgSubdued"
@@ -615,23 +596,19 @@ function DepositWithdrawContent({
           gap="$3"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.send_nft_amount })}
+            {selectedAction === 'withdraw'
+              ? intl.formatMessage({ id: ETranslations.perp_withdraw_chain })
+              : intl.formatMessage({ id: ETranslations.perp_deposit_chain })}
           </SizableText>
           <Input
-            alignItems="center"
             flex={1}
-            placeholder={intl.formatMessage({
-              id: ETranslations.form_amount_placeholder,
-            })}
-            value={amount}
-            onChangeText={handleAmountChange}
-            onBlur={handleAmountBlur}
-            keyboardType="decimal-pad"
-            disabled={isSubmitting}
+            value="Arbitrum One"
+            onChangeText={() => {}}
+            keyboardType="default"
+            readonly
             borderWidth={0}
             size="medium"
             fontSize={getFontSize('$bodyMd')}
-            {...nativeInputProps}
             containerProps={{
               flex: 1,
               borderWidth: 0,
@@ -643,167 +620,216 @@ function DepositWithdrawContent({
               bg: 'transparent',
               justifyContent: 'flex-end',
             }}
+            alignContent="flex-end"
             textAlign="right"
-            maxLength={12}
           />
-          <XStack alignItems="center">
-            <SizableText size="$bodyMd">USDC</SizableText>
-          </XStack>
         </XStack>
 
-        {errorMessage ? (
-          <SizableText size="$bodySm" color="$red10">
-            {errorMessage}
-          </SizableText>
-        ) : null}
-        {isInsufficientBalance && selectedAction === 'deposit' ? (
-          <XStack gap="$1">
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage(
-                { id: ETranslations.earn_not_enough_token },
-                { token: 'USDC' },
-              )}
+        <YStack gap="$2">
+          <XStack
+            borderWidth="$px"
+            borderColor={
+              errorMessage || isInsufficientBalance ? '$red7' : '$borderSubdued'
+            }
+            borderRadius="$3"
+            px="$3"
+            bg="$bgSubdued"
+            alignItems="center"
+            gap="$3"
+          >
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.send_nft_amount })}
             </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.perp_deposit_try_to,
+            <Input
+              alignItems="center"
+              flex={1}
+              placeholder={intl.formatMessage({
+                id: ETranslations.form_amount_placeholder,
               })}
-            </SizableText>
-            <SizableText
-              size="$bodySm"
-              color="$green11"
-              onPress={handleTrade}
-              cursor="pointer"
-            >
-              {intl.formatMessage({ id: ETranslations.global_trade })}
-            </SizableText>
+              value={amount}
+              onChangeText={handleAmountChange}
+              onBlur={handleAmountBlur}
+              keyboardType="decimal-pad"
+              disabled={isSubmitting}
+              borderWidth={0}
+              size="medium"
+              fontSize={getFontSize('$bodyMd')}
+              {...nativeInputProps}
+              containerProps={{
+                flex: 1,
+                borderWidth: 0,
+                bg: 'transparent',
+                p: 0,
+              }}
+              InputComponentStyle={{
+                p: 0,
+                bg: 'transparent',
+                justifyContent: 'flex-end',
+              }}
+              textAlign="right"
+              maxLength={12}
+            />
+            <XStack alignItems="center">
+              <SizableText size="$bodyMd">USDC</SizableText>
+            </XStack>
           </XStack>
-        ) : null}
-      </YStack>
-      {/* Available Balance & You Will Get */}
-      <YStack gap="$3">
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {selectedAction === 'withdraw'
-              ? intl.formatMessage({
-                  id: ETranslations.perp_account_panel_withrawable_value,
-                })
-              : intl.formatMessage({
-                  id: ETranslations.perp_available_balance,
-                })}
-          </SizableText>
-          <XStack alignItems="center" gap="$2">
-            {balanceLoading ? (
-              <Skeleton w={80} h={14} />
-            ) : (
-              <DashText
-                dashColor="$textDisabled"
-                dashThickness={0.2}
-                dashGap={3}
-                cursor="pointer"
-                onPress={handleMaxPress}
-                size="$bodyMd"
-              >
-                {`${availableBalance.displayBalance || '0.00'} USDC`}
-              </DashText>
-            )}
-            {selectedAction === 'withdraw' ? null : (
-              <SizableText
-                size="$bodyMd"
-                color="$green11"
-                cursor="pointer"
-                onPress={handleTrade}
-              >
+
+          {errorMessage ? (
+            <SizableText size="$bodySm" color="$red10">
+              {errorMessage}
+            </SizableText>
+          ) : null}
+          {isInsufficientBalance && selectedAction === 'deposit' ? (
+            <XStack gap="$1">
+              <SizableText size="$bodySm" color="$textSubdued">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_not_enough_token },
+                  { token: 'USDC' },
+                )}
+              </SizableText>
+              <SizableText size="$bodySm" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.global_trade,
+                  id: ETranslations.perp_deposit_try_to,
                 })}
               </SizableText>
-            )}
-          </XStack>
-        </XStack>
-        {selectedAction === 'withdraw' ? (
+              <SizableText
+                size="$bodySm"
+                color="$green11"
+                onPress={handleTrade}
+                cursor="pointer"
+              >
+                {intl.formatMessage({ id: ETranslations.global_trade })}
+              </SizableText>
+            </XStack>
+          ) : null}
+        </YStack>
+        {/* Available Balance & You Will Get */}
+        <YStack gap="$3">
           <XStack justifyContent="space-between" alignItems="center">
-            {gtMd ? (
-              <Tooltip
-                renderTrigger={
-                  <DashText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    dashColor="$textDisabled"
-                    dashThickness={0.3}
-                    cursor="help"
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_withdraw_fee,
-                    })}
-                  </DashText>
-                }
-                renderContent={
-                  <SizableText size="$bodySm">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_withdraw_fee_mgs,
-                    })}
-                  </SizableText>
-                }
-              />
-            ) : (
-              <Popover
-                title={intl.formatMessage({
-                  id: ETranslations.perp_withdraw_fee,
-                })}
-                renderTrigger={
-                  <DashText
-                    size="$bodyMd"
-                    color="$textSubdued"
-                    dashColor="$textDisabled"
-                    dashThickness={0.3}
-                  >
-                    {intl.formatMessage({
-                      id: ETranslations.perp_withdraw_fee,
-                    })}
-                  </DashText>
-                }
-                renderContent={() => (
-                  <YStack px="$5" pb="$4">
-                    <SizableText size="$bodyMd" color="$text">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {selectedAction === 'withdraw'
+                ? intl.formatMessage({
+                    id: ETranslations.perp_account_panel_withrawable_value,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.perp_available_balance,
+                  })}
+            </SizableText>
+            <XStack alignItems="center" gap="$2">
+              {balanceLoading ? (
+                <Skeleton w={80} h={14} />
+              ) : (
+                <DashText
+                  dashColor="$textDisabled"
+                  dashThickness={0.2}
+                  dashGap={3}
+                  cursor="pointer"
+                  onPress={handleMaxPress}
+                  size="$bodyMd"
+                >
+                  {`${availableBalance.displayBalance || '0.00'} USDC`}
+                </DashText>
+              )}
+              {selectedAction === 'withdraw' ? null : (
+                <SizableText
+                  size="$bodyMd"
+                  color="$green11"
+                  cursor="pointer"
+                  onPress={handleTrade}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_trade,
+                  })}
+                </SizableText>
+              )}
+            </XStack>
+          </XStack>
+          {selectedAction === 'withdraw' ? (
+            <XStack justifyContent="space-between" alignItems="center">
+              {gtMd ? (
+                <Tooltip
+                  renderTrigger={
+                    <DashText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      dashColor="$textDisabled"
+                      dashThickness={0.3}
+                      cursor="help"
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_withdraw_fee,
+                      })}
+                    </DashText>
+                  }
+                  renderContent={
+                    <SizableText size="$bodySm">
                       {intl.formatMessage({
                         id: ETranslations.perp_withdraw_fee_mgs,
                       })}
                     </SizableText>
-                  </YStack>
-                )}
-              />
-            )}
+                  }
+                />
+              ) : (
+                <Popover
+                  title={intl.formatMessage({
+                    id: ETranslations.perp_withdraw_fee,
+                  })}
+                  renderTrigger={
+                    <DashText
+                      size="$bodyMd"
+                      color="$textSubdued"
+                      dashColor="$textDisabled"
+                      dashThickness={0.3}
+                    >
+                      {intl.formatMessage({
+                        id: ETranslations.perp_withdraw_fee,
+                      })}
+                    </DashText>
+                  }
+                  renderContent={() => (
+                    <YStack px="$5" pb="$4">
+                      <SizableText size="$bodyMd" color="$text">
+                        {intl.formatMessage({
+                          id: ETranslations.perp_withdraw_fee_mgs,
+                        })}
+                      </SizableText>
+                    </YStack>
+                  )}
+                />
+              )}
+              <SizableText color="$text" size="$bodyMd">
+                ${WITHDRAW_FEE}
+              </SizableText>
+            </XStack>
+          ) : null}
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
+            </SizableText>
             <SizableText color="$text" size="$bodyMd">
-              ${WITHDRAW_FEE}
+              ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
+              {intl.formatMessage(
+                {
+                  id: ETranslations.perp_deposit_on,
+                },
+                {
+                  chain:
+                    selectedAction === 'deposit'
+                      ? 'Hyperliquid'
+                      : 'Arbitrum One',
+                },
+              )}
             </SizableText>
           </XStack>
-        ) : null}
-        <XStack justifyContent="space-between" alignItems="center">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.perp_you_will_get })}
-          </SizableText>
-          <SizableText color="$text" size="$bodyMd">
-            ${calculateFinalAmount(WITHDRAW_FEE)}{' '}
-            {intl.formatMessage(
-              {
-                id: ETranslations.perp_deposit_on,
-              },
-              {
-                chain:
-                  selectedAction === 'deposit' ? 'Hyperliquid' : 'Arbitrum One',
-              },
-            )}
-          </SizableText>
-        </XStack>
+        </YStack>
       </YStack>
-
       <Button
         variant="primary"
         size="medium"
         disabled={!isValidAmount || isSubmitting || balanceLoading}
         loading={isSubmitting}
         onPress={handleConfirm}
+        mb={isMobile ? '$4' : undefined}
       >
         {buttonText}
       </Button>
@@ -821,8 +847,67 @@ function DepositWithdrawContent({
     </>
   );
 }
+function MobileDepositWithdrawModal() {
+  const navigation = useNavigation();
+  const [selectedAccount] = usePerpsActiveAccountAtom();
 
-export async function showDepositWithdrawModal(
+  const handleClose = useCallback(() => {
+    navigation.goBack();
+  }, [navigation]);
+  if (!selectedAccount) {
+    return (
+      <Page>
+        <Page.Body>
+          <YStack px="$4" flex={1} justifyContent="center" gap="$4">
+            <Skeleton width="100%" height={40} />
+            <Skeleton width="100%" height={200} />
+            <Skeleton width="100%" height={60} />
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
+  }
+
+  if (!selectedAccount?.accountId || !selectedAccount?.accountAddress) {
+    return (
+      <Page>
+        <Page.Body>
+          <YStack px="$4" flex={1} justifyContent="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              You should select a valid account or create address first
+            </SizableText>
+          </YStack>
+        </Page.Body>
+      </Page>
+    );
+  }
+
+  return (
+    <Page>
+      <Page.Header
+        title={appLocale.intl.formatMessage({
+          id: ETranslations.perp_trade_account_overview,
+        })}
+      />
+      <Page.Body>
+        <PerpsProviderMirror>
+          <YStack px="$4" flex={1}>
+            <DepositWithdrawContent
+              params={{ actionType: 'deposit' }}
+              selectedAccount={selectedAccount}
+              onClose={handleClose}
+              isMobile
+            />
+          </YStack>
+        </PerpsProviderMirror>
+      </Page.Body>
+    </Page>
+  );
+}
+
+export default MobileDepositWithdrawModal;
+
+export async function showDepositWithdrawDialog(
   params: IDepositWithdrawParams,
   dialogInTab: ReturnType<typeof useInTabDialog>,
 ) {
