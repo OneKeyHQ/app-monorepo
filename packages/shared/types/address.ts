@@ -1,4 +1,5 @@
 import type { IBadgeProps, IKeyOfIcons } from '@onekeyhq/components';
+import type { IBtcBlockbookDerivedInfo } from '@onekeyhq/core/src/chains/btc/types';
 import type { EAddressEncodings } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
@@ -51,6 +52,8 @@ export type IFetchAccountDetailsParams = {
   withCheckInscription?: boolean;
   withFrozenBalance?: boolean;
   withTronAccountResources?: boolean;
+  withTransactionCount?: boolean;
+  withXpubDerivedTokens?: boolean;
 };
 
 export type IFetchAccountDetailsResp = {
@@ -74,6 +77,8 @@ export type IFetchAccountDetailsResp = {
   frozenBalanceParsed?: string;
   totalBalance?: string;
   totalBalanceParsed?: string;
+  transactionCount?: number;
+  xpubDerivedTokens?: IBtcBlockbookDerivedInfo[];
 };
 
 export type IValidateAddressResp = {
@@ -110,6 +115,8 @@ export type INetworkAccountAddressDetail = {
   normalizedAddress: string; // lowercase address saved to db in EVM
   displayAddress: string; // checksum address in EVM
   allowEmptyAddress: boolean; // allow empty address, like lightning network
+  masterAddress?: string; // master address of this address, like first address in BTC
+  receiveAddressPath?: string | undefined; // btc fresh address path
 };
 
 export enum EServerInteractedStatus {
