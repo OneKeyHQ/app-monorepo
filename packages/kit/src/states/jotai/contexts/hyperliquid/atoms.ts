@@ -43,9 +43,9 @@ export const {
 
 export const { atom: perpsAllAssetCtxsAtom, use: usePerpsAllAssetCtxsAtom } =
   contextAtom<{
-    assetCtxs: Record<number, HL.IPerpsAssetCtx>;
+    assetCtxs: HL.IPerpsAssetCtx[];
   }>({
-    assetCtxs: {},
+    assetCtxs: [],
   });
 
 export const { atom: l2BookAtom, use: useL2BookAtom } =

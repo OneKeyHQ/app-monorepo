@@ -128,12 +128,12 @@ function BasePerpTokenSelectorContent({
   const [sortConfig] = usePerpTokenSortConfigPersistAtom();
 
   const mockedListData = useMemo(() => {
-    const sortedIndices = sortPerpsAssetIndices(
+    const sortedIndices = sortPerpsAssetIndices({
       assets,
       assetCtxs,
-      sortConfig?.field ?? '',
-      sortConfig?.direction ?? 'desc',
-    );
+      sortField: sortConfig?.field ?? '',
+      sortDirection: sortConfig?.direction ?? 'desc',
+    });
     return sortedIndices.map((originalIndex) => ({
       index: originalIndex,
     }));

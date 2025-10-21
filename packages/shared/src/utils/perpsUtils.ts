@@ -19,6 +19,10 @@ import type {
   IPerpsUniverse,
   IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpTokenSortDirection,
+  IPerpTokenSortField,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 // Types for liquidation price calculation
 interface IMarginTier {
@@ -1107,12 +1111,17 @@ function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
  * Pre-converts numeric values to avoid repeated conversions during sorting
  * If sortField is empty, returns original order (no sorting)
  */
-export function sortPerpsAssetIndices(
-  assets: IPerpsUniverse[],
-  assetCtxs: Record<number, IPerpsAssetCtx>,
-  sortField: string,
-  sortDirection: string,
-): number[] {
+export function sortPerpsAssetIndices({
+  assets,
+  assetCtxs,
+  sortField,
+  sortDirection,
+}: {
+  assets: IPerpsUniverse[];
+  assetCtxs: Record<number, IPerpsAssetCtx>;
+  sortField: IPerpTokenSortField | '';
+  sortDirection: IPerpTokenSortDirection;
+}): number[] {
   if (!assets.length) {
     return [];
   }
