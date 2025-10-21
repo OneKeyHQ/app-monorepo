@@ -1089,3 +1089,15 @@ export class ManageTokenInsufficientBalanceError extends OneKeyAppError<IManageT
     );
   }
 }
+
+export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BTCFreshAddressCanNotConnectDappError',
+        defaultKey:
+          ETranslations.wallet_banner_single_address_required_description,
+      }),
+    );
+  }
+}
