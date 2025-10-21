@@ -172,7 +172,17 @@ RCT_EXPORT_MODULE();
         return nil;
     }
     if (![currentAppVersion isEqualToString: prevNativeVersion]) {
-       DDLogDebug(@"currentAppVersion is not equal to prevNativeVersion %@ %@", currentAppVersion, prevNativeVersion);
+        DDLogDebug(@"currentAppVersion is not equal to prevNativeVersion %@ %@", currentAppVersion, prevNativeVersion);
+        // Clear all bundle-related preferences
+        NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+        NSString *currentBundleVersion = [userDefaults stringForKey:@"currentBundleVersion"];
+        if (currentBundleVersion) {
+            [userDefaults removeObjectForKey:currentBundleVersion];
+            [userDefaults removeObjectForKey:@"currentBundleVersion"];
+        }
+        [userDefaults removeObjectForKey:@"nativeVersion"];
+        [userDefaults synchronize];
+        DDLogDebug(@"Cleared all bundle-related preferences");
        return nil;
     }
     NSString *folderName = [self currentBundleDir];
