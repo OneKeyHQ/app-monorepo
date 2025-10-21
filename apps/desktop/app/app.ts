@@ -760,7 +760,9 @@ async function createMainWindow() {
 
         // resolve js-sdk files path in dev mode
         if (jsSdkIndex > -1) {
-          const fileName = request.url.substring(jsSdkIndex + jsSdkPattern.length);
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
           callback({
             path: path.join(staticPath, 'js-sdk', fileName),
           });
