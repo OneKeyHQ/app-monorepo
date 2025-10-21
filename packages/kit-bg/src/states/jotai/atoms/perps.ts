@@ -6,6 +6,7 @@ import type {
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
+  IPerpTokenSortConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
@@ -231,6 +232,17 @@ export const {
   initialValue: undefined,
 });
 
+// Token Selector Sort Config (Persisted)
+// null means no sorting applied, preserving default order from API
+export const {
+  target: perpTokenSortConfigPersistAtom,
+  use: usePerpTokenSortConfigPersistAtom,
+} = globalAtom<IPerpTokenSortConfig | null>({
+  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  persist: true,
+  initialValue: null,
+});
+
 export type IPerpsActiveOrderBookOptionsAtom =
   | (IL2BookOptions & {
       coin: string;
@@ -290,6 +302,22 @@ export const {
   persist: true,
   initialValue: {
     skipOrderConfirm: false,
+  },
+});
+
+export interface IPerpsTradingPreferences {
+  sizeInputUnit: 'token' | 'usd';
+  slippage: number;
+}
+export const {
+  target: perpsTradingPreferencesAtom,
+  use: usePerpsTradingPreferencesAtom,
+} = globalAtom<IPerpsTradingPreferences>({
+  name: EAtomNames.perpsTradingPreferencesAtom,
+  persist: true,
+  initialValue: {
+    sizeInputUnit: 'usd',
+    slippage: 8,
   },
 });
 

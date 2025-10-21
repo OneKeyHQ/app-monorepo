@@ -4,8 +4,10 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 import { getColors } from 'react-native-image-colors';
+import { useThrottledCallback } from 'use-debounce';
 
 import {
+  Alert,
   Badge,
   Button,
   Dialog,
@@ -23,6 +25,7 @@ import {
 import {
   EHardwareUiStateAction,
   useHardwareUiStateAtom,
+  useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IAccountDeriveInfo,
@@ -40,6 +43,8 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
@@ -201,6 +206,25 @@ function ReceiveToken() {
       });
   }, [network?.logoURI]);
 
+  const throttledSyncBTCFreshAddress = useThrottledCallback(
+    (params: { networkId: string; accountId: string }) => {
+      void backgroundApiProxy.serviceAccountProfile.syncBTCFreshAddressByAccountId(
+        params,
+      );
+    },
+    timerUtils.getTimeDurationMs({ seconds: 1 }),
+    { leading: true, trailing: true },
+  );
+
+  useEffect(() => {
+    if (networkUtils.isBTCNetwork(networkId) && currentAccount?.id) {
+      throttledSyncBTCFreshAddress({
+        networkId,
+        accountId: currentAccount.id,
+      });
+    }
+  }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
+
   const handleCopyAddress = useCallback(() => {
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
       copyAddressWithDeriveType({
@@ -221,6 +245,8 @@ function ReceiveToken() {
     network?.shortname,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
+
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
@@ -307,42 +333,58 @@ function ReceiveToken() {
     };
   }, []);
 
-  useEffect(() => {
-    const fetchAccount = async () => {
-      if (!accountId && networkId && indexedAccountId) {
-        const defaultDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId,
-          });
+  const fetchAccount = useCallback(async () => {
+    if (!accountId && networkId && indexedAccountId) {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId,
+        });
 
-        const { accounts } =
-          await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
-            indexedAccountIds: [indexedAccountId],
-            networkId,
-            deriveType: defaultDeriveType,
-          });
+      const { accounts } =
+        await backgroundApiProxy.serviceAccount.getAccountsByIndexedAccounts({
+          indexedAccountIds: [indexedAccountId],
+          networkId,
+          deriveType: defaultDeriveType,
+        });
 
-        if (accounts?.[0]) {
-          const deriveResp =
-            await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
-              networkId,
-              template: accounts[0].template,
-              accountId: accounts[0].id,
-            });
-          setCurrentDeriveInfo(deriveResp.deriveInfo);
-          setCurrentDeriveType(deriveResp.deriveType);
-          setCurrentAccount(accounts[0]);
-        }
+      if (accounts?.[0]) {
+        const deriveResp =
+          await backgroundApiProxy.serviceNetwork.getDeriveTypeByTemplate({
+            networkId,
+            template: accounts[0].template,
+            accountId: accounts[0].id,
+          });
+        setCurrentDeriveInfo(deriveResp.deriveInfo);
+        setCurrentDeriveType(deriveResp.deriveType);
+        setCurrentAccount(accounts[0]);
       }
-    };
+    }
+  }, [accountId, indexedAccountId, networkId]);
+
+  useEffect(() => {
     void fetchAccount();
-  }, [
-    accountId,
-    currentDeriveType,
-    indexedAccountId,
-    networkId,
-    onDeriveTypeChange,
-  ]);
+  }, [fetchAccount]);
+
+  const throttledRefreshOnEvent = useThrottledCallback(
+    () => {
+      void fetchAccount();
+    },
+    timerUtils.getTimeDurationMs({ seconds: 1 }),
+    { leading: true, trailing: true },
+  );
+
+  useEffect(() => {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return;
+    }
+    const handler = () => {
+      throttledRefreshOnEvent();
+    };
+    appEventBus.on(EAppEventBusNames.BtcFreshAddressUpdated, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.BtcFreshAddressUpdated, handler);
+    };
+  }, [networkId, throttledRefreshOnEvent]);
 
   useEffect(() => {
     if (!isHardwareWallet) {
@@ -708,50 +750,64 @@ function ReceiveToken() {
       />
       <Page.Body flex={1} pb="$5" px="$5">
         {renderReceiveQrCode()}
-        {banner && shouldShowQRCode ? (
-          <XStack
-            py="$2.5"
-            px="$3"
-            gap="$3"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor={
-              networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
-            }
-            bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
-            borderRadius="$2"
-            borderCurve="continuous"
-            userSelect="none"
-            {...(banner?.href
-              ? {
-                  focusable: true,
-                  focusVisibleStyle: {
-                    outlineColor: '$focusRing',
-                    outlineWidth: 2,
-                    outlineStyle: 'solid',
-                    outlineOffset: 0,
-                  },
-                  hoverStyle: {
-                    bg: networkLogoColor ? `${networkLogoColor}1A` : '$bgHover',
-                  },
-                  pressStyle: {
-                    bg: networkLogoColor
-                      ? `${networkLogoColor}2A`
-                      : '$bgActive',
-                  },
-                  onPress: () => handleBannerOnPress(banner),
-                }
-              : null)}
-          >
-            <Image
-              size="$5"
-              source={{ uri: banner.src }}
-              fallback={<NetworkAvatar size="$5" networkId={networkId} />}
+        <YStack gap="$2">
+          {banner && shouldShowQRCode ? (
+            <XStack
+              py="$2.5"
+              px="$3"
+              gap="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor={
+                networkLogoColor ? `${networkLogoColor}2A` : '$borderSubdued'
+              }
+              bg={networkLogoColor ? `${networkLogoColor}0D` : '$bgSubdued'}
+              borderRadius="$2"
+              borderCurve="continuous"
+              userSelect="none"
+              {...(banner?.href
+                ? {
+                    focusable: true,
+                    focusVisibleStyle: {
+                      outlineColor: '$focusRing',
+                      outlineWidth: 2,
+                      outlineStyle: 'solid',
+                      outlineOffset: 0,
+                    },
+                    hoverStyle: {
+                      bg: networkLogoColor
+                        ? `${networkLogoColor}1A`
+                        : '$bgHover',
+                    },
+                    pressStyle: {
+                      bg: networkLogoColor
+                        ? `${networkLogoColor}2A`
+                        : '$bgActive',
+                    },
+                    onPress: () => handleBannerOnPress(banner),
+                  }
+                : null)}
+            >
+              <Image
+                size="$5"
+                source={{ uri: banner.src }}
+                fallback={<NetworkAvatar size="$5" networkId={networkId} />}
+              />
+              <SizableText size="$bodyMd" flex={1}>
+                {banner.title}
+              </SizableText>
+            </XStack>
+          ) : null}
+
+          {networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress ? (
+            <Alert
+              icon="ShieldExclamationSolid"
+              description={intl.formatMessage({
+                id: ETranslations.wallet_receive_note_fresh_address,
+              })}
+              type="info"
             />
-            <SizableText size="$bodyMd" flex={1}>
-              {banner.title}
-            </SizableText>
-          </XStack>
-        ) : null}
+          ) : null}
+        </YStack>
       </Page.Body>
       <Page.Footer>{renderReceiveFooter()}</Page.Footer>
     </Page>
