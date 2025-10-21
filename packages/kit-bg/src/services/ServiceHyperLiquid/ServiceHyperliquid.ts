@@ -55,6 +55,8 @@ import {
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
   perpsCustomSettingsAtom,
+  perpsDepositNetworksAtom,
+  perpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -72,10 +74,16 @@ import type {
   IPerpsActiveAssetCtxAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
+  IPerpsDepositNetworksAtom,
+  IPerpsDepositToken,
+  IPerpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
-import type { IPerpServerConfigResponse } from '../ServiceWebviewPerp/ServiceWebviewPerp';
+import type {
+  IPerpServerConfigResponse,
+  IPerpServerDepositConfig,
+} from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
@@ -119,6 +127,33 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
   }
 
+  async parseDepositConfig(depositConfig?: IPerpServerDepositConfig[]) {
+    if (isNil(depositConfig)) {
+      return;
+    }
+    const networks = depositConfig.map((item) => item.network);
+    const tokens = depositConfig.map((item) => item.tokens).flat();
+    await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
+      return {
+        ...prev,
+        networks,
+      };
+    });
+    const tokensMap = new Map<string, IPerpsDepositToken[]>();
+    networks.forEach((network) => {
+      const networkTokens = tokens.filter(
+        (token) => token.networkId === network.networkId,
+      );
+      tokensMap.set(network.networkId, networkTokens);
+    });
+    await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+      return {
+        ...prev,
+        tokens: tokensMap,
+      };
+    });
+  }
+
   @backgroundMethod()
   async updatePerpConfig({
     referrerConfig,
@@ -127,6 +162,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     customLocalStorageV2,
     commonConfig,
     bannerConfig,
+    depositTokenConfig,
     hyperLiquidErrorLocales,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
@@ -147,6 +183,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return newVal;
       },
     );
+    await this.parseDepositConfig(depositTokenConfig);
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -204,7 +241,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       // TODO remove
       // resData.data.referrerRate = 65;
     }
-
     await this.updatePerpConfig({
       referrerConfig: resData?.data?.referrerConfig,
       customSettings: resData?.data?.customSettings,
@@ -215,6 +251,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
       commonConfig: resData?.data?.commonConfig,
       bannerConfig: resData?.data?.bannerConfig,
+      depositTokenConfig: resData?.data?.depositTokenConfig,
       hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
     });
     return resData;
