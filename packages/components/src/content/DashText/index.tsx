@@ -11,6 +11,7 @@ export interface IDashTextProps extends ISizableTextProps {
   dashColor?: string;
   dashThickness?: number;
   children: string;
+  length?: number;
 }
 
 export function DashText({
@@ -19,24 +20,14 @@ export function DashText({
   dashGap = 2,
   dashThickness = 1,
   dashColor = '$textSubdued',
+  length = 80,
   ...textProps
 }: IDashTextProps) {
   const [textWidth, setTextWidth] = useState(0);
 
-  const calculateDashCount = useCallback(
-    (width: number) => {
-      if (width <= 0) return 0;
-      const totalDashWidth = dashLength + dashGap;
-      return Math.floor((width + dashGap) / totalDashWidth);
-    },
-    [dashLength, dashGap],
-  );
-
   const handleLayout = useCallback((event: LayoutChangeEvent) => {
     setTextWidth(event.nativeEvent.layout.width);
   }, []);
-
-  const dashCount = calculateDashCount(textWidth);
 
   return (
     <YStack alignItems="flex-start">
@@ -45,18 +36,22 @@ export function DashText({
           {children}
         </SizableText>
       </YStack>
-      {textWidth > 0 && dashCount > 0 ? (
-        <XStack gap={dashGap}>
-          {Array.from({ length: dashCount }, (_, i) => (
-            <YStack
-              key={i}
-              width={dashLength}
-              height={dashThickness}
-              bg={dashColor}
-            />
-          ))}
-        </XStack>
-      ) : null}
+      <XStack
+        gap={dashGap}
+        overflow="hidden"
+        flexWrap="nowrap"
+        width={textWidth}
+      >
+        {Array.from({ length }, (_, i) => (
+          <YStack
+            key={i}
+            width={dashLength}
+            height={dashThickness}
+            bg={dashColor}
+            flexShrink={0}
+          />
+        ))}
+      </XStack>
     </YStack>
   );
 }

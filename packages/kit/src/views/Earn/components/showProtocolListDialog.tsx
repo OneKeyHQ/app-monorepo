@@ -354,7 +354,7 @@ export function showProtocolListDialog({
                 earnAccount?.account.indexedAccountId || indexedAccountId,
               symbol,
               provider: protocol.provider.name,
-              vault: earnUtils.useVaultProvider({
+              vault: earnUtils.isVaultBasedProvider({
                 providerName: protocol.provider.name,
               })
                 ? protocol.provider.vault

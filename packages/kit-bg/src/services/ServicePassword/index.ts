@@ -20,9 +20,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import biologyAuth, {
-  biologyAuthNativeError,
-} from '@onekeyhq/shared/src/biologyAuth';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';

@@ -116,6 +116,7 @@
     "react-native-performance-stats": "0.2.3",
     "react-native-permissions": "5.4.2",
     "react-native-purchases": "8.11.9",
+    "react-native-qrcode-styled": "0.4.0",
     "react-native-reanimated": "3.18.0",
     "react-native-restart": "npm:react-native-restart-newarch@1.0.80",
     "react-native-safe-area-context": "5.4.1",

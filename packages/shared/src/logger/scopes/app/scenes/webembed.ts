@@ -4,6 +4,24 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class WebembedScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
+  public showWebEmbedWebView({ reason }: { reason?: string }) {
+    return [reason || 'unknown'];
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public webEmbedWebViewUriChanged({
+    uri,
+    remoteUrl,
+  }: {
+    uri: string | undefined;
+    remoteUrl: string | undefined;
+  }) {
+    return [uri || 'unknown', remoteUrl || 'unknown'];
+  }
+
+  @LogToServer()
+  @LogToLocal()
   public initTimeout() {
     return true;
   }
@@ -29,6 +47,12 @@ export class WebembedScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public webembedApiReady() {
+    return true;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public webembedApiNotReady() {
     return true;
   }
 
@@ -78,5 +102,29 @@ export class WebembedScene extends BaseScene {
   @LogToLocal()
   public callPageApiReady() {
     return true;
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public privateProviderStatus({
+    init,
+    isWebEmbedApiReady,
+  }: {
+    init: boolean;
+    isWebEmbedApiReady: boolean | undefined;
+  }) {
+    return { init, isWebEmbedApiReady };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public webembedApiCallResultIsUndefined({
+    module,
+    method,
+  }: {
+    module: string;
+    method: string;
+  }) {
+    return [module || 'unknown', method || 'unknown'];
   }
 }

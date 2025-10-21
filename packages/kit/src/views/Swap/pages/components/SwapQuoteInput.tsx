@@ -163,8 +163,8 @@ const SwapQuoteInput = ({
   }, [fromToken?.symbol]);
 
   const checkNativeTokenGasToast = useCallback(() => {
+    let maxAmount = new BigNumber(fromTokenBalance ?? 0);
     if (fromToken?.isNative) {
-      let maxAmount = new BigNumber(fromTokenBalance ?? 0);
       const reserveGas = swapNativeTokenReserveGas.find(
         (item) => item.networkId === fromToken.networkId,
       )?.reserveGas;
@@ -194,8 +194,8 @@ const SwapQuoteInput = ({
       Toast.message({
         title: message,
       });
-      return maxAmount;
     }
+    return maxAmount;
   }, [
     fromTokenBalance,
     fromToken?.isNative,

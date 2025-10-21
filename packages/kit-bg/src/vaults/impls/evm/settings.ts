@@ -1,6 +1,7 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
@@ -175,6 +176,21 @@ const stakingConfig: IStakingConfig = {
         supportedSymbols: ['ETH'],
         configs: {
           ETH: lidoConfig.ETH,
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().bsc]: {
+    providers: {
+      [EEarnProviderEnum.Lista]: {
+        supportedSymbols: ['USDT'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
         },
       },
     },

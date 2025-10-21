@@ -1,5 +1,7 @@
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import ProviderApiPrivate from './ProviderApiPrivate';
+
 import type ProviderApiBase from './ProviderApiBase';
 import type {
   IBackgroundApi,
@@ -11,20 +13,25 @@ function createBackgroundProviders({
 }: {
   backgroundApi: IBackgroundApiBridge | IBackgroundApi;
 }) {
-  const backgroundProviders: Record<string, ProviderApiBase> = {};
+  const backgroundProviders: Record<string, ProviderApiBase> = {
+    [IInjectedProviderNames.$private]: new ProviderApiPrivate({
+      backgroundApi,
+    }),
+  };
+
+  // Object.defineProperty(backgroundProviders, IInjectedProviderNames.$private, {
+  //   get() {
+  //     const ProviderApiPrivate = (
+  //       require('./ProviderApiPrivate') as unknown as typeof import('./ProviderApiPrivate')
+  //     ).default;
+  //     const value = new ProviderApiPrivate({ backgroundApi });
+  //     Object.defineProperty(this, IInjectedProviderNames.$private, { value });
+  //     return value;
+  //   },
+  //   configurable: true,
+  // });
 
   // Lazy load providers using getters
-  Object.defineProperty(backgroundProviders, IInjectedProviderNames.$private, {
-    get() {
-      const ProviderApiPrivate = (
-        require('./ProviderApiPrivate') as unknown as typeof import('./ProviderApiPrivate')
-      ).default;
-      const value = new ProviderApiPrivate({ backgroundApi });
-      Object.defineProperty(this, IInjectedProviderNames.$private, { value });
-      return value;
-    },
-    configurable: true,
-  });
 
   Object.defineProperty(backgroundProviders, IInjectedProviderNames.ethereum, {
     get() {

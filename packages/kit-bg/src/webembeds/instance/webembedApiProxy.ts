@@ -67,15 +67,28 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
 
     // await timerUtils.wait(5*1000);
 
-    return checkIsDefined(
+    const result = await checkIsDefined(
       appGlobals?.$backgroundApiProxy,
     ).serviceDApp.callWebEmbedApiProxy(message);
+
+    if (
+      module === 'secret' &&
+      ['batchGetPublicKeys', 'encryptAsync', 'decryptAsync'].includes(method) &&
+      result === undefined
+    ) {
+      defaultLogger.app.webembed.webembedApiCallResultIsUndefined({
+        module,
+        method,
+      });
+    }
+
+    return result;
   }
 
   async isSDKReady(): Promise<boolean> {
-    const isWebEmbedApiReady = await checkIsDefined(
-      appGlobals?.$backgroundApiProxy,
-    ).serviceDApp.isWebEmbedApiReady();
+    const bgApiProxy = appGlobals?.$backgroundApiProxy;
+    const serviceDApp = bgApiProxy?.serviceDApp;
+    const isWebEmbedApiReady = await serviceDApp?.isWebEmbedApiReady();
     return Promise.resolve(!!isWebEmbedApiReady);
   }
 

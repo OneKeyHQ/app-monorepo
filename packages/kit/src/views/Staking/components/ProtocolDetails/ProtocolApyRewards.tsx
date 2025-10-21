@@ -79,7 +79,7 @@ function ApyLineItem({
   );
 }
 
-function MorphoApyInternal({
+function VaultBasedApyInternal({
   apys,
   rewardAssets,
   poolFee,
@@ -261,9 +261,9 @@ export function ProtocolApyRewards({
     return null;
   }
 
-  if (earnUtils.isMorphoProvider({ providerName })) {
+  if (earnUtils.isVaultBasedProvider({ providerName })) {
     return (
-      <MorphoApyInternal
+      <VaultBasedApyInternal
         apys={apys}
         rewardAssets={rewardAssets}
         poolFee={poolFee}

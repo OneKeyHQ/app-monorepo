@@ -89,9 +89,9 @@ function ProviderInfo({
   }
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
-  const isMorphoProvider = useMemo(
+  const isVaultProvider = useMemo(
     () =>
-      earnUtils.isMorphoProvider({
+      earnUtils.isVaultBasedProvider({
         providerName: validator?.name ?? '',
       }),
     [validator?.name],
@@ -102,7 +102,7 @@ function ProviderInfo({
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
       <XStack flexWrap="wrap" m="$-5" p="$2">
-        {!isMorphoProvider && validator ? (
+        {!isVaultProvider && validator ? (
           <GridItem
             title={
               validator.isProtocol
@@ -141,7 +141,7 @@ function ProviderInfo({
             </SizableText>
           </GridItem>
         ) : null}
-        {isMorphoProvider && validator?.vaultName ? (
+        {isVaultProvider && validator?.vaultName ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_vault })}
             link={validator?.vaultLink}
@@ -149,7 +149,7 @@ function ProviderInfo({
             {validator?.vaultName}
           </GridItem>
         ) : null}
-        {isMorphoProvider && validator?.vaultManagerName ? (
+        {isVaultProvider && validator?.vaultManagerName ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_vault_manager })}
             link={validator?.vaultManager}
@@ -224,7 +224,9 @@ export const ProviderSection = ({
       vaultManagerName: details.provider.vaultManagerName,
       vaultName: details.provider.vaultName,
       vaultLink: details.provider.url,
-      isProtocol: details.provider.name.toLowerCase() !== 'everstake',
+      isProtocol: !earnUtils.isValidatorProvider({
+        providerName: details.provider.name,
+      }),
       totalStaked: details.provider.totalStaked,
       totalStakedFiatValue: details.provider.totalStakedFiatValue,
       liquidity: details.provider.liquidity,

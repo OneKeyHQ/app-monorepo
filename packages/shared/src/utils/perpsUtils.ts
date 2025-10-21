@@ -779,8 +779,27 @@ function calculateLiquidationPrice(
 
   if (positionSize.isZero()) return null;
 
-  const effectivePrice =
-    markPrice && referencePrice.gt(markPrice) ? markPrice : referencePrice;
+  let effectivePrice = referencePrice;
+  if (markPrice) {
+    const _side = newOrderSide || side;
+    if (_side === 'long') {
+      // Long: if limit price > mark price, will execute at market price
+      effectivePrice = referencePrice.gt(markPrice)
+        ? markPrice
+        : referencePrice;
+    } else {
+      // Short: if limit price < mark price, will execute at market price
+      effectivePrice = referencePrice.lt(markPrice)
+        ? markPrice
+        : referencePrice;
+    }
+  }
+
+  // Recalculate totalValue with effectivePrice if it differs from referencePrice
+  // This ensures consistency when limit orders would execute at market price
+  const adjustedTotalValue = effectivePrice.isEqualTo(referencePrice)
+    ? totalValue
+    : positionSize.multipliedBy(effectivePrice);
 
   // Check if we need to consider existing position
   const hasExistingPosition =
@@ -793,7 +812,7 @@ function calculateLiquidationPrice(
     // Calculate existing position metrics
     const existingPositionValue = existingPositionSize
       .abs()
-      .multipliedBy(existingEntryPrice);
+      .multipliedBy(effectivePrice);
     const existingMarginTier = findMarginTier(
       existingPositionValue,
       marginTiers || [],
@@ -817,9 +836,8 @@ function calculateLiquidationPrice(
     if (combinedPosition.isEmpty) return null;
 
     // Calculate combined position metrics
-    const combinedPositionValue = combinedPosition.finalSize.multipliedBy(
-      combinedPosition.finalEntryPrice,
-    );
+    const combinedPositionValue =
+      combinedPosition.finalSize.multipliedBy(effectivePrice);
     const combinedMarginTier = findMarginTier(
       combinedPositionValue,
       marginTiers || [],
@@ -851,15 +869,15 @@ function calculateLiquidationPrice(
   }
 
   // Simple case without existing position
-  const marginTier = findMarginTier(totalValue, marginTiers || []);
+  const marginTier = findMarginTier(adjustedTotalValue, marginTiers || []);
   const mmr = new BigNumber(1)
     .dividedBy(marginTier?.maxLeverage || maxLeverage)
     .dividedBy(2);
-  const maintenanceMarginRequired = totalValue.multipliedBy(mmr);
+  const maintenanceMarginRequired = adjustedTotalValue.multipliedBy(mmr);
 
   const marginAvailable =
     mode === 'isolated'
-      ? totalValue.dividedBy(leverage).minus(maintenanceMarginRequired)
+      ? adjustedTotalValue.dividedBy(leverage).minus(maintenanceMarginRequired)
       : crossMarginUsed
           .minus(maintenanceMarginRequired)
           .minus(crossMaintenanceMarginUsed);

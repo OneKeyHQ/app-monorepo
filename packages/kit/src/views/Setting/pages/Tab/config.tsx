@@ -59,6 +59,7 @@ import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
+  BTCFreshAddressListItem,
   BiologyAuthListItem,
   CleanDataListItem,
   ClearAppCacheListItem,
@@ -386,6 +387,18 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   },
                 }
               : null,
+          ],
+          [
+            {
+              icon: 'FlashCardsOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses,
+              }),
+              subtitle: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses_description,
+              }),
+              renderElement: <BTCFreshAddressListItem />,
+            },
           ],
         ],
       },
