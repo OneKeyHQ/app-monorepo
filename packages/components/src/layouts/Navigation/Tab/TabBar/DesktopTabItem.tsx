@@ -88,7 +88,7 @@ function BasicDesktopTabItemImage({
   );
 }
 
-const DesktopTabItemImage = memo(BasicDesktopTabItemImage);
+export const DesktopTabItemImage = memo(BasicDesktopTabItemImage);
 
 export function DesktopTabItem(
   props: IDesktopTabItemProps & GetProps<typeof Stack>,
@@ -291,6 +291,7 @@ export function DesktopTabItem(
       avatarSrc,
       label,
       tabBarLabelStyle,
+      hideCloseButton,
       actionList,
       intl,
       onClose,
