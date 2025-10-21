@@ -155,7 +155,11 @@ function DownloadVerify({
       return data.jsBundle?.downloadUrl;
     }
     return data.downloadedEvent?.downloadUrl || '';
-  }, [data]);
+  }, [
+    data.downloadUrl,
+    data.downloadedEvent?.downloadUrl,
+    data.jsBundle?.downloadUrl,
+  ]);
 
   const headerLeft = useCallback(() => {
     return null;
