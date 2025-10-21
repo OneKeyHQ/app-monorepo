@@ -82,8 +82,9 @@ function TabItemView({
         shortcutKey={options.shortcutKey}
         tabBarStyle={[
           options.tabBarStyle,
-          isCollapse ? { width: 36, alignItems: 'center' } : undefined,
+          isCollapse ? { width: 36 } : undefined,
         ]}
+        verticalText={isCollapse}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
         label={(options.tabBarLabel ?? route.name) as string}
@@ -242,7 +243,12 @@ export function DesktopLeftSideBar({
                 <HeaderCollapseButton isRootScreen />
               </XStack>
             ) : null}
-            <YStack flex={1} pt="$3" px="$3">
+            <YStack
+              flex={1}
+              pt="$3"
+              px="$3"
+              alignItems={isCollapse ? 'center' : undefined}
+            >
               {tabs}
             </YStack>
             <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
