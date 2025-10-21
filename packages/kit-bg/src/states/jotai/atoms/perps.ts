@@ -6,6 +6,7 @@ import type {
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
+  IPerpTokenSortConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
@@ -17,22 +18,6 @@ import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputedR } from '../utils';
 
 import type { IAccountDeriveTypes } from '../../../vaults/types';
-
-// Token Selector Sorting Types
-export type IPerpTokenSortField =
-  | 'name'
-  | 'markPrice'
-  | 'change24hPercent'
-  | 'fundingRate'
-  | 'volume24h'
-  | 'openInterest';
-
-export type IPerpTokenSortDirection = 'asc' | 'desc';
-
-export interface IPerpTokenSortConfig {
-  field: IPerpTokenSortField;
-  direction: IPerpTokenSortDirection;
-}
 
 // #region Active Account
 export interface IPerpsActiveAccountAtom {

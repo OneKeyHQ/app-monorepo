@@ -131,8 +131,8 @@ function BasePerpTokenSelectorContent({
     const sortedIndices = sortPerpsAssetIndices(
       assets,
       assetCtxs,
-      sortConfig?.field || '',
-      sortConfig?.direction || 'desc',
+      sortConfig?.field ?? '',
+      sortConfig?.direction ?? 'desc',
     );
     return sortedIndices.map((originalIndex) => ({
       index: originalIndex,

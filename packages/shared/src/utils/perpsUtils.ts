@@ -1109,7 +1109,7 @@ function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
  */
 export function sortPerpsAssetIndices(
   assets: IPerpsUniverse[],
-  assetCtxs: IPerpsAssetCtx[],
+  assetCtxs: Record<number, IPerpsAssetCtx>,
   sortField: string,
   sortDirection: string,
 ): number[] {
@@ -1151,7 +1151,9 @@ export function sortPerpsAssetIndices(
 
     switch (sortField) {
       case 'name':
-        compareResult = a.asset.name.localeCompare(b.asset.name);
+        compareResult = a.asset.name.localeCompare(b.asset.name, undefined, {
+          sensitivity: 'base',
+        });
         break;
 
       case 'markPrice':
@@ -1243,5 +1245,4 @@ export default {
   resolveTradingSize,
   resolveTradingSizeBN,
   getHyperliquidTokenImageUrl,
-  sortPerpsAssetIndices,
 };

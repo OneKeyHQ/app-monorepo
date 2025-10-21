@@ -1,17 +1,17 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
-import {
-  type IPerpTokenSortField,
-  usePerpTokenSortConfigPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpTokenSortConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IPerpTokenSortConfig,
+  IPerpTokenSortField,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 interface ISortableHeaderCellProps {
   field: IPerpTokenSortField;
   label: string;
   width?: number;
   flex?: number;
-  align?: 'left' | 'right';
 }
 
 function BaseSortableHeaderCell({
@@ -19,12 +19,11 @@ function BaseSortableHeaderCell({
   label,
   width,
   flex,
-  align = 'left',
 }: ISortableHeaderCellProps) {
   const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
 
   const handlePress = useCallback(() => {
-    setSortConfig((prev) => {
+    setSortConfig((prev: IPerpTokenSortConfig | null) => {
       if (prev?.field === field) {
         // Same field: toggle direction, or clear sort if already ascending
         if (prev.direction === 'asc') {
@@ -47,18 +46,11 @@ function BaseSortableHeaderCell({
   }, [field, setSortConfig]);
 
   const isActive = sortConfig?.field === field;
-  const justifyContent = useMemo(() => {
-    if (align === 'right') {
-      return 'flex-end';
-    }
-    return 'flex-start';
-  }, [align]);
 
   return (
     <XStack
       width={width}
       flex={flex}
-      justifyContent={justifyContent}
       cursor="pointer"
       onPress={handlePress}
       hoverStyle={{ opacity: 0.7 }}
@@ -66,18 +58,6 @@ function BaseSortableHeaderCell({
       alignItems="center"
       gap="$0.5"
     >
-      {align === 'right' && isActive ? (
-        <Icon
-          name={
-            sortConfig?.direction === 'asc'
-              ? 'ChevronTopOutline'
-              : 'ChevronBottomOutline'
-          }
-          size="$3"
-          color="$icon"
-          flexShrink={0}
-        />
-      ) : null}
       <SizableText
         size="$bodySm"
         color={isActive ? '$text' : '$textSubdued'}
