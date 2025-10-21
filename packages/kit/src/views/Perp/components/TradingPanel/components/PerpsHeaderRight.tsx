@@ -96,11 +96,15 @@ function DepositButton() {
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
-  const content = activeAccount.accountAddress ? (
+  const isEmptyAccount = !accountValue || parseFloat(accountValue) <= 0;
+  if (!activeAccount.accountAddress) {
+    return null;
+  }
+  const content = (
     <Badge
       borderRadius="$full"
       size="medium"
-      variant="secondary"
+      variant={isEmptyAccount ? 'primary' : 'secondary'}
       onPress={async () => {
         await showDepositWithdrawModal('deposit');
       }}
@@ -109,42 +113,47 @@ function DepositButton() {
       flexDirection="row"
       gap="$2"
       px="$3"
-      h={32}
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
+      h={gtSm ? 30 : 28}
+      bg={isEmptyAccount ? '$brand8' : '$bgStrong'}
       cursor="pointer"
     >
-      <Icon name="WalletOutline" size="$4" />
-
-      {gtSm ? (
-        <PerpsAccountNumberValue
-          value={accountValue ?? ''}
-          skeletonWidth={60}
-          textSize="$bodySmMedium"
-        />
-      ) : null}
-      <Divider
-        borderWidth={0.33}
-        borderBottomWidth={12}
-        borderColor="$borderSubdued"
-      />
-      {gtSm ? (
-        <SizableText size="$bodySmMedium" color="$text">
-          {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-        </SizableText>
+      {isEmptyAccount ? (
+        <>
+          <Icon name="AlignBottomOutline" size="$4" color="$iconOnColor" />
+          <SizableText size="$bodySmMedium" color="$textOnColor">
+            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+          </SizableText>
+        </>
       ) : (
-        <PerpsAccountNumberValue
-          value={accountValue ?? ''}
-          skeletonWidth={60}
-          textSize="$bodySmMedium"
-        />
+        <>
+          <Icon name="WalletOutline" size="$4" />
+          {gtSm ? (
+            <PerpsAccountNumberValue
+              value={accountValue ?? ''}
+              skeletonWidth={60}
+              textSize="$bodySmMedium"
+            />
+          ) : null}
+          <Divider
+            borderWidth={0.33}
+            borderBottomWidth={12}
+            borderColor="$borderSubdued"
+          />
+          {gtSm ? (
+            <SizableText size="$bodySmMedium" color="$text">
+              {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
+            </SizableText>
+          ) : (
+            <PerpsAccountNumberValue
+              value={accountValue ?? ''}
+              skeletonWidth={60}
+              textSize="$bodySmMedium"
+            />
+          )}
+        </>
       )}
     </Badge>
-  ) : null;
+  );
   return (
     <DebugRenderTracker name="PerpsHeaderRight__DepositButton">
       {content}
