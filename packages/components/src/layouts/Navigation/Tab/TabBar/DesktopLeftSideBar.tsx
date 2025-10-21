@@ -117,7 +117,7 @@ function TabItemView({
           testID={route.name.toLowerCase()}
         />
         {isCollapse ? (
-          <SizableText size="$bodySmMedium">
+          <SizableText size="$bodySmMedium" textAlign="center">
             {options.tabBarLabel ?? route.name}
           </SizableText>
         ) : null}
