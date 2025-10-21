@@ -110,8 +110,14 @@ function PerpAccountPanel() {
         currency: '$',
       },
     });
-    const pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
-    const pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    let pnlColor = '$text';
+    if (!pnlBn.isZero()) {
+      pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    }
+    let pnlPlusOrMinus = '';
+    if (!pnlBn.isZero()) {
+      pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    }
     return { pnlFormatted, pnlColor, pnlPlusOrMinus };
   }, [accountSummary?.totalUnrealizedPnl]);
 
