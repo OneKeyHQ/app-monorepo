@@ -3,11 +3,6 @@
 // @ts-ignore
 /* eslint-disable  */
   
-  // This file is automatically created by `yarn fetch:locale`.
-
-// @ts-ignore
-/* eslint-disable  */
-  
   export enum ETranslations {
   Limit_expire_day = 'Limit.expire_day',
   Limit_expire_days = 'Limit.expire_days',
@@ -1221,6 +1216,7 @@
   global_disable_button = 'global.disable_button',
   global_disabled = 'global.disabled',
   global_discord = 'global.discord',
+  global_discover = 'global.discover',
   global_done = 'global.done',
   global_download = 'global.download',
   global_download_and_install = 'global.download_and_install',
