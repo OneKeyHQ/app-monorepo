@@ -51,9 +51,6 @@ import type {
 import simpleDb from '../dbs/simple/simpleDb';
 import {
   activeAccountValueAtom,
-  btcFreshAddressLastUpdateAtom,
-  btcFreshAddressTxCountAtom,
-  btcLocalUsedAddressesHashAtom,
   currencyPersistAtom,
   settingsPersistAtom,
 } from '../states/jotai/atoms';
@@ -864,13 +861,17 @@ class ServiceAccountProfile extends ServiceBase {
     if (!account?.xpub || !account?.xpubSegwit) {
       throw new OneKeyLocalError('Account xpub not found');
     }
-    const key = accountUtils.getBTCFreshAddressKey({
-      networkId,
-      xpubSegwit: deriveType === 'BIP86' ? account.xpubSegwit : account.xpub,
-    });
-
-    const lastUpdateTime = (await btcFreshAddressLastUpdateAtom.get())
-      .lastUpdateTime[key];
+    const xpubForMeta =
+      deriveType === 'BIP86' ? account.xpubSegwit : account.xpub;
+    const btcFreshAddressMetaRecord =
+      (await this.backgroundApi.simpleDb.btcFreshAddressMeta.getRecord({
+        networkId,
+        xpubSegwit: xpubForMeta,
+      })) ?? {};
+    const { lastUpdateTime, txCount: currentTxCount } =
+      btcFreshAddressMetaRecord;
+    const lastLocalUsedAddressesHash =
+      btcFreshAddressMetaRecord.localUsedAddressesHash;
     if (
       lastUpdateTime &&
       Date.now() - lastUpdateTime <
@@ -886,16 +887,11 @@ class ServiceAccountProfile extends ServiceBase {
       await this.getLocalPendingTxsForFreshAddress({
         networkId,
       });
-    const lastLocalUsedAddressesHash =
-      await btcLocalUsedAddressesHashAtom.get();
 
     const isSameLocalUsedAddressesHash =
-      lastLocalUsedAddressesHash[key] &&
-      lastLocalUsedAddressesHash[key] === localUsedAddressesHash;
+      lastLocalUsedAddressesHash &&
+      lastLocalUsedAddressesHash === localUsedAddressesHash;
 
-    const currentTxCount = (await btcFreshAddressTxCountAtom.get()).txCount[
-      key
-    ];
     if (!isNil(currentTxCount)) {
       const accountDetailsWithTxCount = await this.fetchAccountDetails({
         accountId,
@@ -906,12 +902,13 @@ class ServiceAccountProfile extends ServiceBase {
         (accountDetailsWithTxCount.transactionCount || 0) === currentTxCount &&
         isSameLocalUsedAddressesHash
       ) {
-        void btcFreshAddressLastUpdateAtom.set((prev) => ({
-          lastUpdateTime: {
-            ...prev.lastUpdateTime,
-            [key]: Date.now(),
+        await this.backgroundApi.simpleDb.btcFreshAddressMeta.updateRecord({
+          networkId,
+          xpubSegwit: xpubForMeta,
+          patch: {
+            lastUpdateTime: Date.now(),
           },
-        }));
+        });
         return;
       }
     }
@@ -926,12 +923,13 @@ class ServiceAccountProfile extends ServiceBase {
       !Array.isArray(accountDetailsWithXpubDerivedTokens.xpubDerivedTokens) ||
       !accountDetailsWithXpubDerivedTokens.xpubDerivedTokens.length
     ) {
-      void btcFreshAddressLastUpdateAtom.set((prev) => ({
-        lastUpdateTime: {
-          ...prev.lastUpdateTime,
-          [key]: Date.now(),
+      await this.backgroundApi.simpleDb.btcFreshAddressMeta.updateRecord({
+        networkId,
+        xpubSegwit: xpubForMeta,
+        patch: {
+          lastUpdateTime: Date.now(),
         },
-      }));
+      });
       return;
     }
 
@@ -963,23 +961,15 @@ class ServiceAccountProfile extends ServiceBase {
         },
       );
     }
-    void btcFreshAddressTxCountAtom.set((prev) => ({
-      txCount: {
-        ...prev.txCount,
-        [key]: accountDetailsWithXpubDerivedTokens.transactionCount || 0,
+    await this.backgroundApi.simpleDb.btcFreshAddressMeta.updateRecord({
+      networkId,
+      xpubSegwit: xpubForMeta,
+      patch: {
+        txCount: accountDetailsWithXpubDerivedTokens.transactionCount || 0,
+        lastUpdateTime: Date.now(),
+        localUsedAddressesHash,
       },
-    }));
-    void btcFreshAddressLastUpdateAtom.set((prev) => ({
-      lastUpdateTime: {
-        ...prev.lastUpdateTime,
-        [key]: Date.now(),
-      },
-    }));
-    void btcLocalUsedAddressesHashAtom.set((prev) => ({
-      ...prev,
-      // TODO: key is temporary solution for type safe
-      [key]: localUsedAddressesHash ?? key,
-    }));
+    });
     appEventBus.emit(EAppEventBusNames.BtcFreshAddressUpdated, undefined);
   }
 

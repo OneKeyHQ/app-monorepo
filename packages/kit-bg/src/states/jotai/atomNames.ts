@@ -76,9 +76,6 @@ export enum EAtomNames {
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
 
-  btcFreshAddressLastUpdateAtom = 'btcFreshAddressLastUpdateAtom',
-  btcFreshAddressTxCountAtom = 'btcFreshAddressTxCountAtom',
-  btcLocalUsedAddressesHashAtom = 'btcLocalUsedAddressesHashAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
