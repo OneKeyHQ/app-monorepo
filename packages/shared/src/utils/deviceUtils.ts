@@ -145,6 +145,10 @@ async function getDeviceVersionStr(params: IGetDeviceVersionParams) {
   return `${bootloaderVersion}--${bleVersion}--${firmwareVersion}`;
 }
 
+function isTouchDevice(deviceType: IDeviceType) {
+  return [EDeviceType.Touch, EDeviceType.Pro].includes(deviceType);
+}
+
 async function getDeviceTypeFromFeatures({
   features,
 }: {
@@ -584,4 +588,5 @@ export default {
   getDeviceConnectId,
   getDefaultHardwareTransportType,
   isBtcOnlyFirmware,
+  isTouchDevice,
 };

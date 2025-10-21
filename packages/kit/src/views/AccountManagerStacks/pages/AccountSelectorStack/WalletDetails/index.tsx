@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -60,8 +59,7 @@ export interface IWalletDetailsProps {
 
 function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
-  const { serviceAccount, serviceAccountSelector, serviceNetwork } =
-    backgroundApiProxy;
+  const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
@@ -95,8 +93,6 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
   });
-
-  const navigation = useAppNavigation();
 
   // TODO move to hooks
   const isOthers = selectedAccount?.focusedWallet === '$$others';
