@@ -23,7 +23,6 @@ import {
   Select,
   SizableText,
   Skeleton,
-  Spinner,
   Stack,
   Table,
   Toast,
@@ -630,7 +629,11 @@ function BatchCreateAccountPreviewPage({
           <YStack py="$1">
             <SizableText size="$bodyMd">
               {accountUtils.shortenAddress({
-                address: account.displayAddress || account.address,
+                address: networkUtils.isBTCNetwork(networkId)
+                  ? account.addressDetail.masterAddress ||
+                    account.displayAddress ||
+                    account.address
+                  : account.displayAddress || account.address,
               })}
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -687,6 +690,7 @@ function BatchCreateAccountPreviewPage({
       getAccountCheckedState,
       intl,
       network?.symbol,
+      networkId,
     ],
   );
 

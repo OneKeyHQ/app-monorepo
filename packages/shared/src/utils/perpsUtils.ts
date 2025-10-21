@@ -14,7 +14,15 @@ import {
   MAX_PRICE_INTEGER_DIGITS,
   MAX_SIGNIFICANT_FIGURES,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IWsActiveAssetCtx } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpsAssetCtx,
+  IPerpsUniverse,
+  IWsActiveAssetCtx,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpTokenSortDirection,
+  IPerpTokenSortField,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 // Types for liquidation price calculation
 interface IMarginTier {
@@ -1096,6 +1104,95 @@ const resolveTradingSize = (params: ITradingSizeParams): string => {
 
 function getHyperliquidTokenImageUrl(tokenSymbol: string): string {
   return `https://uni.onekey-asset.com/static/hyperliquid/${tokenSymbol}.png`;
+}
+
+/**
+ * Sort perps assets by various fields
+ * Pre-converts numeric values to avoid repeated conversions during sorting
+ * If sortField is empty, returns original order (no sorting)
+ */
+export function sortPerpsAssetIndices({
+  assets,
+  assetCtxs,
+  sortField,
+  sortDirection,
+}: {
+  assets: IPerpsUniverse[];
+  assetCtxs: Record<number, IPerpsAssetCtx>;
+  sortField: IPerpTokenSortField | '';
+  sortDirection: IPerpTokenSortDirection;
+}): number[] {
+  if (!assets.length) {
+    return [];
+  }
+
+  // No sorting - preserve original order
+  if (!sortField) {
+    return assets.map((_, index) => index);
+  }
+
+  const indicesWithData = assets.map((asset, index) => {
+    const rawCtx = assetCtxs[asset.assetId];
+
+    const markPrice = Number(rawCtx?.markPx || 0);
+    const fundingRate = Number(rawCtx?.funding || 0);
+    const volume24h = Number(rawCtx?.dayNtlVlm || 0);
+    const openInterest = Number(rawCtx?.openInterest || 0);
+    const prevDayPx = Number(rawCtx?.prevDayPx || 0);
+    const change24hPercent =
+      prevDayPx > 0 ? ((markPrice - prevDayPx) / prevDayPx) * 100 : 0;
+    const openInterestValue = openInterest * markPrice;
+
+    return {
+      index,
+      asset,
+      markPrice,
+      fundingRate,
+      volume24h,
+      openInterest,
+      openInterestValue,
+      change24hPercent,
+    };
+  });
+
+  indicesWithData.sort((a, b) => {
+    let compareResult = 0;
+
+    switch (sortField) {
+      case 'name':
+        compareResult = a.asset.name.localeCompare(b.asset.name, undefined, {
+          sensitivity: 'base',
+        });
+        break;
+
+      case 'markPrice':
+        compareResult = a.markPrice - b.markPrice;
+        break;
+
+      case 'change24hPercent':
+        compareResult = a.change24hPercent - b.change24hPercent;
+        break;
+
+      case 'fundingRate':
+        compareResult = a.fundingRate - b.fundingRate;
+        break;
+
+      case 'volume24h':
+        compareResult = a.volume24h - b.volume24h;
+        break;
+
+      case 'openInterest':
+        compareResult = a.openInterestValue - b.openInterestValue;
+        break;
+
+      default:
+        break;
+    }
+
+    return sortDirection === 'asc' ? compareResult : -compareResult;
+  });
+
+  return indicesWithData.map((item) => item.index);
 }
 
 export {

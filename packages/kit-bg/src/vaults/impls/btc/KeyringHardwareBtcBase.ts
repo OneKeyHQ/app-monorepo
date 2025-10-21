@@ -491,6 +491,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         pathPrefix,
         pathSuffix,
         coinName,
+        receiveAddressPath,
         showOnOnekeyFn,
       }) => {
         const sdk = await this.getHardwareSDKInstance({
@@ -500,7 +501,9 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         const response = await sdk.btcGetAddress(connectId, deviceId, {
           ...params.deviceParams.deviceCommonParams,
           bundle: indexes.map((index, arrIndex) => ({
-            path: `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
+            path:
+              receiveAddressPath ??
+              `${pathPrefix}/${pathSuffix.replace('{index}', `${index}`)}`,
             coin: coinName?.toLowerCase(),
             showOnOneKey: showOnOnekeyFn(arrIndex),
           })),

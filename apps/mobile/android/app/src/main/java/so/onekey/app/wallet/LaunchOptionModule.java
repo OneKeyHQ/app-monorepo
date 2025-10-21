@@ -25,7 +25,6 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
     private static Long staticStartupTime;
     
     private Bundle launchOptions;
-    private String deviceToken;
 
     public LaunchOptionModule(ReactApplicationContext context) {
         super(context);
@@ -66,17 +65,6 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
         synchronized (this) {
             return launchOptions;
         }
-    }
-
-    public void saveDeviceToken(String deviceToken) {
-        if (deviceToken != null) {
-            this.deviceToken = deviceToken;
-            log("saveDeviceToken", "Device token saved");
-        }
-    }
-
-    public String getDeviceToken() {
-        return deviceToken;
     }
 
     @ReactMethod
@@ -133,8 +121,7 @@ public class LaunchOptionModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void getDeviceToken(Promise promise) {
-        String deviceToken = getDeviceToken();
-        promise.resolve(deviceToken);
+        promise.resolve("");
     }
 
     @ReactMethod

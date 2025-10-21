@@ -21,6 +21,11 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { BTCFreshAddressCanNotConnectDappError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -102,11 +107,24 @@ class ProviderApiBtc extends ProviderApiBase {
     };
   }
 
+  private async checkIfEnableConnect() {
+    const enabledBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (enabledBTCFreshAddress) {
+      appEventBus.emit(
+        EAppEventBusNames.BtcFreshAddressConnectDappRejected,
+        undefined,
+      );
+      throw new BTCFreshAddressCanNotConnectDappError();
+    }
+  }
+
   // Provider API
   @providerApiMethod()
   public async requestAccounts(request: IJsBridgeMessagePayload) {
     return this.semaphore.runExclusive(async () => {
       defaultLogger.discovery.dapp.dappRequest({ request });
+      await this.checkIfEnableConnect();
       const accounts = await this.getAccounts(request);
       if (accounts && accounts.length) {
         return accounts;
@@ -376,6 +394,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignMessageParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    await this.checkIfEnableConnect();
     const { message, type } = params;
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
@@ -451,6 +470,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignPsbtParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    await this.checkIfEnableConnect();
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 
@@ -493,6 +513,7 @@ class ProviderApiBtc extends ProviderApiBase {
     params: ISignPsbtsParams,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
+    await this.checkIfEnableConnect();
     const accountsInfo = await this.getAccountsInfo(request);
     const { accountInfo: { accountId, networkId } = {} } = accountsInfo[0];
 

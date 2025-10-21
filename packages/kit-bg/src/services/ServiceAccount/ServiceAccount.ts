@@ -27,6 +27,7 @@ import type {
   IExportKeyType,
 } from '@onekeyhq/core/src/types';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
   backgroundClass,
   backgroundMethod,
@@ -154,6 +155,7 @@ import type {
   IAccountDeriveInfoItems,
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsResponse,
+  IPrepareHDOrHWAccountChainExtraParams,
   IPrepareHardwareAccountsParams,
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
@@ -665,6 +667,12 @@ class ServiceAccount extends ServiceBase {
         deriveType,
       });
 
+    const chainExtraParams = await this.prepareHDOrHWAccountChainExtraParams({
+      networkId,
+      indexedAccountId,
+      deriveType,
+    });
+
     let prepareParams:
       | IPrepareHdAccountsParams
       | IPrepareHardwareAccountsParams;
@@ -679,6 +687,7 @@ class ServiceAccount extends ServiceBase {
         names,
         deriveInfo,
         hwAllNetworkPrepareAccountsResponse,
+        chainExtraParams,
       };
       prepareParams = hwParams;
     } else {
@@ -5076,6 +5085,86 @@ class ServiceAccount extends ServiceBase {
       console.error('addWatchingAccountByInput error', e);
     }
     return { addedAccounts };
+  }
+
+  @backgroundMethod()
+  async getMasterAddress({
+    networkAccount,
+    allNetworkAccountInfo,
+    networkId,
+  }: {
+    networkAccount: INetworkAccount | undefined;
+    allNetworkAccountInfo: IAllNetworkAccountInfo | undefined;
+    networkId: string;
+  }): Promise<{
+    masterAddress: string;
+  }> {
+    const enableBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (!networkUtils.isBTCNetwork(networkId) || !enableBTCFreshAddress) {
+      if (networkAccount) {
+        return {
+          masterAddress: networkAccount.address || '',
+        };
+      }
+      if (allNetworkAccountInfo) {
+        return {
+          masterAddress: allNetworkAccountInfo.apiAddress || '',
+        };
+      }
+    }
+
+    let account: INetworkAccount | undefined = networkAccount;
+    if (!networkAccount && allNetworkAccountInfo) {
+      account = await this.getAccount({
+        accountId: allNetworkAccountInfo.accountId,
+        networkId,
+      });
+    }
+
+    return {
+      masterAddress:
+        account?.addressDetail.masterAddress || account?.address || '',
+    };
+  }
+
+  @backgroundMethod()
+  async prepareHDOrHWAccountChainExtraParams({
+    networkId,
+    indexedAccountId,
+    deriveType,
+  }: {
+    networkId: string;
+    indexedAccountId: string | undefined;
+    deriveType: IAccountDeriveTypes;
+  }): Promise<IPrepareHDOrHWAccountChainExtraParams | undefined> {
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return undefined;
+    }
+    if (!indexedAccountId) {
+      return undefined;
+    }
+    const enabledBTCFreshAddress =
+      await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
+    if (!enabledBTCFreshAddress) {
+      return undefined;
+    }
+    try {
+      const account = await this.getNetworkAccount({
+        indexedAccountId,
+        deriveType,
+        networkId,
+        accountId: undefined,
+      });
+      if (!account) {
+        return undefined;
+      }
+      return {
+        receiveAddressPath: account.addressDetail.receiveAddressPath,
+      };
+    } catch {
+      return undefined;
+    }
   }
 }
 
