@@ -5146,18 +5146,22 @@ class ServiceAccount extends ServiceBase {
     if (!enabledBTCFreshAddress) {
       return undefined;
     }
-    const account = await this.getNetworkAccount({
-      indexedAccountId,
-      deriveType,
-      networkId,
-      accountId: undefined,
-    });
-    if (!account) {
+    try {
+      const account = await this.getNetworkAccount({
+        indexedAccountId,
+        deriveType,
+        networkId,
+        accountId: undefined,
+      });
+      if (!account) {
+        return undefined;
+      }
+      return {
+        receiveAddressPath: account.addressDetail.receiveAddressPath,
+      };
+    } catch {
       return undefined;
     }
-    return {
-      receiveAddressPath: account.addressDetail.receiveAddressPath,
-    };
   }
 }
 
