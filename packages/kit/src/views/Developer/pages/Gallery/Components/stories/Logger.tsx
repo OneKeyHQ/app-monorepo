@@ -9,9 +9,9 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
-  collectWebLogDigest,
+  collectLogDigest,
   exportLogs,
-  uploadWebLogs,
+  uploadLogBundle,
 } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import perfUtils, {
@@ -27,7 +27,7 @@ const LoggerDemo = () => {
   }, []);
 
   const uploadLog = useCallback(async () => {
-    const digest = await collectWebLogDigest('onekey_logs');
+    const digest = await collectLogDigest('onekey_logs');
     console.log('Log Digest:', digest);
     const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
       sizeBytes: digest.sizeBytes,
@@ -35,7 +35,7 @@ const LoggerDemo = () => {
     });
     console.log('Upload token:', token);
 
-    const res = await uploadWebLogs({
+    const res = await uploadLogBundle({
       uploadToken: token.uploadToken,
       digest,
     });

@@ -13,7 +13,7 @@ const LOG_FILE_EXTENSION = 'txt';
 const EMPTY_SHA256_HEX =
   'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-export type IWebLogBundle = {
+export type ILogBundle = {
   type: 'text';
   fileName: string;
   mimeType: string;
@@ -21,18 +21,18 @@ export type IWebLogBundle = {
   content: string;
 };
 
-export type IWebLogDigest = {
+export type ILogDigest = {
   sizeBytes: number;
   sha256: string;
-  bundle: IWebLogBundle;
+  bundle: ILogBundle;
 };
 
 const buildDefaultFileBaseName = () =>
   `OneKeyLogs-${new Date().toISOString().replace(/[-:.]/g, '')}`;
 
-export const collectWebLogDigest = async (
+export const collectLogDigest = async (
   fileBaseName?: string,
-): Promise<IWebLogDigest> => {
+): Promise<ILogDigest> => {
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
   await waitAsync(1000);
@@ -63,7 +63,7 @@ export const collectWebLogDigest = async (
 };
 
 export const exportLogs = async (filename?: string) => {
-  const digest = await collectWebLogDigest(filename);
+  const digest = await collectLogDigest(filename);
   const element = document.createElement('a');
   element.href = URL.createObjectURL(digest.bundle.blob);
   element.download = digest.bundle.fileName;
@@ -72,19 +72,19 @@ export const exportLogs = async (filename?: string) => {
   element.remove();
 };
 
-export type IWebLogUploadResponse = {
+export type ILogUploadResponse = {
   objectKey: string;
   uploadedBytes: number;
   durationMs: number;
 };
 
-export const uploadWebLogs = async ({
+export const uploadLogBundle = async ({
   uploadToken,
   digest,
 }: {
   uploadToken: string;
-  digest: IWebLogDigest;
-}): Promise<{ digest: IWebLogDigest; result: IWebLogUploadResponse }> => {
+  digest: ILogDigest;
+}): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw new OneKeyLocalError('Upload token is required');
   }
@@ -95,7 +95,7 @@ export const uploadWebLogs = async ({
     name: EServiceEndpointEnum.Wallet,
   });
   const client = await appApiClient.getClient(endpointInfo);
-  const response = await client.post<IApiClientResponse<IWebLogUploadResponse>>(
+  const response = await client.post<IApiClientResponse<ILogUploadResponse>>(
     '/wallet/v1/client/log',
     digest.bundle.blob,
     {
