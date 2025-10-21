@@ -530,6 +530,7 @@ class DesktopApiAppUpdate {
         ETranslations.update_installation_package_possibly_compromised,
       );
     }
+    return true;
   }
 
   async verifyPackage(verifyParams: IInstallUpdateParams): Promise<boolean> {
