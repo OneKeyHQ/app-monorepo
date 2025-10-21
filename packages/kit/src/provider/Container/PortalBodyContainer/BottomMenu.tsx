@@ -17,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -78,7 +79,7 @@ function _NotificationButton() {
   );
 }
 
-function BaseBottomMenu() {
+function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const openSettingPage = useCallback(() => {
@@ -95,14 +96,19 @@ function BaseBottomMenu() {
       borderRightWidth={StyleSheet.hairlineWidth}
       bg="$bgSidebar"
       gap="$2"
+      alignItems={isCollapse ? 'center' : undefined}
     >
       <DesktopTabItem
         onPress={openSettingPage}
         selected={false}
         icon="SettingsOutline"
-        label={intl.formatMessage({
-          id: ETranslations.settings_settings,
-        })}
+        label={
+          isCollapse
+            ? ''
+            : intl.formatMessage({
+                id: ETranslations.settings_settings,
+              })
+        }
         shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
         testID="setting"
       />
@@ -113,10 +119,11 @@ function BaseBottomMenu() {
 export function BottomMenu() {
   const { gtMd } = useMedia();
   const isIpadLandscape = useIsIpadLandscape();
+  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
   const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
   return isShowBottomMenu ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
-      <BaseBottomMenu />
+      <BaseBottomMenu isCollapse={isCollapse} />
     </Portal.Body>
   ) : null;
 }
