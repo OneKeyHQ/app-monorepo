@@ -20,8 +20,10 @@ import { useTradingFormAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hype
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountStatusAtom,
+  usePerpsActiveAssetAtom,
   usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
+  usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -60,8 +62,15 @@ function SideButtonInternal({
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const [formData] = useTradingFormAtom();
+  const [tradingPreferences] = usePerpsTradingPreferencesAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
 
   const { handleConfirm } = useOrderConfirm();
+
+  const szDecimals = useMemo(
+    () => activeAsset?.universe?.szDecimals ?? 2,
+    [activeAsset?.universe?.szDecimals],
+  );
 
   const calculations = useTradingCalculationsForSide(side);
   const {
@@ -131,6 +140,29 @@ function SideButtonInternal({
     isAccountLoading,
     perpConfigCommon?.disablePerpActionPerp,
     perpConfigCommon?.ipDisablePerp,
+  ]);
+
+  const buttonSecondaryText = useMemo(() => {
+    if (orderValue.isZero() || !orderValue.isFinite()) return null;
+
+    if (tradingPreferences.sizeInputUnit === 'usd') {
+      const usdValue = orderValue
+        .decimalPlaces(2, BigNumber.ROUND_DOWN)
+        .toFixed(2);
+      return `≈ $${usdValue || '0.00'}`;
+    }
+
+    const sizeValue = computedSizeForSide
+      .decimalPlaces(szDecimals, BigNumber.ROUND_DOWN)
+      .toFixed(szDecimals);
+    const symbol = activeAsset?.coin || '';
+    return `${sizeValue} ${symbol}`;
+  }, [
+    orderValue,
+    tradingPreferences.sizeInputUnit,
+    computedSizeForSide,
+    szDecimals,
+    activeAsset?.coin,
   ]);
 
   const buttonText = useMemo(() => {
@@ -451,16 +483,14 @@ function SideButtonInternal({
               {buttonText}
             </SizableText>
 
-            {!orderValue.isZero() && orderValue.isFinite() ? (
+            {buttonSecondaryText ? (
               <SizableText
                 fontSize={11}
                 color="$textOnColor"
                 opacity={0.8}
                 lineHeight={11}
               >
-                ≈ $
-                {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2) ||
-                  '0.00'}
+                {buttonSecondaryText}
               </SizableText>
             ) : null}
           </YStack>
@@ -489,16 +519,14 @@ function SideButtonInternal({
           >
             {buttonText}
           </SizableText>
-          {!orderValue.isZero() && orderValue.isFinite() ? (
+          {buttonSecondaryText ? (
             <SizableText
               fontSize={11}
               color="$textOnColor"
               opacity={0.8}
               lineHeight={11}
             >
-              ≈ $
-              {orderValue.decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2) ||
-                '0.00'}
+              {buttonSecondaryText}
             </SizableText>
           ) : null}
         </YStack>
