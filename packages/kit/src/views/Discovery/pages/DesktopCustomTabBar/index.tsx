@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { HandleRebuildBrowserData } from '@onekeyhq/kit/src/views/Discovery/components/HandleData/HandleRebuildBrowserTabData';
 import type { IWebTab } from '@onekeyhq/kit/src/views/Discovery/types';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -55,6 +56,7 @@ const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
 function DesktopCustomTabBar() {
   const intl = useIntl();
+  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
   // register desktop shortcuts for browser tab
   useDiscoveryShortcuts();
   // register desktop new window event
@@ -327,6 +329,7 @@ function DesktopCustomTabBar() {
               id={t.id}
               key={t.id}
               onPress={onTabPress}
+              isCollapse={isCollapse}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}
@@ -395,9 +398,13 @@ function DesktopCustomTabBar() {
               <DesktopTabItem
                 size="small"
                 key="AddTabButton"
-                label={intl.formatMessage({
-                  id: ETranslations.explore_new_tab,
-                })}
+                label={
+                  isCollapse
+                    ? ''
+                    : intl.formatMessage({
+                        id: ETranslations.explore_new_tab,
+                      })
+                }
                 shortcutKey={EShortcutEvents.NewTab2}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"

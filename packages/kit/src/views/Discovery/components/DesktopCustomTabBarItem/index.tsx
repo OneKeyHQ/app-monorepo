@@ -23,6 +23,7 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 function DesktopCustomTabBarItem({
   id,
   shortcutKey,
+  isCollapse,
   onPress,
   onBookmarkPress,
   onPinnedPress,
@@ -32,6 +33,7 @@ function DesktopCustomTabBarItem({
 }: IPropsWithTestId<{
   id: string;
   shortcutKey?: EShortcutEvents;
+  isCollapse: boolean;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
@@ -197,6 +199,13 @@ function DesktopCustomTabBarItem({
       isHomeTab,
     ],
   );
+  const label = useMemo(() => {
+    if (isCollapse) {
+      return '';
+    }
+    return (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title;
+  }, [isCollapse, tab?.customTitle, tab?.title]);
+
   if (!tab) {
     return null;
   }
@@ -210,9 +219,7 @@ function DesktopCustomTabBarItem({
       key={id}
       selected={isActive}
       onPress={() => onPress(id)}
-      label={
-        (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title
-      }
+      label={label}
       avatarSrc={tab?.favicon}
       testID={testID}
       id={id}
@@ -224,5 +231,7 @@ function DesktopCustomTabBarItem({
 
 export default memo(
   DesktopCustomTabBarItem,
-  (prevProps, nextProps) => prevProps.id === nextProps.id,
+  (prevProps, nextProps) =>
+    prevProps.id === nextProps.id &&
+    prevProps.isCollapse === nextProps.isCollapse,
 );
