@@ -83,15 +83,14 @@ function TokenListHeader() {
         label={intl.formatMessage({
           id: ETranslations.perp_token_selector_volume,
         })}
-        width={110}
+        width={100}
       />
       <SortableHeaderCell
         field="openInterest"
         label={intl.formatMessage({
           id: ETranslations.perp_token_bar_open_Interest,
         })}
-        width={130}
-        align="right"
+        width={110}
       />
     </XStack>
   );

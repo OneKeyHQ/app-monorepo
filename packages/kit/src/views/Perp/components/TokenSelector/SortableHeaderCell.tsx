@@ -86,7 +86,7 @@ function BaseSortableHeaderCell({
       >
         {label}
       </SizableText>
-      {align !== 'right' && isActive ? (
+      {isActive ? (
         <Icon
           name={
             sortConfig?.direction === 'asc'
