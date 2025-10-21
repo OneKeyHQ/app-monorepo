@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 import {
   Button,
   SizableText,
-  Stack,
   XStack,
   YStack,
   useIsHorizontalLayout,
@@ -18,20 +17,23 @@ import {
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
 import { UniversalSearchInput } from '@onekeyhq/kit/src/components/TabPageHeader/UniversalSearchInput';
-import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useAppNavigation from '../../hooks/useAppNavigation';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import TabCountButton from '../../views/Discovery/components/MobileBrowser/TabCountButton';
 import { HistoryIconButton } from '../../views/Discovery/pages/components/HistoryIconButton';
 
+import {
+  DownloadButton,
+  HeaderNotificationIconButton,
+  LanguageButton,
+  OneKeyIdButton,
+  ThemeButton,
+  WalletConnectionForWeb,
+} from './components';
 import { MoreActionButton } from './MoreActionButton';
 
 function GiftAction() {
@@ -49,72 +51,6 @@ function GiftAction() {
   );
 }
 
-function NotificationsButton() {
-  const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
-  const navigation = useAppNavigation();
-  const intl = useIntl();
-  const openNotificationsModal = useCallback(async () => {
-    navigation.pushModal(EModalRoutes.NotificationsModal, {
-      screen: EModalNotificationsRoutes.NotificationList,
-    });
-  }, [navigation]);
-  return (
-    <Stack
-      key="notifications"
-      testID="headerRightNotificationsButton"
-      onPress={openNotificationsModal}
-    >
-      <HeaderIconButton
-        title={intl.formatMessage({
-          id: ETranslations.global_notifications,
-        })}
-        trackID="header-right-notifications"
-        icon="BellOutline"
-      />
-      {!firstTimeGuideOpened || badge ? (
-        <Stack
-          position="absolute"
-          right="$-2.5"
-          top="$-2"
-          alignItems="flex-end"
-          w="$10"
-          pointerEvents="none"
-        >
-          <Stack
-            bg="$bgApp"
-            borderRadius="$full"
-            borderWidth={2}
-            borderColor="$transparent"
-          >
-            <Stack
-              px="$1"
-              borderRadius="$full"
-              bg="$bgCriticalStrong"
-              minWidth="$4"
-              height="$4"
-              alignItems="center"
-              justifyContent="center"
-            >
-              {!firstTimeGuideOpened ? (
-                <Stack
-                  width="$1"
-                  height="$1"
-                  backgroundColor="white"
-                  borderRadius="$full"
-                />
-              ) : (
-                <SizableText color="$textOnColor" size="$bodySm">
-                  {badge && badge > 99 ? '99+' : badge}
-                </SizableText>
-              )}
-            </Stack>
-          </Stack>
-        </Stack>
-      ) : null}
-    </Stack>
-  );
-}
-
 export function MoreAction() {
   return <MoreActionButton key="more-action" />;
 }
@@ -125,22 +61,6 @@ export function SelectorTrigger() {
       num={0}
       size="small"
       recordNetworkHistoryEnabled
-    />
-  );
-}
-
-function PeopleAction() {
-  const { loginOneKeyId } = useLoginOneKeyId();
-  const handlePress = useCallback(async () => {
-    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-  }, [loginOneKeyId]);
-  return (
-    <HeaderIconButton
-      key="onekey-id"
-      title="OneKey ID"
-      icon="PeopleOutline"
-      onPress={handlePress}
-      testID="header-right-onekey-id"
     />
   );
 }
@@ -176,8 +96,9 @@ function DepositAction() {
 }
 
 export function SearchInput() {
-  const { gtLg } = useMedia();
-  return <UniversalSearchInput size={gtLg ? 'large' : 'small'} />;
+  const { gtXl, gtLg } = useMedia();
+  const size = platformEnv.isWeb ? gtXl : gtLg;
+  return <UniversalSearchInput size={size ? 'large' : 'small'} />;
 }
 
 export function HeaderRight({
@@ -195,6 +116,8 @@ export function HeaderRight({
   }) => ReactNode;
 }) {
   const isHorizontal = useIsHorizontalLayout();
+  const { gtXl } = useMedia();
+
   const items = useMemo(() => {
     if (customHeaderRightItems) {
       return customHeaderRightItems;
@@ -202,9 +125,16 @@ export function HeaderRight({
 
     const fixedItems = (
       <>
-        {isHorizontal ? <NotificationsButton /> : null}
+        {isHorizontal ? (
+          <HeaderNotificationIconButton testID="header-right-notification" />
+        ) : null}
         <MoreAction />
-        {isHorizontal ? <PeopleAction /> : null}
+        {isHorizontal ? (
+          <OneKeyIdButton testID="header-right-onekey-id" />
+        ) : null}
+        {isHorizontal ? <DownloadButton /> : null}
+        {isHorizontal && gtXl ? <LanguageButton /> : null}
+        {isHorizontal && gtXl ? <ThemeButton /> : null}
       </>
     );
 
@@ -218,17 +148,29 @@ export function HeaderRight({
           <>
             {isHorizontal ? <SearchInput /> : undefined}
             {isHorizontal ? undefined : <SelectorTrigger />}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
       case ETabRoutes.Swap:
-        return fixedItems;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
       case ETabRoutes.WebviewPerpTrade:
-        return fixedItems;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            {fixedItems}
+          </>
+        );
       case ETabRoutes.Market:
         return (
           <>
             {isHorizontal ? <SearchInput /> : undefined}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
@@ -239,6 +181,7 @@ export function HeaderRight({
             {isHorizontal || !platformEnv.isNative ? undefined : (
               <TabCountButton testID="browser-header-tabs" />
             )}
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
@@ -246,16 +189,23 @@ export function HeaderRight({
         return (
           <>
             <GiftAction />
+            <WalletConnectionForWeb tabRoute={tabRoute} />
             {fixedItems}
           </>
         );
       case ETabRoutes.Perp:
-        return <DepositAction />;
+        return (
+          <>
+            <WalletConnectionForWeb tabRoute={tabRoute} />
+            <DepositAction />
+          </>
+        );
       default:
         break;
     }
   }, [
     isHorizontal,
+    gtXl,
     tabRoute,
     customHeaderRightItems,
     renderCustomHeaderRightItems,

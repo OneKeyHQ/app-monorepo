@@ -13,6 +13,7 @@ module.exports = [
   '0xf7ad23226db5c1c00ca0ca1468fd49c8f8bbc1489bc1c382de5adc557a69c229',
   '0xffffffffffffffffn',
   'reown',
+  'getters',
   '0xxxxxxx',
   'nktkas',
   'bbo',

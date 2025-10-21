@@ -98,5 +98,10 @@ export const useTabContainerWidth = platformEnv.isNative
         }
         return 0;
       }, [md, leftSidebarCollapsed]);
+
+      if (platformEnv.isWeb) {
+        return `calc(100vw)`;
+      }
+
       return `calc(100vw - ${sideBarWidth}px)`;
     };
