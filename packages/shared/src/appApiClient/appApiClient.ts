@@ -59,9 +59,9 @@ const getBasicClient = async ({
   if (!endpoint || !name) {
     throw new OneKeyError('Invalid endpoint name.');
   }
-  // if (!endpoint.startsWith('https://')) {
-  //   throw new OneKeyError('Invalid endpoint, https only');
-  // }
+  if (!endpoint.startsWith('https://')) {
+    throw new OneKeyError('Invalid endpoint, https only');
+  }
 
   const timeout = REQUEST_TIMEOUT;
   const options =

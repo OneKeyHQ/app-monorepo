@@ -269,7 +269,7 @@ const TokenOpenInterestCellDesktop = memo(() => {
         name="TokenOpenInterestCellDesktop"
         offsetY={10}
       >
-        <XStack flex={1} justifyContent="flex-end">
+        <XStack flex={1} justifyContent="flex-start">
           <SkeletonContainer isLoading={isLoading} width="80%" height={16}>
             <SizableText size="$bodySm" color="$text">
               ${openInterestValue}

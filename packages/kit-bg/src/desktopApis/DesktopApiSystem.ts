@@ -162,20 +162,6 @@ class DesktopApiSystem {
     return result || 'unknown';
   }
 
-  async getVersion(): Promise<string> {
-    return app.getVersion();
-  }
-
-  async getBuildNumber(): Promise<string> {
-    return process.env.BUILD_NUMBER || '';
-  }
-
-  async getJsBundlePath(): Promise<string> {
-    return (
-      globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || ''
-    );
-  }
-
   async getEnvPath(): Promise<{ [key: string]: string }> {
     const home: string = app.getPath('home');
     const appData: string = app.getPath('appData');

@@ -1101,8 +1101,8 @@ export function OrderPairBook({
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 60;
-const MOBILE_PRICE_FLEX = 0.4;
-const MOBILE_SIZE_FLEX = 0.6;
+const MOBILE_PRICE_FLEX = 0.45;
+const MOBILE_SIZE_FLEX = 0.55;
 const MobileRow = ({
   item,
   priceColor,

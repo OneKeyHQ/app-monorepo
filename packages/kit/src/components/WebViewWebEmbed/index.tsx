@@ -118,39 +118,15 @@ export function WebViewWebEmbed({
     return undefined;
   }, [config?.url, devSettingsPersistAtom.enabled]);
 
-  // const [nativeWebviewSource, setNativeWebviewSource] = useState<
-  //   { uri: string } | undefined
-  // >(undefined);
-  // useEffect(() => {
-  //   void BundleUpdate.getWebEmbedPath().then((path) => {
-  //     console.log('WebViewWebEmbed getWebEmbedPath', path);
-  //     if (path) {
-  //       return setNativeWebviewSource({
-  //         uri: path,
-  //       });
-  //     }
-  //     // Android
-  //     if (platformEnv.isNativeAndroid) {
-  //       return setNativeWebviewSource({
-  //         uri: 'file:///android_asset/web-embed/index.html',
-  //       });
-  //     }
-  //     // iOS
-  //     if (platformEnv.isNativeIOS) {
-  //       setNativeWebviewSource({
-  //         uri: 'web-embed/index.html',
-  //       });
-  //     }
-  //     return undefined;
-  //   });
-  //   if (remoteUrl) {
-  //     return undefined;
-  //   }
-  // }, [remoteUrl]);
-
-  const nativeWebviewSource = useMemo<{ uri: string } | undefined>(() => {
+  const nativeWebviewSource = useMemo(() => {
     if (remoteUrl) {
       return undefined;
+    }
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    if (webEmbedPath) {
+      return {
+        uri: webEmbedPath,
+      };
     }
     // Android
     if (platformEnv.isNativeAndroid) {
@@ -166,14 +142,6 @@ export function WebViewWebEmbed({
     }
     return undefined;
   }, [remoteUrl]);
-
-  useEffect(() => {
-    void BundleUpdate.getWebEmbedPath().then((path) => {
-      if (path !== nativeWebviewSource?.uri) {
-        // TODO restart app
-      }
-    });
-  }, [nativeWebviewSource?.uri]);
 
   useEffect(() => {
     defaultLogger.app.webembed.webEmbedWebViewUriChanged({
