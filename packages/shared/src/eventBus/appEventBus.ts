@@ -314,6 +314,9 @@ export interface IAppEventBusPayload {
     promiseId: number;
     walletId: string;
   };
+  [EAppEventBusNames.doubleConfirmTxFeeInfo]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };

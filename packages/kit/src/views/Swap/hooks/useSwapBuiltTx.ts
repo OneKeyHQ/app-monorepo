@@ -544,7 +544,21 @@ export function useSwapBuildTx() {
           };
         },
       );
-
+      const { totalNative } = calculateFeeForSend({
+        feeInfo: gasInfo as IFeeInfoUnit,
+        nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
+      });
+      await backgroundApiProxy.serviceTransaction.verifyTransaction({
+        networkId,
+        accountId,
+        verifyTxTasks: ['feeInfo'],
+        verifyTxFeeInfoParams: {
+          feeAmount: totalNative,
+          feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
+          doubleConfirm: true,
+        },
+        encodedTx: updatedUnsignedTxItem.encodedTx,
+      });
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,

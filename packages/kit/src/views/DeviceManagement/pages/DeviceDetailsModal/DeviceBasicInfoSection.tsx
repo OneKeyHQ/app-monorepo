@@ -41,6 +41,7 @@ function DeviceBasicInfoSection({
       verifiedBadgeTextColor: '$iconCritical' as IIconProps['color'],
       verifiedBadgeIconName: 'ErrorSolid' as IKeyOfIcons,
       verifiedBadgeIconColor: '$iconCritical' as IIconProps['color'],
+      addWallpaperTitleId: ETranslations.global_wallpaper,
     }),
     [],
   );
@@ -53,6 +54,10 @@ function DeviceBasicInfoSection({
 
       const versions = await deviceUtils.getDeviceVersion({
         device,
+        features: device.featuresInfo,
+      });
+
+      const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
         features: device.featuresInfo,
       });
 
@@ -84,6 +89,9 @@ function DeviceBasicInfoSection({
         verifiedBadgeIconColor: status.color,
         verifiedBadgeText: intl.formatMessage({ id: status.textId }),
         verifiedBadgeTextColor: status.color,
+        addWallpaperTitleId: deviceUtils.isTouchDevice(deviceType)
+          ? ETranslations.global_wallpaper_add
+          : ETranslations.global_wallpaper,
       };
     },
     [device, intl, defaultInfo],
@@ -133,7 +141,7 @@ function DeviceBasicInfoSection({
         <YStack>
           <ListItem
             title={intl.formatMessage({
-              id: ETranslations.global_homescreen,
+              id: deviceInfo.addWallpaperTitleId,
             })}
             drillIn
             onPress={onPressHomescreen}

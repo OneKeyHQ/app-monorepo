@@ -2,7 +2,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   DebugRenderTracker,
   Divider,
   Icon,
@@ -13,6 +12,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -34,13 +34,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { usePerpsAssetCtx } from '../../../hooks/usePerpsAssetCtx';
 import { usePerpsMidPrice } from '../../../hooks/usePerpsMidPrice';
 import { PerpSettingsButton } from '../../PerpSettingsButton';
+import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 import { PerpsAccountNumberValue } from './PerpsAccountNumberValue';
-import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 function DebugButton() {
   const [allMids] = usePerpsAllMidsAtom();
@@ -170,6 +171,7 @@ export function PerpsHeaderRight() {
   const { gtMd } = useMedia();
   const content = (
     <XStack alignItems="center" gap="$5">
+      <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       <DepositButton />
       {gtMd ? (

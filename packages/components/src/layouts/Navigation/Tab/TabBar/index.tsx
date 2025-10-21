@@ -24,6 +24,11 @@ export default function TabBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
+  const { gtMd } = useMedia();
+
+  if (platformEnv.isWeb && gtMd) {
+    return null;
+  }
 
   if (platformEnv.isNativeAndroid || isShowMobileBottomTabBar) {
     return <MobileBottomTabBar {...props} />;
