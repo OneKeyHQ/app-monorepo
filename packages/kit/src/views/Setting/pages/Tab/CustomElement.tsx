@@ -66,7 +66,7 @@ import openUrlUtils, {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { useLocaleOptions, useResetApp } from '../../hooks';
+import { useLanguageSelector, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
@@ -102,25 +102,7 @@ export function CurrencyListItem(props: ICustomElementProps) {
 }
 
 export function LanguageListItem(props: ICustomElementProps) {
-  const locales = useLocaleOptions();
-  const [{ locale }] = useSettingsPersistAtom();
-
-  // Fix issue where en-US is deprecated but still exists in user settings
-  const options = useMemo(() => {
-    return locales.filter((item) => item.value !== 'en-US');
-  }, [locales]);
-  const value = useMemo(() => {
-    return locale === 'en-US' ? 'en' : locale;
-  }, [locale]);
-  const onChange = useCallback(async (text: string) => {
-    await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
-    setTimeout(() => {
-      if (platformEnv.isDesktop) {
-        void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
-      }
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
-  }, []);
+  const { options, value, onChange } = useLanguageSelector();
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -656,6 +638,28 @@ export function DesktopBluetoothListItem(props: ICustomElementProps) {
         size={ESwitchSize.small}
         value={enableDesktopBluetooth}
         onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function BTCFreshAddressListItem(props: ICustomElementProps) {
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
+      defaultLogger.setting.page.settingsEnableBTCFreshAddress({
+        enabled: value,
+      });
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={enableBTCFreshAddress}
+        onChange={toggleBTCFreshAddress}
       />
     </TabSettingsListItem>
   );

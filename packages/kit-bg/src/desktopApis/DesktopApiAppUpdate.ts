@@ -425,8 +425,9 @@ class DesktopApiAppUpdate {
         logger.error('auto-updater', 'Failed to fetch ASC file', error);
         throw error;
       }
+      return true;
     }
-    return true;
+    return false;
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
@@ -529,7 +530,6 @@ class DesktopApiAppUpdate {
         ETranslations.update_installation_package_possibly_compromised,
       );
     }
-
     return true;
   }
 
