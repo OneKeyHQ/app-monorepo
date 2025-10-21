@@ -11,7 +11,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useInTabDialog,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
@@ -29,9 +28,8 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { PERP_TRADE_BUTTON_COLORS } from '../../utils/styleUtils';
-
-import { showDepositWithdrawModal } from './modals/DepositWithdrawModal';
 
 const sharedButtonProps = {
   size: 'medium',
@@ -73,7 +71,7 @@ export function PerpTradingButton({
     perpsAccountLoading.enableTradingLoading,
     perpsAccountLoading.selectAccountLoading,
   ]);
-  const dialogInTab = useInTabDialog();
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
     const status = await backgroundApiProxy.serviceHyperliquid.enableTrading();
     if (
@@ -81,14 +79,13 @@ export function PerpTradingButton({
       perpsAccount.accountAddress &&
       perpsAccount.accountId
     ) {
-      await showDepositWithdrawModal(
-        {
-          actionType: 'deposit',
-        },
-        dialogInTab,
-      );
+      await showDepositWithdrawModal('deposit');
     }
-  }, [perpsAccount.accountAddress, perpsAccount.accountId, dialogInTab]);
+  }, [
+    perpsAccount.accountAddress,
+    perpsAccount.accountId,
+    showDepositWithdrawModal,
+  ]);
 
   const buttonDisabled = useMemo(() => {
     return (
