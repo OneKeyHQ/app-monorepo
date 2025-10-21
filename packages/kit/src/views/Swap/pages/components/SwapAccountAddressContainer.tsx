@@ -33,7 +33,7 @@ const SwapAccountAddressContainer = ({
   const [toToken] = useSwapSelectToTokenAtom();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
+  const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
   const networkComponent = useMemo(() => {
     const networkInfo = swapSupportAllNetwork.find(
       (net) =>
@@ -96,12 +96,19 @@ const SwapAccountAddressContainer = ({
         })}
       </SizableText>
       {networkComponent}
-      {type === ESwapDirectionType.FROM &&
-      activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
-      !!fromToken ? (
+      {(type === ESwapDirectionType.FROM &&
+        activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
+        !!fromToken) ||
+      (type === ESwapDirectionType.TO &&
+        activeToAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
+        !!toToken) ? (
         <AddressTypeSelector
           placement="bottom-start"
-          networkId={fromToken.networkId}
+          networkId={
+            type === ESwapDirectionType.FROM
+              ? fromToken?.networkId ?? ''
+              : toToken?.networkId ?? ''
+          }
           indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
           walletId={activeAccount.wallet?.id ?? ''}
           activeDeriveType={activeAccount.deriveType}
