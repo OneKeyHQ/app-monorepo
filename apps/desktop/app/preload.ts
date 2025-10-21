@@ -4,7 +4,7 @@ import path from 'path';
 
 import { EOneKeyBleMessageKeys } from '@onekeyfe/hd-shared';
 import { Titlebar, TitlebarColor } from 'custom-electron-titlebar';
-import { app, ipcRenderer, nativeImage } from 'electron';
+import { ipcRenderer, nativeImage } from 'electron';
 
 import type { DesktopApiProxy } from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
 import desktopApiProxy from '@onekeyhq/kit-bg/src/desktopApis/instance/desktopApiProxy';
