@@ -8,8 +8,8 @@ import {
   Portal,
   Stack,
   TabStackNavigator,
+  useMedia,
 } from '@onekeyhq/components';
-import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -21,7 +21,9 @@ import {
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { Footer } from '../../components/Footer';
 import { useRouteIsFocused } from '../../hooks/useRouteIsFocused';
+import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 import { whenAppUnlocked } from '../../utils/passwordUtils';
 
 import { tabExtraConfig, useTabRouterConfig } from './router';
@@ -89,20 +91,21 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
   );
 };
 
-const usePreloadTabs = platformEnv.isNative
-  ? () => {}
-  : () => {
-      const navigation = useNavigation();
-      useEffect(() => {
-        setTimeout(async () => {
-          await Promise.race([
-            new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-            whenAppUnlocked(),
-          ]);
-          preloadTabs(navigation as NavigationProp<any>);
-        });
-      }, [navigation]);
-    };
+const usePreloadTabs =
+  platformEnv.isDev || platformEnv.isNative
+    ? () => {}
+    : () => {
+        const navigation = useNavigation();
+        useEffect(() => {
+          setTimeout(async () => {
+            await Promise.race([
+              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+              whenAppUnlocked(),
+            ]);
+            preloadTabs(navigation as NavigationProp<any>);
+          });
+        }, [navigation]);
+      };
 
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
@@ -110,13 +113,17 @@ export function TabNavigator() {
   const config = useTabRouterConfig(routerConfigParams);
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
   const isFocused = useIsIOSTabNavigatorFocused();
+  const { gtMd } = useMedia();
+
   usePreloadTabs();
+
   return (
     <>
       <TabStackNavigator<ETabRoutes>
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
+      {platformEnv.isWeb && gtMd ? <Footer /> : null}
       <Portal.Container
         name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
       />
