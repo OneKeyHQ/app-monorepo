@@ -180,7 +180,6 @@ RCT_EXPORT_MODULE();
             [userDefaults removeObjectForKey:currentBundleVersion];
             [userDefaults removeObjectForKey:@"currentBundleVersion"];
         }
-        [userDefaults removeObjectForKey:@"nativeVersion"];
         [userDefaults synchronize];
         DDLogDebug(@"Cleared all bundle-related preferences");
        return nil;
