@@ -5141,6 +5141,9 @@ class ServiceAccount extends ServiceBase {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return undefined;
     }
+    if (!indexedAccountId) {
+      return undefined;
+    }
     const enabledBTCFreshAddress =
       await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
     if (!enabledBTCFreshAddress) {
