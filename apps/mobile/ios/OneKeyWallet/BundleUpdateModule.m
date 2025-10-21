@@ -94,6 +94,15 @@ RCT_EXPORT_MODULE();
     return [bundleDir stringByAppendingPathComponent:folderName];
 }
 
++ (NSString *)getWebEmbedPath {
+    NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
+    if (currentBundleDir == nil) {
+        return @"";
+    }
+    NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
+    return webEmbedPath;
+}
+
 + (void)clearUpdateBundleData {
     // Clear bundle directory
     NSString *bundleDir = [self bundleDir];
@@ -147,19 +156,32 @@ RCT_EXPORT_MODULE();
     return NSOrderedSame;
 }
 
++ (NSString *)getCurrentNativeVersion {
+    return [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+}
+
 + (NSString *)currentBundleMainJSBundle {
     NSString *currentBundleVersion = [self currentBundleVersion];
     if (currentBundleVersion == nil) {
         return nil;
     }
 
-    NSString *currentAppVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *currentAppVersion = [self getCurrentNativeVersion];
     NSString *prevNativeVersion = [self getNativeVersion];
     if (prevNativeVersion == nil) {
         return nil;
     }
     if (![currentAppVersion isEqualToString: prevNativeVersion]) {
-       DDLogDebug(@"currentAppVersion is not equal to prevNativeVersion %@ %@", currentAppVersion, prevNativeVersion);
+        DDLogDebug(@"currentAppVersion is not equal to prevNativeVersion %@ %@", currentAppVersion, prevNativeVersion);
+        // Clear all bundle-related preferences
+        NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
+        NSString *currentBundleVersion = [userDefaults stringForKey:@"currentBundleVersion"];
+        if (currentBundleVersion) {
+            [userDefaults removeObjectForKey:currentBundleVersion];
+            [userDefaults removeObjectForKey:@"currentBundleVersion"];
+        }
+        [userDefaults synchronize];
+        DDLogDebug(@"Cleared all bundle-related preferences");
        return nil;
     }
     NSString *folderName = [self currentBundleDir];
@@ -769,7 +791,7 @@ RCT_EXPORT_METHOD(installBundle:(NSDictionary *)params
     NSString *folderName = [NSString stringWithFormat:@"%@-%@", appVersion, bundleVersion];
      NSUserDefaults *userDefaults = [NSUserDefaults standardUserDefaults];
     [userDefaults setObject:folderName forKey:@"currentBundleVersion"];
-  NSString *currentNativeVersion = [[[NSBundle mainBundle]infoDictionary] objectForKey:@"CFBundleShortVersionString"];
+    NSString *currentNativeVersion = [BundleUpdateModule getCurrentNativeVersion];
     [userDefaults setObject:currentNativeVersion forKey:@"nativeVersion"];
     [userDefaults synchronize];
 
@@ -841,15 +863,17 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
     resolve(nil);
 }
 
-RCT_EXPORT_METHOD(getWebEmbedPath:(RCTPromiseResolveBlock)resolve
+RCT_EXPORT_METHOD(getWebEmbedPathAsync:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
-    if (currentBundleDir == nil) {
-        resolve(@"");
-        return;
-    }
-    NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
+    NSString *webEmbedPath = [BundleUpdateModule getWebEmbedPath];
+    DDLogDebug(@"getWebEmbedPathAsync: webEmbedPath: %@", webEmbedPath);
     resolve(webEmbedPath);
+}
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getWebEmbedPath) {
+    NSString *webEmbedPath = [BundleUpdateModule getWebEmbedPath];
+    DDLogDebug(@"getWebEmbedPath: webEmbedPath: %@", webEmbedPath);
+    return webEmbedPath;
 }
 
 RCT_EXPORT_METHOD(testVerification:(RCTPromiseResolveBlock)resolve
@@ -1025,7 +1049,17 @@ RCT_EXPORT_METHOD(clearAllJSBundleData:(RCTPromiseResolveBlock)resolve
     }
 }
 
+RCT_EXPORT_METHOD(getNativeAppVersion:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *nativeVersion = [BundleUpdateModule getCurrentNativeVersion];
+    resolve(nativeVersion);
+}
 
+RCT_EXPORT_METHOD(getJsBundlePath:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
+    resolve(jsBundlePath);
+}
 
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
@@ -1034,6 +1068,5 @@ RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     }
     return jsBundlePath;
 }
-
 
 @end
