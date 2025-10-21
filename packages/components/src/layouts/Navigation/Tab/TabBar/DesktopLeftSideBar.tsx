@@ -276,7 +276,7 @@ export function DesktopLeftSideBar({
             ) : null}
             <YStack
               flex={1}
-              pt="$3"
+              pt={isCollapse ? 0 : '$3'}
               px="$3"
               alignItems={isCollapse ? 'center' : undefined}
             >
