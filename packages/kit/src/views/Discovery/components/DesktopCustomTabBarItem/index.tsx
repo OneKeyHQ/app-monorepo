@@ -212,6 +212,7 @@ function DesktopCustomTabBarItem({
 
   return (
     <DesktopTabItem
+      hideCloseButton={isCollapse}
       size="small"
       showAvatar={!isHomeTab}
       icon={isHomeTab ? 'Ai3StarOutline' : undefined}
@@ -225,6 +226,16 @@ function DesktopCustomTabBarItem({
       id={id}
       actionList={actionListItems}
       onClose={closeTab}
+      tabBarStyle={
+        isCollapse
+          ? {
+              width: 36,
+              height: 36,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }
+          : undefined
+      }
     />
   );
 }

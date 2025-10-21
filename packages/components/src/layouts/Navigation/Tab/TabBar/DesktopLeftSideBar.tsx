@@ -307,7 +307,6 @@ export function DesktopLeftSideBar({
           {isHovering ? (
             <IconButton
               onPress={() => {
-                console.log('onPress');
                 setAppSideBarStatus((prev) => ({ ...prev, collapsed: false }));
               }}
               icon="ChevronRightSmallOutline"

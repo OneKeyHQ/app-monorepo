@@ -6,6 +6,7 @@ import {
   Divider,
   ESectionLayoutType,
   Icon,
+  MIN_SIDEBAR_WIDTH,
   SizableText,
   SortableSectionList,
   Stack,
@@ -51,7 +52,6 @@ import { useDiscoveryShortcuts } from '../../hooks/useShortcuts';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
-const ITEM_HEIGHT = 32;
 const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
 function DesktopCustomTabBar() {
@@ -215,6 +215,8 @@ function DesktopCustomTabBar() {
 
   useShortcuts(undefined, handleShortcuts);
 
+  const ITEM_HEIGHT = useMemo(() => (isCollapse ? 36 : 32), [isCollapse]);
+
   const layoutList = useMemo(() => {
     let offset = 0;
     const layouts: { offset: number; length: number; index: number }[] = [];
@@ -234,7 +236,7 @@ function DesktopCustomTabBar() {
     layouts.push({ offset, length: 0, index: layouts.length });
     offset += 0;
     return layouts;
-  }, [sections]);
+  }, [ITEM_HEIGHT, sections]);
   const onDragEnd = useCallback(
     (dragResult: {
       sections: {
@@ -309,7 +311,11 @@ function DesktopCustomTabBar() {
   );
 
   return (
-    <Stack testID="sideabr-browser-section" flex={1}>
+    <Stack
+      testID="sideabr-browser-section"
+      flex={1}
+      width={isCollapse ? MIN_SIDEBAR_WIDTH / 2 : undefined}
+    >
       <HandleRebuildBrowserData />
       <SortableSectionList
         mx="$-3"

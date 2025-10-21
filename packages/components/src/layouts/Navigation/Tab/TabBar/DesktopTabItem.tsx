@@ -40,6 +40,7 @@ import type {
 } from 'react-native';
 
 export interface IDesktopTabItemProps {
+  hideCloseButton?: boolean;
   size?: 'small' | 'medium';
   icon?: IKeyOfIcons;
   showAvatar?: boolean;
@@ -112,6 +113,7 @@ export function DesktopTabItem(
     children,
     showDot,
     isContainerHovered = false,
+    hideCloseButton = false,
     onPressWhenSelected,
     ...rest
   } = props;
@@ -231,7 +233,9 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
-        {(selected || isHovered || isContainerHovered) && actionList ? (
+        {!hideCloseButton &&
+        (selected || isHovered || isContainerHovered) &&
+        actionList ? (
           <IconButton
             size="small"
             icon="CrossedSmallOutline"
