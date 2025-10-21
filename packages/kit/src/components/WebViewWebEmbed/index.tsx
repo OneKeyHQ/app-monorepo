@@ -143,6 +143,13 @@ export function WebViewWebEmbed({
     return undefined;
   }, [remoteUrl]);
 
+  useEffect(() => {
+    defaultLogger.app.webembed.webEmbedWebViewUriChanged({
+      uri: nativeWebviewSource?.uri,
+      remoteUrl,
+    });
+  }, [nativeWebviewSource?.uri, remoteUrl]);
+
   // Handle messages from WebView - only works in native environments
   const handleMessage = useCallback((event?: WebViewMessageEvent) => {
     if (event?.nativeEvent.data) {
