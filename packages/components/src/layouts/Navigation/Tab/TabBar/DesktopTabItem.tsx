@@ -186,8 +186,8 @@ export function DesktopTabItem(
         {...rest}
         testID={
           selected
-            ? `tab-modal-active-item-${rest.id || ''}`
-            : `tab-modal-no-active-item-${rest.id || ''}`
+            ? `tab-modal-active-item-${rest.id || icon || ''}`
+            : `tab-modal-no-active-item-${rest.id || icon || ''}`
         }
       >
         {icon ? (
