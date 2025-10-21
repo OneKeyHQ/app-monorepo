@@ -18,6 +18,22 @@ import { globalAtom, globalAtomComputedR } from '../utils';
 
 import type { IAccountDeriveTypes } from '../../../vaults/types';
 
+// Token Selector Sorting Types
+export type IPerpTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'fundingRate'
+  | 'volume24h'
+  | 'openInterest';
+
+export type IPerpTokenSortDirection = 'asc' | 'desc';
+
+export interface IPerpTokenSortConfig {
+  field: IPerpTokenSortField;
+  direction: IPerpTokenSortDirection;
+}
+
 // #region Active Account
 export interface IPerpsActiveAccountAtom {
   accountId: string | null;
@@ -231,6 +247,17 @@ export const {
   initialValue: undefined,
 });
 
+// Token Selector Sort Config (Persisted)
+// null means no sorting applied, preserving default order from API
+export const {
+  target: perpTokenSortConfigPersistAtom,
+  use: usePerpTokenSortConfigPersistAtom,
+} = globalAtom<IPerpTokenSortConfig | null>({
+  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  persist: true,
+  initialValue: null,
+});
+
 export type IPerpsActiveOrderBookOptionsAtom =
   | (IL2BookOptions & {
       coin: string;
@@ -290,6 +317,22 @@ export const {
   persist: true,
   initialValue: {
     skipOrderConfirm: false,
+  },
+});
+
+export interface IPerpsTradingPreferences {
+  sizeInputUnit: 'token' | 'usd';
+  slippage: number;
+}
+export const {
+  target: perpsTradingPreferencesAtom,
+  use: usePerpsTradingPreferencesAtom,
+} = globalAtom<IPerpsTradingPreferences>({
+  name: EAtomNames.perpsTradingPreferencesAtom,
+  persist: true,
+  initialValue: {
+    sizeInputUnit: 'usd',
+    slippage: 8,
   },
 });
 
