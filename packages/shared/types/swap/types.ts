@@ -763,7 +763,7 @@ export interface IFetchBuildTxResponse {
 
 export interface IPerpDepositQuoteResponse {
   result: IPerpDepositQuoteRes;
-  tx: ITransaction;
+  tx?: ITransaction;
 }
 
 export interface IPerpDepositQuoteRes {
@@ -774,7 +774,6 @@ export interface IPerpDepositQuoteRes {
   fromAmount: string;
   toAmount: string;
   result: IFetchBuildTxResult;
-  tx?: ITransaction;
   allowanceResult?: IAllowanceResult;
 }
 

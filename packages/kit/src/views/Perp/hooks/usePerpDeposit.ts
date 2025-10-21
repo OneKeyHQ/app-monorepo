@@ -16,13 +16,18 @@ import type {
   IBuildUnsignedTxParams,
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
+import {
+  PERPS_ARB_USDC_ADDRESS,
+  PERPS_NETWORK_ID,
+} from '@onekeyhq/shared/src/consts/perp';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP } from '@onekeyhq/shared/src/consts/walletConsts';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   IFeeAlgo,
   IFeeCkb,
@@ -61,13 +66,20 @@ const usePerpDeposit = (
     IPerpDepositQuoteResponse | undefined
   >();
   const intl = useIntl();
-  const [perpDepositActionLoading, setPerpDepositActionLoading] =
-    useState(false);
 
   const [perpDepositQuoteLoading, setPerpDepositQuoteLoading] = useState(false);
+  const isArbitrumUsdcToken = useMemo(() => {
+    return equalTokenNoCaseSensitive({
+      token1: token,
+      token2: {
+        networkId: PERPS_NETWORK_ID,
+        contractAddress: PERPS_ARB_USDC_ADDRESS,
+      },
+    });
+  }, [token]);
   const { result } = usePromiseResult(
     async () => {
-      if (selectedAction !== 'deposit') return;
+      if (selectedAction !== 'deposit' || !isArbitrumUsdcToken) return;
       if (accountId && token?.networkId) {
         const fromTokenAccount =
           await backgroundApiProxy.serviceAccount.getAccount({
@@ -84,14 +96,14 @@ const usePerpDeposit = (
         };
       }
     },
-    [selectedAction, accountId, token?.networkId],
+    [selectedAction, accountId, token?.networkId, isArbitrumUsdcToken],
     {
       watchLoading: true,
     },
   );
 
   useEffect(() => {
-    if (selectedAction !== 'deposit' || !token) return;
+    if (selectedAction !== 'deposit' || !token || !isArbitrumUsdcToken) return;
     void (async () => {
       const amountBN = new BigNumber(amount ?? '0');
       try {
@@ -127,6 +139,7 @@ const usePerpDeposit = (
       }
     })();
   }, [
+    isArbitrumUsdcToken,
     selectedAction,
     amount,
     result?.fromUserAddress,
@@ -137,23 +150,27 @@ const usePerpDeposit = (
   ]);
 
   const buildQuoteRes = useCallback(
-    async (buildSwapRes: IPerpDepositQuoteRes) => {
+    async (buildSwapResponse: IPerpDepositQuoteResponse) => {
       let transferInfo: ITransferInfo | undefined;
       let encodedTx: IEncodedTx | undefined;
       let swapInfo: ISwapTxInfo | undefined;
-      if (buildSwapRes.tx && token) {
+      const buildSwapRes = buildSwapResponse.result;
+      if (buildSwapResponse.tx && token) {
         transferInfo = undefined;
-        if (typeof buildSwapRes.tx !== 'string' && buildSwapRes.tx.data) {
+        if (
+          typeof buildSwapResponse.tx !== 'string' &&
+          buildSwapResponse.tx.data
+        ) {
           const valueHex = toBigIntHex(
-            new BigNumber(buildSwapRes.tx.value ?? 0),
+            new BigNumber(buildSwapResponse.tx.value ?? 0),
           );
           encodedTx = {
-            ...buildSwapRes?.tx,
+            ...buildSwapResponse?.tx,
             value: valueHex,
             from: result?.fromUserAddress ?? '',
           };
         } else {
-          encodedTx = buildSwapRes.tx as string;
+          encodedTx = buildSwapResponse.tx as string;
         }
         swapInfo = {
           protocol: buildSwapRes.protocol ?? EProtocolOfExchange.SWAP,
@@ -578,7 +595,21 @@ const usePerpDeposit = (
         unsignedTxs: [updatedUnsignedTxItem],
         precheckTiming: ESendPreCheckTimingEnum.Confirm,
       });
-      // todo verify transaction
+      const { totalNative } = calculateFeeForSend({
+        feeInfo: gasInfo as IFeeInfoUnit,
+        nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
+      });
+      await backgroundApiProxy.serviceTransaction.verifyTransaction({
+        networkId: token?.networkId,
+        accountId,
+        verifyTxTasks: ['feeInfo'],
+        verifyTxFeeInfoParams: {
+          feeAmount: totalNative,
+          feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
+          doubleConfirm: true,
+        },
+        encodedTx: updatedUnsignedTxItem.encodedTx,
+      });
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId: token.networkId,
         accountId,
@@ -844,9 +875,8 @@ const usePerpDeposit = (
     if (!token?.networkId) {
       throw new OneKeyError('token.networkId is required');
     }
-    setPerpDepositActionLoading(true);
     const { transferInfo, encodedTx, swapInfo } = await buildQuoteRes(
-      perpDepositQuote?.result,
+      perpDepositQuote,
     );
     const { unsignedTxArr } = await getApproveUnSignedTxArr(
       perpDepositQuote?.result,
@@ -879,7 +909,6 @@ const usePerpDeposit = (
         }),
       });
     }
-    setPerpDepositActionLoading(false);
   }, [
     perpDepositQuote,
     buildQuoteRes,
@@ -918,8 +947,8 @@ const usePerpDeposit = (
     perpDepositQuoteLoading,
     shouldApprove: !!perpDepositQuote?.result?.allowanceResult,
     multipleStepText,
-    perpDepositActionLoading,
     buildPerpDepositTx,
+    isArbitrumUsdcToken,
   };
 };
 
