@@ -6,6 +6,7 @@ import type {
   IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
+  IPerpTokenSortConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
@@ -48,6 +49,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
+      totalUnrealizedPnl: string | undefined;
     }
   | undefined;
 export const {
@@ -230,6 +232,17 @@ export const {
   initialValue: undefined,
 });
 
+// Token Selector Sort Config (Persisted)
+// null means no sorting applied, preserving default order from API
+export const {
+  target: perpTokenSortConfigPersistAtom,
+  use: usePerpTokenSortConfigPersistAtom,
+} = globalAtom<IPerpTokenSortConfig | null>({
+  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  persist: true,
+  initialValue: null,
+});
+
 export type IPerpsActiveOrderBookOptionsAtom =
   | (IL2BookOptions & {
       coin: string;
@@ -262,6 +275,59 @@ export const {
     },
   },
 });
+
+export interface IPerpsDepositNetwork {
+  networkId: string;
+  name: string;
+  code: string;
+  shortcode: string;
+  shortname: string;
+  logoURI: string;
+  symbol: string;
+  decimals: number;
+}
+
+export interface IPerpsDepositNetworksAtom {
+  networks: IPerpsDepositNetwork[];
+  currentPerpsDepositSelectedNetwork?: IPerpsDepositNetwork;
+}
+export const {
+  target: perpsDepositNetworksAtom,
+  use: usePerpsDepositNetworksAtom,
+} = globalAtom<IPerpsDepositNetworksAtom>({
+  name: EAtomNames.perpsDepositNetworksAtom,
+  initialValue: {
+    networks: [],
+  },
+});
+export interface IPerpsDepositToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokensAtom {
+  tokens: Map<string, IPerpsDepositToken[]>;
+  currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+}
+export const {
+  target: perpsDepositTokensAtom,
+  use: usePerpsDepositTokensAtom,
+} = globalAtom<IPerpsDepositTokensAtom>({
+  name: EAtomNames.perpsDepositTokensAtom,
+  initialValue: {
+    tokens: new Map(),
+  },
+});
+
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
 }
@@ -292,18 +358,23 @@ export const {
   },
 });
 
-// #endregion
+export interface IPerpsTradingPreferences {
+  sizeInputUnit: 'token' | 'usd';
+  slippage: number;
+}
+export const {
+  target: perpsTradingPreferencesAtom,
+  use: usePerpsTradingPreferencesAtom,
+} = globalAtom<IPerpsTradingPreferences>({
+  name: EAtomNames.perpsTradingPreferencesAtom,
+  persist: true,
+  initialValue: {
+    sizeInputUnit: 'usd',
+    slippage: 8,
+  },
+});
 
-// TODO remove
-export type IPerpsCurrentMid = {
-  coin: string;
-  mid: string | undefined;
-};
-export const { target: perpsCurrentMidAtom, use: usePerpsCurrentMidAtom } =
-  globalAtom<IPerpsCurrentMid | undefined>({
-    name: EAtomNames.perpsCurrentMidAtom,
-    initialValue: undefined,
-  });
+// #endregion
 
 export interface IPerpsNetworkStatus {
   connected: boolean | undefined;
@@ -345,4 +416,31 @@ export const {
 } = globalAtom<{ refreshHook: number }>({
   name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
   initialValue: { refreshHook: 0 },
+});
+
+export const {
+  target: perpsCandlesWebviewReloadHookAtom,
+  use: usePerpsCandlesWebviewReloadHookAtom,
+} = globalAtom<{ reloadHook: number }>({
+  name: EAtomNames.perpsCandlesWebviewReloadHookAtom,
+  initialValue: { reloadHook: 100 },
+});
+
+export const {
+  target: perpsCandlesWebviewMountedAtom,
+  use: usePerpsCandlesWebviewMountedAtom,
+} = globalAtom<{ mounted: boolean }>({
+  name: EAtomNames.perpsCandlesWebviewMountedAtom,
+  initialValue: { mounted: false },
+});
+
+export const {
+  target: perpsWebSocketDataUpdateTimesAtom,
+  use: usePerpsWebSocketDataUpdateTimesAtom,
+} = globalAtom<{
+  wsDataReceiveTimes: number;
+  wsDataUpdateTimes: number;
+}>({
+  name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
+  initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });

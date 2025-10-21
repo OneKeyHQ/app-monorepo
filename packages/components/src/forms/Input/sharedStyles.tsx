@@ -1,4 +1,4 @@
-import { getTokenValue } from 'tamagui';
+import { getTokenValue } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IInputProps } from '.';
 

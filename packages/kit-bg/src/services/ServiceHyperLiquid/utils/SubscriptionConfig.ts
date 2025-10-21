@@ -1,3 +1,4 @@
+import { PERPS_EMPTY_ADDRESS } from '@onekeyhq/shared/src/consts/perp';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import type {
   IEventActiveAssetCtxParameters,
@@ -10,54 +11,57 @@ import type {
   IWsAllMidsParameters,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSubscriptionCategory,
+  ESubscriptionType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 export const SUBSCRIPTION_TYPE_INFO: {
   [type in ESubscriptionType]: {
-    eventType: 'market' | 'account';
+    eventType: EPerpsSubscriptionCategory;
     priority: number;
   };
 } = {
   [ESubscriptionType.ALL_MIDS]: {
-    eventType: 'market',
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 1,
   },
   [ESubscriptionType.ACTIVE_ASSET_CTX]: {
-    eventType: 'market',
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 2,
   },
   [ESubscriptionType.WEB_DATA2]: {
-    eventType: 'account',
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
   [ESubscriptionType.USER_FILLS]: {
-    eventType: 'account',
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 2,
   },
   [ESubscriptionType.L2_BOOK]: {
-    eventType: 'market',
-    priority: 3,
-  },
-  [ESubscriptionType.TRADES]: {
-    eventType: 'market',
-    priority: 4,
-  },
-  [ESubscriptionType.BBO]: {
-    eventType: 'market',
+    eventType: EPerpsSubscriptionCategory.MARKET,
     priority: 3,
   },
   [ESubscriptionType.ACTIVE_ASSET_DATA]: {
-    eventType: 'account',
+    eventType: EPerpsSubscriptionCategory.ACCOUNT,
     priority: 3,
   },
-  [ESubscriptionType.USER_EVENTS]: {
-    eventType: 'account',
-    priority: 2,
-  },
-  [ESubscriptionType.USER_NOTIFICATIONS]: {
-    eventType: 'account',
-    priority: 3,
-  },
+  // [ESubscriptionType.TRADES]: {
+  //   eventType: EPerpsSubscriptionCategory.MARKET,
+  //   priority: 4,
+  // },
+  // [ESubscriptionType.BBO]: {
+  //   eventType: EPerpsSubscriptionCategory.MARKET,
+  //   priority: 3,
+  // },
+  // [ESubscriptionType.USER_EVENTS]: {
+  //   eventType: EPerpsSubscriptionCategory.ACCOUNT,
+  //   priority: 2,
+  // },
+  // [ESubscriptionType.USER_NOTIFICATIONS]: {
+  //   eventType: EPerpsSubscriptionCategory.ACCOUNT,
+  //   priority: 3,
+  // },
 };
 
 export interface ISubscriptionSpec<T extends ESubscriptionType> {
@@ -164,7 +168,9 @@ export function calculateRequiredSubscriptions(
 
     const userFillsParams: IEventUserFillsParameters = {
       user: state.currentUser,
-      aggregateByTime: false,
+      aggregateByTime: true,
+      // @ts-ignore
+      // reversed: true, // not working
     };
     specs.push(
       buildSubscriptionSpec({
@@ -185,6 +191,16 @@ export function calculateRequiredSubscriptions(
         }),
       );
     }
+  } else {
+    const webData2Params: IEventWebData2Parameters = {
+      user: PERPS_EMPTY_ADDRESS,
+    };
+    specs.push(
+      buildSubscriptionSpec({
+        type: ESubscriptionType.WEB_DATA2,
+        params: webData2Params,
+      }),
+    );
   }
 
   return specs.sort((a, b) => a.priority - b.priority);

@@ -47,6 +47,7 @@ const withUpdateError = <T>(callback: () => Promise<T>): Promise<T> =>
 const downloadPackage: IDownloadPackage = async ({
   downloadedFile,
   headers,
+  latestVersion,
 }) => {
   const isDownloading =
     await globalThis.desktopApiProxy.appUpdate.isDownloadingPackage();
@@ -67,6 +68,7 @@ const downloadPackage: IDownloadPackage = async ({
       await globalThis.desktopApiProxy.appUpdate.checkForUpdates(
         false,
         headers,
+        latestVersion || '',
       );
     if (!updateInfo) {
       return null;
@@ -170,7 +172,8 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  getWebEmbedPath: () => Promise.resolve(''),
+  getWebEmbedPath: () => '',
+  getWebEmbedPathAsync: () => Promise.resolve(''),
   downloadBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params),
   verifyBundle: (params) =>
@@ -181,6 +184,10 @@ export const BundleUpdate: IBundleUpdate = {
     globalThis.desktopApiProxy.bundleUpdate.downloadBundleASC(params),
   installBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.installBundle(params),
+  getFallbackBundles: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getFallbackUpdateBundleData(),
+  switchBundle: (params) =>
+    globalThis.desktopApiProxy.bundleUpdate.setCurrentUpdateBundleData(params),
   clearBundle: () => globalThis.desktopApiProxy.bundleUpdate.clearBundle(),
   clearAllJSBundleData: () =>
     globalThis.desktopApiProxy.bundleUpdate.clearAllJSBundleData(),
@@ -206,4 +213,10 @@ export const BundleUpdate: IBundleUpdate = {
       appVersion,
       bundleVersion,
     ),
+  getNativeAppVersion: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getNativeAppVersion(),
+  getNativeBuildNumber: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getNativeBuildNumber(),
+  getJsBundlePath: () =>
+    globalThis.desktopApiProxy.bundleUpdate.getJsBundlePath(),
 };

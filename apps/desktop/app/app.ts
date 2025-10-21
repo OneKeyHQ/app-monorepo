@@ -36,10 +36,12 @@ import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDesktopAppState } from '@onekeyhq/shared/types/desktop';
 
 import {
+  checkFileHash,
   checkFileSha512,
+  getBundleDirPath,
   getBundleIndexHtmlPath,
+  getDriveLetter,
   getMetadata,
-  unmatchedFileDialog,
 } from './bundle';
 import { ipcMessageKeys } from './config';
 import { ETranslations, i18nText, initLocale } from './i18n';
@@ -65,6 +67,10 @@ let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
 globalThis.$desktopMainAppFunctions = {
   getBundleIndexHtmlPath: () => {
     const bundleData = store.getUpdateBundleData();
+    logger.info('bundleData >>>> ', bundleData);
+    if (!bundleData) {
+      return undefined;
+    }
     return getBundleIndexHtmlPath({
       appVersion: bundleData.appVersion,
       bundleVersion: bundleData.bundleVersion,
@@ -72,6 +78,9 @@ globalThis.$desktopMainAppFunctions = {
   },
   useJsBundle: () => {
     const bundleData = store.getUpdateBundleData();
+    if (!bundleData) {
+      return false;
+    }
     return !!getBundleIndexHtmlPath({
       appVersion: bundleData.appVersion,
       bundleVersion: bundleData.bundleVersion,
@@ -90,7 +99,7 @@ const appStaticResourcesPath = getAppStaticResourcesPath();
 const staticPath = getStaticPath();
 const resourcesPath = getResourcesPath();
 // static path
-const preloadJsUrl = path.join(staticPath, 'preload.js');
+// const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
 const sdkConnectSrc = isDev
@@ -507,6 +516,7 @@ async function createMainWindow() {
   };
 
   const bundleData = store.getUpdateBundleData();
+  logger.info('bundleData >>>> ', bundleData);
   const bundleIndexHtmlPath = getBundleIndexHtmlPath(bundleData);
   logger.info('bundleIndexHtmlPath >>>> ', bundleIndexHtmlPath);
 
@@ -561,7 +571,7 @@ async function createMainWindow() {
       {
         resourcesPath,
         staticPath: `file://${staticPath}`,
-        preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
+        // preloadJsUrl: `file://${preloadJsUrl}?timestamp=${Date.now()}`,
         sdkConnectSrc,
       },
     );
@@ -719,6 +729,23 @@ async function createMainWindow() {
     ],
   };
 
+  // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
+  browserWindow.webContents.session.setPermissionCheckHandler(
+    (webContents, permission) => {
+      if (permission === 'usb') {
+        return true;
+      }
+      return false;
+    },
+  );
+
+  browserWindow.webContents.session.setDevicePermissionHandler((details) => {
+    if (details.deviceType === 'usb') {
+      return true;
+    }
+    return false;
+  });
+  
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,
     (details, callback) => {
@@ -756,13 +783,36 @@ async function createMainWindow() {
     return false;
   });
 
-  if (!isDev) {
+  const PROTOCOL = 'file';
+  if (isDev) {
+    session.defaultSession.protocol.interceptFileProtocol(
+      PROTOCOL,
+      (request, callback) => {
+        console.log('request url', request);
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in dev mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
+          callback({
+            path: path.join(staticPath, 'js-sdk', fileName),
+          });
+          return;
+        }
+        callback(request.url);
+      },
+    );
+  } else {
+    // Get Windows drive letter for security validation
+    const driveLetter = getDriveLetter();
+    logger.info('driveLetter >>>> ', driveLetter);
     const indexHtmlPath =
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
     const useJsBundle = globalThis.$desktopMainAppFunctions?.useJsBundle?.();
-    const bundleDirPath = indexHtmlPath
-      ? path.dirname(indexHtmlPath)
-      : undefined;
+    const bundleDirPath = getBundleDirPath();
     const metadata = bundleDirPath
       ? await getMetadata({
           bundleDir: bundleDirPath,
@@ -771,43 +821,6 @@ async function createMainWindow() {
           signature: bundleData.signature,
         })
       : {};
-    const checkFileHash = (url: string) => {
-      if (!bundleDirPath) {
-        throw new OneKeyLocalError('Bundle directory path not found');
-      }
-      const replacedKey = url.replace(/^\/+/, '').trim();
-      const key = replacedKey || 'index.html';
-      if (!key) {
-        logger.info(
-          'checkFileHash error:',
-          `${key}: File ${url} not found in metadata.json`,
-        );
-        unmatchedFileDialog();
-        throw new OneKeyLocalError(`File ${url} not found in metadata.json`);
-      }
-      const sha512 = metadata[key];
-      const filePath = path.join(bundleDirPath, key);
-      if (!sha512) {
-        logger.info(
-          'checkFileHash error:',
-          `${key}: ${url}, sha512 not found in metadata.json`,
-        );
-        unmatchedFileDialog();
-        throw new OneKeyLocalError(
-          `File ${url}, sha512 not found in metadata.json`,
-        );
-      }
-      if (!checkFileSha512(filePath, sha512)) {
-        logger.info(
-          'checkFileHash error:',
-          `${key}:  ${url} not matched ${filePath}: ${sha512}`,
-        );
-        unmatchedFileDialog();
-        throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
-      }
-      return filePath;
-    };
-    const PROTOCOL = 'file';
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -845,7 +858,12 @@ async function createMainWindow() {
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
           if (!decodedUrl.includes(bundleDirPath)) {
-            const filePath = checkFileHash(decodedUrl);
+            const filePath = checkFileHash({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: decodedUrl,
+            });
             callback(filePath);
             return;
           }

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -123,6 +124,9 @@ function PerpTradesHistoryList({
   };
   return (
     <CommonTableListView
+      onPullToRefresh={async () => {
+        await backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'PerpTradesHistoryList',

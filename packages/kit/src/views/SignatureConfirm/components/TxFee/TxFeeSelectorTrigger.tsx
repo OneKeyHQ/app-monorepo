@@ -7,7 +7,7 @@ import {
   useIsSinglePresetAtom,
   useSendSelectedFeeAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { getFeeLabel } from '@onekeyhq/kit/src/utils/gasFee';
+import { getFeeLabel } from '@onekeyhq/shared/src/utils/feeUtils';
 
 type IProps = ComponentProps<typeof Button> & {
   disabled?: boolean;

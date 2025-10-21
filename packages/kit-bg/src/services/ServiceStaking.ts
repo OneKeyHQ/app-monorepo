@@ -33,6 +33,7 @@ import type {
 } from '@onekeyhq/shared/types/history';
 import type {
   ECheckAmountActionType,
+  EInternalDappEnum,
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
@@ -55,6 +56,7 @@ import type {
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
+  IStakeBlockRegionResponse,
   IStakeClaimBaseParams,
   IStakeEarnDetail,
   IStakeHistoriesResponse,
@@ -263,7 +265,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const useVaultProvider = earnUtils.useVaultProvider({
+    const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: provider,
     });
     const paramsToSend: Record<string, any> = {
@@ -283,7 +285,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (useVaultProvider) {
+    if (isVaultBased) {
       paramsToSend.vault = protocolVault;
     }
 
@@ -315,7 +317,7 @@ class ServiceStaking extends ServiceBase {
     if (!stakingConfig) {
       throw new OneKeyLocalError('Staking config not found');
     }
-    const useVaultProvider = earnUtils.useVaultProvider({
+    const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: params.provider,
     });
     const resp = await client.post<{
@@ -327,7 +329,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      vault: useVaultProvider ? protocolVault : '',
+      vault: isVaultBased ? protocolVault : '',
       ...rest,
     });
     return resp.data.data;
@@ -401,7 +403,7 @@ class ServiceStaking extends ServiceBase {
       sendParams.rewardTokenAddress = rewardTokenAddress;
     }
     if (
-      earnUtils.useVaultProvider({ providerName: params.provider }) &&
+      earnUtils.isVaultBasedProvider({ providerName: params.provider }) &&
       vaultAddress
     ) {
       sendParams.vault = vaultAddress;
@@ -487,9 +489,9 @@ class ServiceStaking extends ServiceBase {
         networkId,
         accountId,
       });
-    const useVaultProvider =
+    const isVaultBased =
       params.provider &&
-      earnUtils.useVaultProvider({
+      earnUtils.isVaultBasedProvider({
         providerName: params.provider,
       });
     const data: Record<string, string | undefined> & { type?: string } = {
@@ -498,7 +500,7 @@ class ServiceStaking extends ServiceBase {
       ...rest,
     };
 
-    if (useVaultProvider) {
+    if (isVaultBased) {
       data.vault = protocolVault;
     }
     if (type) {
@@ -1050,7 +1052,7 @@ class ServiceStaking extends ServiceBase {
         'networkId or accountId or provider not found',
       );
     }
-    const useVaultProvider = earnUtils.useVaultProvider({
+    const isVaultBased = earnUtils.isVaultBasedProvider({
       providerName: provider,
     });
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -1068,7 +1070,7 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount: amountNumber.isNaN() ? '0' : amountNumber.toFixed(),
-        vault: useVaultProvider ? protocolVault : '',
+        vault: isVaultBased ? protocolVault : '',
         withdrawAll,
       },
     });
@@ -1347,17 +1349,22 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
-  async buildEarnTx({
+  async buildInternalDappTx({
     accountId,
     networkId,
     tx,
+    internalDappType,
   }: {
     accountId: string;
     networkId: string;
     tx: IStakeTx;
+    internalDappType: EInternalDappEnum;
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
-    const encodedTx = await vault.buildStakeEncodedTx(tx as any);
+    const encodedTx = await vault.buildInternalDappEncodedTx({
+      internalDappTx: tx as any,
+      internalDappType,
+    });
     return encodedTx;
   }
 
@@ -1381,7 +1388,7 @@ class ServiceStaking extends ServiceBase {
       symbol,
       ...rest,
     };
-    if (earnUtils.useVaultProvider({ providerName: params.provider })) {
+    if (earnUtils.isVaultBasedProvider({ providerName: params.provider })) {
       sendParams.vault = protocolVault;
     }
     const resp = await client.get<{
@@ -1628,6 +1635,24 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getEthenaKycAddress() {
     return this.backgroundApi.simpleDb.earnExtra.getEthenaKycAddress();
+  }
+
+  @backgroundMethod()
+  async getBlockRegion() {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Earn);
+      const response = await client.get<{
+        data: IStakeBlockRegionResponse;
+      }>('/earn/v1/block-region');
+      const blockResult = response.data.data;
+      const blockData = blockResult.isBlockedRegion
+        ? blockResult.notification
+        : null;
+
+      return blockData;
+    } catch (error) {
+      return null;
+    }
   }
 }
 

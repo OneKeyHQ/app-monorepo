@@ -30,7 +30,10 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IStakeTxSui } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTxSui,
+} from '@onekeyhq/shared/types/staking';
 import { IStakeTx } from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
@@ -567,12 +570,23 @@ export default class Vault extends VaultBase {
     return Promise.resolve(encodedTx);
   }
 
-  override async buildStakeEncodedTx(
-    params: IStakeTxSui,
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
   ): Promise<IEncodedTxSui> {
+    const { internalDappTx, internalDappType } = params;
     const account = await this.getAccount();
-    const transactionBytes = Buffer.from(params, 'base64');
-    const transaction = Transaction.fromKind(transactionBytes);
+    let transaction: Transaction | undefined;
+    const tx = internalDappTx as IStakeTxSui;
+
+    if (internalDappType === 'swap') {
+      transaction = Transaction.from(internalDappTx as IStakeTxSui);
+    } else {
+      const transactionBytes = Buffer.from(tx, 'base64');
+      transaction = Transaction.fromKind(transactionBytes);
+    }
+    if (!transaction) {
+      throw new OneKeyInternalError('Invalid internal dapp transaction');
+    }
     transaction.setSender(account.address);
     return Promise.resolve({
       rawTx: transaction.serialize(),

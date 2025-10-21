@@ -3,17 +3,21 @@ import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/Serv
 import type { IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
+export enum EPerpsSubscriptionCategory {
+  MARKET = 'market',
+  ACCOUNT = 'account',
+}
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
+  L2_BOOK = 'l2Book',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
+  ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
-  L2_BOOK = 'l2Book',
-  TRADES = 'trades',
-  BBO = 'bbo',
-  ACTIVE_ASSET_DATA = 'activeAssetData',
-  USER_EVENTS = 'userEvents',
-  USER_NOTIFICATIONS = 'userNotifications',
+  // TRADES = 'trades',
+  // BBO = 'bbo',
+  // USER_EVENTS = 'userEvents',
+  // USER_NOTIFICATIONS = 'userNotifications',
 }
 
 export interface IConnectionState {
@@ -204,4 +208,20 @@ export type IPerpsFormattedAssetCtx = {
 export enum EPerpsSizeInputMode {
   MANUAL = 'manual',
   SLIDER = 'slider',
+}
+
+// Token Selector Sorting Types
+export type IPerpTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'fundingRate'
+  | 'volume24h'
+  | 'openInterest';
+
+export type IPerpTokenSortDirection = 'asc' | 'desc';
+
+export interface IPerpTokenSortConfig {
+  field: IPerpTokenSortField;
+  direction: IPerpTokenSortDirection;
 }

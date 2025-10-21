@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { md5 } from 'js-md5';
 import { useIntl } from 'react-intl';
 
 import {
@@ -33,6 +32,7 @@ import type {
   IModalRewardCenterParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import chainResourceUtils from '@onekeyhq/shared/src/utils/chainResourceUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -116,7 +116,9 @@ function RewardCenterDetails() {
           ) {
             state.account = activeAccount.account;
             state.network = activeAccount.network;
-            state.isClaimResourceAvailable = true;
+            state.isClaimResourceAvailable = !accountUtils.isWatchingAccount({
+              accountId: activeAccount?.account?.id ?? '',
+            });
           } else {
             state.isClaimResourceAvailable = false;
           }
@@ -275,17 +277,11 @@ function RewardCenterDetails() {
 
     setIsClaiming(true);
 
-    const timestamp = Date.now();
-
-    const addressUpperCase = account.address.toUpperCase();
-    const sign = `${addressUpperCase}${timestamp}${claimSource}${addressUpperCase.slice(
-      0,
-      4,
-    )}${addressUpperCase.slice(
-      addressUpperCase.length - 4,
-      addressUpperCase.length,
-    )}`;
-    const signed = md5(sign);
+    const { timestamp, signed } =
+      chainResourceUtils.buildTronClaimResourceParams({
+        accountAddress: account.address,
+        isTestnet: network.isTestnet,
+      });
 
     try {
       const resp =
@@ -315,6 +311,7 @@ function RewardCenterDetails() {
         sourceFlag: claimSource ?? '',
         isSuccess: true,
         resourceType: 'energy',
+        isAutoClaimed: false,
       });
 
       setIsClaimed(true);

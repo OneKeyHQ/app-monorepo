@@ -54,8 +54,9 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsCommonConfigPersistAtom,
-  perpsCurrentMidAtom,
   perpsCustomSettingsAtom,
+  perpsDepositNetworksAtom,
+  perpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
@@ -73,10 +74,16 @@ import type {
   IPerpsActiveAssetCtxAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
+  IPerpsDepositNetworksAtom,
+  IPerpsDepositToken,
+  IPerpsDepositTokensAtom,
 } from '../../states/jotai/atoms';
 import type { IAccountDeriveTypes } from '../../vaults/types';
 import type { IHyperliquidMaxBuilderFee } from '../ServiceWebviewPerp';
-import type { IPerpServerConfigResponse } from '../ServiceWebviewPerp/ServiceWebviewPerp';
+import type {
+  IPerpServerConfigResponse,
+  IPerpServerDepositConfig,
+} from '../ServiceWebviewPerp/ServiceWebviewPerp';
 
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
@@ -120,6 +127,33 @@ export default class ServiceHyperliquid extends ServiceBase {
       });
   }
 
+  async parseDepositConfig(depositConfig?: IPerpServerDepositConfig[]) {
+    if (isNil(depositConfig)) {
+      return;
+    }
+    const networks = depositConfig.map((item) => item.network);
+    const tokens = depositConfig.map((item) => item.tokens).flat();
+    await perpsDepositNetworksAtom.set((prev): IPerpsDepositNetworksAtom => {
+      return {
+        ...prev,
+        networks,
+      };
+    });
+    const tokensMap = new Map<string, IPerpsDepositToken[]>();
+    networks.forEach((network) => {
+      const networkTokens = tokens.filter(
+        (token) => token.networkId === network.networkId,
+      );
+      tokensMap.set(network.networkId, networkTokens);
+    });
+    await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
+      return {
+        ...prev,
+        tokens: tokensMap,
+      };
+    });
+  }
+
   @backgroundMethod()
   async updatePerpConfig({
     referrerConfig,
@@ -128,6 +162,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     customLocalStorageV2,
     commonConfig,
     bannerConfig,
+    depositTokenConfig,
     hyperLiquidErrorLocales,
   }: IPerpServerConfigResponse) {
     let shouldNotifyToDapp = false;
@@ -148,6 +183,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         return newVal;
       },
     );
+    await this.parseDepositConfig(depositTokenConfig);
     await this.backgroundApi.simpleDb.perp.setPerpData(
       (prev): ISimpleDbPerpData => {
         const newConfig: ISimpleDbPerpData = {
@@ -205,7 +241,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       // TODO remove
       // resData.data.referrerRate = 65;
     }
-
     await this.updatePerpConfig({
       referrerConfig: resData?.data?.referrerConfig,
       customSettings: resData?.data?.customSettings,
@@ -216,14 +251,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
       commonConfig: resData?.data?.commonConfig,
       bannerConfig: resData?.data?.bannerConfig,
+      depositTokenConfig: resData?.data?.depositTokenConfig,
       hyperLiquidErrorLocales: resData?.data?.hyperLiquidErrorLocales,
     });
     return resData;
-  }
-
-  @backgroundMethod()
-  async getHyperLiquidCache() {
-    return { allMids: hyperLiquidCache.allMids };
   }
 
   @backgroundMethod()
@@ -242,7 +273,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     },
   );
 
-  private _getUserFillsByTimeMemo = cacheUtils.memoizee(
+  _getUserFillsByTimeMemo = cacheUtils.memoizee(
     async (params: IUserFillsByTimeParameters) => {
       const { infoClient } = hyperLiquidApiClients;
       return infoClient.userFillsByTime({ ...params, reversed: true } as any);
@@ -335,33 +366,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     return meta;
   }
 
-  @backgroundMethod()
-  async getSymbolMidValue({ coin }: { coin: string }) {
-    const { allMids } = await this.getHyperLiquidCache();
-    const mid = allMids?.mids?.[coin];
-    const midBN = new BigNumber(mid);
-    if (midBN.isNaN() || midBN.isLessThanOrEqualTo(0)) {
-      return undefined;
-    }
-    return mid;
-  }
-
-  async refreshCurrentMid() {
-    const selectedSymbol = await perpsActiveAssetAtom.get();
-    const currentMid = await perpsCurrentMidAtom.get();
-    const midValue = await this.getSymbolMidValue({
-      coin: selectedSymbol.coin,
-    });
-    const newMid = {
-      coin: selectedSymbol.coin,
-      mid: midValue,
-    };
-    if (isEqual(currentMid, newMid)) {
-      return;
-    }
-    await perpsCurrentMidAtom.set(newMid);
-  }
-
   async updateActiveAssetCtx(data: IWsActiveAssetCtx | undefined) {
     const activeAsset = await perpsActiveAssetAtom.get();
     if (activeAsset?.coin === data?.coin && data?.coin) {
@@ -416,7 +420,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       activeAccount?.accountAddress?.toLowerCase() ===
         webData2?.user?.toLowerCase()
     ) {
-      // TODO deep compare
+      // Note: Deep compare not suitable here due to real-time data requirements
+      const positions = webData2.clearinghouseState?.assetPositions || [];
+      const totalUnrealizedPnlBN = positions.reduce((sum, position) => {
+        const pnl = position.position?.unrealizedPnl;
+        return pnl ? sum.plus(pnl) : sum;
+      }, new BigNumber(0));
+
       await perpsActiveAccountSummaryAtom.set({
         accountAddress: activeAccount?.accountAddress?.toLowerCase() as IHex,
         accountValue: webData2.clearinghouseState?.marginSummary?.accountValue,
@@ -429,6 +439,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         totalNtlPos: webData2.clearinghouseState?.marginSummary?.totalNtlPos,
         totalRawUsd: webData2.clearinghouseState?.marginSummary?.totalRawUsd,
         withdrawable: webData2.clearinghouseState?.withdrawable,
+        totalUnrealizedPnl: totalUnrealizedPnlBN.toFixed(),
       });
     } else {
       const activeAccountSummary = await perpsActiveAccountSummaryAtom.get();
@@ -539,7 +550,6 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (oldCoin !== newCoin) {
       await perpsActiveAssetCtxAtom.set(undefined);
     }
-    await this.refreshCurrentMid();
     return {
       universeItems,
       selectedUniverse,

@@ -1,9 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { createContext } from 'react';
 
+import type { SheetProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { ISelectItem, ISelectSection } from './type';
 import type { IPopoverProps } from '../../actions';
-import type { SheetProps } from 'tamagui';
 
 export type IContextType = {
   isOpen?: boolean;

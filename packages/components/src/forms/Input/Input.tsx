@@ -1,1 +1,3 @@
-export { Input } from 'tamagui';
+import { Input as TMInput } from '../TextArea/TamaguiInput';
+
+export const Input = TMInput;

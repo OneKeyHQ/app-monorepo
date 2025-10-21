@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Badge,
-  Button,
   DebugRenderTracker,
   Icon,
   ListView,
@@ -16,20 +15,31 @@ import {
   YStack,
   usePopoverContext,
 } from '@onekeyhq/components';
+import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsAllAssetsFilteredLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { usePerpsActiveAssetAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsAllAssetCtxsAtom,
+  usePerpsAllAssetsFilteredAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpTokenSortConfigPersistAtom,
+  usePerpsActiveAssetAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
-import { getHyperliquidTokenImageUrl } from '@onekeyhq/shared/src/utils/perpsUtils';
+import {
+  getHyperliquidTokenImageUrl,
+  sortPerpsAssetIndices,
+} from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpTokenSelector } from '../../hooks';
 
 import { PerpTokenSelectorRow } from './PerpTokenSelectorRow';
+import { SortableHeaderCell } from './SortableHeaderCell';
 
 function TokenListHeader() {
   const intl = useIntl();
@@ -40,48 +50,48 @@ function TokenListHeader() {
       borderBottomWidth="$px"
       borderBottomColor="$borderSubdued"
     >
-      <XStack width={150} justifyContent="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_asset,
-          })}
-        </SizableText>
-      </XStack>
-      <XStack width={100} justifyContent="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_last_price,
-          })}
-        </SizableText>
-      </XStack>
-      <XStack width={120} justifyContent="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_24h_change,
-          })}
-        </SizableText>
-      </XStack>
-      <XStack width={100} justifyContent="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_position_funding,
-          })}
-        </SizableText>
-      </XStack>
-      <XStack width={100} justifyContent="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_volume,
-          })}
-        </SizableText>
-      </XStack>
-      <XStack flex={1} justifyContent="flex-end">
-        <SizableText size="$bodySm" color="$textSubdued" textAlign="right">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_bar_open_Interest,
-          })}
-        </SizableText>
-      </XStack>
+      <SortableHeaderCell
+        field="name"
+        label={intl.formatMessage({
+          id: ETranslations.perp_token_selector_asset,
+        })}
+        width={150}
+      />
+      <SortableHeaderCell
+        field="markPrice"
+        label={intl.formatMessage({
+          id: ETranslations.perp_token_selector_last_price,
+        })}
+        width={100}
+      />
+      <SortableHeaderCell
+        field="change24hPercent"
+        label={intl.formatMessage({
+          id: ETranslations.perp_token_selector_24h_change,
+        })}
+        width={120}
+      />
+      <SortableHeaderCell
+        field="fundingRate"
+        label={intl.formatMessage({
+          id: ETranslations.perp_position_funding,
+        })}
+        width={100}
+      />
+      <SortableHeaderCell
+        field="volume24h"
+        label={intl.formatMessage({
+          id: ETranslations.perp_token_selector_volume,
+        })}
+        width={100}
+      />
+      <SortableHeaderCell
+        field="openInterest"
+        label={intl.formatMessage({
+          id: ETranslations.perp_token_bar_open_Interest,
+        })}
+        width={110}
+      />
     </XStack>
   );
 }
@@ -113,17 +123,21 @@ function BasePerpTokenSelectorContent({
     [closePopover, actions, onLoadingChange],
   );
 
-  const [filteredTokensLength] = usePerpsAllAssetsFilteredLengthAtom();
-
-  // cause ListView rerender
-  // const [allAssetsFiltered] = usePerpsAllAssetsFilteredAtom();
-  // console.log(allAssetsFiltered);
+  const [{ assets }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxs }] = usePerpsAllAssetCtxsAtom();
+  const [sortConfig] = usePerpTokenSortConfigPersistAtom();
 
   const mockedListData = useMemo(() => {
-    return Array.from({ length: filteredTokensLength }, (_, index) => ({
-      index,
+    const sortedIndices = sortPerpsAssetIndices({
+      assets,
+      assetCtxs,
+      sortField: sortConfig?.field ?? '',
+      sortDirection: sortConfig?.direction ?? 'desc',
+    });
+    return sortedIndices.map((originalIndex) => ({
+      index: originalIndex,
     }));
-  }, [filteredTokensLength]);
+  }, [assets, assetCtxs, sortConfig]);
 
   const content = (
     <YStack>
@@ -191,7 +205,12 @@ function PerpTokenSelectorContent({
   onLoadingChange: (isLoading: boolean) => void;
 }) {
   return isOpen ? (
-    <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
+    <DelayedRender
+      // wait popover open animation done, otherwise the list layout will be wrong
+      delay={200}
+    >
+      <BasePerpTokenSelectorContent onLoadingChange={onLoadingChange} />
+    </DelayedRender>
   ) : null;
 }
 

@@ -3,9 +3,9 @@ import { useMemo } from 'react';
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
-import { getTokens, useMedia, useTheme } from 'tamagui';
 
 import { type IActionListSection } from '@onekeyhq/components/src/actions';
+import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -13,8 +13,13 @@ import {
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import {
+  getTokens,
+  useMedia,
+  useTheme,
+} from '@onekeyhq/components/src/shared/tamagui';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -83,14 +88,6 @@ function TabItemView({
   );
 
   return contentMemo;
-}
-
-function OneKeyLogo() {
-  return (
-    <XStack px="$4" py="$3">
-      <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
-    </XStack>
-  );
 }
 
 export function DesktopLeftSideBar({

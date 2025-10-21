@@ -54,6 +54,7 @@ import {
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
   EHardwareUiStateAction,
@@ -84,6 +85,7 @@ import type {
   IShouldAuthenticateFirmwareParams,
 } from './HardwareVerifyManager';
 import type { IHardwareHomeScreenResponse } from './ServerType';
+import type { ISimpleDBAppStatus } from '../../dbs/simple/entity/SimpleDbEntityAppStatus';
 import type {
   IHardwareUiPayload,
   IHardwareUiState,
@@ -1061,6 +1063,26 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async deleteDeviceHomeScreen(homeScreenId: string) {
     await localDb.deleteHardwareHomeScreen({ homeScreenId });
+  }
+
+  @backgroundMethod()
+  async removeDeviceHomeScreen() {
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (appStatus?.removeDeviceHomeScreenMigrated) {
+      console.log('removeDeviceHomeScreen: already migrated');
+      return;
+    }
+
+    await localDb.clearRecords({
+      name: ELocalDBStoreNames.HardwareHomeScreen,
+    });
+
+    await simpleDb.appStatus.setRawData(
+      (v): ISimpleDBAppStatus => ({
+        ...v,
+        removeDeviceHomeScreenMigrated: true,
+      }),
+    );
   }
 
   @backgroundMethod()

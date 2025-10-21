@@ -92,6 +92,7 @@ export enum EAppEventBusNames {
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   EnabledNetworksChanged = 'EnabledNetworksChanged',
   CheckWalletBackupStatus = 'CheckWalletBackupStatus',
+  doubleConfirmTxFeeInfo = 'doubleConfirmTxFeeInfo',
   HardwareFeaturesUpdate = 'HardwareFeaturesUpdate',
   UnlockApp = 'UnlockApp',
   // AccountNameChanged = 'AccountNameChanged',
@@ -115,4 +116,6 @@ export enum EAppEventBusNames {
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
+  BtcFreshAddressUpdated = 'BtcFreshAddressUpdated',
+  BtcFreshAddressConnectDappRejected = 'BtcFreshAddressConnectDappRejected',
 }

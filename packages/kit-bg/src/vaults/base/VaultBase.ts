@@ -86,7 +86,11 @@ import type {
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
 import type { IAfterSendTxActionParams } from '@onekeyhq/shared/types/signatureConfirm';
-import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTx,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -128,6 +132,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   ISignTransactionParams,
+  ITransferPayload,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
@@ -465,6 +470,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     | undefined
   > {
     return Promise.resolve({});
+  }
+
+  async preActionsBeforeConfirm(params: {
+    unsignedTxs: IUnsignedTxPro[];
+  }): Promise<Partial<ITransferPayload> | undefined> {
+    return Promise.resolve(undefined);
   }
 
   async buildEstimateFeeParams({
@@ -1289,9 +1300,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({});
   }
 
-  // Staking
-  buildStakeEncodedTx(params: IStakeTx): Promise<IEncodedTx> {
-    return Promise.resolve(params as IEncodedTx);
+  // Staking / Swap
+  buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTx> {
+    return Promise.resolve(params.internalDappTx as IEncodedTx);
   }
 
   // Api Request

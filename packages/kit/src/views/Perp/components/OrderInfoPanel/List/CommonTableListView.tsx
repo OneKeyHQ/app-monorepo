@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -25,10 +25,8 @@ import {
   YStack,
   useIsKeyboardShown,
 } from '@onekeyhq/components';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { PullToRefresh } from '../../PullToRefresh';
 import { calcCellAlign, getColumnStyle } from '../utils';
@@ -298,16 +296,19 @@ export interface ICommonTableListViewProps {
   currentListPage?: number;
   setCurrentListPage?: (page: number) => void;
   useTabsList?: boolean;
+  disableListScroll?: boolean;
   listLoading?: boolean;
   paginationToBottom?: boolean;
   listViewDebugRenderTrackerProps?: IDebugRenderTrackerProps;
   onViewAll?: () => void;
+  onPullToRefresh?: () => Promise<void>;
 }
 
 export function CommonTableListView({
   columns,
   data,
   useTabsList,
+  disableListScroll,
   renderRow,
   currentListPage,
   listLoading,
@@ -324,7 +325,12 @@ export function CommonTableListView({
   pageSize = 20,
   listViewDebugRenderTrackerProps,
   onViewAll,
+  onPullToRefresh,
 }: ICommonTableListViewProps) {
+  // Use explicit prop if provided, otherwise default to true (for backward compatibility)
+  // When used inside Tabs.Container, should be true; when used in standalone ScrollView, should be false
+  const shouldUseTabsList = useTabsList ?? true;
+
   const paginatedData = useMemo<any[]>(() => {
     if (!enablePagination || data.length <= pageSize || !currentListPage) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -341,12 +347,6 @@ export function CommonTableListView({
     if (!enablePagination || data.length <= pageSize) return 1;
     return Math.ceil(data.length / pageSize);
   }, [data.length, pageSize, enablePagination]);
-
-  const actions = useHyperliquidActions();
-
-  const onRefresh = useCallback(async () => {
-    await actions.current.refreshAllPerpsData();
-  }, [actions]);
 
   const handlePreviousPage = () => {
     if (currentListPage && currentListPage > 1 && setCurrentListPage) {
@@ -365,13 +365,18 @@ export function CommonTableListView({
       setCurrentListPage(page);
     }
   };
-  const ListComponent = useTabsList ? Tabs.FlatList : ListView;
+  const ListComponent = shouldUseTabsList ? Tabs.FlatList : ListView;
 
   if (isMobile) {
     const ListContent = (
       <DebugRenderTracker {...listViewDebugRenderTrackerProps}>
         <ListComponent
-          refreshControl={<PullToRefresh onRefresh={onRefresh} />}
+          refreshControl={
+            shouldUseTabsList && onPullToRefresh ? (
+              <PullToRefresh onRefresh={onPullToRefresh} />
+            ) : undefined
+          }
+          scrollEnabled={shouldUseTabsList || !disableListScroll}
           data={paginatedData}
           ListFooterComponent={
             enablePagination &&
@@ -380,7 +385,7 @@ export function CommonTableListView({
             !paginationToBottom ? (
               <PaginationFooter
                 isMobile={isMobile}
-                currentPage={currentListPage}
+                currentPage={currentListPage ?? 1}
                 totalPages={totalPages}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}

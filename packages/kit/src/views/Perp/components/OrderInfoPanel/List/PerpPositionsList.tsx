@@ -4,6 +4,7 @@ import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActivePositionLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -16,11 +17,15 @@ import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
 }
 
 function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
+  useTabsList,
+  disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
   const [currentUser] = usePerpsActiveAccountAtom();
@@ -39,7 +44,7 @@ function PerpPositionsList({
         title: intl.formatMessage({
           id: ETranslations.perp_token_selector_asset,
         }),
-        width: 150,
+        width: 180,
         align: 'left',
       },
       {
@@ -161,9 +166,12 @@ function PerpPositionsList({
       />
     );
   };
-
+  const actions = useHyperliquidActions();
   return (
     <CommonTableListView
+      onPullToRefresh={async () => {
+        await actions.current.refreshAllPerpsData();
+      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'PerpPositionsList',
@@ -171,7 +179,8 @@ function PerpPositionsList({
         }),
         [],
       )}
-      useTabsList
+      useTabsList={useTabsList}
+      disableListScroll={disableListScroll}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       enablePagination={!isMobile}

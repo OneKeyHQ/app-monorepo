@@ -1,12 +1,12 @@
 import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { AnimatePresence } from 'tamagui';
 
 import { Stack } from '@onekeyhq/components/src/primitives';
+import { AnimatePresence } from '@onekeyhq/components/src/shared/tamagui';
 import type { IAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

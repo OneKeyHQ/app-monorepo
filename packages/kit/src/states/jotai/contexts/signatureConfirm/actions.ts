@@ -4,13 +4,14 @@ import { isUndefined, omitBy } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import {
-  type EFeeType,
-  type ESendFeeStatus,
-  ETronResourceRentalPayType,
-  type IFeeInfoUnit,
-  type ISendSelectedFeeInfo,
-  type ITronResourceRentalInfo,
+import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
+import type {
+  EFeeType,
+  ESendFeeDiscountStatus,
+  ESendFeeStatus,
+  IFeeInfoUnit,
+  ISendSelectedFeeInfo,
+  ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
@@ -103,6 +104,8 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         totalFiat: string;
         totalNativeForDisplay: string;
         totalFiatForDisplay: string;
+        originalTotalNative?: string;
+        originalTotalFiat?: string;
       },
     ) => {
       set(sendSelectedFeeInfoAtom(), payload);
@@ -114,8 +117,9 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       get,
       set,
       payload: {
-        status: ESendFeeStatus;
+        status?: ESendFeeStatus;
         errMessage?: string;
+        discountPercent?: number;
       },
     ) => {
       set(sendFeeStatusAtom(), {

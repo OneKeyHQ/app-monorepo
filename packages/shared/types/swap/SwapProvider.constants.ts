@@ -811,6 +811,30 @@ export const swapDefaultSetTokens: Record<
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/apt.png',
     },
   },
+  'evm--59144': {
+    fromToken: {
+      'networkId': 'evm--59144',
+      'contractAddress': '',
+      'name': 'Ethereum',
+      'symbol': 'ETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--59144/tokens/native.png',
+      'isNative': true,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
+    },
+    toToken: {
+      'networkId': 'evm--59144',
+      'contractAddress': '0x176211869ca2b568f2a7d4ee941e073a821ee1ff',
+      'name': 'USDC',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni-test.onekey-asset.com/server-service-onchain/evm--59144/tokens/0x176211869ca2b568f2a7d4ee941e073a821ee1ff.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/linea.png',
+    },
+  },
 };
 
 export const swapPopularTokens: Record<string, ISwapToken[]> = {

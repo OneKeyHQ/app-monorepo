@@ -9,7 +9,7 @@ import {
   Tooltip,
   XStack,
 } from '@onekeyhq/components';
-import type { IImageProps, IXStackProps } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 
 export type INetworksFilterItemProps = {
   networkImageUri?: string;

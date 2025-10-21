@@ -146,6 +146,7 @@ android {
 
         // buildConfigField("boolean", "REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS", (findProperty("reactNative.unstable_useRuntimeSchedulerAlways") ?: true).toString())
         buildConfigField("boolean", "NO_FLIPPER", 'true')
+        buildConfigField("String", "ANDROID_CHANNEL", "\"" + (System.getenv('ANDROID_CHANNEL') ?: 'direct') + "\"")
         def appEnvConfig = readRootEnvFile()
         missingDimensionStrategy 'abi', 'x86', 'x86_64'
         missingDimensionStrategy 'react-native-capture-protection', 'fullMediaCapture'

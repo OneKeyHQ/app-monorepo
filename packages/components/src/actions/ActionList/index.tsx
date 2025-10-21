@@ -4,10 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Spinner } from '@onekeyhq/components/src/primitives/Spinner';
+import {
+  useMedia,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';

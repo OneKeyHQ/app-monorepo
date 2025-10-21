@@ -7,6 +7,7 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 @interface LaunchOptionsManager ()
 @property (nonatomic, strong) NSDictionary *launchOptions;
 @property (nonatomic, strong) NSString *deviceToken;
+@property (nonatomic, strong) NSNumber *startupTime;
 
 @end
 
@@ -26,12 +27,21 @@ static LaunchOptionsManager *sharedInstance = nil;
     self = [super init];
     if (self) {
         self.launchOptions = nil;
+        self.startupTime = @0;
     }
     return self;
 }
 
 - (void)log:(NSString *)msg {
     DDLogDebug(@"LaunchOptionsManager: %@", msg);
+}
+
+- (void)saveStartupTime:(NSNumber *)startupTime {
+    self.startupTime = startupTime;
+}
+
+- (NSNumber *)getStartupTime {
+    return [LaunchOptionsManager sharedInstance].startupTime;
 }
 
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions {
@@ -119,6 +129,12 @@ RCT_EXPORT_METHOD(getDeviceToken:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSString *deviceToken = [self getDeviceToken];
     resolve(deviceToken);
+}
+
+RCT_EXPORT_METHOD(getStartupTime:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSNumber *startupTime = [self getStartupTime];
+    resolve(startupTime);
 }
 
 RCT_EXPORT_METHOD(clearLaunchOptions:(RCTPromiseResolveBlock)resolve

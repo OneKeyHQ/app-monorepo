@@ -6,6 +6,8 @@ export enum EEnterWay {
   Search = 'Search',
   Link = 'Link',
   Others = 'Others',
+  ExtensionPopup = 'ExtensionPopup',
+  ExtensionSidePanel = 'ExtensionSidePanel',
 }
 
 export enum EDexListName {

@@ -11,6 +11,11 @@ import {
   SizableText,
   YStack,
 } from '@onekeyhq/components';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IAppUpdateInfo,
+  displayAppUpdateVersion,
+} from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -46,25 +51,25 @@ function UpdatePreview({
     return null;
   }, []);
   const {
-    latestVersion: latestVersionParam,
     isForceUpdate: isForceUpdateParam,
     autoClose = false,
+    latestVersion,
   } = route.params || {};
-  const [isForceUpdate, setIsForceUpdate] = useState(isForceUpdateParam);
-  const [changeLog, setChangeLog] = useState<string | undefined>(undefined);
-  const [latestVersion, setLatestVersion] = useState<string | undefined>(
-    latestVersionParam,
-  );
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const [updateInfo, setUpdateInfo] = useState<IAppUpdateInfo>(appUpdateInfo);
+
   useEffect(() => {
     void backgroundApiProxy.serviceAppUpdate
       .fetchAppUpdateInfo(true)
       .then((response) => {
-        setIsForceUpdate(isForceUpdateStrategy(response.updateStrategy));
-        setChangeLog(response.changeLog);
-        setLatestVersion(response.latestVersion);
+        setUpdateInfo(response);
       });
   }, []);
 
+  const isForceUpdate = updateInfo
+    ? isForceUpdateStrategy(updateInfo?.updateStrategy)
+    : isForceUpdateParam;
+  const changeLog = updateInfo?.changeLog;
   usePreventRemove(!!isForceUpdate, () => {});
 
   return (
@@ -72,7 +77,11 @@ function UpdatePreview({
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_title },
-          { ver: latestVersion || '' },
+          {
+            ver: updateInfo
+              ? displayAppUpdateVersion(updateInfo)
+              : latestVersion,
+          },
         )}
         headerLeft={isForceUpdate ? headerLeft : undefined}
       />

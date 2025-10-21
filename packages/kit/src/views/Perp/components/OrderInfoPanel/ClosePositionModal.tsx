@@ -8,7 +8,6 @@ import {
   Dialog,
   Divider,
   Icon,
-  SegmentSlider,
   SizableText,
   Toast,
   XStack,
@@ -31,6 +30,7 @@ import {
 import type { IWsWebData2 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { PriceInput } from '../TradingPanel/inputs/PriceInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
@@ -472,7 +472,7 @@ const ClosePositionForm = memo(
           ifOnDialog
         />
 
-        <SegmentSlider
+        <PerpsSlider
           value={sliderPercentage}
           onChange={handlePercentageChange}
           max={100}

@@ -9,10 +9,10 @@ import { readCleartextMessage, readKey } from 'openpgp';
 import semver from 'semver';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PUBLIC_KEY } from './constant/gpg';
 import { ETranslations } from './i18n';
+import { getNativeVersion } from './libs/store';
 
 const readMetadataFileSha256 = async (signature: string) => {
   try {
@@ -103,11 +103,21 @@ export const getBundleIndexHtmlPath = ({
   if (!appVersion || !bundleVersion) {
     return undefined;
   }
-  if (semver.lt(platformEnv.version || '1.0.0', appVersion)) {
+  const prevNativeVersion = getNativeVersion();
+  if (!prevNativeVersion) {
+    return undefined;
+  }
+  const currentAppVersion = app.getVersion();
+  logger.info(
+    'getBundleIndexHtmlPath: check appVersion and prevNativeVersion',
+    currentAppVersion,
+    prevNativeVersion,
+  );
+  if (!semver.eq(currentAppVersion, prevNativeVersion)) {
     return undefined;
   }
   const extractDir = getBundleExtractDir({
-    appVersion: platformEnv.version || '1.0.0',
+    appVersion: appVersion || '1.0.0',
     bundleVersion: bundleVersion || '1',
   });
   if (!fs.existsSync(extractDir)) {
@@ -215,7 +225,7 @@ export const testExtractedSha256FromVerifyAscFile = async () => {
   );
 };
 
-export const unmatchedFileDialog = (): void => {
+const unmatchedFileDialog = (): void => {
   setTimeout(() => {
     void dialog
       .showMessageBox({
@@ -230,4 +240,62 @@ export const unmatchedFileDialog = (): void => {
         }
       });
   });
+};
+
+export const getBundleDirPath = () => {
+  const indexHtmlPath =
+    globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.();
+  return indexHtmlPath ? path.dirname(indexHtmlPath) : '';
+};
+
+const isWin = process.platform === 'win32';
+export const getDriveLetter = () => {
+  const appPath = app.getAppPath();
+  return isWin ? appPath.substring(0, 3) : '';
+};
+export const checkFileHash = ({
+  bundleDirPath,
+  metadata,
+  driveLetter,
+  url,
+}: {
+  bundleDirPath: string;
+  metadata: Record<string, string>;
+  driveLetter: string;
+  url: string;
+}) => {
+  if (!bundleDirPath) {
+    throw new OneKeyLocalError('Bundle directory path not found');
+  }
+  const replacedKey = url.replace(/^\/+/, '').trim();
+  let key = replacedKey || 'index.html';
+  // Handle Windows path separators
+  if (isWin) {
+    key = key.replace(driveLetter, '').replace('C:/', '');
+  }
+  if (!metadata[key]) {
+    logger.info(`${key}: File ${url} not found in metadata.json`);
+    key = 'index.html';
+  }
+  const sha512 = metadata[key];
+  const filePath = path.join(bundleDirPath, key);
+  if (!sha512) {
+    logger.info(
+      'checkFileHash error:',
+      `${key}: ${url}, sha512 not found in metadata.json`,
+    );
+    unmatchedFileDialog();
+    throw new OneKeyLocalError(
+      `File ${url}, sha512 not found in metadata.json`,
+    );
+  }
+  if (!checkFileSha512(filePath, sha512)) {
+    logger.info(
+      'checkFileHash error:',
+      `${key}:  ${url} not matched ${filePath}: ${sha512}`,
+    );
+    unmatchedFileDialog();
+    throw new OneKeyLocalError(`File ${url} sha512 mismatch`);
+  }
+  return filePath;
 };

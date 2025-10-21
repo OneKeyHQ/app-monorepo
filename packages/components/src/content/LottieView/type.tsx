@@ -1,4 +1,5 @@
-import type { StackProps } from '@tamagui/web';
+import type { StackProps } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { LottieComponentProps as LottieWebProps } from 'lottie-react';
 import type { LottieViewProps as LottieNativeProps } from 'lottie-react-native';
 

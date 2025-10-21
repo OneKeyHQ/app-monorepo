@@ -1,7 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import {
+  Cell,
+  beginCell,
+  external,
+  fromNano,
+  internal,
+  storeMessage,
+  toNano,
+} from '@ton/core';
+import { Address, SendMode } from '@ton/ton';
 import BigNumber from 'bignumber.js';
 import TonWeb, { type StateInit } from 'tonweb';
 
+import {
+  createWalletTransferV4,
+  packSignatureToFront,
+} from '@onekeyhq/core/src/chains/ton/sdkTon/createWalletTransfer';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -13,9 +27,7 @@ import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 import { Provider } from './provider';
 
 import type { IAddressToString, ICell } from './types';
-import type { Cell } from 'tonweb/dist/types/boc/cell';
 import type { TransferBodyParams } from 'tonweb/dist/types/contract/token/ft/jetton-wallet';
-import type { Address } from 'tonweb/dist/types/utils/address';
 
 export function decodePayload(payload?: string | Uint8Array): {
   type: EDecodedTxActionType;
@@ -125,6 +137,8 @@ export function decodePayload(payload?: string | Uint8Array): {
 type IV4R2 = typeof TonWeb.Wallets.all.v4R2;
 
 export interface IWallet extends IV4R2 {
+  getWalletId(): Promise<number>;
+  getName(): string;
   createTransferMessages(
     secretKey: Uint8Array,
     sequenceNo: number,
@@ -177,6 +191,47 @@ export function getWalletContractInstance({
   });
 }
 
+export interface IAmountValue {
+  max?: string;
+  amount: string;
+}
+
+export interface ITransactionState extends IAmountValue {
+  address: string;
+  data: string | Cell | undefined;
+  hex?: string;
+  isEncrypt?: boolean;
+}
+
+export interface IInitData {
+  code?: Cell;
+  data?: Cell;
+}
+
+export const getTonSendMode = (max: string | undefined) => {
+  return max === '1'
+    ? SendMode.CARRY_ALL_REMAINING_BALANCE
+    : SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
+};
+
+const seeIfBounceable = (address: string) => {
+  return Address.isFriendly(address)
+    ? Address.parseFriendly(address).isBounceable
+    : false;
+};
+
+export const toStateInit = (stateInit?: string): IInitData | undefined => {
+  if (!stateInit) {
+    return undefined;
+  }
+
+  const initSlice = Cell.fromBase64(stateInit).asSlice();
+  return {
+    code: initSlice.loadRef(),
+    data: initSlice.loadRef(),
+  };
+};
+
 export async function serializeUnsignedTransaction({
   contract,
   encodedTx,
@@ -184,29 +239,48 @@ export async function serializeUnsignedTransaction({
   contract: IWallet;
   encodedTx: IEncodedTxTon;
 }) {
-  return contract.createTransferMessages(
-    new Uint8Array(64),
-    encodedTx.sequenceNo || 0,
-    encodedTx.messages.map((message) => ({
-      toAddress: message.address,
-      amount: message.amount,
-      payload:
-        typeof message.payload === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(
-              Buffer.from(message.payload, 'base64').toString('hex'),
-            )
-          : message.payload,
-      sendMode: message.sendMode,
-      stateInit:
-        typeof message.stateInit === 'string'
-          ? TonWeb.boc.Cell.oneFromBoc(
-              Buffer.from(message.stateInit, 'base64').toString('hex'),
-            )
-          : message.stateInit,
-    })),
-    true,
-    encodedTx.validUntil,
-  );
+  const name = contract.getName();
+
+  if (name === 'v4R2') {
+    // @ts-expect-error
+    const walletId = contract?.options?.walletId;
+    const stateInit =
+      // @ts-expect-error
+      // eslint-disable-next-line @typescript-eslint/await-thenable
+      (await contract.createStateInit()) as unknown as StateInit;
+
+    const signingMessage = createWalletTransferV4({
+      seqno: encodedTx.sequenceNo || 0,
+      messages: encodedTx.messages.map((message) =>
+        internal({
+          to: message.address,
+          value: toNano(fromNano(message.amount)),
+          bounce: seeIfBounceable(message.address),
+          body: message.payload ? Cell.fromBase64(message.payload) : undefined,
+          init: toStateInit(message.stateInit),
+        }),
+      ),
+      sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+      walletId,
+    });
+
+    const { code, data } = stateInit;
+    return {
+      signingMessage: signingMessage.endCell(),
+
+      stateInit: Cell.fromHex(
+        Buffer.from(await stateInit.stateInit.toBoc(false)).toString('hex'),
+      ),
+      init_code: Cell.fromHex(
+        Buffer.from(await code.toBoc(false)).toString('hex'),
+      ),
+      init_data: Cell.fromHex(
+        Buffer.from(await data.toBoc(false)).toString('hex'),
+      ),
+    };
+  }
+
+  throw new OneKeyInternalError('Unsupported wallet contract version');
 }
 
 export async function createSignedExternalMessage({
@@ -220,28 +294,45 @@ export async function createSignedExternalMessage({
   signature: string;
   signingMessage: Cell;
 }) {
-  const body = new TonWeb.boc.Cell();
-  body.bits.writeBytes(Buffer.from(signature, 'hex'));
-  body.writeCell(signingMessage);
+  const body = packSignatureToFront(
+    Buffer.from(signature, 'hex'),
+    signingMessage,
+  );
 
-  let stateInit: Cell | undefined;
+  let stateInit: StateInit | undefined;
   // Activate Contract
   if (encodedTx.sequenceNo === 0) {
     // call createStateInit() return Promise<StateInit>
     // not call static method createStateInit()
     // @ts-expect-error
     // eslint-disable-next-line @typescript-eslint/await-thenable
-    const deploy = (await contract.createStateInit()) as StateInit;
-    stateInit = deploy.stateInit;
+    stateInit = (await contract.createStateInit()) as StateInit;
   }
 
   const selfAddress = encodedTx.from;
-  const header = TonWeb.Contract.createExternalMessageHeader(selfAddress);
-  const resultMessage = TonWeb.Contract.createCommonMsgInfo(
-    header,
-    stateInit,
-    body,
-  );
+  let ext;
+  if (stateInit) {
+    const { code, data } = stateInit;
+    const codeCell = Cell.fromHex(
+      Buffer.from(await code.toBoc(false)).toString('hex'),
+    );
+    const dataCell = Cell.fromHex(
+      Buffer.from(await data.toBoc(false)).toString('hex'),
+    );
+
+    ext = external({
+      to: selfAddress,
+      init: stateInit ? { code: codeCell, data: dataCell } : undefined,
+      body,
+    });
+  } else {
+    ext = external({
+      to: selfAddress,
+      body,
+    });
+  }
+
+  const resultMessage = beginCell().store(storeMessage(ext)).endCell();
 
   return {
     address: selfAddress,
@@ -251,7 +342,7 @@ export async function createSignedExternalMessage({
     signature,
     signingMessage,
 
-    stateInit,
+    stateInit: stateInit?.stateInit,
   };
 }
 

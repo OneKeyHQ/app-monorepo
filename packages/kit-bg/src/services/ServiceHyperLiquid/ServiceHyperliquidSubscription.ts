@@ -21,22 +21,25 @@ import type {
   IPerpsSubscriptionParams,
   IWebSocketTransportOptions,
   IWsActiveAssetCtx,
-  IWsAllMids,
+  IWsUserFills,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IL2BookOptions } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import {
   perpsActiveAccountAtom,
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
+  perpsCandlesWebviewReloadHookAtom,
   perpsNetworkStatusAtom,
+  perpsTradesHistoryRefreshHookAtom,
+  perpsWebSocketDataUpdateTimesAtom,
   perpsWebSocketReadyStateAtom,
 } from '../../states/jotai/atoms/perps';
 import ServiceBase from '../ServiceBase';
 
-import hyperLiquidCache from './hyperLiquidCache';
 import {
   SUBSCRIPTION_TYPE_INFO,
   calculateRequiredSubscriptionsMap,
@@ -108,75 +111,83 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _activeSubscriptions = new Map<string, IActiveSubscription>();
 
+  async buildRequiredSubscriptionsMap() {
+    const client = await this.getWebSocketClient();
+    if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const activeAccount = await perpsActiveAccountAtom.get();
+    const activeAsset = await perpsActiveAssetAtom.get();
+    const activeOrderBookOptions = await perpsActiveOrderBookOptionsAtom.get();
+
+    if (
+      activeOrderBookOptions?.coin &&
+      activeOrderBookOptions?.coin !== activeAsset.coin
+    ) {
+      console.warn(
+        'updateSubscriptionsDebounced ERROR: orderbook coin not matched',
+      );
+      return;
+    }
+
+    // TODO update isConnected by websocket connect/disconnect event
+    const isConnected = this._currentState.isConnected;
+
+    // Validate parameters before proceeding
+    if (
+      activeOrderBookOptions?.mantissa !== undefined &&
+      activeOrderBookOptions?.mantissa !== null
+    ) {
+      if (![2, 5].includes(activeOrderBookOptions?.mantissa)) {
+        console.warn(
+          '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
+          activeOrderBookOptions?.mantissa,
+          'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
+        );
+      }
+    }
+
+    const l2BookOptions: IPerpsActiveOrderBookOptionsAtom | undefined =
+      activeOrderBookOptions
+        ? {
+            ...activeOrderBookOptions,
+          }
+        : undefined;
+    delete l2BookOptions?.assetId;
+    const params: ISubscriptionState = {
+      isConnected,
+      l2BookOptions,
+      currentSymbol: activeAsset?.coin,
+      currentUser: activeAccount?.accountAddress,
+    };
+
+    const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
+    return { requiredSubSpecsMap, params };
+  }
+
   _updateSubscriptionsDebounced = debounce(
     async () => {
-      const client = await this.getWebSocketClient();
-      if (client?.transport?.socket?.readyState !== WebSocket.OPEN) {
+      const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+      if (!requiredSubInfo) {
         return;
       }
 
-      const activeAccount = await perpsActiveAccountAtom.get();
-      const activeAsset = await perpsActiveAssetAtom.get();
-      const activeOrderBookOptions =
-        await perpsActiveOrderBookOptionsAtom.get();
-
-      if (
-        activeOrderBookOptions?.coin &&
-        activeOrderBookOptions?.coin !== activeAsset.coin
-      ) {
-        console.warn(
-          'updateSubscriptionsDebounced ERROR: orderbook coin not matched',
-        );
-        return;
-      }
-
-      // TODO update isConnected by websocket connect/disconnect event
-      const isConnected = this._currentState.isConnected;
-
-      // Validate parameters before proceeding
-      if (
-        activeOrderBookOptions?.mantissa !== undefined &&
-        activeOrderBookOptions?.mantissa !== null
-      ) {
-        if (![2, 5].includes(activeOrderBookOptions?.mantissa)) {
-          console.warn(
-            '[HyperLiquid WebSocket] Invalid mantissa parameter detected:',
-            activeOrderBookOptions?.mantissa,
-            'Valid values are: 2, 5, null, undefined. This may cause WebSocket connection issues.',
-          );
-        }
-      }
-
-      const l2BookOptions: IPerpsActiveOrderBookOptionsAtom | undefined =
-        activeOrderBookOptions
-          ? {
-              ...activeOrderBookOptions,
-            }
-          : undefined;
-      delete l2BookOptions?.assetId;
-      const params: ISubscriptionState = {
-        isConnected,
-        l2BookOptions,
-        currentSymbol: activeAsset?.coin,
-        currentUser: activeAccount?.accountAddress,
-      };
-
-      const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
       this.allSubSpecsMap = {
         ...this.allSubSpecsMap,
-        ...requiredSubSpecsMap,
+        ...requiredSubInfo.requiredSubSpecsMap,
       };
       this.pendingSubSpecsMap = {
-        ...requiredSubSpecsMap,
+        ...requiredSubInfo.requiredSubSpecsMap,
       };
 
       const newState: ISubscriptionState = { ...this._currentState };
 
-      this._applyStateUpdates(newState, params);
+      this._applyStateUpdates(newState, requiredSubInfo.params);
 
-      console.log('updateSubscriptions', requiredSubSpecsMap, {
+      console.log('updateSubscriptions', requiredSubInfo.requiredSubSpecsMap, {
         newState,
-        params,
+        params: requiredSubInfo.params,
       });
 
       this._emitConnectionStatus();
@@ -197,6 +208,37 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
+  async updateSubscriptionForUserFills(): Promise<void> {
+    const requiredSubInfo = await this.buildRequiredSubscriptionsMap();
+    if (!requiredSubInfo) {
+      return;
+    }
+    Object.values(requiredSubInfo.requiredSubSpecsMap || {}).forEach((spec) => {
+      if (spec.type === ESubscriptionType.USER_FILLS) {
+        void (async () => {
+          await this._destroySubscription(spec);
+          await this._createSubscription(spec);
+        })();
+      }
+    });
+  }
+
+  @backgroundMethod()
+  async refreshAllPerpsData(): Promise<void> {
+    await this.getWebSocketClient();
+    await this._cleanupAllSubscriptions();
+    await this.updateSubscriptions();
+    this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
+    await perpsTradesHistoryRefreshHookAtom.set({
+      refreshHook: Date.now(),
+    });
+    await perpsCandlesWebviewReloadHookAtom.set({
+      reloadHook: Date.now(),
+    });
+    await timerUtils.wait(3000);
+  }
+
+  @backgroundMethod()
   async getSubscriptionStatus(): Promise<{
     currentUser: string | null;
     currentSymbol: string;
@@ -213,7 +255,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       currentUser: this._currentState.currentUser,
       currentSymbol: this._currentState.currentSymbol,
       isConnected: this._currentState.isConnected,
-      activeSubscriptions: Array.from(this._activeSubscriptions.values())
+      activeSubscriptions: Array.from(this._activeSubscriptions.values() || [])
         .filter(Boolean)
         .map((sub) => ({
           key: sub.key,
@@ -229,13 +271,25 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   async resumeSubscriptions(): Promise<void> {
     await this.enableSubscriptionsHandler();
     await this.updateSubscriptions();
+    const hookInfo = await perpsCandlesWebviewReloadHookAtom.get();
+    if (hookInfo.reloadHook <= -1) {
+      await perpsCandlesWebviewReloadHookAtom.set({
+        reloadHook: Date.now(),
+      });
+    }
   }
 
   @backgroundMethod()
   async pauseSubscriptions(): Promise<void> {
     await this.disableSubscriptionsHandler();
     await this._cleanupAllSubscriptions();
+
+    await perpsCandlesWebviewReloadHookAtom.set({
+      reloadHook: -1 * Date.now(),
+    });
   }
+
+  hasNewUserFills = false;
 
   subscriptionsHandlerDisabled = false;
 
@@ -250,6 +304,12 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   @backgroundMethod()
   async enableSubscriptionsHandler(): Promise<void> {
     this.subscriptionsHandlerDisabled = false;
+    if (this.hasNewUserFills) {
+      this.hasNewUserFills = false;
+      void perpsTradesHistoryRefreshHookAtom.set({
+        refreshHook: Date.now(),
+      });
+    }
   }
 
   @backgroundMethod()
@@ -382,28 +442,35 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
         reconnect: {
-          maxRetries: 9_999_999,
-          connectionTimeout: 10_000,
+          maxRetries: 999_999_999,
+          connectionTimeout: 5000,
           connectionDelay: (attempt) =>
             // eslint-disable-next-line no-bitwise
-            Math.min(~~(1 << attempt) * 150, 5000),
+            Math.min(~~(1 << attempt) * 150, 8000),
           shouldReconnect: () => true,
         },
       };
       const transport = new WebSocketTransport(transportOptions);
-      transport.socket.removeEventListener('close', this.socketCloseHandler);
+      // transport.socket.readyState
+      const removeAllSocketEventListeners = () => {
+        transport?.socket?.removeEventListener(
+          'close',
+          this.socketCloseHandler,
+        );
+        transport?.socket?.removeEventListener(
+          'error',
+          this.socketErrorHandler,
+        );
+        transport?.socket?.removeEventListener('open', this.socketOpenHandler);
+        transport?.socket?.removeEventListener(
+          'message',
+          this.socketMessageHandler,
+        );
+      };
+      removeAllSocketEventListeners();
       transport.socket.addEventListener('close', this.socketCloseHandler);
-
-      transport.socket.removeEventListener('error', this.socketErrorHandler);
       transport.socket.addEventListener('error', this.socketErrorHandler);
-
-      transport.socket.removeEventListener('open', this.socketOpenHandler);
       transport.socket.addEventListener('open', this.socketOpenHandler);
-
-      transport.socket.removeEventListener(
-        'message',
-        this.socketMessageHandler,
-      );
       // transport.socket.addEventListener('message', this.socketMessageHandler);
 
       const innerClient = new SubscriptionClient({ transport });
@@ -413,7 +480,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       const registerSubscriptionHandler = (type: ESubscriptionType) => {
         if (!this.subscriptionHandlerByType[type]) {
           const handleData = (data: unknown) => {
-            this._handleSubscriptionData(type, data as CustomEvent);
+            void this._handleSubscriptionData(type, data as CustomEvent);
           };
           this.subscriptionHandlerByType[type] = handleData;
         }
@@ -426,12 +493,28 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           this.subscriptionHandlerByType[type],
         );
       };
-      registerSubscriptionHandler(ESubscriptionType.ACTIVE_ASSET_CTX);
-      registerSubscriptionHandler(ESubscriptionType.ACTIVE_ASSET_DATA);
-      registerSubscriptionHandler(ESubscriptionType.ALL_MIDS);
-      registerSubscriptionHandler(ESubscriptionType.L2_BOOK);
-      registerSubscriptionHandler(ESubscriptionType.USER_FILLS);
-      registerSubscriptionHandler(ESubscriptionType.WEB_DATA2);
+      const allTypes = [
+        ESubscriptionType.ALL_MIDS,
+        ESubscriptionType.L2_BOOK,
+        ESubscriptionType.ACTIVE_ASSET_CTX,
+        ESubscriptionType.ACTIVE_ASSET_DATA,
+        ESubscriptionType.WEB_DATA2,
+        ESubscriptionType.USER_FILLS,
+      ];
+      const removeAllSubscriptionHandlers = () => {
+        allTypes.forEach((type) => {
+          if (this.subscriptionHandlerByType[type]) {
+            hlEventTarget.removeEventListener(
+              type,
+              this.subscriptionHandlerByType[type],
+            );
+          }
+        });
+      };
+      removeAllSubscriptionHandlers();
+      allTypes.forEach((type) => {
+        registerSubscriptionHandler(type);
+      });
 
       // @ts-ignore
       const wsRequester = innerClient.transport._wsRequester as {
@@ -469,7 +552,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         wsRequester,
         subscribe,
         unsubscribe,
-        async dispose() {
+        dispose: async () => {
+          try {
+            removeAllSocketEventListeners();
+          } catch (error) {
+            console.error(
+              'dispose__removeAllSocketEventListeners__error',
+              error,
+            );
+          }
+          try {
+            removeAllSubscriptionHandlers();
+          } catch (error) {
+            console.error(
+              'dispose__removeAllSubscriptionHandlers__error',
+              error,
+            );
+          }
           await innerClient[Symbol.asyncDispose]();
         },
       };
@@ -605,7 +704,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const allSpecs: ISubscriptionSpec<ESubscriptionType>[] = [
       ...Object.values(this.allSubSpecsMap),
       ...Object.values(this.pendingSubSpecsMap),
-      ...this._activeSubscriptions.values().map((subInfo) => subInfo.spec),
+      ...Array.from(this._activeSubscriptions.values() || []).map(
+        (subInfo) => subInfo.spec,
+      ),
     ];
     allSpecs.forEach((spec) => {
       void this._destroySubscription(spec);
@@ -623,13 +724,46 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     Record<ESubscriptionType, (data: unknown) => void>
   > = {};
 
-  private _handleSubscriptionData(
+  private async _handleSubscriptionData(
     subscriptionType: ESubscriptionType,
     event: CustomEvent,
-  ): void {
+  ): Promise<void> {
     try {
+      const devSettings = await devSettingsPersistAtom.get();
+      const shouldUpdateWsDataUpdateTimes =
+        devSettings.enabled && devSettings.settings?.showPerpsRenderStats;
+
+      if (shouldUpdateWsDataUpdateTimes) {
+        void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
+          ...prev,
+          wsDataReceiveTimes: prev.wsDataReceiveTimes + 1,
+        }));
+      }
+
       if (this.subscriptionsHandlerDisabled) {
+        if (subscriptionType === ESubscriptionType.USER_FILLS) {
+          const userFills = event?.detail as IWsUserFills;
+          const isSnapshot = userFills?.isSnapshot;
+          const fillsLength = userFills?.fills?.length;
+          console.log(
+            'userFills__handleSubscriptionData',
+            userFills?.user,
+            isSnapshot,
+            fillsLength,
+            userFills,
+          );
+          if (userFills?.user && fillsLength > 0 && !isSnapshot) {
+            this.hasNewUserFills = true;
+          }
+        }
         return;
+      }
+
+      if (shouldUpdateWsDataUpdateTimes) {
+        void perpsWebSocketDataUpdateTimesAtom.set((prev) => ({
+          ...prev,
+          wsDataUpdateTimes: prev.wsDataUpdateTimes + 1,
+        }));
       }
 
       const data = event?.detail as unknown;
@@ -642,9 +776,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       }
 
       if (subscriptionType === ESubscriptionType.ALL_MIDS) {
-        // TODO remove
-        hyperLiquidCache.allMids = data as IWsAllMids;
-        void this.backgroundApi.serviceHyperliquid.refreshCurrentMid();
+        // do nothing
       }
       if (subscriptionType === ESubscriptionType.WEB_DATA2) {
         void this.backgroundApi.serviceHyperliquid.updateActiveAccountSummary(
@@ -732,53 +864,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         connected: false,
       }),
     );
-  }
-
-  private _parseKeyToParams(key: string, type: ESubscriptionType): any {
-    const parts = key.split(':');
-
-    switch (type) {
-      case ESubscriptionType.ALL_MIDS:
-        return {};
-      case ESubscriptionType.ACTIVE_ASSET_CTX:
-      case ESubscriptionType.TRADES:
-      case ESubscriptionType.BBO:
-        return { coin: parts[2] };
-      case ESubscriptionType.L2_BOOK: {
-        const params: any = { coin: parts[2] };
-        // Parse additional L2Book parameters from key
-        for (let i = 3; i < parts.length; i += 1) {
-          const part = parts[i];
-          if (part.startsWith('nSigFigs-')) {
-            const valueStr = part.substring(9);
-            if (valueStr === 'null') {
-              params.nSigFigs = null;
-            } else {
-              const value = parseInt(valueStr, 10);
-              params.nSigFigs = Number.isNaN(value) ? null : value;
-            }
-          } else if (part.startsWith('mantissa-')) {
-            const valueStr = part.substring(9);
-            if (valueStr === 'null') {
-              params.mantissa = null;
-            } else {
-              const value = parseInt(valueStr, 10);
-              params.mantissa = Number.isNaN(value) ? null : value;
-            }
-          }
-        }
-        return params;
-      }
-      case ESubscriptionType.WEB_DATA2:
-      case ESubscriptionType.USER_FILLS:
-      case ESubscriptionType.USER_EVENTS:
-      case ESubscriptionType.USER_NOTIFICATIONS:
-        return { user: parts[2] };
-      case ESubscriptionType.ACTIVE_ASSET_DATA:
-        return { user: parts[2], coin: parts[3] };
-      default:
-        return {};
-    }
   }
 
   private _emitConnectionStatus(): void {

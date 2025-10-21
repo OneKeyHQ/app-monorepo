@@ -7,7 +7,6 @@ import {
   Button,
   DashText,
   DebugRenderTracker,
-  Icon,
   IconButton,
   SizableText,
   Tooltip,
@@ -25,9 +24,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 export function PerpAccountDebugInfo() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -101,41 +101,25 @@ function PerpAccountPanel() {
   const intl = useIntl();
   const { copyText } = useClipboard();
 
-  //     if (!userWebData2) {
-  //       return (
-  //         <SizableText size={textSize} color="$textSubdued">
-  //           N/A
-  //         </SizableText>
-  //       );
-  //     }
-
-  //     return (
-  //       <NumberSizeableText
-  //         size={textSize}
-  //         formatter="value"
-  //         formatterOptions={{ currency: '$' }}
-  //       >
-  //         {value}
-  //       </NumberSizeableText>
-  //     );
-  //   },
-  //   [perpsAccountLoading?.selectAccountLoading, userWebData2],
-  // );
-  // const handleDepositOrWithdraw = useCallback(
-  //   async (actionType: 'deposit' | 'withdraw') => {
-  //     if (!userAccountId || !userAddress) {
-  //       return;
-  //     }
-
-  //     const params = {
-  //       withdrawable: accountSummary.withdrawable || '0',
-  //       actionType,
-  //     };
-
-  //     await showDepositWithdrawModal(params);
-  //   },
-  //   [userAccountId, userAddress, accountSummary.withdrawable],
-  // );
+  const unrealizedPnlInfo = useMemo(() => {
+    const pnlBn = new BigNumber(accountSummary?.totalUnrealizedPnl || '0');
+    const pnlAbs = pnlBn.abs().toFixed();
+    const pnlFormatted = numberFormat(pnlAbs, {
+      formatter: 'value',
+      formatterOptions: {
+        currency: '$',
+      },
+    });
+    let pnlColor = '$text';
+    if (!pnlBn.isZero()) {
+      pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    }
+    let pnlPlusOrMinus = '';
+    if (!pnlBn.isZero()) {
+      pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    }
+    return { pnlFormatted, pnlColor, pnlPlusOrMinus };
+  }, [accountSummary?.totalUnrealizedPnl]);
 
   const content = (
     <YStack flex={1} gap="$4" pt="$4" px="$2.5">
@@ -174,7 +158,16 @@ function PerpAccountPanel() {
             skeletonWidth={70}
           />
         </XStack>
-
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodySm" color="$textSubdued" cursor="default">
+            {intl.formatMessage({
+              id: ETranslations.perp_account_unrealized_pnl,
+            })}
+          </SizableText>
+          <SizableText size="$bodySmMedium" color={unrealizedPnlInfo.pnlColor}>
+            {`${unrealizedPnlInfo.pnlPlusOrMinus}${unrealizedPnlInfo.pnlFormatted}`}
+          </SizableText>
+        </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
             {intl.formatMessage({
@@ -264,7 +257,7 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal(
+              showDepositWithdrawDialog(
                 {
                   actionType: 'deposit',
                 },
@@ -284,7 +277,7 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal(
+              showDepositWithdrawDialog(
                 {
                   actionType: 'withdraw',
                 },

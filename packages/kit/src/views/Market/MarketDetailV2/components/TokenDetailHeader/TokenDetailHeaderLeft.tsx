@@ -6,18 +6,22 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
 import { useTokenDetailHeaderLeftActions } from './hooks/useTokenDetailHeaderLeftActions';
+import { ShareButton } from './ShareButton';
 
 interface ITokenDetailHeaderLeftProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
   networkLogoUri?: string;
   showMediaAndSecurity?: boolean;
+  isNative?: boolean;
 }
 
 export function TokenDetailHeaderLeft({
@@ -25,6 +29,7 @@ export function TokenDetailHeaderLeft({
   networkId,
   networkLogoUri,
   showMediaAndSecurity = true,
+  isNative = false,
 }: ITokenDetailHeaderLeftProps) {
   const {
     handleCopyAddress,
@@ -46,8 +51,21 @@ export function TokenDetailHeaderLeft({
 
   const { website, twitter } = extraData || {};
 
+  const marketStar = networkId ? (
+    <MarketStarV2
+      chainId={networkId}
+      contractAddress={address}
+      size="medium"
+      from={EWatchlistFrom.Detail}
+      tokenSymbol={symbol}
+      isNative={isNative}
+    />
+  ) : null;
+
   return (
     <XStack ai="center" gap="$2">
+      {marketStar}
+
       <Token
         size="md"
         tokenImageUri={logoUrl}
@@ -101,7 +119,7 @@ export function TokenDetailHeaderLeft({
                 <>
                   <Divider vertical backgroundColor="$borderSubdued" h="$3" />
 
-                  <XStack gap="$1" ai="center">
+                  <XStack gap="$2" ai="center">
                     {website ? (
                       <InteractiveIcon
                         icon="GlobusOutline"
@@ -122,6 +140,15 @@ export function TokenDetailHeaderLeft({
                       <InteractiveIcon
                         icon="SearchOutline"
                         onPress={handleOpenXSearch}
+                        size="$4"
+                      />
+                    ) : null}
+
+                    {networkId ? (
+                      <ShareButton
+                        networkId={networkId}
+                        address={address}
+                        isNative={isNative}
                         size="$4"
                       />
                     ) : null}

@@ -1,7 +1,9 @@
 import { useRef } from 'react';
 
 import { BigNumber } from 'bignumber.js';
+import { isNil } from 'lodash';
 
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAppNavigation } from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
@@ -17,6 +19,8 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -24,7 +28,12 @@ import {
   formatPriceToSignificantDigits,
   resolveTradingSize,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  IMarginTable,
+  IPerpsAssetPosition,
+  IPerpsUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   EPerpsSizeInputMode,
@@ -157,8 +166,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
-  updateL2Book = contextAtomMethod((_, set, data: HL.IBook) => {
-    set(l2BookAtom(), data);
+  updateL2Book = contextAtomMethod(async (get, set, data: HL.IBook) => {
+    const activeAsset = await perpsActiveAssetAtom.get();
+    if (activeAsset?.coin === data.coin) {
+      set(l2BookAtom(), data);
+    } else {
+      const currentBook = get(l2BookAtom());
+      if (currentBook?.coin && currentBook?.coin !== activeAsset?.coin) {
+        set(l2BookAtom(), null);
+      }
+    }
   });
 
   ensureOrderBookTickOptionsLoaded = contextAtomMethod(async (_get, set) => {
@@ -749,6 +766,57 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
   });
 
+  tokenSzDecimalsCache: {
+    [coin: string]: number | null;
+  } = {};
+
+  getTokenSzDecimals = contextAtomMethod(
+    async (get, _set, params: { coin: string }) => {
+      const { coin } = params;
+      let szDecimals: number | null = null;
+      if (this.tokenSzDecimalsCache[coin] !== null) {
+        szDecimals = this.tokenSzDecimalsCache[coin];
+      } else {
+        const tokenInfo =
+          await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+            coin,
+          });
+        szDecimals = tokenInfo?.universe?.szDecimals ?? null;
+        this.tokenSzDecimalsCache[coin] = szDecimals;
+      }
+      return szDecimals;
+    },
+  );
+
+  getMidPrice = contextAtomMethod(
+    async (get, set, params: { coin: string }) => {
+      const { coin } = params;
+      const allMids = get(perpsAllMidsAtom());
+      const szDecimals = await this.getTokenSzDecimals.call(set, { coin });
+      const mid = allMids?.mids?.[coin];
+      const midValue = new BigNumber(mid || '');
+
+      let midFormattedByDecimals = mid;
+      if (isNil(szDecimals) || Number.isNaN(szDecimals)) {
+        midFormattedByDecimals = mid;
+      } else {
+        midFormattedByDecimals = formatPriceToSignificantDigits(
+          mid,
+          szDecimals,
+        );
+      }
+
+      if (midValue.isNaN() || midValue.isLessThanOrEqualTo(0)) {
+        return { mid: undefined, midFormattedByDecimals: undefined };
+      }
+
+      return {
+        mid,
+        midFormattedByDecimals,
+      };
+    },
+  );
+
   closeAllPositions = contextAtomMethod(
     async (get, set, type: 'market' | 'limit' = 'market') => {
       return withToast({
@@ -771,13 +839,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           const midPrices = await Promise.all(
             positions.map(async (p) => {
               try {
-                const midPrice =
-                  await backgroundApiProxy.serviceHyperliquid.getSymbolMidValue(
-                    {
-                      coin: p.position.coin,
-                    },
-                  );
-                return { coin: p.position.coin, midPrice };
+                const midPriceInfo = await this.getMidPrice.call(set, {
+                  coin: p.position.coin,
+                });
+                return { coin: p.position.coin, midPrice: midPriceInfo.mid };
               } catch (error) {
                 console.warn(
                   `Failed to get mid price for ${p.position.coin}:`,
@@ -888,9 +953,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     },
   );
 
-  // refreshAllPerpsData
-  refreshAllPerpsData = contextAtomMethod(async (get, set) => {
-    // TODO
+  lastRefreshAllPerpsDataTime = 0;
+
+  refreshAllPerpsData = contextAtomMethod(async (_get, _set) => {
+    const now = Date.now();
+    if (
+      now - this.lastRefreshAllPerpsDataTime <
+      timerUtils.getTimeDurationMs({ seconds: 15 })
+    ) {
+      Toast.message({
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_request_limit,
+        }),
+      });
+      return;
+    }
+    this.lastRefreshAllPerpsDataTime = now;
+    await backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData();
   });
 }
 
@@ -938,6 +1017,8 @@ export function useHyperliquidActions() {
   const updateAllAssetsFiltered = actions.updateAllAssetsFiltered.use();
   const ensureTradingEnabled = actions.ensureTradingEnabled.use();
   const refreshAllPerpsData = actions.refreshAllPerpsData.use();
+  const getTokenSzDecimals = actions.getTokenSzDecimals.use();
+  const getMidPrice = actions.getMidPrice.use();
 
   return useRef({
     updateAllAssetsFiltered,
@@ -975,5 +1056,7 @@ export function useHyperliquidActions() {
     ensureOrderBookTickOptionsLoaded,
     setOrderBookTickOption,
     refreshAllPerpsData,
+    getTokenSzDecimals,
+    getMidPrice,
   });
 }

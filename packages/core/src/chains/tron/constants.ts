@@ -14,3 +14,6 @@ export const TRON_SOURCE_FLAG_TESTNET = 'test';
 export const TRON_SOURCE_FLAG_MAINNET = '1key';
 
 export const TRON_MESSAGE_PREFIX = '\x19TRON Signed Message:\n';
+
+export const TRON_SCAN_STAKING_URL = 'https://tronscan.io/#/wallet/resources';
+export const TRON_SCAN_VOTE_URL = 'https://tronscan.io/#/sr/votes';

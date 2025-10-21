@@ -12,10 +12,12 @@ function BasePullToRefresh({ onRefresh, ...props }: IPullToRefreshProps) {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = useCallback(async () => {
-    await onRefresh?.();
     setRefreshing(true);
-    await timerUtils.wait(1200);
-    setRefreshing(false);
+    try {
+      await Promise.all([onRefresh?.(), timerUtils.wait(1200)]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [onRefresh]);
 
   return (

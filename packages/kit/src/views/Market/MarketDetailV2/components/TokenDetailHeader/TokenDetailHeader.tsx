@@ -18,7 +18,7 @@ export function TokenDetailHeader({
   showMediaAndSecurity?: boolean;
   containerProps?: ComponentProps<typeof XStack>;
 }) {
-  const { tokenDetail, networkId } = useTokenDetail();
+  const { tokenDetail, networkId, isNative } = useTokenDetail();
   const media = useMedia();
 
   const networkData = useMemo(() => {
@@ -41,11 +41,13 @@ export function TokenDetailHeader({
         networkId={networkId}
         networkLogoUri={networkData?.logoURI}
         showMediaAndSecurity={showMediaAndSecurity}
+        isNative={isNative}
       />
 
       <TokenDetailHeaderRight
         tokenDetail={tokenDetail}
         networkId={networkId}
+        isNative={isNative}
         showStats={showStats}
       />
     </XStack>

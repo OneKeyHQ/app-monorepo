@@ -25,3 +25,11 @@ export const BATCH_SEND_TXS_FEE_UP_RATIO_FOR_SWAP = 5;
 export const BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL = 0.8;
 
 export const HISTORY_PAGE_SIZE = 50;
+
+export const WALLET_STORE_URLS = {
+  okx: 'https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemcciiolgcge',
+  coinbase:
+    'https://chromewebstore.google.com/detail/coinbase-wallet-extension/hnfanknocfeofbddgcijnmhnfnkdnaad',
+  phantom:
+    'https://chromewebstore.google.com/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa',
+} as const satisfies Record<'okx' | 'coinbase' | 'phantom', string>;

@@ -103,6 +103,11 @@ runs:
         echo "BUILD_APP_VERSION=$app_version" >> $GITHUB_ENV
         # Generate app version ------- end
 
+        # Generate app bundle version ------- start
+        app_bundle_version=${{ steps.dotenv.outputs.bundle_version }}
+        echo '$app_bundle_version='$app_bundle_version
+        echo "BUILD_BUNDLE_VERSION=$app_bundle_version" >> $GITHUB_ENV
+        # Generate app bundle version ------- end
 
         # Generate github sha ------- start
         github_sha=${{ github.sha }}
@@ -112,8 +117,6 @@ runs:
         echo '$github_sha='$github_sha
         echo "GITHUB_SHA=$github_sha" >> $GITHUB_ENV
         # Generate github sha ------- end
-
-
 
         # Generate github tag ------- start
         github_ref=${{ github.ref }}
@@ -178,6 +181,7 @@ runs:
         echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
         echo "CI_BUILD_APP_VERSION=${{ env.BUILD_APP_VERSION }}" >> ${TARGET_ENV_FILE}
         echo "CI_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_BUNDLE_VERSION=${{ env.BUILD_BUNDLE_VERSION }}" >> ${TARGET_ENV_FILE}
         # Disable bundle analyzer in CI environment to improve build performance
         # echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
         # echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}

@@ -6,7 +6,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { rootNavigationRef } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useTokenDetailActions } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
-import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -51,19 +51,25 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         from: options?.from,
       };
 
-      // Check if in extension popup/side panel and using root navigation
+      // Check if in extension popup/side panel
       if (
         platformEnv.isExtensionUiPopup ||
         platformEnv.isExtensionUiSidePanel
       ) {
-        // Open in expand tab (fullscreen) for extension popup/side panel
+        // Open in expand tab for extension popup/side panel
         // Use path format to match the rewrite pattern: /market/token/:network/:tokenAddress
         const path = `/market/token/${params.network}/${params.tokenAddress}`;
+
+        // Determine the appropriate enter source
+        const enterSource = platformEnv.isExtensionUiPopup
+          ? EEnterWay.ExtensionPopup
+          : EEnterWay.ExtensionSidePanel;
+
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
           path,
           params: {
             isNative: params.isNative,
-            from: params.from,
+            from: params.from || enterSource,
           },
         });
       } else if (options?.useRootNavigation) {

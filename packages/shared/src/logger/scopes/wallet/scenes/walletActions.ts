@@ -92,6 +92,18 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
+  public actionVote(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
+  public actionStaking(params: IWalletActionBaseParams) {
+    return params;
+  }
+
+  @LogToServer()
   public buyStarted({
     tokenAddress,
     tokenSymbol,

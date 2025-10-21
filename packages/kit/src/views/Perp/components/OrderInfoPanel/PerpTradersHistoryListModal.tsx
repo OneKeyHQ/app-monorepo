@@ -35,7 +35,7 @@ export function PerpTradersHistoryListModal() {
         headerRight={headerRight}
       />
       <PageBody>
-        <PerpTradesHistoryList isMobile />
+        <PerpTradesHistoryList isMobile useTabsList={false} />
       </PageBody>
     </Page>
   );

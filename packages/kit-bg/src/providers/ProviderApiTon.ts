@@ -5,7 +5,7 @@ import {
 } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import BigNumber from 'bignumber.js';
-import { isNaN } from 'lodash';
+import { get, isEmpty, isNaN } from 'lodash';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -18,7 +18,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EMessageTypesTon } from '@onekeyhq/shared/types/message';
+import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
+import { vaultFactory } from '../vaults/factory';
 import {
   getAccountVersion,
   getWalletContractInstance,
@@ -27,6 +29,7 @@ import {
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type VaultTon from '../vaults/impls/ton/Vault';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   SignDataRequest,
@@ -40,7 +43,25 @@ enum ETonNetwork {
 
 const TonResponseError = {
   BadRequest: 1,
+  InvalidManifestUrl: 2,
+  ContentManifest: 3,
 } as const;
+
+export declare interface ITonAddressItem {
+  name: 'ton_addr';
+}
+
+export declare interface ITonProofItem {
+  name: 'ton_proof';
+  payload: string;
+}
+
+export type IConnectItem = ITonAddressItem | ITonProofItem;
+
+export interface IConnectRequest {
+  manifestUrl: string;
+  items: IConnectItem[];
+}
 
 @backgroundClass()
 class ProviderApiTon extends ProviderApiBase {
@@ -98,8 +119,95 @@ class ProviderApiTon extends ProviderApiBase {
     throw web3Errors.rpc.methodNotSupported();
   }
 
+  private async _getAccount(request: IJsBridgeMessagePayload) {
+    const accounts = await this.getAccountsInfo(request);
+    if (!accounts || accounts.length === 0) {
+      throw new OneKeyLocalError('No accounts');
+    }
+
+    return accounts[0];
+  }
+
+  private async getTonVault(
+    request: IJsBridgeMessagePayload,
+  ): Promise<VaultTon> {
+    const { account, accountInfo } = await this._getAccount(request);
+    const vault = (await vaultFactory.getVault({
+      networkId: accountInfo?.networkId ?? '',
+      accountId: account.id,
+    })) as VaultTon;
+
+    return vault;
+  }
+
   @providerApiMethod()
   public async connect(request: IJsBridgeMessagePayload, params: string[]) {
+    if (
+      !request?.data ||
+      typeof request?.data !== 'object' ||
+      request.data === null ||
+      !('params' in request.data)
+    ) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    if (!Array.isArray(request?.data?.params)) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    const [_, connectRequest] = request?.data?.params as [
+      string,
+      IConnectRequest,
+    ];
+
+    if (!connectRequest.manifestUrl || isEmpty(connectRequest.manifestUrl)) {
+      throw new Web3RpcError(
+        TonResponseError.InvalidManifestUrl,
+        'App manifest not found',
+      );
+    }
+
+    const manifest = await fetch(connectRequest.manifestUrl).then(
+      async (res) => {
+        if (res.status !== 200) {
+          throw new Web3RpcError(
+            TonResponseError.InvalidManifestUrl,
+            'App manifest not found',
+          );
+        }
+        return res.json();
+      },
+    );
+
+    if (isEmpty(get(manifest, 'name')) || isEmpty(get(manifest, 'url'))) {
+      throw new Web3RpcError(
+        TonResponseError.ContentManifest,
+        'App manifest content error',
+      );
+    }
+    try {
+      const manifestUrl = new URL(get(manifest, 'url'));
+      const originUrl = new URL(request.origin ?? '');
+
+      if (manifestUrl.host !== originUrl.host) {
+        throw new Web3RpcError(
+          TonResponseError.ContentManifest,
+          'App manifest content error',
+        );
+      }
+    } catch {
+      throw new Web3RpcError(
+        TonResponseError.ContentManifest,
+        'App manifest content error',
+      );
+    }
+
     let accounts =
       await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
         request,
@@ -214,7 +322,7 @@ class ProviderApiTon extends ProviderApiBase {
       // @ts-expect-error
       encodedTx.network !== ETonNetwork.Mainnet
     ) {
-      throw new Web3RpcError(TonResponseError.BadRequest, 'network is error');
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Wrong network');
     }
 
     // check messages
@@ -268,19 +376,65 @@ class ProviderApiTon extends ProviderApiBase {
       } catch {
         throw new Web3RpcError(TonResponseError.BadRequest, 'Invalid address');
       }
+      // payload
+      if (message.payload) {
+        try {
+          void TonWeb.boc.Cell.oneFromBoc(
+            Buffer.from(message.payload, 'base64').toString('hex'),
+          );
+        } catch {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Payload is invalid',
+          );
+        }
+      }
+
+      // init
+      if (message.stateInit) {
+        try {
+          void TonWeb.boc.Cell.oneFromBoc(
+            Buffer.from(message.stateInit, 'base64').toString('hex'),
+          );
+        } catch {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'stateInit is invalid',
+          );
+        }
+      }
+    }
+
+    const vault = await this.getTonVault(request);
+    try {
+      await vault.precheckUnsignedTx({
+        unsignedTx: {
+          encodedTx,
+        },
+        precheckTiming: ESendPreCheckTimingEnum.Confirm,
+      });
+    } catch (e: any) {
+      throw new Web3RpcError(TonResponseError.BadRequest, 'Not enough funds');
     }
 
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
     if (encodedTx.from) {
-      const fromAddr = new TonWeb.Address(encodedTx.from);
-      if (
-        fromAddr.toString(false, false, false) !==
-        account.account.addressDetail.baseAddress
-      ) {
+      try {
+        const fromAddr = new TonWeb.Address(encodedTx.from);
+        if (
+          fromAddr.toString(false, false, false) !==
+          account.account.addressDetail.baseAddress
+        ) {
+          throw new Web3RpcError(
+            TonResponseError.BadRequest,
+            'Wrong from address',
+          );
+        }
+      } catch (error) {
         throw new Web3RpcError(
           TonResponseError.BadRequest,
-          'Wrong from address',
+          'Wrong from address format',
         );
       }
     } else {

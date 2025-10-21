@@ -1,5 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import type { EAddressEncodings, IEncodedTx } from '@onekeyhq/core/src/types';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
 import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
@@ -607,6 +607,7 @@ export enum ESwapFetchCancelCause {
   SWAP_TOKENS_CANCEL = 'SWAP_TOKENS_CANCEL',
   SWAP_QUOTE_CANCEL = 'SWAP_QUOTE_CANCEL',
   SWAP_APPROVE_ALLOWANCE_CANCEL = 'SWAP_APPROVE_ALLOWANCE_CANCEL',
+  SWAP_PERP_DEPOSIT_QUOTE_CANCEL = 'SWAP_PERP_DEPOSIT_QUOTE_CANCEL',
 }
 
 // swap action&alert state
@@ -753,6 +754,27 @@ export interface IFetchBuildTxResponse {
   ctx?: any;
   socketBridgeScanUrl?: string;
   orderId?: string;
+  btcData?: {
+    hexStr: string;
+    addressType: (EAddressEncodings | string)[];
+  };
+  suiBase64Data?: string;
+}
+
+export interface IPerpDepositQuoteResponse {
+  result: IPerpDepositQuoteRes;
+  tx?: ITransaction;
+}
+
+export interface IPerpDepositQuoteRes {
+  protocol?: EProtocolOfExchange;
+  info: IFetchQuoteInfo;
+  fromTokenInfo: ISwapTokenBase;
+  toTokenInfo: ISwapTokenBase;
+  fromAmount: string;
+  toAmount: string;
+  result: IFetchBuildTxResult;
+  allowanceResult?: IAllowanceResult;
 }
 
 export interface ISwapTips {

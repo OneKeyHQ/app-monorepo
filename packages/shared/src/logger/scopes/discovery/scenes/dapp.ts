@@ -15,6 +15,7 @@ export enum EEnterMethod {
   bookmark = 'bookmark',
   bookmarkInSearch = 'bookmarkInSearch',
   historyInSearch = 'historyInSearch',
+  externalNavigation = 'externalNavigation',
 }
 
 export class DappScene extends BaseScene {

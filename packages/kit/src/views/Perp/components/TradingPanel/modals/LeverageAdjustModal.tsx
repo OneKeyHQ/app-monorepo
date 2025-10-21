@@ -125,7 +125,9 @@ const LeverageContent = memo(
                 InputComponentStyle={{
                   p: 0,
                 }}
-                fontSize={getFontSize('$heading5xl')}
+                fontSize={
+                  platformEnv.isNativeAndroid ? 34 : getFontSize('$heading5xl')
+                }
                 alignItems="center"
                 justifyContent="center"
                 value={value ? value.toString() : ''}

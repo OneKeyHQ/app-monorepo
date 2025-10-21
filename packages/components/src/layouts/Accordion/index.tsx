@@ -1,13 +1,14 @@
-import type {
-  AccordionContentProps,
-  AccordionHeaderProps,
-  AccordionItemProps,
-  AccordionMultipleProps,
-  AccordionSingleProps,
-  AccordionTriggerProps,
-} from 'tamagui';
+import {
+  Accordion,
+  type AccordionContentProps,
+  type AccordionHeaderProps,
+  type AccordionItemProps,
+  type AccordionMultipleProps,
+  type AccordionSingleProps,
+  type AccordionTriggerProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 
-export { Accordion } from 'tamagui';
+export { Accordion };
 export type IAccordionContentProps = AccordionContentProps;
 export type IAccordionHeaderProps = AccordionHeaderProps;
 export type IAccordionItemProps = AccordionItemProps;

@@ -113,7 +113,8 @@ const AdjustPositionMarginForm = memo(
     }, [currentPosition?.leverage?.value]);
 
     const minimumMarginRequired = useMemo(() => {
-      return positionValue.dividedBy(leverage);
+      const initialMarginRequired = positionValue.dividedBy(leverage);
+      return BigNumber.max(initialMarginRequired, positionValue.dividedBy(10));
     }, [positionValue, leverage]);
 
     const maxAdd = useMemo(() => {

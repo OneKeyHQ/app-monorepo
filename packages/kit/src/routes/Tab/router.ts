@@ -87,6 +87,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
+  const shouldShowMarketTab = !(
+    platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
+  );
   const perpTabShowRes = useMemo(() => {
     if (perpConfigCommon?.disablePerp) {
       return null;
@@ -166,23 +169,25 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: homeRouters,
           trackId: 'global-wallet',
         },
-        {
-          name: ETabRoutes.Market,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
-          translationId: ETranslations.global_market,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/market',
-          exact: true,
-          children: marketRouters,
-          trackId: 'global-market',
-          // Only apply custom tab press handler for non-mobile platforms
-          ...(platformEnv.isDesktop ||
-          platformEnv.isWeb ||
-          platformEnv.isExtension
-            ? { onPressWhenSelected: handleMarketTabPress }
-            : {}),
-        },
+        shouldShowMarketTab
+          ? {
+              name: ETabRoutes.Market,
+              tabBarIcon: (focused?: boolean) =>
+                focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+              translationId: ETranslations.global_market,
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/market',
+              exact: true,
+              children: marketRouters,
+              trackId: 'global-market',
+              // Only apply custom tab press handler for non-mobile platforms
+              ...(platformEnv.isDesktop ||
+              platformEnv.isWeb ||
+              platformEnv.isExtension
+                ? { onPressWhenSelected: handleMarketTabPress }
+                : {}),
+            }
+          : undefined,
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
@@ -258,9 +263,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               marginTop: getTokenValue('$4', 'size'),
             })
           : undefined,
-      ].filter<ITabNavigatorConfig<ETabRoutes>>(
-        (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
-      ),
+      ].filter((i) => !!i),
     [
       params,
       handleMarketTabPress,
@@ -270,8 +273,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       toMyOneKeyModal,
       isShowMDDiscover,
       isShowDesktopDiscover,
+      shouldShowMarketTab,
     ],
-  );
+  ) as ITabNavigatorConfig<ETabRoutes>[];
 };
 
 export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =
