@@ -90,8 +90,9 @@ function BaseBottomMenu() {
   return (
     <YStack
       p="$3"
+      borderColor="$borderSubdued"
       borderTopWidth={StyleSheet.hairlineWidth}
-      borderTopColor="$borderSubdued"
+      borderRightWidth={StyleSheet.hairlineWidth}
       bg="$bgSidebar"
       gap="$2"
     >
