@@ -286,6 +286,7 @@
     "@babel/parser": "7.27.2",
     "protobufjs": "6.11.4",
     "@types/node": "22.13.5",
+    "@types/bn.js": "^5.2.0",
     "@metamask/eth-sig-util": "5.1.0",
     "@polkadot/api": "14.3.1",
     "@polkadot/util": "13.2.3",
