@@ -8,7 +8,6 @@ export class WebembedScene extends BaseScene {
     return [reason || 'unknown'];
   }
 
-  @LogToServer()
   @LogToLocal()
   public webEmbedWebViewUriChanged({
     uri,
