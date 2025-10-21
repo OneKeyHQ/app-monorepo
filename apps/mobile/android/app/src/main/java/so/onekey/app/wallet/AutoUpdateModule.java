@@ -177,17 +177,17 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String downloadUrl = map.getString("downloadUrl");
         // Verify GPG signature
         // Extract SHA256 from the verified content
-        // try {
-        //     String extractedSha256 = getSha256(filePath);
-        //     if (extractedSha256.isEmpty()) {
-        //         promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
-        //         return;
-        //     }
-        //     promise.resolve(null);
-        // } catch (Exception e) {
-        //     log("verifyASC", "Error verifying ASC file: " + e.getMessage());
-        //     promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
-        // }
+        try {
+            String extractedSha256 = getSha256(filePath);
+            if (extractedSha256.isEmpty()) {
+                promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
+                return;
+            }
+            promise.resolve(null);
+        } catch (Exception e) {
+            log("verifyASC", "Error verifying ASC file: " + e.getMessage());
+            promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
+        }
         promise.resolve(null);
     }
 
@@ -199,46 +199,46 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
          String ascFileUrl = url + ".SHA256SUMS.asc";
          String ascFilePath = filePath + ".SHA256SUMS.asc";
          promise.resolve(null);
-        //  try {
-        //     OkHttpClient client = new OkHttpClient();
-        //     Request request = new Request.Builder()
-        //         .url(ascFileUrl)
-        //         .build();
-        //      Response response = client.newCall(request).execute();
-        //      if (!response.isSuccessful()) {
-        //          promise.reject(new IOException(String.valueOf(response.code())));
-        //          return;
-        //      }
+         try {
+            OkHttpClient client = new OkHttpClient();
+            Request request = new Request.Builder()
+                .url(ascFileUrl)
+                .build();
+             Response response = client.newCall(request).execute();
+             if (!response.isSuccessful()) {
+                 promise.reject(new IOException(String.valueOf(response.code())));
+                 return;
+             }
              
-        //      StringBuilder ascFileContent = new StringBuilder();
-        //      String line = "";
-        //      try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
-        //          while ((line = reader.readLine()) != null) {
-        //              ascFileContent.append(line).append("\n");
-        //          }
-        //      }
+             StringBuilder ascFileContent = new StringBuilder();
+             String line = "";
+             try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
+                 while ((line = reader.readLine()) != null) {
+                     ascFileContent.append(line).append("\n");
+                 }
+             }
 
-        //      String ascFileContentString = ascFileContent.toString();
-        //      if (ascFileContentString.isEmpty()) {
-        //          promise.reject(new Exception(""));
-        //          return;
-        //      }
-        //      log("ascFileContent", ascFileContentString);
-        //     // Write the ASC file content to the specified path
-        //     File ascFile = buildFile(ascFilePath);
-        //     if (ascFile.exists()) {
-        //         ascFile.delete();
-        //     }
+             String ascFileContentString = ascFileContent.toString();
+             if (ascFileContentString.isEmpty()) {
+                 promise.reject(new Exception(""));
+                 return;
+             }
+             log("ascFileContent", ascFileContentString);
+            // Write the ASC file content to the specified path
+            File ascFile = buildFile(ascFilePath);
+            if (ascFile.exists()) {
+                ascFile.delete();
+            }
             
-        //     try (FileOutputStream fos = new FileOutputStream(ascFile)) {
-        //         fos.write(ascFileContentString.getBytes());
-        //     }
+            try (FileOutputStream fos = new FileOutputStream(ascFile)) {
+                fos.write(ascFileContentString.getBytes());
+            }
             
-        //     promise.resolve(null);
-        //  } catch (Exception e) {
-        //     log("downloadASC", "Error writing ASC file: " + e.getMessage());
-        //     promise.reject(e);
-        //  }
+            promise.resolve(null);
+         } catch (Exception e) {
+            log("downloadASC", "Error writing ASC file: " + e.getMessage());
+            promise.reject(e);
+         }
     }
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
@@ -248,8 +248,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         if (!downloadedFile.exists()) {
             promise.reject(new Exception("NOT_FOUND_PACKAGE"));
         }
-        // boolean isValidAPK = this.checkFilePackage(downloadedFile, promise);
-        if (true) {
+        boolean isValidAPK = this.checkFilePackage(downloadedFile, promise);
+        if (isValidAPK) {
             promise.resolve(null);
         } else {
             promise.reject(new Exception("UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT"));
