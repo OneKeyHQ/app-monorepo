@@ -195,15 +195,16 @@ export function buildTickOptions(
 }
 
 /**
- * Get the default tick option (usually the first exact match or smallest multiplier)
+ * Get the default tick option (middle index for better UX balance)
  */
 export function getDefaultTickOption(options: ITickParam[]): ITickParam {
   if (!options.length) {
     throw new OneKeyError('tick options must not be empty');
   }
 
-  // UI defaults to the first generated option to match display ordering
-  return options[0];
+  // Default to middle index for better balance between detail and readability
+  const middleIndex = Math.floor(options.length / 2);
+  return options[middleIndex];
 }
 
 /**

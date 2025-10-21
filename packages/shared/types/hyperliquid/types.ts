@@ -209,3 +209,19 @@ export enum EPerpsSizeInputMode {
   MANUAL = 'manual',
   SLIDER = 'slider',
 }
+
+// Token Selector Sorting Types
+export type IPerpTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'fundingRate'
+  | 'volume24h'
+  | 'openInterest';
+
+export type IPerpTokenSortDirection = 'asc' | 'desc';
+
+export interface IPerpTokenSortConfig {
+  field: IPerpTokenSortField;
+  direction: IPerpTokenSortDirection;
+}
