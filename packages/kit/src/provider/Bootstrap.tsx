@@ -19,7 +19,11 @@ import {
   useDevSettingsPersistAtom,
   useOnboardingConnectWalletLoadingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  EUpdateFileType,
+  getUpdateFileType,
+} from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -502,6 +506,15 @@ export const useCheckUpdateOnDesktop =
             },
           );
           setTimeout(async () => {
+            const updateInfo =
+              await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+            const fileType = getUpdateFileType(updateInfo);
+            if (
+              updateInfo.status === EAppUpdateStatus.done ||
+              fileType === EUpdateFileType.appShell
+            ) {
+              return;
+            }
             const previousBuildNumber =
               await globalThis.desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber();
             defaultLogger.app.appUpdate.isInstallFailed(

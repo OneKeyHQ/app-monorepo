@@ -274,11 +274,22 @@ export default function DevAppUpdateModalSettingModal() {
     });
   };
 
+  const showAppUpdateInfoDialog = async () => {
+    const appUpdateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    Dialog.show({
+      title: 'App Update Info',
+      renderContent: <SizableText>{JSON.stringify(appUpdateInfo)}</SizableText>,
+    });
+  };
+
   const currentAppVersion = String(platformEnv.version);
   const currentBuildNumber = String(platformEnv.buildNumber);
   const currentBundleVersion = String(platformEnv.bundleVersion);
   const [jsBundlePath, setJsBundlePath] = useState('');
   const [fallbackBundles, setFallbackBundles] = useState<IJSBundle[]>([]);
+  const [nativeAppVersion, setNativeAppVersion] = useState('');
+  const [nativeBuildNumber, setNativeBuildNumber] = useState('');
 
   useEffect(() => {
     void getJsBundlePathAsync().then((path) => {
@@ -286,6 +297,12 @@ export default function DevAppUpdateModalSettingModal() {
     });
     void BundleUpdate.getFallbackBundles().then((bundles) => {
       setFallbackBundles(bundles);
+    });
+    void BundleUpdate.getNativeAppVersion().then((version) => {
+      setNativeAppVersion(version);
+    });
+    void BundleUpdate.getNativeBuildNumber().then((buildNumber) => {
+      setNativeBuildNumber(buildNumber);
     });
   }, []);
 
@@ -297,13 +314,20 @@ export default function DevAppUpdateModalSettingModal() {
           <SizableText size="$headingSm">
             {`Current Version: ${currentAppVersion}-${currentBuildNumber}-${currentBundleVersion}`}
           </SizableText>
+          <SizableText size="$headingSm">
+            {`Native App Version: ${nativeAppVersion}${
+              nativeBuildNumber ? `-${nativeBuildNumber}` : ''
+            }`}
+          </SizableText>
           {jsBundlePath ? (
             <SizableText size="$headingSm">
               {`js bundle path: ${jsBundlePath}`}
             </SizableText>
           ) : null}
+
           {fallbackBundles.length > 0 ? (
             <YStack gap="$2">
+              <Divider />
               <SizableText size="$bodyMd">Available Bundles</SizableText>
               <YStack gap="$2">
                 {fallbackBundles.map((bundle) => (
@@ -320,15 +344,11 @@ export default function DevAppUpdateModalSettingModal() {
               </YStack>
             </YStack>
           ) : null}
-          {platformEnv.isNativeAndroid ||
-          (platformEnv.isDesktop &&
-            !platformEnv.isMas &&
-            !platformEnv.isDesktopLinuxSnap &&
-            !platformEnv.isDesktopWinMsStore) ? (
-            <Button variant="secondary" onPress={showFailedTestsDialog}>
-              Auto Update Failed Tests
-            </Button>
-          ) : null}
+
+          <Divider />
+          <Button variant="secondary" onPress={showFailedTestsDialog}>
+            Auto Update Failed Tests
+          </Button>
 
           <Button variant="secondary" onPress={showVerificationTestsDialog}>
             Verification Tests
@@ -336,6 +356,12 @@ export default function DevAppUpdateModalSettingModal() {
 
           <Button variant="secondary" onPress={showBundleTestsDialog}>
             Bundle Tests
+          </Button>
+
+          <Divider />
+
+          <Button variant="secondary" onPress={showAppUpdateInfoDialog}>
+            Show App Update Info
           </Button>
 
           <Divider />

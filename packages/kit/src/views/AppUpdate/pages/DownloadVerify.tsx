@@ -16,7 +16,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
   IAppUpdatePagesParamList,
@@ -149,11 +148,18 @@ function DownloadVerify({
     [data.errorText, intl],
   );
   const fileUrl = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
+    if (data?.downloadUrl?.startsWith('https:')) {
       return data.downloadUrl;
     }
+    if (data.jsBundle?.downloadUrl?.startsWith('https:')) {
+      return data.jsBundle?.downloadUrl;
+    }
     return data.downloadedEvent?.downloadUrl || '';
-  }, [data.downloadUrl, data.downloadedEvent?.downloadUrl]);
+  }, [
+    data.downloadUrl,
+    data.downloadedEvent?.downloadUrl,
+    data.jsBundle?.downloadUrl,
+  ]);
 
   const headerLeft = useCallback(() => {
     return null;
