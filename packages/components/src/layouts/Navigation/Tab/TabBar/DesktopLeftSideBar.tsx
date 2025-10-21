@@ -18,6 +18,10 @@ import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
 import { useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import {
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+} from '@onekeyhq/components/src/utils/sidebar';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -38,9 +42,6 @@ import type {
 } from '@react-navigation/bottom-tabs';
 import type { NavigationState } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
-
-export const MAX_SIDEBAR_WIDTH = 208;
-export const MIN_SIDEBAR_WIDTH = 72;
 
 function TabItemView({
   isActive,
