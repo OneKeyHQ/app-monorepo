@@ -118,36 +118,37 @@ export function WebViewWebEmbed({
     return undefined;
   }, [config?.url, devSettingsPersistAtom.enabled]);
 
-  const [nativeWebviewSource, setNativeWebviewSource] = useState<
-    { uri: string } | undefined
-  >(undefined);
-
-  useEffect(() => {
-    void BundleUpdate.getWebEmbedPath().then((path) => {
-      console.log('WebViewWebEmbed getWebEmbedPath', path);
-      if (path) {
-        return setNativeWebviewSource({
-          uri: path,
-        });
-      }
-      // Android
-      if (platformEnv.isNativeAndroid) {
-        return setNativeWebviewSource({
-          uri: 'file:///android_asset/web-embed/index.html',
-        });
-      }
-      // iOS
-      if (platformEnv.isNativeIOS) {
-        setNativeWebviewSource({
-          uri: 'web-embed/index.html',
-        });
-      }
-      return undefined;
-    });
+  const nativeWebviewSource = useMemo(() => {
     if (remoteUrl) {
       return undefined;
     }
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    if (webEmbedPath) {
+      return {
+        uri: webEmbedPath,
+      };
+    }
+    // Android
+    if (platformEnv.isNativeAndroid) {
+      return {
+        uri: 'file:///android_asset/web-embed/index.html',
+      };
+    }
+    // iOS
+    if (platformEnv.isNativeIOS) {
+      return {
+        uri: 'web-embed/index.html',
+      };
+    }
+    return undefined;
   }, [remoteUrl]);
+
+  useEffect(() => {
+    defaultLogger.app.webembed.webEmbedWebViewUriChanged({
+      uri: nativeWebviewSource?.uri,
+      remoteUrl,
+    });
+  }, [nativeWebviewSource?.uri, remoteUrl]);
 
   // Handle messages from WebView - only works in native environments
   const handleMessage = useCallback((event?: WebViewMessageEvent) => {

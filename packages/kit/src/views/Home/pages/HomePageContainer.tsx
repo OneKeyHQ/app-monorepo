@@ -16,6 +16,7 @@ import {
 } from '../../../states/jotai/contexts/accountSelector';
 import { NotificationRegisterDaily } from '../../Notifications/components/NotificationRegisterDaily';
 import { OnboardingOnMount } from '../../Onboarding/components';
+import { BTCFreshAddressProvider } from '../components/BTCFreshAddressProvider';
 import { useAutoRedirectToMarket } from '../hooks/useAutoRedirectToMarket';
 
 import { HomePageView } from './HomePageView';
@@ -83,6 +84,7 @@ function HomePageContainer() {
       <DAppConnectExtensionFloatingTrigger />
       <OnboardingOnMount />
       <NotificationRegisterDaily />
+      <BTCFreshAddressProvider />
       {/* <UrlAccountAutoReplaceHistory num={0} /> */}
 
       {process.env.NODE_ENV !== 'production' ? (

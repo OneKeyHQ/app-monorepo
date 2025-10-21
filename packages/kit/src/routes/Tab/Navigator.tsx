@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo } from 'react';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
@@ -107,6 +107,22 @@ const usePreloadTabs =
         }, [navigation]);
       };
 
+// When using navigation.preload, the web layer will re-render the interface with sidebar,
+// which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
+let isRendered = false;
+function InPageTabContainer() {
+  const isRenderedRef = useRef(isRendered);
+  if (isRenderedRef.current) {
+    return null;
+  }
+  isRendered = true;
+  return (
+    <Portal.Container
+      name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
+    />
+  );
+}
+
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
@@ -124,9 +140,7 @@ export function TabNavigator() {
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
       {platformEnv.isWeb && gtMd ? <Footer /> : null}
-      <Portal.Container
-        name={EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER}
-      />
+      <InPageTabContainer />
       {!isFocused ? (
         <Stack
           position="absolute"
