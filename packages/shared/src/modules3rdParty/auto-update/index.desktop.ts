@@ -172,7 +172,8 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  getWebEmbedPath: () => Promise.resolve(''),
+  getWebEmbedPath: () => '',
+  getWebEmbedPathAsync: () => Promise.resolve(''),
   downloadBundle: (params) =>
     globalThis.desktopApiProxy.bundleUpdate.downloadBundle(params),
   verifyBundle: (params) =>

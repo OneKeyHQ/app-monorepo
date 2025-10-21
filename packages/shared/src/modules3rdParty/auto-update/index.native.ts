@@ -226,7 +226,8 @@ interface INativeBundleUpdateModule {
   setCurrentUpdateBundleData: (params: IJSBundle) => Promise<void>;
   clearBundle: () => Promise<void>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
-  getWebEmbedPath: () => Promise<string>;
+  getWebEmbedPath: () => string;
+  getWebEmbedPathAsync: () => Promise<string>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (
     appVersion: string,
@@ -305,9 +306,10 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
     BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
-  getWebEmbedPath: () =>
-    BundleUpdateModule && BundleUpdateModule.getWebEmbedPath
-      ? BundleUpdateModule.getWebEmbedPath()
+  getWebEmbedPath: () => BundleUpdateModule?.getWebEmbedPath() || '',
+  getWebEmbedPathAsync: () =>
+    BundleUpdateModule && BundleUpdateModule.getWebEmbedPathAsync
+      ? BundleUpdateModule.getWebEmbedPathAsync()
       : Promise.resolve(''),
   getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
   switchBundle: async (params) => {

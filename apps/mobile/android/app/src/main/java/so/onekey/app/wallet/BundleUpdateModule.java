@@ -838,15 +838,26 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
     }
 
-    @ReactMethod
-    public void getWebEmbedPath(Promise promise) {
-        String currentBundleDir = getCurrentBundleDir(reactContext, getCurrentBundleVersion(reactContext));
+    public static String getWebEmbedPath(Context context) {
+        String currentBundleDir = getCurrentBundleDir(context, getCurrentBundleVersion(context));
         if (currentBundleDir == null) {
-            promise.resolve("");
-            return;
+            return "";
         }
-        String webEmbedPath = new File(currentBundleDir, "web-embed").getAbsolutePath();
+        return new File(currentBundleDir, "web-embed").getAbsolutePath();
+    }
+
+    @ReactMethod
+    public void getWebEmbedPathAsync(Promise promise) {
+        String webEmbedPath = getWebEmbedPath(reactContext);
+        staticLog("getWebEmbedPathAsync", "webEmbedPath: " + webEmbedPath);
         promise.resolve(webEmbedPath);
+    }
+
+    @ReactMethod(isBlockingSynchronousMethod = true)
+    public String getWebEmbedPath() {
+        String webEmbedPath = getWebEmbedPath(reactContext);
+        staticLog("getWebEmbedPath", "webEmbedPath: " + webEmbedPath);
+        return webEmbedPath;
     }
 
     @ReactMethod

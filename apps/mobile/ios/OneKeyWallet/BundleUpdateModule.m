@@ -94,6 +94,15 @@ RCT_EXPORT_MODULE();
     return [bundleDir stringByAppendingPathComponent:folderName];
 }
 
++ (NSString *)getWebEmbedPath {
+    NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
+    if (currentBundleDir == nil) {
+        return "";
+    }
+    NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
+    return webEmbedPath;
+}
+
 + (void)clearUpdateBundleData {
     // Clear bundle directory
     NSString *bundleDir = [self bundleDir];
@@ -845,15 +854,17 @@ RCT_EXPORT_METHOD(clearBundle:(RCTPromiseResolveBlock)resolve
     resolve(nil);
 }
 
-RCT_EXPORT_METHOD(getWebEmbedPath:(RCTPromiseResolveBlock)resolve
+RCT_EXPORT_METHOD(getWebEmbedPathAsync:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
-    if (currentBundleDir == nil) {
-        resolve(@"");
-        return;
-    }
-    NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
+    NSString *webEmbedPath = [BundleUpdateModule getWebEmbedPath];
+    DDLogDebug(@"getWebEmbedPathAsync: webEmbedPath: %@", webEmbedPath);
     resolve(webEmbedPath);
+}
+
+RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(getWebEmbedPath) {
+    NSString *webEmbedPath = [BundleUpdateModule getWebEmbedPath];
+    DDLogDebug(@"getWebEmbedPath: webEmbedPath: %@", webEmbedPath);
+    return webEmbedPath;
 }
 
 RCT_EXPORT_METHOD(testVerification:(RCTPromiseResolveBlock)resolve
