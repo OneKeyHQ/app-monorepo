@@ -26,6 +26,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       receiveHandler,
       allowpopups,
       isSpinnerLoading,
+      displayProgressBar,
       onDidStartLoading,
       onDidStartNavigation,
       onDidFinishLoad,
@@ -80,6 +81,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     }, [onDidStopLoading]);
 
     const progressLoading = useMemo(() => {
+      if (!displayProgressBar) {
+        return null;
+      }
       if (showProgress) {
         if (isSpinnerLoading) {
           // should be absolute position, otherwise android will crashed!
@@ -113,7 +117,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
         );
       }
       return null;
-    }, [isSpinnerLoading, progress, showProgress]);
+    }, [displayProgressBar, isSpinnerLoading, progress, showProgress]);
 
     return (
       <Stack flex={1}>
