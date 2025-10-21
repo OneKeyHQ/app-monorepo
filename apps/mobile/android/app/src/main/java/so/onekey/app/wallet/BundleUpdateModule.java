@@ -848,14 +848,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void getWebEmbedPathAsync(Promise promise) {
-        String webEmbedPath = getWebEmbedPath(reactContext);
+        String webEmbedPath = BundleUpdateModule.getWebEmbedPath(reactContext);
         staticLog("getWebEmbedPathAsync", "webEmbedPath: " + webEmbedPath);
         promise.resolve(webEmbedPath);
     }
 
     @ReactMethod(isBlockingSynchronousMethod = true)
     public String getWebEmbedPath() {
-        String webEmbedPath = getWebEmbedPath(reactContext);
+        String webEmbedPath = BundleUpdateModule.getWebEmbedPath(reactContext);
         staticLog("getWebEmbedPath", "webEmbedPath: " + webEmbedPath);
         return webEmbedPath;
     }
