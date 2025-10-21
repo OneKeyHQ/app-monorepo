@@ -2342,7 +2342,6 @@ export default class ServiceSwap extends ServiceBase {
           signal: this._perpDepositQuoteController.signal,
         },
       );
-      console.log('perp__data__', data);
       return data?.data;
     } catch (e) {
       if (axios.isCancel(e)) {

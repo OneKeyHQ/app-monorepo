@@ -143,7 +143,7 @@ class ServiceTransaction extends ServiceBase {
       };
     }
 
-    const { feeAmount, feeTokenSymbol, doubleConfirm } = verifyTxFeeInfoParams;
+    const { feeAmount, feeTokenSymbol, doubleConfirm } = verifyTxFeeInfoParams!;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -229,7 +229,7 @@ class ServiceTransaction extends ServiceBase {
       };
     }
 
-    const { origin } = verifyTxDappInfoParams.sourceInfo!;
+    const { origin } = verifyTxDappInfoParams!.sourceInfo!;
     const urlSecurityInfo =
       await this.backgroundApi.serviceDiscovery.checkUrlSecurity({
         url: origin,
