@@ -6,6 +6,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 
 import appGlobals from '../appGlobals';
+import utils from '../logger/utils';
 import platformEnv from '../platformEnv';
 import { headerPlatform } from '../request/InterceptorConsts';
 
@@ -75,6 +76,17 @@ export class Analytics {
   }
 
   trackEvent(eventName: string, eventProps?: Record<string, any>) {
+    // Log analytics event to local log system
+    try {
+      const logMessage = `Event: ${eventName}${
+        eventProps ? ` | Props: ${JSON.stringify(eventProps)}` : ''
+      }`;
+      utils.consoleFunc(logMessage);
+    } catch (error) {
+      // Silently fail if logging fails
+      console.warn('Failed to log analytics event:', error);
+    }
+
     if (eventProps?.pageName) {
       this.basicInfo.pageName = eventProps.pageName;
     }
