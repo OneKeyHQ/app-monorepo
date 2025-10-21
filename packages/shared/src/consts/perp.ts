@@ -40,6 +40,8 @@ export const PERPS_EMPTY_ADDRESS =
 
 // 'id': 'evm--42161',
 export const PERPS_NETWORK_ID: string = presetNetworksMap.arbitrum.id;
+export const PERPS_ARB_USDC_ADDRESS =
+  '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
 export const PERPS_ETH_NETWORK_ID: string = presetNetworksMap.eth.id;
 // 'chainId': '42161',
 export const PERPS_EVM_CHAIN_ID_NUM: string =

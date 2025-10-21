@@ -71,6 +71,8 @@ export enum EAtomNames {
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',
   perpsNetworkStatusAtom = 'perpsNetworkStatusAtom',
+  perpsDepositNetworksAtom = 'perpsDepositNetworksAtom',
+  perpsDepositTokensAtom = 'perpsDepositTokensAtom',
   perpsWebSocketReadyStateAtom = 'perpsWebSocketReadyStateAtom',
   perpsTradesHistoryRefreshHookAtom = 'perpsTradesHistoryRefreshHookAtom',
   perpsCandlesWebviewReloadHookAtom = 'perpsCandlesWebviewReloadHookAtom',
