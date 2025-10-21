@@ -23,21 +23,7 @@ export function ThemeButton({ size, iconSize }: IThemeButtonProps) {
   }, [theme, themeVariant]);
 
   const handleThemeToggle = useCallback(async () => {
-    let nextTheme: 'light' | 'dark' | 'system';
-
-    switch (theme) {
-      case 'light':
-        nextTheme = 'dark';
-        break;
-      case 'dark':
-        nextTheme = 'system';
-        break;
-      case 'system':
-      default:
-        nextTheme = 'light';
-        break;
-    }
-
+    const nextTheme = theme === 'dark' || theme === 'system' ? 'light' : 'dark';
     await backgroundApiProxy.serviceSetting.setTheme(nextTheme);
   }, [theme]);
 

@@ -139,7 +139,7 @@ export function TabNavigator() {
         config={config}
         extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
       />
-      {platformEnv.isWeb && gtMd ? <Footer /> : null}
+      {platformEnv.isWebDappMode && gtMd ? <Footer /> : null}
       <InPageTabContainer />
       {!isFocused ? (
         <Stack
