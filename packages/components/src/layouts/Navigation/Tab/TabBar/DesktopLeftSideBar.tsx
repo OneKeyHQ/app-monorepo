@@ -17,11 +17,11 @@ import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
 import { useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
-// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
 } from '@onekeyhq/components/src/utils/sidebar';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
@@ -44,6 +44,7 @@ import type { NavigationState } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
 
 function TabItemView({
+  isCollapse,
   isActive,
   route,
   onPress,
@@ -79,7 +80,10 @@ function TabItemView({
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         shortcutKey={options.shortcutKey}
-        tabBarStyle={options.tabBarStyle}
+        tabBarStyle={[
+          options.tabBarStyle,
+          isCollapse ? { width: 36, alignItems: 'center' } : undefined,
+        ]}
         // @ts-expect-error
         icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
         label={(options.tabBarLabel ?? route.name) as string}
@@ -87,7 +91,7 @@ function TabItemView({
         testID={route.name.toLowerCase()}
       />
     ),
-    [isActive, onPress, options, route.name],
+    [isActive, isCollapse, onPress, options, route.name],
   );
 
   return contentMemo;
