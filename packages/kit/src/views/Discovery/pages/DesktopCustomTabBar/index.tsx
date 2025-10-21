@@ -392,6 +392,7 @@ function DesktopCustomTabBar() {
                       pl="$1"
                       color="$textSubdued"
                       size="$bodySmMedium"
+                      numberOfLines={1}
                       $group-sidebarClearButton-hover={{
                         color: '$text',
                       }}
