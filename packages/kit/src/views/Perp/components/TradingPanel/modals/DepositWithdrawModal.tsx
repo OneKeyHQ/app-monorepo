@@ -280,13 +280,6 @@ function DepositWithdrawContent({
       });
     }
 
-    console.log('accountResult--', {
-      wallet,
-      account,
-      indexedAccount,
-      isOtherAccount,
-    });
-
     return {
       wallet,
       account,
@@ -856,52 +849,6 @@ function DepositWithdrawContent({
           },
         ]}
       />
-      {/* <XStack
-        borderWidth="$px"
-        borderColor="$borderSubdued"
-        borderRadius="$3"
-        px="$3"
-        bg="$bgSubdued"
-        alignItems="center"
-        gap="$3"
-      >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {selectedAction === 'withdraw'
-            ? intl.formatMessage({ id: ETranslations.perp_withdraw_chain })
-            : intl.formatMessage({ id: ETranslations.perp_deposit_chain })}
-        </SizableText>
-        <Input
-          flex={1}
-          onChangeText={() => {}}
-          keyboardType="default"
-          readonly
-          borderWidth={0}
-          addOns={[
-            {
-              renderContent: depositNetworkSelectComponent,
-            },
-          ]}
-          addOnsContainerProps={{
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-          }}
-          size="medium"
-          fontSize={getFontSize('$bodyMd')}
-          containerProps={{
-            flex: 1,
-            borderWidth: 0,
-            bg: 'transparent',
-            p: 0,
-          }}
-          InputComponentStyle={{
-            p: 0,
-            bg: 'transparent',
-            justifyContent: 'flex-end',
-          }}
-          alignContent="flex-end"
-          textAlign="right"
-        />
-      </XStack> */}
 
       <YStack gap="$2">
         <XStack
