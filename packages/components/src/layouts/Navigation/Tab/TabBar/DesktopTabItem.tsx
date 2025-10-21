@@ -57,8 +57,8 @@ export interface IDesktopTabItemProps {
   children?: React.ReactNode;
   trackId?: string;
   showDot?: boolean;
+  isContainerHovered?: boolean;
   onPressWhenSelected?: () => void; // New: Click event when already selected
-  verticalText?: boolean; // New: Display text vertically
 }
 
 function BasicDesktopTabItemImage({
@@ -111,8 +111,8 @@ export function DesktopTabItem(
     size = 'medium',
     children,
     showDot,
+    isContainerHovered = false,
     onPressWhenSelected,
-    verticalText = false,
     ...rest
   } = props;
 
@@ -161,9 +161,8 @@ export function DesktopTabItem(
   );
   const trigger = useMemo(
     () => (
-      <Stack
+      <YStack
         {...tabBarItemStyle}
-        flexDirection={verticalText ? 'column' : 'row'}
         alignItems="center"
         py={size === 'small' ? '$1.5' : '$2'}
         $gtMd={
@@ -180,7 +179,7 @@ export function DesktopTabItem(
             bg: '$bgActive',
           },
         }) as any)}
-        {...(((isContextMenuOpened || isHovered) && {
+        {...(((isContextMenuOpened || isHovered || isContainerHovered) && {
           bg: '$bgHover',
         }) as any)}
         onMouseEnter={onMouseEnter}
@@ -232,7 +231,7 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
-        {(selected || isHovered) && actionList ? (
+        {(selected || isHovered || isContainerHovered) && actionList ? (
           <IconButton
             size="small"
             icon="CrossedSmallOutline"
@@ -268,15 +267,15 @@ export function DesktopTabItem(
           />
         ) : null}
         {children}
-      </Stack>
+      </YStack>
     ),
     [
       tabBarItemStyle,
       size,
       selected,
-      verticalText,
       isContextMenuOpened,
       isHovered,
+      isContainerHovered,
       onMouseEnter,
       onMouseLeave,
       reloadOnPress,

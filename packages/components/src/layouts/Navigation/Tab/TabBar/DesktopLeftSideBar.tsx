@@ -15,7 +15,12 @@ import {
 } from '@onekeyhq/components/src/hocs';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
-import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import {
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components/src/primitives';
 import { useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import {
   MAX_SIDEBAR_WIDTH,
@@ -71,28 +76,54 @@ function TabItemView({
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
 
+  const [isContainerHovered, setIsContainerHovered] = useState(false);
+
   const contentMemo = useMemo(
     () => (
-      <DesktopTabItem
+      <YStack
+        ai={isCollapse ? 'center' : undefined}
+        gap={isCollapse ? '$1' : undefined}
+        py={isCollapse ? 5 : undefined}
         onPress={options.tabbarOnPress ?? onPress}
-        onPressWhenSelected={options.onPressWhenSelected}
-        trackId={options.trackId}
-        aria-current={isActive ? 'page' : undefined}
-        selected={isActive}
-        shortcutKey={options.shortcutKey}
-        tabBarStyle={[
-          options.tabBarStyle,
-          isCollapse ? { width: 36 } : undefined,
-        ]}
-        verticalText={isCollapse}
-        // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-        label={(options.tabBarLabel ?? route.name) as string}
-        actionList={options.actionList}
-        testID={route.name.toLowerCase()}
-      />
+        onHoverIn={() => {
+          if (isCollapse) {
+            setIsContainerHovered(true);
+          }
+        }}
+        onHoverOut={() => {
+          if (isCollapse) {
+            setIsContainerHovered(false);
+          }
+        }}
+      >
+        <DesktopTabItem
+          isContainerHovered={isCollapse ? isContainerHovered : false}
+          onPress={options.tabbarOnPress ?? onPress}
+          onPressWhenSelected={options.onPressWhenSelected}
+          trackId={options.trackId}
+          aria-current={isActive ? 'page' : undefined}
+          selected={isActive}
+          shortcutKey={options.shortcutKey}
+          tabBarStyle={[
+            options.tabBarStyle,
+            isCollapse ? { width: 36 } : undefined,
+          ]}
+          // @ts-expect-error
+          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+          label={
+            (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
+          }
+          actionList={options.actionList}
+          testID={route.name.toLowerCase()}
+        />
+        {isCollapse ? (
+          <SizableText size="$bodySmMedium">
+            {options.tabBarLabel ?? route.name}
+          </SizableText>
+        ) : null}
+      </YStack>
     ),
-    [isActive, isCollapse, onPress, options, route.name],
+    [isActive, isCollapse, isContainerHovered, onPress, options, route.name],
   );
 
   return contentMemo;
