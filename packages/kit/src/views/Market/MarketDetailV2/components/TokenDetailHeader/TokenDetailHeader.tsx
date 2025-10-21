@@ -16,6 +16,7 @@ import type {
 } from 'react-native';
 
 const SCROLL_THRESHOLD = 2;
+const SCROLL_BREAKPOINT = 720;
 
 export function TokenDetailHeader({
   showStats = true,
@@ -36,7 +37,7 @@ export function TokenDetailHeader({
     if (!containerWidth) {
       return false;
     }
-    return containerWidth < 740;
+    return containerWidth < SCROLL_BREAKPOINT;
   }, [containerWidth]);
 
   const networkData = useMemo(() => {
@@ -84,7 +85,7 @@ export function TokenDetailHeader({
       pb="$2"
       jc="space-between"
       ai="center"
-      minWidth={740}
+      minWidth={SCROLL_BREAKPOINT}
       {...containerProps}
     >
       <TokenDetailHeaderLeft
