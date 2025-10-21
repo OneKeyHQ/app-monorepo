@@ -13,10 +13,7 @@ import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsHorizontalLayout } from '../../hooks';
-import {
-  MAX_SIDEBAR_WIDTH,
-  MIN_SIDEBAR_WIDTH,
-} from '../../layouts/Navigation/Tab/TabBar/DesktopLeftSideBar';
+import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
 import { useFocusedTab } from './useFocusedTab';

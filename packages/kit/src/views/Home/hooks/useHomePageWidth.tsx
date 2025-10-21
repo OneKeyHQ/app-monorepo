@@ -2,11 +2,12 @@ import { useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import { useMedia, useOrientation } from '@onekeyhq/components';
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
-} from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopLeftSideBar';
+  useMedia,
+  useOrientation,
+} from '@onekeyhq/components';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
