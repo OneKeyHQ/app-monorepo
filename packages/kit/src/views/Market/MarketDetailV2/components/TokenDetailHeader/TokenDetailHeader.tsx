@@ -1,7 +1,12 @@
 import type { ComponentProps } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
-import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
+import {
+  GradientMask,
+  ScrollView,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -27,6 +32,7 @@ export function TokenDetailHeader({
   showMediaAndSecurity?: boolean;
   containerProps?: ComponentProps<typeof XStack>;
 }) {
+  const { lg } = useMedia();
   const { tokenDetail, networkId, isNative } = useTokenDetail();
   const [containerWidth, setContainerWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
@@ -79,7 +85,7 @@ export function TokenDetailHeader({
   const renderHeaderContent = () => (
     <XStack
       position="relative"
-      width={shouldScroll ? '90%' : '100%'}
+      width={lg ? '90%' : '100%'}
       px="$5"
       pt="$4"
       pb="$2"
