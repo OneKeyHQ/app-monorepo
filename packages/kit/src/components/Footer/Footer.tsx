@@ -6,6 +6,7 @@ import { XStack, useOnRouterChange } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
 import { PerpRefreshButton } from '../PerpRefreshButton';
 
@@ -86,8 +87,15 @@ export function Footer() {
       alignItems="center"
       justifyContent="space-between"
     >
-      <NetworkStatus />
-      {isInPerpRoute ? <PerpRefreshButton /> : null}
+      <XStack gap="$2">
+        <NetworkStatus />
+        {isInPerpRoute ? (
+          <PerpsProviderMirror>
+            <PerpRefreshButton />
+          </PerpsProviderMirror>
+        ) : null}
+      </XStack>
+
       <FooterNavigation>{linkItems}</FooterNavigation>
     </XStack>
   );
