@@ -10,7 +10,6 @@ import {
 import bs58check from 'bs58check';
 import { ECPairFactory } from 'ecpair';
 import { cloneDeep, isNil, omit } from 'lodash';
-import { getAddress } from 'viem';
 
 import {
   OneKeyInternalError,

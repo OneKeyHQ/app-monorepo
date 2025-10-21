@@ -718,16 +718,16 @@ describe('getLocalUsedAddressFromLocalPendingTxs', () => {
     },
   });
 
-  it('should return stable hash for empty pending txs', () => {
+  it('should return stable hash for empty pending txs', async () => {
     const { localUsedAddressesHash, localUsedAddressesMap } =
-      getLocalUsedAddressFromLocalPendingTxs({});
+      await getLocalUsedAddressFromLocalPendingTxs({});
 
     expect(localUsedAddressesMap).toEqual({});
     const expectedHash = crypto.createHash('sha256').update('').digest('hex');
     expect(localUsedAddressesHash).toBe(expectedHash);
   });
 
-  it('should merge outputs, dedupe txIds, and produce deterministic hash', () => {
+  it('should merge outputs, dedupe txIds, and produce deterministic hash', async () => {
     const pendingTxs: ILocalHistory['pendingTxs'] = {
       btc_account: [
         buildHistoryTx({
@@ -766,7 +766,7 @@ describe('getLocalUsedAddressFromLocalPendingTxs', () => {
     };
 
     const { localUsedAddressesHash, localUsedAddressesMap } =
-      getLocalUsedAddressFromLocalPendingTxs({
+      await getLocalUsedAddressFromLocalPendingTxs({
         pendingTxs,
       });
 

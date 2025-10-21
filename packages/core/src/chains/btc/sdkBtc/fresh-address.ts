@@ -1,9 +1,4 @@
-import crypto from 'crypto';
-
 import { getAddressFromXpub } from '.';
-
-import type { ILocalHistory } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalHistory';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import type { EAddressEncodings } from '../../../types';
 import type {
@@ -13,6 +8,14 @@ import type {
   IBtcFreshAddressStructure,
   IEncodedTxBtc,
 } from '../types';
+
+import type { ILocalHistory } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalHistory';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import appCrypto from '@onekeyhq/shared/src/appCrypto';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+
+const EMPTY_LOCAL_USED_ADDRESSES_HASH =
+  'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'; // sha256('')
 
 export async function transformAddress({
   network,
@@ -116,7 +119,7 @@ export async function transformAddress({
   };
 }
 
-export function getLocalUsedAddressFromLocalPendingTxs({
+export async function getLocalUsedAddressFromLocalPendingTxs({
   pendingTxs,
 }: {
   pendingTxs?: ILocalHistory['pendingTxs'];
@@ -157,10 +160,13 @@ export function getLocalUsedAddressFromLocalPendingTxs({
     .map(([address, txIds]) => `${address}:${txIds.join(',')}`);
 
   const serializedEntries = sortedEntries.join('|');
-  const localUsedAddressesHash = crypto
-    .createHash('sha256')
-    .update(serializedEntries)
-    .digest('hex');
+  let localUsedAddressesHash = EMPTY_LOCAL_USED_ADDRESSES_HASH;
+  if (serializedEntries.length > 0) {
+    const hashBytes = await appCrypto.hash.sha256(
+      bufferUtils.utf8ToBytes(serializedEntries),
+    );
+    localUsedAddressesHash = bufferUtils.bytesToHex(hashBytes);
+  }
 
   return {
     localUsedAddressesHash,
