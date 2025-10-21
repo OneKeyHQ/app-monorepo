@@ -55,6 +55,7 @@ import type {
   IEarnSummary,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
+  IRecommendAsset,
   IStakeBaseParams,
   IStakeBlockRegionResponse,
   IStakeClaimBaseParams,
@@ -97,6 +98,12 @@ interface IRecommendResponse {
   code: string;
   message?: string;
   data: { tokens: IEarnAccountToken[] };
+}
+
+interface IRecommendV2Response {
+  code: string;
+  message?: string;
+  data: { tokens: IRecommendAsset[] };
 }
 
 interface IAvailableAssetsResponse {
@@ -846,6 +853,29 @@ class ServiceStaking extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAccountAssetV2(
+    params: {
+      networkId: string;
+      accountAddress: string;
+      publicKey?: string;
+    }[],
+  ) {
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+
+    const tokensResponse = await client.post<
+      IRecommendV2Response,
+      IAxiosResponse<IRecommendV2Response>
+    >(`/earn/v2/recommend`, { accounts: params });
+
+    this.handleServerError({
+      ...tokensResponse.data,
+      requestId: tokensResponse.$requestId,
+    });
+
+    return tokensResponse.data.data;
+  }
+
+  @backgroundMethod()
   async getEarnAvailableAccountsParams({
     accountId,
     networkId,
@@ -958,6 +988,24 @@ class ServiceStaking extends ServiceBase {
       indexedAccountId,
     });
     return this.getAccountAsset(accounts);
+  }
+
+  @backgroundMethod()
+  async fetchAllNetworkAssetsV2({
+    accountId,
+    networkId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+  }) {
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    return this.getAccountAssetV2(accounts);
   }
 
   @backgroundMethod()
