@@ -425,7 +425,9 @@ class DesktopApiAppUpdate {
         logger.error('auto-updater', 'Failed to fetch ASC file', error);
         throw error;
       }
+      return true;
     }
+    return false;
   }
 
   async downloadASC(params: IInstallUpdateParams): Promise<boolean> {
