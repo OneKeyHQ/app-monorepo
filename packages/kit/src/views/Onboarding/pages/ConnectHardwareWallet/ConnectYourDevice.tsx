@@ -131,14 +131,16 @@ async function getForceTransportType(
         : EHardwareTransportType.BLE;
     case EConnectDeviceChannel.usbOrBle: {
       // For usbOrBle, constrain based on platform
-      if (platformEnv.isNative) {
-        return EHardwareTransportType.BLE;
-      }
+      if (platformEnv.isNative) return EHardwareTransportType.BLE;
       // For desktop/web/extension, use system setting transport type
+      // For web/extension, use current setting as a hint
       if (platformEnv.isDesktop) {
-        return EHardwareTransportType.Bridge;
+        const transportType =
+          await backgroundApiProxy.serviceSetting.getHardwareTransportType();
+        return transportType === EHardwareTransportType.Bridge
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
       }
-      // For web/extension, get the current transport type setting
       const currentTransportType =
         await backgroundApiProxy.serviceSetting.getHardwareTransportType();
       return currentTransportType;
@@ -820,7 +822,8 @@ function ConnectByUSBOrBLE({
   useEffect(() => {
     if (
       platformEnv.isNative ||
-      hardwareTransportType === EHardwareTransportType.WEBUSB
+      (hardwareTransportType === EHardwareTransportType.WEBUSB &&
+        !platformEnv.isDesktop)
     ) {
       return;
     }
@@ -1736,13 +1739,13 @@ export function ConnectYourDevicePage() {
               },
               ...(platformEnv.isSupportDesktopBle
                 ? [
-                    {
-                      label: intl.formatMessage({
-                        id: ETranslations.global_bluetooth,
-                      }),
-                      value: EConnectDeviceChannel.bluetooth,
-                    },
-                  ]
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.global_bluetooth,
+                    }),
+                    value: EConnectDeviceChannel.bluetooth,
+                  },
+                ]
                 : []),
               {
                 label: intl.formatMessage({ id: ETranslations.global_qr_code }),
@@ -1761,7 +1764,7 @@ export function ConnectYourDevicePage() {
         ) : null}
 
         {tabValue === EConnectDeviceChannel.bluetooth &&
-        platformEnv.isSupportDesktopBle ? (
+          platformEnv.isSupportDesktopBle ? (
           <ConnectByBluetooth onDeviceConnect={handleDeviceConnect} />
         ) : null}
 

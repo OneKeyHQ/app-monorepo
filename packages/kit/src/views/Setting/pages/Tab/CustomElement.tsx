@@ -315,23 +315,13 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      if (platformEnv.isDesktopMac) {
-        return [
-          {
-            label: 'Bridge',
-            value: EHardwareTransportType.Bridge,
-          },
-          {
-            label: 'Bluetooth',
-            value: EHardwareTransportType.DesktopWebBle,
-          },
-        ];
-      }
       return [
         {
-          label: 'Bridge',
-          value: EHardwareTransportType.Bridge,
+          label: 'WebUSB',
+          value: EHardwareTransportType.WEBUSB,
+          iconProps: { name: 'UsbOutline' as const }
         },
+        { label: 'Bridge', value: EHardwareTransportType.Bridge },
       ];
     }
     if (platformEnv.isSupportWebUSB) {

@@ -1,4 +1,4 @@
-import { EDeviceType } from '@onekeyfe/hd-shared';
+import { EDeviceType, ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
 import axios from 'axios';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -95,7 +95,26 @@ export class HardwareConnectionManager {
     }
   }
 
-  async detectUSBDeviceAvailability(): Promise<boolean> {
+  // WebUSB detection
+  async detectWebUSBAvailability(): Promise<boolean> {
+    if (!platformEnv.isSupportDesktopBle) return true;
+    try {
+      const usb = globalThis?.navigator?.usb;
+      if (!usb || typeof usb.getDevices !== 'function') return false;
+      const list = (await usb.getDevices()) || [];
+      const onekeyDevices = (Array.isArray(list) ? list : []).filter((dev) => {
+        const isOneKey = ONEKEY_WEBUSB_FILTER?.some(
+          (d) => dev?.vendorId === d.vendorId && dev?.productId === d.productId,
+        );
+        return isOneKey;
+      });
+      return onekeyDevices.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async detectBridgeAvailability(): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) {
       return true;
     }
@@ -115,6 +134,15 @@ export class HardwareConnectionManager {
     } catch (error) {
       return false;
     }
+  }
+
+  // Checking WebUSB and Bridge
+  async detectUSBDeviceAvailability(): Promise<boolean> {
+    if (!platformEnv.isSupportDesktopBle) return true;
+    const WebUSB = await this.detectWebUSBAvailability();
+    if (WebUSB) return true;
+    const bridge = await this.detectBridgeAvailability();
+    return bridge;
   }
 
   async detectBluetoothAvailability(
@@ -226,25 +254,24 @@ export class HardwareConnectionManager {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
-    // For desktop, check if USB devices are available
+    // For desktop, check availability of all transports
     if (platformEnv.isSupportDesktopBle) {
-      const usbAvailable = await this.detectUSBDeviceAvailability();
-
-      if (usbAvailable) {
-        return EHardwareTransportType.Bridge;
-      }
-
-      // No USB devices, check if Bluetooth is available before fallback
+      const WebUSBAvailable = await this.detectWebUSBAvailability();
+      const bridgeAvailable = await this.detectBridgeAvailability();
       const bluetoothAvailable = await this.detectBluetoothAvailability(
         hardwareCallContext,
       );
-
+      if (WebUSBAvailable || bridgeAvailable) {
+        return currentSettingType === EHardwareTransportType.WEBUSB
+          ? EHardwareTransportType.WEBUSB
+          : EHardwareTransportType.Bridge;
+      }
+      // Bluetooth is available, fallback to DesktopWebBle for seamless wireless connection
       if (bluetoothAvailable) {
-        // Bluetooth is available, fallback to DesktopWebBle for seamless wireless connection
         return EHardwareTransportType.DesktopWebBle;
       }
 
-      return EHardwareTransportType.Bridge;
+      return EHardwareTransportType.WEBUSB;
     }
 
     return currentSettingType;
@@ -292,7 +319,7 @@ export class HardwareConnectionManager {
       if (isMiniDevice) {
         return {
           shouldSwitch: false,
-          targetType: EHardwareTransportType.Bridge,
+          targetType: EHardwareTransportType.WEBUSB,
         };
       }
 
