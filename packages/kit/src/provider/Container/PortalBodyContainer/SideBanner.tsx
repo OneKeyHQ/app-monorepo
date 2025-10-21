@@ -4,19 +4,22 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  EPortalContainerConstantName,
   Heading,
   Icon,
   Image,
+  Portal,
   SizableText,
   Stack,
   YStack,
+  useIsIpadLandscape,
+  useMedia,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
-import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
@@ -146,28 +149,6 @@ function _NotificationButton() {
   );
 }
 
-function DownloadButton() {
-  const intl = useIntl();
-  const onPress = useCallback(() => {
-    openUrlExternal(DOWNLOAD_URL);
-  }, []);
-
-  if (!platformEnv.isWeb) {
-    return null;
-  }
-
-  return (
-    <DesktopTabItem
-      onPress={onPress}
-      icon="DownloadOutline"
-      selected={false}
-      label={intl.formatMessage({
-        id: ETranslations.global_download,
-      })}
-    />
-  );
-}
-
 function BottomMenu() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
@@ -195,7 +176,17 @@ function BottomMenu() {
         shortcutKey={[shortcutsKeys.CmdOrCtrl, ',']}
         testID="setting"
       />
-      <DownloadButton />
     </YStack>
   );
+}
+
+export function SidebarBanner() {
+  const { gtMd } = useMedia();
+  const isIpadLandscape = useIsIpadLandscape();
+  const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
+  return isShowBottomMenu ? (
+    <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
+      <BottomMenu />
+    </Portal.Body>
+  ) : null;
 }

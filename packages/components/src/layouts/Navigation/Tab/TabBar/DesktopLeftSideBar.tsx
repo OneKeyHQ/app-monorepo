@@ -9,7 +9,10 @@ import {
   IconButton,
 } from '@onekeyhq/components/src/actions';
 import { OneKeyLogo } from '@onekeyhq/components/src/content';
-import { Portal } from '@onekeyhq/components/src/hocs';
+import {
+  EPortalContainerConstantName,
+  Portal,
+} from '@onekeyhq/components/src/hocs';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
@@ -237,6 +240,7 @@ export function DesktopLeftSideBar({
             <YStack flex={1} pt="$3" px="$3">
               {tabs}
             </YStack>
+            <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
           </YStack>
         </MotiView>
       </YStack>
