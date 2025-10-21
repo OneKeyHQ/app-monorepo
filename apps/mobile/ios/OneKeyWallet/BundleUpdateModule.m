@@ -97,7 +97,7 @@ RCT_EXPORT_MODULE();
 + (NSString *)getWebEmbedPath {
     NSString *currentBundleDir = [BundleUpdateModule currentBundleDir];
     if (currentBundleDir == nil) {
-        return "";
+        return @"";
     }
     NSString *webEmbedPath = [currentBundleDir stringByAppendingPathComponent:@"web-embed"];
     return webEmbedPath;
