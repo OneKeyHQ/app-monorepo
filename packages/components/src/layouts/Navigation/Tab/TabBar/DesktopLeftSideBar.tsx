@@ -5,6 +5,7 @@ import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
 
 import { type IActionListSection } from '@onekeyhq/components/src/actions';
+import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -87,14 +88,6 @@ function TabItemView({
   );
 
   return contentMemo;
-}
-
-function OneKeyLogo() {
-  return (
-    <XStack px="$4" py="$3">
-      <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
-    </XStack>
-  );
 }
 
 export function DesktopLeftSideBar({

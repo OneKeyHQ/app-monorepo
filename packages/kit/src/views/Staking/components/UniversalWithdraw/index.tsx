@@ -33,11 +33,11 @@ import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateA
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 import type {
   ICheckAmountAlert,
   IEarnEstimateFeeResp,
-  IEarnText,
   IEarnTextTooltip,
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
@@ -77,6 +77,8 @@ type IUniversalWithdrawProps = {
 
   protocolVault?: string;
 
+  identity?: string;
+
   onConfirm?: ({
     amount,
     withdrawAll,
@@ -105,7 +107,7 @@ export function UniversalWithdraw({
   minAmount = '0',
   decimals,
   protocolVault,
-  estimateFeeResp,
+  identity,
 
   onConfirm,
 }: PropsWithChildren<IUniversalWithdrawProps>) {
@@ -116,6 +118,52 @@ export function UniversalWithdraw({
   const [loading, setLoading] = useState<boolean>(false);
   const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
+
+  const { result: estimateFeeResp } = usePromiseResult(async () => {
+    if (
+      !accountId ||
+      !networkId ||
+      !providerName ||
+      !tokenSymbol ||
+      !BigNumber(amountValue).isGreaterThan(0)
+    ) {
+      return undefined;
+    }
+
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: providerName,
+      symbol: tokenSymbol,
+      action: 'unstake',
+      amount: amountValue || balance || '1',
+      txId: earnUtils.isBabylonProvider({ providerName })
+        ? identity
+        : undefined,
+      protocolVault: earnUtils.isVaultBasedProvider({
+        providerName,
+      })
+        ? protocolVault
+        : undefined,
+      identity,
+      accountAddress: account.address,
+    });
+    return resp;
+  }, [
+    amountValue,
+    accountId,
+    networkId,
+    providerName,
+    tokenSymbol,
+    identity,
+    protocolVault,
+    balance,
+  ]);
+
   const [
     {
       currencyInfo: { symbol },

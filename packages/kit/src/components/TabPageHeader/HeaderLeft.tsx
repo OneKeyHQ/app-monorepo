@@ -1,6 +1,4 @@
-import { type ReactNode, memo, useMemo, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import { type ReactNode, useMemo } from 'react';
 
 import {
   DebugRenderTracker,
@@ -11,24 +9,13 @@ import {
   rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
-import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
-import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../AccountSelector';
-import { useSpotlight } from '../Spotlight';
+import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+import { WalletConnectionGroup, WebHeaderNavigation } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderLeftCloseButton() {
@@ -38,53 +25,6 @@ export function HeaderLeftCloseButton() {
     </Page.Close>
   );
 }
-
-function AccountSelectorTriggerWithSpotlight({
-  isFocus,
-  linkNetworkId,
-  hideAddress,
-}: {
-  isFocus: boolean;
-  linkNetworkId?: string;
-  hideAddress?: boolean;
-}) {
-  const intl = useIntl();
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.switchDappAccount,
-  );
-  const [isLocked] = useAppIsLockedAtom();
-
-  const spotlightVisible = useMemo(
-    () => tourTimes === 1 && isFocus && !isLocked,
-    [isFocus, isLocked, tourTimes],
-  );
-  return (
-    <AccountSelectorTriggerHome
-      num={0}
-      key="accountSelectorTrigger"
-      linkNetworkId={linkNetworkId}
-      hideAddress={hideAddress}
-      spotlightProps={{
-        visible: spotlightVisible,
-        content: (
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.spotlight_account_alignment_desc,
-            })}
-          </SizableText>
-        ),
-        onConfirm: () => {
-          void tourVisited(2);
-        },
-        childrenPaddingVertical: 0,
-      }}
-    />
-  );
-}
-
-const MemoizedAccountSelectorTriggerWithSpotlight = memo(
-  AccountSelectorTriggerWithSpotlight,
-);
 
 export function HeaderLeft({
   sceneName,
@@ -97,20 +37,23 @@ export function HeaderLeft({
 }) {
   const { gtMd } = useMedia();
 
-  const [isFocus, setIsFocus] = useState(false);
-
-  useListenTabFocusState(
-    ETabRoutes.Home,
-    async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(!hideByModal && focus);
-    },
-  );
   const items = useMemo(() => {
+    const withWebNavigation = (content: ReactNode) => {
+      if (!(platformEnv.isWeb && gtMd)) {
+        return content;
+      }
+      return (
+        <XStack gap="$6" ai="center">
+          <WebHeaderNavigation />
+          {content}
+        </XStack>
+      );
+    };
     if (customHeaderLeftItems) {
       return customHeaderLeftItems;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return (
+      return withWebNavigation(
         <XStack gap="$1.5">
           <NavBackButton
             onPress={() => {
@@ -126,67 +69,39 @@ export function HeaderLeft({
             }}
           />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
-        </XStack>
+        </XStack>,
       );
     }
 
-    let linkNetworkId: string | undefined;
-    let hideAddress: boolean | undefined;
-    if (
-      tabRoute === ETabRoutes.WebviewPerpTrade ||
-      tabRoute === ETabRoutes.Perp
-    ) {
-      linkNetworkId = PERPS_NETWORK_ID;
-      hideAddress = false;
-    }
-
-    const accountSelectorTrigger = (
-      <MemoizedAccountSelectorTriggerWithSpotlight
-        isFocus={isFocus}
-        linkNetworkId={linkNetworkId}
-        hideAddress={hideAddress}
-      />
-    );
-
     if (tabRoute === ETabRoutes.Discovery) {
-      return (
+      return withWebNavigation(
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>
+        </SizableText>,
       );
     }
 
     if (tabRoute === ETabRoutes.WebviewPerpTrade) {
-      return (
+      return withWebNavigation(
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>
+        </SizableText>,
       );
     }
-    return (
-      <XStack gap="$3" ai="center">
-        {accountSelectorTrigger}
-        {tabRoute === ETabRoutes.Home && gtMd ? (
-          <NetworkSelectorTriggerHome
-            num={0}
-            recordNetworkHistoryEnabled
-            hideOnNoAccount
-          />
-        ) : null}
-        <AccountSelectorActiveAccountHome
-          num={0}
-          showAccountAddress={false}
-          showCopyButton={tabRoute === ETabRoutes.Home}
-          showCreateAddressButton={false}
-          showNoAddressTip={false}
-        />
-      </XStack>
-    );
-  }, [customHeaderLeftItems, sceneName, isFocus, tabRoute, gtMd]);
+
+    // For web platform, only show WebHeaderNavigation (logo + navigation)
+    // Account selector will be moved to HeaderRight
+    if (platformEnv.isWeb && gtMd) {
+      return <WebHeaderNavigation />;
+    }
+
+    // For mobile and native platforms, keep the original layout
+    return <WalletConnectionGroup tabRoute={tabRoute} />;
+  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
