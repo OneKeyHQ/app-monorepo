@@ -55,7 +55,7 @@ function useWebHeaderNavigation({
       case ETabRoutes.Market:
         return 'market';
       case ETabRoutes.Perp:
-        return 'contract';
+        return 'perps';
       case ETabRoutes.Earn:
         return 'defi';
       case ETabRoutes.Swap:
@@ -73,7 +73,7 @@ function useWebHeaderNavigation({
         case 'market':
           navigation.switchTab(ETabRoutes.Market);
           break;
-        case 'contract':
+        case 'perps':
           navigation.switchTab(ETabRoutes.Perp);
           break;
         case 'defi':
@@ -99,8 +99,8 @@ function useWebHeaderNavigation({
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
       {
-        key: 'contract',
-        label: intl.formatMessage({ id: ETranslations.global_contract }),
+        key: 'perps',
+        label: intl.formatMessage({ id: ETranslations.global_perp }),
       },
       {
         key: 'defi',
