@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { InputAccessoryView } from 'react-native';
@@ -197,7 +197,11 @@ function DepositWithdrawContent({
   const hyperliquidActions = useHyperliquidActions();
   const { withdraw } = hyperliquidActions.current;
 
-  const { result: usdcBalance, isLoading: balanceLoading } = usePromiseResult(
+  const {
+    result: usdcBalance,
+    isLoading: balanceLoading,
+    run: refreshBalance,
+  } = usePromiseResult(
     async () => {
       if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
         return '0';
@@ -224,7 +228,15 @@ function DepositWithdrawContent({
     {
       checkIsMounted: true,
       debounced: 1000,
+      pollingInterval: 10_000,
     },
+  );
+
+  // Refresh balance when returning from swap page
+  useFocusEffect(
+    useCallback(() => {
+      void refreshBalance();
+    }, [refreshBalance]),
   );
 
   const availableBalance = useMemo(() => {
