@@ -65,17 +65,6 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
 
-  const makeScreenOptions = useCallback(
-    (optionsInfo: IScreenOptionsInfo<any>) => ({
-      ...makeModalStackNavigatorOptions({
-        optionsInfo,
-        bgColor,
-        titleColor,
-      }),
-    }),
-    [bgColor, titleColor],
-  );
-
   useEffect(() => {
     onMounted?.();
     return () => {
@@ -90,10 +79,22 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
     [pageTypeFromProps],
   );
   const ModalStackComponent = useMemo(() => {
-    return pageTypeFromProps === EPageType.onboarding
+    return contextValue.pageType === EPageType.onboarding
       ? OnBoardingStack
       : ModalStack;
   }, [pageTypeFromProps]);
+
+  const makeScreenOptions = useCallback(
+    (optionsInfo: IScreenOptionsInfo<any>) => ({
+      ...makeModalStackNavigatorOptions({
+        optionsInfo,
+        bgColor,
+        titleColor,
+        pageType: contextValue.pageType,
+      }),
+    }),
+    [bgColor, titleColor, contextValue.pageType],
+  );
   return (
     <PageTypeContext.Provider value={contextValue}>
       <ModalStackComponent.Navigator screenOptions={makeScreenOptions}>

@@ -50,7 +50,7 @@ export default function GetStarted() {
 
   return (
     <Page>
-      <Page.Header title="Get Started" />
+      <Page.Header title="111" />
       <Page.Body>
         <YStack gap={31} pt={168} flex={1} alignItems="center">
           <Image

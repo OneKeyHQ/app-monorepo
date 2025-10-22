@@ -21,29 +21,17 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.GetStarted,
     component: GetStarted,
-    options: {
-      headerShown: false,
-    },
   },
   {
     name: EOnboardingPagesV2.AddExistingWallet,
     component: AddExistingWallet,
-    options: {
-      headerShown: false,
-    },
   },
   {
     name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
     component: ImportPhraseOrPrivateKey,
-    options: {
-      headerShown: false,
-    },
   },
   {
     name: EOnboardingPagesV2.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
-    options: {
-      headerShown: false,
-    },
   },
 ];
