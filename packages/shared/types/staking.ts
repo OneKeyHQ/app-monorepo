@@ -1029,10 +1029,10 @@ export type IRecommendAsset = {
   }>;
   aprWithoutFee: string;
   aprInfo: IEarnAvailableAssetAprInfo;
-  bgColor: string;
+  bgColor: ColorTokens;
   available: {
     text: string;
-    color: string;
+    color: ColorTokens;
   };
 };
 
