@@ -193,6 +193,7 @@ export const convertOkxTxsDataToWsTxsData = (
     from: fromTransfer,
     to: toTransfer,
     poolId: okxData.poolId ?? '',
+    poolLogoUrl: okxData.poolLogoUrl,
     network: normalizeNetwork(okxData.network),
     interactedProgramId: okxData.tokenContractAddress ?? okxData.poolId ?? '',
     insIndex: 0,
