@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,28 +12,35 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { renderOnboardingHeaderRight } from '../components/HeaderRight';
 
 export default function PickYourDevice() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const DEVICES = useMemo(() => {
     return [
       {
         name: 'OneKey Pro',
+        deviceType: [EDeviceType.Pro],
         image: require('@onekeyhq/kit/assets/pick-pro.png'),
       },
       {
         name: 'OneKey Classic',
         tags: ['1S', '1S Pure'],
+        deviceType: [EDeviceType.Classic1s, EDeviceType.ClassicPure],
         image: require('@onekeyhq/kit/assets/pick-classic.png'),
       },
       {
         name: 'OneKey Touch',
+        deviceType: [EDeviceType.Touch],
         image: require('@onekeyhq/kit/assets/pick-touch.png'),
       },
       {
         name: 'OneKey Mini',
+        deviceType: [EDeviceType.Mini],
         image: require('@onekeyhq/kit/assets/pick-mini.png'),
       },
     ];
@@ -52,7 +60,7 @@ export default function PickYourDevice() {
             bg="$neutral3"
             className="pick-device-clip-path"
           >
-            {DEVICES.map(({ name, tags, image }) => (
+            {DEVICES.map(({ name, tags, image, deviceType }) => (
               <YStack
                 key={name}
                 animateOnly={['backgroundColor']}
@@ -60,9 +68,13 @@ export default function PickYourDevice() {
                 flexGrow={1}
                 flexBasis={0}
                 minWidth="45%"
+                onPress={() => {
+                  navigation.navigate(EOnboardingPagesV2.ConnectYourDevice, {
+                    deviceType,
+                  });
+                }}
                 bg="$bgApp"
                 hoverStyle={{ bg: '$bgSubdued' }}
-                onPress={() => {}}
                 userSelect="none"
                 p="$10"
                 gap="$3"

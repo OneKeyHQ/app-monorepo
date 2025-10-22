@@ -1,3 +1,5 @@
+import type { EDeviceType } from '@onekeyfe/hd-shared';
+
 export enum EOnboardingV2Routes {
   OnboardingV2 = 'OnboardingV2',
 }
@@ -8,6 +10,7 @@ export enum EOnboardingPagesV2 {
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
+  ConnectYourDevice = 'ConnectYourDevice',
 }
 
 export type IOnboardingParamListV2 = {
@@ -18,4 +21,7 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
   [EOnboardingPagesV2.FinalizeWalletSetup]: undefined;
   [EOnboardingPagesV2.PickYourDevice]: undefined;
+  [EOnboardingPagesV2.ConnectYourDevice]: {
+    deviceType: EDeviceType[];
+  };
 };

@@ -206,9 +206,7 @@ function HeaderView({
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView as any}
             headerRightContainerStyle={
-              isOnboardingScreen
-                ? { flexGrow: undefined }
-                : headerRightContainerStyle
+              isOnboardingScreen ? { flexGrow: 0 } : headerRightContainerStyle
             }
             headerRight={
               typeof headerRight === 'function'

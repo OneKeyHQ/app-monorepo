@@ -15,6 +15,10 @@ const FinalizeWalletSetup = LazyLoadPage(
 );
 const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 
+const ConnectYourDevice = LazyLoadPage(
+  () => import('../pages/ConnectYourDevice'),
+);
+
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
   IOnboardingParamListV2
@@ -38,5 +42,9 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.PickYourDevice,
     component: PickYourDevice,
+  },
+  {
+    name: EOnboardingPagesV2.ConnectYourDevice,
+    component: ConnectYourDevice,
   },
 ];
