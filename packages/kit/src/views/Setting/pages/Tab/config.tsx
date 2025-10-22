@@ -714,7 +714,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.settings_export_state_logs,
               }),
               onPress: () => {
-                showExportLogsDialog({ intl });
+                showExportLogsDialog({
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_export_state_logs,
+                  }),
+                });
               },
             },
           ],

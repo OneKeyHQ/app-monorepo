@@ -1,15 +1,8 @@
-import type { ForwardedRef } from 'react';
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { collectLogDigest, uploadLogBundle } from '.';
+
+import { useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -18,6 +11,7 @@ import {
   Stack,
   Toast,
   useClipboard,
+  useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -25,210 +19,178 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 
-import type { IntlShape } from 'react-intl';
+function UploadLogsDialogContent() {
+  const intl = useIntl();
+  const dialog = useDialogInstance();
+  const { copyText } = useClipboard();
+  const [stage, setStage] = useState<ELogUploadStage | 'idle'>('idle');
+  const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [isUploading, setIsUploading] = useState(false);
+  const isActiveRef = useRef(false);
 
-type IUploadLogsDialogHandle = {
-  startUpload: () => Promise<boolean>;
-};
+  const handleEmailPress = useCallback(() => {
+    copyText('hi@onekey.so');
+  }, [copyText]);
 
-type IUploadLogsDialogContentProps = {
-  intl: IntlShape;
-};
+  useEffect(() => {
+    const handleProgressUpdate = ({
+      stage: incomingStage,
+      progressPercent: incomingPercent,
+      message,
+    }: {
+      stage: ELogUploadStage;
+      progressPercent?: number;
+      message?: string;
+    }) => {
+      if (!isActiveRef.current) {
+        return;
+      }
+      setStage(incomingStage);
+      if (typeof incomingPercent === 'number') {
+        setProgressPercent(Math.min(100, Math.max(0, incomingPercent)));
+      } else if (incomingStage === ELogUploadStage.Success) {
+        setProgressPercent(100);
+      }
+      if (message) {
+        setErrorMessage(message);
+      } else if (incomingStage !== ELogUploadStage.Error) {
+        setErrorMessage(undefined);
+      }
+    };
 
-const UploadLogsDialogContent = forwardRef(
-  (
-    { intl }: IUploadLogsDialogContentProps,
-    ref: ForwardedRef<IUploadLogsDialogHandle>,
-  ) => {
-    const { copyText } = useClipboard();
-    const [stage, setStage] = useState<ELogUploadStage | 'idle'>('idle');
-    const [progressPercent, setProgressPercent] = useState<number>(0);
-    const [errorMessage, setErrorMessage] = useState<string | undefined>();
-    const activeRef = useRef(false);
+    appEventBus.on(
+      EAppEventBusNames.ClientLogUploadProgress,
+      handleProgressUpdate,
+    );
 
-    const handleEmailPress = useCallback(() => {
-      copyText('hi@onekey.so');
-    }, [copyText]);
-
-    useEffect(() => {
-      const handleProgressUpdate = ({
-        stage: incomingStage,
-        progressPercent: incomingPercent,
-        message,
-      }: {
-        stage: ELogUploadStage;
-        progressPercent?: number;
-        message?: string;
-      }) => {
-        if (!activeRef.current) {
-          return;
-        }
-        setStage(incomingStage);
-        if (typeof incomingPercent === 'number') {
-          setProgressPercent(Math.min(100, Math.max(0, incomingPercent)));
-        } else if (incomingStage === ELogUploadStage.Success) {
-          setProgressPercent(100);
-        }
-        if (message) {
-          setErrorMessage(message);
-        } else if (incomingStage !== ELogUploadStage.Error) {
-          setErrorMessage(undefined);
-        }
-      };
-
-      appEventBus.on(
+    return () => {
+      appEventBus.off(
         EAppEventBusNames.ClientLogUploadProgress,
         handleProgressUpdate,
       );
+    };
+  }, []);
 
-      return () => {
-        appEventBus.off(
-          EAppEventBusNames.ClientLogUploadProgress,
-          handleProgressUpdate,
-        );
-      };
-    }, []);
+  const handleUpload = useCallback(async () => {
+    if (isUploading) {
+      return;
+    }
+    isActiveRef.current = true;
+    setErrorMessage(undefined);
+    setStage(ELogUploadStage.Collecting);
+    setProgressPercent(0);
+    setIsUploading(true);
+    try {
+      const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+      const fileBaseName = `OneKeyLogs-${timestamp}`;
+      const digest = await collectLogDigest(fileBaseName);
+      const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
+        sizeBytes: digest.sizeBytes,
+        sha256: digest.sha256,
+      });
+      await uploadLogBundle({
+        uploadToken: token.uploadToken,
+        digest,
+      });
+      setStage(ELogUploadStage.Success);
+      setProgressPercent(100);
+      Toast.success({
+        title: 'Logs uploaded successfully',
+      });
+      setIsUploading(false);
+      await dialog.close();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setErrorMessage(message);
+      setStage(ELogUploadStage.Error);
+      Toast.error({
+        title: 'Failed to upload logs',
+      });
+      setIsUploading(false);
+    } finally {
+      isActiveRef.current = false;
+    }
+  }, [dialog, isUploading]);
 
-    const startUpload = useCallback(async () => {
-      if (activeRef.current) {
-        return false;
-      }
-      activeRef.current = true;
-      setErrorMessage(undefined);
-      setStage(ELogUploadStage.Collecting);
-      setProgressPercent(0);
-      try {
-        const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-        const fileBaseName = `OneKeyLogs-${timestamp}`;
-        const digest = await collectLogDigest(fileBaseName);
-        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
-          {
-            sizeBytes: digest.sizeBytes,
-            sha256: digest.sha256,
-          },
-        );
-        await uploadLogBundle({
-          uploadToken: token.uploadToken,
-          digest,
-        });
-        Toast.success({
-          title: 'Logs uploaded successfully',
-        });
-        return true;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setErrorMessage(message);
-        setStage(ELogUploadStage.Error);
-        Toast.error({
-          title: 'Failed to upload logs',
-        });
-        return false;
-      } finally {
-        activeRef.current = false;
-      }
-    }, []);
+  const progressLabel = useMemo(() => {
+    const clampedProgress = Math.min(100, Math.max(0, progressPercent));
+    switch (stage) {
+      case ELogUploadStage.Collecting:
+        return 'Collecting logs...';
+      case ELogUploadStage.Uploading:
+        return `Uploading... ${clampedProgress}%`;
+      case ELogUploadStage.Success:
+        return 'Logs uploaded successfully';
+      case ELogUploadStage.Error:
+        return 'Failed to upload logs';
+      default:
+        return '';
+    }
+  }, [progressPercent, stage]);
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        startUpload,
-      }),
-      [startUpload],
-    );
+  const shouldShowProgress = stage !== 'idle';
 
-    const progressLabel = useMemo(() => {
-      const clampedProgress = Math.min(100, Math.max(0, progressPercent));
-      switch (stage) {
-        case ELogUploadStage.Collecting:
-          return 'Collecting logs...';
-        case ELogUploadStage.Uploading:
-          return `Uploading... ${clampedProgress}%`;
-        case ELogUploadStage.Success:
-          return 'Logs uploaded successfully';
-        case ELogUploadStage.Error:
-          return 'Failed to upload logs';
-        default:
-          return '';
-      }
-    }, [progressPercent, stage]);
-
-    const shouldShowProgress = stage !== 'idle';
-
-    return (
-      <Stack gap="$5">
-        <Stack>
-          <SizableText size="$bodyLg">
-            {intl.formatMessage({
-              id: ETranslations.settings_logs_do_not_include_sensitive_data,
-            })}
-          </SizableText>
-          <Stack h="$5" />
-          <SizableText size="$bodyLg">
-            {intl.formatMessage(
-              {
-                id: ETranslations.settings_export_state_logs_desc,
-              },
-              {
-                email: (
-                  <SizableText
-                    size="$bodyLg"
-                    textDecorationLine="underline"
-                    onPress={handleEmailPress}
-                  >
-                    hi@onekey.so
-                  </SizableText>
-                ),
-              },
-            )}
-          </SizableText>
-        </Stack>
-        {shouldShowProgress ? (
-          <Stack gap="$3">
-            <Progress value={progressPercent} />
-            <SizableText size="$bodyMd">{progressLabel}</SizableText>
-            {errorMessage ? (
-              <SizableText size="$bodySm" color="$textCritical">
-                {errorMessage}
-              </SizableText>
-            ) : null}
-          </Stack>
-        ) : null}
+  return (
+    <Stack gap="$5">
+      <Stack>
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.settings_logs_do_not_include_sensitive_data,
+          })}
+        </SizableText>
+        <Stack h="$5" />
+        <SizableText size="$bodyLg">
+          {intl.formatMessage(
+            {
+              id: ETranslations.settings_export_state_logs_desc,
+            },
+            {
+              email: (
+                <SizableText
+                  size="$bodyLg"
+                  textDecorationLine="underline"
+                  onPress={handleEmailPress}
+                >
+                  hi@onekey.so
+                </SizableText>
+              ),
+            },
+          )}
+        </SizableText>
       </Stack>
-    );
-  },
-);
+      {shouldShowProgress ? (
+        <Stack gap="$3">
+          <Progress value={progressPercent} />
+          <SizableText size="$bodyMd">{progressLabel}</SizableText>
+          {errorMessage ? (
+            <SizableText size="$bodySm" color="$textCritical">
+              {errorMessage}
+            </SizableText>
+          ) : null}
+        </Stack>
+      ) : null}
+      <Dialog.Footer
+        showCancelButton
+        onConfirm={handleUpload}
+        onConfirmText="Upload"
+        confirmButtonProps={{
+          variant: 'primary',
+          loading: isUploading,
+        }}
+        cancelButtonProps={{
+          disabled: isUploading,
+        }}
+      />
+    </Stack>
+  );
+}
 
-UploadLogsDialogContent.displayName = 'UploadLogsDialogContent';
-
-export function showExportLogsDialog({ intl }: { intl: IntlShape }) {
-  let contentRef: IUploadLogsDialogHandle | null = null;
+export function showExportLogsDialog({ title }: { title: string }) {
   return Dialog.show({
     icon: 'UploadOutline',
-    title: intl.formatMessage({
-      id: ETranslations.settings_export_state_logs,
-    }),
-    renderContent: (
-      <UploadLogsDialogContent
-        ref={(ref) => {
-          contentRef = ref;
-        }}
-        intl={intl}
-      />
-    ),
-    confirmButtonProps: {
-      variant: 'primary',
-    },
-    onConfirmText: 'Upload',
-    onConfirm: async ({ close, preventClose }) => {
-      if (!contentRef) {
-        await close();
-        return;
-      }
-      preventClose();
-      const result = await contentRef.startUpload();
-      if (result) {
-        await close();
-      }
-    },
+    title,
+    showFooter: false,
+    renderContent: <UploadLogsDialogContent />,
   });
 }
