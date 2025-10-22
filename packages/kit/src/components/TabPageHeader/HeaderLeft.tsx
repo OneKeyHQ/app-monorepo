@@ -95,7 +95,7 @@ export function HeaderLeft({
 
     // For web platform, only show WebHeaderNavigation (logo + navigation)
     // Account selector will be moved to HeaderRight
-    if (platformEnv.isWeb && gtMd) {
+    if (platformEnv.isWebDappMode && gtMd) {
       return <WebHeaderNavigation />;
     }
 

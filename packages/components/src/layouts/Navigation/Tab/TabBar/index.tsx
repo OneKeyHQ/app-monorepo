@@ -26,7 +26,7 @@ export default function TabBar({
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
   const { gtMd } = useMedia();
 
-  if (platformEnv.isWeb && gtMd) {
+  if (platformEnv.isWebDappMode && gtMd) {
     return null;
   }
 
