@@ -99,7 +99,7 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
-  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
+  const [{ isCollapsed: isCollapse }] = useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
   const getSizeTokens = getTokens().size;

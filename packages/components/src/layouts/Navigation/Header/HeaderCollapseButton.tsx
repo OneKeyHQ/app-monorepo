@@ -24,7 +24,7 @@ export const useHeaderCollapseButtonVisibility = ({
   hideWhenOpen?: boolean;
   hideWhenCollapse?: boolean;
 }) => {
-  const [{ collapsed: isCollapse = false }] = useAppSideBarStatusAtom();
+  const [{ isCollapsed: isCollapse = false }] = useAppSideBarStatusAtom();
 
   const shouldHideWhenCollapse = hideWhenCollapse && isCollapse;
   const shouldHideWhenOpen = hideWhenOpen && !isCollapse;
@@ -47,7 +47,7 @@ function HeaderCollapseButton({
 }) {
   const intl = useIntl();
 
-  const [{ collapsed: isCollapse }, setAppSideBarStatus] =
+  const [{ isCollapsed: isCollapse }, setAppSideBarStatus] =
     useAppSideBarStatusAtom();
 
   const { shouldHide } = useHeaderCollapseButtonVisibility({
@@ -57,7 +57,7 @@ function HeaderCollapseButton({
 
   const onPressCall = useCallback(() => {
     setAppSideBarStatus(
-      (prev): IAppSideBarStatusAtom => ({ ...prev, collapsed: !isCollapse }),
+      (prev): IAppSideBarStatusAtom => ({ ...prev, isCollapsed: !isCollapse }),
     );
     defaultLogger.app.page.navigationToggle();
   }, [isCollapse, setAppSideBarStatus]);

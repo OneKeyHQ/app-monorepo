@@ -21,7 +21,7 @@ export default function useHomePageWidth() {
     return screenWidth;
   }, [isLandscape, screenHeight, screenWidth]);
   const sideBarWidth = useMemo(() => getTokens().size.sideBarWidth.val, []);
-  const [{ collapsed: leftSidebarCollapsed }] = useAppSideBarStatusAtom();
+  const [{ isCollapsed: leftSidebarCollapsed }] = useAppSideBarStatusAtom();
   const pageWidth = useMemo(() => {
     if (md) {
       return calScreenWidth;
