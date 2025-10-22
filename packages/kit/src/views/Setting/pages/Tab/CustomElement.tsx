@@ -303,7 +303,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
         {
           label: 'WebUSB',
           value: EHardwareTransportType.WEBUSB,
-          iconProps: { name: 'UsbOutline' as const }
+          iconProps: { name: 'UsbOutline' as const },
         },
         { label: 'Bridge', value: EHardwareTransportType.Bridge },
       ];

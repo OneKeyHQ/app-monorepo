@@ -1739,13 +1739,13 @@ export function ConnectYourDevicePage() {
               },
               ...(platformEnv.isSupportDesktopBle
                 ? [
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.global_bluetooth,
-                    }),
-                    value: EConnectDeviceChannel.bluetooth,
-                  },
-                ]
+                    {
+                      label: intl.formatMessage({
+                        id: ETranslations.global_bluetooth,
+                      }),
+                      value: EConnectDeviceChannel.bluetooth,
+                    },
+                  ]
                 : []),
               {
                 label: intl.formatMessage({ id: ETranslations.global_qr_code }),
@@ -1764,7 +1764,7 @@ export function ConnectYourDevicePage() {
         ) : null}
 
         {tabValue === EConnectDeviceChannel.bluetooth &&
-          platformEnv.isSupportDesktopBle ? (
+        platformEnv.isSupportDesktopBle ? (
           <ConnectByBluetooth onDeviceConnect={handleDeviceConnect} />
         ) : null}
 
