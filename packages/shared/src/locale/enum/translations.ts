@@ -1216,6 +1216,7 @@
   global_disable_button = 'global.disable_button',
   global_disabled = 'global.disabled',
   global_discord = 'global.discord',
+  global_discover = 'global.discover',
   global_done = 'global.done',
   global_download = 'global.download',
   global_download_and_install = 'global.download_and_install',

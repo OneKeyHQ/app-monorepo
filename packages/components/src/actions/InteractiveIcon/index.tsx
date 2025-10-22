@@ -1,5 +1,5 @@
 import { Icon, Stack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IIconProps, IKeyOfIcons } from '../../primitives';
 

@@ -11,11 +11,12 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 export function useAutoRedirectToMarket() {
   const navigation = useAppNavigation();
   const hasRedirectedRef = useRef(false);
+  const shouldRedirectToMarket = platformEnv.isWebDappMode;
 
   useEffect(() => {
-    if (platformEnv.isWeb && !hasRedirectedRef.current) {
+    if (shouldRedirectToMarket && !hasRedirectedRef.current) {
       hasRedirectedRef.current = true;
       navigation.switchTab(ETabRoutes.Market);
     }
-  }, [navigation]);
+  }, [navigation, shouldRedirectToMarket]);
 }
