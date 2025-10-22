@@ -8,6 +8,7 @@ import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
 import { getMetadataRpc } from './utils';
 
+import type VaultDot from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,
@@ -47,9 +48,13 @@ export class KeyringImported extends KeyringImportedBase {
   ): Promise<ISignedTxPro> {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
+    const customRpcClient = await (
+      this.vault as VaultDot
+    ).getCustomApiPromise();
     const metadataRpc = await getMetadataRpc(
       this.networkId,
       this.backgroundApi,
+      customRpcClient,
     );
     const rawTxUnsigned = await serializeUnsignedTransaction({
       ...encodedTx,

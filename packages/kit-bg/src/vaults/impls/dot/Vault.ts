@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { ApiPromise, HttpProvider } from '@polkadot/api';
+import { ApiPromise, HttpProvider, WsProvider } from '@polkadot/api';
 import { hexToNumber } from '@polkadot/util';
 import {
   checkAddress,
   decodeAddress,
   encodeAddress,
 } from '@polkadot/util-crypto';
-import { decode, methods } from '@substrate/txwrapper-polkadot';
+import { decode } from '@substrate/txwrapper-polkadot';
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil, isObject } from 'lodash';
+import { md5 } from 'js-md5';
+import { isEmpty, isNaN, isNil, isObject, omit, orderBy } from 'lodash';
 
 import { serializeSignedTransaction } from '@onekeyhq/core/src/chains/dot/sdkDot';
 import type { IEncodedTxDot } from '@onekeyhq/core/src/chains/dot/types';
@@ -29,8 +30,11 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
+  IFetchServerAccountDetailsParams,
+  IFetchServerAccountDetailsResponse,
   IGeneralInputValidation,
   INetworkAccountAddressDetail,
   IPrivateKeyValidation,
@@ -41,8 +45,29 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
-import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type {
+  IEstimateFeeParams,
+  IEstimateGasParams,
+  IEstimateGasResp,
+  IFeeInfoUnit,
+  IServerEstimateFeeResponse,
+  ITronResourceRentalInfo,
+} from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import type {
+  IFetchServerTokenDetailParams,
+  IFetchServerTokenDetailResponse,
+  IFetchServerTokenListApiParams,
+  IFetchServerTokenListParams,
+  IFetchServerTokenListResponse,
+  IServerAccountTokenItem,
+} from '@onekeyhq/shared/types/serverToken';
+import type {
+  IAccountToken,
+  IFetchTokenDetailItem,
+  ITokenData,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -61,6 +86,7 @@ import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
+import { createVaultDotSub } from './subs';
 import {
   getBlockInfo,
   getGenesisHash,
@@ -71,6 +97,7 @@ import {
   getTransactionTypeFromTxInfo,
 } from './utils';
 
+import type { VaultDotSubBase } from './subs';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -85,6 +112,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { ProviderInterface } from '@polkadot/rpc-provider/types';
 import type { Type } from '@polkadot/types';
 import type { Args, TypeRegistry } from '@substrate/txwrapper-polkadot';
 
@@ -99,6 +127,16 @@ export default class VaultDot extends VaultBase {
     watching: KeyringWatching,
     external: KeyringExternal,
   };
+
+  private subVaultInstance?: VaultDotSubBase;
+
+  private async getSubVault(): Promise<VaultDotSubBase> {
+    if (!this.subVaultInstance) {
+      const chainId = await this.getNetworkChainId();
+      this.subVaultInstance = createVaultDotSub(this, this.networkId, chainId);
+    }
+    return this.subVaultInstance;
+  }
 
   override async buildAccountAddressDetail(
     params: IBuildAccountAddressDetailParams,
@@ -135,16 +173,17 @@ export default class VaultDot extends VaultBase {
     transactionVersion: number;
     registry: TypeRegistry;
   }> {
+    const customRpcClient = await this.getCustomApiPromise();
     const [
       { specName, specVersion, transactionVersion },
       genesisHash,
       metadataRpc,
       { blockHash, blockNumber },
     ] = await Promise.all([
-      getRuntimeVersion(this.networkId, this.backgroundApi),
-      getGenesisHash(this.networkId, this.backgroundApi),
-      getMetadataRpc(this.networkId, this.backgroundApi),
-      getBlockInfo(this.networkId, this.backgroundApi),
+      getRuntimeVersion(this.networkId, this.backgroundApi, customRpcClient),
+      getGenesisHash(this.networkId, this.backgroundApi, customRpcClient),
+      getMetadataRpc(this.networkId, this.backgroundApi, customRpcClient),
+      getBlockInfo(this.networkId, this.backgroundApi, customRpcClient),
     ]);
     const info = {
       metadataRpc,
@@ -155,6 +194,7 @@ export default class VaultDot extends VaultBase {
     const registry = await getRegistry(
       { ...info, networkId: this.networkId },
       this.backgroundApi,
+      customRpcClient,
     );
     return {
       ...info,
@@ -164,6 +204,10 @@ export default class VaultDot extends VaultBase {
       genesisHash,
       registry,
     };
+  }
+
+  public async getTxBaseInfoForSub() {
+    return this._getTxBaseInfo();
   }
 
   override async buildEncodedTx(
@@ -183,14 +227,6 @@ export default class VaultDot extends VaultBase {
       networkInfo?.addressPrefix ? +networkInfo.addressPrefix : 0,
     );
 
-    const chainId = await this.getNetworkChainId();
-    let toAccount = { id: to };
-    if (chainId === 'joystream') {
-      toAccount = hexUtils.addHexPrefix(
-        bufferUtils.bytesToHex(toAccountId),
-      ) as unknown as { id: string };
-    }
-
     let amountValue;
 
     const network = await this.getNetwork();
@@ -209,64 +245,39 @@ export default class VaultDot extends VaultBase {
       registry: txBaseInfo.registry,
     };
 
+    const subVault = await this.getSubVault();
+
     let unsigned;
     if (tokenInfo && tokenInfo?.address && !tokenInfo.isNative) {
       amountValue = new BigNumber(amount)
         .shiftedBy(tokenInfo.decimals)
         .toFixed(0);
-      if (keepAlive) {
-        unsigned = methods.assets.transferKeepAlive(
-          {
-            id: parseInt(tokenInfo.address, 10),
-            target: to,
-            amount: amountValue,
-          },
-          info,
-          option,
-        );
-      } else {
-        unsigned = methods.assets.transfer(
-          {
-            id: parseInt(tokenInfo.address, 10),
-            target: to,
-            amount: amountValue,
-          },
-          info,
-          option,
-        );
-      }
+
+      const unsignedToken = await subVault.buildTokenTransfer({
+        tokenInfo,
+        to,
+        amountValue,
+        keepAlive,
+        info,
+        option,
+      });
+
+      unsigned = unsignedToken;
     } else {
+      console.log('======>>>>>> buildEncodedTx tokenInfo send native');
+
       amountValue = new BigNumber(amount)
         .shiftedBy(network.decimals)
         .toFixed(0);
-      if (keepAlive) {
-        unsigned = methods.balances.transferKeepAlive(
-          {
-            value: amountValue,
-            dest: toAccount,
-          },
-          info,
-          option,
-        );
-      } else if (chainId === 'joystream') {
-        unsigned = methods.balances.transfer(
-          {
-            value: amountValue,
-            dest: toAccount,
-          },
-          info,
-          option,
-        );
-      } else {
-        unsigned = methods.balances.transferAllowDeath(
-          {
-            value: amountValue,
-            dest: toAccount,
-          },
-          info,
-          option,
-        );
-      }
+
+      unsigned = await subVault.buildNativeTransfer({
+        to,
+        amountValue,
+        keepAlive,
+        info,
+        option,
+        toAccountId,
+      });
     }
 
     return {
@@ -279,8 +290,13 @@ export default class VaultDot extends VaultBase {
 
   private async _decodeUnsignedTx(unsigned: IEncodedTxDot) {
     let { metadataRpc } = unsigned;
+    const customRpcClient = await this.getCustomApiPromise();
     if (!metadataRpc) {
-      metadataRpc = await getMetadataRpc(this.networkId, this.backgroundApi);
+      metadataRpc = await getMetadataRpc(
+        this.networkId,
+        this.backgroundApi,
+        customRpcClient,
+      );
     }
     const registry = await getRegistry(
       {
@@ -290,6 +306,7 @@ export default class VaultDot extends VaultBase {
         networkId: this.networkId,
       },
       this.backgroundApi,
+      customRpcClient,
     );
 
     const decodedUnsigned = decode(unsigned, {
@@ -297,15 +314,25 @@ export default class VaultDot extends VaultBase {
       registry,
     });
 
-    return decodedUnsigned;
+    return {
+      decodedUnsigned,
+      registry,
+    };
   }
 
   private async _getAddressByTxArgs(args: Args): Promise<string> {
-    const chainId = await this.getNetworkChainId();
-    if (chainId === 'joystream') {
-      return args.dest as string;
+    const subVault = await this.getSubVault();
+    const subAddress = await subVault.getAddressByTxArgs(args);
+    if (subAddress) {
+      return subAddress;
     }
-    return (args.dest as { id: string }).id;
+    const arg = args as {
+      dest?: string | { id?: string };
+    };
+    if (typeof arg.dest === 'string') {
+      return arg.dest;
+    }
+    return arg.dest?.id ?? '';
   }
 
   override async buildDecodedTx(
@@ -315,9 +342,11 @@ export default class VaultDot extends VaultBase {
 
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
 
+    const chainId = await this.getNetworkChainId();
     const account = await this.getAccount();
 
-    const decodeUnsignedTx = await this._decodeUnsignedTx(encodedTx);
+    const { decodedUnsigned: decodeUnsignedTx, registry } =
+      await this._decodeUnsignedTx(encodedTx);
 
     let action: IDecodedTxAction | null = null;
     const actionType = getTransactionTypeFromTxInfo(decodeUnsignedTx);
@@ -329,16 +358,18 @@ export default class VaultDot extends VaultBase {
 
       const networkInfo = await this.getNetworkInfo();
       let assetId = '';
-      if (decodeUnsignedTx.assetId) {
-        if (isObject(decodeUnsignedTx.assetId)) {
-          const assetIdInst = decodeUnsignedTx.assetId as Type;
-          if (!assetIdInst.isEmpty) {
-            assetId = assetIdInst.toHex();
-          }
-        } else {
-          assetId = decodeUnsignedTx.assetId.toString();
-        }
+
+      const subVault = await this.getSubVault();
+      const subAssetId = await subVault.extractAssetId({
+        chainId,
+        pallet: decodeUnsignedTx.method.pallet,
+        method: decodeUnsignedTx.method.name,
+        args: decodeUnsignedTx.method.args,
+      });
+      if (subAssetId) {
+        assetId = subAssetId;
       }
+
       const tokenInfo = await this.backgroundApi.serviceToken.getToken({
         accountId: this.accountId,
         networkId: this.networkId,
@@ -346,7 +377,8 @@ export default class VaultDot extends VaultBase {
       });
 
       if (tokenInfo) {
-        const { value: tokenAmount } = decodeUnsignedTx.method.args;
+        const { value: tokenAmount, amount: tokenAmountAsset } =
+          decodeUnsignedTx.method.args;
         to = await this._getAddressByTxArgs(decodeUnsignedTx.method.args);
 
         if (decodeUnsignedTx.method.name === 'transferAll') {
@@ -361,7 +393,8 @@ export default class VaultDot extends VaultBase {
             : 0;
           amount = balance.minus(fee).toFixed();
         } else {
-          amount = tokenAmount?.toString() ?? '0';
+          amount =
+            tokenAmount?.toString() ?? tokenAmountAsset?.toString() ?? '0';
         }
 
         const transferAction: IDecodedTxTransferInfo = {
@@ -438,7 +471,7 @@ export default class VaultDot extends VaultBase {
   override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    const { unsignedTx, nativeAmountInfo } = params;
+    const { unsignedTx } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
     if (params.nonceInfo) {
       encodedTx.nonce = hexUtils.hexlify(params.nonceInfo.nonce, {
@@ -452,65 +485,27 @@ export default class VaultDot extends VaultBase {
       .shiftedBy(params.feeInfo?.common.feeDecimals ?? 0)
       .toFixed();
 
-    // send max amount
-    if (nativeAmountInfo) {
-      const decodeUnsignedTx = await this._decodeUnsignedTx(encodedTx);
-      const type = getTransactionTypeFromTxInfo(decodeUnsignedTx);
-      if (type === EDecodedTxActionType.ASSET_TRANSFER) {
-        const txBaseInfo = await this._getTxBaseInfo();
-        const from = await this.getAccountAddress();
+    const customRpcClient = await this.getCustomApiPromise();
+    const { decodedUnsigned: decodedUnsignedTx } = await this._decodeUnsignedTx(
+      encodedTx,
+    );
 
-        const info = {
-          ...txBaseInfo,
-          address: from,
-          eraPeriod: 64,
-          nonce: decodeUnsignedTx.nonce ?? 0,
-          tip: 0,
-        };
-
-        const option = {
-          metadataRpc: txBaseInfo.metadataRpc,
-          registry: txBaseInfo.registry,
-        };
-
-        const network = await this.getNetwork();
-        const amountValue = new BigNumber(nativeAmountInfo.maxSendAmount ?? '0')
-          .shiftedBy(network.decimals)
-          .minus(extraTip)
-          .toFixed(0);
-        const dest = decodeUnsignedTx.method.args.dest as { id: string };
-
-        let tx;
-        if (decodeUnsignedTx.method?.name?.indexOf('KeepAlive') !== -1) {
-          tx = methods.balances.transferKeepAlive(
-            {
-              value: amountValue,
-              dest,
-            },
-            info,
-            option,
-          );
-        } else {
-          tx = methods.balances.transferAll(
-            {
-              dest,
-              keepAlive: false,
-            },
-            info,
-            option,
-          );
-        }
-        encodedTx = {
-          ...tx,
-          specName: txBaseInfo.specName,
-          chainName: network.name,
-          metadataRpc: '' as `0x${string}`,
-        };
-      }
+    const subVault = await this.getSubVault();
+    const updatedUnsigned = await subVault.updateUnsignedTx({
+      encodedTx,
+      decodedUnsignedTx,
+      params,
+    });
+    if (updatedUnsigned) {
+      encodedTx = updatedUnsigned;
     }
 
     if (!params.nonceInfo && !encodedTx.isFromDapp) {
-      const blockInfo = await getBlockInfo(this.networkId, this.backgroundApi);
+      const blockInfo = await getBlockInfo(
+        this.networkId,
+        this.backgroundApi,
+        customRpcClient,
+      );
       const registry = await getRegistry(
         {
           networkId: this.networkId,
@@ -519,6 +514,7 @@ export default class VaultDot extends VaultBase {
           specVersion: +encodedTx.specVersion,
         },
         this.backgroundApi,
+        customRpcClient,
       );
       const era = registry.createType('ExtrinsicEra', {
         current: blockInfo.blockNumber,
@@ -606,7 +602,11 @@ export default class VaultDot extends VaultBase {
     const tx = await serializeSignedTransaction(
       {
         ...encodedTx,
-        metadataRpc: await getMetadataRpc(this.networkId, this.backgroundApi),
+        metadataRpc: await getMetadataRpc(
+          this.networkId,
+          this.backgroundApi,
+          await this.getCustomApiPromise(),
+        ),
       },
       fakeSignature.toString('hex'),
     );
@@ -634,34 +634,47 @@ export default class VaultDot extends VaultBase {
   override async validateSendAmount({
     to,
     amount,
+    isNative,
+    tokenBalance,
   }: {
     to: string;
     amount: string;
+    tokenBalance: string;
+    isNative?: boolean;
   }): Promise<boolean> {
+    const customRpcClient = await this.getCustomApiPromise();
     // preload registry
     void getRegistry(
       {
         networkId: this.networkId,
       },
       this.backgroundApi,
+      customRpcClient,
     );
     if (isNil(amount) || isEmpty(amount) || isEmpty(to)) {
       return true;
     }
-    const network = await this.getNetwork();
+    if (isNative) {
+      const network = await this.getNetwork();
 
-    const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
-    const minAmount = await getMinAmount(this.networkId, this.backgroundApi);
-    const balance = await this._getBalance(to);
+      const sendAmount = new BigNumber(amount).shiftedBy(network.decimals);
+      const minAmount = await getMinAmount(
+        this.networkId,
+        this.backgroundApi,
+        undefined,
+        customRpcClient,
+      );
+      const balance = await this._getBalance(to);
 
-    if (balance.plus(sendAmount).lt(minAmount)) {
-      throw new InvalidTransferValue({
-        key: ETranslations.form_amount_recipient_activate,
-        info: {
-          amount: minAmount.shiftedBy(-network.decimals).toFixed(),
-          unit: network.symbol,
-        },
-      });
+      if (balance.plus(sendAmount).lt(minAmount)) {
+        throw new InvalidTransferValue({
+          key: ETranslations.form_amount_recipient_activate,
+          info: {
+            amount: minAmount.shiftedBy(-network.decimals).toFixed(),
+            unit: network.symbol,
+          },
+        });
+      }
     }
     return true;
   }
@@ -680,7 +693,9 @@ export default class VaultDot extends VaultBase {
     }
     const { unsignedTx, feeInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxDot;
-    const decodedUnsignedTx = await this._decodeUnsignedTx(encodedTx);
+    const { decodedUnsigned: decodedUnsignedTx } = await this._decodeUnsignedTx(
+      encodedTx,
+    );
     const actionType = getTransactionTypeFromTxInfo(decodedUnsignedTx);
 
     if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
@@ -688,12 +703,20 @@ export default class VaultDot extends VaultBase {
         dest: string;
         value: string;
       };
+
       const toAddress = await this._getAddressByTxArgs(args);
       if (toAddress === encodedTx.address) {
         return true;
       }
 
-      const minAmount = await getMinAmount(this.networkId, this.backgroundApi);
+      const customRpcClient = await this.getCustomApiPromise();
+
+      const minAmount = await getMinAmount(
+        this.networkId,
+        this.backgroundApi,
+        undefined,
+        customRpcClient,
+      );
       const balance = !params.nativeAmountInfo?.maxSendAmount
         ? await this._getBalance(encodedTx.address)
         : new BigNumber(0);
@@ -720,18 +743,76 @@ export default class VaultDot extends VaultBase {
     return true;
   }
 
+  // Custom RPC Client
+  getRpcClient = async (
+    url: string,
+  ): Promise<ProviderInterface | undefined> => {
+    if (url.startsWith('http')) {
+      return new HttpProvider(url);
+    }
+    if (!isEmpty(url)) {
+      return new WsProvider(url);
+    }
+    return undefined;
+  };
+
+  private _getCustomApiPromise = memoizee(
+    async (url: string): Promise<ApiPromise> => {
+      return ApiPromise.create({
+        provider: await this.getRpcClient(url),
+        initWasm: false,
+      });
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 10 }),
+      normalizer: ([url]) => {
+        return `${this.networkId}-${url}`;
+      },
+    },
+  );
+
+  getCustomApiPromise = async (): Promise<ApiPromise | undefined> => {
+    const rpcInfo =
+      await this.backgroundApi.serviceCustomRpc.getCustomRpcForNetwork(
+        this.networkId,
+      );
+
+    if (rpcInfo?.isCustomNetwork) {
+      return this._getCustomApiPromise(rpcInfo?.rpc ?? '');
+    }
+
+    return undefined;
+  };
+
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    const client = new HttpProvider(params.rpcUrl);
-    const start = performance.now();
-    const header: { number: string } = await client.send('chain_getHeader', []);
-    const responseTime = Math.floor(performance.now() - start);
+    const rpcUrl = params.rpcUrl;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    try {
+      const client = await this.getRpcClient(rpcUrl);
+      const apiPromise = await ApiPromise.create({
+        provider: client,
+        initWasm: false,
+      });
 
-    return {
-      responseTime,
-      bestBlockNumber: hexToNumber(header.number),
-    };
+      const start = performance.now();
+      const header = await apiPromise.rpc.chain.getHeader();
+      const responseTime = Math.floor(performance.now() - start);
+
+      await apiPromise.disconnect();
+
+      return {
+        responseTime,
+        bestBlockNumber: hexToNumber(header.number.toHex()),
+      };
+    } catch (error) {
+      console.error('getCustomRpcEndpointStatus ERROR:', error);
+      throw error;
+    }
   }
 
   override async broadcastTransactionFromCustomRpc(
@@ -742,7 +823,7 @@ export default class VaultDot extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const provider = new HttpProvider(rpcUrl);
+    const provider = await this.getRpcClient(rpcUrl);
     const client = await ApiPromise.create({ provider, initWasm: false });
     const txHash = await client.rpc.author.submitExtrinsic(signedTx.rawTx);
     const txId = txHash.toHex();
@@ -753,6 +834,306 @@ export default class VaultDot extends VaultBase {
     return {
       ...params.signedTx,
       txid: txId,
+    };
+  }
+
+  override async fetchAccountDetailsByRpc(
+    params: IFetchServerAccountDetailsParams,
+  ): Promise<IFetchServerAccountDetailsResponse> {
+    const apiPromise = await this.getCustomApiPromise();
+    if (!apiPromise) {
+      throw new OneKeyInternalError('No RPC url');
+    }
+
+    const account = await apiPromise.query.system.account(
+      params.accountAddress,
+    );
+
+    const nonce = account.nonce.toNumber();
+    const balance = new BigNumber(account.data.free.toString());
+    const frozenBalance = new BigNumber(account.data.frozen.toString());
+    const network = await this.getNetwork();
+    const balanceParsed = balance.shiftedBy(-(network?.decimals ?? 0));
+
+    return {
+      data: {
+        data: {
+          address: params.accountAddress,
+          balance: balance.toFixed(),
+          balanceParsed: balanceParsed.toFixed(),
+          frozenBalance: frozenBalance.toFixed(),
+          nonce,
+        },
+      },
+    };
+  }
+
+  override async fetchTokenDetailsByRpc(
+    params: IFetchServerTokenDetailParams,
+  ): Promise<IFetchServerTokenDetailResponse> {
+    const networkInfo = await this.getNetworkInfo();
+    const network = await this.getNetwork();
+    const apiPromise = await this.getCustomApiPromise();
+    const subVault = await this.getSubVault();
+
+    const resp: (IFetchTokenDetailItem | undefined)[] = await Promise.all(
+      params.contractList?.map(async (contract) => {
+        if (contract === networkInfo.nativeTokenAddress) {
+          const accountDetails = (
+            await this.fetchAccountDetailsByRpc({
+              accountAddress: params.accountAddress ?? '',
+              networkId: params.networkId,
+              accountId: params.accountId ?? '',
+            })
+          ).data.data;
+
+          if (!accountDetails.balanceParsed || !accountDetails.balance) {
+            return undefined;
+          }
+
+          const nativeItem: IFetchTokenDetailItem = {
+            info: {
+              decimals: network.decimals,
+              name: network.shortname,
+              symbol: network.symbol,
+              address: networkInfo.nativeTokenAddress,
+              logoURI: network.logoURI,
+              isNative: true,
+            },
+            balance: accountDetails.balance,
+            balanceParsed: accountDetails.balanceParsed,
+            fiatValue: '0',
+            price: 0,
+          };
+
+          if (accountDetails.frozenBalance) {
+            nativeItem.frozenBalance = accountDetails.frozenBalance;
+          }
+          if (accountDetails.frozenBalanceParsed) {
+            nativeItem.frozenBalanceParsed = accountDetails.frozenBalanceParsed;
+          }
+
+          return nativeItem;
+        }
+
+        const subToken = await subVault.fetchTokenDetailByRpc({
+          contract,
+          params,
+          apiPromise: apiPromise ?? undefined,
+        });
+
+        return subToken;
+      }) ?? [],
+    );
+
+    const items = resp.filter((item): item is IFetchTokenDetailItem =>
+      Boolean(item),
+    );
+
+    return {
+      data: {
+        data: items,
+      },
+    };
+  }
+
+  _parseAccountTokenArray(
+    { networkId, accountAddress }: IFetchServerTokenListApiParams,
+    accountTokenArray: IServerAccountTokenItem[],
+  ): ITokenData {
+    let fiatValue = BigNumber(0);
+    const map: Record<string, ITokenFiat> = {};
+    const data: IAccountToken[] = [];
+
+    accountTokenArray.forEach((accountToken) => {
+      if (!isNaN(Number(accountToken.fiatValue))) {
+        fiatValue = fiatValue.plus(accountToken.fiatValue);
+      }
+      const key = `${networkId}_${accountAddress}_${
+        accountToken.info?.uniqueKey ?? accountToken?.info?.address ?? ''
+      }`;
+
+      map[key] = {
+        price: 0,
+        price24h: 0,
+        balance: accountToken.balance,
+        balanceParsed: accountToken.balanceParsed,
+        fiatValue: '0',
+      };
+
+      data.push({
+        $key: key,
+        ...omit(accountToken?.info, 'uniqueKey'),
+      } as IAccountToken);
+    });
+
+    return {
+      map,
+      data: orderBy(
+        data,
+        [
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+          (item) => map?.[item.$key]?.order ?? 9999,
+          (item) => item.isNative,
+          (item) => +(map?.[item.$key]?.fiatValue ?? 0),
+        ],
+        ['asc', 'desc', 'desc'],
+      ),
+      keys: md5(
+        `${networkId}__${
+          isEmpty(map) ? '' : Object.keys(map).join(',')
+        }__${JSON.stringify(data)}`,
+      ),
+      fiatValue: undefined,
+    };
+  }
+
+  override async fetchTokenListByRpc(
+    params: IFetchServerTokenListParams,
+  ): Promise<IFetchServerTokenListResponse> {
+    const provider = await this.getCustomApiPromise();
+    if (!provider) {
+      throw new OneKeyInternalError('No RPC url');
+    }
+
+    const networkInfo = await this.getNetworkInfo();
+    const subVault = await this.getSubVault();
+    const tokenDetails = await this.fetchTokenDetailsByRpc({
+      accountAddress: params.requestApiParams.accountAddress ?? '',
+      networkId: params.requestApiParams.networkId,
+      accountId: params.accountId ?? '',
+      contractList: [networkInfo.nativeTokenAddress ?? ''],
+    });
+
+    const accountTokenArray: IServerAccountTokenItem[] = [];
+    accountTokenArray.push({
+      info: {
+        decimals: tokenDetails.data.data[0].info.decimals,
+        name: tokenDetails.data.data[0].info.name,
+        symbol: tokenDetails.data.data[0].info.symbol,
+        address: tokenDetails.data.data[0].info.address,
+        logoURI: tokenDetails.data.data[0].info.logoURI,
+        isNative: true,
+      },
+      balance: tokenDetails.data.data[0].balance,
+      balanceParsed: tokenDetails.data.data[0].balanceParsed,
+      fiatValue: '0',
+      price: '0',
+      price24h: 0,
+    });
+
+    const subTokens = await subVault.fetchAdditionalAccountTokens({
+      apiPromise: provider,
+      accountAddress: params.requestApiParams.accountAddress ?? '',
+    });
+    accountTokenArray.push(...subTokens);
+
+    const hiddenTokenSet = new Set(params.requestApiParams.hiddenTokens ?? []);
+    const sortedAccountTokenArray = orderBy(
+      accountTokenArray,
+      [(item) => item.info?.isNative, (item) => +(item.fiatValue ?? 0)],
+      ['desc', 'desc'],
+    ).filter((n) => !hiddenTokenSet.has(n.info?.address ?? ''));
+
+    const smallTokenArray: IServerAccountTokenItem[] = [];
+    const riskTokenArray: IServerAccountTokenItem[] = [];
+
+    const tokens = this._parseAccountTokenArray(
+      params.requestApiParams,
+      sortedAccountTokenArray,
+    );
+    const riskTokens = this._parseAccountTokenArray(
+      params.requestApiParams,
+      riskTokenArray,
+    );
+    const smallBalanceTokens = this._parseAccountTokenArray(
+      params.requestApiParams,
+      smallTokenArray,
+    );
+
+    return {
+      data: {
+        data: {
+          tokens,
+          riskTokens,
+          smallBalanceTokens,
+        },
+      },
+    };
+  }
+
+  override async estimateFeeByRpc(
+    params: IEstimateGasParams,
+  ): Promise<IServerEstimateFeeResponse> {
+    const apiPromise = await this.getCustomApiPromise();
+    if (!apiPromise) {
+      throw new OneKeyInternalError('No RPC url');
+    }
+
+    if (!params.encodedTx) {
+      throw new OneKeyInternalError('No encodedTx');
+    }
+
+    const nativeToken = await this.getNetwork();
+    const feeDecimals = nativeToken.decimals;
+    const feeSymbol = nativeToken.symbol;
+    let gasLimit = '0';
+
+    // @ts-expect-error
+    const signedTxU8a = Buffer.from(params.encodedTx, 'base64');
+    try {
+      const queryInfo = await apiPromise.call.transactionPaymentApi.queryInfo(
+        signedTxU8a,
+        signedTxU8a.byteLength,
+      );
+      const queryInfoJson = queryInfo.toJSON() as { partialFee: number };
+      const weight = queryInfoJson.partialFee.toString();
+      gasLimit = new BigNumber(weight).toFixed(0).toString();
+    } catch (err) {
+      const queryInfo =
+        await apiPromise.call.transactionPaymentCallApi.queryCallFeeDetails(
+          signedTxU8a,
+          signedTxU8a.byteLength,
+        );
+      const queryInfoJson = queryInfo.toJSON() as {
+        inclusionFee: {
+          baseFee: number;
+          lenFee: number;
+        };
+      };
+      gasLimit = new BigNumber(queryInfoJson.inclusionFee.baseFee.toString())
+        .plus(queryInfoJson.inclusionFee.lenFee.toString())
+        .toFixed(0)
+        .toString();
+    }
+    const gasPrice = new BigNumber('1')
+      .shiftedBy(-feeDecimals)
+      .toFixed()
+      .toString();
+    return {
+      data: {
+        data: {
+          isEIP1559: false,
+          feeDecimals,
+          feeSymbol,
+          nativeDecimals: nativeToken.decimals,
+          nativeSymbol: nativeToken.symbol,
+          baseFee: '0',
+          nativeTokenPrice: {
+            price: 0,
+            price24h: 0,
+          },
+          gas: [
+            {
+              gasPrice,
+              gasLimitForDisplay: gasLimit,
+              gasLimit,
+            },
+          ],
+          feeData: [{ extraTip: '0' }],
+        },
+      },
     };
   }
 }

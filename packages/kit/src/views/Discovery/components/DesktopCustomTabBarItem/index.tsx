@@ -1,12 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useDebouncedCallback } from 'use-debounce';
 
 import {
-  Icon,
   IconButton,
-  Popover,
   SizableText,
   Stack,
   Tooltip,

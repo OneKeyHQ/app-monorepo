@@ -5,9 +5,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   EPortalContainerConstantName,
-  Heading,
   Icon,
-  Image,
   Portal,
   SizableText,
   Stack,
@@ -119,11 +117,11 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
 export function BottomMenu() {
   const { gtMd } = useMedia();
   const isIpadLandscape = useIsIpadLandscape();
-  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
+  const [{ isCollapsed }] = useAppSideBarStatusAtom();
   const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
   return isShowBottomMenu ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
-      <BaseBottomMenu isCollapse={isCollapse} />
+      <BaseBottomMenu isCollapse={isCollapsed} />
     </Portal.Body>
   ) : null;
 }

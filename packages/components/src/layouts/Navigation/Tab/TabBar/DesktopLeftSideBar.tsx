@@ -139,7 +139,7 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
-  const [{ collapsed: isCollapse }, setAppSideBarStatus] =
+  const [{ isCollapsed: isCollapse }, setAppSideBarStatus] =
     useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
@@ -308,7 +308,10 @@ export function DesktopLeftSideBar({
           {isHovering ? (
             <IconButton
               onPress={() => {
-                setAppSideBarStatus((prev) => ({ ...prev, collapsed: false }));
+                setAppSideBarStatus((prev) => ({
+                  ...prev,
+                  isCollapsed: false,
+                }));
               }}
               icon="ChevronRightSmallOutline"
               size="large"
