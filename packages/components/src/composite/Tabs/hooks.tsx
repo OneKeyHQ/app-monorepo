@@ -99,7 +99,7 @@ export const useTabContainerWidth = platformEnv.isNative
         return 0;
       }, [md, leftSidebarCollapsed]);
 
-      if (platformEnv.isWeb) {
+      if (platformEnv.isWebDappMode) {
         return `calc(100vw)`;
       }
 
