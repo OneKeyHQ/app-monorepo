@@ -9,7 +9,7 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
+import { Dialog, useClipboard } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -72,6 +72,7 @@ import {
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
 import { exportLogs } from './exportLogs';
+import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -714,50 +715,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: (navigation) => {
-                Dialog.show({
-                  icon: 'FileDownloadOutline',
-                  title: intl.formatMessage({
-                    id: ETranslations.settings_export_state_logs,
-                  }),
-                  renderContent: (
-                    <Stack>
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage({
-                          id: ETranslations.settings_logs_do_not_include_sensitive_data,
-                        })}
-                      </SizableText>
-                      <Stack h="$5" />
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.settings_export_state_logs_desc,
-                          },
-                          {
-                            email: (
-                              <SizableText
-                                size="$bodyLg"
-                                textDecorationLine="underline"
-                                onPress={() => copyText('hi@onekey.so')}
-                              >
-                                hi@onekey.so
-                              </SizableText>
-                            ),
-                          },
-                        )}
-                      </SizableText>
-                    </Stack>
-                  ),
-                  confirmButtonProps: {
-                    variant: 'primary',
-                  },
-                  onConfirmText: intl.formatMessage({
-                    id: ETranslations.global_export,
-                  }),
-                  onConfirm: () => {
-                    const str = new Date().toISOString().replace(/[-:.]/g, '');
-                    void exportLogs(`OneKeyLogs-${str}`);
-                  },
+              onPress: () => {
+                showExportLogsDialog({
+                  intl,
+                  copyText,
+                  onExport: exportLogs,
                 });
               },
             },
