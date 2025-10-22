@@ -89,7 +89,7 @@ const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
 export const useTabContainerWidth = platformEnv.isNative
   ? useNativeTabContainerWidth
   : () => {
-      const [{ collapsed: leftSidebarCollapsed = false }] =
+      const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
       return useMemo(() => {
         if (platformEnv.isWeb) {
