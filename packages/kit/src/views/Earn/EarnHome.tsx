@@ -53,10 +53,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type {
-  IEarnRewardUnit,
-  IRecommendAsset,
-} from '@onekeyhq/shared/types/staking';
+import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -87,7 +84,6 @@ const BANNER_TITLE_OFFSET = {
   mobile: '$10',
 };
 
-const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
   value: string | number,
