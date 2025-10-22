@@ -52,7 +52,6 @@ class ServiceSpotlight extends ServiceBase {
     await spotlightPersistAtom.set({
       data: {
         [ESpotlightTour.createAllNetworks]: 0,
-        [ESpotlightTour.oneKeyProBanner]: 0,
         [ESpotlightTour.switchDappAccount]: 0,
         [ESpotlightTour.allNetworkAccountValue]: 0,
         [ESpotlightTour.showFloatingIconDialog]: 0,

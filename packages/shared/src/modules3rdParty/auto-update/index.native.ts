@@ -226,7 +226,8 @@ interface INativeBundleUpdateModule {
   setCurrentUpdateBundleData: (params: IJSBundle) => Promise<void>;
   clearBundle: () => Promise<void>;
   clearAllJSBundleData: () => Promise<{ success: boolean; message: string }>;
-  getWebEmbedPath: () => Promise<string>;
+  getWebEmbedPath: () => string;
+  getWebEmbedPathAsync: () => Promise<string>;
   testVerification: () => Promise<boolean>;
   testDeleteJsBundle: (
     appVersion: string,
@@ -244,6 +245,8 @@ interface INativeBundleUpdateModule {
     appVersion: string,
     bundleVersion: string,
   ) => Promise<{ success: boolean; message: string }>;
+  getNativeAppVersion: () => Promise<string>;
+  getJsBundlePath: () => Promise<string>;
 }
 
 const { BundleUpdateModule } = NativeModules as {
@@ -303,9 +306,10 @@ export const BundleUpdate: IBundleUpdate = {
     BundleUpdateModule.testDeleteMetadataJson(appVersion, bundleVersion),
   testWriteEmptyMetadataJson: (appVersion, bundleVersion) =>
     BundleUpdateModule.testWriteEmptyMetadataJson(appVersion, bundleVersion),
-  getWebEmbedPath: () =>
-    BundleUpdateModule && BundleUpdateModule.getWebEmbedPath
-      ? BundleUpdateModule.getWebEmbedPath()
+  getWebEmbedPath: () => BundleUpdateModule?.getWebEmbedPath() || '',
+  getWebEmbedPathAsync: () =>
+    BundleUpdateModule && BundleUpdateModule.getWebEmbedPathAsync
+      ? BundleUpdateModule.getWebEmbedPathAsync()
       : Promise.resolve(''),
   getFallbackBundles: () => BundleUpdateModule.getFallbackUpdateBundleData(),
   switchBundle: async (params) => {
@@ -314,4 +318,7 @@ export const BundleUpdate: IBundleUpdate = {
       RNRestart.restart();
     }, 2500);
   },
+  getNativeAppVersion: () => BundleUpdateModule.getNativeAppVersion(),
+  getNativeBuildNumber: () => Promise.resolve(''),
+  getJsBundlePath: () => BundleUpdateModule.getJsBundlePath(),
 };

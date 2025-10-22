@@ -10,6 +10,11 @@
  * Extend the react-native-web reset:
  * https://github.com/necolas/react-native-web/blob/master/packages/react-native-web/src/exports/StyleSheet/initialRules.js
  */
+
+:root {
+  text-autospace: normal;
+}
+
 html,
 body,
 #root {

@@ -27,7 +27,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
-import { showDepositWithdrawModal } from '../modals/DepositWithdrawModal';
+import { showDepositWithdrawDialog } from '../modals/DepositWithdrawModal';
 
 export function PerpAccountDebugInfo() {
   const [accountSummary] = usePerpsActiveAccountSummaryAtom();
@@ -110,8 +110,14 @@ function PerpAccountPanel() {
         currency: '$',
       },
     });
-    const pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
-    const pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    let pnlColor = '$text';
+    if (!pnlBn.isZero()) {
+      pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    }
+    let pnlPlusOrMinus = '';
+    if (!pnlBn.isZero()) {
+      pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    }
     return { pnlFormatted, pnlColor, pnlPlusOrMinus };
   }, [accountSummary?.totalUnrealizedPnl]);
 
@@ -154,7 +160,9 @@ function PerpAccountPanel() {
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodySm" color="$textSubdued" cursor="default">
-            Unrealized PNL
+            {intl.formatMessage({
+              id: ETranslations.perp_account_unrealized_pnl,
+            })}
           </SizableText>
           <SizableText size="$bodySmMedium" color={unrealizedPnlInfo.pnlColor}>
             {`${unrealizedPnlInfo.pnlPlusOrMinus}${unrealizedPnlInfo.pnlFormatted}`}
@@ -249,7 +257,7 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal(
+              showDepositWithdrawDialog(
                 {
                   actionType: 'deposit',
                 },
@@ -269,7 +277,7 @@ function PerpAccountPanel() {
             size="medium"
             variant="secondary"
             onPress={() =>
-              showDepositWithdrawModal(
+              showDepositWithdrawDialog(
                 {
                   actionType: 'withdraw',
                 },

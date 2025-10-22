@@ -474,7 +474,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 20, y: 18 },
+    trafficLightPosition: { x: 10, y: 20 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -755,6 +755,19 @@ async function createMainWindow() {
       PROTOCOL,
       (request, callback) => {
         console.log('request url', request);
+        const jsSdkPattern = '/static/js-sdk/';
+        const jsSdkIndex = request.url.indexOf(jsSdkPattern);
+
+        // resolve js-sdk files path in dev mode
+        if (jsSdkIndex > -1) {
+          const fileName = request.url.substring(
+            jsSdkIndex + jsSdkPattern.length,
+          );
+          callback({
+            path: path.join(staticPath, 'js-sdk', fileName),
+          });
+          return;
+        }
         callback(request.url);
       },
     );

@@ -544,7 +544,21 @@ export function useSwapBuildTx() {
           };
         },
       );
-
+      const { totalNative } = calculateFeeForSend({
+        feeInfo: gasInfo as IFeeInfoUnit,
+        nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
+      });
+      await backgroundApiProxy.serviceTransaction.verifyTransaction({
+        networkId,
+        accountId,
+        verifyTxTasks: ['feeInfo'],
+        verifyTxFeeInfoParams: {
+          feeAmount: totalNative,
+          feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
+          doubleConfirm: true,
+        },
+        encodedTx: updatedUnsignedTxItem.encodedTx,
+      });
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
@@ -3013,6 +3027,8 @@ export function useSwapBuildTx() {
                 error?.key !== 'global.cancel' &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.code !== 803 &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== -99_999 &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
                 !error?.message?.toLowerCase()?.includes('reject') &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

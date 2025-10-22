@@ -1,38 +1,4 @@
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import {
-  type FontSizeTokens,
-  type FontTokens,
-  type Variable,
-  getConfig,
-  getFontSizeToken,
-} from '../shared/tamagui';
-
-type IGetFontSizeOpts = {
-  relativeSize?: number;
-  font?: FontTokens;
-};
-
-export const getFontToken = (
-  inSize: FontSizeTokens | null | undefined,
-  opts?: IGetFontSizeOpts,
-) => {
-  const token = getFontSizeToken(inSize, opts);
-  if (!token) {
-    return inSize;
-  }
-  const conf = getConfig();
-  const font = conf.fontsParsed[opts?.font || '$body'];
-  return {
-    fontSize: (font.size[token] as Variable)?.val as number,
-    lineHeight: (font?.lineHeight?.[token] as Variable)?.val as number,
-    letterSpacing: (font?.letterSpacing?.[token] as Variable)?.val as number,
-    fontWeight: (font?.weight?.[token] as Variable)?.val as number,
-  };
-};
-
-export { getFontSize } from '../shared/tamagui';
-
-export const NATIVE_HIT_SLOP = platformEnv.isNative
-  ? { top: 8, left: 8, right: 8, bottom: 8 }
-  : undefined;
+export * from './DebugRenderTracker';
+export * from './getFontSize';
+export * from './sidebar';
+export * from './webFontFamily';

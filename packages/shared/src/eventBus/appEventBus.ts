@@ -314,6 +314,9 @@ export interface IAppEventBusPayload {
     promiseId: number;
     walletId: string;
   };
+  [EAppEventBusNames.doubleConfirmTxFeeInfo]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
@@ -381,6 +384,8 @@ export interface IAppEventBusPayload {
     };
   };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
+  [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
+  [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
