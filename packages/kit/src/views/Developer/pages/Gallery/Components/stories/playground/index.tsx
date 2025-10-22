@@ -10,7 +10,9 @@ import {
   CheckAndUpdate,
   ConnectDevice,
   CreateOrImportWallet,
+  CreatingWallet,
   ExampleComponent,
+  ImportPhraseOrPrivateKey,
 } from './components/ExampleComponent';
 
 function DebugComponent({ children }: { children: React.ReactNode }) {
@@ -78,6 +80,20 @@ const PlaygroundGallery = () => (
         element: (
           <DebugComponent>
             <CheckAndUpdate />
+          </DebugComponent>
+        ),
+      },
+      {
+        element: (
+          <DebugComponent>
+            <CreatingWallet />
+          </DebugComponent>
+        ),
+      },
+      {
+        element: (
+          <DebugComponent>
+            <ImportPhraseOrPrivateKey />
           </DebugComponent>
         ),
       },
