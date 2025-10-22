@@ -214,6 +214,10 @@ export function ActionButton({
             ? '$buttonSuccess'
             : '$buttonCritical',
         color: '$textOnColor',
+        borderColor:
+          tradeType === ESwapDirection.BUY
+            ? '$buttonSuccess'
+            : '$buttonCritical',
         shadowOpacity: 0,
         elevation: 0,
         hoverStyle: {
