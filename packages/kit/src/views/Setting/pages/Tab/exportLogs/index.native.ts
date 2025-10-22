@@ -4,10 +4,13 @@ import {
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  ILogDigest,
-  ILogUploadResponse,
+import {
+  ELogUploadStage,
+  type ILogDigest,
+  type ILogUploadResponse,
 } from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -44,6 +47,10 @@ export const exportLogs = async (filename: string) => {
 export const collectLogDigest = async (
   fileBaseName?: string,
 ): Promise<ILogDigest> => {
+  appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+    stage: ELogUploadStage.Collecting,
+    progressPercent: 0,
+  });
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
   await waitAsync(1000);
@@ -110,25 +117,110 @@ export const uploadLogBundle = async ({
 
   const headers = await getRequestHeaders();
   headers.authorization = `Bearer ${uploadToken}`;
-  // Let React Native set multi part boundary
-  delete headers['content-type'];
-  delete headers['Content-Type'];
+  // Clean up possible casing variants we do not want to forward
   delete headers['content-length'];
+  delete headers['Content-Length'];
 
-  const form = new FormData();
-  form.append('file', {
-    uri: digest.bundle.filePath,
-    name: digest.bundle.fileName,
-    type: digest.bundle.mimeType ?? 'application/octet-stream',
-  } as any);
-
-  const response = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: headers as any,
-    body: form,
+  appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+    stage: ELogUploadStage.Uploading,
+    progressPercent: 0,
   });
 
-  const text = await response.text();
+  let httpStatus = 0;
+  let text = '';
+
+  let uploadTaskError: Error | undefined;
+  let fileSystemModule: typeof import('expo-file-system') | undefined;
+  try {
+    fileSystemModule = await import('expo-file-system');
+  } catch (error) {
+    fileSystemModule = undefined;
+  }
+
+  if (fileSystemModule?.createUploadTask) {
+    try {
+      const uploadTask = fileSystemModule.createUploadTask(
+        uploadUrl,
+        digest.bundle.filePath,
+        {
+          headers: {
+            ...headers,
+            'content-type':
+              digest.bundle.mimeType ?? 'application/octet-stream',
+          },
+          httpMethod: 'POST',
+          uploadType: fileSystemModule.FileSystemUploadType.BINARY_CONTENT,
+        },
+        (progress) => {
+          const total =
+            typeof progress.totalBytesExpectedToSend === 'number' &&
+            progress.totalBytesExpectedToSend > 0
+              ? progress.totalBytesExpectedToSend
+              : digest.sizeBytes;
+          if (total > 0) {
+            const percent = Math.min(
+              100,
+              Math.round((progress.totalBytesSent / total) * 100),
+            );
+            appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+              stage: ELogUploadStage.Uploading,
+              progressPercent: percent,
+            });
+          }
+        },
+      );
+
+      const result = await uploadTask.uploadAsync();
+      if (!result) {
+        throw new OneKeyLocalError('Upload cancelled');
+      }
+      httpStatus = result.status ?? 0;
+      text = result.body ?? '';
+    } catch (error) {
+      uploadTaskError =
+        error instanceof Error
+          ? error
+          : new OneKeyLocalError(String(error ?? 'Upload failed'));
+    }
+  } else {
+    uploadTaskError = new OneKeyLocalError('Upload task is not available');
+  }
+
+  if (uploadTaskError) {
+    const form = new FormData();
+    form.append('file', {
+      uri: digest.bundle.filePath,
+      name: digest.bundle.fileName,
+      type: digest.bundle.mimeType ?? 'application/octet-stream',
+    } as any);
+
+    const fallbackHeaders = {
+      ...headers,
+    };
+    delete fallbackHeaders['content-type'];
+    delete fallbackHeaders['Content-Type'];
+
+    try {
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: fallbackHeaders as any,
+        body: form,
+      });
+      httpStatus = response.status;
+      text = await response.text();
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error ?? uploadTaskError.message);
+      appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+        stage: ELogUploadStage.Error,
+        message,
+      });
+      throw error;
+    }
+  }
+
   type IServerPayload =
     | IApiClientResponse<ILogUploadResponse>
     | {
@@ -141,17 +233,28 @@ export const uploadLogBundle = async ({
     payload = JSON.parse(text) as typeof payload;
   } catch (error) {
     payload = {
-      code: response.status,
+      code: httpStatus,
       message: text,
       data: undefined,
     };
   }
 
   if (!payload || typeof payload !== 'object') {
+    appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+      stage: ELogUploadStage.Error,
+      message: 'Upload failed: invalid response',
+    });
     throw new OneKeyLocalError('Upload failed: invalid response');
   }
 
   if (typeof payload.code === 'number' && payload.code !== 0) {
+    appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+      stage: ELogUploadStage.Error,
+      message:
+        (payload.data as { message?: string } | undefined)?.message ||
+        payload.message ||
+        'Upload failed',
+    });
     throw new OneKeyServerApiError({
       message:
         (payload.data as { message?: string } | undefined)?.message ||
@@ -163,8 +266,17 @@ export const uploadLogBundle = async ({
   }
 
   if (!payload.data) {
+    appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+      stage: ELogUploadStage.Error,
+      message: 'Upload failed: missing response data',
+    });
     throw new OneKeyLocalError('Upload failed: missing response data');
   }
+
+  appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+    stage: ELogUploadStage.Success,
+    progressPercent: 100,
+  });
 
   return {
     digest,
