@@ -1422,9 +1422,9 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance({
       connectId: undefined,
     });
-    let env: 'webusb' | 'desktop-web-usb' | 'desktop-web-ble' | 'web';
+    let env: 'webusb' | 'desktop-web-ble' | 'web';
     if (transportType === EHardwareTransportType.WEBUSB) {
-      env = platformEnv.isDesktop ? 'desktop-web-usb' : 'webusb';
+      env = 'webusb';
     } else if (transportType === EHardwareTransportType.DesktopWebBle) {
       env = 'desktop-web-ble';
     } else {
