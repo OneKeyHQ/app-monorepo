@@ -21,7 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 
 const MAX_RETRIES = 3;
-const TOTAL_ATTEMPTS = MAX_RETRIES + 1;
+const TOTAL_ATTEMPTS = MAX_RETRIES;
 
 function UploadLogsDialogContent() {
   const intl = useIntl();
@@ -32,6 +32,7 @@ function UploadLogsDialogContent() {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [isUploading, setIsUploading] = useState(false);
   const [currentAttempt, setCurrentAttempt] = useState(0);
+  const [instanceId, setInstanceId] = useState<string | undefined>();
   const isActiveRef = useRef(false);
 
   const handleEmailPress = useCallback(() => {
@@ -91,77 +92,90 @@ function UploadLogsDialogContent() {
     return new Error(String(err));
   }, []);
 
-  const handleUpload = useCallback(async () => {
-    if (isUploading) {
-      return;
-    }
-    isActiveRef.current = true;
-    setIsUploading(true);
-    setCurrentAttempt(0);
-    setErrorMessage(undefined);
-    setStage(ELogUploadStage.Collecting);
-    setProgressPercent(0);
-
-    const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-    const fileBaseName = `OneKeyLogs-${timestamp}`;
-
-    const attemptUpload = async (attemptNumber: number) => {
-      setCurrentAttempt(attemptNumber);
+  const handleUpload = useCallback(
+    async ({ preventClose }: { preventClose: () => void }) => {
+      preventClose();
+      if (isUploading) {
+        return;
+      }
+      isActiveRef.current = true;
+      setIsUploading(true);
+      setCurrentAttempt(0);
       setErrorMessage(undefined);
       setStage(ELogUploadStage.Collecting);
       setProgressPercent(0);
-      const digest = await collectLogDigest(fileBaseName);
-      const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
-        sizeBytes: digest.sizeBytes,
-        sha256: digest.sha256,
-      });
-      await uploadLogBundle({
-        uploadToken: token.uploadToken,
-        digest,
-      });
-    };
+      setInstanceId(undefined);
 
-    try {
-      await pRetry(attemptUpload, {
-        retries: MAX_RETRIES,
-        onFailedAttempt: (error: FailedAttemptError) => {
-          const originalError = resolveError(error);
-          const message =
-            originalError.message ||
-            `Log upload failed (attempt ${error.attemptNumber}/${TOTAL_ATTEMPTS}). Retrying...`;
-          setCurrentAttempt(error.attemptNumber);
-          setStage(ELogUploadStage.Error);
-          setErrorMessage(message);
-        },
-      });
+      const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+      const fileBaseName = `OneKeyLogs-${timestamp}`;
 
-      setStage(ELogUploadStage.Success);
-      setProgressPercent(100);
-      setCurrentAttempt(0);
-      Toast.success({
-        title: 'Logs uploaded successfully',
-      });
-      await dialog.close();
-    } catch (error) {
-      const finalError = resolveError(error);
-      const message = finalError.message;
-      setStage(ELogUploadStage.Error);
-      setErrorMessage(message);
-      try {
-        await exportLogs(fileBaseName);
-        setStage('idle');
-        setProgressPercent(0);
+      const attemptUpload = async (attemptNumber: number) => {
+        setCurrentAttempt(attemptNumber);
         setErrorMessage(undefined);
+        setStage(ELogUploadStage.Collecting);
+        setProgressPercent(0);
+        const digest = await collectLogDigest(fileBaseName);
+        const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
+          {
+            sizeBytes: digest.sizeBytes,
+            sha256: digest.sha256,
+          },
+        );
+        const { result } = await uploadLogBundle({
+          uploadToken: token.uploadToken,
+          digest,
+        });
+        return result.objectKey;
+      };
+
+      try {
+        await pRetry((attemptNumber) => attemptUpload(attemptNumber), {
+          retries: MAX_RETRIES,
+          onFailedAttempt: (error: FailedAttemptError) => {
+            const originalError = resolveError(error);
+            const message =
+              originalError.message ||
+              `Log upload failed (attempt ${
+                error.attemptNumber - 1
+              }/${TOTAL_ATTEMPTS}). Retrying...`;
+            setCurrentAttempt(error.attemptNumber - 1);
+            setStage(ELogUploadStage.Error);
+            setErrorMessage(message);
+          },
+        });
+
+        setStage(ELogUploadStage.Success);
+        setProgressPercent(100);
         setCurrentAttempt(0);
-      } catch (exportError) {
-        const exportMessage = resolveError(exportError).message;
-        setErrorMessage(exportMessage);
+        const instanceIdValue =
+          await backgroundApiProxy.serviceSetting.getInstanceId();
+        setInstanceId(instanceIdValue);
+        Toast.success({
+          title: 'Logs uploaded successfully',
+        });
+      } catch (error) {
+        const finalError = resolveError(error);
+        const message = finalError.message;
+        setStage(ELogUploadStage.Error);
+        setErrorMessage(message);
+        try {
+          await exportLogs(fileBaseName);
+          setStage('idle');
+          setProgressPercent(0);
+          setErrorMessage(undefined);
+          setCurrentAttempt(0);
+          await dialog.close();
+        } catch (exportError) {
+          const exportMessage = resolveError(exportError).message;
+          setErrorMessage(exportMessage);
+        }
+      } finally {
+        isActiveRef.current = false;
+        setIsUploading(false);
       }
-    } finally {
-      isActiveRef.current = false;
-      setIsUploading(false);
-    }
-  }, [dialog, isUploading, resolveError]);
+    },
+    [dialog, isUploading, resolveError],
+  );
 
   const progressLabel = useMemo(() => {
     const clampedProgress = Math.min(100, Math.max(0, progressPercent));
@@ -187,6 +201,22 @@ function UploadLogsDialogContent() {
   }, [currentAttempt, progressPercent, stage]);
 
   const shouldShowProgress = stage !== 'idle';
+
+  const handleConfirmAction = useCallback(
+    ({ preventClose }: { preventClose: () => void }) => {
+      if (stage === ELogUploadStage.Success && instanceId) {
+        copyText(instanceId);
+        return;
+      }
+      void handleUpload({ preventClose });
+    },
+    [copyText, handleUpload, instanceId, stage],
+  );
+
+  const confirmText =
+    stage === ELogUploadStage.Success && instanceId
+      ? 'Copy Instance ID'
+      : 'Upload';
 
   return (
     <Stack gap="$5">
@@ -229,11 +259,13 @@ function UploadLogsDialogContent() {
       ) : null}
       <Dialog.Footer
         showCancelButton
-        onConfirm={handleUpload}
-        onConfirmText="Upload"
+        onConfirm={handleConfirmAction}
+        onConfirmText={confirmText}
         confirmButtonProps={{
           variant: 'primary',
-          loading: isUploading,
+          loading: isUploading && stage !== ELogUploadStage.Success,
+          disabled:
+            (stage === ELogUploadStage.Success && !instanceId) || isUploading,
         }}
         cancelButtonProps={{
           disabled: isUploading,
