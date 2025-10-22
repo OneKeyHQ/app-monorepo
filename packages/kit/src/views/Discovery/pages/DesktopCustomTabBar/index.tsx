@@ -56,7 +56,7 @@ const TIMESTAMP_DIFF_MULTIPLIER = 2;
 
 function DesktopCustomTabBar() {
   const intl = useIntl();
-  const [{ collapsed: isCollapse }] = useAppSideBarStatusAtom();
+  const [{ isCollapsed }] = useAppSideBarStatusAtom();
   // register desktop shortcuts for browser tab
   useDiscoveryShortcuts();
   // register desktop new window event
@@ -215,7 +215,7 @@ function DesktopCustomTabBar() {
 
   useShortcuts(undefined, handleShortcuts);
 
-  const ITEM_HEIGHT = useMemo(() => (isCollapse ? 36 : 32), [isCollapse]);
+  const ITEM_HEIGHT = useMemo(() => (isCollapsed ? 36 : 32), [isCollapsed]);
 
   const layoutList = useMemo(() => {
     let offset = 0;
@@ -314,7 +314,7 @@ function DesktopCustomTabBar() {
     <Stack
       testID="sideabr-browser-section"
       flex={1}
-      width={isCollapse ? MIN_SIDEBAR_WIDTH / 2 : undefined}
+      width={isCollapsed ? MIN_SIDEBAR_WIDTH / 2 : undefined}
     >
       <HandleRebuildBrowserData />
       <SortableSectionList
@@ -335,7 +335,7 @@ function DesktopCustomTabBar() {
               id={t.id}
               key={t.id}
               onPress={onTabPress}
-              isCollapse={isCollapse}
+              isCollapse={isCollapsed}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}
@@ -406,7 +406,7 @@ function DesktopCustomTabBar() {
                 size="small"
                 key="AddTabButton"
                 label={
-                  isCollapse
+                  isCollapsed
                     ? ''
                     : intl.formatMessage({
                         id: ETranslations.explore_new_tab,

@@ -75,7 +75,7 @@ const useNativeTabContainerWidth = platformEnv.isNativeIOSPad
   ? () => {
       const isHorizontal = useIsHorizontalLayout();
       const { width } = useWindowDimensions();
-      const [{ collapsed: leftSidebarCollapsed = false }] =
+      const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
       if (isHorizontal) {
         return width - MIN_SIDEBAR_WIDTH;
