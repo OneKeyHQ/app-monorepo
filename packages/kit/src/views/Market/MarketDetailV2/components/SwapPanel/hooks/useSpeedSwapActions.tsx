@@ -137,6 +137,7 @@ export function useSpeedSwapActions(props: {
   useEffect(() => {
     void (async () => {
       if (tradeType === ESwapDirection.BUY) {
+        if (!tradeToken?.networkId) return;
         const tokenDetail =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: tradeToken?.networkId ?? '',
@@ -160,6 +161,7 @@ export function useSpeedSwapActions(props: {
           symbol: tradeToken?.symbol,
           logoURI: tradeToken?.logoURI,
         };
+        if (!sellTradeToken?.networkId) return;
         const tokenDetail =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: sellTradeToken?.networkId ?? '',
@@ -852,6 +854,7 @@ export function useSpeedSwapActions(props: {
             },
           }))
       ) {
+        if (!balanceToken?.networkId) return;
         setFetchBalanceLoading(true);
         try {
           const tokenDetail =
@@ -898,6 +901,7 @@ export function useSpeedSwapActions(props: {
         loading: false,
       });
     } else {
+      if (!fromToken?.networkId || !toToken?.networkId) return;
       const [fromTokenPrice, toTokenPrice] = await Promise.all([
         backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: fromToken.networkId ?? '',
