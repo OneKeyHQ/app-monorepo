@@ -7,7 +7,7 @@ export enum EOnboardingV2Routes {
 export enum EOnboardingPagesV2 {
   GetStarted = 'GetStarted',
   AddExistingWallet = 'AddExistingWallet',
-  ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
+  CreateOrImportWallet = 'CreateOrImportWallet',
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
   ConnectYourDevice = 'ConnectYourDevice',
@@ -19,7 +19,7 @@ export type IOnboardingParamListV2 = {
     fromExt?: boolean;
   };
   [EOnboardingPagesV2.AddExistingWallet]: undefined;
-  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
+  [EOnboardingPagesV2.CreateOrImportWallet]: undefined;
   [EOnboardingPagesV2.FinalizeWalletSetup]: undefined;
   [EOnboardingPagesV2.PickYourDevice]: undefined;
   [EOnboardingPagesV2.ConnectYourDevice]: {

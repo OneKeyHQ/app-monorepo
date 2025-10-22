@@ -7,8 +7,8 @@ const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
 const AddExistingWallet = LazyLoadPage(
   () => import('../pages/AddExistingWallet'),
 );
-const ImportPhraseOrPrivateKey = LazyLoadPage(
-  () => import('../pages/ImportPhraseOrPrivateKey'),
+const CreateOrImportWallet = LazyLoadPage(
+  () => import('../pages/CreateOrImportWallet'),
 );
 const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
@@ -33,8 +33,8 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
     component: AddExistingWallet,
   },
   {
-    name: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
-    component: ImportPhraseOrPrivateKey,
+    name: EOnboardingPagesV2.CreateOrImportWallet,
+    component: CreateOrImportWallet,
   },
   {
     name: EOnboardingPagesV2.FinalizeWalletSetup,
