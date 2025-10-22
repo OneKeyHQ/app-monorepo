@@ -191,7 +191,7 @@ function HeaderView({
       >
         <Stack
           alignSelf="stretch"
-          px="$5"
+          px={isOnboardingScreen ? '$16' : '$5'}
           $gtMd={
             platformEnv.isNativeAndroid
               ? undefined
