@@ -10,6 +10,12 @@ import ServiceBase from '../ServiceBase';
 
 import { EChannel, EOperation } from './const';
 import { MarketSubscriptionTracker } from './MarketSubscriptionTracker';
+import { EMessageType } from './types/messageType';
+import {
+  convertOkxPriceDataToWsPriceData,
+  isOkxPriceData,
+} from './types/okxPriceData';
+import { convertOkxTxsDataToWsTxsData, isOkxTxsData } from './types/okxTxsData';
 
 import type { ISubscriptionType } from './MarketSubscriptionTracker';
 import type { IWsPriceData, IWsTxsData } from './types';
@@ -66,6 +72,7 @@ class ServiceMarketWS extends ServiceBase {
     // Register market data listener only once
     if (!this.isMarketListenerRegistered) {
       this.socket.on(EAppSocketEventNames.market, (data: unknown) => {
+        console.log('handleMarketMessage', data);
         this.handleMarketMessage(data);
       });
       this.isMarketListenerRegistered = true;
@@ -319,14 +326,47 @@ class ServiceMarketWS extends ServiceBase {
     let messageType: string | undefined;
     let processedData: any;
 
+    console.log('messageData', messageData);
+
     if ('type' in messageData && 'data' in messageData) {
       messageType = messageData.type as string;
-      processedData = messageData.data as Record<string, any>;
+      const rawData = messageData.data as Record<string, any>;
+
+      if (messageType === EMessageType.TXS_DATA && Array.isArray(rawData)) {
+        const normalizedItem = rawData.find((item) => isOkxTxsData(item));
+        if (!normalizedItem) {
+          return;
+        }
+
+        processedData = convertOkxTxsDataToWsTxsData(normalizedItem);
+      } else if (
+        messageType === EMessageType.TXS_DATA &&
+        isOkxTxsData(rawData)
+      ) {
+        processedData = convertOkxTxsDataToWsTxsData(rawData);
+      } else if (
+        messageType === EMessageType.PRICE_DATA &&
+        Array.isArray(rawData)
+      ) {
+        const normalizedItem = rawData.find((item) => isOkxPriceData(item));
+        if (!normalizedItem) {
+          return;
+        }
+
+        processedData = convertOkxPriceDataToWsPriceData(normalizedItem);
+      } else if (
+        messageType === EMessageType.PRICE_DATA &&
+        isOkxPriceData(rawData)
+      ) {
+        processedData = convertOkxPriceDataToWsPriceData(rawData);
+      } else {
+        processedData = rawData;
+      }
     } else {
       return;
     }
 
-    if (messageType === 'TXS_DATA') {
+    if (messageType === EMessageType.TXS_DATA) {
       channel = EChannel.tokenTxs;
       const txsData = processedData as IWsTxsData;
 
@@ -368,7 +408,7 @@ class ServiceMarketWS extends ServiceBase {
       if (!hasSubscription) {
         return;
       }
-    } else if (messageType === 'PRICE_DATA') {
+    } else if (messageType === EMessageType.PRICE_DATA) {
       channel = EChannel.ohlcv;
       const priceData = processedData as IWsPriceData;
       tokenAddress = priceData.address;
