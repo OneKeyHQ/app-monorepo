@@ -852,28 +852,27 @@ class ServiceStaking extends ServiceBase {
     return result;
   }
 
-  @backgroundMethod()
-  async getAccountAssetV2(
-    params: {
-      networkId: string;
-      accountAddress: string;
-      publicKey?: string;
-    }[],
-  ) {
-    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
-
-    const tokensResponse = await client.post<
-      IRecommendV2Response,
-      IAxiosResponse<IRecommendV2Response>
-    >(`/earn/v2/recommend`, { accounts: params });
-
-    this.handleServerError({
-      ...tokensResponse.data,
-      requestId: tokensResponse.$requestId,
-    });
-
-    return tokensResponse.data.data;
-  }
+  private _getAccountAssetV2 = memoizee(
+    async (
+      params: {
+        networkId: string;
+        accountAddress: string;
+        publicKey?: string;
+      }[],
+    ) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+      const tokensResponse = await client.post<
+        IRecommendV2Response,
+        IAxiosResponse<IRecommendV2Response>
+      >(`/earn/v2/recommend`, { accounts: params });
+      this.handleServerError({
+        ...tokensResponse.data,
+        requestId: tokensResponse.$requestId,
+      });
+      return tokensResponse.data.data;
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }) },
+  );
 
   @backgroundMethod()
   async getEarnAvailableAccountsParams({
@@ -1005,7 +1004,7 @@ class ServiceStaking extends ServiceBase {
       networkId,
       indexedAccountId,
     });
-    return this.getAccountAssetV2(accounts);
+    return this._getAccountAssetV2(accounts);
   }
 
   @backgroundMethod()
