@@ -1,13 +1,26 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
-import { useClipboard } from '@onekeyhq/components';
+import {
+  Icon,
+  IconButton,
+  Popover,
+  SizableText,
+  Stack,
+  Tooltip,
+  XStack,
+  useClipboard,
+} from '@onekeyhq/components';
 import type {
   IActionListItemProps,
   IPropsWithTestId,
 } from '@onekeyhq/components';
-import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import {
+  DesktopTabItem,
+  DesktopTabItemImage,
+} from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -23,6 +36,7 @@ import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 function DesktopCustomTabBarItem({
   id,
   shortcutKey,
+  isCollapse,
   onPress,
   onBookmarkPress,
   onPinnedPress,
@@ -32,6 +46,7 @@ function DesktopCustomTabBarItem({
 }: IPropsWithTestId<{
   id: string;
   shortcutKey?: EShortcutEvents;
+  isCollapse: boolean;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
@@ -197,32 +212,129 @@ function DesktopCustomTabBarItem({
       isHomeTab,
     ],
   );
+  const label = useMemo(() => {
+    return (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title;
+  }, [tab?.customTitle, tab?.title]);
+
+  const tabItem = useMemo(() => {
+    return (
+      <DesktopTabItem
+        hideCloseButton={isCollapse}
+        size="small"
+        showAvatar={!isHomeTab}
+        icon={isHomeTab ? 'Ai3StarOutline' : undefined}
+        shortcutKey={shortcutKey}
+        key={id}
+        selected={isActive}
+        onPress={() => onPress(id)}
+        label={isCollapse ? '' : label}
+        avatarSrc={tab?.favicon}
+        testID={testID}
+        id={id}
+        actionList={actionListItems}
+        onClose={closeTab}
+        tabBarStyle={
+          isCollapse
+            ? {
+                width: 36,
+                height: 36,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }
+            : undefined
+        }
+      />
+    );
+  }, [
+    isCollapse,
+    isHomeTab,
+    shortcutKey,
+    id,
+    isActive,
+    label,
+    tab?.favicon,
+    testID,
+    actionListItems,
+    closeTab,
+    onPress,
+  ]);
+
+  const [showTooltip, setShowTooltip] = useState(false);
+  const showTooltipRef = useRef(showTooltip);
+  showTooltipRef.current = showTooltip;
+  const showTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTooltipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleHoverIn = useCallback(() => {
+    if (showTooltipRef.current) {
+      if (closeTooltipTimer.current) {
+        clearTimeout(closeTooltipTimer.current);
+      }
+    } else {
+      showTooltipTimer.current = setTimeout(() => {
+        setShowTooltip(true);
+      }, 250);
+    }
+  }, []);
+  const handleHoverOut = useCallback(() => {
+    if (showTooltipRef.current) {
+      closeTooltipTimer.current = setTimeout(() => {
+        setShowTooltip(false);
+      }, 350);
+    } else if (showTooltipTimer.current) {
+      clearTimeout(showTooltipTimer.current);
+    }
+  }, []);
+
   if (!tab) {
     return null;
   }
 
-  return (
-    <DesktopTabItem
-      size="small"
-      showAvatar={!isHomeTab}
-      icon={isHomeTab ? 'Ai3StarOutline' : undefined}
-      shortcutKey={shortcutKey}
-      key={id}
-      selected={isActive}
-      onPress={() => onPress(id)}
-      label={
-        (tab?.customTitle?.length ?? 0) > 0 ? tab?.customTitle : tab?.title
-      }
-      avatarSrc={tab?.favicon}
-      testID={testID}
-      id={id}
-      actionList={actionListItems}
-      onClose={closeTab}
-    />
-  );
+  if (isCollapse) {
+    return (
+      <Tooltip
+        open={showTooltip}
+        placement="right"
+        renderContent={
+          <XStack
+            p="$2"
+            gap="$2"
+            onHoverIn={handleHoverIn}
+            onHoverOut={handleHoverOut}
+          >
+            <DesktopTabItemImage avatarSrc={tab?.favicon} selected={isActive} />
+            <SizableText size="$bodyMd" numberOfLines={1}>
+              {label}
+            </SizableText>
+            <IconButton
+              size="small"
+              icon="CrossedSmallOutline"
+              variant="tertiary"
+              focusVisibleStyle={undefined}
+              title={
+                <Tooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+                  {intl.formatMessage({
+                    id: ETranslations.global_close,
+                  })}
+                </Tooltip.Text>
+              }
+              onPress={closeTab}
+            />
+          </XStack>
+        }
+        renderTrigger={
+          <Stack onHoverIn={handleHoverIn} onHoverOut={handleHoverOut}>
+            {tabItem}
+          </Stack>
+        }
+      />
+    );
+  }
+  return tabItem;
 }
 
 export default memo(
   DesktopCustomTabBarItem,
-  (prevProps, nextProps) => prevProps.id === nextProps.id,
+  (prevProps, nextProps) =>
+    prevProps.id === nextProps.id &&
+    prevProps.isCollapse === nextProps.isCollapse,
 );
