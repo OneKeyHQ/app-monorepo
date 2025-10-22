@@ -1,10 +1,12 @@
 import { createHash } from 'crypto';
-import * as fs from 'fs/promises';
+import * as fs from 'fs';
+import * as fsPromises from 'fs/promises';
 import * as path from 'path';
 
 import AdmZip from 'adm-zip';
 import { app, shell } from 'electron';
 import logger from 'electron-log/main';
+import fetch from 'node-fetch';
 
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -50,11 +52,11 @@ class DesktopApiDev {
     const baseName = params.fileBaseName;
     const logFilePath = logger.transports.file.getFile().path;
     const logDir = path.dirname(logFilePath);
-    const logFiles = await fs.readdir(logDir);
+    const logFiles = await fsPromises.readdir(logDir);
 
     const zipName = `${baseName}.zip`;
     const tempDir = path.join(app.getPath('temp'), '@onekeyhq-desktop-logs');
-    await fs.mkdir(tempDir, { recursive: true });
+    await fsPromises.mkdir(tempDir, { recursive: true });
     const zipPath = path.join(tempDir, zipName);
 
     const zip = new AdmZip();
@@ -65,7 +67,7 @@ class DesktopApiDev {
       });
     zip.writeZip(zipPath);
 
-    const fileBuffer = await fs.readFile(zipPath);
+    const fileBuffer = await fsPromises.readFile(zipPath);
     const sizeBytes = fileBuffer.length;
     const sha256Hex = createHash('sha256').update(fileBuffer).digest('hex');
 
@@ -76,6 +78,37 @@ class DesktopApiDev {
       sizeBytes,
       sha256: sha256Hex,
     };
+  }
+
+  async uploadLoggerBundle(params: {
+    uploadUrl: string;
+    filePath: string;
+    headers: Record<string, string>;
+    sizeBytes?: number;
+  }): Promise<any> {
+    const { uploadUrl, filePath, headers, sizeBytes } = params;
+    if (!uploadUrl || !filePath) {
+      throw new OneKeyLocalError('uploadUrl and filePath are required');
+    }
+    const reqHeaders: Record<string, string> = { ...headers };
+    if (sizeBytes !== undefined && !('content-length' in reqHeaders)) {
+      reqHeaders['content-length'] = String(sizeBytes);
+    }
+    const fileStream = fs.createReadStream(filePath);
+    const response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: reqHeaders,
+      body: fileStream as unknown as any,
+    });
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      return {
+        code: response.status,
+        message: text,
+      };
+    }
   }
 
   async changeDevTools(isOpen: boolean): Promise<void> {

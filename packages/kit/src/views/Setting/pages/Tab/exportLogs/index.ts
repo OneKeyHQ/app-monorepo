@@ -10,7 +10,7 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
 
-import type { ILogDigest } from './types';
+import type { ILogDigest, ILogUploadResponse } from './types';
 
 const LOG_MIME_TYPE = 'text/plain';
 const LOG_FILE_EXTENSION = 'txt';
@@ -60,12 +60,6 @@ export const exportLogs = async (filename?: string) => {
   document.body.appendChild(element); // Required for this to work in FireFox
   element.click();
   element.remove();
-};
-
-export type ILogUploadResponse = {
-  objectKey: string;
-  uploadedBytes: number;
-  durationMs: number;
 };
 
 export const uploadLogBundle = async ({

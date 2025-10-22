@@ -18,3 +18,9 @@ export type ILogDigest = {
   sha256: string;
   bundle: ILogBundle;
 };
+
+export type ILogUploadResponse = {
+  objectKey: string;
+  uploadedBytes: number;
+  durationMs: number;
+};
