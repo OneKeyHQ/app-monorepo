@@ -122,6 +122,7 @@ export interface IMarketTokenListItem {
   holders?: number;
   extraData?: IMarketTokenListItemExtraData;
   price?: string;
+  firstTradeTime?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
