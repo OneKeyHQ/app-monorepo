@@ -64,7 +64,7 @@ function TabItemView({
     tabbarOnPress?: () => void;
     onPressWhenSelected?: () => void;
     trackId?: string;
-    narrowTabBarLabel?: string;
+    collapseTabBarLabel?: string;
   };
   isCollapse?: boolean;
 }) {
@@ -119,7 +119,7 @@ function TabItemView({
         />
         {isCollapse ? (
           <SizableText size="$bodySmMedium" textAlign="center">
-            {options.narrowTabBarLabel ?? options.tabBarLabel ?? route.name}
+            {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
           </SizableText>
         ) : null}
       </YStack>

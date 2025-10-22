@@ -100,8 +100,8 @@ export function TabStackNavigator<RouteName extends string>({
           tabBarLabel: intl.formatMessage({ id: options.translationId }),
           tabBarPosition,
           // @ts-expect-error Custom property for tab bar handling
-          narrowTabBarLabel: options.narrowSideBarTranslationId
-            ? intl.formatMessage({ id: options.narrowSideBarTranslationId })
+          collapseTabBarLabel: options.collapseSideBarTranslationId
+            ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
             : undefined,
           tabbarOnPress: options.tabbarOnPress,
         }}
