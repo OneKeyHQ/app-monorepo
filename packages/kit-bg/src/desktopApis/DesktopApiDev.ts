@@ -1,9 +1,13 @@
+import { createHash } from 'crypto';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 
-import { shell } from 'electron';
+import AdmZip from 'adm-zip';
+import { app, shell } from 'electron';
 import logger from 'electron-log/main';
 
 import * as store from '@onekeyhq/desktop/app/libs/store';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -31,6 +35,40 @@ class DesktopApiDev {
 
   async openLoggerFile(): Promise<void> {
     await shell.openPath(path.dirname(logger.transports.file.getFile().path));
+  }
+
+  async collectLoggerDigest(params: { fileBaseName: string }): Promise<{
+    filePath: string;
+    fileName: string;
+    mimeType: string;
+    sizeBytes: number;
+    sha256: string;
+  }> {
+    if (!params.fileBaseName) {
+      throw new OneKeyLocalError('fileBaseName is required');
+    }
+    const baseName = params.fileBaseName;
+    const logFilePath = logger.transports.file.getFile().path;
+    const zipName = `${baseName}.zip`;
+    const tempDir = path.join(app.getPath('temp'), 'onekey-logs');
+    await fs.mkdir(tempDir, { recursive: true });
+    const zipPath = path.join(tempDir, zipName);
+
+    const zip = new AdmZip();
+    zip.addLocalFile(logFilePath, '', path.basename(logFilePath));
+    zip.writeZip(zipPath);
+
+    const fileBuffer = await fs.readFile(zipPath);
+    const sizeBytes = fileBuffer.length;
+    const sha256Hex = createHash('sha256').update(fileBuffer).digest('hex');
+
+    return {
+      filePath: zipPath,
+      fileName: zipName,
+      mimeType: 'application/zip',
+      sizeBytes,
+      sha256: sha256Hex,
+    };
   }
 
   async changeDevTools(isOpen: boolean): Promise<void> {

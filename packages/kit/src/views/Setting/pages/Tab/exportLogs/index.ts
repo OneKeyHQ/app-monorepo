@@ -8,27 +8,14 @@ import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
+import { buildDefaultFileBaseName } from './utils';
+
+import type { ILogDigest } from './types';
+
 const LOG_MIME_TYPE = 'text/plain';
 const LOG_FILE_EXTENSION = 'txt';
 const EMPTY_SHA256_HEX =
   'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-
-export type ILogBundle = {
-  type: 'text';
-  fileName: string;
-  mimeType: string;
-  blob: Blob;
-  content: string;
-};
-
-export type ILogDigest = {
-  sizeBytes: number;
-  sha256: string;
-  bundle: ILogBundle;
-};
-
-const buildDefaultFileBaseName = () =>
-  `OneKeyLogs-${new Date().toISOString().replace(/[-:.]/g, '')}`;
 
 export const collectLogDigest = async (
   fileBaseName?: string,
@@ -64,6 +51,9 @@ export const collectLogDigest = async (
 
 export const exportLogs = async (filename?: string) => {
   const digest = await collectLogDigest(filename);
+  if (digest.bundle.type !== 'text') {
+    throw new OneKeyLocalError('Cannot export non-text log bundle');
+  }
   const element = document.createElement('a');
   element.href = URL.createObjectURL(digest.bundle.blob);
   element.download = digest.bundle.fileName;
@@ -90,6 +80,11 @@ export const uploadLogBundle = async ({
   }
   if (!digest || !digest.bundle || digest.sizeBytes <= 0) {
     throw new OneKeyLocalError('Log bundle is empty');
+  }
+  if (digest.bundle.type !== 'text') {
+    throw new OneKeyLocalError(
+      'File-based log bundle is not supported on this platform',
+    );
   }
   const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
     name: EServiceEndpointEnum.Wallet,
