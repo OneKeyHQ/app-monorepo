@@ -5,6 +5,10 @@ import {
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  ILogDigest,
+  ILogUploadResponse,
+} from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
@@ -14,8 +18,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
-
-import type { ILogDigest, ILogUploadResponse } from './types';
 
 const getShareModule = async () => {
   if (!platformEnv.isNative) return null;

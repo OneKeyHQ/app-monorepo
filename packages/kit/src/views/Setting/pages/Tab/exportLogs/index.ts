@@ -2,15 +2,20 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  ELogUploadStage,
+  type ILogDigest,
+  type ILogUploadResponse,
+} from '@onekeyhq/shared/src/logger/types';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
-
-import type { ILogDigest, ILogUploadResponse } from './types';
 
 const LOG_MIME_TYPE = 'text/plain';
 const LOG_FILE_EXTENSION = 'txt';
@@ -20,6 +25,10 @@ const EMPTY_SHA256_HEX =
 export const collectLogDigest = async (
   fileBaseName?: string,
 ): Promise<ILogDigest> => {
+  appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+    stage: ELogUploadStage.Collecting,
+    progressPercent: 0,
+  });
   const baseName = fileBaseName ?? buildDefaultFileBaseName();
   defaultLogger.setting.device.logDeviceInfo();
   await waitAsync(1000);
@@ -80,22 +89,47 @@ export const uploadLogBundle = async ({
       'File-based log bundle is not supported on this platform',
     );
   }
+  appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+    stage: ELogUploadStage.Uploading,
+    progressPercent: 0,
+  });
   const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
     name: EServiceEndpointEnum.Wallet,
   });
   const client = await appApiClient.getClient(endpointInfo);
-  const response = await client.post<IApiClientResponse<ILogUploadResponse>>(
-    '/wallet/v1/client/log',
-    digest.bundle.blob,
-    {
-      headers: {
-        Authorization: `Bearer ${uploadToken}`,
-        'Content-Type': digest.bundle.mimeType,
+  try {
+    const response = await client.post<IApiClientResponse<ILogUploadResponse>>(
+      '/wallet/v1/client/log',
+      digest.bundle.blob,
+      {
+        headers: {
+          Authorization: `Bearer ${uploadToken}`,
+          'Content-Type': digest.bundle.mimeType,
+        },
+        onUploadProgress: (event) => {
+          appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+            stage: ELogUploadStage.Uploading,
+            progressPercent:
+              typeof event.total === 'number' && event.total > 0
+                ? Math.min(100, Math.round((event.loaded / event.total) * 100))
+                : undefined,
+          });
+        },
       },
-    },
-  );
-  return {
-    digest,
-    result: response.data.data,
-  };
+    );
+    appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+      stage: ELogUploadStage.Success,
+      progressPercent: 100,
+    });
+    return {
+      digest,
+      result: response.data.data,
+    };
+  } catch (error) {
+    appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+      stage: ELogUploadStage.Error,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 };

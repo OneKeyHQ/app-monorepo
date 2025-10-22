@@ -4,14 +4,16 @@ import {
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  ILogDigest,
+  ILogUploadResponse,
+} from '@onekeyhq/shared/src/logger/types';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
-
-import type { ILogDigest, ILogUploadResponse } from './types';
 
 const LOG_ARCHIVE_MIME_TYPE = 'application/zip';
 

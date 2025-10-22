@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import {
   Accordion,
@@ -13,6 +13,8 @@ import {
   exportLogs,
   uploadLogBundle,
 } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -22,6 +24,21 @@ import LoggingConfigCheckbox from './LoggerConfigGallery';
 import { Layout } from './utils/Layout';
 
 const LoggerDemo = () => {
+  useEffect(() => {
+    const handler = ({ stage, progressPercent, message }: any) => {
+      console.log(
+        '[LoggerDemo][upload-progress]',
+        stage,
+        progressPercent,
+        message,
+      );
+    };
+    appEventBus.on(EAppEventBusNames.ClientLogUploadProgress, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ClientLogUploadProgress, handler);
+    };
+  }, []);
+
   const downloadLog = useCallback(() => {
     void exportLogs('onekey_logs');
   }, []);
