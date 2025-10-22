@@ -1,9 +1,13 @@
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type {
   ILogDigest,
   ILogUploadResponse,
@@ -75,40 +79,92 @@ export const uploadLogBundle = async ({
   headers['content-type'] = digest.bundle.mimeType;
   headers['content-length'] = String(digest.sizeBytes);
 
-  const response = await globalThis.desktopApiProxy.dev.uploadLoggerBundle({
-    uploadUrl,
-    filePath: digest.bundle.filePath,
-    sizeBytes: digest.sizeBytes,
-    headers,
+  appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+    stage: ELogUploadStage.Uploading,
+    progressPercent: 0,
   });
+  const removeProgressListener =
+    typeof globalThis.desktopApi?.on === 'function'
+      ? globalThis.desktopApi.on(
+          ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+          (payload: {
+            stage: ELogUploadStage;
+            progressPercent?: number;
+            retry?: number;
+            message?: string;
+          }) => {
+            appEventBus.emit(
+              EAppEventBusNames.ClientLogUploadProgress,
+              payload,
+            );
+          },
+        )
+      : undefined;
 
-  if (!response || typeof response !== 'object') {
-    throw new OneKeyLocalError('Upload failed: invalid response');
-  }
-
-  const responseData = response as IApiClientResponse<ILogUploadResponse> &
-    Record<string, any>;
-
-  if (typeof responseData.code === 'number' && responseData.code !== 0) {
-    const errorMessage =
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      (responseData?.data as any)?.message ||
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      (responseData as any)?.message ||
-      'Upload failed';
-    throw new OneKeyServerApiError({
-      message: errorMessage,
-      data: responseData as any,
-      code: responseData.code,
+  if (!removeProgressListener) {
+    appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+      stage: ELogUploadStage.Uploading,
+      progressPercent: 0,
     });
   }
 
-  if (!responseData.data) {
-    throw new OneKeyLocalError('Upload failed: missing response data');
-  }
+  try {
+    const response = await globalThis.desktopApiProxy.dev.uploadLoggerBundle({
+      uploadUrl,
+      filePath: digest.bundle.filePath,
+      sizeBytes: digest.sizeBytes,
+      headers,
+    });
 
-  return {
-    digest,
-    result: responseData.data,
-  };
+    if (!response || typeof response !== 'object') {
+      throw new OneKeyLocalError('Upload failed: invalid response');
+    }
+
+    const responseData = response as IApiClientResponse<ILogUploadResponse> &
+      Record<string, any>;
+
+    if (typeof responseData.code === 'number' && responseData.code !== 0) {
+      const errorMessage =
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (responseData?.data as any)?.message ||
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (responseData as any)?.message ||
+        'Upload failed';
+      throw new OneKeyServerApiError({
+        message: errorMessage,
+        data: responseData as any,
+        code: responseData.code,
+      });
+    }
+
+    if (!responseData.data) {
+      appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+        stage: ELogUploadStage.Error,
+        message: 'Upload failed: missing response data',
+      });
+      throw new OneKeyLocalError('Upload failed: missing response data');
+    }
+
+    const result = {
+      digest,
+      result: responseData.data,
+    };
+    if (!removeProgressListener) {
+      appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+        stage: ELogUploadStage.Success,
+        progressPercent: 100,
+      });
+    }
+    return result;
+  } catch (error) {
+    if (!removeProgressListener) {
+      appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+        stage: ELogUploadStage.Error,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    throw error;
+  } finally {
+    removeProgressListener?.();
+  }
 };

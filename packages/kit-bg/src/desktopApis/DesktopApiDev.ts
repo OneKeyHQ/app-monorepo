@@ -8,8 +8,10 @@ import { app, shell } from 'electron';
 import logger from 'electron-log/main';
 import fetch from 'node-fetch';
 
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import * as store from '@onekeyhq/desktop/app/libs/store';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
@@ -107,21 +109,110 @@ class DesktopApiDev {
     curlParts.push(`--data-binary '@${filePath}'`);
     logger.info('[client-log-upload] curl command:', curlParts.join(' \\\n  '));
 
+    const totalBytes =
+      typeof sizeBytes === 'number' && sizeBytes > 0
+        ? sizeBytes
+        : (await fsPromises.stat(filePath)).size ?? 0;
+    const sendProgress = ({
+      stage,
+      progressPercent,
+      message,
+    }: {
+      stage: ELogUploadStage;
+      progressPercent?: number;
+      message?: string;
+    }) => {
+      try {
+        const mainWindow =
+          this.desktopApi.appUpdate.getMainWindow() ?? undefined;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+            {
+              stage,
+              progressPercent,
+              message,
+            },
+          );
+        }
+      } catch (error) {
+        logger.warn('[client-log-upload] failed to send progress', error);
+      }
+    };
+
+    sendProgress({ stage: ELogUploadStage.Uploading, progressPercent: 0 });
+
+    let uploadedBytes = 0;
     const fileStream = fs.createReadStream(filePath);
-    const response = await fetch(uploadUrl, {
-      method: 'POST',
-      headers: reqHeaders,
-      body: fileStream as unknown as any,
+    if (totalBytes > 0) {
+      fileStream.on('data', (chunk) => {
+        uploadedBytes += chunk.length;
+        const percent = Math.min(
+          100,
+          Math.round((uploadedBytes / totalBytes) * 100),
+        );
+        sendProgress({
+          stage: ELogUploadStage.Uploading,
+          progressPercent: percent,
+        });
+      });
+    }
+    fileStream.on('error', (streamError) => {
+      sendProgress({
+        stage: ELogUploadStage.Error,
+        message:
+          streamError instanceof Error
+            ? streamError.message
+            : String(streamError),
+      });
     });
-    const text = await response.text();
+
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return JSON.parse(text);
+      const response = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: reqHeaders,
+        body: fileStream as unknown as any,
+      });
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text) as Record<string, any>;
+        if (typeof parsed.code === 'number') {
+          if (parsed.code === 0) {
+            sendProgress({
+              stage: ELogUploadStage.Success,
+              progressPercent: 100,
+            });
+          } else {
+            sendProgress({
+              stage: ELogUploadStage.Error,
+              message:
+                (parsed?.data as { message?: string } | undefined)?.message ||
+                parsed.message,
+            });
+          }
+        } else {
+          sendProgress({
+            stage: ELogUploadStage.Success,
+            progressPercent: 100,
+          });
+        }
+        return parsed;
+      } catch (error) {
+        sendProgress({
+          stage: ELogUploadStage.Error,
+          message: text,
+        });
+        return {
+          code: response.status,
+          message: text,
+        };
+      }
     } catch (error) {
-      return {
-        code: response.status,
-        message: text,
-      };
+      sendProgress({
+        stage: ELogUploadStage.Error,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
     }
   }
 
