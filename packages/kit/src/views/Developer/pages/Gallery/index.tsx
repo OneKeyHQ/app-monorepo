@@ -66,6 +66,12 @@ const DialogGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Dialog'
     ),
 );
+const DiscoveryBrowserGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/DiscoveryBrowserGallery'
+    ),
+);
 const DividerGallery = LazyLoadPage(
   () =>
     import(
@@ -293,6 +299,12 @@ const SliderGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Slider'
     ),
 );
+const SegmentSliderGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SegmentSlider'
+    ),
+);
 const SortableListViewGallery = LazyLoadPage(
   () =>
     import(
@@ -432,6 +444,13 @@ const MarkdownGallery = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Markdown'
+    ),
+);
+
+const NetworkStatusBadgeGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NetworkStatusBadge'
     ),
 );
 
@@ -735,6 +754,10 @@ export const galleryScreenList: {
   { name: EGalleryRoutes.ComponentTextArea, component: TextAreaGallery },
   { name: EGalleryRoutes.ComponentSlider, component: SliderGallery },
   {
+    name: EGalleryRoutes.ComponentSegmentSlider,
+    component: SegmentSliderGallery,
+  },
+  {
     name: EGalleryRoutes.ComponentNavigation,
     component: DemoRootApp,
     // options: { headerShown: false },
@@ -744,6 +767,10 @@ export const galleryScreenList: {
     component: SegmentControlGallery,
   },
   { name: EGalleryRoutes.ComponentAlert, component: AlertGallery },
+  {
+    name: EGalleryRoutes.ComponentDiscoveryBrowser,
+    component: DiscoveryBrowserGallery,
+  },
   { name: EGalleryRoutes.ComponentDivider, component: DividerGallery },
   { name: EGalleryRoutes.ComponentScrollView, component: ScrollViewGallery },
   {
@@ -824,6 +851,10 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentMarkdown,
     component: MarkdownGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentNetworkStatusBadge,
+    component: NetworkStatusBadgeGallery,
   },
   {
     name: EGalleryRoutes.ComponentNotification,

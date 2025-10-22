@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
+
 import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 export interface IRateDisplayProps {
@@ -14,14 +17,19 @@ export function RateDisplay({
   toTokenSymbol,
   loading,
 }: IRateDisplayProps) {
-  const rateFormatted = rate
-    ? numberFormat(rate.toString(), {
-        formatter: 'price',
-        formatterOptions: {
-          tokenSymbol: toTokenSymbol || '',
-        },
-      })
-    : '-';
+  const formatter: INumberFormatProps = useMemo(
+    () => ({
+      formatter: 'price',
+      formatterOptions: {
+        tokenSymbol: toTokenSymbol || '',
+      },
+    }),
+    [toTokenSymbol],
+  );
+  const rateFormatted = useMemo(
+    () => (rate ? numberFormat(rate.toString(), formatter) : '-'),
+    [formatter, rate],
+  );
 
   return (
     <XStack alignItems="center" height="$4">
@@ -29,7 +37,7 @@ export function RateDisplay({
         <Skeleton width="$32" height="$4" />
       ) : (
         <SizableText size="$bodySm" userSelect="none" color="$textSubdued">
-          {`1 ${fromTokenSymbol ?? '-'} = ${rateFormatted as string}`}
+          {`1 ${fromTokenSymbol ?? '-'} = ${rateFormatted}`}
         </SizableText>
       )}
     </XStack>

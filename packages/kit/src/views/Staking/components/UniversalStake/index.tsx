@@ -144,7 +144,7 @@ export function UniversalStake({
   const [amountValue, setAmountValue] = useState('');
   const [approving, setApproving] = useState<boolean>(false);
   const useVaultProvider = useMemo(
-    () => earnUtils.useVaultProvider({ providerName }),
+    () => earnUtils.isVaultBasedProvider({ providerName }),
     [providerName],
   );
   const [
@@ -234,9 +234,7 @@ export function UniversalStake({
           networkId,
           provider: providerName,
           symbol: tokenInfo?.token.symbol || '',
-          vault: useVaultProvider
-            ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault || ''
-            : '',
+          vault: useVaultProvider ? protocolInfo?.vault || '' : '',
           accountAddress: protocolInfo?.earnAccount?.accountAddress || '',
           action: ECheckAmountActionType.STAKING,
           amount,
@@ -248,7 +246,6 @@ export function UniversalStake({
       providerName,
       tokenInfo?.token.symbol,
       useVaultProvider,
-      protocolInfo?.approve?.approveTarget,
       protocolInfo?.vault,
       protocolInfo?.earnAccount?.accountAddress,
     ],
@@ -263,7 +260,7 @@ export function UniversalStake({
   );
 
   const protocolVault = useVaultProvider
-    ? protocolInfo?.approve?.approveTarget || protocolInfo?.vault
+    ? protocolInfo?.vault || ''
     : undefined;
 
   const fetchEstimateFeeResp = useCallback(

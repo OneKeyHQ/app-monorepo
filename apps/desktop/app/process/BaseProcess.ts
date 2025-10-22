@@ -4,7 +4,7 @@ import path from 'path';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
 
-import { getResourcesPath } from '../resoucePath';
+import { getAppStaticResourcesPath } from '../resoucePath';
 
 import type { ChildProcess } from 'child_process';
 
@@ -95,7 +95,7 @@ export default abstract class BaseProcess {
 
     this.stopped = false;
 
-    const resourcesPath = getResourcesPath();
+    const resourcesPath = getAppStaticResourcesPath();
     const processDir = path.join(
       resourcesPath,
       'bin',

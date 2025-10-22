@@ -292,7 +292,7 @@ module.exports = ({ platform, basePath, configName }) => {
             },
             {
               test: /(@?react-(navigation|native)).*\.(ts|js)x?$/,
-              exclude: [/react-native-logs/, /react-native-modalize/],
+              exclude: [/react-native-logs/],
               use: useBabelLoader,
               resolve: { fullySpecified: false },
             },
@@ -313,7 +313,7 @@ module.exports = ({ platform, basePath, configName }) => {
                 // @react-aria packages
                 /(@?react-aria).*\.(c|m)?(ts|js)x?$/,
               ],
-              exclude: [/react-native-logs/, /react-native-modalize/],
+              exclude: [/react-native-logs/],
               use: useBabelLoader,
               resolve: { fullySpecified: false },
             },

@@ -12,7 +12,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { MobileTabItem } from './MobileTabItem';
@@ -78,9 +81,20 @@ export default function MobileBottomTabBar({
           enterFrom: ESwapSource.TAB,
         });
       }
+
       if (!isActive && !event.defaultPrevented) {
         navigation.dispatch({
-          ...CommonActions.navigate({ name: route.name, merge: true }),
+          ...CommonActions.navigate({
+            name: route.name,
+            merge: true,
+            params:
+              route.name === ETabRoutes.Market
+                ? {
+                    screen: ETabMarketRoutes.TabMarket,
+                    params: { from: EEnterWay.HomeTab },
+                  }
+                : undefined,
+          }),
           target: state.key,
         });
       }

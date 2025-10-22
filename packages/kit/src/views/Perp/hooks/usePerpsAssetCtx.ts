@@ -16,7 +16,10 @@ export function usePerpsAssetCtx({ assetId }: { assetId: number }): {
     () => perpsUtils.formatAssetCtx(allAssetCtxs[assetId]) || undefined,
     [allAssetCtxs, assetId],
   );
-  const isLoading = useMemo(() => allAssetCtxs.length <= 0, [allAssetCtxs]);
+  const isLoading = useMemo(
+    () => Object.keys(allAssetCtxs).length <= 0,
+    [allAssetCtxs],
+  );
   useEffect(() => {
     actions.current.markAllAssetCtxsRequired();
     return () => {

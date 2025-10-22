@@ -17,8 +17,8 @@ export function usePerpsLogo() {
   const hyperliquidLogo = useMemo(
     () =>
       themeVariant === 'light'
-        ? require('@onekeyhq/kit/assets/perps/hyperliquid-logo.png')
-        : require('@onekeyhq/kit/assets/perps/hyperliquid-logo.png'),
+        ? require('@onekeyhq/kit/assets/perps/hyperliquid-logo-light.png')
+        : require('@onekeyhq/kit/assets/perps/hyperliquid-logo-dark.png'),
     [themeVariant],
   );
 

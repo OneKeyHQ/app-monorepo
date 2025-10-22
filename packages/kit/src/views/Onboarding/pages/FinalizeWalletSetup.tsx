@@ -15,7 +15,6 @@ import {
   Stack,
   usePreventRemove,
 } from '@onekeyhq/components';
-import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
 import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -32,6 +31,7 @@ import type {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 

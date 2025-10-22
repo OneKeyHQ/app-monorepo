@@ -112,7 +112,7 @@ const SliderGallery = () => (
             <Slider
               min={1}
               max={100}
-              step={10}
+              step={0.01}
               segments={3}
               value={value}
               onChange={(v) => setValue(v)}

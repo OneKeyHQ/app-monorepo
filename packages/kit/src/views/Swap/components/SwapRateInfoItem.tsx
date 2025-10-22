@@ -3,9 +3,13 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 
 import { SizableText, XStack } from '@onekeyhq/components';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
+const formatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 interface ISwapRateInfoItemProps {
   rate: string;
   fromToken?: ISwapToken;
@@ -26,18 +30,16 @@ const SwapRateInfoItem = ({
     const exchangeRate = new BigNumber(1).div(rateBN);
     const formatRate = numberFormat(
       rateSwitch ? exchangeRate.toFixed() : rateBN.toFixed(),
-      {
-        formatter: 'balance',
-      },
+      formatter,
     );
     if (rateSwitch) {
-      return `1 ${toToken?.symbol?.toUpperCase() ?? ''} = ${
-        formatRate as string
-      } ${fromToken?.symbol?.toUpperCase() ?? ''}`;
+      return `1 ${toToken?.symbol?.toUpperCase() ?? ''} = ${formatRate} ${
+        fromToken?.symbol?.toUpperCase() ?? ''
+      }`;
     }
-    return `1 ${fromToken?.symbol?.toUpperCase() ?? ''} = ${
-      formatRate as string
-    } ${toToken?.symbol?.toUpperCase() ?? ''}`;
+    return `1 ${fromToken?.symbol?.toUpperCase() ?? ''} = ${formatRate} ${
+      toToken?.symbol?.toUpperCase() ?? ''
+    }`;
   }, [fromToken, rate, rateSwitch, toToken]);
 
   return (

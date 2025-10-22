@@ -1,6 +1,6 @@
 import type ProviderApiWalletConnect from './ProviderApiWalletConnect';
 import type { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
-import type { IWalletKit, WalletKitTypes } from '@reown/walletkit';
+import type { WalletKitTypes } from '@reown/walletkit';
 
 export type IWalletConnectRequestOptions = {
   sessionRequest?: WalletKitTypes.SessionRequest;

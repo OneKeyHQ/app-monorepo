@@ -1,8 +1,9 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
-import { isEqual, isNil, isNumber, isString } from 'lodash';
+import { isNumber, isString } from 'lodash';
 import pTimeout from 'p-timeout';
 
+import type { IAlertType } from '@onekeyhq/components';
 import {
   backgroundClass,
   backgroundMethod,
@@ -11,42 +12,36 @@ import {
 import {
   HYPER_LIQUID_CUSTOM_LOCAL_STORAGE_V2_PRESET,
   HYPER_LIQUID_ORIGIN,
-  HYPER_LIQUID_WEBVIEW_TRADE_URL,
 } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import thirdpartyLocaleConverter from '@onekeyhq/shared/src/locale/thirdpartyLocaleConverter';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes/firmwareUpdate';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
-import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IHyperLiquidSignatureRSV,
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  EPerpUserType,
+  IHyperLiquidErrorLocaleItem,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
-  perpsCommonConfigPersistAtom,
   perpsUserConfigPersistAtom,
   settingsPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 
+import type { IHyperliquidCustomSettings } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
-  IHyperliquidCustomSettings,
-  ISimpleDbPerpData,
-} from '../../dbs/simple/entity/SimpleDbEntityPerp';
-import type { IPerpsCommonConfigPersistAtom } from '../../states/jotai/atoms';
+  IPerpsDepositNetwork,
+  IPerpsDepositToken,
+} from '../../states/jotai/atoms';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -158,9 +153,18 @@ export enum EPerpDefaultTabType {
 }
 export interface IPerpServerBannerConfig {
   id: string;
+  alertType: IAlertType;
   title: string;
   description: string;
+  href?: string;
+  hrefType?: string;
+  useSystemBrowser?: boolean;
   canClose?: boolean;
+}
+
+export interface IPerpServerDepositConfig {
+  network: IPerpsDepositNetwork;
+  tokens: IPerpsDepositToken[];
 }
 
 export interface IPerpServerReferrerConfig {
@@ -190,6 +194,8 @@ export interface IPerpServerConfigResponse {
   >;
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
+  depositTokenConfig?: IPerpServerDepositConfig[];
+  hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
 }
 @backgroundClass()
 class ServiceWebviewPerp extends ServiceBase {

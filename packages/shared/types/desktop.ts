@@ -1,5 +1,4 @@
 import type { ILocaleSymbol } from '../src/locale';
-import type { BrowserWindow } from 'electron';
 
 export type IPrefType =
   | 'default'
@@ -13,11 +12,6 @@ export type IPrefType =
 export type IMediaType = 'camera' | 'microphone' | 'screen';
 
 export type IDesktopAppState = 'active' | 'background' | 'blur';
-
-export type IDesktopSubModuleInitParams = {
-  APP_NAME: string;
-  getSafelyMainWindow: () => BrowserWindow | undefined;
-};
 
 export type IDesktopMainProcessDevOnlyApiParams = {
   module: string;
@@ -50,6 +44,7 @@ export enum EDesktopStoreKeys {
   UpdateBuildNumber = 'updateBuildNumber',
   UpdateBundleData = 'updateBundleData',
   FallbackUpdateBundleData = 'fallbackUpdateBundleData',
+  NativeVersion = 'nativeVersion',
   AppInstanceMetaBackup = INSTANCE_META_BACKUP_KEY,
 }
 
@@ -62,6 +57,9 @@ export type IDesktopStoreUpdateBundleData = {
   bundleVersion: string;
   signature: string;
 };
+
+export type IDesktopStoreFallbackUpdateBundleData =
+  IDesktopStoreUpdateBundleData[];
 
 export type IDesktopStoreMap = {
   [EDesktopStoreKeys.WinBounds]: Electron.Rectangle;
@@ -77,5 +75,5 @@ export type IDesktopStoreMap = {
   [EDesktopStoreKeys.UpdateBuildNumber]: string;
   [EDesktopStoreKeys.AppInstanceMetaBackup]: IInstanceMetaBackup;
   [EDesktopStoreKeys.UpdateBundleData]: IDesktopStoreUpdateBundleData;
-  [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreUpdateBundleData;
+  [EDesktopStoreKeys.FallbackUpdateBundleData]: IDesktopStoreFallbackUpdateBundleData;
 };

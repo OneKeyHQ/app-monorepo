@@ -1,31 +1,19 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useFocusEffect } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Image,
-  Page,
-  Stack,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
-import { usePerpsNetworkStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { Page, Stack, YStack, useMedia } from '@onekeyhq/components';
 import { FLOAT_NAV_BAR_Z_INDEX } from '@onekeyhq/shared/src/consts/zIndexConsts';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { TabPageHeader } from '../../../components/TabPageHeader';
-import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { HyperliquidTermsOverlay } from '../components/HyperliquidTerms';
+import { PerpContentFooter } from '../components/PerpContentFooter';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
-import { usePerpsLogo } from '../hooks/usePerpsLogo';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -41,81 +29,6 @@ function PerpLayout() {
     return <PerpDesktopLayout />;
   }
   return <PerpMobileLayout />;
-}
-
-function PerpNetworkStatus() {
-  const intl = useIntl();
-  const [networkStatus] = usePerpsNetworkStatusAtom();
-  const isNetworkStable = networkStatus.connected;
-  const networkStyle = useMemo(() => {
-    return {
-      badgeType: isNetworkStable ? 'success' : 'critical',
-      indicatorBg: isNetworkStable ? '$success10' : '$critical10',
-      text: isNetworkStable
-        ? intl.formatMessage({ id: ETranslations.perp_online })
-        : intl.formatMessage({ id: ETranslations.perp_offline }),
-    };
-  }, [isNetworkStable, intl]);
-  return useMemo(
-    () => (
-      <Badge
-        badgeType={networkStyle.badgeType}
-        badgeSize="md"
-        height={26}
-        borderRadius="$full"
-        pl="$2"
-        px="$3"
-        gap="$1.5"
-        cursor="default"
-      >
-        <Stack
-          position="relative"
-          w={8}
-          h={8}
-          borderRadius="$full"
-          alignItems="center"
-          justifyContent="center"
-          bg="$neutral3"
-          p="$1.5"
-        >
-          <Stack
-            position="absolute"
-            w={6}
-            h={6}
-            borderRadius="$full"
-            bg={networkStyle.indicatorBg}
-          />
-        </Stack>
-        <Badge.Text style={{ fontSize: 12 }}>{networkStyle.text}</Badge.Text>
-      </Badge>
-    ),
-    [networkStyle],
-  );
-}
-
-function PerpContentFooter() {
-  const { gtSm } = useMedia();
-  const { poweredByHyperliquidLogo } = usePerpsLogo();
-  return gtSm ? (
-    <Page.Footer>
-      <XStack
-        borderTopWidth="$px"
-        borderTopColor="$borderSubdued"
-        bg="$bgApp"
-        h={40}
-        alignItems="center"
-        p="$2"
-        justifyContent="space-between"
-      >
-        <PerpNetworkStatus />
-        <Image
-          source={poweredByHyperliquidLogo}
-          size={170}
-          resizeMode="contain"
-        />
-      </XStack>
-    </Page.Footer>
-  ) : null;
 }
 
 console.log('PerpContent js loaded');
@@ -170,9 +83,9 @@ function PerpContent() {
         <Stack position="relative" flex={1}>
           <PerpLayout />
           <HyperliquidTermsOverlay />
+          <PerpContentFooter />
         </Stack>
       </Page.Body>
-      <PerpContentFooter />
     </Page>
   );
 }
@@ -181,6 +94,7 @@ export default function Perp() {
   useFocusEffect(() => {
     void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServer();
   });
+
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>

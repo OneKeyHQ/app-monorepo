@@ -12,7 +12,8 @@ import {
   ScaleDecorator,
   ShadowDecorator,
 } from 'react-native-draggable-flatlist';
-import { withStaticProperties } from 'tamagui';
+
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Stack } from '../../primitives';
 import { SectionList } from '../SectionList';

@@ -1,3 +1,6 @@
+/* eslint-disable no-inner-declarations */
+/* eslint-disable spellcheck/spell-checker */
+/* eslint-disable prefer-template */
 /* eslint-disable unicorn/prefer-global-this */
 /* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
 require('./setimmediateShim');
@@ -20,6 +23,77 @@ if (typeof process === 'undefined') {
       // @ts-ignore
       process[p] = bProcess[p];
     }
+  }
+}
+
+if (platformEnv.isNative) {
+  const useJsBundle =
+    require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').useJsBundle();
+  if (useJsBundle) {
+    const getJsBundlePath =
+      require('@onekeyhq/shared/src/modules3rdParty/auto-update/useJsBundle').getJsBundlePath;
+    const mainBundlePath = getJsBundlePath().split('/main.jsbundle.hbc')[0];
+    const assetsPath = `file://${mainBundlePath}/assets/`;
+    const { Platform, PixelRatio } = require('react-native');
+    const AssetSourceResolver =
+      require('react-native/Libraries/Image/AssetSourceResolver').default;
+    const wrap = require('lodash/wrap');
+
+    const { pickScale } = require('react-native/Libraries/Image/AssetUtils');
+
+    let getAndroidResourceFolderName;
+    let getAndroidResourceIdentifier;
+    if (Platform.OS === 'android') {
+      const pathSupport = require('@react-native/assets-registry/path-support');
+      getAndroidResourceFolderName = pathSupport.getAndroidResourceFolderName;
+      getAndroidResourceIdentifier = pathSupport.getAndroidResourceIdentifier;
+    }
+
+    function getAssetPathInDrawableFolder(asset) {
+      const scale = pickScale(asset.scales, PixelRatio.get());
+      const drawableFolder = getAndroidResourceFolderName(asset, scale);
+      const fileName = getAndroidResourceIdentifier(asset);
+      return drawableFolder + '/' + fileName + '.' + asset.type;
+    }
+
+    AssetSourceResolver.prototype.defaultAsset = wrap(
+      AssetSourceResolver.prototype.defaultAsset,
+      function (func, ...args) {
+        const isLoadedFromServer = this.isLoadedFromServer();
+        if (isLoadedFromServer) {
+          const serverUrl = this.assetServerURL();
+          return serverUrl;
+        }
+        if (Platform.OS === 'android') {
+          const isLoadedFromFileSystem = this.isLoadedFromFileSystem();
+          if (useJsBundle) {
+            const asset = this.fromSource(
+              assetsPath + getAssetPathInDrawableFolder(this.asset),
+            );
+            asset.uri = asset.uri
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
+            return asset;
+          }
+          if (isLoadedFromFileSystem) {
+            const resolvedAssetSource = this.drawableFolderInBundle();
+            return resolvedAssetSource;
+          }
+          const resolvedAssetSource = this.resourceIdentifierWithoutScale();
+          return resolvedAssetSource;
+        }
+        if (Platform.OS === 'ios') {
+          const iOSAsset = this.scaledAssetURLNearBundle();
+          if (useJsBundle) {
+            iOSAsset.uri = iOSAsset.uri
+              .replace(this.jsbundleUrl, assetsPath)
+              .replace('__packages', 'packages')
+              .replace('__node_modules', 'node_modules');
+          }
+          return iOSAsset;
+        }
+      },
+    );
   }
 }
 

@@ -2,16 +2,17 @@ import { memo, useCallback, useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
-import { YStack } from '@onekeyhq/components';
+import { DebugRenderTracker, YStack } from '@onekeyhq/components';
 import {
   useTradingFormAtom,
   useTradingFormComputedAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsAccountLoadingInfoAtom,
+  usePerpsActiveAccountStatusAtom,
   usePerpsActiveAccountSummaryAtom,
-  usePerpsActiveAssetDataAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsActiveAssetDataAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -20,6 +21,7 @@ import { useOrderConfirm } from '../../hooks';
 import { showOrderConfirmDialog } from './modals/OrderConfirmModal';
 import { PerpTradingForm } from './panels/PerpTradingForm';
 import { PerpTradingButton } from './PerpTradingButton';
+import { TradingButtonGroup } from './TradingButtonGroup';
 
 function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -29,6 +31,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const { isSubmitting, handleConfirm } = useOrderConfirm();
+  const [perpsAccountStatus] = usePerpsActiveAccountStatusAtom();
 
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
 
@@ -66,11 +69,7 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
       .multipliedBy(priceBN)
       .multipliedBy(leverageBN);
     return orderValue.lt(10);
-  }, [
-    tradingComputed.computedSizeBN,
-    effectivePriceBN,
-    formData.leverage,
-  ]);
+  }, [tradingComputed.computedSizeBN, effectivePriceBN, formData.leverage]);
 
   const isNoEnoughMargin = useMemo(() => {
     if (!tradingComputed.computedSizeBN.isFinite()) return false;
@@ -116,19 +115,34 @@ function PerpTradingPanel({ isMobile = false }: { isMobile?: boolean }) {
     showOrderConfirmDialog();
   }, [activeAssetData, perpsCustomSettings.skipOrderConfirm, handleConfirm]);
 
-  return (
-    <YStack gap="$4" pt="$3" px="$2.5">
+  const content = (
+    <YStack
+      gap="$2"
+      pt={isMobile ? undefined : '$3'}
+      px={isMobile ? undefined : '$2.5'}
+      flex={isMobile ? 1 : undefined}
+      justifyContent={isMobile ? 'space-between' : undefined}
+    >
       <PerpTradingForm isSubmitting={isSubmitting} isMobile={isMobile} />
-      <PerpTradingButton
-        loading={universalLoading}
-        handleShowConfirm={handleShowConfirm}
-        formData={formData}
-        computedSize={tradingComputed.computedSizeBN}
-        isMinimumOrderNotMet={isMinimumOrderNotMet}
-        isSubmitting={isSubmitting}
-        isNoEnoughMargin={isNoEnoughMargin}
-      />
+      {perpsAccountStatus.canTrade ? (
+        <TradingButtonGroup isMobile={isMobile} />
+      ) : (
+        <PerpTradingButton
+          loading={universalLoading}
+          handleShowConfirm={handleShowConfirm}
+          formData={formData}
+          computedSize={tradingComputed.computedSizeBN}
+          isMinimumOrderNotMet={isMinimumOrderNotMet}
+          isSubmitting={isSubmitting}
+          isNoEnoughMargin={isNoEnoughMargin}
+        />
+      )}
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpTradingPanel" position="top-right">
+      {content}
+    </DebugRenderTracker>
   );
 }
 

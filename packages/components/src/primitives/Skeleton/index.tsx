@@ -1,13 +1,18 @@
 import { forwardRef } from 'react';
 
-import { usePropsAndStyle } from '@tamagui/core';
 import { Skeleton as MotiSkeleton } from 'moti/skeleton';
-import { styled, useThemeName, withStaticProperties } from 'tamagui';
+
+import {
+  type StackStyle,
+  styled,
+  usePropsAndStyle,
+  useThemeName,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { YStack } from '../Stack';
 
-import type { StackStyle } from '@tamagui/web';
 import type { MotiSkeletonProps } from 'moti/build/skeleton/types';
 
 export type ISkeletonProps = Omit<

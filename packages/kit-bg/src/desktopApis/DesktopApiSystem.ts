@@ -162,10 +162,6 @@ class DesktopApiSystem {
     return result || 'unknown';
   }
 
-  async getVersion(): Promise<string> {
-    return app.getVersion();
-  }
-
   async getEnvPath(): Promise<{ [key: string]: string }> {
     const home: string = app.getPath('home');
     const appData: string = app.getPath('appData');

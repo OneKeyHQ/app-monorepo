@@ -299,35 +299,43 @@ class ProviderApiEthereum extends ProviderApiBase {
   @providerApiMethod()
   async wallet_requestPermissions(
     request: IJsBridgeMessagePayload,
-    permissions: Record<string, unknown>,
+    _permissions: Record<string, unknown>,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     await this.backgroundApi.serviceDApp.openConnectionModal(request);
     const accounts = await this.eth_accounts(request);
-    const result = Object.keys(permissions).map((permissionName) => {
-      if (permissionName === 'eth_accounts') {
-        return {
-          caveats: [
-            {
-              type: 'restrictReturnedAccounts',
-              value: [accounts[0]],
-            },
-          ],
-          date: Date.now(),
-          id: request.id?.toString() ?? generateUUID(),
-          invoker: request.origin,
-          parentCapability: permissionName,
-        };
-      }
+    const chainId = await this.eth_chainId(request);
 
-      return {
-        caveats: [],
-        date: Date.now(),
-        id: request.id?.toString() ?? generateUUID(),
-        invoker: request.origin,
-        parentCapability: permissionName,
-      };
-    });
+    const id = request.id?.toString() ?? generateUUID();
+    const date = Date.now();
+    const invoker = request.origin;
+
+    const result = [
+      {
+        caveats: [
+          {
+            type: 'restrictReturnedAccounts',
+            value: [accounts[0]],
+          },
+        ],
+        date,
+        id,
+        invoker,
+        parentCapability: 'eth_accounts',
+      },
+      {
+        caveats: [
+          {
+            type: 'restrictNetworkSwitching',
+            value: [chainId],
+          },
+        ],
+        date,
+        id,
+        invoker,
+        parentCapability: 'endowment:permitted-chains',
+      },
+    ];
 
     void this._getConnectedNetworkName(request);
     return result;

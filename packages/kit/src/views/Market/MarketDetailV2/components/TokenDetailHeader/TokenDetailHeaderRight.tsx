@@ -10,11 +10,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
-
-import { MarketStarV2 } from '../../../components/MarketStarV2';
-import { useTokenDetail } from '../../hooks/useTokenDetail';
 
 import { ShareButton } from './ShareButton';
 
@@ -39,15 +35,16 @@ function StatItem({ label, value }: IStatItemProps) {
 interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
+  isNative?: boolean;
   showStats: boolean;
 }
 
 export function TokenDetailHeaderRight({
   tokenDetail,
   networkId,
+  isNative,
   showStats,
 }: ITokenDetailHeaderRightProps) {
-  const { isNative } = useTokenDetail();
   const intl = useIntl();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const {
@@ -61,28 +58,12 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
-  const marketStar = networkId ? (
-    <MarketStarV2
-      chainId={networkId}
-      contractAddress={address}
-      size="medium"
-      from={EWatchlistFrom.Detail}
-      tokenSymbol={symbol}
-      isNative={isNative}
-    />
-  ) : null;
-
   const shareButton = networkId ? (
     <ShareButton networkId={networkId} address={address} isNative={isNative} />
   ) : null;
 
   if (!showStats) {
-    return (
-      <XStack gap="$3" ai="center">
-        {marketStar}
-        {shareButton}
-      </XStack>
-    );
+    return shareButton ? <XStack gap="$3">{shareButton}</XStack> : null;
   }
 
   return (
@@ -147,7 +128,6 @@ export function TokenDetailHeaderRight({
         }
       />
 
-      {marketStar}
       {shareButton}
     </XStack>
   );

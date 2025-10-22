@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import { IconButton } from '@onekeyhq/components';
+import { DebugRenderTracker, IconButton } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components/src/actions/IconButton';
 
 import { showPerpSettingsDialog } from './PerpSettingsDialog';
@@ -16,7 +16,7 @@ export function PerpSettingsButton({
     showPerpSettingsDialog();
   }, []);
 
-  return (
+  const content = (
     <IconButton
       icon="SettingsOutline"
       size={size}
@@ -25,5 +25,8 @@ export function PerpSettingsButton({
       onPress={handlePress}
       {...rest}
     />
+  );
+  return (
+    <DebugRenderTracker name="PerpSettingsButton">{content}</DebugRenderTracker>
   );
 }

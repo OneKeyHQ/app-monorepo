@@ -16,7 +16,6 @@ import {
   useInPageDialog,
 } from '@onekeyhq/components';
 import { autoFixPersonalSignMessage } from '@onekeyhq/core/src/chains/evm/sdkEvm/signMessage';
-import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -30,6 +29,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import {
   EMessageTypesBtc,
   EMessageTypesEth,

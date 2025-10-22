@@ -17,6 +17,7 @@ export function TabPageHeader({
   sceneName,
   tabRoute,
   customHeaderRightItems,
+  renderCustomHeaderRightItems,
   customHeaderLeftItems,
   hideSearch = false,
 }: ITabPageHeaderProp) {
@@ -29,10 +30,16 @@ export function TabPageHeader({
           sceneName={sceneName}
           tabRoute={tabRoute}
           customHeaderRightItems={customHeaderRightItems}
+          renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, tabRoute, customHeaderRightItems]);
+  }, [
+    sceneName,
+    tabRoute,
+    customHeaderRightItems,
+    renderCustomHeaderRightItems,
+  ]);
 
   return (
     <>

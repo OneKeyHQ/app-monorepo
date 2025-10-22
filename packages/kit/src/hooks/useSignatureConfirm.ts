@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-shadow */
 import { useCallback } from 'react';
 
-import { isEmpty } from 'lodash';
+import { isEmpty, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -72,7 +72,7 @@ function useSignatureConfirm(params: IParams) {
         onSuccess,
         onFail,
         onCancel,
-        transferPayload,
+        transferPayload: transferPayloadBase,
         signOnly,
         useFeeInTx,
         feeInfoEditable,
@@ -82,6 +82,7 @@ function useSignatureConfirm(params: IParams) {
         transfersInfo,
         ...rest
       } = params;
+      let transferPayload = transferPayloadBase;
       try {
         const unsignedTxs = [];
         // for batch approve&swap
@@ -133,6 +134,24 @@ function useSignatureConfirm(params: IParams) {
         const target = params.isInternalSwap
           ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
           : EModalSignatureConfirmRoutes.TxConfirm;
+
+        try {
+          const preActionsBeforeConfirmResult =
+            await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeConfirm(
+              {
+                accountId,
+                networkId,
+                unsignedTxs,
+              },
+            );
+
+          transferPayload = {
+            ...transferPayload,
+            ...preActionsBeforeConfirmResult,
+          } as ITransferPayload;
+        } catch (error) {
+          noop();
+        }
 
         if (sameModal) {
           navigation.push(target, {

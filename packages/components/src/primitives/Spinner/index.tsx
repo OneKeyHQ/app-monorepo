@@ -1,9 +1,9 @@
-import { Spinner as OriginSpinner, styled } from 'tamagui';
+import { styled } from '@onekeyhq/components/src/shared/tamagui';
 
-import type { GetProps } from 'tamagui';
+import { Spinner as OriginSpinner } from './Spinner';
 
 export const Spinner = styled(OriginSpinner, {
   color: '$icon',
 });
 
-export type ISpinnerProps = GetProps<typeof Spinner>;
+export type { ISpinnerProps } from './Spinner';

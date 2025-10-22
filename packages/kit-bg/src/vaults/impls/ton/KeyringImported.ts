@@ -63,7 +63,7 @@ export class KeyringImported extends KeyringImportedBase {
       encodedTx,
     });
     params.unsignedTx.rawTxUnsigned = hexUtils.hexlify(
-      await serializeUnsignedTx.signingMessage.toBoc(),
+      serializeUnsignedTx.signingMessage.toBoc(),
       {
         noPrefix: true,
       },
@@ -80,9 +80,9 @@ export class KeyringImported extends KeyringImportedBase {
 
     return {
       ...signedTx,
-      rawTx: Buffer.from(await externalMessage.message.toBoc(false)).toString(
-        'base64',
-      ),
+      rawTx: Buffer.from(
+        externalMessage.message.toBoc({ idx: false }),
+      ).toString('base64'),
     };
   }
 

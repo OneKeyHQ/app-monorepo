@@ -15,7 +15,9 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { calculateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 
-export function useLiquidationPrice(): BigNumber | null {
+export function useLiquidationPrice(
+  overrideSide?: 'long' | 'short',
+): BigNumber | null {
   const [formData] = useTradingFormAtom();
   const [tradingComputed] = useTradingFormComputedAtom();
   const [activeAsset] = usePerpsActiveAssetAtom();
@@ -62,6 +64,8 @@ export function useLiquidationPrice(): BigNumber | null {
       ?.position;
   }, [perpsPositions, coin]);
 
+  const effectiveSide = overrideSide || formData.side;
+
   const liquidationPrice: BigNumber | null = useMemo(() => {
     if (!leverage || !activeAssetData?.leverage.type) return null;
 
@@ -76,7 +80,7 @@ export function useLiquidationPrice(): BigNumber | null {
         ? new BigNumber(activeAssetCtx.ctx.markPrice)
         : undefined,
       positionSize,
-      side: formData.side,
+      side: effectiveSide,
       leverage,
       mode: activeAssetData?.leverage.type,
       marginTiers: margin?.marginTiers,
@@ -92,7 +96,7 @@ export function useLiquidationPrice(): BigNumber | null {
       existingEntryPrice: currentCoinPosition
         ? new BigNumber(currentCoinPosition.entryPx)
         : undefined,
-      newOrderSide: formData.side,
+      newOrderSide: effectiveSide,
     });
     return _liquidationPrice?.gt(0) ? _liquidationPrice : null;
   }, [
@@ -100,7 +104,7 @@ export function useLiquidationPrice(): BigNumber | null {
     activeAssetCtx?.ctx?.markPrice,
     activeAssetData?.leverage.type,
     currentCoinPosition,
-    formData.side,
+    effectiveSide,
     tradingComputed.computedSizeBN,
     leverage,
     margin?.marginTiers,

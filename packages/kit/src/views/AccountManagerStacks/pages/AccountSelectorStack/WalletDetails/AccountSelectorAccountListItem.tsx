@@ -26,6 +26,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { AccountEditButton } from '../../../components/AccountEdit';
+import { useAccountSelectorAvatarNetwork } from '../../../hooks/useAccountSelectorAvatarNetwork';
 
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
@@ -186,6 +187,15 @@ export function AccountSelectorAccountListItem({
     [linkNetwork, subTitleInfo.isEmptyAddress],
   );
 
+  const { avatarNetworkId } = useAccountSelectorAvatarNetwork({
+    linkedNetworkId,
+    selectedAccount,
+    isOthersUniversal,
+    account,
+    indexedAccount,
+    linkNetwork,
+  });
+
   const actionButton = useMemo(() => {
     if (isCreatingAddress) {
       return null;
@@ -193,6 +203,7 @@ export function AccountSelectorAccountListItem({
     if (editable) {
       return (
         <AccountEditButton
+          avatarNetworkId={avatarNetworkId}
           accountsCount={accountsCount}
           indexedAccount={indexedAccount}
           firstIndexedAccount={
@@ -231,6 +242,7 @@ export function AccountSelectorAccountListItem({
     isCreatingAddress,
     editable,
     shouldShowCreateAddressButton,
+    avatarNetworkId,
     accountsCount,
     indexedAccount,
     isOthersUniversal,
@@ -253,28 +265,6 @@ export function AccountSelectorAccountListItem({
     selectedAccount.othersWalletAccountId,
     selectedAccount.indexedAccountId,
     item.id,
-  ]);
-
-  const avatarNetworkId: string | undefined = useMemo(() => {
-    let _avatarNetworkId: string | undefined;
-    if (isOthersUniversal && account) {
-      _avatarNetworkId = accountUtils.getAccountCompatibleNetwork({
-        account,
-        networkId: linkNetwork
-          ? selectedAccount?.networkId
-          : account.createAtNetwork,
-      });
-    }
-    if (!_avatarNetworkId && indexedAccount && linkNetwork) {
-      _avatarNetworkId = selectedAccount?.networkId;
-    }
-    return _avatarNetworkId;
-  }, [
-    account,
-    indexedAccount,
-    isOthersUniversal,
-    linkNetwork,
-    selectedAccount?.networkId,
   ]);
 
   const canConfirmAccountSelectPress = useMemo(

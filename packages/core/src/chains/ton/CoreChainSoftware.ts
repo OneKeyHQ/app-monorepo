@@ -1,6 +1,6 @@
 /* eslint-disable new-cap */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import TonWeb from 'tonweb';
+import { Cell } from '@ton/core';
 
 import {
   OneKeyInternalError,
@@ -31,6 +31,7 @@ import { genAddressFromPublicKey } from './sdkTon';
 import { serializeData, serializeProof } from './sdkTon/tx';
 
 import type { IEncodedTxTon } from './types';
+import type TonWeb from 'tonweb';
 
 const curve: ICurveName = 'ed25519';
 
@@ -76,8 +77,8 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (!rawTxUnsigned) {
       throw new OneKeyInternalError('rawTxUnsigned not found');
     }
-    const signingMessage = TonWeb.boc.Cell.oneFromBoc(rawTxUnsigned);
-    const hash = await signingMessage.hash();
+    const signingMessage = Cell.fromHex(rawTxUnsigned);
+    const hash = signingMessage.hash();
     const [signature] = await signer.sign(Buffer.from(hash));
     return {
       encodedTx,

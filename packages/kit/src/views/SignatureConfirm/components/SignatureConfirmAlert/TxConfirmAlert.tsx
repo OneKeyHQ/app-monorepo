@@ -1,8 +1,10 @@
 import { memo, useCallback } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { flatMap, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IAlertType } from '@onekeyhq/components';
 import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
@@ -10,6 +12,7 @@ import {
   usePayWithTokenInfoAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
+  useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
@@ -37,6 +40,7 @@ function TxConfirmAlert(props: IProps) {
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
+  const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const { network } = useAccountData({
     networkId,
@@ -177,29 +181,55 @@ function TxConfirmAlert(props: IProps) {
       );
     }
 
-    if (
-      networkUtils.isTronNetworkByNetworkId(networkId) &&
-      tronResourceRentalInfo.isResourceRentalNeeded &&
-      tronResourceRentalInfo.isResourceRentalEnabled &&
-      (accountUtils.isHwAccount({ accountId }) ||
-        accountUtils.isQrAccount({ accountId }))
-    ) {
-      return (
-        <Alert
-          type="warning"
-          title={intl.formatMessage({
+    if (networkUtils.isTronNetworkByNetworkId(networkId)) {
+      const alerts: {
+        title: string;
+        type: IAlertType;
+      }[] = [];
+      if (
+        tronResourceRentalInfo.isResourceRentalNeeded &&
+        tronResourceRentalInfo.isResourceRentalEnabled &&
+        (accountUtils.isHwAccount({ accountId }) ||
+          accountUtils.isQrAccount({ accountId }))
+      ) {
+        alerts.push({
+          title: intl.formatMessage({
             id: ETranslations.wallet_energy_confirmations_required,
-          })}
-        />
+          }),
+          type: 'warning',
+        });
+      }
+
+      if (transferPayload?.isTronResourceAutoClaimed) {
+        alerts.push({
+          title: intl.formatMessage({
+            id: new BigNumber(sendSelectedFeeInfo?.totalNative ?? '0').isZero()
+              ? ETranslations.wallet_banner_send_free
+              : ETranslations.wallet_banner_discounted_send,
+          }),
+          type: 'info',
+        });
+      }
+
+      return (
+        <>
+          {alerts.map((alert, index) => (
+            <Alert key={index} type={alert.type} title={alert.title} />
+          ))}
+        </>
       );
     }
+
     return null;
   }, [
     accountId,
     intl,
     networkId,
+    sendSelectedFeeInfo?.totalNative,
+    transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.tokenInfo,
-    tronResourceRentalInfo,
+    tronResourceRentalInfo.isResourceRentalEnabled,
+    tronResourceRentalInfo.isResourceRentalNeeded,
   ]);
 
   return (

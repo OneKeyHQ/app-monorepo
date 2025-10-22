@@ -1,18 +1,15 @@
 import {
+  type StackProps,
   Stack as TMStack,
   ThemeableStack as TMThemeableStack,
   XStack as TMXStack,
   YStack as TMYStack,
   ZStack as TMZStack,
-} from 'tamagui';
-
-import type {
-  StackProps,
-  ThemeableStackProps,
-  XStackProps,
-  YStackProps,
-  ZStackProps,
-} from 'tamagui';
+  type ThemeableStackProps,
+  type XStackProps,
+  type YStackProps,
+  type ZStackProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 
 export const Stack = TMStack;
 

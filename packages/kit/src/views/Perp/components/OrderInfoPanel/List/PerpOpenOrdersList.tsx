@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { isNil, noop } from 'lodash';
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IDebugRenderTrackerProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { useTradingGuard } from '../../../hooks';
+import { showCancelAllOrdersDialog } from '../CancelAllOrdersModal';
 import { OpenOrdersRow } from '../Components/OpenOrdersRow';
 
 import { CommonTableListView, type IColumnConfig } from './CommonTableListView';
@@ -18,46 +19,24 @@ import type { FrontendOrder } from '@nktkas/hyperliquid';
 
 interface IPerpOpenOrdersListProps {
   isMobile?: boolean;
+  useTabsList?: boolean;
+  disableListScroll?: boolean;
 }
 
-function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
+function PerpOpenOrdersList({
+  isMobile,
+  useTabsList,
+  disableListScroll,
+}: IPerpOpenOrdersListProps) {
   const intl = useIntl();
   const [{ openOrders: orders }] = usePerpsActiveOpenOrdersAtom();
   const [currentUser] = usePerpsActiveAccountAtom();
   const actions = useHyperliquidActions();
-  const { ensureTradingEnabled } = useTradingGuard();
   const [currentListPage, setCurrentListPage] = useState(1);
   useEffect(() => {
     noop(currentUser?.accountAddress);
     setCurrentListPage(1);
   }, [currentUser?.accountAddress]);
-  const handleCancelAll = useCallback(async () => {
-    ensureTradingEnabled();
-    const symbolsMetaMap =
-      await backgroundApiProxy.serviceHyperliquid.getSymbolsMetaMap({
-        coins: orders.map((o) => o.coin),
-      });
-    const ordersToCancel = orders
-      .map((order) => {
-        const tokenInfo = symbolsMetaMap[order.coin];
-        if (!tokenInfo || isNil(tokenInfo?.assetId)) {
-          console.warn(`Token info not found for coin: ${order.coin}`);
-          return null;
-        }
-        return {
-          assetId: tokenInfo.assetId,
-          oid: order.oid,
-        };
-      })
-      .filter(Boolean);
-
-    if (ordersToCancel.length === 0) {
-      console.warn('No valid orders to cancel or token info unavailable');
-      return;
-    }
-
-    void actions.current.cancelOrder({ orders: ordersToCancel });
-  }, [orders, actions, ensureTradingEnabled]);
 
   const columnsConfig: IColumnConfig[] = useMemo(
     () => [
@@ -141,15 +120,17 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         minWidth: 100,
         align: 'right',
         flex: 1,
-        onPress: handleCancelAll,
+        ...(orders.length > 0 && {
+          onPress: () => showCancelAllOrdersDialog(),
+        }),
       },
     ],
-    [intl, handleCancelAll],
+    [intl, orders.length],
   );
 
   const handleCancelOrder = useCallback(
     async (order: FrontendOrder) => {
-      ensureTradingEnabled();
+      await actions.current.ensureTradingEnabled();
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: order.coin,
@@ -168,7 +149,7 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
         ],
       });
     },
-    [actions, ensureTradingEnabled],
+    [actions],
   );
 
   const totalMinWidth = useMemo(
@@ -193,7 +174,18 @@ function PerpOpenOrdersList({ isMobile }: IPerpOpenOrdersListProps) {
   };
   return (
     <CommonTableListView
-      useTabsList
+      onPullToRefresh={async () => {
+        await actions.current.refreshAllPerpsData();
+      }}
+      listViewDebugRenderTrackerProps={useMemo(
+        (): IDebugRenderTrackerProps => ({
+          name: 'PerpOpenOrdersList',
+          position: 'top-left',
+        }),
+        [],
+      )}
+      useTabsList={useTabsList}
+      disableListScroll={disableListScroll}
       enablePagination={!isMobile}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}

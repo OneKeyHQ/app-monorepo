@@ -1,23 +1,38 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { StyleSheet } from 'react-native';
-import { getTokens, useMedia, useTheme } from 'tamagui';
 
-import { type IActionListSection } from '@onekeyhq/components/src/actions';
+import {
+  type IActionListSection,
+  IconButton,
+} from '@onekeyhq/components/src/actions';
+import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import {
   EPortalContainerConstantName,
   Portal,
 } from '@onekeyhq/components/src/hocs';
-import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
-import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import {
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components/src/primitives';
+import { useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  MAX_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
+} from '@onekeyhq/components/src/utils/sidebar';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
+import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
@@ -34,6 +49,7 @@ import type { NavigationState } from '@react-navigation/routers';
 import type { MotiTransition } from 'moti';
 
 function TabItemView({
+  isCollapse,
   isActive,
   route,
   onPress,
@@ -48,6 +64,7 @@ function TabItemView({
     tabbarOnPress?: () => void;
     onPressWhenSelected?: () => void;
     trackId?: string;
+    collapseTabBarLabel?: string;
   };
   isCollapse?: boolean;
 }) {
@@ -60,35 +77,57 @@ function TabItemView({
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
 
+  const [isContainerHovered, setIsContainerHovered] = useState(false);
+
   const contentMemo = useMemo(
     () => (
-      <DesktopTabItem
+      <YStack
+        ai={isCollapse ? 'center' : undefined}
+        gap={isCollapse ? '$1' : undefined}
+        py={isCollapse ? 5 : undefined}
         onPress={options.tabbarOnPress ?? onPress}
-        onPressWhenSelected={options.onPressWhenSelected}
-        trackId={options.trackId}
-        aria-current={isActive ? 'page' : undefined}
-        selected={isActive}
-        shortcutKey={options.shortcutKey}
-        tabBarStyle={options.tabBarStyle}
-        // @ts-expect-error
-        icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-        label={(options.tabBarLabel ?? route.name) as string}
-        actionList={options.actionList}
-        testID={route.name.toLowerCase()}
-      />
+        onHoverIn={() => {
+          if (isCollapse) {
+            setIsContainerHovered(true);
+          }
+        }}
+        onHoverOut={() => {
+          if (isCollapse) {
+            setIsContainerHovered(false);
+          }
+        }}
+      >
+        <DesktopTabItem
+          isContainerHovered={isCollapse ? isContainerHovered : false}
+          onPress={options.tabbarOnPress ?? onPress}
+          onPressWhenSelected={options.onPressWhenSelected}
+          trackId={options.trackId}
+          aria-current={isActive ? 'page' : undefined}
+          selected={isActive}
+          shortcutKey={options.shortcutKey}
+          tabBarStyle={[
+            options.tabBarStyle,
+            isCollapse ? { width: 36 } : undefined,
+          ]}
+          // @ts-expect-error
+          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+          label={
+            (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
+          }
+          actionList={options.actionList}
+          testID={route.name.toLowerCase()}
+        />
+        {isCollapse ? (
+          <SizableText size="$bodySmMedium" textAlign="center">
+            {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
+          </SizableText>
+        ) : null}
+      </YStack>
     ),
-    [isActive, onPress, options, route.name],
+    [isActive, isCollapse, isContainerHovered, onPress, options, route.name],
   );
 
   return contentMemo;
-}
-
-function OneKeyLogo() {
-  return (
-    <XStack px="$4" py="$3">
-      <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
-    </XStack>
-  );
 }
 
 export function DesktopLeftSideBar({
@@ -100,12 +139,11 @@ export function DesktopLeftSideBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const { routes } = state;
-  const { leftSidebarCollapsed: isCollapse } = useProviderSideBarValue();
+  const [{ collapsed: isCollapse }, setAppSideBarStatus] =
+    useAppSideBarStatusAtom();
   const { top } = useSafeAreaInsets(); // used for ipad
   const theme = useTheme();
-  const getSizeTokens = getTokens().size;
-
-  const sidebarWidth = getSizeTokens.sideBarWidth.val;
+  const [isHovering, setIsHovering] = useState(false);
 
   const { gtMd } = useMedia();
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
@@ -133,7 +171,10 @@ export function DesktopLeftSideBar({
                 merge: true,
                 params:
                   route.name === ETabRoutes.Market
-                    ? { from: EEnterWay.HomeTab }
+                    ? {
+                        screen: ETabMarketRoutes.TabMarket,
+                        params: { from: EEnterWay.HomeTab },
+                      }
                     : undefined,
               }),
               target: state.key,
@@ -176,7 +217,7 @@ export function DesktopLeftSideBar({
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
-      animate={{ width: isCollapse ? 0 : sidebarWidth }}
+      animate={{ width: isCollapse ? MIN_SIDEBAR_WIDTH : MAX_SIDEBAR_WIDTH }}
       transition={
         {
           duration: 200,
@@ -187,8 +228,8 @@ export function DesktopLeftSideBar({
         backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
         borderRightColor: theme.neutral4.val,
-        borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
-        overflow: 'hidden',
+        borderRightWidth: StyleSheet.hairlineWidth,
+        zIndex: 2,
       }}
     >
       {platformEnv.isDesktopMac ? (
@@ -211,12 +252,13 @@ export function DesktopLeftSideBar({
         testID="Desktop-AppSideBar-Content-Container"
       >
         <MotiView
-          animate={{ left: isCollapse ? -sidebarWidth : 0 }}
+          animate={{
+            width: isCollapse ? MIN_SIDEBAR_WIDTH : MAX_SIDEBAR_WIDTH,
+          }}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
-            width: sidebarWidth,
             bottom: 0,
           }}
           transition={
@@ -233,13 +275,50 @@ export function DesktopLeftSideBar({
                 <HeaderCollapseButton isRootScreen />
               </XStack>
             ) : null}
-            <YStack flex={1} pt="$3" px="$3">
+            <YStack
+              flex={1}
+              pt={isCollapse ? 0 : '$3'}
+              px="$3"
+              alignItems={isCollapse ? 'center' : undefined}
+            >
               {tabs}
             </YStack>
             <Portal name={EPortalContainerConstantName.SIDEBAR_BANNER} />
           </YStack>
         </MotiView>
       </YStack>
+      {isCollapse ? (
+        <YStack
+          testID="Desktop-AppSideBar-Separator"
+          position="absolute"
+          onHoverIn={() => {
+            setIsHovering(true);
+          }}
+          onHoverOut={() => {
+            setIsHovering(false);
+          }}
+          zIndex={1000}
+          right={-2}
+          top={0}
+          bottom={0}
+          width={4}
+          ai="center"
+          jc="center"
+        >
+          {isHovering ? (
+            <IconButton
+              onPress={() => {
+                setAppSideBarStatus((prev) => ({ ...prev, collapsed: false }));
+              }}
+              icon="ChevronRightSmallOutline"
+              size="large"
+              iconProps={{
+                color: '$iconSubdued',
+              }}
+            />
+          ) : null}
+        </YStack>
+      ) : null}
     </MotiView>
   );
 }

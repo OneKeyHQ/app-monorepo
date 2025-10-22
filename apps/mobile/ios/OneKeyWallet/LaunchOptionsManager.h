@@ -9,5 +9,6 @@
 - (NSDictionary *)getLaunchOptions;
 - (void)saveDeviceToken:(NSString *)deviceToken;
 - (NSString *)getDeviceToken;
-
+- (void)saveStartupTime:(NSNumber *)startupTime;
+- (NSNumber *)getStartupTime;
 @end

@@ -2,8 +2,8 @@ import { memo } from 'react';
 
 import { createPortal } from 'react-dom';
 import { Toaster as WebToaster } from 'sonner';
-import { useMedia } from 'tamagui';
 
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
 import { useThemeName } from '../../hooks/useStyle';

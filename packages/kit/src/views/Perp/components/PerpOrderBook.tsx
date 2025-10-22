@@ -3,6 +3,8 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  DashText,
+  DebugRenderTracker,
   Divider,
   Popover,
   SizableText,
@@ -20,6 +22,7 @@ import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
+  usePerpsShouldShowEnableTradingButtonAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -32,9 +35,11 @@ import {
   OrderBook,
   OrderBookMobile,
 } from './OrderBook';
+import { DefaultLoadingNode } from './OrderBook/DefaultLoadingNode';
 import { useTickOptions } from './OrderBook/useTickOptions';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
+import type { IOrderBookVariant } from './OrderBook/types';
 
 function MobileHeader() {
   const intl = useIntl();
@@ -72,11 +77,18 @@ function MobileHeader() {
       })}
       renderTrigger={
         <YStack alignItems="flex-start" mb="$2" h={32} justifyContent="center">
-          <SizableText fontSize={10} color="$textSubdued">
+          <DashText
+            fontSize={10}
+            color="$textSubdued"
+            dashColor="$textSubdued"
+            dashThickness={0.5}
+            lineHeight={16}
+          >
             {intl.formatMessage({
               id: ETranslations.perp_token_bar_Funding,
             })}
-          </SizableText>
+          </DashText>
+
           {showSkeleton ? (
             <Skeleton width={120} height={16} />
           ) : (
@@ -210,6 +222,8 @@ export function PerpOrderBook({
   const [formData] = useTradingFormAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
+  const [shouldShowEnableTradingButton] =
+    usePerpsShouldShowEnableTradingButtonAtom();
 
   const l2SubscriptionOptions = useMemo(() => {
     const coin = perpsSelectedSymbol?.coin;
@@ -263,6 +277,12 @@ export function PerpOrderBook({
     [actionsRef, formData.type],
   );
 
+  const mobileMaxLevelsPerSide = useMemo(() => {
+    if (shouldShowEnableTradingButton) return 5;
+    if (formData.hasTpsl) return 9;
+    return 7;
+  }, [formData.hasTpsl, shouldShowEnableTradingButton]);
+
   const mobileOrderBook = useMemo(() => {
     if (!hasOrderBook || !l2Book) return null;
     if (gtMd) return null;
@@ -281,6 +301,8 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          loadingNode={<DefaultLoadingNode variant="mobileHorizontal" />}
+          variant="mobileHorizontal"
         />
       );
     }
@@ -291,7 +313,7 @@ export function PerpOrderBook({
           symbol={l2Book.coin}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={formData.hasTpsl ? 8 : 6}
+          maxLevelsPerSide={mobileMaxLevelsPerSide}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}
@@ -299,6 +321,7 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          variant="mobileVertical"
         />
       </YStack>
     );
@@ -310,23 +333,31 @@ export function PerpOrderBook({
     handleLevelSelect,
     selectedTickOption,
     hasOrderBook,
-    formData.hasTpsl,
+    mobileMaxLevelsPerSide,
     tickOptions,
     priceDecimals,
     sizeDecimals,
   ]);
 
   if (!hasOrderBook || !l2Book) {
+    let loadingVariant = 'desktop';
+    if (!gtMd) {
+      loadingVariant =
+        entry === 'perpMobileMarket' ? 'mobileHorizontal' : 'mobileVertical';
+    }
     return (
-      <YStack flex={1} p="$4" justifyContent="center" alignItems="center">
-        <SizableText size="$bodyMd" color="$textSubdued">
-          Loading order book...
-        </SizableText>
+      <YStack flex={1} p="$2" justifyContent="center" alignItems="center">
+        <DefaultLoadingNode
+          variant={loadingVariant as IOrderBookVariant}
+          symbol={
+            loadingVariant === 'mobileVertical' ? l2Book?.coin : undefined
+          }
+        />
       </YStack>
     );
   }
 
-  return (
+  const content = (
     <YStack flex={1} bg="$bgApp">
       {gtMd ? (
         <OrderBook
@@ -334,7 +365,7 @@ export function PerpOrderBook({
           horizontal={false}
           bids={l2Book.bids}
           asks={l2Book.asks}
-          maxLevelsPerSide={14}
+          maxLevelsPerSide={11}
           selectedTickOption={selectedTickOption}
           onTickOptionChange={handleTickOptionChange}
           tickOptions={tickOptions}
@@ -342,10 +373,16 @@ export function PerpOrderBook({
           priceDecimals={priceDecimals}
           sizeDecimals={sizeDecimals}
           onSelectLevel={handleLevelSelect}
+          variant="web"
         />
       ) : (
         mobileOrderBook
       )}
     </YStack>
+  );
+  return (
+    <DebugRenderTracker name="PerpOrderBook" position="top-left">
+      {content}
+    </DebugRenderTracker>
   );
 }

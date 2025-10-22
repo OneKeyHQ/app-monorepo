@@ -35,6 +35,15 @@ export function useAccountSelectorTrigger({
       'showAccountSelector>>>>',
       activeAccountRef.current,
       selectedAccountRef.current,
+      {
+        activeWallet: activeAccount.wallet,
+        num,
+        sceneName,
+        sceneUrl,
+        showConnectWalletModalInDappMode,
+        linkNetworkId,
+        ...others,
+      },
     );
     void actions.current.showAccountSelector({
       activeWallet: activeAccount.wallet,

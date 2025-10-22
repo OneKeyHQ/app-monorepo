@@ -99,6 +99,18 @@ const settings: IVaultSettings = {
             },
           },
         },
+        [EEarnProviderEnum.Stakefish]: {
+          supportedSymbols: ['SOL'],
+          configs: {
+            'SOL': {
+              enabled: true,
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
       },
     },
   },

@@ -1,18 +1,26 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { useFocusEffect } from '@react-navigation/native';
 import { noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
+import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import {
   useAccountIsAutoCreatingAtom,
+  useAppIsLockedAtom,
   useIndexedAccountAddressCreationStateAtom,
   usePasswordAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import {
   perpsActiveAssetAtom,
+  perpsActiveOrderBookOptionsAtom,
+  perpsCandlesWebviewReloadHookAtom,
+  usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAssetAtom,
+  usePerpsActiveOrderBookOptionsAtom,
+  usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { COINTYPE_ETH } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -28,6 +36,7 @@ import type {
   IWsAllMids,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { EPerpsSubscriptionCategory } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -37,7 +46,37 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useRouteIsFocused } from '../../../hooks/useRouteIsFocused';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useHyperliquidActions } from '../../../states/jotai/contexts/hyperliquid';
-import { useSubscriptionActiveAtom } from '../../../states/jotai/contexts/hyperliquid/atoms';
+import {
+  useOrderBookTickOptionsAtom,
+  useSubscriptionActiveAtom,
+} from '../../../states/jotai/contexts/hyperliquid/atoms';
+
+function useSyncContextOrderBookOptionsToGlobal() {
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
+
+  const l2SubscriptionOptions = useMemo(() => {
+    const coin = activeAsset?.coin;
+    if (!coin) {
+      return { nSigFigs: null, mantissa: undefined };
+    }
+    const stored = orderBookTickOptions[coin];
+    const nSigFigs = stored?.nSigFigs ?? null;
+    const mantissa =
+      stored?.mantissa === undefined ? undefined : stored.mantissa;
+    return { nSigFigs, mantissa };
+  }, [orderBookTickOptions, activeAsset?.coin]);
+
+  useEffect(() => {
+    void perpsActiveOrderBookOptionsAtom.set(
+      (): IPerpsActiveOrderBookOptionsAtom => ({
+        coin: activeAsset?.coin,
+        assetId: activeAsset?.assetId,
+        ...l2SubscriptionOptions,
+      }),
+    );
+  }, [l2SubscriptionOptions, activeAsset?.coin, activeAsset?.assetId]);
+}
 
 function useHyperliquidEventBusListener() {
   const actions = useHyperliquidActions();
@@ -45,17 +84,9 @@ function useHyperliquidEventBusListener() {
   useEffect(() => {
     const handleDataUpdate = (payload: unknown) => {
       const eventPayload = payload as {
-        type: 'market' | 'account';
+        type: EPerpsSubscriptionCategory;
         subType: ESubscriptionType;
         data: any;
-        metadata: {
-          timestamp: number;
-          source: string;
-          key?: string;
-          coin?: string;
-          userId?: string;
-          interval?: string;
-        };
       };
       const { subType, data } = eventPayload;
 
@@ -71,32 +102,28 @@ function useHyperliquidEventBusListener() {
             break;
           }
 
-          case ESubscriptionType.ACTIVE_ASSET_CTX:
-            if (eventPayload.metadata.coin) {
-              // move to global jotai, updateActiveAssetCtx() in background
-              // void actions.current.updateActiveAssetCtx(
-              //   data as IWsActiveAssetCtx,
-              //   eventPayload.metadata.coin,
-              // );
-            }
-            break;
-
-          case ESubscriptionType.ACTIVE_ASSET_DATA:
-            if (eventPayload.metadata.coin) {
-              // move to global jotai, updateActiveAssetData() in background
-              // void actions.current.updateActiveAssetData(
-              //   data as IActiveAssetData,
-              //   eventPayload.metadata.coin,
-              // );
-            }
-            break;
-
           case ESubscriptionType.L2_BOOK:
             void actions.current.updateL2Book(data as IBook);
             break;
 
-          case ESubscriptionType.BBO:
+          case ESubscriptionType.ACTIVE_ASSET_CTX:
+            // move to global jotai, updateActiveAssetCtx() in background
+            // void actions.current.updateActiveAssetCtx(
+            //   data as IWsActiveAssetCtx,
+            //   eventPayload.metadata.coin,
+            // );
             break;
+
+          case ESubscriptionType.ACTIVE_ASSET_DATA:
+            // move to global jotai, updateActiveAssetData() in background
+            // void actions.current.updateActiveAssetData(
+            //   data as IActiveAssetData,
+            //   eventPayload.metadata.coin,
+            // );
+            break;
+
+          // case ESubscriptionType.BBO:
+          //   break;
 
           default:
         }
@@ -114,10 +141,6 @@ function useHyperliquidEventBusListener() {
           lastConnected: number;
           service: string;
           activeSubscriptions: number;
-        };
-        metadata: {
-          timestamp: number;
-          source: string;
         };
       };
       const { data } = eventPayload;
@@ -181,15 +204,16 @@ function useHyperliquidSession() {
 
 function useHyperliquidAccountSelect() {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const [currentPerpsAccount] = usePerpsActiveAccountAtom();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
   const actions = useHyperliquidActions();
   const isFirstMountRef = useRef(true);
   const [accountIsAutoCreating] = useAccountIsAutoCreatingAtom();
   const isFocused = useRouteIsFocused();
   const [indexedAccountAddressCreationState] =
     useIndexedAccountAddressCreationStateAtom();
-  const perpsAccountAddressRef = useRef(currentPerpsAccount?.accountAddress);
-  perpsAccountAddressRef.current = currentPerpsAccount?.accountAddress;
+  const perpsAccountAddressRef = useRef(activePerpsAccount?.accountAddress);
+  perpsAccountAddressRef.current = activePerpsAccount?.accountAddress;
 
   // const [perpsAccountStatus] = usePerpsSelectedAccountStatusAtom();
   // const perpsAccountStatusRef = useRef(perpsAccountStatus);
@@ -235,14 +259,14 @@ function useHyperliquidAccountSelect() {
       'selectPerpsAccount______555_address',
       activeAccount.account?.address,
     );
-    const _account =
-      await backgroundApiProxy.serviceHyperliquid.selectPerpsAccount({
-        indexedAccountId: activeAccount?.indexedAccount?.id || null,
-        accountId: activeAccount?.account?.id || null,
-        deriveType: globalDeriveType,
-      });
+    const _account = await actions.current.changeActivePerpsAccount({
+      indexedAccountId: activeAccount?.indexedAccount?.id || null,
+      accountId: activeAccount?.account?.id || null,
+      deriveType: globalDeriveType,
+    });
     await checkPerpsAccountStatus();
   }, [
+    actions,
     activeAccount.account?.address,
     activeAccount.account?.id,
     activeAccount?.indexedAccount?.id,
@@ -296,19 +320,48 @@ function useHyperliquidAccountSelect() {
       }
     })();
   }, [isFocused, checkPerpsAccountStatus]);
+}
+
+function WebSocketSubscriptionUpdate() {
+  const [loadingInfo] = usePerpsAccountLoadingInfoAtom();
+  const [activePerpsAccount] = usePerpsActiveAccountAtom();
+  const [activeAsset] = usePerpsActiveAssetAtom();
+  const [activeOrderBookOptions] = usePerpsActiveOrderBookOptionsAtom();
+  const actions = useHyperliquidActions();
+  const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
+
+  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+  const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
 
   useEffect(() => {
-    noop(currentPerpsAccount?.accountAddress);
+    noop(activePerpsAccount?.accountAddress);
+    noop(activeAsset?.coin);
+    noop(activeOrderBookOptions?.coin);
+    noop(activeOrderBookOptions?.mantissa);
+    noop(activeOrderBookOptions?.nSigFigs);
 
-    if (isFirstMountRef.current) {
-      isFirstMountRef.current = false;
-      if (currentPerpsAccount?.accountAddress) {
-        void actions.current.updateSubscriptions();
-      }
-    } else {
+    if (
+      isWebSocketConnected === true &&
+      !isLoading &&
+      activeAsset?.coin &&
+      activeOrderBookOptions?.coin === activeAsset?.coin
+    ) {
+      console.log('updateSubscriptions______PerpsGlobalEffects');
       void actions.current.updateSubscriptions();
     }
-  }, [actions, currentPerpsAccount?.accountAddress]);
+  }, [
+    isWebSocketConnected,
+    isLoading,
+    actions,
+    activePerpsAccount?.accountAddress,
+    activeAsset?.coin,
+    activeOrderBookOptions?.mantissa,
+    activeOrderBookOptions?.nSigFigs,
+    activeOrderBookOptions?.coin,
+  ]);
+  return null;
 }
 
 function useHyperliquidSymbolSelect() {
@@ -356,14 +409,91 @@ function useHyperliquidScreenLockHandler() {
   }, [unLock, checkPerpsAccountStatus]);
 }
 
+function AutoPauseSubscriptions() {
+  const pauseSubscriptionsTimerRef = useRef<
+    ReturnType<typeof setTimeout> | undefined
+  >(undefined);
+
+  // const isFocusedRoute = useRouteIsFocused();
+  // useEffect(() => {
+  //   //
+  // }, [isFocusedRoute]);
+
+  const onFocusHandler = useCallback(
+    async ({ isFocus }: { isFocus: boolean }) => {
+      // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
+      //   isFocus,
+      //   isHideByModal,
+      // });
+      if (isFocus) {
+        clearTimeout(pauseSubscriptionsTimerRef.current);
+        void backgroundApiProxy.serviceHyperliquidSubscription.enableSubscriptionsHandler();
+        void backgroundApiProxy.serviceHyperliquidSubscription.resumeSubscriptions();
+      } else {
+        void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
+        clearTimeout(pauseSubscriptionsTimerRef.current);
+        pauseSubscriptionsTimerRef.current = setTimeout(
+          () => {
+            void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
+          },
+          timerUtils.getTimeDurationMs({
+            minute: 5,
+            seconds: 30,
+          }),
+        );
+      }
+    },
+    [],
+  );
+
+  const isFocusedRef = useRef(false);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    useCallback(
+      (isFocus: boolean) => {
+        isFocusedRef.current = isFocus;
+        void onFocusHandler({ isFocus: isFocusedRef.current });
+      },
+      [onFocusHandler],
+    ),
+  );
+
+  const [isLocked] = useAppIsLockedAtom();
+
+  useEffect(() => {
+    if (isLocked) {
+      void onFocusHandler({ isFocus: false });
+    } else {
+      void onFocusHandler({ isFocus: isFocusedRef.current });
+    }
+  }, [isLocked, onFocusHandler]);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(pauseSubscriptionsTimerRef.current);
+    };
+  }, []);
+
+  return null;
+}
+
 function PerpsGlobalEffectsView() {
   useHyperliquidEventBusListener();
   useHyperliquidSession();
   useHyperliquidAccountSelect();
   useHyperliquidSymbolSelect();
   useHyperliquidScreenLockHandler();
+  useSyncContextOrderBookOptionsToGlobal();
 
-  return null;
+  return (
+    <>
+      <DelayedRender delay={600}>
+        <WebSocketSubscriptionUpdate />
+      </DelayedRender>
+      <AutoPauseSubscriptions />
+    </>
+  );
 }
 
 export function PerpsGlobalEffects() {

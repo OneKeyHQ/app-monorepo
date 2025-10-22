@@ -15,27 +15,30 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  IModalSendParamList,
-  IModalSwapParamList,
-} from '@onekeyhq/shared/src/routes';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
-  EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import {
-  ESwapSource,
-  ESwapTabSwitchType,
-} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
+import { useWalletActionConfig } from './useWalletActionConfig';
 import { WalletActionMore } from './WalletActionMore';
+import { WalletActionPerp } from './WalletActionPerp';
 import { WalletActionReceive } from './WalletActionReceive';
+import { WalletActionStaking } from './WalletActionStaking';
+import { WalletActionSwap } from './WalletActionSwap';
 
-function WalletActionSend() {
+import type { IActionCustomization } from './types';
+
+function WalletActionSend({
+  customization,
+}: {
+  customization?: IActionCustomization;
+}) {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
@@ -203,63 +206,49 @@ function WalletActionSend() {
 
   return (
     <RawActions.Send
-      onPress={handleOnSend}
-      disabled={vaultSettings?.disabledSendAction}
-      // label={`${account?.id || ''}`}
+      onPress={customization?.onPress || handleOnSend}
+      disabled={customization?.disabled ?? vaultSettings?.disabledSendAction}
+      label={customization?.label}
+      icon={customization?.icon}
       trackID="wallet-send"
     />
   );
 }
 
-function WalletActionSwap() {
-  const {
-    activeAccount: { account, network, wallet },
-  } = useActiveAccount({ num: 0 });
-  const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const vaultSettings = usePromiseResult(async () => {
-    const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: network?.id ?? '',
-    });
-    return settings;
-  }, [network?.id]).result;
-  const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
-  const handleOnSwap = useCallback(() => {
-    defaultLogger.wallet.walletActions.actionTrade({
-      walletType: wallet?.type ?? '',
-      networkId: network?.id ?? '',
-      source: 'homePage',
-      tradeType: ESwapTabSwitchType.SWAP,
-      isSoftwareWalletOnlyUser,
-    });
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
-        importNetworkId: network?.id ?? '',
-        swapSource: ESwapSource.WALLET_HOME,
-      },
-    });
-  }, [navigation, network?.id, wallet?.type, isSoftwareWalletOnlyUser]);
-  return (
-    <RawActions.Swap
-      onPress={handleOnSwap}
-      label={intl.formatMessage({ id: ETranslations.global_trade })}
-      disabled={
-        vaultSettings?.disabledSwapAction ||
-        accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' })
-      }
-      trackID="wallet-trade"
-    />
-  );
-}
-
 function WalletActions({ ...rest }: IXStackProps) {
+  const { config, getActionCustomization } = useWalletActionConfig();
+
+  const renderActionComponent = (actionType: string) => {
+    const customization = getActionCustomization(actionType as any);
+
+    switch (actionType) {
+      case 'send':
+        return <WalletActionSend key="send" customization={customization} />;
+      case 'receive':
+        return (
+          <WalletActionReceive key="receive" customization={customization} />
+        );
+      case 'swap':
+        return platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel ? (
+          <WalletActionPerp key="perp" customization={customization} />
+        ) : (
+          <WalletActionSwap key="swap" customization={customization} />
+        );
+      case 'perp':
+        return <WalletActionPerp key="perp" customization={customization} />;
+      case 'staking':
+        return (
+          <WalletActionStaking key="staking" customization={customization} />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <RawActions {...rest}>
-      <WalletActionSend />
-      <WalletActionReceive />
-      <WalletActionSwap />
+      {config.mainActions.map(renderActionComponent).filter(Boolean)}
       <WalletActionMore />
     </RawActions>
   );

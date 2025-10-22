@@ -1,4 +1,8 @@
-import { styled, withStaticProperties } from 'tamagui';
+import {
+  styled,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { XStackProps } from '@onekeyhq/components/src/shared/tamagui';
 
 import {
   Icon,
@@ -8,14 +12,13 @@ import {
   StyledSizableText,
   XStack,
 } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type {
   IImageProps,
   IKeyOfIcons,
   ISizableTextProps,
 } from '../../primitives';
-import type { XStackProps } from 'tamagui';
 
 const DescriptionListFrame = styled(Stack, {
   name: 'DescriptionList',

@@ -1,8 +1,7 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { EDeviceType } from '@onekeyfe/hd-shared';
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
-import TonWeb from 'tonweb';
+import { Cell } from '@ton/core';
 
 import {
   ETonSendMode,
@@ -221,6 +220,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         hwParams.isRawData = true;
       }
     }
+
+    let useBlindSignature = false;
+
     if (encodedTx.messages.length > 1) {
       hwParams.extDestination = [];
       hwParams.extTonAmount = [];
@@ -228,15 +230,51 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.messages.slice(1).forEach((extMsg) => {
         hwParams.extDestination?.push(extMsg.address);
         hwParams.extTonAmount?.push(extMsg.amount.toString());
-        hwParams.extPayload?.push(extMsg.payload ?? '');
+
+        let payloadHex: string | undefined;
+        if (extMsg.payload) {
+          let bytes: Buffer | undefined;
+          try {
+            bytes = Buffer.from(extMsg.payload, 'base64');
+          } catch (e) {
+            try {
+              bytes = Buffer.from(extMsg.payload, 'hex');
+            } catch (ee) {
+              useBlindSignature = true;
+            }
+          }
+
+          payloadHex = bytes?.toString('hex');
+          // exists payload and exotic cell
+          if (payloadHex && Cell.fromHex(payloadHex).isExotic) {
+            useBlindSignature = true;
+          }
+        }
+        hwParams.extPayload?.push(payloadHex ?? '');
       });
     }
 
     let signingMessage = serializeUnsignedTx.signingMessage;
-    if (msg.stateInit) {
-      hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString('hex');
+    try {
+      if (msg.stateInit) {
+        hwParams.initState = Buffer.from(msg.stateInit, 'base64').toString(
+          'hex',
+        );
+        useBlindSignature = true;
+      } else if (hwParams.comment && Cell.fromHex(hwParams.comment).isExotic) {
+        useBlindSignature = true;
+      }
+    } catch {
+      // ignore
+    }
+
+    // Blind signature
+    if (useBlindSignature) {
       hwParams.signingMessageRepr = bufferUtils.bytesToHex(
-        await signingMessage.getRepr(),
+        // await TonWeb.boc.Cell.oneFromBoc(Buffer.from(signingMessage.toBoc())).getRepr(),
+        // only for hardware, only serialize for stateInit
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+        Buffer.from(signingMessage.repr()).toString('hex'),
       );
     }
 
@@ -256,12 +294,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     // pro return signning_message is message boc
     // pro blind sign return signning_message is null
     const signingMessageHexFromHw = result.signning_message as string | null;
-    const signingMessageHex = Buffer.from(
-      await signingMessage.toBoc(),
-    ).toString('hex');
-    const signingMessageHash = Buffer.from(
-      await signingMessage.hash(),
-    ).toString('hex');
+    const signingMessageHex = Buffer.from(signingMessage.toBoc()).toString(
+      'hex',
+    );
+    const signingMessageHash = Buffer.from(signingMessage.hash()).toString(
+      'hex',
+    );
     if (signingMessageHexFromHw) {
       // For Pro, check the boc
       if (
@@ -273,7 +311,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           signingMessageHexFromHw,
           signingMessageHex,
         );
-        signingMessage = TonWeb.boc.Cell.oneFromBoc(signingMessageHexFromHw);
+        signingMessage = Cell.fromHex(signingMessageHexFromHw);
       }
       // For 1S, check the hash
       if (
@@ -297,9 +335,9 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     return {
       txid: '',
-      rawTx: Buffer.from(await externalMessage.message.toBoc(false)).toString(
-        'base64',
-      ),
+      rawTx: Buffer.from(
+        externalMessage.message.toBoc({ idx: false }),
+      ).toString('base64'),
       encodedTx,
     };
   }

@@ -9,11 +9,11 @@ import {
   useState,
 } from 'react';
 
-import { Toast, ToastViewport } from '@tamagui/toast';
 import { isNil } from 'lodash';
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
+import { Toast, ToastViewport } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSafeAreaInsets } from '../../hooks/useLayout';

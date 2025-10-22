@@ -90,7 +90,7 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-zips
+          name: release-native-bundle-zips-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/mobile/out-dir-bundle-zip
             !**/.DS_Store
@@ -99,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: release-native-bundle-sources
+          name: release-native-bundle-sources-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/mobile/out-dir-bundle
             !**/.DS_Store

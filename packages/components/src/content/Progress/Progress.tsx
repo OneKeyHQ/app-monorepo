@@ -1,13 +1,15 @@
 import { useState } from 'react';
 
-import { getVariableValue, styled } from '@tamagui/core';
-import { createContextScope } from '@tamagui/create-context';
-import { getSize } from '@tamagui/get-token';
-import { withStaticProperties } from '@tamagui/helpers';
-import { ThemeableStack } from '@tamagui/stacks';
+import {
+  ThemeableStack,
+  createContextScope,
+  getSize,
+  getVariableValue,
+  styled,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
-import type { GetProps } from '@tamagui/core';
-import type { Scope } from '@tamagui/create-context';
 import type { LayoutChangeEvent } from 'react-native';
 
 const PROGRESS_NAME = 'Progress';
@@ -109,8 +111,6 @@ const ProgressIndicator = ProgressIndicatorFrame.styleable<
 );
 
 const DEFAULT_MAX = 100;
-
-type IScopedProps<P> = P & { __scopeProgress?: Scope };
 
 type IProgressState = 'indeterminate' | 'complete' | 'loading';
 

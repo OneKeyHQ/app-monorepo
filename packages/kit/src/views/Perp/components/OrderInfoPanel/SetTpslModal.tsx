@@ -7,9 +7,10 @@ import {
   Button,
   Checkbox,
   Dialog,
+  Divider,
   Page,
   SizableText,
-  Slider,
+  Toast,
   XStack,
   YStack,
   getFontSize,
@@ -20,7 +21,6 @@ import {
   usePerpsActivePositionAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveOpenOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
@@ -35,8 +35,8 @@ import {
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { usePerpsMidPrice } from '../../hooks/usePerpsMidPrice';
-import { useTradingGuard } from '../../hooks/useTradingGuard';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
+import { PerpsSlider } from '../PerpsSlider';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TpslInput } from '../TradingPanel/inputs/TpslInput';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
@@ -47,23 +47,30 @@ export interface ISetTpslParams {
   coin: string;
   szDecimals: number;
   assetId: number;
+  isMobile?: boolean;
 }
 
 interface ISetTpslFormProps extends ISetTpslParams {
   onClose: () => void;
 }
 
-function MarkPrice({ coin, szDecimals }: { coin: string; szDecimals: number }) {
-  const { midFormattedByDecimals } = usePerpsMidPrice({ coin, szDecimals });
+function MarkPrice({ coin }: { coin: string }) {
+  const { midFormattedByDecimals } = usePerpsMidPrice({ coin });
   return (
     <SizableText size="$bodyMdMedium">{midFormattedByDecimals}</SizableText>
   );
 }
 
 const SetTpslForm = memo(
-  ({ coin, szDecimals, assetId, onClose = () => {} }: ISetTpslFormProps) => {
+  ({
+    coin,
+    szDecimals,
+    assetId,
+    isMobile,
+    onClose = () => {},
+  }: ISetTpslFormProps) => {
     const hyperliquidActions = useHyperliquidActions();
-    const { ensureTradingEnabled } = useTradingGuard();
+    const { mid: midPrice } = usePerpsMidPrice({ coin });
 
     const [{ activePositions }] = usePerpsActivePositionAtom();
     const [{ openOrders }] = usePerpsActiveOpenOrdersAtom();
@@ -139,7 +146,7 @@ const SetTpslForm = memo(
 
     const handleCancelOrder = useCallback(
       async (order: IPerpsFrontendOrder) => {
-        ensureTradingEnabled();
+        await hyperliquidActions.current.ensureTradingEnabled();
         const symbolMeta =
           await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
             coin: order.coin,
@@ -158,7 +165,7 @@ const SetTpslForm = memo(
           ],
         });
       },
-      [hyperliquidActions, ensureTradingEnabled],
+      [hyperliquidActions],
     );
 
     const entryPrice = useMemo(() => {
@@ -242,28 +249,36 @@ const SetTpslForm = memo(
           return;
         }
 
-        const numericValue = new BigNumber(processedValue);
+        let numericValue = new BigNumber(processedValue);
         if (numericValue.isNaN()) {
           return;
         }
-
+        if (numericValue.gt(positionSize)) {
+          numericValue = positionSize;
+        }
         const percentage = positionSize.gt(0)
           ? numericValue.dividedBy(positionSize).multipliedBy(100).toNumber()
           : 0;
 
         setFormData((prev) => ({
           ...prev,
-          amount: processedValue,
+          amount: numericValue.toFixed(),
           percentage: Math.min(100, Math.max(0, percentage)),
         }));
       },
       [positionSize],
     );
 
+    const isValidForm = useMemo(() => {
+      const hasNewTpPrice = !tpOrder && formData.tpPrice.trim() !== '';
+      const hasNewSlPrice = !slOrder && formData.slPrice.trim() !== '';
+      return hasNewTpPrice || hasNewSlPrice;
+    }, [formData.tpPrice, formData.slPrice, tpOrder, slOrder]);
+
     const handleSubmit = useCallback(async () => {
       try {
         setIsSubmitting(true);
-        onClose();
+
         const tpslAmount = configureAmount
           ? formData.amount || calculatedAmount
           : '0';
@@ -271,24 +286,98 @@ const SetTpslForm = memo(
 
         if (configureAmount) {
           if (!tpOrder && !slOrder && (!tpslAmount || tpslAmountBN.lte(0))) {
-            throw new OneKeyLocalError({
-              message: 'Please enter a valid amount',
+            Toast.error({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.perp_tp_sl_error_enter,
+              }),
             });
+            return;
           }
 
           if (tpslAmountBN.gt(positionSize)) {
-            throw new OneKeyLocalError({
-              message: 'Amount cannot exceed position size',
+            Toast.error({
+              title: appLocale.intl.formatMessage({
+                id: ETranslations.perp_tp_sl_error_amount,
+              }),
             });
+            return;
           }
         }
 
-        if (!formData.tpPrice && !formData.slPrice) {
-          throw new OneKeyLocalError({
-            message: 'Please set at least TP or SL price',
+        if (!isValidForm) {
+          Toast.error({
+            title: appLocale.intl.formatMessage({
+              id: ETranslations.perp_tp_sl_error_price,
+            }),
           });
+          return;
         }
 
+        const currentPriceBN = new BigNumber(midPrice || '0');
+        const tpPriceBN = new BigNumber(formData.tpPrice || '0');
+        const slPriceBN = new BigNumber(formData.slPrice || '0');
+
+        if (
+          !tpOrder &&
+          formData.tpPrice &&
+          tpPriceBN.isFinite() &&
+          currentPriceBN.gt(0)
+        ) {
+          const isInvalid = isLongPosition
+            ? tpPriceBN.lte(currentPriceBN)
+            : tpPriceBN.gte(currentPriceBN);
+
+          if (isInvalid) {
+            let errorMessage = '';
+            if (isLongPosition) {
+              // Long + above
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_1,
+              });
+            } else {
+              // Short + below
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_tp_desc_2,
+              });
+            }
+
+            Toast.error({
+              title: errorMessage,
+            });
+            return;
+          }
+        }
+
+        if (
+          !slOrder &&
+          formData.slPrice &&
+          slPriceBN.isFinite() &&
+          currentPriceBN.gt(0)
+        ) {
+          const isInvalid = isLongPosition
+            ? slPriceBN.gte(currentPriceBN)
+            : slPriceBN.lte(currentPriceBN);
+          if (isInvalid) {
+            let errorMessage = '';
+            if (isLongPosition) {
+              // Long + below
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_1,
+              });
+            } else {
+              // Short + above
+              errorMessage = appLocale.intl.formatMessage({
+                id: ETranslations.perp_invaild_sl_desc_2,
+              });
+            }
+
+            Toast.error({
+              title: errorMessage,
+            });
+            return;
+          }
+        }
+        onClose();
         // Call the actual setPositionTpsl action
         await hyperliquidActions.current.setPositionTpsl({
           assetId,
@@ -317,6 +406,8 @@ const SetTpslForm = memo(
       onClose,
       slOrder,
       tpOrder,
+      midPrice,
+      isValidForm,
     ]);
 
     // Early return if position doesn't exist to prevent accessing undefined properties
@@ -326,7 +417,7 @@ const SetTpslForm = memo(
 
     return (
       <YStack flex={1}>
-        <YStack flex={1} gap="$4" pb="$6">
+        <YStack flex={1} gap="$3" pb="$6">
           <YStack gap="$3">
             <XStack justifyContent="space-between" alignItems="center">
               <SizableText size="$bodyMd" color="$textSubdued">
@@ -365,17 +456,26 @@ const SetTpslForm = memo(
                   id: ETranslations.perp_position_mark_price,
                 })}
               </SizableText>
-              <MarkPrice coin={currentPosition.coin} szDecimals={szDecimals} />
+              <MarkPrice coin={currentPosition.coin} />
             </XStack>
           </YStack>
+          <Divider />
           {!tpOrder ? null : (
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Take Profit
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_trade_tp_price,
+                })}
               </SizableText>
               <YStack>
-                <SizableText size="$bodyMdMedium">
-                  Price above {tpOrder.triggerPx}
+                <XStack gap="$1">
+                  <SizableText size="$bodyMdMedium">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_above,
+                    })}
+                    {': '}
+                    {tpOrder.triggerPx}
+                  </SizableText>
                   <SizableText
                     size="$bodyMd"
                     color="$green9"
@@ -383,12 +483,17 @@ const SetTpslForm = memo(
                     cursor="pointer"
                     onPress={() => handleCancelOrder(tpOrder)}
                   >
-                    Cancel
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_open_orders_cancel,
+                    })}
                   </SizableText>
-                </SizableText>
+                </XStack>
                 {expectedProfit ? (
-                  <SizableText size="$bodyMdMedium" alignSelf="flex-end">
-                    Expected profit: ${expectedProfit}
+                  <SizableText size="$bodySm" alignSelf="flex-end">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_profit,
+                    })}
+                    {': '}${expectedProfit}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -413,11 +518,19 @@ const SetTpslForm = memo(
           {!slOrder ? null : (
             <XStack justifyContent="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Stop Loss
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.perp_trade_sl_price,
+                })}
               </SizableText>
               <YStack>
-                <SizableText size="$bodyMdMedium">
-                  Price below {slOrder.triggerPx}
+                <XStack gap="$1">
+                  <SizableText size="$bodyMdMedium">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_below,
+                    })}
+                    {': '}
+                    {slOrder.triggerPx}
+                  </SizableText>
                   <SizableText
                     size="$bodyMd"
                     color="$green9"
@@ -425,12 +538,17 @@ const SetTpslForm = memo(
                     cursor="pointer"
                     onPress={() => handleCancelOrder(slOrder)}
                   >
-                    Cancel
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_open_orders_cancel,
+                    })}
                   </SizableText>
-                </SizableText>
+                </XStack>
                 {expectedLoss ? (
-                  <SizableText size="$bodyMdMedium" alignSelf="flex-end">
-                    Expected loss: ${expectedLoss}
+                  <SizableText size="$bodySm" alignSelf="flex-end">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.perp_tp_sl_loss,
+                    })}
+                    {': '}${expectedLoss}
                   </SizableText>
                 ) : null}
               </YStack>
@@ -475,12 +593,12 @@ const SetTpslForm = memo(
                 </YStack>
 
                 <YStack flex={1} width="100%">
-                  <Slider
+                  <PerpsSlider
                     value={formData.percentage}
                     onChange={handlePercentageChange}
                     max={100}
                     min={0}
-                    step={1}
+                    segments={0}
                   />
                 </YStack>
               </YStack>
@@ -489,10 +607,10 @@ const SetTpslForm = memo(
         </YStack>
         <TradingGuardWrapper>
           <Button
-            size="large"
+            size={isMobile ? 'large' : 'medium'}
             variant="primary"
             onPress={handleSubmit}
-            disabled={isSubmitting}
+            disabled={!isValidForm || isSubmitting}
             loading={isSubmitting}
           >
             {appLocale.intl.formatMessage({
@@ -511,7 +629,7 @@ function SetTpslModal() {
   const route =
     useRoute<RouteProp<IModalPerpParamList, EModalPerpRoutes.MobileSetTpsl>>();
 
-  const { coin, szDecimals, assetId } = route.params;
+  const { coin, szDecimals, assetId, isMobile = true } = route.params;
   const navigation = useNavigation();
   const handleClose = useCallback(() => {
     navigation.goBack();
@@ -531,6 +649,7 @@ function SetTpslModal() {
               szDecimals={szDecimals}
               assetId={assetId}
               onClose={handleClose}
+              isMobile={isMobile}
             />
           </YStack>
         </PerpsProviderMirror>

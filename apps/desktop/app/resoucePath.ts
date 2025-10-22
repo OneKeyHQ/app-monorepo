@@ -17,16 +17,19 @@ const getJsBundleStaticPath = () => {
   return undefined;
 };
 
+export const getAppStaticResourcesPath = () => {
+  return isDev
+    ? path.join(__dirname, '../../public/static')
+    : process.resourcesPath;
+};
+
 export const getResourcesPath = () => {
   const staticPath = getJsBundleStaticPath();
   if (staticPath) {
     const dir = path.dirname(staticPath);
     return dir;
   }
-
-  return isDev
-    ? path.join(__dirname, '../../public/static')
-    : process.resourcesPath;
+  return getAppStaticResourcesPath();
 };
 
 export const getStaticPath = () => {

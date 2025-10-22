@@ -1,11 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
-import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
@@ -14,22 +14,8 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-export function useLocaleOptions() {
-  const intl = useIntl();
-  const localeOptions = useMemo(
-    () =>
-      [
-        {
-          label: intl.formatMessage({
-            id: ETranslations.global_auto,
-          }),
-          value: 'system',
-        },
-      ].concat(LOCALES_OPTION),
-    [intl],
-  );
-  return localeOptions;
-}
+export { useLanguageSelector } from './useLanguageSelector';
+export { useLocaleOptions } from './useLocaleOptions';
 
 export const inAppStateLockStyle: {
   sheetProps: IDialogProps['sheetProps'];

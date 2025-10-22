@@ -9,10 +9,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type {
-  EApproveType,
-  IStakeTxResponse,
-  IStakingInfo,
+import {
+  type EApproveType,
+  EInternalDappEnum,
+  type IStakeTxResponse,
+  type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -107,11 +108,13 @@ export function useUniversalStake({
           permitSignature,
         });
 
-      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-        networkId,
-        accountId,
-        tx: stakeTx.tx,
-      });
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+          networkId,
+          accountId,
+          tx: stakeTx.tx,
+          internalDappType: EInternalDappEnum.Staking,
+        });
 
       let useFeeInTx;
       let feeInfoEditable;
@@ -242,11 +245,13 @@ export function useUniversalWithdraw({
             withdrawAll,
           });
       }
-      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-        networkId,
-        accountId,
-        tx: stakeTx.tx,
-      });
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+          networkId,
+          accountId,
+          tx: stakeTx.tx,
+          internalDappType: EInternalDappEnum.Staking,
+        });
       let useFeeInTx;
       let feeInfoEditable;
       if (
@@ -346,11 +351,13 @@ export function useUniversalClaim({
             claimTokenAddress,
             vault,
           });
-        const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-          networkId,
-          accountId,
-          tx: stakeTx.tx,
-        });
+        const encodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: stakeTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+          });
         let useFeeInTx;
         let feeInfoEditable;
         if (

@@ -67,6 +67,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountAddress,
           unsignedTx,
           isMultiTxs,
+          sourceInfo: params.sourceInfo,
         }),
       ),
     );
@@ -120,6 +121,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       transferPayload,
       saveToLocalHistory,
       isMultiTxs,
+      sourceInfo,
     } = params;
 
     let parsedTx: IParseTransactionResp | null = null;
@@ -160,6 +162,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountId,
           accountAddress,
           encodedTx: unsignedTx.encodedTx,
+          origin: sourceInfo?.origin,
         });
       } catch (e) {
         console.log('parse tx through api failed', e);
@@ -232,7 +235,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, origin } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -260,6 +263,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
+        origin,
       },
       {
         headers:
@@ -354,6 +358,19 @@ class ServiceSignatureConfirm extends ServiceBase {
     return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
+    });
+  }
+
+  @backgroundMethod()
+  async preActionsBeforeConfirm(params: {
+    accountId: string;
+    networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
+  }) {
+    const { accountId, networkId, unsignedTxs } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.preActionsBeforeConfirm({
+      unsignedTxs,
     });
   }
 

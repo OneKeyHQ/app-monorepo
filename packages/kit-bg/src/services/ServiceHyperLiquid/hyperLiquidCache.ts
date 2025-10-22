@@ -15,6 +15,14 @@ class HyperLiquidCache {
   set allMids(allMids: IWsAllMids) {
     this._allMids = allMids;
   }
+
+  public activatedUser: {
+    [address: string]: boolean;
+  } = {};
+
+  public referrerCodeSetDone: {
+    [addressAndAgentName: string]: boolean;
+  } = {};
 }
 
 export default new HyperLiquidCache();

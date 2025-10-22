@@ -52,6 +52,7 @@ import {
   COINTYPE_DNX,
   COINTYPE_ETH,
   FIRST_EVM_ADDRESS_PATH,
+  IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
@@ -3284,42 +3285,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     });
 
-    await this.withTransaction(EIndexedDBBucketNames.archive, async (tx) => {
-      const isHardware =
-        accountUtils.isHwWallet({
-          walletId,
-        }) || accountUtils.isQrWallet({ walletId });
-
-      if (
-        isHardware &&
-        !isRemoveToMocked &&
-        wallet.associatedDevice &&
-        !accountUtils.isHwHiddenWallet({ wallet })
-      ) {
-        try {
-          // remove device home screen
-          const deviceHomeScreenIds = await this.txGetRecordIds({
-            tx,
-            name: ELocalDBStoreNames.HardwareHomeScreen,
-          });
-          const needRemoveDeviceHomeScreenIds = deviceHomeScreenIds.filter(
-            (id) =>
-              wallet.associatedDevice && id.startsWith(wallet.associatedDevice),
-          );
-          if (needRemoveDeviceHomeScreenIds.length) {
-            await this.txRemoveRecords({
-              tx,
-              name: ELocalDBStoreNames.HardwareHomeScreen,
-              ids: needRemoveDeviceHomeScreenIds,
-              ignoreNotFound: true,
-            });
-          }
-        } catch (error) {
-          console.log('remove device, clean home screen error');
-        }
-      }
-    });
-
     await this.removeCloudSyncPoolItems({ keys: [syncKeyInfo.key] });
 
     delete this.tempWallets[walletId];
@@ -4982,9 +4947,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const accountId = account.id;
           const { indexedAccountId, address, addressDetail, type } = account;
 
+          const impl = networkUtils.getNetworkImpl({ networkId });
           let id = address ? `${networkId}--${address}` : '';
-          if (type === EDBAccountType.SIMPLE) {
-            const impl = networkUtils.getNetworkImpl({ networkId });
+          if (type === EDBAccountType.SIMPLE || impl === IMPL_EVM) {
             const normalizedAddress =
               addressDetail?.normalizedAddress || address;
             id = normalizedAddress ? `${impl}--${normalizedAddress}` : '';

@@ -142,7 +142,7 @@ jobs:
       - name: upload bundle
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-bundle
+          name: onekey-desktop-bundle-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/bundle-zip/*
             !**/.DS_Store

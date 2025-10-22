@@ -16,14 +16,14 @@ import {
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+
 import {
   AnimatePresence,
   Sheet,
   SizableText,
-  Dialog as TMDialog,
+  TMDialog,
   useMedia,
-} from 'tamagui';
-
+} from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

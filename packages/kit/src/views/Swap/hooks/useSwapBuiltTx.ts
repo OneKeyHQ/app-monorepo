@@ -35,6 +35,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -58,6 +60,10 @@ import {
   ESigningScheme,
 } from '@onekeyhq/shared/types/message';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import {
+  EInternalDappEnum,
+  type IStakeTx,
+} from '@onekeyhq/shared/types/staking';
 import type {
   ESwapCancelLimitOrderSource,
   IFetchBuildTxResponse,
@@ -101,7 +107,6 @@ import {
   useSwapStepsAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
-import { calculateFeeForSend } from '../../../utils/gasFee';
 
 import { useSwapAddressInfo } from './useSwapAccount';
 import {
@@ -109,6 +114,10 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
+
+const formatter: INumberFormatProps = {
+  formatter: 'balance',
+};
 
 /**
  * React hook that manages the full lifecycle of building, approving, signing, and sending swap transactions in a multi-step workflow.
@@ -345,9 +354,7 @@ export function useSwapBuildTx() {
                     },
                     {
                       token: item.token.symbol,
-                      number: numberFormat(tokenAmountBN.toFixed(), {
-                        formatter: 'balance',
-                      }) as string,
+                      number: numberFormat(tokenAmountBN.toFixed(), formatter),
                     },
                   ),
                 });
@@ -537,7 +544,21 @@ export function useSwapBuildTx() {
           };
         },
       );
-
+      const { totalNative } = calculateFeeForSend({
+        feeInfo: gasInfo as IFeeInfoUnit,
+        nativeTokenPrice: gasInfo.common?.nativeTokenPrice ?? 0,
+      });
+      await backgroundApiProxy.serviceTransaction.verifyTransaction({
+        networkId,
+        accountId,
+        verifyTxTasks: ['feeInfo'],
+        verifyTxFeeInfoParams: {
+          feeAmount: totalNative,
+          feeTokenSymbol: gasInfo.common?.nativeSymbol ?? '',
+          doubleConfirm: true,
+        },
+        encodedTx: updatedUnsignedTxItem.encodedTx,
+      });
       const res = await backgroundApiProxy.serviceSend.signAndSendTransaction({
         networkId,
         accountId,
@@ -1737,6 +1758,38 @@ export function useSwapBuildTx() {
               encodedTx = buildSwapRes.tx as string;
             }
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          } else if (buildSwapRes.btcData || buildSwapRes.suiBase64Data) {
+            let inputTx: IStakeTx | undefined;
+            if (buildSwapRes.btcData) {
+              if (
+                buildSwapRes.btcData.addressType.includes(
+                  swapFromAddressInfo.accountInfo.deriveInfo?.addressEncoding ??
+                    '',
+                )
+              ) {
+                inputTx = {
+                  psbtHex: buildSwapRes.btcData.hexStr,
+                };
+              } else {
+                Toast.error({
+                  title: intl.formatMessage({
+                    id: ETranslations.feedback_derivation_path_restriction,
+                  }),
+                });
+              }
+            }
+            if (buildSwapRes.suiBase64Data) {
+              inputTx = buildSwapRes.suiBase64Data;
+            }
+            if (inputTx) {
+              encodedTx =
+                await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                  networkId: swapFromAddressInfo.networkId ?? '',
+                  tx: inputTx,
+                  internalDappType: EInternalDappEnum.Swap,
+                });
+            }
           } else if (
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             buildSwapRes?.ctx?.cowSwapOrderId ||
@@ -1837,12 +1890,14 @@ export function useSwapBuildTx() {
     },
     [
       checkOtherFee,
+      intl,
       isFirstTimeSwap,
       isModalPage,
       setSwapSteps,
       slippageItem,
       swapBuildFinish,
       swapFromAddressInfo.accountInfo?.account?.id,
+      swapFromAddressInfo.accountInfo?.deriveInfo?.addressEncoding,
       swapFromAddressInfo.accountInfo?.wallet?.type,
       swapFromAddressInfo.address,
       swapFromAddressInfo.networkId,
@@ -2972,6 +3027,8 @@ export function useSwapBuildTx() {
                 error?.key !== 'global.cancel' &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.code !== 803 &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== -99_999 &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
                 !error?.message?.toLowerCase()?.includes('reject') &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

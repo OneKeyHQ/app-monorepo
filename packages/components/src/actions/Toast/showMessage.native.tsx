@@ -15,6 +15,7 @@ export function showMessage({ renderContent, duration }: IToastMessageOptions) {
         alignSelf="center"
         width={width}
       >
+        {/* @ts-ignore */}
         <View
           bg="$bg"
           px="$4"
@@ -27,7 +28,9 @@ export function showMessage({ renderContent, duration }: IToastMessageOptions) {
           }}
           shadowOpacity={0.15}
           shadowRadius={4.65}
-          elevationAndroid={7}
+          $platform-android={{
+            elevation: 7,
+          }}
         >
           {renderContent({ width })}
         </View>

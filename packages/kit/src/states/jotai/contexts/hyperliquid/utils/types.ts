@@ -6,6 +6,7 @@ export enum EActionType {
   ORDERS_CLOSE = 'ordersClose',
   LIMIT_ORDER_CLOSE = 'limitOrderClose',
   UPDATE_LEVERAGE = 'updateLeverage',
+  UPDATE_ISOLATED_MARGIN = 'updateIsolatedMargin',
   SET_POSITION_TPSL = 'setPositionTpsl',
   CANCEL_ORDER = 'cancelOrder',
   WITHDRAW = 'withdraw',

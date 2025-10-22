@@ -40,6 +40,9 @@ export const PERPS_EMPTY_ADDRESS =
 
 // 'id': 'evm--42161',
 export const PERPS_NETWORK_ID: string = presetNetworksMap.arbitrum.id;
+export const PERPS_ARB_USDC_ADDRESS =
+  '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9';
+export const PERPS_ETH_NETWORK_ID: string = presetNetworksMap.eth.id;
 // 'chainId': '42161',
 export const PERPS_EVM_CHAIN_ID_NUM: string =
   presetNetworksMap.arbitrum.chainId;
@@ -50,3 +53,9 @@ export const PERPS_EVM_CHAIN_ID_HEX: `0x${string}` = numberUtils.numberToHex(
     prefix0x: true,
   },
 ) as `0x${string}`;
+
+export const PERPS_USER_FILLS_TIME_RANGE = timerUtils.getTimeDurationMs({
+  day: 15,
+});
+
+export const PERPS_HISTORY_FILLS_URL = 'https://hypurrscan.io/address/';

@@ -1,6 +1,6 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IExportKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';

@@ -1,6 +1,7 @@
 import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
+import { ANDROID_CHANNEL } from './androidNativeEnv';
 import appGlobals from './appGlobals';
 import { isWebInDappMode } from './utils/devModeUtils';
 
@@ -43,6 +44,7 @@ export type IPlatformEnv = {
 
   appFullName: string;
   version: string | undefined;
+  androidChannel: string | undefined;
   bundleVersion: string | undefined;
   buildNumber: string | undefined;
   buildTime: number | undefined;
@@ -183,10 +185,10 @@ const isNativeIOSPhone =
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
+const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
-  isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
-const isNativeAndroidHuawei =
-  isNativeAndroid && process.env.ANDROID_CHANNEL === 'huawei';
+  isNativeAndroid && androidChannel === 'google';
+const isNativeAndroidHuawei = isNativeAndroid && androidChannel === 'huawei';
 const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 
 // for platform building by file extension
@@ -458,6 +460,7 @@ const platformEnv: IPlatformEnv = {
   isNewRouteMode: true,
 
   appFullName: '',
+  androidChannel,
   version: process.env.VERSION,
   bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,

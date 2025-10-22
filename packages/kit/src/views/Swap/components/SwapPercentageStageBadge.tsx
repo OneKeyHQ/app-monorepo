@@ -1,18 +1,16 @@
 import type { IStackProps } from '@onekeyhq/components';
-import { Badge, Popover } from '@onekeyhq/components';
+import { Badge } from '@onekeyhq/components';
 
 const SwapPercentageStageBadge = ({
   stage,
   onSelectStage,
   badgeSize,
   key,
-  popoverContent,
   ...props
 }: {
   stage: number;
   badgeSize?: 'sm' | 'lg';
   onSelectStage?: (stage: number) => void;
-  popoverContent?: React.ReactNode;
   key: string;
 } & IStackProps) => {
   const component = (
@@ -40,16 +38,6 @@ const SwapPercentageStageBadge = ({
       </Badge.Text>
     </Badge>
   );
-  if (popoverContent) {
-    return (
-      <Popover
-        renderTrigger={component}
-        renderContent={() => popoverContent}
-        title=""
-        showHeader={false}
-      />
-    );
-  }
   return component;
 };
 

@@ -1,6 +1,5 @@
-import { useMedia } from 'tamagui';
-
 import { useOrientation } from '@onekeyhq/components/src/hooks/useOrientation';
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DesktopLeftSideBar } from './DesktopLeftSideBar';
@@ -25,6 +24,11 @@ export default function TabBar({
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
+  const { gtMd } = useMedia();
+
+  if (platformEnv.isWebDappMode && gtMd) {
+    return null;
+  }
 
   if (platformEnv.isNativeAndroid || isShowMobileBottomTabBar) {
     return <MobileBottomTabBar {...props} />;

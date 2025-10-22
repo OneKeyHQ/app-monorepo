@@ -1,5 +1,6 @@
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { IFormFieldProps } from '../types';
-import type { StackStyle } from '@tamagui/web';
 import type { LayoutChangeEvent } from 'react-native';
 
 type INonGestureStackStyleProps = Omit<

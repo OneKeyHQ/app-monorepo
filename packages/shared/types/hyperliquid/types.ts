@@ -3,17 +3,21 @@ import type { IPerpServerBannerConfig } from '@onekeyhq/kit-bg/src/services/Serv
 import type { IHex, IWithdraw3Request } from './sdk';
 import type { EHyperLiquidAgentName } from '../../src/consts/perp';
 
+export enum EPerpsSubscriptionCategory {
+  MARKET = 'market',
+  ACCOUNT = 'account',
+}
 export enum ESubscriptionType {
   ALL_MIDS = 'allMids',
+  L2_BOOK = 'l2Book',
   ACTIVE_ASSET_CTX = 'activeAssetCtx',
+  ACTIVE_ASSET_DATA = 'activeAssetData',
   WEB_DATA2 = 'webData2',
   USER_FILLS = 'userFills',
-  L2_BOOK = 'l2Book',
-  TRADES = 'trades',
-  BBO = 'bbo',
-  ACTIVE_ASSET_DATA = 'activeAssetData',
-  USER_EVENTS = 'userEvents',
-  USER_NOTIFICATIONS = 'userNotifications',
+  // TRADES = 'trades',
+  // BBO = 'bbo',
+  // USER_EVENTS = 'userEvents',
+  // USER_NOTIFICATIONS = 'userNotifications',
 }
 
 export interface IConnectionState {
@@ -86,7 +90,8 @@ export interface IOrderCloseParams {
   assetId: number;
   isBuy: boolean;
   size: string;
-  midPx: string;
+  midPx?: string;
+  limitPx?: string;
   slippage?: number;
 }
 
@@ -101,16 +106,6 @@ export interface ICancelOrderParams {
   oid: number;
 }
 
-export interface IMultiOrderParams {
-  orders: Array<{
-    assetId: number;
-    isBuy: boolean;
-    sz: string;
-    limitPx: string;
-    orderType: { limit: { tif: 'Gtc' | 'Ioc' } };
-  }>;
-}
-
 export interface IWithdrawParams extends IWithdraw3Request {
   userAccountId: string;
 }
@@ -119,6 +114,12 @@ export interface ILeverageUpdateRequest {
   asset: number;
   isCross: boolean;
   leverage: number;
+}
+
+export interface IUpdateIsolatedMarginRequest {
+  asset: number;
+  isBuy: boolean;
+  ntli: number; // Margin amount in USDC (multiplied by 1e6): positive to add, negative to remove
 }
 
 export interface ISetReferrerRequest {
@@ -156,6 +157,24 @@ export interface IPerpOrderBookTickOptionPersist {
   mantissa: IL2BookOptions['mantissa'];
 }
 
+export type IHyperLiquidErrorMatcher =
+  | {
+      type: 'exact';
+      value?: string;
+    }
+  | {
+      type: 'regex';
+      pattern?: string;
+    };
+
+export interface IHyperLiquidErrorLocaleItem {
+  i18nKey: string;
+  rawMessage: string;
+  localizedMessage: string;
+  variables: string[];
+  matcher: IHyperLiquidErrorMatcher;
+}
+
 export interface IPerpCommonConfig {
   disablePerp?: boolean;
   usePerpWeb?: boolean;
@@ -189,4 +208,20 @@ export type IPerpsFormattedAssetCtx = {
 export enum EPerpsSizeInputMode {
   MANUAL = 'manual',
   SLIDER = 'slider',
+}
+
+// Token Selector Sorting Types
+export type IPerpTokenSortField =
+  | 'name'
+  | 'markPrice'
+  | 'change24hPercent'
+  | 'fundingRate'
+  | 'volume24h'
+  | 'openInterest';
+
+export type IPerpTokenSortDirection = 'asc' | 'desc';
+
+export interface IPerpTokenSortConfig {
+  field: IPerpTokenSortField;
+  direction: IPerpTokenSortDirection;
 }

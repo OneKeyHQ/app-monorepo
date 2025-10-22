@@ -87,21 +87,17 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
   const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
+  const shouldShowMarketTab = !(
+    platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
+  );
   const perpTabShowRes = useMemo(() => {
     if (perpConfigCommon?.disablePerp) {
       return null;
     }
-    // not working for extension
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const tabbarOnPress =
-      platformEnv.isExtension &&
-      (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel)
-        ? async () => {
-            if (platformEnv.isExtension) {
-              await backgroundApiProxy.serviceWebviewPerp.openExtPerpTab();
-            }
-          }
-        : undefined;
+
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      return null;
+    }
     if (
       perpConfigCommon?.usePerpWeb ||
       perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
@@ -114,7 +110,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         freezeOnBlur: Boolean(params?.freezeOnBlur),
         rewrite: '/perp',
         exact: true,
-        // tabbarOnPress,
         children: platformEnv.isExtension
           ? // small screen error: Cannot read properties of null (reading 'filter')
             // null
@@ -174,23 +169,25 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: homeRouters,
           trackId: 'global-wallet',
         },
-        {
-          name: ETabRoutes.Market,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
-          translationId: ETranslations.global_market,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/market',
-          exact: true,
-          children: marketRouters,
-          trackId: 'global-market',
-          // Only apply custom tab press handler for non-mobile platforms
-          ...(platformEnv.isDesktop ||
-          platformEnv.isWeb ||
-          platformEnv.isExtension
-            ? { onPressWhenSelected: handleMarketTabPress }
-            : {}),
-        },
+        shouldShowMarketTab
+          ? {
+              name: ETabRoutes.Market,
+              tabBarIcon: (focused?: boolean) =>
+                focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+              translationId: ETranslations.global_market,
+              freezeOnBlur: Boolean(params?.freezeOnBlur),
+              rewrite: '/market',
+              exact: true,
+              children: marketRouters,
+              trackId: 'global-market',
+              // Only apply custom tab press handler for non-mobile platforms
+              ...(platformEnv.isDesktop ||
+              platformEnv.isWeb ||
+              platformEnv.isExtension
+                ? { onPressWhenSelected: handleMarketTabPress }
+                : {}),
+            }
+          : undefined,
         {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
@@ -229,6 +226,8 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               name: ETabRoutes.DeviceManagement,
               tabBarIcon: () => 'OnekeyDeviceCustom',
               translationId: ETranslations.global_my_onekey,
+              collapseSideBarTranslationId:
+                ETranslations.prime_cloud_data_found_sync_device,
               tabbarOnPress: toMyOneKeyModal,
               children: null,
               trackId: 'global-my-onekey',
@@ -266,20 +265,19 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               marginTop: getTokenValue('$4', 'size'),
             })
           : undefined,
-      ].filter<ITabNavigatorConfig<ETabRoutes>>(
-        (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
-      ),
+      ].filter((i) => !!i),
     [
-      isShowDesktopDiscover,
-      isShowMDDiscover,
-      isShowMyOneKeyOnTabbar,
       params,
-      toMyOneKeyModal,
-      toReferFriendsPage,
       handleMarketTabPress,
       perpTabShowRes,
+      isShowMyOneKeyOnTabbar,
+      toReferFriendsPage,
+      toMyOneKeyModal,
+      isShowMDDiscover,
+      isShowDesktopDiscover,
+      shouldShowMarketTab,
     ],
-  );
+  ) as ITabNavigatorConfig<ETabRoutes>[];
 };
 
 export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =

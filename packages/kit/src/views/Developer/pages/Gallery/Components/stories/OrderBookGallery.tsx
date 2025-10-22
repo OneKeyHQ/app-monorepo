@@ -112,7 +112,12 @@ const OrderBookDemo = () => {
             Order Book (horizontal)
           </SizableText>
           <Stack p="$2">
-            <OrderBook bids={bids} asks={asks} maxLevelsPerSide={15} />
+            <OrderBook
+              bids={bids}
+              asks={asks}
+              maxLevelsPerSide={15}
+              variant="web"
+            />
           </Stack>
         </Stack>
 
@@ -126,12 +131,18 @@ const OrderBookDemo = () => {
               bids={bids}
               asks={asks}
               maxLevelsPerSide={15}
+              variant="web"
             />
           </Stack>
         </Stack>
       </Stack>
       <Stack p="$2">
-        <OrderPairBook bids={bids} asks={asks} maxLevelsPerSide={15} />
+        <OrderPairBook
+          bids={bids}
+          asks={asks}
+          maxLevelsPerSide={15}
+          variant="web"
+        />
       </Stack>
 
       <Stack gap="$2">

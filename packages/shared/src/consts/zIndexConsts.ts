@@ -2,6 +2,8 @@ export const APP_STATE_LOCK_Z_INDEX = 100_000_000;
 
 export const RESET_OVERLAY_Z_INDEX = APP_STATE_LOCK_Z_INDEX + 2;
 
+export const DEV_OVERLAY_FLOAT_BUTTON_Z_INDEX = APP_STATE_LOCK_Z_INDEX + 5;
+
 // in Tamagui:
 //  the z-index of the Sheet is 1e5 - 1.
 export const SHEET_AND_DIALOG_Z_INDEX = 100_000 - 1;

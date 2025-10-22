@@ -3,10 +3,11 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage, resolveSource } from 'expo-image';
 import { StyleSheet } from 'react-native';
-import { usePropsAndStyle } from 'tamagui';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Skeleton } from '../Skeleton';
-import { Stack, YStack } from '../Stack';
+import { YStack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
 import { isEmptyResolvedSource, useResetError } from './utils';
@@ -22,7 +23,7 @@ import type {
 export function ImageV2({
   style: defaultStyle,
   animated,
-  canRetry = true,
+  canRetry: _canRetry = true,
   ...props
 }: IImageV2Props) {
   const sizeProps = useMemo(() => {

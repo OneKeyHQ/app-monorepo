@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
-import { useMedia } from 'tamagui';
-
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { type IIconButtonProps } from '../../../actions';
@@ -76,16 +75,7 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = useCallback(
-    () =>
-      showCollapseButton ? (
-        <HeaderCollapseButton
-          {...headerCollapseButtonProps}
-          isRootScreen={isRootScreen}
-        />
-      ) : null,
-    [showCollapseButton, headerCollapseButtonProps, isRootScreen],
-  );
+  const renderCollapseButton = useCallback(() => null, []);
 
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {

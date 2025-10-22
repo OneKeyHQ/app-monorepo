@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { runOnJS, useAnimatedReaction } from 'react-native-reanimated';
-import { useDebouncedCallback, useThrottledCallback } from 'use-debounce';
+import { useThrottledCallback } from 'use-debounce';
 
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';

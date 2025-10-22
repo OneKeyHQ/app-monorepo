@@ -1,13 +1,16 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+
 import type {
   IHex,
+  IL2BookOptions,
   IMarginTable,
   IPerpCommonConfig,
+  IPerpTokenSortConfig,
   IPerpUserConfig,
   IPerpsActiveAssetData,
   IPerpsFormattedAssetCtx,
   IPerpsUniverse,
-  IWsActiveAssetCtx,
 } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -46,6 +49,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
+      totalUnrealizedPnl: string | undefined;
     }
   | undefined;
 export const {
@@ -56,46 +60,71 @@ export const {
   initialValue: undefined,
 });
 
+export const {
+  target: perpsActiveAccountMmrAtom,
+  use: usePerpsActiveAccountMmrAtom,
+} = globalAtomComputedR<{ mmr: string | null; mmrPercent: string | null }>({
+  read: (get) => {
+    const accountSummary = get(perpsActiveAccountSummaryAtom.atom());
+
+    if (
+      !accountSummary?.crossMaintenanceMarginUsed ||
+      !accountSummary?.crossAccountValue
+    ) {
+      return { mmr: null, mmrPercent: null };
+    }
+
+    const maintenanceMarginUsed = new BigNumber(
+      accountSummary.crossMaintenanceMarginUsed,
+    );
+    const accountValue = new BigNumber(accountSummary.crossAccountValue);
+
+    // Avoid division by zero
+    if (accountValue.isZero()) {
+      return { mmr: null, mmrPercent: null };
+    }
+
+    const mmr = maintenanceMarginUsed.dividedBy(accountValue);
+    return { mmr: mmr.toFixed(), mmrPercent: mmr.multipliedBy(100).toFixed(2) };
+  },
+});
+
 export type IPerpsActiveAccountStatusDetails = {
   activatedOk: boolean;
   agentOk: boolean;
   referralCodeOk: boolean;
   builderFeeOk: boolean;
 };
-export interface IPerpsActiveAccountStatusInfoAtom {
-  accountAddress: IHex | null;
-  details: IPerpsActiveAccountStatusDetails;
-}
+export type IPerpsActiveAccountStatusInfoAtom =
+  | {
+      accountAddress: IHex | null;
+      details: IPerpsActiveAccountStatusDetails;
+    }
+  | undefined;
 export const { target: perpsActiveAccountStatusInfoAtom } =
   globalAtom<IPerpsActiveAccountStatusInfoAtom>({
     name: EAtomNames.perpsActiveAccountStatusInfoAtom,
-    initialValue: {
-      accountAddress: null,
-      details: {
-        agentOk: false,
-        builderFeeOk: false,
-        referralCodeOk: false,
-        activatedOk: false,
-      },
-    },
+    initialValue: undefined,
   });
 
-export const {
-  target: perpsActiveAccountStatusAtom,
-  use: usePerpsActiveAccountStatusAtom,
-} = globalAtomComputedR<{
+export type IPerpsActiveAccountStatusAtom = {
   canTrade: boolean | null | undefined;
   canCreateAddress: boolean;
   accountNotSupport: boolean;
   accountAddress: IHex | null;
   details: IPerpsActiveAccountStatusDetails | undefined;
-}>({
+};
+export const {
+  target: perpsActiveAccountStatusAtom,
+  use: usePerpsActiveAccountStatusAtom,
+} = globalAtomComputedR<IPerpsActiveAccountStatusAtom>({
   read: (get) => {
     const status = get(perpsActiveAccountStatusInfoAtom.atom());
     const account = get(perpsActiveAccountAtom.atom());
     const details: IPerpsActiveAccountStatusDetails | undefined =
-      status.accountAddress?.toLowerCase() ===
-        account.accountAddress?.toLowerCase() && status.accountAddress
+      status?.accountAddress &&
+      status?.accountAddress?.toLowerCase() ===
+        account.accountAddress?.toLowerCase()
         ? status.details
         : undefined;
     const canTrade =
@@ -118,6 +147,18 @@ export const {
   },
 });
 
+export const {
+  target: perpsActiveAccountIsAgentReadyAtom,
+  use: usePerpsActiveAccountIsAgentReadyAtom,
+} = globalAtomComputedR<{ isAgentReady: boolean }>({
+  read: (get) => {
+    const status = get(perpsActiveAccountStatusAtom.atom());
+    return {
+      isAgentReady: Boolean(status?.details?.agentOk && status?.canTrade),
+    };
+  },
+});
+
 export interface IPerpsAccountLoadingInfo {
   selectAccountLoading: boolean;
   enableTradingLoading: boolean;
@@ -130,6 +171,19 @@ export const {
   initialValue: {
     selectAccountLoading: false,
     enableTradingLoading: false,
+  },
+});
+
+export const {
+  target: perpsShouldShowEnableTradingButtonAtom,
+  use: usePerpsShouldShowEnableTradingButtonAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => {
+    const status = get(perpsActiveAccountStatusAtom.atom());
+    const loading = get(perpsAccountLoadingInfoAtom.atom());
+    const isAccountLoading =
+      loading.enableTradingLoading || loading.selectAccountLoading;
+    return isAccountLoading || !status?.canTrade || !status?.accountAddress;
   },
 });
 
@@ -178,6 +232,31 @@ export const {
   initialValue: undefined,
 });
 
+// Token Selector Sort Config (Persisted)
+// null means no sorting applied, preserving default order from API
+export const {
+  target: perpTokenSortConfigPersistAtom,
+  use: usePerpTokenSortConfigPersistAtom,
+} = globalAtom<IPerpTokenSortConfig | null>({
+  name: EAtomNames.perpTokenSortConfigPersistAtom,
+  persist: true,
+  initialValue: null,
+});
+
+export type IPerpsActiveOrderBookOptionsAtom =
+  | (IL2BookOptions & {
+      coin: string;
+      assetId: number | undefined;
+    })
+  | undefined;
+export const {
+  target: perpsActiveOrderBookOptionsAtom,
+  use: usePerpsActiveOrderBookOptionsAtom,
+} = globalAtom<IPerpsActiveOrderBookOptionsAtom>({
+  name: EAtomNames.perpsActiveOrderBookOptionsAtom,
+  initialValue: undefined,
+});
+
 // #endregion
 
 // #region Settings & Config
@@ -191,9 +270,64 @@ export const {
   name: EAtomNames.perpsCommonConfigPersistAtom,
   persist: true,
   initialValue: {
-    perpConfigCommon: {},
+    perpConfigCommon: {
+      disablePerp: true, // Default to hide perps tab, will be overridden by server config
+    },
   },
 });
+
+export interface IPerpsDepositNetwork {
+  networkId: string;
+  name: string;
+  code: string;
+  shortcode: string;
+  shortname: string;
+  logoURI: string;
+  symbol: string;
+  decimals: number;
+}
+
+export interface IPerpsDepositNetworksAtom {
+  networks: IPerpsDepositNetwork[];
+  currentPerpsDepositSelectedNetwork?: IPerpsDepositNetwork;
+}
+export const {
+  target: perpsDepositNetworksAtom,
+  use: usePerpsDepositNetworksAtom,
+} = globalAtom<IPerpsDepositNetworksAtom>({
+  name: EAtomNames.perpsDepositNetworksAtom,
+  initialValue: {
+    networks: [],
+  },
+});
+export interface IPerpsDepositToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokensAtom {
+  tokens: Map<string, IPerpsDepositToken[]>;
+  currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+}
+export const {
+  target: perpsDepositTokensAtom,
+  use: usePerpsDepositTokensAtom,
+} = globalAtom<IPerpsDepositTokensAtom>({
+  name: EAtomNames.perpsDepositTokensAtom,
+  initialValue: {
+    tokens: new Map(),
+  },
+});
+
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
 }
@@ -224,21 +358,26 @@ export const {
   },
 });
 
+export interface IPerpsTradingPreferences {
+  sizeInputUnit: 'token' | 'usd';
+  slippage: number;
+}
+export const {
+  target: perpsTradingPreferencesAtom,
+  use: usePerpsTradingPreferencesAtom,
+} = globalAtom<IPerpsTradingPreferences>({
+  name: EAtomNames.perpsTradingPreferencesAtom,
+  persist: true,
+  initialValue: {
+    sizeInputUnit: 'usd',
+    slippage: 8,
+  },
+});
+
 // #endregion
 
-// TODO remove
-export type IPerpsCurrentMid = {
-  coin: string;
-  mid: string | undefined;
-};
-export const { target: perpsCurrentMidAtom, use: usePerpsCurrentMidAtom } =
-  globalAtom<IPerpsCurrentMid | undefined>({
-    name: EAtomNames.perpsCurrentMidAtom,
-    initialValue: undefined,
-  });
-
 export interface IPerpsNetworkStatus {
-  connected: boolean;
+  connected: boolean | undefined;
   lastMessageAt: number | null;
 }
 
@@ -248,7 +387,60 @@ export const {
 } = globalAtom<IPerpsNetworkStatus>({
   name: EAtomNames.perpsNetworkStatusAtom,
   initialValue: {
-    connected: true,
+    connected: undefined,
     lastMessageAt: null,
   },
+});
+
+export const {
+  target: perpsWebSocketReadyStateAtom,
+  use: usePerpsWebSocketReadyStateAtom,
+} = globalAtom<{ readyState: number | undefined } | undefined>({
+  name: EAtomNames.perpsWebSocketReadyStateAtom,
+  initialValue: undefined,
+});
+
+export const {
+  target: perpsWebSocketConnectedAtom,
+  use: usePerpsWebSocketConnectedAtom,
+} = globalAtomComputedR<boolean>({
+  read: (get) => {
+    const readyState = get(perpsWebSocketReadyStateAtom.atom());
+    return readyState?.readyState === WebSocket.OPEN;
+  },
+});
+
+export const {
+  target: perpsTradesHistoryRefreshHookAtom,
+  use: usePerpsTradesHistoryRefreshHookAtom,
+} = globalAtom<{ refreshHook: number }>({
+  name: EAtomNames.perpsTradesHistoryRefreshHookAtom,
+  initialValue: { refreshHook: 0 },
+});
+
+export const {
+  target: perpsCandlesWebviewReloadHookAtom,
+  use: usePerpsCandlesWebviewReloadHookAtom,
+} = globalAtom<{ reloadHook: number }>({
+  name: EAtomNames.perpsCandlesWebviewReloadHookAtom,
+  initialValue: { reloadHook: 100 },
+});
+
+export const {
+  target: perpsCandlesWebviewMountedAtom,
+  use: usePerpsCandlesWebviewMountedAtom,
+} = globalAtom<{ mounted: boolean }>({
+  name: EAtomNames.perpsCandlesWebviewMountedAtom,
+  initialValue: { mounted: false },
+});
+
+export const {
+  target: perpsWebSocketDataUpdateTimesAtom,
+  use: usePerpsWebSocketDataUpdateTimesAtom,
+} = globalAtom<{
+  wsDataReceiveTimes: number;
+  wsDataUpdateTimes: number;
+}>({
+  name: EAtomNames.perpsWebSocketDataUpdateTimesAtom,
+  initialValue: { wsDataReceiveTimes: 0, wsDataUpdateTimes: 0 },
 });

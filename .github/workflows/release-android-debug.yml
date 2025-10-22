@@ -94,21 +94,21 @@ jobs:
       - name: Upload Main Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-prod-debug
+          name: release-prod-debug-${{ github.sha }}
           path: |
             ./apps/mobile/android/app/build/outputs/apk/prod/debug
 
       - name: Upload Google Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-google-debug
+          name: release-google-debug-${{ github.sha }}
           path: |
             ./apps/mobile/android/app/build/outputs/apk/google/debug
 
       - name: Upload Huawei Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-huawei-debug
+          name: release-huawei-debug-${{ github.sha }}
           path: |
             ./apps/mobile/android/app/build/outputs/apk/huawei/debug
 

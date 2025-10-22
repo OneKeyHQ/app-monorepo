@@ -99,21 +99,21 @@ jobs:
       - name: Upload x64 Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-win-x64-exe
+          name: onekey-desktop-win-x64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-x64.exe
 
       - name: Upload arm64 Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-win-arm64-exe
+          name: onekey-desktop-win-arm64-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*-arm64.exe
 
       - name: Upload universal Windows exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-win-universal-exe
+          name: onekey-desktop-win-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe
@@ -122,14 +122,14 @@ jobs:
       - name: Upload Artifacts latest.yml
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-windows-desktop-yml
+          name: onekey-windows-desktop-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release-windows
+          name: onekey-windows-desktop-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked

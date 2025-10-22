@@ -1,26 +1,34 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Button, Markdown, Page, ScrollView } from '@onekeyhq/components';
+import { Markdown, Page, ScrollView } from '@onekeyhq/components';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { displayWhatsNewVersion } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 function WhatsNew() {
   const intl = useIntl();
-  const { version = '' } = platformEnv;
-  const response = useAppChangeLog(version);
-  const { changeLog } = response ?? {};
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const changeLog = useAppChangeLog();
   const navigation = useAppNavigation();
+  const handleClose = useCallback(() => {
+    setTimeout(() => {
+      void backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
+    }, 250);
+  }, []);
   return (
-    <Page>
+    <Page onClose={handleClose}>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_updated_title },
           {
-            ver: platformEnv.version,
+            ver: displayWhatsNewVersion(appUpdateInfo),
           },
         )}
       />

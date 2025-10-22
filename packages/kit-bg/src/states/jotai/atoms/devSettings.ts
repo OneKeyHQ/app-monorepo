@@ -52,6 +52,7 @@ export interface IDevSettings {
   showPerformanceMonitor?: boolean;
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
+  showPerpsRenderStats?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

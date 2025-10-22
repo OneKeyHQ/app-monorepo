@@ -102,6 +102,11 @@ export function checkOneKeyCardGoogleOauthUrl({
   ].includes(origin);
 }
 
+export function needEraseElectronFeatureUrl({ url }: { url: string }): boolean {
+  const origin = getOriginFromUrl({ url });
+  return ['https://remix.ethereum.org'].includes(origin);
+}
+
 export function parseUrl(url: string): IUrlValue | null {
   try {
     let formatUrl = url;

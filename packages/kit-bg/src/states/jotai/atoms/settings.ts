@@ -3,11 +3,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
-import {
-  EPerpUserType,
-  type IPerpCommonConfig,
-  type IPerpUserConfig,
-} from '@onekeyhq/shared/types/hyperliquid/types';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
@@ -66,6 +61,7 @@ export type ISettingsPersistAtom = {
   hiddenWalletImmediately: boolean;
   showAddHiddenInWalletSidebar?: boolean;
   enableDesktopBluetooth?: boolean;
+  enableBTCFreshAddress?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -100,6 +96,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
   enableDesktopBluetooth: true,
+  enableBTCFreshAddress: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -169,5 +166,17 @@ export const {
     preventDisableTronRental: false,
   },
 });
+
+export type IAppSideBarStatusAtom = {
+  collapsed: boolean;
+};
+export const { target: appSideBarStatusAtom, use: useAppSideBarStatusAtom } =
+  globalAtom<IAppSideBarStatusAtom>({
+    name: EAtomNames.appSideBarStatusAtom,
+    persist: true,
+    initialValue: {
+      collapsed: false,
+    },
+  });
 
 // extract high frequency refresh data to another atom

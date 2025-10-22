@@ -16,7 +16,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
   IAppUpdatePagesParamList,
@@ -110,16 +109,16 @@ function DownloadVerify({
 
   const handleToUpdate = useCallback(async () => {
     setIsInstalling(true);
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       setIsInstalling(false);
-    }, 3500);
+    }, 5500);
     await installPackage(
-      () => {
-        setIsInstalling(false);
-        clearTimeout(timer);
-      },
+      () => {},
       () => {
         showInCompleteDialog();
+        setTimeout(() => {
+          setIsInstalling(false);
+        }, 350);
       },
     );
   }, [installPackage, showInCompleteDialog]);
@@ -149,24 +148,40 @@ function DownloadVerify({
     [data.errorText, intl],
   );
   const fileUrl = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
+    if (data?.downloadUrl?.startsWith('https:')) {
       return data.downloadUrl;
     }
+    if (data.jsBundle?.downloadUrl?.startsWith('https:')) {
+      return data.jsBundle?.downloadUrl;
+    }
     return data.downloadedEvent?.downloadUrl || '';
-  }, [data.downloadUrl, data.downloadedEvent?.downloadUrl]);
+  }, [
+    data.downloadUrl,
+    data.downloadedEvent?.downloadUrl,
+    data.jsBundle?.downloadUrl,
+  ]);
 
   const headerLeft = useCallback(() => {
     return null;
   }, []);
 
+  const headerParams = useMemo(() => {
+    const title = intl.formatMessage({
+      id: ETranslations.update_download_and_verify_text,
+    });
+    return isForceUpdate
+      ? {
+          title,
+          headerLeft,
+        }
+      : {
+          title,
+        };
+  }, [intl, isForceUpdate, headerLeft]);
+
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.update_download_and_verify_text,
-        })}
-        headerLeft={isForceUpdate ? headerLeft : undefined}
-      />
+      <Page.Header {...headerParams} />
       <Page.Body px="$5" py="$2.5">
         <Stepper stepIndex={stepIndex} hasError={hasError}>
           <Stepper.Item
@@ -367,6 +382,7 @@ function DownloadVerify({
           id: ETranslations.global_secure_install,
         })}
         confirmButtonProps={{
+          loading: installing,
           icon:
             data.status === EAppUpdateStatus.ready
               ? 'BadgeVerifiedSolid'

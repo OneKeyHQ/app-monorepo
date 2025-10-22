@@ -48,6 +48,7 @@ public class MainApplication extends Application implements ReactApplication {
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
+        packages.add(new LaunchOptionPackage());
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
           packages.add(new SplashScreenPackage());
         }
@@ -97,6 +98,10 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     super.onCreate();
+    
+    long startupTime = System.currentTimeMillis();
+    LaunchOptionModule.saveStartupTimeStatic(startupTime);
+    
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
       field.setAccessible(true);

@@ -1,6 +1,7 @@
 export enum EAtomNames {
   bannerCloseIdsAtom = 'bannerCloseIdsAtom',
   demoPriceAtom = 'demoPriceAtom',
+  demoPriceInfoAtom = 'demoPriceInfoAtom',
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
   // accountIdAtom = 'accountIdAtom',
   settingsPersistAtom = 'settingsPersistAtom',
@@ -38,6 +39,7 @@ export enum EAtomNames {
   activeAccountValueAtom = 'activeAccountValueAtom',
   settingsValuePersistAtom = 'settingsValuePersistAtom',
   settingsTronRentalPersistAtom = 'settingsTronRentalPersistAtom',
+  appSideBarStatusAtom = 'appSideBarStatusAtom',
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
@@ -63,11 +65,20 @@ export enum EAtomNames {
   perpsActiveAssetAtom = 'perpsActiveAssetAtom',
   perpsActiveAssetCtxAtom = 'perpsActiveAssetCtxAtom',
   perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
-  perpsCurrentMidAtom = 'perpsCurrentMidAtom', // TODO remove
+  perpsActiveOrderBookOptionsAtom = 'perpsActiveOrderBookOptionsAtom',
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
+  perpsTradingPreferencesAtom = 'perpsTradingPreferencesAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',
   perpsNetworkStatusAtom = 'perpsNetworkStatusAtom',
+  perpsDepositNetworksAtom = 'perpsDepositNetworksAtom',
+  perpsDepositTokensAtom = 'perpsDepositTokensAtom',
+  perpsWebSocketReadyStateAtom = 'perpsWebSocketReadyStateAtom',
+  perpsTradesHistoryRefreshHookAtom = 'perpsTradesHistoryRefreshHookAtom',
+  perpsCandlesWebviewReloadHookAtom = 'perpsCandlesWebviewReloadHookAtom',
+  perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
+  perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
+  perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

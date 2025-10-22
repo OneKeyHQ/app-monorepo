@@ -6,13 +6,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
+  usePerpsActiveAccountIsAgentReadyAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
-import { useTradingGuard } from '../hooks/useTradingGuard';
-
-import { showDepositWithdrawModal } from './TradingPanel/modals/DepositWithdrawModal';
+import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 
 interface ITradingGuardWrapperProps {
   children?: ReactNode;
@@ -25,10 +24,9 @@ function TradingGuardWrapperInternal({
   forceShowEnableTrading = false,
   disabled = false,
 }: ITradingGuardWrapperProps) {
-  const { isAgentReady } = useTradingGuard();
   const [perpsAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
-
+  const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   // Memoize account info to optimize callback dependencies
   const accountInfo = useMemo(
     () => ({
@@ -37,7 +35,7 @@ function TradingGuardWrapperInternal({
     }),
     [perpsAccount.accountAddress, perpsAccount.accountId],
   );
-
+  const { showDepositWithdrawModal } = useShowDepositWithdrawModal();
   const enableTrading = useCallback(async () => {
     try {
       const status =
@@ -47,20 +45,20 @@ function TradingGuardWrapperInternal({
         accountInfo.accountAddress &&
         accountInfo.accountId
       ) {
-        void showDepositWithdrawModal({
-          withdrawable: '0',
-          actionType: 'deposit',
-        });
+        await showDepositWithdrawModal('deposit');
       }
     } catch (error) {
       console.error('[TradingGuardWrapper] Enable trading failed:', error);
     }
-  }, [accountInfo.accountAddress, accountInfo.accountId]);
+  }, [
+    accountInfo.accountAddress,
+    accountInfo.accountId,
+    showDepositWithdrawModal,
+  ]);
 
-  const shouldShowEnableTrading = useMemo(
-    () => forceShowEnableTrading || !isAgentReady,
-    [forceShowEnableTrading, isAgentReady],
-  );
+  const shouldShowEnableTrading = useMemo(() => {
+    return forceShowEnableTrading || isAgentReady === false;
+  }, [forceShowEnableTrading, isAgentReady]);
 
   const isEnableTradingLoading = perpsAccountLoading.enableTradingLoading;
 

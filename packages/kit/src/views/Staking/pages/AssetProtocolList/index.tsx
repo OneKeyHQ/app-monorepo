@@ -169,7 +169,9 @@ function AssetProtocolListContent({
           earnAccount?.account.indexedAccountId || indexedAccountId,
         symbol,
         provider: item.provider.name,
-        vault: earnUtils.useVaultProvider({ providerName: item.provider.name })
+        vault: earnUtils.isVaultBasedProvider({
+          providerName: item.provider.name,
+        })
           ? item.provider.vault
           : undefined,
       });

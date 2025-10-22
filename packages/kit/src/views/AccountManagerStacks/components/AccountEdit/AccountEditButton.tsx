@@ -25,6 +25,7 @@ import { AccountRemoveButton } from './AccountRemoveButton';
 import { AccountRenameButton } from './AccountRenameButton';
 
 function AccountEditButtonView({
+  avatarNetworkId,
   accountsCount,
   indexedAccount,
   firstIndexedAccount,
@@ -33,6 +34,7 @@ function AccountEditButtonView({
   wallet,
   networkId,
 }: {
+  avatarNetworkId?: string;
   accountsCount: number;
   indexedAccount?: IDBIndexedAccount;
   firstIndexedAccount?: IDBIndexedAccount;
@@ -214,6 +216,7 @@ function AccountEditButtonView({
           })()}
           {showCopyButton ? (
             <AccountCopyButton
+              avatarNetworkId={avatarNetworkId}
               wallet={wallet}
               indexedAccount={indexedAccount}
               account={account}
@@ -298,11 +301,12 @@ function AccountEditButtonView({
     [
       config,
       getExportKeysVisible,
-      name,
+      showCopyButton,
+      avatarNetworkId,
       wallet,
       indexedAccount,
       account,
-      showCopyButton,
+      name,
       intl,
       firstIndexedAccount,
       firstAccount,

@@ -99,7 +99,7 @@ jobs:
       - name: Upload App File
         uses: actions/upload-artifact@v4
         with:
-          name: release-App-debug
+          name: release-ios-debug-${{ github.sha }}
           path: |
             ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
           if-no-files-found: error

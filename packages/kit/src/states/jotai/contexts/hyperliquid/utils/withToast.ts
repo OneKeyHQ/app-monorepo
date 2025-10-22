@@ -8,7 +8,7 @@ import type { EActionType } from './types';
 
 export interface IWithToastOptions<T = unknown> {
   asyncFn: () => Promise<T>;
-  actionType: EActionType;
+  actionType?: EActionType;
   args?: any[];
 }
 
@@ -51,6 +51,9 @@ async function handleError(error: unknown): Promise<void> {
 
 export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
   const { asyncFn, actionType, args } = options;
+  if (!actionType) {
+    return asyncFn();
+  }
   const config = TOAST_CONFIGS[actionType];
   let loadingToast: { close: () => void } | undefined;
   let loadingTimer: ReturnType<typeof setTimeout> | undefined;

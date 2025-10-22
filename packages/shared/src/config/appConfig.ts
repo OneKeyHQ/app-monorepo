@@ -34,12 +34,18 @@ export const DOWNLOAD_URL = 'https://onekey.so/download';
 export const DOWNLOAD_MOBILE_APP_URL =
   'https://onekey.so/download?client=mobile';
 export const REFERRAL_HELP_LINK = 'https://help.onekey.so/articles/11461266';
+export const FRESH_ADDRESS_LEARN_MORE_URL =
+  'https://help.onekey.so/articles/12620219';
 
 export const TWITTER_URL = 'https://www.twitter.com/onekeyhq';
+export const TWITTER_FOLLOW_URL =
+  'https://x.com/intent/follow?screen_name=OneKeyHQ';
+export const TWITTER_FOLLOW_URL_CN =
+  'https://x.com/intent/follow?screen_name=OneKeyCN';
 export const GITHUB_URL = 'https://github.com/OneKeyHQ';
 export const ONEKEY_URL = 'https://onekey.so';
 export const ONEKEY_BLOCK_EXPLORER_URL = 'https://tx.onekey.so';
-export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekey-test.com';
+export const ONEKEY_BLOCK_EXPLORER_TEST_URL = 'https://tx.onekeytest.com';
 
 export const ONEKEY_API_HOST = 'onekeycn.com';
 export const ONEKEY_TEST_API_HOST = 'onekeytest.com';
@@ -88,3 +94,5 @@ export const FALCON_DOCS_URL = 'https://docs.falcon.finance/';
 export const ONEKEY_HEALTH_CHECK_URL = '/wallet/v1/health';
 
 export const SUPPORT_URL = 'https://help.onekey.so/hc/requests/new';
+
+export const HYPERLIQUID_EXPLORER_URL = 'https://hypurrscan.io/address/';

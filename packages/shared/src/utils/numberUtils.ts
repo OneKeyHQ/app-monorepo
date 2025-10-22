@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { appLocale, fallbackAppLocaleIntl } from '../locale/appLocale';
 import platformEnv from '../platformEnv';
@@ -700,34 +701,45 @@ export interface INumberFormatProps {
   formatterOptions?: IFormatterOptions;
 }
 
-export const numberFormat = (
+export const numberFormatAsRaw = (
   value: string,
   { formatter, formatterOptions }: INumberFormatProps,
-  isRaw = false,
 ) => {
-  const result =
-    formatter && value
-      ? formatDisplayNumber(
-          NUMBER_FORMATTER[formatter](String(value), formatterOptions),
-        )
-      : '';
-  if (isRaw) {
-    return result;
-  }
+  return formatter && value
+    ? formatDisplayNumber(
+        NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+      )
+    : '';
+};
 
-  if (typeof result === 'string') {
-    return result;
-  }
+export const numberFormat = memoizee(
+  (value: string, { formatter, formatterOptions }: INumberFormatProps) => {
+    const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+    if (typeof result === 'string') {
+      return result;
+    }
+    return result
+      .map((r) => {
+        if (typeof r === 'string') {
+          return r;
+        }
+        if (r.type === 'sub') {
+          return new Array(r.value - 1).fill(0).join('');
+        }
+        return '';
+      })
+      .join('');
+  },
+  {
+    max: 200,
+    maxAge: 1000 * 60 * 5, // 5 minutes
+  },
+);
 
-  return result
-    .map((r) => {
-      if (typeof r === 'string') {
-        return r;
-      }
-      if (r.type === 'sub') {
-        return new Array(r.value - 1).fill(0).join('');
-      }
-      return '';
-    })
-    .join('');
+export const numberFormatAsRenderText = (
+  value: string,
+  { formatter, formatterOptions }: INumberFormatProps,
+) => {
+  const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+  return result;
 };

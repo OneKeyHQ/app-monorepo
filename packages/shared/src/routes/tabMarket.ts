@@ -7,7 +7,7 @@ export enum ETabMarketRoutes {
 }
 
 export type ITabMarketParamList = {
-  [ETabMarketRoutes.TabMarket]: undefined;
+  [ETabMarketRoutes.TabMarket]: { from?: EEnterWay } | undefined;
   [ETabMarketRoutes.MarketDetail]: {
     token: string;
   };

@@ -1,7 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { throttle } from 'lodash';
-import { useDebouncedCallback } from 'use-debounce';
 
 import type { IDBExternalAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';

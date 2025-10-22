@@ -113,7 +113,6 @@ function ResourceRental() {
     isSwapTrxEnabled,
     payType,
     payTokenInfo,
-    saveTRX,
     resourcePrice,
   } = resourceRentalInfo;
   const [{ preventDisableTronRental }] = useSettingsTronRentalPersistAtom();
@@ -357,12 +356,9 @@ function ResourceRental() {
                     <XStack alignItems="center" gap="$1">
                       <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
                       <SizableText size="$bodySmMedium" color="$textSuccess">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.wallet_save_amount,
-                          },
-                          { number: saveTRX ?? '0' },
-                        )}
+                        {intl.formatMessage({
+                          id: ETranslations.wallet_save_amount,
+                        })}
                       </SizableText>
                     </XStack>
                   </Badge>

@@ -92,6 +92,7 @@ jobs:
           ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          DESK_CHANNEL: ms-store
           CSC_LINK: './sign.p12'
         run: |
           cd apps/desktop
@@ -100,7 +101,7 @@ jobs:
       - name: Upload universal Windows Store exe
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-winms-universal-exe
+          name: onekey-desktop-winms-universal-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.exe
             !./apps/desktop/build-electron/*-x64.exe

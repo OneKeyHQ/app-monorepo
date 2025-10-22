@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -11,6 +11,11 @@ import {
   SizableText,
   YStack,
 } from '@onekeyhq/components';
+import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  type IAppUpdateInfo,
+  displayAppUpdateVersion,
+} from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -18,7 +23,8 @@ import type {
   IAppUpdatePagesParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { useAppChangeLog } from '../../../components/UpdateReminder/hooks';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { isForceUpdateStrategy } from '../../../components/UpdateReminder/hooks';
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
@@ -45,20 +51,37 @@ function UpdatePreview({
     return null;
   }, []);
   const {
-    latestVersion,
-    isForceUpdate,
+    isForceUpdate: isForceUpdateParam,
     autoClose = false,
+    latestVersion,
   } = route.params || {};
+  const [appUpdateInfo] = useAppUpdatePersistAtom();
+  const [updateInfo, setUpdateInfo] = useState<IAppUpdateInfo>(appUpdateInfo);
+
+  useEffect(() => {
+    void backgroundApiProxy.serviceAppUpdate
+      .fetchAppUpdateInfo(true)
+      .then((response) => {
+        setUpdateInfo(response);
+      });
+  }, []);
+
+  const isForceUpdate = updateInfo
+    ? isForceUpdateStrategy(updateInfo?.updateStrategy)
+    : isForceUpdateParam;
+  const changeLog = updateInfo?.changeLog;
   usePreventRemove(!!isForceUpdate, () => {});
-  const response = useAppChangeLog(latestVersion);
-  const { changeLog } = response ?? {};
 
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.update_changelog_title },
-          { ver: latestVersion || '' },
+          {
+            ver: updateInfo
+              ? displayAppUpdateVersion(updateInfo)
+              : latestVersion,
+          },
         )}
         headerLeft={isForceUpdate ? headerLeft : undefined}
       />

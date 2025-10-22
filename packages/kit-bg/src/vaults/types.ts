@@ -334,6 +334,9 @@ export type IPrepareImportedAccountsParams = {
   template?: string; // TODO use deriveInfo
   deriveInfo?: IAccountDeriveInfo;
 };
+export type IPrepareHDOrHWAccountChainExtraParams = {
+  receiveAddressPath?: string;
+};
 export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
   names?: Array<string>; // custom names
@@ -360,6 +363,7 @@ export type IPrepareHdAccountsOptions = {
 export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
+  chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -520,6 +524,11 @@ export type ITransferPayload = {
   note?: string;
   tokenInfo?: IToken;
   isCustomHexData?: boolean;
+  isTronResourceAutoClaimed?: boolean;
+  txOriginalFee?: {
+    totalNative: string;
+    totalFiat: string;
+  };
 };
 
 export type IWrappedInfo = {
@@ -570,6 +579,7 @@ export interface IBuildDecodedTxParams {
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
   isToContract?: boolean;
+  sourceInfo?: IDappSourceInfo;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;

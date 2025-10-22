@@ -1,0 +1,286 @@
+diff --git a/node_modules/@ton/core/dist/boc/Cell.d.ts b/node_modules/@ton/core/dist/boc/Cell.d.ts
+index c5506a9..1bd637a 100644
+--- a/node_modules/@ton/core/dist/boc/Cell.d.ts
++++ b/node_modules/@ton/core/dist/boc/Cell.d.ts
+@@ -58,6 +58,12 @@ export declare class Cell {
+      * @returns cell hash
+      */
+     hash: (level?: number) => Buffer;
++    /**
++     * Get cell repr
++     * @param level level
++     * @returns cell repr
++     */
++    repr: (level?: number) => Buffer;
+     /**
+      * Get cell depth
+      * @param level level
+diff --git a/node_modules/@ton/core/dist/boc/Cell.js b/node_modules/@ton/core/dist/boc/Cell.js
+index 16fa936..9309453 100644
+--- a/node_modules/@ton/core/dist/boc/Cell.js
++++ b/node_modules/@ton/core/dist/boc/Cell.js
+@@ -59,6 +59,7 @@ class Cell {
+         // Level and depth information
+         this._hashes = [];
+         this._depths = [];
++        this._reprs = [];
+         /**
+          * Beging cell parsing
+          * @returns a new slice
+@@ -77,6 +78,14 @@ class Cell {
+         this.hash = (level = 3) => {
+             return this._hashes[Math.min(this._hashes.length - 1, level)];
+         };
++        /**
++         * Get cell repr
++         * @param level level
++         * @returns cell repr
++         */
++        this.repr = (level = 3) => {
++            return this._reprs[Math.min(this._reprs.length - 1, level)];
++        };
+         /**
+          * Get cell depth
+          * @param level level
+@@ -115,6 +124,7 @@ class Cell {
+         let hashes;
+         let depths;
+         let mask;
++        let reprs;
+         let type = CellType_1.CellType.Ordinary;
+         if (opts && opts.exotic) {
+             // Resolve exotic cell
+@@ -125,6 +135,7 @@ class Cell {
+             mask = wonders.mask;
+             depths = wonders.depths;
+             hashes = wonders.hashes;
++            reprs = wonders.reprs;
+             type = resolved.type;
+         }
+         else {
+@@ -141,6 +152,7 @@ class Cell {
+             mask = wonders.mask;
+             depths = wonders.depths;
+             hashes = wonders.hashes;
++            reprs = wonders.reprs;
+             type = CellType_1.CellType.Ordinary;
+         }
+         // Set fields
+@@ -150,12 +162,14 @@ class Cell {
+         this.mask = mask;
+         this._depths = depths;
+         this._hashes = hashes;
++        this._reprs = reprs;
+         Object.freeze(this);
+         Object.freeze(this.refs);
+         Object.freeze(this.bits);
+         Object.freeze(this.mask);
+         Object.freeze(this._depths);
+         Object.freeze(this._hashes);
++        Object.freeze(this._reprs);
+     }
+     /**
+      * Check if cell is exotic
+diff --git a/node_modules/@ton/core/dist/boc/cell/wonderCalculator.d.ts b/node_modules/@ton/core/dist/boc/cell/wonderCalculator.d.ts
+index 32b38b5..22c56b1 100644
+--- a/node_modules/@ton/core/dist/boc/cell/wonderCalculator.d.ts
++++ b/node_modules/@ton/core/dist/boc/cell/wonderCalculator.d.ts
+@@ -14,4 +14,5 @@ export declare function wonderCalculator(type: CellType, bits: BitString, refs:
+     mask: LevelMask;
+     hashes: Buffer[];
+     depths: number[];
++    reprs: Buffer[];
+ };
+diff --git a/node_modules/@ton/core/dist/boc/cell/wonderCalculator.js b/node_modules/@ton/core/dist/boc/cell/wonderCalculator.js
+index efa70e3..b014f4b 100644
+--- a/node_modules/@ton/core/dist/boc/cell/wonderCalculator.js
++++ b/node_modules/@ton/core/dist/boc/cell/wonderCalculator.js
+@@ -67,6 +67,7 @@ function wonderCalculator(type, bits, refs) {
+     //
+     let depths = [];
+     let hashes = [];
++    let reprs = [];
+     let hashCount = type === CellType_1.CellType.PrunedBranch ? 1 : levelMask.hashCount;
+     let totalHashCount = levelMask.hashCount;
+     let hashIOffset = totalHashCount - hashCount;
+@@ -122,6 +123,7 @@ function wonderCalculator(type, bits, refs) {
+         let destI = hashI - hashIOffset;
+         depths[destI] = currentDepth;
+         hashes[destI] = hash;
++        reprs[destI] = repr;
+         //
+         // Next
+         //
+@@ -132,6 +134,7 @@ function wonderCalculator(type, bits, refs) {
+     //
+     let resolvedHashes = [];
+     let resolvedDepths = [];
++    let resolvedReprs = [];
+     if (pruned) {
+         for (let i = 0; i < 4; i++) {
+             const { hashIndex } = levelMask.apply(i);
+@@ -139,10 +142,12 @@ function wonderCalculator(type, bits, refs) {
+             if (hashIndex !== thisHashIndex) {
+                 resolvedHashes.push(pruned.pruned[hashIndex].hash);
+                 resolvedDepths.push(pruned.pruned[hashIndex].depth);
++                resolvedReprs.push(reprs[hashIndex]);
+             }
+             else {
+                 resolvedHashes.push(hashes[0]);
+                 resolvedDepths.push(depths[0]);
++                resolvedReprs.push(reprs[0]);
+             }
+         }
+     }
+@@ -150,6 +155,7 @@ function wonderCalculator(type, bits, refs) {
+         for (let i = 0; i < 4; i++) {
+             resolvedHashes.push(hashes[levelMask.apply(i).hashIndex]);
+             resolvedDepths.push(depths[levelMask.apply(i).hashIndex]);
++            resolvedReprs.push(reprs[levelMask.apply(i).hashIndex]);
+         }
+     }
+     //
+@@ -158,7 +164,8 @@ function wonderCalculator(type, bits, refs) {
+     return {
+         mask: levelMask,
+         hashes: resolvedHashes,
+-        depths: resolvedDepths
++        depths: resolvedDepths,
++        reprs: resolvedReprs
+     };
+ }
+ exports.wonderCalculator = wonderCalculator;
+diff --git a/node_modules/@ton/core/src/boc/Cell.ts b/node_modules/@ton/core/src/boc/Cell.ts
+index 88e7ce5..face913 100644
+--- a/node_modules/@ton/core/src/boc/Cell.ts
++++ b/node_modules/@ton/core/src/boc/Cell.ts
+@@ -66,6 +66,7 @@ export class Cell {
+     // Level and depth information
+     private _hashes: Buffer[] = [];
+     private _depths: number[] = [];
++    private _reprs: Buffer[] = [];
+ 
+     constructor(opts?: { exotic?: boolean, bits?: BitString, refs?: Cell[] }) {
+ 
+@@ -84,6 +85,7 @@ export class Cell {
+         // Resolve type
+         let hashes: Buffer[];
+         let depths: number[];
++        let reprs: Buffer[];
+         let mask: LevelMask;
+         let type = CellType.Ordinary;
+         if (opts && opts.exotic) {
+@@ -98,6 +100,7 @@ export class Cell {
+             mask = wonders.mask;
+             depths = wonders.depths;
+             hashes = wonders.hashes;
++            reprs = wonders.reprs;
+             type = resolved.type;
+ 
+         } else {
+@@ -117,6 +120,7 @@ export class Cell {
+             mask = wonders.mask;
+             depths = wonders.depths;
+             hashes = wonders.hashes;
++            reprs = wonders.reprs;
+             type = CellType.Ordinary;
+         }
+ 
+@@ -127,6 +131,7 @@ export class Cell {
+         this.mask = mask;
+         this._depths = depths;
+         this._hashes = hashes;
++        this._reprs = reprs;
+ 
+         Object.freeze(this);
+         Object.freeze(this.refs);
+@@ -134,6 +139,7 @@ export class Cell {
+         Object.freeze(this.mask);
+         Object.freeze(this._depths);
+         Object.freeze(this._hashes);
++        Object.freeze(this._reprs);
+     }
+ 
+     /**
+@@ -163,6 +169,15 @@ export class Cell {
+         return this._hashes[Math.min(this._hashes.length - 1, level)];
+     }
+ 
++    /**
++     * Get cell repr
++     * @param level level
++     * @returns cell repr
++     */
++    repr = (level: number = 3): Buffer => {
++        return this._reprs[Math.min(this._reprs.length - 1, level)];
++    }
++
+     /**
+      * Get cell depth
+      * @param level level
+diff --git a/node_modules/@ton/core/src/boc/cell/wonderCalculator.ts b/node_modules/@ton/core/src/boc/cell/wonderCalculator.ts
+index 85a81c9..0416777 100644
+--- a/node_modules/@ton/core/src/boc/cell/wonderCalculator.ts
++++ b/node_modules/@ton/core/src/boc/cell/wonderCalculator.ts
+@@ -21,7 +21,7 @@ import { exoticLibrary } from "./exoticLibrary";
+ // This function replicates unknown logic of resolving cell data
+ // https://github.com/ton-blockchain/ton/blob/24dc184a2ea67f9c47042b4104bbb4d82289fac1/crypto/vm/cells/DataCell.cpp#L214
+ //
+-export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]): { mask: LevelMask, hashes: Buffer[], depths: number[] } {
++export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]): { mask: LevelMask, hashes: Buffer[], depths: number[], reprs: Buffer[] } {
+ 
+     //
+     // Resolving level mask
+@@ -75,6 +75,7 @@ export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]):
+ 
+     let depths: number[] = [];
+     let hashes: Buffer[] = [];
++    let reprs: Buffer[] = [];
+ 
+     let hashCount = type === CellType.PrunedBranch ? 1 : levelMask.hashCount;
+     let totalHashCount = levelMask.hashCount;
+@@ -139,6 +140,7 @@ export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]):
+         let destI = hashI - hashIOffset;
+         depths[destI] = currentDepth;
+         hashes[destI] = hash;
++        reprs[destI] = repr;
+ 
+         //
+         // Next
+@@ -153,6 +155,7 @@ export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]):
+ 
+     let resolvedHashes: Buffer[] = [];
+     let resolvedDepths: number[] = [];
++    let resolvedReprs: Buffer[] = [];
+     if (pruned) {
+         for (let i = 0; i < 4; i++) {
+             const { hashIndex } = levelMask.apply(i);
+@@ -160,15 +163,18 @@ export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]):
+             if (hashIndex !== thisHashIndex) {
+                 resolvedHashes.push(pruned.pruned[hashIndex].hash);
+                 resolvedDepths.push(pruned.pruned[hashIndex].depth);
++                resolvedReprs.push(reprs[hashIndex]);
+             } else {
+                 resolvedHashes.push(hashes[0]);
+                 resolvedDepths.push(depths[0]);
++                resolvedReprs.push(reprs[0]);
+             }
+         }
+     } else {
+         for (let i = 0; i < 4; i++) {
+             resolvedHashes.push(hashes[levelMask.apply(i).hashIndex]);
+             resolvedDepths.push(depths[levelMask.apply(i).hashIndex]);
++            resolvedReprs.push(reprs[levelMask.apply(i).hashIndex]);
+         }
+     }
+ 
+@@ -179,6 +185,7 @@ export function wonderCalculator(type: CellType, bits: BitString, refs: Cell[]):
+     return {
+         mask: levelMask,
+         hashes: resolvedHashes,
+-        depths: resolvedDepths
++        depths: resolvedDepths,
++        reprs: resolvedReprs
+     };
+ }
+\ No newline at end of file

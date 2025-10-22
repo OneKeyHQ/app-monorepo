@@ -1,22 +1,36 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { clamp } from 'lodash';
-import { Slider as TMSlider } from 'tamagui';
+
+import { TMSlider } from '@onekeyhq/components/src/shared/tamagui';
 
 import { XStack, YStack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { IBaseSliderProps } from './type';
 // spell mistake in tamagui components.
 // eslint-disable-next-line spellcheck/spell-checker
-import type { GestureReponderEvent } from '@tamagui/core';
 import type { LayoutChangeEvent } from 'react-native';
 
-function SliderSegment() {
+function SliderSegment({
+  onPress,
+  isActive,
+}: {
+  onPress: () => void;
+  isActive: boolean;
+}) {
   return (
-    <XStack w={8} h={8} borderRadius={100} bg="$gray11" ai="center" jc="center">
-      <XStack w={6} h={6} borderRadius={100} bg="$bgApp" />
-    </XStack>
+    <XStack
+      w={8}
+      h={8}
+      borderRadius="$full"
+      borderCurve="continuous"
+      borderWidth={1}
+      borderColor={isActive ? '$bgPrimary' : '$neutral9'}
+      bg="$bgApp"
+      onPress={onPress}
+      cursor="pointer"
+    />
   );
 }
 
@@ -34,6 +48,7 @@ export const Slider = ({
   min,
   onLayout,
   segments,
+
   ...props
 }: ISliderProps) => {
   const isSlidingRef = useRef(false);
@@ -46,7 +61,7 @@ export const Slider = ({
   const handleSlideMove = useCallback(
     // spell mistake in tamagui components.
     // eslint-disable-next-line spellcheck/spell-checker
-    (_: GestureReponderEvent, v: number) => {
+    (_: unknown, v: number) => {
       if (!isSlidingRef.current) {
         onSlideStart?.();
         isSlidingRef.current = true;
@@ -78,6 +93,7 @@ export const Slider = ({
     return (
       <TMSlider
         h="$1"
+        cursor="pointer"
         {...(props as any)}
         max={max}
         min={min}
@@ -101,11 +117,12 @@ export const Slider = ({
         <TMSlider.Thumb
           unstyled
           position="absolute"
-          size="$5"
+          size="$4"
           hitSlop={NATIVE_HIT_SLOP}
           circular
           index={0}
           bg="$bg"
+          cursor="pointer"
           zIndex={segments ? 10 : undefined}
           borderWidth="$px"
           borderColor="$borderStrong"
@@ -139,11 +156,35 @@ export const Slider = ({
           justifyContent="space-between"
           top={-layout.height / 2}
         >
-          <SliderSegment key={-1} />
+          <SliderSegment
+            key={-1}
+            isActive
+            onPress={() => {
+              handleValueChange([min]);
+            }}
+          />
           {Array.from({ length: (segments ?? 1) - 1 }).map((_, index) => (
-            <SliderSegment key={index} />
+            <SliderSegment
+              key={index}
+              isActive={
+                value
+                  ? ((index + 1) / segments) * (max - min) + min <= value
+                  : false
+              }
+              onPress={() => {
+                handleValueChange([
+                  min + ((max - min) * (index + 1)) / segments,
+                ]);
+              }}
+            />
           ))}
-          <SliderSegment key={segments ?? 1} />
+          <SliderSegment
+            key={segments ?? 1}
+            isActive={value === max}
+            onPress={() => {
+              handleValueChange([max]);
+            }}
+          />
         </XStack>
       ) : null}
     </YStack>
