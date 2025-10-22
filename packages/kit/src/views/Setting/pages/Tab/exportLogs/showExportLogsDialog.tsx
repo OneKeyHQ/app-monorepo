@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { collectLogDigest, uploadLogBundle } from '.';
+import { collectLogDigest, exportLogs, uploadLogBundle } from '.';
 
+import pRetry, { type FailedAttemptError } from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import {
@@ -19,6 +20,9 @@ import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusName
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 
+const MAX_RETRIES = 3;
+const TOTAL_ATTEMPTS = MAX_RETRIES + 1;
+
 function UploadLogsDialogContent() {
   const intl = useIntl();
   const dialog = useDialogInstance();
@@ -27,6 +31,7 @@ function UploadLogsDialogContent() {
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [isUploading, setIsUploading] = useState(false);
+  const [currentAttempt, setCurrentAttempt] = useState(0);
   const isActiveRef = useRef(false);
 
   const handleEmailPress = useCallback(() => {
@@ -72,18 +77,39 @@ function UploadLogsDialogContent() {
     };
   }, []);
 
+  const resolveError = useCallback((err: unknown): Error => {
+    const candidate = err as { originalError?: unknown; message?: unknown };
+    if (candidate?.originalError) {
+      return resolveError(candidate.originalError);
+    }
+    if (err instanceof Error) {
+      return err;
+    }
+    if (typeof candidate?.message === 'string') {
+      return new Error(candidate.message);
+    }
+    return new Error(String(err));
+  }, []);
+
   const handleUpload = useCallback(async () => {
     if (isUploading) {
       return;
     }
     isActiveRef.current = true;
+    setIsUploading(true);
+    setCurrentAttempt(0);
     setErrorMessage(undefined);
     setStage(ELogUploadStage.Collecting);
     setProgressPercent(0);
-    setIsUploading(true);
-    try {
-      const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
-      const fileBaseName = `OneKeyLogs-${timestamp}`;
+
+    const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+    const fileBaseName = `OneKeyLogs-${timestamp}`;
+
+    const attemptUpload = async (attemptNumber: number) => {
+      setCurrentAttempt(attemptNumber);
+      setErrorMessage(undefined);
+      setStage(ELogUploadStage.Collecting);
+      setProgressPercent(0);
       const digest = await collectLogDigest(fileBaseName);
       const token = await backgroundApiProxy.serviceLogger.requestUploadToken({
         sizeBytes: digest.sizeBytes,
@@ -93,41 +119,72 @@ function UploadLogsDialogContent() {
         uploadToken: token.uploadToken,
         digest,
       });
+    };
+
+    try {
+      await pRetry(attemptUpload, {
+        retries: MAX_RETRIES,
+        onFailedAttempt: (error: FailedAttemptError) => {
+          const originalError = resolveError(error);
+          const message =
+            originalError.message ||
+            `Log upload failed (attempt ${error.attemptNumber}/${TOTAL_ATTEMPTS}). Retrying...`;
+          setCurrentAttempt(error.attemptNumber);
+          setStage(ELogUploadStage.Error);
+          setErrorMessage(message);
+        },
+      });
+
       setStage(ELogUploadStage.Success);
       setProgressPercent(100);
+      setCurrentAttempt(0);
       Toast.success({
         title: 'Logs uploaded successfully',
       });
-      setIsUploading(false);
       await dialog.close();
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setErrorMessage(message);
+      const finalError = resolveError(error);
+      const message = finalError.message;
       setStage(ELogUploadStage.Error);
-      Toast.error({
-        title: 'Failed to upload logs',
-      });
-      setIsUploading(false);
+      setErrorMessage(message);
+      try {
+        await exportLogs(fileBaseName);
+        setStage('idle');
+        setProgressPercent(0);
+        setErrorMessage(undefined);
+        setCurrentAttempt(0);
+      } catch (exportError) {
+        const exportMessage = resolveError(exportError).message;
+        setErrorMessage(exportMessage);
+      }
     } finally {
       isActiveRef.current = false;
+      setIsUploading(false);
     }
-  }, [dialog, isUploading]);
+  }, [dialog, isUploading, resolveError]);
 
   const progressLabel = useMemo(() => {
     const clampedProgress = Math.min(100, Math.max(0, progressPercent));
+    const attemptSuffix =
+      currentAttempt > 1 && stage !== 'idle'
+        ? ` (Attempt ${Math.min(
+            currentAttempt,
+            TOTAL_ATTEMPTS,
+          )}/${TOTAL_ATTEMPTS})`
+        : '';
     switch (stage) {
       case ELogUploadStage.Collecting:
-        return 'Collecting logs...';
+        return `Collecting logs...${attemptSuffix}`;
       case ELogUploadStage.Uploading:
-        return `Uploading... ${clampedProgress}%`;
+        return `Uploading... ${clampedProgress}%${attemptSuffix}`;
       case ELogUploadStage.Success:
         return 'Logs uploaded successfully';
       case ELogUploadStage.Error:
-        return 'Failed to upload logs';
+        return `Failed to upload logs${attemptSuffix}`;
       default:
         return '';
     }
-  }, [progressPercent, stage]);
+  }, [currentAttempt, progressPercent, stage]);
 
   const shouldShowProgress = stage !== 'idle';
 
