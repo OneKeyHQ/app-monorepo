@@ -1,5 +1,5 @@
 import type { ComponentProps, ForwardedRef, ReactElement } from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -57,6 +57,7 @@ type IProps = {
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
   inTabList?: boolean;
+  isTabFocused?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   hideValue?: boolean;
   onRefresh?: () => void;
@@ -193,13 +194,36 @@ const ListFooterComponent = ({
 };
 
 function TxHistoryListViewSectionHeader(
-  props: IHistoryListSectionGroup & { index: number },
+  props: IHistoryListSectionGroup & {
+    inTabList?: boolean;
+    isTabFocused?: boolean;
+    index: number;
+    recomputeLayout: () => void;
+  },
 ) {
-  const { title, titleKey, data, index } = props;
+  const {
+    title,
+    titleKey,
+    data,
+    index,
+    recomputeLayout,
+    inTabList,
+    isTabFocused,
+  } = props;
   const intl = useIntl();
+  const recomputeLayoutRef = useRef(false);
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
+    if (
+      ((inTabList && isTabFocused) || !inTabList) &&
+      !recomputeLayoutRef.current
+    ) {
+      setTimeout(() => {
+        recomputeLayoutRef.current = true;
+        recomputeLayout();
+      }, 350);
+    }
     return (
       <XStack
         px="$5"
@@ -243,6 +267,7 @@ function BaseTxHistoryListView(props: IProps) {
     initialized,
     contentContainerStyle,
     inTabList = false,
+    isTabFocused,
     hideValue,
     listViewStyleProps,
     onRefresh,
@@ -279,6 +304,16 @@ function BaseTxHistoryListView(props: IProps) {
     [filteredHistory],
   );
 
+  const ListComponentRef = useRef<typeof ListComponent>(null);
+
+  const recomputeLayout = useCallback(() => {
+    if (!platformEnv.isNative) {
+      // update tab list header height after alert dismissed
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      (ListComponentRef.current as any)?.recomputeLayout?.();
+    }
+  }, []);
+
   const renderItem = useCallback(
     (info: { item: IAccountHistoryTx; index: number }) => (
       <TxHistoryListItem
@@ -301,13 +336,16 @@ function BaseTxHistoryListView(props: IProps) {
       index: number;
     }) => (
       <TxHistoryListViewSectionHeader
+        recomputeLayout={recomputeLayout}
         title={title}
         titleKey={titleKey}
         data={tx}
         index={index}
+        inTabList={inTabList}
+        isTabFocused={isTabFocused}
       />
     ),
-    [],
+    [recomputeLayout, inTabList, isTabFocused],
   );
 
   const resolvedContentContainerStyle = useStyle(
@@ -374,7 +412,7 @@ function BaseTxHistoryListView(props: IProps) {
 
   return (
     <ListComponent
-      ref={ref as any}
+      ref={(ref ?? ListComponentRef) as any}
       refreshControl={
         onRefresh ? <PullToRefresh onRefresh={onRefresh} /> : undefined
       }

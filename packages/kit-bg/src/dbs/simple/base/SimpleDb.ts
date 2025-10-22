@@ -467,4 +467,22 @@ export class SimpleDb {
     Object.defineProperty(this, 'chainResource', { value });
     return value;
   }
+
+  get btcFreshAddress() {
+    const SimpleDbEntityBTCFreshAddress = (
+      require('../entity/SimpleDbEntityBTCFreshAddress') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddress')
+    ).SimpleDbEntityBTCFreshAddress;
+    const value = new SimpleDbEntityBTCFreshAddress();
+    Object.defineProperty(this, 'btcFreshAddress', { value });
+    return value;
+  }
+
+  get btcFreshAddressMeta() {
+    const SimpleDbEntityBTCFreshAddressMeta = (
+      require('../entity/SimpleDbEntityBTCFreshAddressMeta') as unknown as typeof import('../entity/SimpleDbEntityBTCFreshAddressMeta')
+    ).SimpleDbEntityBTCFreshAddressMeta;
+    const value = new SimpleDbEntityBTCFreshAddressMeta();
+    Object.defineProperty(this, 'btcFreshAddressMeta', { value });
+    return value;
+  }
 }

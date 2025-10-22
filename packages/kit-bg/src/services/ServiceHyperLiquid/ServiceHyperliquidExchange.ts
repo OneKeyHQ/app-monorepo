@@ -91,6 +91,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       }
     | undefined = undefined;
 
+  // TODO: Apply to all trades and allow user configuration
   public slippage = 0.08;
 
   private get exchangeClient(): ExchangeClient {

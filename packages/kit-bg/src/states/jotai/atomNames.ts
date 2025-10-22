@@ -67,14 +67,18 @@ export enum EAtomNames {
   perpsActiveAssetDataAtom = 'perpsActiveAssetDataAtom',
   perpsActiveOrderBookOptionsAtom = 'perpsActiveOrderBookOptionsAtom',
   perpsCustomSettingsAtom = 'perpsCustomSettingsAtom',
+  perpsTradingPreferencesAtom = 'perpsTradingPreferencesAtom',
   perpsCommonConfigPersistAtom = 'perpsCommonConfigPersistAtom',
   perpsUserConfigPersistAtom = 'perpsUserConfigPersistAtom',
   perpsNetworkStatusAtom = 'perpsNetworkStatusAtom',
+  perpsDepositNetworksAtom = 'perpsDepositNetworksAtom',
+  perpsDepositTokensAtom = 'perpsDepositTokensAtom',
   perpsWebSocketReadyStateAtom = 'perpsWebSocketReadyStateAtom',
   perpsTradesHistoryRefreshHookAtom = 'perpsTradesHistoryRefreshHookAtom',
   perpsCandlesWebviewReloadHookAtom = 'perpsCandlesWebviewReloadHookAtom',
   perpsCandlesWebviewMountedAtom = 'perpsCandlesWebviewMountedAtom',
   perpsWebSocketDataUpdateTimesAtom = 'perpsWebSocketDataUpdateTimesAtom',
+  perpTokenSortConfigPersistAtom = 'perpTokenSortConfigPersistAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<

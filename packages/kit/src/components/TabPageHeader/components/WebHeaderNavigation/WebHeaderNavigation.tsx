@@ -3,16 +3,10 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  OneKeyLogo,
-  XStack,
-  useMedia,
-  useOnRouterChange,
-} from '@onekeyhq/components';
+import { OneKeyLogo, XStack, useOnRouterChange } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { HeaderNavigation } from './HeaderNavigation';
@@ -55,7 +49,7 @@ function useWebHeaderNavigation({
       case ETabRoutes.Market:
         return 'market';
       case ETabRoutes.Perp:
-        return 'contract';
+        return 'perps';
       case ETabRoutes.Earn:
         return 'defi';
       case ETabRoutes.Swap:
@@ -73,7 +67,7 @@ function useWebHeaderNavigation({
         case 'market':
           navigation.switchTab(ETabRoutes.Market);
           break;
-        case 'contract':
+        case 'perps':
           navigation.switchTab(ETabRoutes.Perp);
           break;
         case 'defi':
@@ -99,8 +93,8 @@ function useWebHeaderNavigation({
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
       {
-        key: 'contract',
-        label: intl.formatMessage({ id: ETranslations.global_contract }),
+        key: 'perps',
+        label: intl.formatMessage({ id: ETranslations.global_perp }),
       },
       {
         key: 'defi',
@@ -139,14 +133,8 @@ export function WebHeaderNavigation({
   rightContent,
   ...rest
 }: IWebHeaderNavigationProps) {
-  const { gtMd } = useMedia();
-
   const { navigationItems, activeNavigationKey, handleNavigationChange } =
     useWebHeaderNavigation(rest);
-
-  if (!(platformEnv.isWeb && gtMd)) {
-    return <>{children ?? null}</>;
-  }
 
   return (
     <XStack ai="center" gap="$4" width="100%" jc="space-between">

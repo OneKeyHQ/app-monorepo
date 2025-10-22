@@ -38,7 +38,8 @@ export const AppUpdate: IAppUpdate = {
 };
 
 export const BundleUpdate: IBundleUpdate = {
-  getWebEmbedPath: () => Promise.resolve(''),
+  getWebEmbedPath: () => '',
+  getWebEmbedPathAsync: () => Promise.resolve(''),
   downloadBundle: () => Promise.resolve({} as IUpdateDownloadedEvent),
   verifyBundle: () => Promise.resolve(),
   verifyBundleASC: () => Promise.resolve(),
@@ -58,6 +59,9 @@ export const BundleUpdate: IBundleUpdate = {
     Promise.resolve({ success: false, message: 'Not supported on web' }),
   getFallbackBundles: () => Promise.resolve([]),
   switchBundle: () => Promise.resolve(),
+  getNativeAppVersion: () => Promise.resolve(''),
+  getNativeBuildNumber: () => Promise.resolve(''),
+  getJsBundlePath: () => Promise.resolve(''),
 };
 
 export const useDownloadProgress: IUseDownloadProgress = () => 0;

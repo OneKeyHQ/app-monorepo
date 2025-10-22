@@ -3027,6 +3027,8 @@ export function useSwapBuildTx() {
                 error?.key !== 'global.cancel' &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 error?.code !== 803 &&
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                error?.code !== -99_999 &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
                 !error?.message?.toLowerCase()?.includes('reject') &&
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

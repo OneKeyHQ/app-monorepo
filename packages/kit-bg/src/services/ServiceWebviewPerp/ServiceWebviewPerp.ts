@@ -39,6 +39,10 @@ import ServiceBase from '../ServiceBase';
 
 import type { IHyperliquidCustomSettings } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import type {
+  IPerpsDepositNetwork,
+  IPerpsDepositToken,
+} from '../../states/jotai/atoms';
+import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
@@ -158,6 +162,11 @@ export interface IPerpServerBannerConfig {
   canClose?: boolean;
 }
 
+export interface IPerpServerDepositConfig {
+  network: IPerpsDepositNetwork;
+  tokens: IPerpsDepositToken[];
+}
+
 export interface IPerpServerReferrerConfig {
   referrerAddress?: string;
   referrerRate?: number;
@@ -185,6 +194,7 @@ export interface IPerpServerConfigResponse {
   >;
   commonConfig?: IPerpServerCommonConfig;
   bannerConfig?: IPerpServerBannerConfig;
+  depositTokenConfig?: IPerpServerDepositConfig[];
   hyperLiquidErrorLocales?: IHyperLiquidErrorLocaleItem[];
 }
 @backgroundClass()
