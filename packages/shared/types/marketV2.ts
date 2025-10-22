@@ -10,6 +10,7 @@ export interface IMarketTokenDetail {
   tvl?: string;
   liquidity?: string;
   holders?: number;
+  circulatingSupply?: string;
   extraData?: {
     website?: string;
     twitter?: string;
@@ -89,6 +90,7 @@ export interface IMarketTokenDetail {
   vSell8h?: string;
   vSell24h?: string;
   lastUpdated?: number;
+  communityRecognized?: boolean;
   [key: string]: unknown;
 }
 
