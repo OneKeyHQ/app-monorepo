@@ -52,6 +52,17 @@ export class HardwareConnectionManager {
     HardwareConnectionManager.instance = null;
   }
 
+  private async getDesktopUsbSetting(): Promise<
+    'webusb' | 'bridge' | undefined
+  > {
+    try {
+      const dev = await this.backgroundApi.serviceDevSetting.getDevSetting();
+      return dev?.settings?.desktopUsbComm;
+    } catch {
+      return undefined;
+    }
+  }
+
   private async requestBluetoothPermission(): Promise<boolean> {
     try {
       // use servicePromise to wait for user to grant permission
@@ -136,13 +147,16 @@ export class HardwareConnectionManager {
     }
   }
 
-  // Checking WebUSB and Bridge
-  async detectUSBDeviceAvailability(): Promise<boolean> {
+  // Checking USB availability based on DevSetting (single mode)
+  async detectUSBDeviceAvailability(
+    mode?: 'webusb' | 'bridge',
+  ): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
-    const WebUSB = await this.detectWebUSBAvailability();
-    if (WebUSB) return true;
-    const bridge = await this.detectBridgeAvailability();
-    return bridge;
+    const _mode = mode ?? (await this.getDesktopUsbSetting());
+    if (_mode === 'bridge') {
+      return this.detectBridgeAvailability();
+    }
+    return this.detectWebUSBAvailability();
   }
 
   async detectBluetoothAvailability(
@@ -254,24 +268,26 @@ export class HardwareConnectionManager {
     const currentSettingType =
       await this.backgroundApi.serviceSetting.getHardwareTransportType();
 
-    // For desktop, check availability of all transports
     if (platformEnv.isSupportDesktopBle) {
-      const WebUSBAvailable = await this.detectWebUSBAvailability();
-      const bridgeAvailable = await this.detectBridgeAvailability();
+      const mode = await this.getDesktopUsbSetting();
+      const webUsbAvailable = await this.detectUSBDeviceAvailability();
+      if (webUsbAvailable) {
+        return mode === 'bridge'
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
+      }
+
+      // No USB devices, check if Bluetooth is available before fallback
       const bluetoothAvailable = await this.detectBluetoothAvailability(
         hardwareCallContext,
       );
-      if (WebUSBAvailable || bridgeAvailable) {
-        return currentSettingType === EHardwareTransportType.WEBUSB
-          ? EHardwareTransportType.WEBUSB
-          : EHardwareTransportType.Bridge;
-      }
-      // Bluetooth is available, fallback to DesktopWebBle for seamless wireless connection
       if (bluetoothAvailable) {
         return EHardwareTransportType.DesktopWebBle;
       }
 
-      return EHardwareTransportType.WEBUSB;
+      return mode === 'bridge'
+        ? EHardwareTransportType.Bridge
+        : EHardwareTransportType.WEBUSB;
     }
 
     return currentSettingType;
@@ -317,9 +333,13 @@ export class HardwareConnectionManager {
       const isMiniDevice = connectId && connectId.startsWith('MI');
       // mini device should always use bridge transport type
       if (isMiniDevice) {
+        const usbSetting = await this.getDesktopUsbSetting();
         return {
           shouldSwitch: false,
-          targetType: EHardwareTransportType.WEBUSB,
+          targetType:
+            usbSetting === 'webusb'
+              ? EHardwareTransportType.WEBUSB
+              : EHardwareTransportType.Bridge,
         };
       }
 

@@ -8,6 +8,7 @@ import {
   Dialog,
   ESwitchSize,
   Input,
+  Select,
   Switch,
   TextAreaInput,
   Toast,
@@ -257,6 +258,25 @@ const BaseDevSettingsSection = () => {
               });
             }}
           />
+          <SectionFieldItem
+            icon="UsbOutline"
+            name="desktopUsbComm"
+            title="桌面 USB 通信方式"
+            subtitle={
+              devSettings.settings?.desktopUsbComm === 'bridge'
+                ? 'Bridge'
+                : 'WebUSB'
+            }
+          >
+            <Select
+              title="桌面 USB 通信方式"
+              items={[
+                { label: 'WebUSB', value: 'webusb' },
+                { label: 'Bridge', value: 'bridge' },
+              ]}
+              placement="bottom-end"
+            />
+          </SectionFieldItem>
         </>
       ) : null}
       <SectionPressItem
