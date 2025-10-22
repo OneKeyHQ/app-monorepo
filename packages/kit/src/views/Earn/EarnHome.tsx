@@ -230,7 +230,7 @@ function RecommendedItem({
       overflow="hidden"
       {...rest}
     >
-      <YStack alignItems="flex-start">
+      <YStack alignItems="flex-start" width="100%">
         <XStack gap="$2" ai="center" width="100%">
           <YStack>
             <Image
@@ -251,7 +251,7 @@ function RecommendedItem({
           </YStack>
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>
-        <YStack alignItems="flex-start">
+        <YStack alignItems="flex-start" width="100%">
           <SizableText size="$headingXl" pt="$3.5" pb="$1">
             <AprText
               asset={{
@@ -263,6 +263,8 @@ function RecommendedItem({
           <SizableText
             size="$bodyMd"
             color={token.available.color ?? '$textSubdued'}
+            numberOfLines={1}
+            ellipsizeMode="tail"
           >
             {token?.available?.text}
           </SizableText>
@@ -400,7 +402,7 @@ function Recommended() {
           >
             <XStack gap="$3">
               {tokens.map((token) => (
-                <YStack key={token.symbol} width="$40">
+                <YStack key={token.symbol} minWidth="$52">
                   <RecommendedItem token={token} />
                 </YStack>
               ))}
@@ -793,13 +795,12 @@ function BasicEarnHome() {
       (isFocus, isHideByModal) => {
         if (isFocus && !isHideByModal) {
           // Check and refetch incomplete data when tab becomes focused
-          const recommendKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
           const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
           const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
           const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
 
           // Check loading states and data for each key
-          const keys = [recommendKey, allKey, stableKey, nativeKey];
+          const keys = [allKey, stableKey, nativeKey];
 
           // Check if any data is incomplete and trigger refresh
           const hasIncompleteData = keys.some((key) =>
