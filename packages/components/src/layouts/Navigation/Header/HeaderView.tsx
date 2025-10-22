@@ -205,7 +205,11 @@ function HeaderView({
             title={getHeaderTitle(options, route.name)}
             headerTintColor={theme.text.val}
             headerLeft={headerLeftView as any}
-            headerRightContainerStyle={headerRightContainerStyle}
+            headerRightContainerStyle={
+              isOnboardingScreen
+                ? { flexGrow: undefined }
+                : headerRightContainerStyle
+            }
             headerRight={
               typeof headerRight === 'function'
                 ? ({ tintColor }) => {
@@ -229,6 +233,9 @@ function HeaderView({
             headerTitleContainerStyle={{
               marginHorizontal: 0,
               ...(headerTitleContainerStyle as any),
+              ...(isOnboardingScreen
+                ? { flex: 1, alignItems: 'center' }
+                : undefined),
             }}
             headerTransparent
             headerBackground={headerBackground}

@@ -7,6 +7,7 @@ export enum EOnboardingPagesV2 {
   AddExistingWallet = 'AddExistingWallet',
   ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
   FinalizeWalletSetup = 'FinalizeWalletSetup',
+  PickYourDevice = 'PickYourDevice',
 }
 
 export type IOnboardingParamListV2 = {
@@ -16,4 +17,5 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.AddExistingWallet]: undefined;
   [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
   [EOnboardingPagesV2.FinalizeWalletSetup]: undefined;
+  [EOnboardingPagesV2.PickYourDevice]: undefined;
 };

@@ -13,6 +13,7 @@ const ImportPhraseOrPrivateKey = LazyLoadPage(
 const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
+const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
@@ -33,5 +34,9 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
+  },
+  {
+    name: EOnboardingPagesV2.PickYourDevice,
+    component: PickYourDevice,
   },
 ];

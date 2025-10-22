@@ -19,21 +19,17 @@ import type { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtil
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
+import { renderOnboardingHeaderRight } from '../components/HeaderRight';
 
 const DEVICE_SIZE = 24;
 
 export default function GetStarted() {
   const navigation = useAppNavigation();
-  const handleCreateNewWallet = () => {
-    console.log('Create new Wallet');
+  const handleGetStarted = () => {
+    navigation.push(EOnboardingPagesV2.PickYourDevice);
   };
 
-  const handleAddExistingWallet = () => {
-    console.log('Add existing wallet');
-    navigation.push(EOnboardingPagesV2.AddExistingWallet);
-  };
-
-  const handleConnectExternalWallet = () => {
+  const handleCreateOrImportWallet = () => {
     console.log('Connect external wallet');
   };
 
@@ -49,8 +45,8 @@ export default function GetStarted() {
   }, [themeVariant]);
 
   return (
-    <Page>
-      <Page.Header title="" />
+    <Page scrollEnabled>
+      <Page.Header title="" headerRight={renderOnboardingHeaderRight} />
       <Page.Body>
         <YStack gap={31} pt={168} flex={1} alignItems="center">
           <Image
@@ -77,7 +73,12 @@ export default function GetStarted() {
             zIndex={1}
           />
           <Stack gap="$4" zIndex={1}>
-            <Button size="large" variant="primary" alignSelf="stretch">
+            <Button
+              size="large"
+              variant="primary"
+              alignSelf="stretch"
+              onPress={handleGetStarted}
+            >
               <XStack alignItems="center" gap="$2">
                 <YStack
                   w="$5"
@@ -123,7 +124,11 @@ export default function GetStarted() {
                 </SizableText>
               </XStack>
             </Button>
-            <Button size="large" icon="PlusLargeOutline">
+            <Button
+              size="large"
+              icon="PlusLargeOutline"
+              onPress={handleCreateOrImportWallet}
+            >
               Create or import wallet
             </Button>
           </Stack>
