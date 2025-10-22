@@ -1,8 +1,12 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
+import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { buildDefaultFileBaseName } from './utils';
@@ -79,12 +83,30 @@ export const uploadLogBundle = async ({
   if (!response || typeof response !== 'object') {
     throw new OneKeyLocalError('Upload failed: invalid response');
   }
-  if ('code' in response && response.code !== 0) {
-    throw new OneKeyLocalError(response.message ?? 'Upload failed');
+
+  const responseData = response as IApiClientResponse<ILogUploadResponse> &
+    Record<string, any>;
+
+  if (typeof responseData.code === 'number' && responseData.code !== 0) {
+    const errorMessage =
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (responseData?.data as any)?.message ||
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (responseData as any)?.message ||
+      'Upload failed';
+    throw new OneKeyServerApiError({
+      message: errorMessage,
+      data: responseData as any,
+      code: responseData.code,
+    });
+  }
+
+  if (!responseData.data) {
+    throw new OneKeyLocalError('Upload failed: missing response data');
   }
 
   return {
     digest,
-    result: (response.data ?? {}) as ILogUploadResponse,
+    result: responseData.data,
   };
 };
