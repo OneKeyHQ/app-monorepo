@@ -335,6 +335,7 @@ function AppDataSection() {
     }
     manualSyncingRef.current = true;
     try {
+      await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.serviceApp.showDialogLoading({
         title: intl.formatMessage({
           id: ETranslations.global_syncing,
