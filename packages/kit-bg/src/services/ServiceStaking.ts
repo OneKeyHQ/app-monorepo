@@ -871,7 +871,7 @@ class ServiceStaking extends ServiceBase {
       });
       return tokensResponse.data.data;
     },
-    { promise: true, maxAge: timerUtils.getTimeDurationMs({ seconds: 5 }) },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }) },
   );
 
   @backgroundMethod()
