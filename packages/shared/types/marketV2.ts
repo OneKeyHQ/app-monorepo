@@ -215,12 +215,14 @@ export interface IMarketTokenTransaction {
   url: string;
   from: IMarketTokenTransactionToken;
   to: IMarketTokenTransactionToken;
+  poolLogoUrl?: string;
 }
 
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
   hasMore?: boolean;
   total?: number;
+  cursor?: string;
 }
 
 export interface IMarketTokenHolder {
