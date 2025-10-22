@@ -132,9 +132,13 @@ export function HeaderRight({
         {isHorizontal ? (
           <OneKeyIdButton testID="header-right-onekey-id" />
         ) : null}
-        {isHorizontal ? <DownloadButton /> : null}
-        {isHorizontal && gtXl ? <LanguageButton /> : null}
-        {isHorizontal && gtXl ? <ThemeButton /> : null}
+        {isHorizontal && platformEnv.isWebDappMode ? <DownloadButton /> : null}
+        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
+          <LanguageButton />
+        ) : null}
+        {isHorizontal && platformEnv.isWebDappMode && gtXl ? (
+          <ThemeButton />
+        ) : null}
       </>
     );
 

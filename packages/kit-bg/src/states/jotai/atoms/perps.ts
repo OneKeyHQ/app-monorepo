@@ -275,6 +275,59 @@ export const {
     },
   },
 });
+
+export interface IPerpsDepositNetwork {
+  networkId: string;
+  name: string;
+  code: string;
+  shortcode: string;
+  shortname: string;
+  logoURI: string;
+  symbol: string;
+  decimals: number;
+}
+
+export interface IPerpsDepositNetworksAtom {
+  networks: IPerpsDepositNetwork[];
+  currentPerpsDepositSelectedNetwork?: IPerpsDepositNetwork;
+}
+export const {
+  target: perpsDepositNetworksAtom,
+  use: usePerpsDepositNetworksAtom,
+} = globalAtom<IPerpsDepositNetworksAtom>({
+  name: EAtomNames.perpsDepositNetworksAtom,
+  initialValue: {
+    networks: [],
+  },
+});
+export interface IPerpsDepositToken {
+  networkId: string;
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  networkLogoURI: string;
+  price?: string;
+  balanceParsed?: string;
+  fiatValue?: string;
+  isNative?: boolean;
+  logoURI?: string;
+}
+
+export interface IPerpsDepositTokensAtom {
+  tokens: Map<string, IPerpsDepositToken[]>;
+  currentPerpsDepositSelectedToken?: IPerpsDepositToken;
+}
+export const {
+  target: perpsDepositTokensAtom,
+  use: usePerpsDepositTokensAtom,
+} = globalAtom<IPerpsDepositTokensAtom>({
+  name: EAtomNames.perpsDepositTokensAtom,
+  initialValue: {
+    tokens: new Map(),
+  },
+});
+
 export interface IPerpsUserConfigPersistAtom {
   perpUserConfig: IPerpUserConfig;
 }

@@ -43,7 +43,7 @@ import {
 } from '../../hooks';
 import { PageContext, usePageContext } from '../../layouts/Page/PageContext';
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
 
