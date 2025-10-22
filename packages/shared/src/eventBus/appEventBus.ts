@@ -386,6 +386,21 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
+  [EAppEventBusNames.ClientLogUploadProgress]: {
+    platform: 'web' | 'desktop' | 'native';
+    stage:
+      | 'collecting'
+      | 'hashing'
+      | 'request_token'
+      | 'uploading'
+      | 'success'
+      | 'fallback'
+      | 'error';
+    uploadedBytes?: number;
+    totalBytes?: number;
+    retry?: number;
+    message?: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

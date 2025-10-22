@@ -94,6 +94,19 @@ class DesktopApiDev {
     if (sizeBytes !== undefined && !('content-length' in reqHeaders)) {
       reqHeaders['content-length'] = String(sizeBytes);
     }
+
+    logger.info('[client-log-upload] url:', uploadUrl);
+    logger.info('[client-log-upload] filePath:', filePath);
+    logger.info('[client-log-upload] sizeBytes:', sizeBytes);
+    logger.info('[client-log-upload] headers:', JSON.stringify(reqHeaders));
+
+    const curlParts = [`curl -X POST '${uploadUrl}'`];
+    Object.entries(reqHeaders).forEach(([key, value]) => {
+      curlParts.push(`-H '${key}: ${value}'`);
+    });
+    curlParts.push(`--data-binary '@${filePath}'`);
+    logger.info('[client-log-upload] curl command:', curlParts.join(' \\\n  '));
+
     const fileStream = fs.createReadStream(filePath);
     const response = await fetch(uploadUrl, {
       method: 'POST',
@@ -102,6 +115,7 @@ class DesktopApiDev {
     });
     const text = await response.text();
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return JSON.parse(text);
     } catch (error) {
       return {
