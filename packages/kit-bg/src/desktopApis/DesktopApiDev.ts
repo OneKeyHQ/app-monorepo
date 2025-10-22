@@ -49,13 +49,20 @@ class DesktopApiDev {
     }
     const baseName = params.fileBaseName;
     const logFilePath = logger.transports.file.getFile().path;
+    const logDir = path.dirname(logFilePath);
+    const logFiles = await fs.readdir(logDir);
+
     const zipName = `${baseName}.zip`;
-    const tempDir = path.join(app.getPath('temp'), 'onekey-logs');
+    const tempDir = path.join(app.getPath('temp'), '@onekeyhq-desktop-logs');
     await fs.mkdir(tempDir, { recursive: true });
     const zipPath = path.join(tempDir, zipName);
 
     const zip = new AdmZip();
-    zip.addLocalFile(logFilePath, '', path.basename(logFilePath));
+    logFiles
+      .filter((fileName) => fileName.endsWith('.log'))
+      .forEach((fileName) => {
+        zip.addLocalFile(path.join(logDir, fileName), '', fileName);
+      });
     zip.writeZip(zipPath);
 
     const fileBuffer = await fs.readFile(zipPath);
