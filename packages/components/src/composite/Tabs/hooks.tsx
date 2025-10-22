@@ -92,9 +92,10 @@ export const useTabContainerWidth = platformEnv.isNative
       const [{ collapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
       return useMemo(() => {
-        if (platformEnv.isWeb) {
+        if (platformEnv.isWebDappMode) {
           return `calc(100vw)`;
         }
+
         const sideBarWidth = leftSidebarCollapsed
           ? MIN_SIDEBAR_WIDTH
           : MAX_SIDEBAR_WIDTH;
