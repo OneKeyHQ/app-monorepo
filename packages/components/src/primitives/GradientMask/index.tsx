@@ -1,9 +1,9 @@
 import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
 
-type GradientMaskPosition = 'left' | 'right';
+type IGradientMaskPosition = 'left' | 'right';
 
 interface IGradientMaskProps {
-  position: GradientMaskPosition;
+  position: IGradientMaskPosition;
   opacity?: number;
   width?: number;
 }
