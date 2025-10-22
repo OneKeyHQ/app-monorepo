@@ -9,7 +9,7 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog, useClipboard } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
 import {
@@ -71,7 +71,6 @@ import {
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
-import { exportLogs } from './exportLogs';
 import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 import { SubSearchSettings } from './SubSettings';
 
@@ -136,7 +135,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
   const userAgreementUrl = useHelpLink({ path: 'articles/11461297' });
   const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
@@ -716,11 +714,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 id: ETranslations.settings_export_state_logs,
               }),
               onPress: () => {
-                showExportLogsDialog({
-                  intl,
-                  copyText,
-                  onExport: exportLogs,
-                });
+                showExportLogsDialog({ intl });
               },
             },
           ],
@@ -792,7 +786,6 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
-      copyText,
     ],
   );
 };
