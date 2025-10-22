@@ -261,15 +261,9 @@ const BaseDevSettingsSection = () => {
           <SectionFieldItem
             icon="UsbOutline"
             name="desktopUsbComm"
-            title="桌面 USB 通信方式"
-            subtitle={
-              devSettings.settings?.desktopUsbComm === 'bridge'
-                ? 'Bridge'
-                : 'WebUSB'
-            }
+            title="USB 通信方式"
           >
             <Select
-              title="桌面 USB 通信方式"
               items={[
                 { label: 'WebUSB', value: 'webusb' },
                 { label: 'Bridge', value: 'bridge' },
