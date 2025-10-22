@@ -18,6 +18,7 @@ const PickYourDevice = LazyLoadPage(() => import('../pages/PickYourDevice'));
 const ConnectYourDevice = LazyLoadPage(
   () => import('../pages/ConnectYourDevice'),
 );
+const CheckAndUpdate = LazyLoadPage(() => import('../pages/CheckAndUpdate'));
 
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
@@ -46,5 +47,9 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.ConnectYourDevice,
     component: ConnectYourDevice,
+  },
+  {
+    name: EOnboardingPagesV2.CheckAndUpdate,
+    component: CheckAndUpdate,
   },
 ];

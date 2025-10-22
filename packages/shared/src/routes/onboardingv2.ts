@@ -11,6 +11,7 @@ export enum EOnboardingPagesV2 {
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   PickYourDevice = 'PickYourDevice',
   ConnectYourDevice = 'ConnectYourDevice',
+  CheckAndUpdate = 'CheckAndUpdate',
 }
 
 export type IOnboardingParamListV2 = {
@@ -24,4 +25,5 @@ export type IOnboardingParamListV2 = {
   [EOnboardingPagesV2.ConnectYourDevice]: {
     deviceType: EDeviceType[];
   };
+  [EOnboardingPagesV2.CheckAndUpdate]: undefined;
 };
