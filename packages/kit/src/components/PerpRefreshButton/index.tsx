@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { IIconButtonProps } from '@onekeyhq/components';
 import { IconButton } from '@onekeyhq/components';
@@ -15,11 +15,27 @@ export function PerpRefreshButton(props: IPerpRefreshButtonProps) {
   const actions = useHyperliquidActions();
   const [networkStatus] = usePerpsNetworkStatusAtom();
   const [loading, setLoading] = useState(false);
+  const [canRefresh, setCanRefresh] = useState(!!networkStatus.connected);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (networkStatus?.connected) {
+      setCanRefresh(true);
+    } else {
+      setCanRefresh(false);
+      timer = setTimeout(() => {
+        setCanRefresh(true);
+      }, 5000);
+    }
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [networkStatus?.connected]);
 
   return (
     <IconButton
       loading={loading}
-      disabled={!networkStatus.connected}
+      disabled={!canRefresh}
       icon="RefreshCwOutline"
       variant="tertiary"
       size="small"
