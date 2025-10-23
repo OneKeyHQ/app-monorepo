@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/native';
-import { pickBy } from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -76,13 +76,9 @@ function ApprovalList() {
     });
 
   useEffect(() => {
-    if (
-      typeof routeBulkMode !== 'undefined' &&
-      !accountUtils.isWatchingWallet({ walletId })
-    ) {
+    if (!isNil(routeBulkMode) && !accountUtils.isWatchingWallet({ walletId })) {
       updateIsBulkRevokeMode(!!routeBulkMode);
     }
-    // Only apply on mount or when param changes
   }, [routeBulkMode, updateIsBulkRevokeMode, walletId]);
 
   const filteredSelectedTokensByNetwork = useMemo(() => {
