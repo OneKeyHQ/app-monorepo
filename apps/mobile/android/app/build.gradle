@@ -1,6 +1,7 @@
 plugins {
     id "com.android.application"
     id "so.onekey.plugin.security"
+    id "com.huawei.agconnect"
 }
 apply plugin: "com.facebook.react"
 
@@ -282,6 +283,11 @@ dependencies {
     // add billing sdk, also update AndroidManifest.xml
     // def billingVersion = 7.1.1
     // implementation("com.android.billingclient:billing:$billingVersion")
+
+    // JPush Huawei channel - exclude from google flavor
+    huaweiImplementation 'cn.jiguang.sdk.plugin:huawei:5.9.0'
+    prodImplementation 'cn.jiguang.sdk.plugin:huawei:5.9.0'
+    // googleImplementation - intentionally omitted (no Huawei channel for Google flavor)
 }
 
 // apply from: new File(["node", "--print", "require.resolve('@react-native-community/cli-platform-android/package.json')"].execute(null, rootDir).text.trim(), "../native_modules.gradle");

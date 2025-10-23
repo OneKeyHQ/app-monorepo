@@ -7896,8 +7896,8 @@ __metadata:
     expo-web-browser: "npm:14.2.0"
     folderslint: "npm:^1.2.0"
     https-browserify: "npm:^1.0.0"
-    jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#aa463b7296cf9e7095a3ba9965e97c1d3d03df56"
-    jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
+    jcore-react-native: "https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
+    jpush-react-native: "https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156"
     lottie-react: "npm:^2.4.0"
     lottie-react-native: "npm:7.2.2"
     path-browserify: "npm:^1.0.1"
@@ -28322,12 +28322,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#aa463b7296cf9e7095a3ba9965e97c1d3d03df56":
-  version: 2.0.3
-  resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=aa463b7296cf9e7095a3ba9965e97c1d3d03df56"
+"jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c":
+  version: 2.3.2
+  resolution: "jcore-react-native@https://github.com/OneKeyHQ/jcore-react-native.git#commit=4bfbbddbbeb9f295d3ee3eda9e39129a14e99d2c"
   peerDependencies:
     react-native: ">= 0.60"
-  checksum: 10/9e5ac48196bae1ed0ac9f8d5730b482a3f91348f7b73a383017855e7c4c5b924363bbc3ce5f664bf7f86e57b17f602b8ee8460d43cf2ed0d8caf0c5ffcd523e6
+  checksum: 10/f101f871f043f355968154d826d5ccb83547089367959bf005b443b9825f4ee2bdfcdedb4d2552bc27a17937bf7ae6d843f897f4ab872331efae717d5de2fa9b
   languageName: node
   linkType: hard
 
@@ -28961,13 +28961,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7":
-  version: 2.9.2
-  resolution: "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#commit=f10dfb5fe18fc042e6d4a82ec12f6b1d431adac7"
+"jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#33eca9ebd18aba2ed6810f26f00add94211d9156":
+  version: 3.2.1
+  resolution: "jpush-react-native@https://github.com/OneKeyHQ/jpush-react-native.git#commit=33eca9ebd18aba2ed6810f26f00add94211d9156"
   peerDependencies:
     jcore-react-native: ">= 1.9.3"
     react-native: ">= 0.50"
-  checksum: 10/de080e22ec2dfcaea20526182cafe1fe2ccc81eb52178987356aba058cedad3522541ce918c7847e2e89609ee8d81e74bab9570e85f7e3a27d4dc15df0f19bd1
+  checksum: 10/3f5f6a0089d428f3c9d3c1a139d0b686e8468b8c205ae67e97e3f07226ec789e7b12cc08001a2809c8fcb907c4065fd1f4ea9bee04f9490141cab407c41d2830
   languageName: node
   linkType: hard
 

@@ -59,6 +59,8 @@ jobs:
           echo ${{ secrets.AUTO_SUBMIT_GOOGLE_PLAY_KEY }} | base64 -d > apps/mobile/pc-api-8644398719570171123-0-dcae07e2afab.json
           rm -rf apps/mobile/android/app/google-services.json
           echo ${{ secrets.GOOGLE_SERVICE_ANDROID }} | base64 -d > apps/mobile/android/app/google-services.json
+          rm -rf apps/mobile/android/app/agconnect-services.json
+          echo ${{ secrets.HUAWEI_CONNECT_SERVICE_ANDROID }} | base64 -d > apps/mobile/android/app/agconnect-services.json
 
       - name: Setup EAS
         uses: expo/expo-github-action@v8
