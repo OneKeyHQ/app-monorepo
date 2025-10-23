@@ -12,7 +12,7 @@ import {
   EPortalContainerConstantName,
   Portal,
 } from '@onekeyhq/components/src/hocs';
-import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
+import { useSafeAreaInsets, useShortcuts } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import {
   Icon,
@@ -35,8 +35,6 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
-
-import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
 
 import { DesktopTabItem } from './DesktopTabItem';
 
@@ -222,11 +220,14 @@ export function DesktopLeftSideBar({
   );
 
   const handleToggleCollapse = useCallback(() => {
+    defaultLogger.app.page.navigationToggle();
     setAppSideBarStatus((prev) => ({
       ...prev,
       isCollapsed: !prev.isCollapsed,
     }));
   }, [setAppSideBarStatus]);
+
+  useShortcuts(EShortcutEvents.SideBar, handleToggleCollapse);
 
   return (
     <MotiView
