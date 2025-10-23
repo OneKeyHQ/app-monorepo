@@ -10,10 +10,10 @@ export const useHeaderCollapseButtonVisibility = ({
   hideWhenOpen?: boolean;
   hideWhenCollapse?: boolean;
 }) => {
-  const [{ isCollapsed: isCollapse = false }] = useAppSideBarStatusAtom();
+  const [{ isCollapsed = false }] = useAppSideBarStatusAtom();
 
-  const shouldHideWhenCollapse = hideWhenCollapse && isCollapse;
-  const shouldHideWhenOpen = hideWhenOpen && !isCollapse;
+  const shouldHideWhenCollapse = hideWhenCollapse && isCollapsed;
+  const shouldHideWhenOpen = hideWhenOpen && !isCollapsed;
 
   return useMemo(() => {
     return {
