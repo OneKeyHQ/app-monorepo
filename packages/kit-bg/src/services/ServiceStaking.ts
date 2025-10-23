@@ -1003,8 +1003,8 @@ class ServiceStaking extends ServiceBase {
       accountId,
       networkId,
       indexedAccountId,
-    });
-    return this._getAccountAssetV2(accounts);
+    }).catch(() => []);
+    return this._getAccountAssetV2(accounts ?? []);
   }
 
   @backgroundMethod()
