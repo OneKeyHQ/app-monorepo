@@ -85,6 +85,7 @@ export function transformApiItemToToken(
       : undefined,
     sortIndex,
     isNative: item.isNative,
+    communityRecognized: item.communityRecognized,
     walletInfo: {
       buy: safeNumber(item.buy24hCount),
       sell: safeNumber(item.sell24hCount),

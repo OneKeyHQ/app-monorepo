@@ -8,6 +8,7 @@ import { app } from 'electron';
 import logger from 'electron-log/main';
 
 import {
+  calculateSHA256,
   getBundleDirName,
   getBundleExtractDir,
   testExtractedSha256FromVerifyAscFile,
@@ -674,6 +675,10 @@ class DesktopApiAppBundleUpdate {
     return (
       globalThis.$desktopMainAppFunctions?.getBundleIndexHtmlPath?.() || ''
     );
+  }
+
+  async getSha256FromFilePath(filePath: string) {
+    return calculateSHA256(filePath);
   }
 }
 
