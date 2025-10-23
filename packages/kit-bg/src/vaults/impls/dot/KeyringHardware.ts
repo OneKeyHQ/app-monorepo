@@ -26,6 +26,7 @@ import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import { getMetadataRpc } from './utils';
 
+import type VaultDot from './Vault';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
@@ -153,9 +154,14 @@ export class KeyringHardware extends KeyringHardwareBase {
     const account = await this.vault.getAccount();
     const network = await this.getNetwork();
     encodedTx.chainName = network.name;
+
+    const customRpcClient = await (
+      this.vault as VaultDot
+    ).getCustomApiPromise();
     const metadataRpc = await getMetadataRpc(
       this.networkId,
       this.backgroundApi,
+      customRpcClient,
     );
     const tx = await serializeUnsignedTransaction({
       ...encodedTx,

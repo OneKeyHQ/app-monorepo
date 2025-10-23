@@ -3,7 +3,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { useThrottledCallback } from 'use-debounce';
 
 import type {
   IKeyOfIcons,
@@ -52,12 +51,9 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type {
-  IEarnAvailableAsset,
-  IEarnAvailableAssetProtocol,
-} from '@onekeyhq/shared/types/earn';
+import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
-import type { IEarnRewardUnit } from '@onekeyhq/shared/types/staking';
+import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
 
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -70,6 +66,7 @@ import {
 } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
+import { AprText } from './components/AprText';
 import {
   AvailableAssetsTabViewList,
   AvailableAssetsTabViewListMobile,
@@ -87,7 +84,6 @@ const BANNER_TITLE_OFFSET = {
   mobile: '$10',
 };
 
-const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
   value: string | number,
@@ -181,17 +177,9 @@ function RecommendedSkeletonItem({ ...rest }: IYStackProps) {
 function RecommendedItem({
   token,
   ...rest
-}: { token?: IEarnAvailableAsset } & IYStackProps) {
+}: { token?: IRecommendAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
-
-  // if you want to use the primary color, you can uncomment the following code
-  // useEffect(() => {
-  //   const url = token?.logoURI;
-  //   if (url) {
-  //     void getPrimaryColor(url, '$bgSubdued').then(setDecorationColor);
-  //   }
-  // }, [token?.logoURI]);
 
   const onPress = useCallback(async () => {
     const {
@@ -223,8 +211,7 @@ function RecommendedItem({
     <YStack
       role="button"
       flex={1}
-      px="$5"
-      py="$3.5"
+      p="$4"
       borderRadius="$3"
       borderCurve="continuous"
       bg={token.bgColor}
@@ -243,33 +230,45 @@ function RecommendedItem({
       overflow="hidden"
       {...rest}
     >
-      <YStack alignItems="flex-start">
-        <XStack gap="$3" ai="center" width="100%">
+      <YStack alignItems="flex-start" width="100%">
+        <XStack gap="$2" ai="center" width="100%">
           <YStack>
             <Image
-              size="$8"
+              size="$6"
               source={{ uri: token.logoURI }}
               fallback={
                 <Image.Fallback
-                  w="$8"
-                  h="$8"
+                  w="$6"
+                  h="$6"
                   alignItems="center"
                   justifyContent="center"
                   bg="$bgStrong"
                 >
-                  <Icon size="$5" name="CoinOutline" color="$iconDisabled" />
+                  <Icon size="$6" name="CoinOutline" color="$iconDisabled" />
                 </Image.Fallback>
               }
             />
           </YStack>
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>
-        <SizableText size="$headingXl" pt="$4" pb="$1">
-          {buildAprText(
-            token.aprWithoutFee,
-            token.rewardUnit as IEarnRewardUnit,
-          )}
-        </SizableText>
+        <YStack alignItems="flex-start" width="100%">
+          <SizableText size="$headingXl" pt="$3.5" pb="$1">
+            <AprText
+              asset={{
+                aprWithoutFee: token?.aprWithoutFee ?? '',
+                aprInfo: token?.aprInfo,
+              }}
+            />
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            color={token.available.color ?? '$textSubdued'}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {token?.available?.text}
+          </SizableText>
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -312,55 +311,36 @@ function RecommendedContainer({ children }: PropsWithChildren) {
 }
 
 function Recommended() {
-  const actions = useEarnActions();
   const { md } = useMedia();
-  const [{ availableAssetsByType = {}, refreshTrigger = 0 }] = useEarnAtom();
+  const allNetworkId = useAllNetworkId();
+  const {
+    activeAccount: { account, indexedAccount },
+  } = useActiveAccount({ num: 0 });
+  const [{ refreshTrigger = 0 }] = useEarnAtom();
 
-  // Throttled function to fetch recommended assets
-  const fetchRecommendedAssets = useThrottledCallback(
+  const { result: tokens } = usePromiseResult(
     async () => {
-      const loadingKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
-      actions.current.setLoadingState(loadingKey, true);
-
-      try {
-        const recommendedAssets =
-          await backgroundApiProxy.serviceStaking.getAvailableAssets({
-            type: EAvailableAssetsTypeEnum.Recommend,
-          });
-
-        // Update the corresponding data in atom
-        actions.current.updateAvailableAssetsByType(
-          EAvailableAssetsTypeEnum.Recommend,
-          recommendedAssets,
-        );
-        return recommendedAssets;
-      } finally {
-        actions.current.setLoadingState(loadingKey, false);
-      }
-    },
-    timerUtils.getTimeDurationMs({ seconds: 2 }),
-    { leading: true, trailing: false },
-  );
-
-  // Get recommended assets
-  usePromiseResult(
-    async () => {
-      const result = await fetchRecommendedAssets();
-      return result || [];
+      const recommendedAssets =
+        await backgroundApiProxy.serviceStaking.fetchAllNetworkAssetsV2({
+          accountId: account?.id ?? '',
+          networkId: allNetworkId,
+          indexedAccountId: account?.indexedAccountId || indexedAccount?.id,
+        });
+      return recommendedAssets?.tokens || [];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [refreshTrigger, fetchRecommendedAssets], // Add refreshTrigger as dependency
+    [
+      account?.id,
+      allNetworkId,
+      account?.indexedAccountId,
+      indexedAccount?.id,
+      refreshTrigger,
+    ],
     {
       watchLoading: true,
       initResult: [],
     },
   );
-
-  const tokens = useMemo(() => {
-    const recommendAssets =
-      availableAssetsByType[EAvailableAssetsTypeEnum.Recommend] || [];
-    return recommendAssets;
-  }, [availableAssetsByType]);
 
   // Render skeleton when loading and no data
   const shouldShowSkeleton = tokens.length === 0;
@@ -422,7 +402,7 @@ function Recommended() {
           >
             <XStack gap="$3">
               {tokens.map((token) => (
-                <YStack key={token.symbol} width="$40">
+                <YStack key={token.symbol} minWidth="$52">
                   <RecommendedItem token={token} />
                 </YStack>
               ))}
@@ -815,13 +795,12 @@ function BasicEarnHome() {
       (isFocus, isHideByModal) => {
         if (isFocus && !isHideByModal) {
           // Check and refetch incomplete data when tab becomes focused
-          const recommendKey = `availableAssets-${EAvailableAssetsTypeEnum.Recommend}`;
           const allKey = `availableAssets-${EAvailableAssetsTypeEnum.All}`;
           const stableKey = `availableAssets-${EAvailableAssetsTypeEnum.StableCoins}`;
           const nativeKey = `availableAssets-${EAvailableAssetsTypeEnum.NativeTokens}`;
 
           // Check loading states and data for each key
-          const keys = [recommendKey, allKey, stableKey, nativeKey];
+          const keys = [allKey, stableKey, nativeKey];
 
           // Check if any data is incomplete and trigger refresh
           const hasIncompleteData = keys.some((key) =>

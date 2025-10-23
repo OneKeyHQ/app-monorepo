@@ -30,6 +30,7 @@ export interface IWsTxsData {
   from: IWsTxsTransferInfo;
   to: IWsTxsTransferInfo;
   poolId: string;
+  poolLogoUrl?: string;
   network: string;
   interactedProgramId: string;
   insIndex: number;

@@ -474,7 +474,7 @@ async function createMainWindow() {
     title: APP_TITLE_NAME,
     titleBarStyle: 'hidden',
     titleBarOverlay: !isMac,
-    trafficLightPosition: { x: 10, y: 20 },
+    trafficLightPosition: { x: 10, y: 18 },
     autoHideMenuBar: true,
     frame: true,
     resizable: true,
@@ -728,6 +728,23 @@ async function createMainWindow() {
       'https://mainnet.optimism.io/*',
     ],
   };
+
+  // WebUSB permission handlers - Enable WebUSB support for hardware wallet connections
+  browserWindow.webContents.session.setPermissionCheckHandler(
+    (webContents, permission) => {
+      if (permission === 'usb') {
+        return true;
+      }
+      return false;
+    },
+  );
+
+  browserWindow.webContents.session.setDevicePermissionHandler((details) => {
+    if (details.deviceType === 'usb') {
+      return true;
+    }
+    return false;
+  });
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
     filter,

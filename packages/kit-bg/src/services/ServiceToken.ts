@@ -673,6 +673,14 @@ class ServiceToken extends ServiceBase {
         tokens: [tokenInfo],
       });
 
+      console.log(
+        '=====>>>>> getToken',
+        accountId,
+        networkId,
+        tokenIdOnNetwork,
+        localToken,
+      );
+
       return tokenInfo;
     } catch (error) {
       console.log('fetchTokensDetails ERROR:', error);

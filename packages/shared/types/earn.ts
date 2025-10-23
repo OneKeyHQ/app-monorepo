@@ -79,7 +79,6 @@ export enum EAvailableAssetsTypeEnum {
   All = 'all',
   StableCoins = 'stableCoins',
   NativeTokens = 'nativeTokens',
-  Recommend = 'recommend',
 }
 
 export interface IEarnAvailableAssetProtocol {

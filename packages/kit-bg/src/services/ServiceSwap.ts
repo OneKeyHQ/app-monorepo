@@ -2335,7 +2335,7 @@ export default class ServiceSwap extends ServiceBase {
       };
       const client = await this.getClient(EServiceEndpointEnum.Swap);
       const { data } = await client.post<{ data: IPerpDepositQuoteResponse }>(
-        '/swap/v1/build-tx/perp-deposit-quote',
+        '/swap/v1/perp-deposit-quote',
         fetchParams,
         {
           headers,

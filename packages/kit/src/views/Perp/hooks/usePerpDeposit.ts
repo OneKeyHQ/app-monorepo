@@ -12,6 +12,7 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
+  IAccountDeriveTypes,
   IApproveInfo,
   IBuildUnsignedTxParams,
   ITransferInfo,
@@ -58,7 +59,8 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 const usePerpDeposit = (
   amount: string,
-  accountId: string,
+  indexedAccountId: string,
+  deriveType: IAccountDeriveTypes,
   selectedAction: 'withdraw' | 'deposit',
   token?: IPerpsDepositToken,
 ) => {
@@ -79,31 +81,45 @@ const usePerpDeposit = (
   }, [token]);
   const { result } = usePromiseResult(
     async () => {
-      if (selectedAction !== 'deposit' || !isArbitrumUsdcToken) return;
-      if (accountId && token?.networkId) {
-        const fromTokenAccount =
-          await backgroundApiProxy.serviceAccount.getAccount({
-            accountId,
-            networkId: token.networkId,
+      if (selectedAction !== 'deposit' || isArbitrumUsdcToken) return;
+      if (indexedAccountId && token?.networkId) {
+        const accountAddressInfo =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            indexedAccountId,
+            networkId: token.networkId ?? '',
+            deriveType,
+            accountId: undefined,
           });
-        const perpAccount = await backgroundApiProxy.serviceAccount.getAccount({
-          accountId,
-          networkId: PERPS_NETWORK_ID,
-        });
+        const perpAccount =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId,
+            deriveType,
+            networkId: PERPS_NETWORK_ID,
+          });
         return {
-          fromUserAddress: fromTokenAccount.address,
-          perpReceiverAddress: perpAccount.address,
+          accountId: accountAddressInfo.id,
+          fromUserAddress: accountAddressInfo.addressDetail.address,
+          perpReceiverAddress: perpAccount.addressDetail.address,
         };
       }
     },
-    [selectedAction, accountId, token?.networkId, isArbitrumUsdcToken],
+    [
+      selectedAction,
+      isArbitrumUsdcToken,
+      indexedAccountId,
+      token?.networkId,
+      deriveType,
+    ],
     {
       watchLoading: true,
     },
   );
-
+  const accountId = useMemo(() => {
+    return result?.accountId ?? '';
+  }, [result?.accountId]);
   useEffect(() => {
-    if (selectedAction !== 'deposit' || !token || !isArbitrumUsdcToken) return;
+    if (selectedAction !== 'deposit' || !token || isArbitrumUsdcToken) return;
     void (async () => {
       const amountBN = new BigNumber(amount ?? '0');
       try {
