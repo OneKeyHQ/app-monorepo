@@ -215,18 +215,23 @@ function TokenDetailsHeader(props: IProps) {
         isNFT: false,
         token: tokenDetails?.info ?? tokenInfo,
         isAllNetworks,
+        disableAddressTypeSelector: true,
+        showAddressTypeSelectorWhenDisabled: !accountUtils.isOthersWallet({
+          walletId,
+        }),
       },
     });
   }, [
-    accountId,
-    isAllNetworks,
-    navigation,
+    wallet?.type,
     network?.id,
+    isSoftwareWalletOnlyUser,
+    navigation,
     networkId,
+    accountId,
     tokenDetails?.info,
     tokenInfo,
-    wallet?.type,
-    isSoftwareWalletOnlyUser,
+    isAllNetworks,
+    walletId,
   ]);
 
   const isReceiveDisabled = useMemo(

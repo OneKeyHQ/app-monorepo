@@ -79,7 +79,20 @@ function ApprovalList() {
     if (!isNil(routeBulkMode) && !accountUtils.isWatchingWallet({ walletId })) {
       updateIsBulkRevokeMode(!!routeBulkMode);
     }
-  }, [routeBulkMode, updateIsBulkRevokeMode, walletId]);
+    return () => {
+      updateSearchKey('');
+      updateIsBulkRevokeMode(false);
+      updateSelectedTokens({
+        selectedTokens: {},
+      });
+    };
+  }, [
+    routeBulkMode,
+    updateIsBulkRevokeMode,
+    updateSearchKey,
+    updateSelectedTokens,
+    walletId,
+  ]);
 
   const filteredSelectedTokensByNetwork = useMemo(() => {
     if (searchNetworkId === getNetworkIdsMap().onekeyall) {
@@ -244,16 +257,9 @@ function ApprovalList() {
       />
     );
   };
-  const handleOnClose = useCallback(() => {
-    updateSearchKey('');
-    updateIsBulkRevokeMode(false);
-    updateSelectedTokens({
-      selectedTokens: {},
-    });
-  }, [updateIsBulkRevokeMode, updateSelectedTokens, updateSearchKey]);
 
   return (
-    <Page onClose={handleOnClose}>
+    <Page>
       <Page.Header
         title={
           isBulkRevokeMode
