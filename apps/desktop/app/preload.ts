@@ -129,6 +129,7 @@ const validChannels = [
   ipcMessageKeys.APP_LOCK_NOW,
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
+  ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
 ];
 

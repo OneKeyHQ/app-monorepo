@@ -233,10 +233,15 @@ function DesktopCustomTabBarItem({
         tabBarStyle={
           isCollapse
             ? {
-                width: 36,
-                height: 36,
                 alignItems: 'center',
                 justifyContent: 'center',
+              }
+            : undefined
+        }
+        tabBarItemStyle={
+          isCollapse
+            ? {
+                height: 36,
               }
             : undefined
         }
@@ -293,13 +298,12 @@ function DesktopCustomTabBarItem({
         placement="right"
         renderContent={
           <XStack
-            p="$2"
             gap="$2"
             onHoverIn={handleHoverIn}
             onHoverOut={handleHoverOut}
           >
             <DesktopTabItemImage avatarSrc={tab?.favicon} selected={isActive} />
-            <SizableText size="$bodyMd" numberOfLines={1}>
+            <SizableText size="$bodyMd" width="$24" numberOfLines={1}>
               {label}
             </SizableText>
             <IconButton
