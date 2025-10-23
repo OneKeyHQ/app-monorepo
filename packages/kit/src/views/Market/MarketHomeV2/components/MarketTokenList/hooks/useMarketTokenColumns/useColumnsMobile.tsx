@@ -38,6 +38,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
               address={record.address}
               showVolume
               volume={record.turnover}
+              communityRecognized={record.communityRecognized}
             />
           </XStack>
         );

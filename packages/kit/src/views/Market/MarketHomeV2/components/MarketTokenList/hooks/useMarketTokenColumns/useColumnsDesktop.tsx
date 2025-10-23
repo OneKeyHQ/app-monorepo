@@ -76,6 +76,7 @@ export const useColumnsDesktop = (
           address={record.address}
           showCopyButton
           copyFrom={ECopyFrom.Homepage}
+          communityRecognized={record.communityRecognized}
         />
       ),
       renderSkeleton: () => (
