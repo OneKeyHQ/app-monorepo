@@ -2,7 +2,10 @@ import { useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { useUpdateEffect, type IDebugRenderTrackerProps } from '@onekeyhq/components';
+import {
+  type IDebugRenderTrackerProps,
+  useUpdateEffect,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';

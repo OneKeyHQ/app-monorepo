@@ -26,8 +26,10 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
-import type { IHyperLiquidErrorLocaleItem } from '@onekeyhq/shared/types/hyperliquid/types';
+import type {
+  EPerpUserType,
+  IHyperLiquidErrorLocaleItem,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   perpsUserConfigPersistAtom,
