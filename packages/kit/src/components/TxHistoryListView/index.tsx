@@ -1,5 +1,5 @@
 import type { ComponentProps, ForwardedRef, ReactElement } from 'react';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -214,16 +214,21 @@ function TxHistoryListViewSectionHeader(
   const recomputeLayoutRef = useRef(false);
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
-  if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
+  useEffect(() => {
     if (
+      data[0] &&
+      data[0].decodedTx.status === EDecodedTxStatus.Pending &&
       ((inTabList && isTabFocused) || !inTabList) &&
       !recomputeLayoutRef.current
     ) {
+      recomputeLayoutRef.current = true;
       setTimeout(() => {
-        recomputeLayoutRef.current = true;
         recomputeLayout();
       }, 350);
     }
+  }, [data, inTabList, isTabFocused, recomputeLayout]);
+
+  if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
     return (
       <XStack
         px="$5"

@@ -22,6 +22,7 @@ import type {
 import type {
   DeviceSettingsParams,
   DeviceUploadResourceParams,
+  DeviceUploadResourceResponse,
 } from '@onekeyfe/hd-core';
 
 export type ISetInputPinOnSoftwareParams = {
@@ -214,7 +215,7 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
   async setDeviceHomeScreen({
     dbDeviceId,
     screenItem,
-  }: ISetDeviceHomeScreenParams) {
+  }: ISetDeviceHomeScreenParams): Promise<DeviceUploadResourceResponse> {
     const device = await localDb.getDevice(dbDeviceId);
 
     const {
@@ -265,23 +266,22 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
             nftMetaData: '',
           };
           // upload wallpaper resource will automatically set the home screen
-          await convertDeviceResponse(() =>
+          return convertDeviceResponse(() =>
             hardwareSDK.deviceUploadResource(
               compatibleConnectId,
               uploadResParams,
             ),
           );
-        } else {
-          // Pro、Touch: built-in wallpaper
-          // Classic、mini、1s、pure: custom upload and built-in wallpaper
-          if (!finallyScreenHex && !isMonochrome) {
-            // empty string will clear the home screen(classic,mini)
-            throw new OneKeyLocalError('Invalid home screen hex');
-          }
-          await this.applySettingsToDevice(device.connectId, {
-            homescreen: finallyScreenHex,
-          });
         }
+        // Pro、Touch: built-in wallpaper
+        // Classic、mini、1s、pure: custom upload and built-in wallpaper
+        if (!finallyScreenHex && !isMonochrome) {
+          // empty string will clear the home screen(classic,mini)
+          throw new OneKeyLocalError('Invalid home screen hex');
+        }
+        return this.applySettingsToDevice(device.connectId, {
+          homescreen: finallyScreenHex,
+        });
       },
       {
         deviceParams: {
