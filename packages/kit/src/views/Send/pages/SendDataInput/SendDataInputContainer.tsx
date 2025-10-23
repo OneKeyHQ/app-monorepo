@@ -166,6 +166,8 @@ function SendDataInputContainer() {
     isAllNetworks,
     activeAccountId,
     activeNetworkId,
+    disableAddressTypeSelector,
+    showAddressTypeSelectorWhenDisabled,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -189,10 +191,11 @@ function SendDataInputContainer() {
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
   const [lnUnit, setLnUnit] = useState<ELightningUnit>(ELightningUnit.SATS);
 
-  const { account, network, vaultSettings } = useAccountData({
-    accountId: currentAccount.accountId,
-    networkId: currentAccount.networkId,
-  });
+  const { account, network, vaultSettings, deriveInfo, deriveType } =
+    useAccountData({
+      accountId: currentAccount.accountId,
+      networkId: currentAccount.networkId,
+    });
   const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
@@ -946,6 +949,10 @@ function SendDataInputContainer() {
           walletId={walletId}
           networkId={currentAccount.networkId}
           indexedAccountId={account?.indexedAccountId ?? ''}
+          activeDeriveInfo={deriveInfo}
+          activeDeriveType={deriveType}
+          disableSelector={disableAddressTypeSelector}
+          showTriggerWhenDisabled={showAddressTypeSelectorWhenDisabled}
           tokenMap={map}
           onSelect={async ({ account: a }) => {
             if (a) {
@@ -967,6 +974,10 @@ function SendDataInputContainer() {
     walletId,
     currentAccount.networkId,
     account?.indexedAccountId,
+    deriveInfo,
+    deriveType,
+    disableAddressTypeSelector,
+    showAddressTypeSelectorWhenDisabled,
     map,
   ]);
 
