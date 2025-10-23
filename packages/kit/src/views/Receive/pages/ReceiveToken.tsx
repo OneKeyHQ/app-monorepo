@@ -7,7 +7,6 @@ import { getColors } from 'react-native-image-colors';
 import { useThrottledCallback } from 'use-debounce';
 
 import {
-  Alert,
   Badge,
   Button,
   Dialog,
@@ -37,10 +36,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
-  EModalReceiveRoutes,
-  IModalReceiveParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -50,9 +47,11 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import AddressTypeSelector from '../../../components/AddressTypeSelector/AddressTypeSelector';
+import { HyperlinkText } from '../../../components/HyperlinkText';
 import { NetworkAvatar } from '../../../components/NetworkAvatar';
 import { Token } from '../../../components/Token';
 import { useAccountData } from '../../../hooks/useAccountData';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { useHelpLink } from '../../../hooks/useHelpLink';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -67,6 +66,7 @@ function ReceiveToken() {
   });
   const media = useMedia();
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const route =
     useRoute<
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.ReceiveToken>
@@ -247,6 +247,9 @@ function ReceiveToken() {
   ]);
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const isEnableBTCFreshAddressSetting = useMemo(() => {
+    return networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress;
+  }, [networkId, enableBTCFreshAddress]);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);
@@ -609,7 +612,7 @@ function ReceiveToken() {
           </XStack>
         </YStack>
         {renderVerifyAddressButton()}
-        {shouldShowAddress ? (
+        {shouldShowAddress && !isEnableBTCFreshAddressSetting ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage(
               {
@@ -620,6 +623,22 @@ function ReceiveToken() {
               },
             )}
           </SizableText>
+        ) : null}
+        {shouldShowAddress && isEnableBTCFreshAddressSetting ? (
+          <HyperlinkText
+            flexShrink={1}
+            color="$textSubdued"
+            size="$bodyMd"
+            translationId={ETranslations.receive_btc_fresh_address_message}
+            autoHandleResult={false}
+            onAction={() => {
+              console.log('HyperlinkText onAction');
+              navigation.push(EModalReceiveRoutes.BtcAddresses, {
+                networkId,
+                accountId: currentAccount?.id,
+              });
+            }}
+          />
         ) : null}
       </YStack>
     );
@@ -637,11 +656,13 @@ function ReceiveToken() {
     renderCopyAddressButton,
     renderVerifyAddressButton,
     shouldShowAddress,
+    isEnableBTCFreshAddressSetting,
     disableSelector,
     token?.symbol,
     vaultSettings?.mergeDeriveAssetsEnabled,
     wallet,
     walletId,
+    navigation,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {
@@ -796,16 +817,6 @@ function ReceiveToken() {
                 {banner.title}
               </SizableText>
             </XStack>
-          ) : null}
-
-          {networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress ? (
-            <Alert
-              icon="ShieldExclamationSolid"
-              description={intl.formatMessage({
-                id: ETranslations.wallet_receive_note_fresh_address,
-              })}
-              type="info"
-            />
           ) : null}
         </YStack>
       </Page.Body>

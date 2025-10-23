@@ -14,6 +14,7 @@ export enum EModalReceiveRoutes {
   ReceiveSelectToken = 'ReceiveSelectToken',
   ReceiveSelectAggregateToken = 'ReceiveSelectAggregateToken',
   ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
+  BtcAddresses = 'BtcAddresses',
 }
 
 export type IModalReceiveParamList = {
@@ -39,4 +40,8 @@ export type IModalReceiveParamList = {
   [EModalReceiveRoutes.ReceiveSelectToken]: ITokenSelectorParamList;
   [EModalReceiveRoutes.ReceiveSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalReceiveRoutes.ReceiveSelectDeriveAddress]: IDeriveTypesAddressParams;
+  [EModalReceiveRoutes.BtcAddresses]: {
+    networkId: string;
+    accountId: string;
+  };
 };
