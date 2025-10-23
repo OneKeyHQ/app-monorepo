@@ -139,12 +139,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         networks,
       };
     });
-    const tokensMap = new Map<string, IPerpsDepositToken[]>();
+    const tokensMap: Record<string, IPerpsDepositToken[]> = {};
     networks.forEach((network) => {
       const networkTokens = tokens.filter(
         (token) => token.networkId === network.networkId,
       );
-      tokensMap.set(network.networkId, networkTokens);
+      tokensMap[network.networkId] = networkTokens;
     });
     await perpsDepositTokensAtom.set((prev): IPerpsDepositTokensAtom => {
       return {
