@@ -1,11 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack } from '@onekeyhq/components';
+import { Image, XStack, useOnRouterChange } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { usePerpsLogo } from '../../views/Perp/hooks/usePerpsLogo';
+import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
+import { PerpRefreshButton } from '../PerpRefreshButton';
 
 import { FooterLink } from './components/FooterLink';
 import { FooterNavigation } from './components/FooterNavigation';
@@ -40,6 +44,22 @@ const LINKS = [
 
 export function Footer() {
   const intl = useIntl();
+  const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
+  const { poweredByHyperliquidLogo } = usePerpsLogo();
+
+  useOnRouterChange((state) => {
+    if (!state) {
+      setCurrentTab(ETabRoutes.Home);
+      return;
+    }
+    const rootState = state?.routes.find(
+      ({ name }) => name === ERootRoutes.Main,
+    )?.state;
+    const currentTabName = rootState?.routeNames
+      ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
+      : (rootState?.routes[0].name as ETabRoutes);
+    setCurrentTab(currentTabName);
+  });
 
   const linkItems = useMemo(
     () =>
@@ -53,6 +73,10 @@ export function Footer() {
     [intl],
   );
 
+  const isInPerpRoute =
+    currentTab === ETabRoutes.Perp ||
+    currentTab === ETabRoutes.WebviewPerpTrade;
+
   return (
     <XStack
       width="100%"
@@ -65,8 +89,27 @@ export function Footer() {
       alignItems="center"
       justifyContent="space-between"
     >
-      <NetworkStatus />
-      <FooterNavigation>{linkItems}</FooterNavigation>
+      <XStack gap="$2" alignItems="center">
+        <NetworkStatus />
+        {isInPerpRoute ? (
+          <PerpsProviderMirror>
+            <PerpRefreshButton />
+          </PerpsProviderMirror>
+        ) : null}
+      </XStack>
+
+      <XStack gap="$3" alignItems="center">
+        <FooterNavigation>{linkItems}</FooterNavigation>
+
+        {isInPerpRoute ? (
+          <Image
+            source={poweredByHyperliquidLogo}
+            w={145}
+            h={25}
+            resizeMode="contain"
+          />
+        ) : null}
+      </XStack>
     </XStack>
   );
 }

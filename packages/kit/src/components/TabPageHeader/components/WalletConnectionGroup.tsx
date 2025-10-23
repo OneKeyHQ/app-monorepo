@@ -141,7 +141,7 @@ export function WalletConnectionForWeb({
   const { gtMd } = useMedia();
 
   // Only show on web platform
-  if (!(platformEnv.isWeb && gtMd)) {
+  if (!(platformEnv.isWebDappMode && gtMd)) {
     return children ? <>{children}</> : null;
   }
 

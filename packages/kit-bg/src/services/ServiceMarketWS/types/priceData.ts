@@ -13,6 +13,9 @@ export interface IWsPriceData {
   v: number; // volume
   symbol: string;
   address: string;
+  volUsd?: number;
+  confirm?: number;
+  dataSource?: string;
 }
 
 export interface IWsPriceDataMessage {

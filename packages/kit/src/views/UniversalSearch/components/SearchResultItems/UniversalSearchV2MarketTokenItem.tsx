@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   NumberSizeableText,
   SizableText,
@@ -153,6 +154,7 @@ export function UniversalSearchV2MarketTokenItem({
     liquidity,
     volume_24h: volume24h,
     isNative,
+    communityRecognized,
   } = item.payload;
 
   // Hide favorite button in extension popup and side panel
@@ -213,12 +215,23 @@ export function UniversalSearchV2MarketTokenItem({
       renderAvatar={
         <MarketTokenIcon uri={logoUrl} size="lg" networkId={network} />
       }
-      title={symbol}
-      subtitle={<ContractAddress address={address} />}
-      subtitleProps={{
-        numberOfLines: 1,
-      }}
     >
+      <ListItem.Text
+        flex={1}
+        primary={
+          <XStack alignItems="center" gap="$1">
+            <SizableText size="$bodyLgMedium">{symbol}</SizableText>
+            {communityRecognized ? (
+              <Icon
+                name="BadgeRecognizedSolid"
+                size="$4"
+                color="$iconSuccess"
+              />
+            ) : null}
+          </XStack>
+        }
+        secondary={<ContractAddress address={address} />}
+      />
       <XStack alignItems="center">
         <YStack alignItems="flex-end">
           <BaseMarketTokenPrice

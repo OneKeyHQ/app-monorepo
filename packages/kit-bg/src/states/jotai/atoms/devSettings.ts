@@ -53,6 +53,8 @@ export interface IDevSettings {
   // use local trading view URL for development
   useLocalTradingViewUrl?: boolean;
   showPerpsRenderStats?: boolean;
+
+  usbCommunicationMode?: 'webusb' | 'bridge';
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -86,6 +88,7 @@ export const {
         selectedTab: ETabRoutes.Discovery,
       },
       useLocalTradingViewUrl: false,
+      usbCommunicationMode: 'webusb',
     },
   },
 });

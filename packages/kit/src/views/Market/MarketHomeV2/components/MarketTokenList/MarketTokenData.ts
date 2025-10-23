@@ -14,6 +14,7 @@ export interface IMarketToken {
   tokenImageUri: string;
   networkLogoUri: string;
   networkId: string;
+  firstTradeTime?: number;
   walletInfo?: import('./components/Txns').ITxnsWalletInfo;
   chainId?: string;
   sortIndex?: number;
