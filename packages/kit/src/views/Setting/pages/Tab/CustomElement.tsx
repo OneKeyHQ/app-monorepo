@@ -300,7 +300,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      const usb = devPersist?.settings?.desktopUsbComm;
+      const usb = devPersist?.settings?.usbCommunicationMode;
       const desktopTransportList: ISelectItem[] = [];
       if (usb === 'bridge') {
         desktopTransportList.push({
@@ -336,7 +336,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     return [];
-  }, [devPersist?.settings?.desktopUsbComm]);
+  }, [devPersist?.settings?.usbCommunicationMode]);
   const onChange = useCallback(async (value: string) => {
     const newTransportType = value as EHardwareTransportType;
 

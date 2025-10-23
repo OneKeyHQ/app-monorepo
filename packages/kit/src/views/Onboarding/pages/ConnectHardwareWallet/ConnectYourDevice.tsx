@@ -134,8 +134,9 @@ async function getForceTransportType(
       if (platformEnv.isNative) return EHardwareTransportType.BLE;
       if (platformEnv.isDesktop) {
         const dev = await backgroundApiProxy.serviceDevSetting.getDevSetting();
-        const desktopUsbComm = dev?.settings?.desktopUsbComm;
-        if (desktopUsbComm === 'bridge') return EHardwareTransportType.Bridge;
+        const usbCommunicationMode = dev?.settings?.usbCommunicationMode;
+        if (usbCommunicationMode === 'bridge')
+          return EHardwareTransportType.Bridge;
         return EHardwareTransportType.WEBUSB;
       }
       // For web/extension, use system setting transport type

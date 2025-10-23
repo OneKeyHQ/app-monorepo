@@ -260,7 +260,7 @@ const BaseDevSettingsSection = () => {
           />
           <SectionFieldItem
             icon="UsbOutline"
-            name="desktopUsbComm"
+            name="usbCommunicationMode"
             title="USB 通信方式"
           >
             <Select

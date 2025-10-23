@@ -57,7 +57,7 @@ export class HardwareConnectionManager {
   > {
     try {
       const dev = await this.backgroundApi.serviceDevSetting.getDevSetting();
-      return dev?.settings?.desktopUsbComm;
+      return dev?.settings?.usbCommunicationMode;
     } catch {
       return undefined;
     }
@@ -147,13 +147,11 @@ export class HardwareConnectionManager {
     }
   }
 
-  // Checking USB availability based on DevSetting (single mode)
-  async detectUSBDeviceAvailability(
-    mode?: 'webusb' | 'bridge',
-  ): Promise<boolean> {
+  // Checking USB availability based on DevSetting
+  async detectUSBDeviceAvailability(): Promise<boolean> {
     if (!platformEnv.isSupportDesktopBle) return true;
-    const _mode = mode ?? (await this.getDesktopUsbSetting());
-    if (_mode === 'bridge') {
+    const mode = await this.getDesktopUsbSetting();
+    if (mode === 'bridge') {
       return this.detectBridgeAvailability();
     }
     return this.detectWebUSBAvailability();
