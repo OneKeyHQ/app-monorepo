@@ -46,14 +46,12 @@ function UploadLogsDialogContent() {
 
   const handleEmailPress = useCallback(() => {
     copyText('hi@onekey.so');
-    Toast.success({ title: 'Email copied' });
   }, [copyText]);
 
   const handleInstanceIdCopy = useCallback(() => {
     if (instanceId) {
       copyText(instanceId);
       setInstanceIdCopied(true);
-      Toast.success({ title: 'Instance ID copied' });
     }
   }, [copyText, instanceId]);
 
@@ -167,7 +165,9 @@ function UploadLogsDialogContent() {
         setInstanceId(instanceIdValue);
 
         Toast.success({
-          title: 'Logs uploaded successfully',
+          title: intl.formatMessage({
+            id: ETranslations.settings_logs_uploaded_successfully,
+          }),
         });
       } catch (error) {
         // Upload failed after retries - fallback to export
@@ -184,7 +184,9 @@ function UploadLogsDialogContent() {
           console.log('[Log Upload] Export succeeded');
           setDialogStage('fallback_export_done');
           Toast.success({
-            title: 'Log file exported successfully',
+            title: intl.formatMessage({
+              id: ETranslations.settings_log_file_exported_successfully,
+            }),
           });
         } catch (exportError) {
           // Both upload and export failed
@@ -199,7 +201,7 @@ function UploadLogsDialogContent() {
         isActiveRef.current = false;
       }
     },
-    [dialogStage, resolveError],
+    [dialogStage, resolveError, intl],
   );
 
   const handleConfirmAction = useCallback(
@@ -215,10 +217,6 @@ function UploadLogsDialogContent() {
       case 'idle':
         return (
           <Stack>
-            <SizableText size="$bodyLg">
-              Uploading logs helps support quickly identify issues.
-            </SizableText>
-            <Stack h="$3" />
             <SizableText size="$bodyLg" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.settings_logs_do_not_include_sensitive_data,
@@ -232,7 +230,14 @@ function UploadLogsDialogContent() {
           <Stack gap="$3">
             <Progress value={progressPercent} />
             <SizableText size="$bodyMd">
-              Uploading logs... {Math.min(100, Math.max(0, progressPercent))}%
+              {intl.formatMessage(
+                {
+                  id: ETranslations.settings_uploading_logs_progress,
+                },
+                {
+                  progress: Math.min(100, Math.max(0, progressPercent)),
+                },
+              )}
             </SizableText>
           </Stack>
         );
@@ -243,13 +248,17 @@ function UploadLogsDialogContent() {
             <XStack gap="$2" alignItems="center">
               <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
               <SizableText size="$headingMd" color="$textSuccess">
-                Upload Successful!
+                {intl.formatMessage({
+                  id: ETranslations.settings_upload_logs_success_title,
+                })}
               </SizableText>
             </XStack>
 
             <Stack gap="$2">
               <SizableText size="$bodyMd" fontWeight="600">
-                Please provide this Instance ID to support:
+                {intl.formatMessage({
+                  id: ETranslations.settings_provide_instance_id_to_support,
+                })}
               </SizableText>
               <XStack
                 gap="$2"
@@ -259,7 +268,7 @@ function UploadLogsDialogContent() {
                 alignItems="center"
               >
                 <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
-                  {instanceId || 'Loading...'}
+                  {instanceId || '-'}
                 </SizableText>
                 <Button
                   size="small"
@@ -267,7 +276,13 @@ function UploadLogsDialogContent() {
                   onPress={handleInstanceIdCopy}
                   icon={instanceIdCopied ? 'CheckRadioSolid' : 'Copy1Outline'}
                 >
-                  {instanceIdCopied ? 'Copied' : 'Copy'}
+                  {instanceIdCopied
+                    ? intl.formatMessage({
+                        id: ETranslations.global_copied,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.global_copy,
+                      })}
                 </Button>
               </XStack>
             </Stack>
@@ -279,7 +294,9 @@ function UploadLogsDialogContent() {
           <Stack gap="$3">
             <Progress value={50} />
             <SizableText size="$bodyMd">
-              Preparing to export log file...
+              {intl.formatMessage({
+                id: ETranslations.settings_preparing_export_log_file,
+              })}
             </SizableText>
           </Stack>
         );
@@ -290,7 +307,9 @@ function UploadLogsDialogContent() {
             <XStack gap="$2" alignItems="center">
               <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
               <SizableText size="$headingMd" color="$textSuccess">
-                Log File Exported!
+                {intl.formatMessage({
+                  id: ETranslations.settings_log_file_exported_title,
+                })}
               </SizableText>
             </XStack>
 
@@ -321,7 +340,9 @@ function UploadLogsDialogContent() {
             <XStack gap="$2" alignItems="center">
               <Icon name="XCircleSolid" color="$iconCritical" size="$5" />
               <SizableText size="$headingMd" color="$textCritical">
-                Export Failed
+                {intl.formatMessage({
+                  id: ETranslations.settings_export_logs_failed_title,
+                })}
               </SizableText>
             </XStack>
             {errorMessage ? (
@@ -361,8 +382,18 @@ function UploadLogsDialogContent() {
       <Dialog.Footer
         showCancelButton={!isSuccess}
         onConfirm={handleConfirmAction}
-        onConfirmText="Upload Logs"
-        onCancelText={isSuccess ? 'Done' : 'Cancel'}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_upload,
+        })}
+        onCancelText={
+          isSuccess
+            ? intl.formatMessage({
+                id: ETranslations.global_done,
+              })
+            : intl.formatMessage({
+                id: ETranslations.global_cancel,
+              })
+        }
         confirmButtonProps={{
           variant: 'primary',
           loading: isLoading,
