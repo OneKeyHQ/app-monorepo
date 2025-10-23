@@ -88,7 +88,7 @@ export function Layout({
   const keyboardHeight = useKeyboardHeight();
   const navigation = useAppNavigation();
   const [wideScreen, setWideScreen] = useState(initialWideScreen);
-  const contentWidth = wideScreen ? 1080 : 576;
+  const contentWidth = wideScreen ? 1440 : 576;
   const [settings] = useSettingsPersistAtom();
   const isDarkTheme = settings.theme === 'dark';
 
