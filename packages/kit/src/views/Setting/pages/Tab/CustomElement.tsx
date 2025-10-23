@@ -42,6 +42,7 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
@@ -53,7 +54,6 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -288,6 +288,7 @@ export function CleanDataListItem(props: ICustomElementProps) {
 
 export function HardwareTransportTypeListItem(props: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const [devPersist] = useDevSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
     if (platformEnv.isNative) {
@@ -299,24 +300,27 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      if (platformEnv.isDesktopMac) {
-        return [
-          {
-            label: 'Bridge',
-            value: EHardwareTransportType.Bridge,
-          },
-          {
-            label: 'Bluetooth',
-            value: EHardwareTransportType.DesktopWebBle,
-          },
-        ];
-      }
-      return [
-        {
+      const usb = devPersist?.settings?.usbCommunicationMode;
+      const desktopTransportList: ISelectItem[] = [];
+      if (usb === 'bridge') {
+        desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,
-        },
-      ];
+        });
+      } else {
+        desktopTransportList.push({
+          label: 'WebUSB',
+          value: EHardwareTransportType.WEBUSB,
+        });
+      }
+
+      if (platformEnv.isSupportDesktopBle) {
+        desktopTransportList.push({
+          label: 'Bluetooth',
+          value: EHardwareTransportType.DesktopWebBle,
+        });
+      }
+      return desktopTransportList;
     }
     if (platformEnv.isSupportWebUSB) {
       return [
@@ -332,7 +336,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     return [];
-  }, []);
+  }, [devPersist?.settings?.usbCommunicationMode]);
   const onChange = useCallback(async (value: string) => {
     const newTransportType = value as EHardwareTransportType;
 

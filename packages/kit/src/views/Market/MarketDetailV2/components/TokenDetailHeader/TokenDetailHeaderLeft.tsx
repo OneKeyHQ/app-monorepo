@@ -1,11 +1,16 @@
+import { useIntl } from 'react-intl';
+
 import {
   Divider,
+  Icon,
   InteractiveIcon,
   SizableText,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
@@ -31,6 +36,7 @@ export function TokenDetailHeaderLeft({
   showMediaAndSecurity = true,
   isNative = false,
 }: ITokenDetailHeaderLeftProps) {
+  const intl = useIntl();
   const {
     handleCopyAddress,
     handleOpenContractAddress,
@@ -47,6 +53,7 @@ export function TokenDetailHeaderLeft({
     address = '',
     logoUrl = '',
     extraData,
+    communityRecognized,
   } = tokenDetail || {};
 
   const { website, twitter } = extraData || {};
@@ -74,9 +81,30 @@ export function TokenDetailHeaderLeft({
       />
 
       <YStack>
-        <SizableText size="$bodyLgMedium" color="$text">
-          {symbol}
-        </SizableText>
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyLgMedium" color="$text">
+            {symbol}
+          </SizableText>
+          {communityRecognized ? (
+            <Tooltip
+              placement="top"
+              renderTrigger={
+                <Icon
+                  name="BadgeRecognizedSolid"
+                  size="$4"
+                  color="$iconSuccess"
+                />
+              }
+              renderContent={
+                <SizableText size="$bodySm">
+                  {intl.formatMessage({
+                    id: ETranslations.dexmarket_communityRecognized,
+                  })}
+                </SizableText>
+              }
+            />
+          ) : null}
+        </XStack>
 
         <XStack gap="$2" ai="center">
           {address ? (

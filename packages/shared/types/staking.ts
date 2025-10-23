@@ -1018,6 +1018,24 @@ export type IAvailableAsset = {
   }>;
 };
 
+export type IRecommendAsset = {
+  name: string;
+  symbol: string;
+  logoURI: string;
+  protocols: Array<{
+    networkId: string;
+    provider: string;
+    vault: string;
+  }>;
+  aprWithoutFee: string;
+  aprInfo: IEarnAvailableAssetAprInfo;
+  bgColor: ColorTokens;
+  available: {
+    text: string;
+    color: ColorTokens;
+  };
+};
+
 export interface IEarnAtomData {
   earnAccount?: Record<string, IEarnAccountTokenResponse>;
   availableAssetsByType?: Record<string, IAvailableAsset[]>;

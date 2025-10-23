@@ -2589,6 +2589,66 @@ const joystream: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const hydradx: IServerNetwork = {
+  'chainId': 'hydration',
+  'code': 'hydration',
+  'decimals': 12,
+  'id': 'dot--hydration',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hdx.png',
+  'name': 'Hydration',
+  'shortcode': 'hydration',
+  'shortname': 'HDX',
+  'symbol': 'HDX',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'HDX',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubPolkadot: IServerNetwork = {
+  'chainId': 'polkadot-asset-hub',
+  'code': 'assetHub',
+  'decimals': 10,
+  'id': 'dot--asset-hub',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
+  'name': 'Assethub Polkadot',
+  'shortcode': 'assetHub',
+  'shortname': 'DOT',
+  'symbol': 'DOT',
+  'feeMeta': {
+    'decimals': 10,
+    'symbol': 'DOT',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bifrost: IServerNetwork = {
+  'chainId': 'bifrost-ksm',
+  'code': 'bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost-ksm',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'name': 'Bifrost Kusama',
+  'shortcode': 'bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const kaspa: IServerNetwork = {
   'chainId': 'kaspa',
   'code': 'kaspa',
@@ -2953,6 +3013,9 @@ export const presetNetworksMap = {
   kusama,
   manta,
   joystream,
+  hydradx,
+  bifrost,
+  assethubPolkadot,
 
   aptos,
   lightning,
@@ -3149,6 +3212,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     kusama,
     manta,
     joystream,
+    hydradx,
+    bifrost,
+    assethubPolkadot,
 
     aptos,
     lightning,

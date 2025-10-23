@@ -168,14 +168,14 @@ export const {
 });
 
 export type IAppSideBarStatusAtom = {
-  collapsed: boolean;
+  isCollapsed: boolean;
 };
 export const { target: appSideBarStatusAtom, use: useAppSideBarStatusAtom } =
   globalAtom<IAppSideBarStatusAtom>({
     name: EAtomNames.appSideBarStatusAtom,
     persist: true,
     initialValue: {
-      collapsed: false,
+      isCollapsed: true,
     },
   });
 

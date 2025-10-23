@@ -41,6 +41,7 @@ export const ipcMessageKeys = {
   CHECK_FOR_UPDATES: 'update/checkForUpdates',
   TOUCH_UPDATE_RES_SUCCESS: 'touch/update-res-success',
   TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
+  CLIENT_LOG_UPLOAD_PROGRESS: 'client-log/upload-progress',
   // OneKey Touch
   TOUCH_RES: 'touch/res',
   TOUCH_OPEN_PRIVACY_PANEL: 'touch/openPrivacyPanel',

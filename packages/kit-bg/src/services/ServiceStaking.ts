@@ -55,6 +55,7 @@ import type {
   IEarnSummary,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
+  IRecommendAsset,
   IStakeBaseParams,
   IStakeBlockRegionResponse,
   IStakeClaimBaseParams,
@@ -97,6 +98,12 @@ interface IRecommendResponse {
   code: string;
   message?: string;
   data: { tokens: IEarnAccountToken[] };
+}
+
+interface IRecommendV2Response {
+  code: string;
+  message?: string;
+  data: { tokens: IRecommendAsset[] };
 }
 
 interface IAvailableAssetsResponse {
@@ -845,6 +852,28 @@ class ServiceStaking extends ServiceBase {
     return result;
   }
 
+  private _getAccountAssetV2 = memoizee(
+    async (
+      params: {
+        networkId: string;
+        accountAddress: string;
+        publicKey?: string;
+      }[],
+    ) => {
+      const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+      const tokensResponse = await client.post<
+        IRecommendV2Response,
+        IAxiosResponse<IRecommendV2Response>
+      >(`/earn/v2/recommend`, { accounts: params });
+      this.handleServerError({
+        ...tokensResponse.data,
+        requestId: tokensResponse.$requestId,
+      });
+      return tokensResponse.data.data;
+    },
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }) },
+  );
+
   @backgroundMethod()
   async getEarnAvailableAccountsParams({
     accountId,
@@ -958,6 +987,24 @@ class ServiceStaking extends ServiceBase {
       indexedAccountId,
     });
     return this.getAccountAsset(accounts);
+  }
+
+  @backgroundMethod()
+  async fetchAllNetworkAssetsV2({
+    accountId,
+    networkId,
+    indexedAccountId,
+  }: {
+    accountId: string;
+    networkId: string;
+    indexedAccountId?: string;
+  }) {
+    const accounts = await this.getEarnAvailableAccountsParams({
+      accountId,
+      networkId,
+      indexedAccountId,
+    });
+    return this._getAccountAssetV2(accounts);
   }
 
   @backgroundMethod()

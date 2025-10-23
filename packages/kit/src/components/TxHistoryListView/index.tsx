@@ -57,6 +57,7 @@ type IProps = {
   onPressHistory?: (history: IAccountHistoryTx) => void;
   initialized?: boolean;
   inTabList?: boolean;
+  isTabFocused?: boolean;
   contentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   hideValue?: boolean;
   onRefresh?: () => void;
@@ -194,18 +195,35 @@ const ListFooterComponent = ({
 
 function TxHistoryListViewSectionHeader(
   props: IHistoryListSectionGroup & {
+    inTabList?: boolean;
+    isTabFocused?: boolean;
     index: number;
     recomputeLayout: () => void;
   },
 ) {
-  const { title, titleKey, data, index, recomputeLayout } = props;
+  const {
+    title,
+    titleKey,
+    data,
+    index,
+    recomputeLayout,
+    inTabList,
+    isTabFocused,
+  } = props;
   const intl = useIntl();
+  const recomputeLayoutRef = useRef(false);
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
   if (data[0] && data[0].decodedTx.status === EDecodedTxStatus.Pending) {
-    setTimeout(() => {
-      recomputeLayout();
-    }, 350);
+    if (
+      ((inTabList && isTabFocused) || !inTabList) &&
+      !recomputeLayoutRef.current
+    ) {
+      setTimeout(() => {
+        recomputeLayoutRef.current = true;
+        recomputeLayout();
+      }, 350);
+    }
     return (
       <XStack
         px="$5"
@@ -249,6 +267,7 @@ function BaseTxHistoryListView(props: IProps) {
     initialized,
     contentContainerStyle,
     inTabList = false,
+    isTabFocused,
     hideValue,
     listViewStyleProps,
     onRefresh,
@@ -322,9 +341,11 @@ function BaseTxHistoryListView(props: IProps) {
         titleKey={titleKey}
         data={tx}
         index={index}
+        inTabList={inTabList}
+        isTabFocused={isTabFocused}
       />
     ),
-    [recomputeLayout],
+    [recomputeLayout, inTabList, isTabFocused],
   );
 
   const resolvedContentContainerStyle = useStyle(
