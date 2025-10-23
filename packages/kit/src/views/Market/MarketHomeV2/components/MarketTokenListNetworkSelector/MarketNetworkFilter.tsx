@@ -29,16 +29,7 @@ interface ISwapNetworkToggleGroupProps {
   placement?: IPopoverProps['placement'];
 }
 
-// Layout constants for network filter scrolling calculations
-const ITEM_COMPONENT_WIDTHS = {
-  ICON: 24,
-  TEXT_PADDING: 24,
-  TEXT_MARGIN: 8,
-  MIN_TEXT_WIDTH: 50,
-} as const;
-
 const LAYOUT_CONSTANTS = {
-  ITEM_GAP: 8, // $2 gap between items
   CONTAINER_PADDING: 4, // p="$1" = 4px
   SCROLL_OFFSET_ADJUSTMENT: 20, // Additional offset for scroll positioning
   LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
@@ -68,6 +59,9 @@ const MarketNetworkFilter = forwardRef<
     const [scrollViewWidth, setScrollViewWidth] = useState(0);
     const [contentWidth, setContentWidth] = useState(0);
     const scrollViewRef = useRef<ScrollViewType>(null);
+    const itemLayoutsRef = useRef<Record<string, { x: number; width: number }>>(
+      {},
+    );
 
     const shouldShowLeftGradient = useMemo(() => {
       return scrollX > LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
@@ -112,37 +106,40 @@ const MarketNetworkFilter = forwardRef<
       [setContentWidth],
     );
 
+    const handleItemLayout = useCallback(
+      (networkId: string, event: LayoutChangeEvent) => {
+        const { x, width } = event.nativeEvent.layout;
+        itemLayoutsRef.current[networkId] = { x, width };
+      },
+      [],
+    );
+
     useImperativeHandle(
       ref,
       () => ({
         scrollToNetwork: (networkId: string) => {
-          const networkIndex = networks.findIndex(
-            (network) => network.id === networkId,
-          );
-          if (networkIndex !== -1 && scrollViewRef.current) {
-            const itemWidth =
-              ITEM_COMPONENT_WIDTHS.ICON +
-              ITEM_COMPONENT_WIDTHS.TEXT_PADDING +
-              ITEM_COMPONENT_WIDTHS.TEXT_MARGIN +
-              ITEM_COMPONENT_WIDTHS.MIN_TEXT_WIDTH;
-            const gap = LAYOUT_CONSTANTS.ITEM_GAP;
-            const containerPadding = LAYOUT_CONSTANTS.CONTAINER_PADDING;
-
-            const scrollToX = Math.max(
-              0,
-              networkIndex * (itemWidth + gap) -
-                containerPadding -
-                LAYOUT_CONSTANTS.SCROLL_OFFSET_ADJUSTMENT,
-            );
-
-            scrollViewRef.current.scrollTo({
-              x: scrollToX,
-              animated: true,
-            });
+          const layout = itemLayoutsRef.current[networkId];
+          if (!layout || !scrollViewRef.current || scrollViewWidth === 0) {
+            return;
           }
+
+          const maxScrollX = Math.max(
+            0,
+            adjustedContentWidth - scrollViewWidth,
+          );
+          const itemStart = Math.max(
+            0,
+            layout.x - LAYOUT_CONSTANTS.SCROLL_OFFSET_ADJUSTMENT,
+          );
+          const targetX = Math.max(0, Math.min(itemStart, maxScrollX));
+
+          scrollViewRef.current.scrollTo({
+            x: targetX,
+            animated: true,
+          });
         },
       }),
-      [networks],
+      [adjustedContentWidth, scrollViewWidth],
     );
 
     return (
@@ -181,6 +178,7 @@ const MarketNetworkFilter = forwardRef<
                   onPress={() => onSelectNetwork(network)}
                   onTouchStart={() => onSelectNetwork(network)}
                   onMouseDown={() => onSelectNetwork(network)}
+                  onLayout={(event) => handleItemLayout(network.id, event)}
                 />
               ))}
             </XStack>
