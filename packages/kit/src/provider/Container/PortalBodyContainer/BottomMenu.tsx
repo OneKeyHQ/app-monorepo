@@ -88,7 +88,8 @@ function BaseBottomMenu({ isCollapse }: { isCollapse: boolean }) {
 
   return (
     <YStack
-      p="$3"
+      px="$3"
+      py="$1.5"
       borderColor="$borderSubdued"
       borderTopWidth={StyleSheet.hairlineWidth}
       borderRightWidth={StyleSheet.hairlineWidth}
