@@ -1,18 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { collectLogDigest, exportLogs, uploadLogBundle } from '.';
 
-import pRetry, { type FailedAttemptError } from 'p-retry';
+import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   Dialog,
+  Icon,
   Progress,
   SizableText,
   Stack,
   Toast,
+  XStack,
   useClipboard,
-  useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -21,47 +23,59 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 
 const MAX_RETRIES = 3;
-const TOTAL_ATTEMPTS = MAX_RETRIES;
+
+// Internal UI states (combining backend stages for better UX)
+type IDialogStage =
+  | 'idle'
+  | 'uploading_in_progress'
+  | 'success_show_instance_id'
+  | 'fallback_exporting'
+  | 'fallback_export_done'
+  | 'final_error';
 
 function UploadLogsDialogContent() {
   const intl = useIntl();
-  const dialog = useDialogInstance();
   const { copyText } = useClipboard();
-  const [stage, setStage] = useState<ELogUploadStage | 'idle'>('idle');
+  const [dialogStage, setDialogStage] = useState<IDialogStage>('idle');
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [isUploading, setIsUploading] = useState(false);
-  const [currentAttempt, setCurrentAttempt] = useState(0);
   const [instanceId, setInstanceId] = useState<string | undefined>();
+  const [instanceIdCopied, setInstanceIdCopied] = useState(false);
   const isActiveRef = useRef(false);
+  const fileBaseNameRef = useRef<string>('');
 
   const handleEmailPress = useCallback(() => {
     copyText('hi@onekey.so');
+    Toast.success({ title: 'Email copied' });
   }, [copyText]);
 
+  const handleInstanceIdCopy = useCallback(() => {
+    if (instanceId) {
+      copyText(instanceId);
+      setInstanceIdCopied(true);
+      Toast.success({ title: 'Instance ID copied' });
+    }
+  }, [copyText, instanceId]);
+
+  // Listen to backend upload progress events
   useEffect(() => {
     const handleProgressUpdate = ({
       stage: incomingStage,
       progressPercent: incomingPercent,
-      message,
     }: {
       stage: ELogUploadStage;
       progressPercent?: number;
-      message?: string;
     }) => {
       if (!isActiveRef.current) {
         return;
       }
-      setStage(incomingStage);
-      if (typeof incomingPercent === 'number') {
-        setProgressPercent(Math.min(100, Math.max(0, incomingPercent)));
-      } else if (incomingStage === ELogUploadStage.Success) {
-        setProgressPercent(100);
-      }
-      if (message) {
-        setErrorMessage(message);
-      } else if (incomingStage !== ELogUploadStage.Error) {
-        setErrorMessage(undefined);
+
+      // Map backend stages to unified "uploading_in_progress" for UX
+      // Only update progress, don't expose error states
+      if (incomingStage === ELogUploadStage.Uploading) {
+        if (typeof incomingPercent === 'number') {
+          setProgressPercent(Math.min(100, Math.max(0, incomingPercent)));
+        }
       }
     };
 
@@ -95,25 +109,25 @@ function UploadLogsDialogContent() {
   const handleUpload = useCallback(
     async ({ preventClose }: { preventClose: () => void }) => {
       preventClose();
-      if (isUploading) {
+      if (
+        dialogStage === 'uploading_in_progress' ||
+        dialogStage === 'fallback_exporting'
+      ) {
         return;
       }
+
       isActiveRef.current = true;
-      setIsUploading(true);
-      setCurrentAttempt(0);
-      setErrorMessage(undefined);
-      setStage(ELogUploadStage.Collecting);
+      setDialogStage('uploading_in_progress');
       setProgressPercent(0);
+      setErrorMessage(undefined);
       setInstanceId(undefined);
+      setInstanceIdCopied(false);
 
       const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
       const fileBaseName = `OneKeyLogs-${timestamp}`;
+      fileBaseNameRef.current = fileBaseName;
 
-      const attemptUpload = async (attemptNumber: number) => {
-        setCurrentAttempt(attemptNumber);
-        setErrorMessage(undefined);
-        setStage(ELogUploadStage.Collecting);
-        setProgressPercent(0);
+      const attemptUpload = async () => {
         const digest = await collectLogDigest(fileBaseName);
         const token = await backgroundApiProxy.serviceLogger.requestUploadToken(
           {
@@ -129,146 +143,234 @@ function UploadLogsDialogContent() {
       };
 
       try {
-        await pRetry((attemptNumber) => attemptUpload(attemptNumber), {
+        // Try upload with silent retry (no error display during retry)
+        await pRetry(() => attemptUpload(), {
           retries: MAX_RETRIES,
-          onFailedAttempt: (error: FailedAttemptError) => {
-            const originalError = resolveError(error);
-            const message =
-              originalError.message ||
-              `Log upload failed (attempt ${
-                error.attemptNumber - 1
-              }/${TOTAL_ATTEMPTS}). Retrying...`;
-            setCurrentAttempt(error.attemptNumber - 1);
-            setStage(ELogUploadStage.Error);
-            setErrorMessage(message);
+          onFailedAttempt: (error) => {
+            // Log retry attempts for debugging (not shown to user)
+            console.log(
+              `[Log Upload] Retry attempt ${error.attemptNumber}/${
+                MAX_RETRIES + 1
+              } failed:`,
+              error.message,
+            );
           },
         });
 
-        setStage(ELogUploadStage.Success);
+        // Upload succeeded
+        console.log('[Log Upload] Upload succeeded');
+        setDialogStage('success_show_instance_id');
         setProgressPercent(100);
-        setCurrentAttempt(0);
+
         const instanceIdValue =
           await backgroundApiProxy.serviceSetting.getInstanceId();
         setInstanceId(instanceIdValue);
+
         Toast.success({
           title: 'Logs uploaded successfully',
         });
       } catch (error) {
-        const finalError = resolveError(error);
-        const message = finalError.message;
-        setStage(ELogUploadStage.Error);
-        setErrorMessage(message);
+        // Upload failed after retries - fallback to export
+        console.log(
+          '[Log Upload] All upload attempts failed, falling back to export',
+        );
+        setDialogStage('fallback_exporting');
+        setProgressPercent(0);
+
         try {
           await exportLogs(fileBaseName);
-          setStage('idle');
-          setProgressPercent(0);
-          setErrorMessage(undefined);
-          setCurrentAttempt(0);
-          await dialog.close();
+
+          // Export succeeded
+          console.log('[Log Upload] Export succeeded');
+          setDialogStage('fallback_export_done');
+          Toast.success({
+            title: 'Log file exported successfully',
+          });
         } catch (exportError) {
+          // Both upload and export failed
+          console.error('[Log Upload] Export also failed:', exportError);
           const exportMessage = resolveError(exportError).message;
-          setErrorMessage(exportMessage);
+          setDialogStage('final_error');
+          setErrorMessage(
+            exportMessage || 'Failed to export logs. Please contact support.',
+          );
         }
       } finally {
         isActiveRef.current = false;
-        setIsUploading(false);
       }
     },
-    [dialog, isUploading, resolveError],
+    [dialogStage, resolveError],
   );
-
-  const progressLabel = useMemo(() => {
-    const clampedProgress = Math.min(100, Math.max(0, progressPercent));
-    const attemptSuffix =
-      currentAttempt > 1 && stage !== 'idle'
-        ? ` (Attempt ${Math.min(
-            currentAttempt,
-            TOTAL_ATTEMPTS,
-          )}/${TOTAL_ATTEMPTS})`
-        : '';
-    switch (stage) {
-      case ELogUploadStage.Collecting:
-        return `Collecting logs...${attemptSuffix}`;
-      case ELogUploadStage.Uploading:
-        return `Uploading... ${clampedProgress}%${attemptSuffix}`;
-      case ELogUploadStage.Success:
-        return 'Logs uploaded successfully';
-      case ELogUploadStage.Error:
-        return `Failed to upload logs${attemptSuffix}`;
-      default:
-        return '';
-    }
-  }, [currentAttempt, progressPercent, stage]);
-
-  const shouldShowProgress = stage !== 'idle';
 
   const handleConfirmAction = useCallback(
     ({ preventClose }: { preventClose: () => void }) => {
-      if (stage === ELogUploadStage.Success && instanceId) {
-        copyText(instanceId);
-        return;
-      }
       void handleUpload({ preventClose });
     },
-    [copyText, handleUpload, instanceId, stage],
+    [handleUpload],
   );
 
-  const confirmText =
-    stage === ELogUploadStage.Success && instanceId
-      ? 'Copy Instance ID'
-      : 'Upload';
+  // Render different content based on current stage
+  const renderContent = () => {
+    switch (dialogStage) {
+      case 'idle':
+        return (
+          <Stack>
+            <SizableText size="$bodyLg">
+              Uploading logs helps support quickly identify issues.
+            </SizableText>
+            <Stack h="$3" />
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.settings_logs_do_not_include_sensitive_data,
+              })}
+            </SizableText>
+          </Stack>
+        );
+
+      case 'uploading_in_progress':
+        return (
+          <Stack gap="$3">
+            <Progress value={progressPercent} />
+            <SizableText size="$bodyMd">
+              Uploading logs... {Math.min(100, Math.max(0, progressPercent))}%
+            </SizableText>
+          </Stack>
+        );
+
+      case 'success_show_instance_id':
+        return (
+          <Stack gap="$4">
+            <XStack gap="$2" alignItems="center">
+              <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
+              <SizableText size="$headingMd" color="$textSuccess">
+                Upload Successful!
+              </SizableText>
+            </XStack>
+
+            <Stack gap="$2">
+              <SizableText size="$bodyMd" fontWeight="600">
+                Please provide this Instance ID to support:
+              </SizableText>
+              <XStack
+                gap="$2"
+                p="$3"
+                bg="$bgSubdued"
+                borderRadius="$2"
+                alignItems="center"
+              >
+                <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
+                  {instanceId || 'Loading...'}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={handleInstanceIdCopy}
+                  icon={instanceIdCopied ? 'CheckRadioSolid' : 'Copy1Outline'}
+                >
+                  {instanceIdCopied ? 'Copied' : 'Copy'}
+                </Button>
+              </XStack>
+            </Stack>
+          </Stack>
+        );
+
+      case 'fallback_exporting':
+        return (
+          <Stack gap="$3">
+            <Progress value={50} />
+            <SizableText size="$bodyMd">
+              Preparing to export log file...
+            </SizableText>
+          </Stack>
+        );
+
+      case 'fallback_export_done':
+        return (
+          <Stack gap="$4">
+            <XStack gap="$2" alignItems="center">
+              <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />
+              <SizableText size="$headingMd" color="$textSuccess">
+                Log File Exported!
+              </SizableText>
+            </XStack>
+
+            <SizableText size="$bodyLg">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.settings_export_state_logs_desc,
+                },
+                {
+                  email: (
+                    <SizableText
+                      size="$bodyLg"
+                      textDecorationLine="underline"
+                      onPress={handleEmailPress}
+                    >
+                      hi@onekey.so
+                    </SizableText>
+                  ),
+                },
+              )}
+            </SizableText>
+          </Stack>
+        );
+
+      case 'final_error':
+        return (
+          <Stack gap="$3">
+            <XStack gap="$2" alignItems="center">
+              <Icon name="XCircleSolid" color="$iconCritical" size="$5" />
+              <SizableText size="$headingMd" color="$textCritical">
+                Export Failed
+              </SizableText>
+            </XStack>
+            {errorMessage ? (
+              <SizableText size="$bodyMd" color="$textCritical">
+                {errorMessage}
+              </SizableText>
+            ) : null}
+            <SizableText size="$bodyMd">
+              Please contact support directly at{' '}
+              <SizableText
+                size="$bodyMd"
+                textDecorationLine="underline"
+                onPress={handleEmailPress}
+              >
+                hi@onekey.so
+              </SizableText>
+            </SizableText>
+          </Stack>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const isLoading =
+    dialogStage === 'uploading_in_progress' ||
+    dialogStage === 'fallback_exporting';
+  const isSuccess =
+    dialogStage === 'success_show_instance_id' ||
+    dialogStage === 'fallback_export_done';
+  const showConfirmButton = dialogStage === 'idle';
 
   return (
     <Stack gap="$5">
-      <Stack>
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.settings_logs_do_not_include_sensitive_data,
-          })}
-        </SizableText>
-        <Stack h="$5" />
-        <SizableText size="$bodyLg">
-          {intl.formatMessage(
-            {
-              id: ETranslations.settings_export_state_logs_desc,
-            },
-            {
-              email: (
-                <SizableText
-                  size="$bodyLg"
-                  textDecorationLine="underline"
-                  onPress={handleEmailPress}
-                >
-                  hi@onekey.so
-                </SizableText>
-              ),
-            },
-          )}
-        </SizableText>
-      </Stack>
-      {shouldShowProgress ? (
-        <Stack gap="$3">
-          <Progress value={progressPercent} />
-          <SizableText size="$bodyMd">{progressLabel}</SizableText>
-          {errorMessage ? (
-            <SizableText size="$bodySm" color="$textCritical">
-              {errorMessage}
-            </SizableText>
-          ) : null}
-        </Stack>
-      ) : null}
+      {renderContent()}
       <Dialog.Footer
-        showCancelButton
+        showCancelButton={!isSuccess}
         onConfirm={handleConfirmAction}
-        onConfirmText={confirmText}
+        onConfirmText="Upload Logs"
+        onCancelText={isSuccess ? 'Done' : 'Cancel'}
         confirmButtonProps={{
           variant: 'primary',
-          loading: isUploading && stage !== ELogUploadStage.Success,
-          disabled:
-            (stage === ELogUploadStage.Success && !instanceId) || isUploading,
+          loading: isLoading,
+          disabled: isLoading || !showConfirmButton,
+          display: showConfirmButton ? 'flex' : 'none',
         }}
         cancelButtonProps={{
-          disabled: isUploading,
+          disabled: isLoading,
         }}
       />
     </Stack>
