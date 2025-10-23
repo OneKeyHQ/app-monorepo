@@ -10,6 +10,7 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
 import { ShareButton } from './ShareButton';
@@ -58,9 +59,14 @@ export function TokenDetailHeaderRight({
     address = '',
   } = tokenDetail || {};
 
-  const shareButton = networkId ? (
-    <ShareButton networkId={networkId} address={address} isNative={isNative} />
-  ) : null;
+  const shareButton =
+    networkId && platformEnv.isNative ? (
+      <ShareButton
+        networkId={networkId}
+        address={address}
+        isNative={isNative}
+      />
+    ) : null;
 
   if (!showStats) {
     return shareButton ? <XStack gap="$3">{shareButton}</XStack> : null;
