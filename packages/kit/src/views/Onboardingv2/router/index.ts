@@ -20,6 +20,9 @@ const ConnectYourDevice = LazyLoadPage(
 );
 const CheckAndUpdate = LazyLoadPage(() => import('../pages/CheckAndUpdate'));
 
+const hiddenHeaderOptions = {
+  headerShown: false,
+};
 export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   EOnboardingPagesV2,
   IOnboardingParamListV2
@@ -27,29 +30,36 @@ export const OnboardingRouterV2: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPagesV2.GetStarted,
     component: GetStarted,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.AddExistingWallet,
     component: AddExistingWallet,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.CreateOrImportWallet,
     component: CreateOrImportWallet,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.PickYourDevice,
     component: PickYourDevice,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.ConnectYourDevice,
     component: ConnectYourDevice,
+    options: hiddenHeaderOptions,
   },
   {
     name: EOnboardingPagesV2.CheckAndUpdate,
     component: CheckAndUpdate,
+    options: hiddenHeaderOptions,
   },
 ];
