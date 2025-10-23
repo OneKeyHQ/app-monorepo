@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
@@ -221,6 +221,13 @@ export function DesktopLeftSideBar({
     ],
   );
 
+  const handleToggleCollapse = useCallback(() => {
+    setAppSideBarStatus((prev) => ({
+      ...prev,
+      isCollapsed: !prev.isCollapsed,
+    }));
+  }, [setAppSideBarStatus]);
+
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
@@ -291,84 +298,77 @@ export function DesktopLeftSideBar({
           </YStack>
         </MotiView>
       </YStack>
-      {isCollapse ? (
-        <YStack
-          testID="Desktop-AppSideBar-Separator"
-          position="absolute"
-          onHoverIn={() => {
-            setIsHovering(true);
-          }}
-          onHoverOut={() => {
-            setIsHovering(false);
-          }}
-          zIndex={1000}
-          right={-3}
-          top={0}
-          bottom={0}
-          width={6}
-          pb="$20"
-          ai="center"
-          jc="center"
-        >
-          {isHovering ? (
-            <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={
-                {
-                  type: 'timing',
-                  duration: 200,
-                } as MotiTransition
+      <YStack
+        testID="Desktop-AppSideBar-Separator"
+        position="absolute"
+        onHoverIn={() => {
+          setIsHovering(true);
+        }}
+        onHoverOut={() => {
+          setIsHovering(false);
+        }}
+        zIndex={1000}
+        right={-3}
+        top={0}
+        bottom={0}
+        width={6}
+        pb="$20"
+        ai="center"
+        jc="center"
+      >
+        {isHovering ? (
+          <MotiView
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={
+              {
+                type: 'timing',
+                duration: 200,
+              } as MotiTransition
+            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+            }}
+          >
+            <Tooltip
+              placement="right"
+              renderTrigger={
+                <YStack
+                  aria-label="Toggle sidebar"
+                  role="button"
+                  height="$12"
+                  width="$2"
+                  bg="$neutral6"
+                  hoverStyle={{
+                    bg: '$neutral8',
+                  }}
+                  borderRadius="$full"
+                  cursor={isCollapse ? 'e-resize' : 'w-resize'}
+                  pressStyle={{
+                    bg: '$neutral7',
+                  }}
+                  focusVisibleStyle={{
+                    outlineWidth: 2,
+                    outlineColor: '$focusRing',
+                    outlineStyle: 'solid',
+                  }}
+                  onPress={handleToggleCollapse}
+                />
               }
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-              }}
-            >
-              <Tooltip
-                placement="right"
-                renderTrigger={
-                  <YStack
-                    aria-label="Toggle sidebar"
-                    role="button"
-                    height="$12"
-                    width="$2"
-                    bg="$neutral6"
-                    hoverStyle={{
-                      bg: '$neutral8',
-                    }}
-                    borderRadius="$full"
-                    cursor="e-resize"
-                    pressStyle={{
-                      bg: '$neutral7',
-                    }}
-                    focusVisibleStyle={{
-                      outlineWidth: 2,
-                      outlineColor: '$focusRing',
-                      outlineStyle: 'solid',
-                    }}
-                    onPress={() => {
-                      setAppSideBarStatus((prev) => ({
-                        ...prev,
-                        isCollapsed: false,
-                      }));
-                    }}
-                  />
-                }
-                renderContent={
-                  <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
-                    {intl.formatMessage({
-                      id: ETranslations.shortcut_expand_sidebar,
-                    })}
-                  </Tooltip.Text>
-                }
-              />
-            </MotiView>
-          ) : null}
-        </YStack>
-      ) : null}
+              renderContent={
+                <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
+                  {intl.formatMessage({
+                    id: ETranslations.shortcut_expand_sidebar,
+                  })}
+                </Tooltip.Text>
+              }
+            />
+          </MotiView>
+        ) : null}
+      </YStack>
     </MotiView>
   );
 }
