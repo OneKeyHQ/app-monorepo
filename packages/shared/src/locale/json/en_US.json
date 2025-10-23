@@ -3551,6 +3551,7 @@
   "wallet.no_address": "No address",
   "wallet.no_address_desc": "Create address to enable network",
   "wallet.no_tron_account": "No TRON account found. Create or import to continue.",
+  "wallet.no_used_addresses_ description": "Used addresses will appear after your first incoming transaction.",
   "wallet.onekey_wallet_without_description": "Go to Chrome Web Store",
   "wallet.onekey_wallet_without_refresh": "Plugin installed? Please refresh the page and try again",
   "wallet.pay_with_usdt": "Pay with USDT",

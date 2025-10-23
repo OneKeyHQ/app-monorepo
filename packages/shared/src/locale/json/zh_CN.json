@@ -3551,6 +3551,7 @@
   "wallet.no_address": "无地址",
   "wallet.no_address_desc": "当前网络还没有地址",
   "wallet.no_tron_account": "未找到 TRON 账户。创建或导入以继续。",
+  "wallet.no_used_addresses_ description": "已使用地址将在您收到第一笔入账后显示。",
   "wallet.onekey_wallet_without_description": "前往 Chrome 网上应用商店",
   "wallet.onekey_wallet_without_refresh": "插件已安装？请刷新页面重试",
   "wallet.pay_with_usdt": "使用 USDT 支付",

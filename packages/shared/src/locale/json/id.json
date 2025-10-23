@@ -3551,6 +3551,7 @@
   "wallet.no_address": "Tidak ada alamat",
   "wallet.no_address_desc": "Jaringan saat ini belum memiliki alamat",
   "wallet.no_tron_account": "Tidak ditemukan akun TRON. Buat atau impor untuk melanjutkan.",
+  "wallet.no_used_addresses_ description": "Alamat yang digunakan akan muncul setelah transaksi masuk pertama Anda.",
   "wallet.onekey_wallet_without_description": "Buka Chrome Web Store",
   "wallet.onekey_wallet_without_refresh": "Plugin sudah terpasang? Silakan segarkan halaman untuk mencoba lagi",
   "wallet.pay_with_usdt": "Bayar dengan USDT",

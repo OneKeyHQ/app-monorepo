@@ -3551,6 +3551,7 @@
   "wallet.no_address": "Sin dirección",
   "wallet.no_address_desc": "La red actual aún no tiene una dirección",
   "wallet.no_tron_account": "No se encontró ninguna cuenta de TRON. Crea o importa una para continuar.",
+  "wallet.no_used_addresses_ description": "Las direcciones usadas aparecerán después de tu primera transacción entrante.",
   "wallet.onekey_wallet_without_description": "Ir a Chrome Web Store",
   "wallet.onekey_wallet_without_refresh": "El plugin está instalado? Por favor, actualiza la página y vuelve a intentarlo",
   "wallet.pay_with_usdt": "Pagar con USDT",

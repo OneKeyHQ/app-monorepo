@@ -629,7 +629,7 @@ function ReceiveToken() {
             flexShrink={1}
             color="$textSubdued"
             size="$bodyMd"
-            translationId={ETranslations.receive_btc_fresh_address_message}
+            translationId={ETranslations.wallet_receive_note_fresh_address}
             autoHandleResult={false}
             onAction={() => {
               console.log('HyperlinkText onAction');

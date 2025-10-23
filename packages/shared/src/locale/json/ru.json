@@ -3551,6 +3551,7 @@
   "wallet.no_address": "Нет адреса",
   "wallet.no_address_desc": "Текущая сеть еще не имеет адреса",
   "wallet.no_tron_account": "Аккаунт TRON не найден. Создайте или импортируйте, чтобы продолжить.",
+  "wallet.no_used_addresses_ description": "Использованные адреса появятся после вашей первой входящей транзакции.",
   "wallet.onekey_wallet_without_description": "Перейти в Chrome Web Store",
   "wallet.onekey_wallet_without_refresh": "Плагин установлен? Обновите страницу и повторите попытку",
   "wallet.pay_with_usdt": "Оплатить с помощью USDT",
