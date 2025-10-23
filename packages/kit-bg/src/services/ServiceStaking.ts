@@ -999,12 +999,16 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     indexedAccountId?: string;
   }) {
+    if (!accountId) {
+      return this._getAccountAssetV2([]);
+    }
+
     const accounts = await this.getEarnAvailableAccountsParams({
       accountId,
       networkId,
       indexedAccountId,
-    }).catch(() => []);
-    return this._getAccountAssetV2(accounts ?? []);
+    });
+    return this._getAccountAssetV2(accounts);
   }
 
   @backgroundMethod()
