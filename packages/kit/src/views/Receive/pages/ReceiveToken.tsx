@@ -636,6 +636,7 @@ function ReceiveToken() {
               navigation.push(EModalReceiveRoutes.BtcAddresses, {
                 networkId,
                 accountId: currentAccount?.id,
+                deriveInfo: currentDeriveInfo,
               });
             }}
           />

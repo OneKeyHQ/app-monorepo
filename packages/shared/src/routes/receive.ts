@@ -1,4 +1,7 @@
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type {
   IAggregateTokenSelectorParams,
@@ -43,5 +46,6 @@ export type IModalReceiveParamList = {
   [EModalReceiveRoutes.BtcAddresses]: {
     networkId: string;
     accountId: string;
+    deriveInfo: IAccountDeriveInfo | undefined;
   };
 };
