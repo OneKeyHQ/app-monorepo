@@ -15,6 +15,7 @@ import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -386,6 +387,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
+  [EAppEventBusNames.ClientLogUploadProgress]: {
+    stage: ELogUploadStage;
+    progressPercent?: number;
+    retry?: number;
+    message?: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
