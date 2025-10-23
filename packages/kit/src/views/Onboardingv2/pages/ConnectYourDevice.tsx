@@ -1,13 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
+import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   Empty,
   HeightTransition,
+  Icon,
+  Image,
   LottieView,
   Page,
   SegmentControl,
@@ -17,19 +21,217 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  EOnboardingPagesV2,
-  IOnboardingParamListV2,
-} from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 
+import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware/ConnectionTroubleShootingAccordion';
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
-import { ConnectionIndicator } from '../components/ConnectionIndicator';
-import { renderOnboardingHeaderRight } from '../components/HeaderRight';
-import { PageContainer } from '../components/PageContainer';
-import { TroubleShootingButton } from '../components/TroubleShootingButton';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { RouteProp } from '@react-navigation/core';
+
+function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      borderRadius={10}
+      borderCurve="continuous"
+      $platform-web={{
+        boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
+      }}
+      bg="$bg"
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function ConnectionIndicatorAnimation({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <YStack h={320} overflow="hidden">
+      {children}
+    </YStack>
+  );
+}
+
+function ConnectionIndicatorContent({
+  children,
+  ...rest
+}: {
+  children: React.ReactNode;
+} & IYStackProps) {
+  return (
+    <YStack
+      px="$5"
+      py="$4"
+      borderWidth={0}
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+      borderStyle="dashed"
+      {...rest}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function ConnectionIndicatorTitle({ children }: { children: React.ReactNode }) {
+  return <SizableText size="$bodyMdMedium">{children}</SizableText>;
+}
+
+function connectionIndicatorFooter({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <YStack
+      pt="$5"
+      pb="$2"
+      gap="$2"
+      animation="quick"
+      animateOnly={['opacity']}
+      enterStyle={{
+        opacity: 0,
+      }}
+    >
+      <Image
+        source={require('@onekeyhq/kit/assets/onboarding/radial-gradient.png')}
+        position="absolute"
+        left="50%"
+        bottom="0"
+        style={{
+          transform: [{ translateX: '-50%' }, { translateY: '50%' }],
+        }}
+        width={520}
+        height={226}
+        zIndex={0}
+      />
+      {children}
+    </YStack>
+  );
+}
+
+function TroubleShootingButton({ type }: { type: 'usb' | 'bluetooth' }) {
+  const [showHelper, setShowHelper] = useState(false);
+  const [showTroubleshooting, setShowTroubleshooting] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowHelper(true);
+    }, 10_000);
+
+    return () => clearTimeout(timer);
+  }, [showHelper]);
+
+  return (
+    <>
+      {showHelper ? (
+        <YStack
+          bg="$bgSubdued"
+          $platform-web={{
+            boxShadow:
+              '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+          }}
+          $theme-dark={{
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: '$neutral3',
+            bg: '$neutral3',
+          }}
+          $platform-native={{
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: '$neutral3',
+          }}
+          borderRadius="$2.5"
+          borderCurve="continuous"
+          overflow="hidden"
+        >
+          <HeightTransition initialHeight={0}>
+            <XStack
+              animation="quick"
+              animateOnly={['opacity']}
+              enterStyle={{ opacity: 0 }}
+              m="0"
+              px="$5"
+              py="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              focusable
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineStyle: 'solid',
+                outlineWidth: 2,
+                outlineOffset: 2,
+              }}
+              userSelect="none"
+              onPress={() => setShowTroubleshooting(!showTroubleshooting)}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                Having trouble connecting your device?
+              </SizableText>
+              <Icon
+                name={
+                  showTroubleshooting ? 'MinusSmallOutline' : 'PlusSmallOutline'
+                }
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          </HeightTransition>
+          {showTroubleshooting ? (
+            <ConnectionTroubleShootingAccordion connectionType={type} />
+          ) : null}
+        </YStack>
+      ) : null}
+    </>
+  );
+}
+
+function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      $platform-web={{
+        boxShadow:
+          '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+      }}
+      $theme-dark={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+        bg: '$neutral3',
+      }}
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$neutral3',
+      }}
+      overflow="hidden"
+      borderRadius={10}
+      borderCurve="continuous"
+      bg="$bgSubdued"
+      animation="quick"
+      animateOnly={['opacity', 'transform']}
+      enterStyle={{
+        opacity: 0,
+        x: 24,
+      }}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
+  Animation: ConnectionIndicatorAnimation,
+  Card: ConnectionIndicatorCard,
+  Content: ConnectionIndicatorContent,
+  Title: ConnectionIndicatorTitle,
+  Footer: connectionIndicatorFooter,
+});
 
 function USBConnectionIndicator() {
   return (
@@ -64,6 +266,7 @@ function USBConnectionIndicator() {
 
 function BluetoothConnectionIndicator() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [bluetoothStatus, _setBluetoothStatus] = useState<
     | 'enabled'
     | 'disabledInSystem'
@@ -216,7 +419,7 @@ function BluetoothConnectionIndicator() {
                     key={device.id}
                     drillIn
                     onPress={() => {
-                      console.log('clicked', device);
+                      navigation.push(EOnboardingPagesV2.CheckAndUpdate);
                     }}
                     userSelect="none"
                   >
@@ -264,12 +467,9 @@ export default function ConnectYourDevice() {
   const [value, setValue] = useState('usb');
   return (
     <Page>
-      <Page.Header
-        title="Connect your device"
-        headerRight={renderOnboardingHeaderRight}
-      />
-      <Page.Body>
-        <PageContainer>
+      <OnboardingLayout>
+        <OnboardingLayout.Header title="Connect your device" />
+        <OnboardingLayout.Body>
           <SegmentControl
             fullWidth
             value={value}
@@ -283,8 +483,8 @@ export default function ConnectYourDevice() {
           {value === 'usb' ? <USBConnectionIndicator /> : null}
           {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
           {value === 'qr' ? <QRCodeConnectionIndicator /> : null}
-        </PageContainer>
-      </Page.Body>
+        </OnboardingLayout.Body>
+      </OnboardingLayout>
     </Page>
   );
 }

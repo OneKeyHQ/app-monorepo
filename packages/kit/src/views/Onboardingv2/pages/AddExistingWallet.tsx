@@ -3,8 +3,7 @@ import { StyleSheet } from 'react-native';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Page, SizableText, XStack, YStack } from '@onekeyhq/components';
 
-import { renderOnboardingHeaderRight } from '../components/HeaderRight';
-import { PageContainer } from '../components/PageContainer';
+import { OnboardingLayout } from '../components/OnboardingLayout';
 
 export default function AddExistingWallet() {
   const DATA: {
@@ -45,12 +44,9 @@ export default function AddExistingWallet() {
 
   return (
     <Page>
-      <Page.Header
-        title="Add Existing Wallet"
-        headerRight={renderOnboardingHeaderRight}
-      />
-      <Page.Body>
-        <PageContainer>
+      <OnboardingLayout>
+        <OnboardingLayout.Header title="Add Existing Wallet" />
+        <OnboardingLayout.Body>
           {DATA.map(({ title, icon, description }) => (
             <XStack
               key={title}
@@ -113,8 +109,8 @@ export default function AddExistingWallet() {
               <Icon name="ChevronRightSmallOutline" color="$iconDisabled" />
             </XStack>
           ))}
-        </PageContainer>
-      </Page.Body>
+        </OnboardingLayout.Body>
+      </OnboardingLayout>
     </Page>
   );
 }

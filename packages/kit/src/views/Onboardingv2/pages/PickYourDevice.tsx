@@ -15,7 +15,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { renderOnboardingHeaderRight } from '../components/HeaderRight';
+import { OnboardingLayout } from '../components/OnboardingLayout';
 
 export default function PickYourDevice() {
   const intl = useIntl();
@@ -47,19 +47,10 @@ export default function PickYourDevice() {
   }, []);
   return (
     <Page>
-      <Page.Header
-        title="Pick your device"
-        headerRight={renderOnboardingHeaderRight}
-      />
-      <Page.Body>
-        <YStack px="$10" bg="$bgApp" flex={1}>
-          <XStack
-            h="100%"
-            flexWrap="wrap"
-            gap="$px"
-            bg="$neutral3"
-            className="pick-device-clip-path"
-          >
+      <OnboardingLayout>
+        <OnboardingLayout.Header title="Pick your device" />
+        <OnboardingLayout.Body scrollable={false} constrained={false}>
+          <XStack h="100%" flexWrap="wrap" gap="$px" bg="$neutral3">
             {DEVICES.map(({ name, tags, image, deviceType }) => (
               <YStack
                 key={name}
@@ -68,17 +59,17 @@ export default function PickYourDevice() {
                 flexGrow={1}
                 flexBasis={0}
                 minWidth="45%"
-                onPress={() => {
-                  navigation.navigate(EOnboardingPagesV2.ConnectYourDevice, {
-                    deviceType,
-                  });
-                }}
                 bg="$bgApp"
                 hoverStyle={{ bg: '$bgSubdued' }}
                 userSelect="none"
                 p="$10"
                 gap="$3"
                 group
+                onPress={() => {
+                  void navigation.push(EOnboardingPagesV2.ConnectYourDevice, {
+                    deviceType,
+                  });
+                }}
               >
                 <SizableText size="$heading2xl">{name}</SizableText>
                 {tags?.length ? (
@@ -100,11 +91,12 @@ export default function PickYourDevice() {
                 ) : null}
                 <YStack
                   position="absolute"
-                  top="50%"
-                  right="0"
-                  style={{
-                    transform: [{ translateY: '-50%' }],
-                  }}
+                  w="50%"
+                  top={0}
+                  right={0}
+                  bottom={0}
+                  alignItems="center"
+                  justifyContent="center"
                 >
                   <Image
                     $group-hover={{
@@ -115,47 +107,49 @@ export default function PickYourDevice() {
                         'transform 150ms cubic-bezier(.455, .03, .515, .955)',
                     }}
                     source={image}
-                    width={256}
-                    height={256}
+                    width="100%"
+                    height="100%"
                     resizeMode="contain"
                   />
                 </YStack>
               </YStack>
             ))}
           </XStack>
-        </YStack>
-        <XStack
-          px="$5"
-          py="$0.5"
-          mt="auto"
-          justifyContent="center"
-          alignItems="center"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              // eslint-disable-next-line spellcheck/spell-checker
-              id: ETranslations.global_onekey_prompt_dont_have_yet,
-            })}
-          </SizableText>
-          <Anchor
-            display="flex"
-            color="$text"
-            hoverStyle={{
-              color: '$textSubdued',
-            }}
-            href="https://bit.ly/3YsKilK"
-            target="_blank"
-            size="$bodySm"
-            p="$2"
-            pl="$0"
-            style={{
-              textDecoration: 'none',
-            }}
+        </OnboardingLayout.Body>
+        <OnboardingLayout.Footer>
+          <XStack
+            px="$5"
+            py="$0.5"
+            mt="auto"
+            justifyContent="center"
+            alignItems="center"
           >
-            {intl.formatMessage({ id: ETranslations.global_buy_one })}
-          </Anchor>
-        </XStack>
-      </Page.Body>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                // eslint-disable-next-line spellcheck/spell-checker
+                id: ETranslations.global_onekey_prompt_dont_have_yet,
+              })}
+            </SizableText>
+            <Anchor
+              display="flex"
+              color="$text"
+              hoverStyle={{
+                color: '$textSubdued',
+              }}
+              href="https://bit.ly/3YsKilK"
+              target="_blank"
+              size="$bodySm"
+              p="$2"
+              pl="$0"
+              style={{
+                textDecoration: 'none',
+              }}
+            >
+              {intl.formatMessage({ id: ETranslations.global_buy_one })}
+            </Anchor>
+          </XStack>
+        </OnboardingLayout.Footer>
+      </OnboardingLayout>
     </Page>
   );
 }

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 
+import type { ISizableTextProps, IYStackProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Badge,
@@ -18,9 +19,72 @@ import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 import externalWalletLogoUtils from '@onekeyhq/shared/src/utils/externalWalletLogoUtils';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { Card } from '../components/Card';
-import { renderOnboardingHeaderRight } from '../components/HeaderRight';
-import { PageContainer } from '../components/PageContainer';
+import { OnboardingLayout } from '../components/OnboardingLayout';
+
+function CardHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <XStack alignItems="center" p="$5" gap="$3" bg="$neutral2">
+      {children}
+    </XStack>
+  );
+}
+
+function CardTitle({
+  children,
+  ...rest
+}: { children: React.ReactNode } & ISizableTextProps) {
+  return (
+    <SizableText size="$bodyMdMedium" {...rest}>
+      {children}
+    </SizableText>
+  );
+}
+
+function CardBody({
+  children,
+  ...rest
+}: { children: React.ReactNode } & IYStackProps) {
+  return (
+    <YStack
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$neutral3"
+      p="$5"
+      {...rest}
+    >
+      {children}
+    </YStack>
+  );
+}
+
+function CardRoot({ children }: { children: React.ReactNode }) {
+  return (
+    <YStack
+      $theme-dark={{
+        borderWidth: 1,
+        borderColor: '$borderSubdued',
+      }}
+      borderRadius="$5"
+      borderCurve="continuous"
+      $platform-native={{
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: '$borderSubdued',
+      }}
+      $platform-web={{
+        boxShadow:
+          '0 0.5px 0.5px 0 rgba(255, 255, 255, 0.1) inset, 0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      }}
+      overflow="hidden"
+    >
+      {children}
+    </YStack>
+  );
+}
+
+const Card = Object.assign(CardRoot, {
+  Header: CardHeader,
+  Title: CardTitle,
+  Body: CardBody,
+});
 
 export default function CreateOrImportWallet() {
   const [expanded, setExpanded] = useState(false);
@@ -38,12 +102,9 @@ export default function CreateOrImportWallet() {
 
   return (
     <Page>
-      <Page.Header
-        title="Create or Import Wallet"
-        headerRight={renderOnboardingHeaderRight}
-      />
-      <Page.Body>
-        <PageContainer>
+      <OnboardingLayout>
+        <OnboardingLayout.Header title="Create or Import Wallet" />
+        <OnboardingLayout.Body>
           <Card>
             <Card.Header>
               <YStack
@@ -227,8 +288,8 @@ export default function CreateOrImportWallet() {
               <Button size="small">Connect</Button>
             </Card.Header>
           </Card>
-        </PageContainer>
-      </Page.Body>
+        </OnboardingLayout.Body>
+      </OnboardingLayout>
     </Page>
   );
 }
