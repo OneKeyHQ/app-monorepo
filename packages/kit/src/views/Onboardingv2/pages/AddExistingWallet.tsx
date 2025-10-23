@@ -2,14 +2,19 @@ import { StyleSheet } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Page, SizableText, XStack, YStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
 
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 export default function AddExistingWallet() {
+  const navigation = useAppNavigation();
+
   const DATA: {
     title: string;
     icon: IKeyOfIcons;
     description?: string | string[];
+    onPress?: () => void;
   }[] = [
     {
       title: 'Transfer',
@@ -19,6 +24,9 @@ export default function AddExistingWallet() {
     {
       title: 'Import phrase or private key',
       icon: 'SecretPhraseOutline',
+      onPress: () => {
+        navigation.push(EOnboardingPagesV2.ImportPhraseOrPrivateKey);
+      },
     },
     {
       title: 'OneKey KeyTag',
@@ -47,7 +55,7 @@ export default function AddExistingWallet() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Add Existing Wallet" />
         <OnboardingLayout.Body>
-          {DATA.map(({ title, icon, description }) => (
+          {DATA.map(({ title, icon, description, onPress }) => (
             <XStack
               key={title}
               animation="quick"
@@ -76,7 +84,7 @@ export default function AddExistingWallet() {
               pressStyle={{
                 scale: 0.985,
               }}
-              onPress={() => {}}
+              onPress={onPress}
               focusable
               focusVisibleStyle={{
                 outlineColor: '$focusRing',

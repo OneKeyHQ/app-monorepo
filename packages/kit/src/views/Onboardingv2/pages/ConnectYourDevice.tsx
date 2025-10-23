@@ -8,6 +8,7 @@ import { StyleSheet } from 'react-native';
 import type { IYStackProps } from '@onekeyhq/components';
 import {
   Button,
+  EVideoResizeMode,
   Empty,
   HeightTransition,
   Icon,
@@ -16,6 +17,7 @@ import {
   Page,
   SegmentControl,
   SizableText,
+  Video,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -28,6 +30,7 @@ import { ConnectionTroubleShootingAccordion } from '../../../components/Hardware
 import { ListItem } from '../../../components/ListItem';
 import { WalletAvatar } from '../../../components/WalletAvatar';
 import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useThemeVariant } from '../../../hooks/useThemeVariant';
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -53,7 +56,12 @@ function ConnectionIndicatorAnimation({
   children: React.ReactNode;
 }) {
   return (
-    <YStack h={320} overflow="hidden">
+    <YStack
+      h={320}
+      alignItems="center"
+      justifyContent="center"
+      overflow="hidden"
+    >
       {children}
     </YStack>
   );
@@ -234,13 +242,25 @@ const ConnectionIndicator = Object.assign(ConnectionIndicatorRoot, {
 });
 
 function USBConnectionIndicator() {
+  const themeVariant = useThemeVariant();
+
   return (
     <>
       <TroubleShootingButton type="usb" />
       <ConnectionIndicator>
         <ConnectionIndicator.Card>
           <ConnectionIndicator.Animation>
-            <SizableText>Placeholder</SizableText>
+            <Video
+              w="100%"
+              resizeMode={EVideoResizeMode.COVER}
+              controls={false}
+              playInBackground={false}
+              source={
+                themeVariant === 'dark'
+                  ? require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4')
+                  : require('@onekeyhq/kit/assets/onboarding/ProW-L.mp4')
+              }
+            />
           </ConnectionIndicator.Animation>
           <ConnectionIndicator.Content gap="$2">
             <ConnectionIndicator.Title>

@@ -12,6 +12,7 @@ export enum EOnboardingPagesV2 {
   PickYourDevice = 'PickYourDevice',
   ConnectYourDevice = 'ConnectYourDevice',
   CheckAndUpdate = 'CheckAndUpdate',
+  ImportPhraseOrPrivateKey = 'ImportPhraseOrPrivateKey',
 }
 
 export type IOnboardingParamListV2 = {
@@ -26,4 +27,5 @@ export type IOnboardingParamListV2 = {
     deviceType: EDeviceType[];
   };
   [EOnboardingPagesV2.CheckAndUpdate]: undefined;
+  [EOnboardingPagesV2.ImportPhraseOrPrivateKey]: undefined;
 };

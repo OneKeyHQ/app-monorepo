@@ -178,7 +178,17 @@ export default function FinalizeWalletSetup() {
               <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
             </Svg>
           </YStack>
-          <YStack flex={1} alignItems="center" justifyContent="center" gap="$6">
+          <YStack
+            animation="quick"
+            animateOnly={['opacity']}
+            enterStyle={{
+              opacity: 0,
+            }}
+            flex={1}
+            alignItems="center"
+            justifyContent="center"
+            gap="$6"
+          >
             <YStack>
               <Image
                 position="absolute"

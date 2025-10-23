@@ -168,18 +168,44 @@ function OnboardingLayoutFooter({ children }: { children?: React.ReactNode }) {
 }
 
 const OnboardingLayoutRoot = ({ children }: { children: React.ReactNode }) => (
-  <YStack h="100%" px="$10">
+  <YStack
+    h="100%"
+    alignItems="center"
+    justifyContent="center"
+    bg="$neutral2"
+    $gt2xl={{
+      p: '$10',
+      pb: '$20',
+    }}
+  >
     <YStack
-      py="$10"
       h="100%"
-      borderWidth={0}
-      borderLeftWidth={1}
-      borderRightWidth={1}
-      borderStyle="dashed"
-      borderColor="$neutral4"
+      w="100%"
+      maxWidth={1600}
+      maxHeight={1024}
+      px="$10"
+      bg="$bg"
+      $gt2xl={{
+        borderRadius: 40,
+        borderCurve: 'continuous',
+        '$platform-web': {
+          boxShadow:
+            '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        },
+      }}
     >
-      <YStack h="100%" gap="$10" mx="$-10">
-        {children}
+      <YStack
+        py="$10"
+        h="100%"
+        borderWidth={0}
+        borderLeftWidth={1}
+        borderRightWidth={1}
+        borderStyle="dashed"
+        borderColor="$neutral4"
+      >
+        <YStack h="100%" gap="$10" mx="$-10">
+          {children}
+        </YStack>
       </YStack>
     </YStack>
   </YStack>

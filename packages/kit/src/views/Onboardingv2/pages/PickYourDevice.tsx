@@ -91,6 +91,12 @@ export default function PickYourDevice() {
                 ) : null}
                 <YStack
                   position="absolute"
+                  animation="quick"
+                  animateOnly={['opacity', 'transform']}
+                  enterStyle={{
+                    opacity: 0,
+                    y: 16,
+                  }}
                   w="50%"
                   top={0}
                   right={0}
