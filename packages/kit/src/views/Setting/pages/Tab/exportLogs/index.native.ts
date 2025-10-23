@@ -1,5 +1,4 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import appCrypto from '@onekeyhq/shared/src/appCrypto';
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
@@ -16,7 +15,6 @@ import utils from '@onekeyhq/shared/src/logger/utils';
 import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -74,7 +72,6 @@ export const collectLogDigest = async (
   const stat = await RNFS.stat(normalizedPath);
   const sizeBytes = Number(stat.size ?? 0);
   const sha256 = await BundleUpdate.getSha256FromFilePath(normalizedPath);
-
   return {
     sizeBytes,
     sha256,
