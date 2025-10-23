@@ -8,11 +8,10 @@ import {
   useState,
 } from 'react';
 
-import { ScrollView, XStack } from '@onekeyhq/components';
 import type { IPopoverProps } from '@onekeyhq/components';
+import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { GradientMask } from './GradientMask';
 import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
