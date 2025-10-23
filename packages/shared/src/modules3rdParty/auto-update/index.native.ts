@@ -246,6 +246,7 @@ interface INativeBundleUpdateModule {
     bundleVersion: string,
   ) => Promise<{ success: boolean; message: string }>;
   getNativeAppVersion: () => Promise<string>;
+  getSha256FromFilePath: (filePath: string) => Promise<string>;
   getJsBundlePath: () => Promise<string>;
 }
 
@@ -321,4 +322,6 @@ export const BundleUpdate: IBundleUpdate = {
   getNativeAppVersion: () => BundleUpdateModule.getNativeAppVersion(),
   getNativeBuildNumber: () => Promise.resolve(''),
   getJsBundlePath: () => BundleUpdateModule.getJsBundlePath(),
+  getSha256FromFilePath: (filePath) =>
+    BundleUpdateModule.getSha256FromFilePath(filePath),
 };
