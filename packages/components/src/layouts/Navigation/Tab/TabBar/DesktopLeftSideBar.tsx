@@ -249,9 +249,7 @@ export function DesktopLeftSideBar({
           ai="center"
           jc="flex-end"
           px="$4"
-        >
-          <HeaderCollapseButton isRootScreen hideWhenCollapse />
-        </XStack>
+        />
       ) : null}
       <YStack
         position="relative"
@@ -277,9 +275,8 @@ export function DesktopLeftSideBar({
         >
           <YStack flex={1}>
             {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
-              <XStack ai="center" jc="space-between" pr="$3">
+              <XStack ai="center" pr="$3">
                 <OneKeyLogo />
-                <HeaderCollapseButton isRootScreen />
               </XStack>
             ) : null}
             <YStack
