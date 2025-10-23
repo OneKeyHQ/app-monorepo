@@ -180,11 +180,16 @@ function RecommendedItem({
 }: { token?: IRecommendAsset } & IYStackProps) {
   const accountInfo = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
+  const {
+    activeAccount: { account, indexedAccount },
+  } = accountInfo;
+
+  const noWalletConnected = useMemo(
+    () => !account && !indexedAccount,
+    [account, indexedAccount],
+  );
 
   const onPress = useCallback(async () => {
-    const {
-      activeAccount: { account, indexedAccount },
-    } = accountInfo;
     if (token) {
       const earnAccount =
         await backgroundApiProxy.serviceStaking.getEarnAccount({
@@ -201,7 +206,7 @@ function RecommendedItem({
         protocols: token.protocols,
       });
     }
-  }, [accountInfo, navigation, token]);
+  }, [account?.id, indexedAccount?.id, navigation, token]);
 
   if (!token) {
     return <YStack width="$40" flexGrow={1} />;
@@ -252,7 +257,7 @@ function RecommendedItem({
           <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
         </XStack>
         <YStack alignItems="flex-start" width="100%">
-          <SizableText size="$headingXl" pt="$3.5" pb="$1">
+          <SizableText size="$headingXl" pt="$3.5">
             <AprText
               asset={{
                 aprWithoutFee: token?.aprWithoutFee ?? '',
@@ -260,14 +265,17 @@ function RecommendedItem({
               }}
             />
           </SizableText>
-          <SizableText
-            size="$bodyMd"
-            color={token.available.color ?? '$textSubdued'}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {token?.available?.text}
-          </SizableText>
+          {!noWalletConnected ? (
+            <SizableText
+              pt="$1"
+              size="$bodyMd"
+              color={token.available.color ?? '$textSubdued'}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {token?.available?.text}
+            </SizableText>
+          ) : null}
         </YStack>
       </YStack>
     </YStack>
