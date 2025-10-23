@@ -19,6 +19,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsUserConfigPersistAtom,
   usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
@@ -37,7 +38,10 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { EPerpsSubscriptionCategory } from '@onekeyhq/shared/types/hyperliquid/types';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpUserType,
+  ESubscriptionType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
@@ -453,13 +457,21 @@ function AutoPauseSubscriptions() {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
 
+  const [perpsConfig] = usePerpsUserConfigPersistAtom();
+
   // const isFocusedRoute = useRouteIsFocused();
   // useEffect(() => {
   //   //
   // }, [isFocusedRoute]);
 
   const onFocusHandler = useCallback(
-    async ({ isFocus }: { isFocus: boolean }) => {
+    async ({
+      isFocus,
+      pauseDelay,
+    }: {
+      isFocus: boolean;
+      pauseDelay?: number;
+    }) => {
       // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
       //   isFocus,
       //   isHideByModal,
@@ -471,15 +483,16 @@ function AutoPauseSubscriptions() {
       } else {
         void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
         clearTimeout(pauseSubscriptionsTimerRef.current);
-        pauseSubscriptionsTimerRef.current = setTimeout(
-          () => {
-            void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
-          },
+        // eslint-disable-next-line no-param-reassign
+        pauseDelay =
+          pauseDelay ??
           timerUtils.getTimeDurationMs({
             minute: 5,
             seconds: 30,
-          }),
-        );
+          });
+        pauseSubscriptionsTimerRef.current = setTimeout(() => {
+          void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
+        }, pauseDelay);
       }
     },
     [],
@@ -503,16 +516,21 @@ function AutoPauseSubscriptions() {
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
-    } else {
+    } else if (
+      perpsConfig?.perpUserConfig?.currentUserType === EPerpUserType.PERP_NATIVE
+    ) {
       void onFocusHandler({ isFocus: isFocusedRef.current });
+    } else {
+      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
     }
-  }, [isLocked, onFocusHandler]);
+  }, [isLocked, onFocusHandler, perpsConfig?.perpUserConfig?.currentUserType]);
 
   useEffect(() => {
     return () => {
       clearTimeout(pauseSubscriptionsTimerRef.current);
+      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
     };
-  }, []);
+  }, [onFocusHandler]);
 
   return null;
 }

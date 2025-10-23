@@ -26,10 +26,8 @@ import type {
   IHyperLiquidTypedDataApproveBuilderFee,
   IHyperLiquidUserBuilderFeeStatus,
 } from '@onekeyhq/shared/types/hyperliquid';
-import type {
-  EPerpUserType,
-  IHyperLiquidErrorLocaleItem,
-} from '@onekeyhq/shared/types/hyperliquid/types';
+import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid/types';
+import type { IHyperLiquidErrorLocaleItem } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
   perpsUserConfigPersistAtom,
@@ -757,6 +755,9 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
+    // if (type === EPerpUserType.PERP_WEB) {
+    //   void this.backgroundApi.serviceHyperliquidSubscription.pauseSubscriptions();
+    // }
     await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },
