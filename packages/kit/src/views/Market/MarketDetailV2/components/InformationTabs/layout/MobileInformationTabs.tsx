@@ -5,6 +5,10 @@ import { useIntl } from 'react-intl';
 import { Tabs, YStack } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  NUMBER_FORMATTER,
+  formatDisplayNumber,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
@@ -39,12 +43,26 @@ export function MobileInformationTabs({
   onScrollEnd: () => void;
 }) {
   const intl = useIntl();
-  const { tokenAddress, networkId } = useTokenDetail();
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
   const { handleTabChange } = useBottomTabAnalytics();
 
   const shouldShowHolders = useMemo(() => {
     return networkId === getNetworkIdsMap().sol;
   }, [networkId]);
+
+  const holdersTabName = useMemo(() => {
+    const baseTitle = intl.formatMessage({
+      id: ETranslations.dexmarket_holders,
+    });
+    const holders = tokenDetail?.holders;
+    if (holders !== undefined && holders > 0) {
+      const displayValue = String(
+        formatDisplayNumber(NUMBER_FORMATTER.marketCap(String(holders))),
+      );
+      return `${baseTitle} (${displayValue})`;
+    }
+    return baseTitle;
+  }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
     const items = [
@@ -63,18 +81,20 @@ export function MobileInformationTabs({
     ];
     if (shouldShowHolders) {
       items.push(
-        <Tabs.Tab
-          key="holders"
-          name={intl.formatMessage({
-            id: ETranslations.dexmarket_holders,
-          })}
-        >
+        <Tabs.Tab key="holders" name={holdersTabName}>
           <Holders tokenAddress={tokenAddress} networkId={networkId} />
         </Tabs.Tab>,
       );
     }
     return items;
-  }, [intl, tokenAddress, networkId, onScrollEnd, shouldShowHolders]);
+  }, [
+    intl,
+    tokenAddress,
+    networkId,
+    onScrollEnd,
+    shouldShowHolders,
+    holdersTabName,
+  ]);
 
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <MobileInformationTabsHeader {...props} />;

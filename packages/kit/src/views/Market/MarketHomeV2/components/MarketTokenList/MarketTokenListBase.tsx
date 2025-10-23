@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 
-import {
-  ETableSortType,
-  Spinner,
-  Stack,
-  Table,
-  useMedia,
-} from '@onekeyhq/components';
+import { Spinner, Stack, Table, useMedia } from '@onekeyhq/components';
 import type { ITableColumn } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
@@ -138,6 +132,10 @@ function MarketTokenListBase({
 
   const handleHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
+      if (!isWatchlistMode) {
+        return undefined;
+      }
+
       // Sorting logic
       const sortKey =
         SORTABLE_COLUMNS[column.dataIndex as keyof typeof SORTABLE_COLUMNS];
@@ -147,7 +145,6 @@ function MarketTokenListBase({
           onSortTypeChange: (order: 'asc' | 'desc' | undefined) => {
             handleSortChange(sortKey, order);
           },
-          disableSort: isWatchlistMode ? [] : [ETableSortType.ASC],
         };
       }
 
