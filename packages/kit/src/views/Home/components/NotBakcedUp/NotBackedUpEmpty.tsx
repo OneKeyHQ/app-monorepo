@@ -188,7 +188,7 @@ function NotBackedUp() {
             }}
           >
             <Input
-              size="medium"
+              size="large"
               w="100%"
               placeholder="Referral code"
               backgroundColor="$bgApp"
@@ -197,7 +197,7 @@ function NotBackedUp() {
           </Form.Field>
         </Stack>
         <Button
-          size="medium"
+          size="large"
           variant="secondary"
           onPress={handleJoinReferral}
           loading={isJoiningReferral}
@@ -234,7 +234,12 @@ function NotBackedUp() {
   ]);
   return (
     <Stack flexDirection="column" gap="$10" px="$5" pb="$6">
-      <Stack flexDirection="column" $gtMd={{ flexDirection: 'row' }} gap="$5">
+      <Stack
+        flexDirection="column"
+        $gtMd={{ flexDirection: 'row' }}
+        gap="$5"
+        pt="$0.5"
+      >
         <MainInfoBlock
           title="Backup your wallet"
           iconProps={{ name: 'ShieldCheckDoneOutline' }}
@@ -255,7 +260,7 @@ function NotBackedUp() {
                 </Button>
               ) : (
                 <WalletBackupActions wallet={wallet}>
-                  <Button variant="primary" size="medium" onPress={() => {}}>
+                  <Button variant="primary" size="large" onPress={() => {}}>
                     {backupText}
                   </Button>
                 </WalletBackupActions>
