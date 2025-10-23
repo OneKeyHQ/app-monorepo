@@ -1036,6 +1036,20 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         promise.resolve(jsBundlePath);
     }
 
+    @ReactMethod
+    public void getSha256FromFilePath(String filePath, Promise promise) {
+        if (filePath == null) {
+            promise.resolve("");
+            return;
+        }
+        String sha256 = calculateSHA256(filePath);
+        if (sha256 == null) {
+            promise.resolve("");
+            return;
+        }
+        promise.resolve(sha256);
+    }
+
     @ReactMethod(isBlockingSynchronousMethod = true)
     public String jsBundlePath() {
         String jsBundlePath = getCurrentBundleMainJSBundle(reactContext);

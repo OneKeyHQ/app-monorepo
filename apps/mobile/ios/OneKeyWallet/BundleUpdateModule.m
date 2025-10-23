@@ -1061,6 +1061,21 @@ RCT_EXPORT_METHOD(getJsBundlePath:(RCTPromiseResolveBlock)resolve
     resolve(jsBundlePath);
 }
 
+RCT_EXPORT_METHOD(getSha256FromFilePath:(NSString *)filePath
+                  resolver:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    if (!filePath) {
+        resolve(@"");
+        return;
+    }
+    NSString *sha256 = [BundleUpdateModule calculateSHA256:filePath];
+    if (!sha256) {
+        resolve(@"");
+        return;
+    }
+    resolve(sha256);
+}
+
 RCT_EXPORT_BLOCKING_SYNCHRONOUS_METHOD(jsBundlePath) {
     NSString *jsBundlePath = [BundleUpdateModule currentBundleMainJSBundle];
     if (jsBundlePath == nil) {
