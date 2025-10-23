@@ -64,11 +64,25 @@ const readMetadataFileSha256 = async (signature: string) => {
   }
 };
 
-export const verifySha256 = (filePath: string, sha256: string) => {
+export const calculateSHA256 = (filePath: string) => {
+  if (!filePath) {
+    return '';
+  }
   const hashSum = crypto.createHash('sha256');
   const fileBuffer = fs.readFileSync(filePath);
   hashSum.update(fileBuffer);
   const fileSha256 = hashSum.digest('hex');
+  return fileSha256;
+};
+
+export const verifySha256 = (filePath: string, sha256: string) => {
+  if (!filePath || !sha256) {
+    return false;
+  }
+  const fileSha256 = calculateSHA256(filePath);
+  if (!fileSha256) {
+    return false;
+  }
   logger.info('bundle-download-verifySha256', sha256, fileSha256);
   return fileSha256 === sha256;
 };
