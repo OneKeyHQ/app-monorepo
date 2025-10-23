@@ -1064,6 +1064,7 @@ RCT_EXPORT_METHOD(getJsBundlePath:(RCTPromiseResolveBlock)resolve
 RCT_EXPORT_METHOD(getSha256FromFilePath:(NSString *)filePath
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
+    DDLogDebug(@"getSha256FromFilePath: filePath: %@", filePath);
     if (!filePath) {
         resolve(@"");
         return;
@@ -1073,6 +1074,7 @@ RCT_EXPORT_METHOD(getSha256FromFilePath:(NSString *)filePath
         resolve(@"");
         return;
     }
+    DDLogDebug(@"getSha256FromFilePath-sha256: %@", sha256);
     resolve(sha256);
 }
 

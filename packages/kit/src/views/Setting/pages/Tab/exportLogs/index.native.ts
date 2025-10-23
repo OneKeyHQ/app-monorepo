@@ -13,6 +13,7 @@ import {
   type ILogUploadResponse,
 } from '@onekeyhq/shared/src/logger/types';
 import utils from '@onekeyhq/shared/src/logger/utils';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -72,11 +73,7 @@ export const collectLogDigest = async (
   }
   const stat = await RNFS.stat(normalizedPath);
   const sizeBytes = Number(stat.size ?? 0);
-
-  const fileBuffer = await RNFS.readFile(normalizedPath, 'base64');
-  const bytes = Buffer.from(fileBuffer, 'base64');
-  const hashBytes = await appCrypto.hash.sha256(bufferUtils.toBuffer(bytes));
-  const sha256 = bufferUtils.bytesToHex(hashBytes);
+  const sha256 = await BundleUpdate.getSha256FromFilePath(normalizedPath);
 
   return {
     sizeBytes,

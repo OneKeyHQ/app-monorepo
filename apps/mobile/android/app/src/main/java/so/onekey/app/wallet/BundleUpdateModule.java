@@ -1038,6 +1038,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void getSha256FromFilePath(String filePath, Promise promise) {
+        staticLog(TAG, "getSha256FromFilePath: " + filePath);
         if (filePath == null) {
             promise.resolve("");
             return;
@@ -1047,6 +1048,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             promise.resolve("");
             return;
         }
+        staticLog(TAG, "getSha256FromFilePath-sha256: " + sha256);
         promise.resolve(sha256);
     }
 
