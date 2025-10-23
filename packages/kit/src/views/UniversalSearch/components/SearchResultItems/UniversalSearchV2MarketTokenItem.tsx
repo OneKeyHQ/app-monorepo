@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  Icon,
   IconButton,
   NumberSizeableText,
   SizableText,
@@ -17,6 +16,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useMarketWatchListV2Atom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
 import { useToDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -221,13 +221,7 @@ export function UniversalSearchV2MarketTokenItem({
         primary={
           <XStack alignItems="center" gap="$1">
             <SizableText size="$bodyLgMedium">{symbol}</SizableText>
-            {communityRecognized ? (
-              <Icon
-                name="BadgeRecognizedSolid"
-                size="$4"
-                color="$iconSuccess"
-              />
-            ) : null}
+            {communityRecognized ? <CommunityRecognizedBadge /> : null}
           </XStack>
         }
         secondary={<ContractAddress address={address} />}
