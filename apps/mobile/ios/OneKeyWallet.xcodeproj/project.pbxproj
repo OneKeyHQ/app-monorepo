@@ -23,7 +23,6 @@
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		C274DAC12AE2644400755275 /* NotificationService.m in Sources */ = {isa = PBXBuildFile; fileRef = C274DAC02AE2644400755275 /* NotificationService.m */; };
 		C274DAC52AE2644400755275 /* ServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C274DABD2AE2644400755275 /* ServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */ = {isa = PBXBuildFile; fileRef = C28C89F62C85D3A600D9A657 /* JPushManager.m */; };
 		EA73E1F22C3EAEAD000E9398 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = EA73E1F12C3EAEAD000E9398 /* GoogleService-Info.plist */; };
 		EA7A13F42D9EEC2C002BD82F /* RCTRootViewBackground.m in Sources */ = {isa = PBXBuildFile; fileRef = EA7A13F32D9EEC2B002BD82F /* RCTRootViewBackground.m */; };
 		EA9B87EC2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */; };
@@ -93,8 +92,6 @@
 		C274DABF2AE2644400755275 /* NotificationService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NotificationService.h; sourceTree = "<group>"; };
 		C274DAC02AE2644400755275 /* NotificationService.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NotificationService.m; sourceTree = "<group>"; };
 		C274DAC22AE2644400755275 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		C28C89F62C85D3A600D9A657 /* JPushManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = JPushManager.m; path = OneKeyWallet/JPushManager.m; sourceTree = "<group>"; };
-		C28C89F72C85D3A700D9A657 /* JPushManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JPushManager.h; path = OneKeyWallet/JPushManager.h; sourceTree = "<group>"; };
 		C2D12C012B32FF2100DB502A /* OneKeyWallet.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = OneKeyWallet.entitlements; path = OneKeyWallet/OneKeyWallet.entitlements; sourceTree = "<group>"; };
 		D0B8C30C56C171EF9CB51609 /* Pods_OneKeyWallet.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_OneKeyWallet.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E386ED442C7889E000B1E360 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -159,8 +156,6 @@
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				EA9B87EB2BD94E3B00B8E64A /* PrivacyInfo.xcprivacy */,
 				0799B76F2E162F7D001ADEC8 /* AppDelegate.swift */,
-				C28C89F72C85D3A700D9A657 /* JPushManager.h */,
-				C28C89F62C85D3A600D9A657 /* JPushManager.m */,
 				07BBD7EA2E7C85FA00A3654D /* Verification.h */,
 				07BBD7EB2E7C85FA00A3654D /* Verification.m */,
 				07A0D9DB2E7997C6005A1AA2 /* BundleUpdateModule.h */,
@@ -560,7 +555,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C28C89F82C85D3A700D9A657 /* JPushManager.m in Sources */,
 				LAUNCH0012E85D3A700D9A657 /* LaunchOptionsManager.m in Sources */,
 				31ADF8BB30114AF196CCBDE4 /* noop-file.swift in Sources */,
 				0799B7702E162F7D001ADEC8 /* AppDelegate.swift in Sources */,
@@ -771,10 +765,7 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -847,10 +838,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_CFLAGS = "$(inherited)";
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
