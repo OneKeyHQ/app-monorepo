@@ -3,7 +3,7 @@ import React
 import ReactAppDependencyProvider
 
 @UIApplicationMain
-public class AppDelegate: ExpoAppDelegate, JPUSHRegisterDelegate {
+public class AppDelegate: ExpoAppDelegate {
   var window: UIWindow?
 
   var reactNativeDelegate: ExpoReactNativeFactoryDelegate?
@@ -14,11 +14,6 @@ public class AppDelegate: ExpoAppDelegate, JPUSHRegisterDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     LaunchOptionsManager.sharedInstance().saveStartupTime(NSNumber(value: Date().timeIntervalSince1970))
-    let entity = JPUSHRegisterEntity()
-    if #available(iOS 12.0, *) {
-      entity.types = JPAuthorizationOptionNone // JPAuthorizationOptionAlert|JPAuthorizationOptionBadge|JPAuthorizationOptionSound|JPAuthorizationOptionProvidesAppNotificationSettings
-    }
-    JPUSHService.registerForRemoteNotificationConfig(entity, delegate: self)
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -36,7 +31,6 @@ public class AppDelegate: ExpoAppDelegate, JPUSHRegisterDelegate {
 #endif
     // Save launch options to LaunchOptionsManager
     LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
-    JPushManager.sharedInstance().registerNotification()
     UIApplication.shared.registerForRemoteNotifications()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -74,52 +68,10 @@ public class AppDelegate: ExpoAppDelegate, JPUSHRegisterDelegate {
     LaunchOptionsManager.sharedInstance().log("didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
   
-  //iOS 7 APNS
+  // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    NSLog(@"iOS 7 APNS");
-    JPUSHService.handleRemoteNotification(userInfo)
     super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
     LaunchOptionsManager.sharedInstance().log("didReceiveRemoteNotification")
-    NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
-  }
-
-  //iOS 10 APNS event in foreground
-  - (void)jpushNotificationCenter:(UNUserNotificationCenter *)center  willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(NSInteger))completionHandler {
-    NSDictionary * userInfo = notification.request.content.userInfo;
-    if([notification.request.trigger isKindOfClass:[UNPushNotificationTrigger class]]) {
-      // Apns
-      LaunchOptionsManager.sharedInstance().log("iOS 10 APNS event in foreground")
-      [JPUSHService handleRemoteNotification:userInfo];
-      [[NSNotificationCenter defaultCenter] postNotificationName:J_APNS_NOTIFICATION_ARRIVED_EVENT object:userInfo];
-    }
-    else {
-      // local notification
-      LaunchOptionsManager.sharedInstance().log("iOS 10 Local Notification event in foreground")
-      [[NSNotificationCenter defaultCenter] postNotificationName:J_LOCAL_NOTIFICATION_ARRIVED_EVENT object:userInfo];
-    }
-    //需要执行这个方法，选择是否提醒用户，有 Badge、Sound、Alert 三种类型可以选择设置
-    completionHandler(UNNotificationPresentationOptionAlert);
-  }
-
-  //iOS 10 APNS event in background
-  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-    let userInfo = response.notification.request.content.userInfo
-    if response.notification.request.trigger is UNPushNotificationTrigger {
-      // Apns
-      LaunchOptionsManager.sharedInstance().log("iOS 10 APNS event in background")
-      JPUSHService.handleRemoteNotification(userInfo)
-      // 保障应用被杀死状态下，用户点击推送消息，打开app后可以收到点击通知事件
-      RCTJPushEventQueue.sharedInstance()._notificationQueue.insert(userInfo, at: 0)
-      NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_OPENED_EVENT), object: userInfo)
-    } else {
-      // 本地通知
-      LaunchOptionsManager.sharedInstance().log("iOS 10 Local Notification event in background")
-      // 保障应用被杀死状态下，用户点击推送消息，打开app后可以收到点击通知事件
-      RCTJPushEventQueue.sharedInstance()._localNotificationQueue.insert(userInfo, at: 0)
-      NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_OPENED_EVENT), object: userInfo)
-    }
-    // 系统要求执行这个方法
-    completionHandler()
   }
 }
 
