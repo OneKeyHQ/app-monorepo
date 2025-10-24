@@ -449,7 +449,7 @@ const ClosePositionForm = memo(
             })}
             value={formData.limitPrice}
             onChange={handleLimitPriceChange}
-            onUseMarketPrice={handleUseMid}
+            onUseMidPrice={handleUseMid}
             disabled={!midPrice}
             szDecimals={szDecimals}
             ifOnDialog
