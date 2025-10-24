@@ -141,12 +141,14 @@ type IInteractiveDotWordProps = {
   values: boolean[];
   onToggle: (index: number) => void;
   wordIndex: number;
+  showWord?: boolean;
 };
 
 export const InteractiveDotWord = ({
   values,
   onToggle,
   wordIndex,
+  showWord = true,
 }: IInteractiveDotWordProps) => {
   const allValues = useMemo(() => {
     if (values.length < 12) {
@@ -199,7 +201,7 @@ export const InteractiveDotWord = ({
           }}
         />
       </XStack>
-      {word ? (
+      {showWord && word ? (
         <SizableText
           size="$bodyMd"
           ml="$3"

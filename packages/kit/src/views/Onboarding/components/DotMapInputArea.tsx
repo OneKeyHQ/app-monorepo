@@ -166,27 +166,32 @@ function DotMapInputContent({
         ) : null}
 
         <ScrollView>
-          <Form form={form}>
-            <YStack px="$4" py="$2">
-              {Array.from({ length: phraseLengthNumber }).map((_, index) => {
-                const key = `phrase${index + 1}`;
-                const binaryString = form.watch(key) || '000000000000';
-                const boolArray = binaryString.split('').map((c) => c === '1');
+          <YStack alignItems="center">
+            <Form form={form}>
+              <YStack px="$4" py="$2">
+                {Array.from({ length: phraseLengthNumber }).map((_, index) => {
+                  const key = `phrase${index + 1}`;
+                  const binaryString = form.watch(key) || '000000000000';
+                  const boolArray = binaryString
+                    .split('')
+                    .map((c) => c === '1');
 
-                return (
-                  <Form.Field key={index} name={key}>
-                    <InteractiveDotWord
-                      values={boolArray}
-                      onToggle={(dotIndex) => {
-                        handleToggleDot(index, dotIndex);
-                      }}
-                      wordIndex={index + 1}
-                    />
-                  </Form.Field>
-                );
-              })}
-            </YStack>
-          </Form>
+                  return (
+                    <Form.Field key={index} name={key}>
+                      <InteractiveDotWord
+                        values={boolArray}
+                        onToggle={(dotIndex) => {
+                          handleToggleDot(index, dotIndex);
+                        }}
+                        wordIndex={index + 1}
+                        showWord={false}
+                      />
+                    </Form.Field>
+                  );
+                })}
+              </YStack>
+            </Form>
+          </YStack>
         </ScrollView>
 
         <HeightTransition>
