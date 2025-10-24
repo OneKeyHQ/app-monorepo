@@ -49,7 +49,7 @@ function BaseSortableHeaderCell({
 
   return (
     <XStack
-      group="sortableHeader"
+      group="card"
       width={width}
       flex={flex}
       cursor="pointer"
@@ -77,7 +77,7 @@ function BaseSortableHeaderCell({
         color={isActive ? '$icon' : '$iconSubdued'}
         flexShrink={0}
         opacity={isActive ? 1 : 0}
-        $group-sortableHeader-hover={{
+        $group-card-hover={{
           opacity: isActive ? 1 : 0.6,
         }}
       />
