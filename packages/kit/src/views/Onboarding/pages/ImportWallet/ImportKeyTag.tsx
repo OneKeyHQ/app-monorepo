@@ -12,7 +12,7 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
-import { PhaseInputArea } from '../../components/PhaseInputArea';
+import { DotMapInputArea } from '../../components/DotMapInputArea';
 
 const KeyTagFooterComponent = () => {
   const intl = useIntl();
@@ -85,7 +85,7 @@ export function ImportKeyTag() {
 
   const renderPhaseInputArea = useMemo(
     () => (
-      <PhaseInputArea
+      <DotMapInputArea
         defaultPhrases={[]}
         onConfirm={handleConfirmPress}
         FooterComponent={<KeyTagFooterComponent />}

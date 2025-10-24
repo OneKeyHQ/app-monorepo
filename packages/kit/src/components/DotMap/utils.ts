@@ -38,3 +38,24 @@ export const mnemonicToDotMapValues = (mnemonics: string) => {
   });
   return keyTagMnemonics;
 };
+
+export const dotMapValueToIndex = (values: boolean[]): number | null => {
+  if (values.length !== 12) {
+    return null;
+  }
+  const binary = values.map((bit) => (bit ? '1' : '0')).join('');
+  const index = parseInt(binary, 2);
+  if (index < 1 || index > 2048) {
+    return null;
+  }
+  return index;
+};
+
+export const dotMapValueToWord = (values: boolean[]): string | null => {
+  const index = dotMapValueToIndex(values);
+  if (index === null) {
+    return null;
+  }
+  const wordlist = bip39.wordlists.english;
+  return wordlist[index - 1] || null;
+};

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { chunk, range } from 'lodash';
 import { StyleSheet } from 'react-native';
@@ -12,7 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 
-import { mnemonicToDotMapValues } from './utils';
+import { dotMapValueToWord, mnemonicToDotMapValues } from './utils';
 
 import type { IDotMapValues } from './types';
 
@@ -38,6 +38,33 @@ const Dot = ({ disabled, value }: IDotProps) => {
   );
 };
 
+type IInteractiveDotProps = {
+  value: boolean;
+  onToggle: () => void;
+};
+const InteractiveDot = ({ value, onToggle }: IInteractiveDotProps) => (
+  <Stack
+    width="$7"
+    height="$7"
+    justifyContent="center"
+    alignItems="center"
+    onPress={onToggle}
+    cursor="pointer"
+    hoverStyle={{
+      backgroundColor: '$bgHover',
+    }}
+  >
+    {value ? (
+      <Stack
+        width="$2.5"
+        height="$2.5"
+        borderRadius="$full"
+        backgroundColor="#299764"
+      />
+    ) : null}
+  </Stack>
+);
+
 type IDot4GroupProps = {
   values?: boolean[];
   disabled?: boolean;
@@ -62,6 +89,39 @@ const Dot4Group = ({ values, disabled }: IDot4GroupProps) => {
   );
 };
 
+type IInteractiveDot4GroupProps = {
+  values: boolean[];
+  onToggle: (index: number) => void;
+};
+const InteractiveDot4Group = ({
+  values,
+  onToggle,
+}: IInteractiveDot4GroupProps) => {
+  const items = useMemo(() => {
+    if (values.length < 4) {
+      return [...values, ...Array(4 - values.length).fill(false)] as boolean[];
+    }
+    return values.slice(0, 4);
+  }, [values]);
+  return (
+    <XStack
+      borderWidth={1}
+      borderColor="$border"
+      separator={<Divider vertical backgroundColor="$border" />}
+    >
+      {items.map((o, index) => (
+        <InteractiveDot
+          key={index}
+          value={o}
+          onToggle={() => {
+            onToggle(index);
+          }}
+        />
+      ))}
+    </XStack>
+  );
+};
+
 type IDotWordProps = {
   values: boolean[];
 };
@@ -73,6 +133,86 @@ const DotWord = ({ values }: IDotWordProps) => {
       <Dot4Group values={chucked?.[0]} disabled={chucked.length === 0} />
       <Dot4Group values={chucked?.[1]} disabled={chucked.length === 0} />
       <Dot4Group values={chucked?.[2]} disabled={chucked.length === 0} />
+    </XStack>
+  );
+};
+
+type IInteractiveDotWordProps = {
+  values: boolean[];
+  onToggle: (index: number) => void;
+  wordIndex: number;
+};
+
+export const InteractiveDotWord = ({
+  values,
+  onToggle,
+  wordIndex,
+}: IInteractiveDotWordProps) => {
+  const allValues = useMemo(() => {
+    if (values.length < 12) {
+      return [...values, ...Array(12 - values.length).fill(false)] as boolean[];
+    }
+    return values.slice(0, 12);
+  }, [values]);
+
+  const chucked = useMemo(() => chunk(allValues, 4), [allValues]);
+
+  const word = useMemo(() => {
+    if (allValues.length === 12 && allValues.some((v) => v)) {
+      return dotMapValueToWord(allValues);
+    }
+    return null;
+  }, [allValues]);
+
+  const handleToggle = useCallback(
+    (groupIndex: number, dotIndex: number) => {
+      const absoluteIndex = groupIndex * 4 + dotIndex;
+      onToggle(absoluteIndex);
+    },
+    [onToggle],
+  );
+
+  return (
+    <XStack alignItems="center" py={1}>
+      <XStack width="$6" justifyContent="flex-end">
+        <SizableText size="$bodySm" mr="$2" color="$textSubdued">
+          {wordIndex}
+        </SizableText>
+      </XStack>
+      <XStack gap={1}>
+        <InteractiveDot4Group
+          values={chucked[0]}
+          onToggle={(index) => {
+            handleToggle(0, index);
+          }}
+        />
+        <InteractiveDot4Group
+          values={chucked[1]}
+          onToggle={(index) => {
+            handleToggle(1, index);
+          }}
+        />
+        <InteractiveDot4Group
+          values={chucked[2]}
+          onToggle={(index) => {
+            handleToggle(2, index);
+          }}
+        />
+      </XStack>
+      {word ? (
+        <SizableText
+          size="$bodyMd"
+          ml="$3"
+          color="$text"
+          minWidth="$20"
+          display="none"
+          $gtSm={{
+            display: 'flex',
+          }}
+        >
+          {word}
+        </SizableText>
+      ) : null}
     </XStack>
   );
 };
