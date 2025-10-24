@@ -37,7 +37,6 @@ export abstract class BaseScene {
     return [];
   }
 
-  @LogToLocal()
   @LogToConsole()
   consoleLog(...args: any[]) {
     return args as unknown;
