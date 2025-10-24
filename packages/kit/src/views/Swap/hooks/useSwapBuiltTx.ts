@@ -400,6 +400,12 @@ export function useSwapBuildTx() {
         }
         let orderAccount: INetworkAccount | undefined;
         try {
+          const defaultDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: item.networkId,
+              },
+            );
           orderAccount =
             await backgroundApiProxy.serviceAccount.getNetworkAccount({
               accountId: swapFromAddressInfo.accountInfo?.indexedAccount?.id
@@ -408,8 +414,7 @@ export function useSwapBuildTx() {
               indexedAccountId:
                 swapFromAddressInfo?.accountInfo?.indexedAccount?.id ?? '',
               networkId: item.networkId,
-              deriveType:
-                swapFromAddressInfo.accountInfo?.deriveType ?? 'default',
+              deriveType: defaultDeriveType ?? 'default',
             });
         } catch (e) {
           orderAccount = undefined;
@@ -440,7 +445,7 @@ export function useSwapBuildTx() {
               reject(
                 new Error(
                   `missing data: dataMessage: ${dataMessage ?? ''}, address: ${
-                    orderAccount?.address ?? ''
+                    orderAccount?.addressDetail.address ?? ''
                   }, networkId: ${item.networkId ?? ''}`,
                 ),
               );

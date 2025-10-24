@@ -964,6 +964,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             updateType: 'firmware',
             platform: platformEnv.symbol ?? 'web',
             isUpdateBootloader: true,
+            skipWebDevicePrompt: platformEnv.isDesktop,
           }),
         );
         return result;
@@ -1742,6 +1743,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
               bleVersion: toBleVersion,
               firmwareVersion: toFirmwareVersion,
               bootloaderVersion: toBootloaderVersion,
+              skipWebDevicePrompt: platformEnv.isDesktop,
             },
           ),
         );
