@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { noop } from 'lodash';
+import { isEqual, noop } from 'lodash';
 
 import { useUpdateEffect } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
@@ -15,11 +15,11 @@ import type { IPerpsActiveOrderBookOptionsAtom } from '@onekeyhq/kit-bg/src/stat
 import {
   perpsActiveAssetAtom,
   perpsActiveOrderBookOptionsAtom,
-  perpsCandlesWebviewReloadHookAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveOrderBookOptionsAtom,
+  usePerpsUserConfigPersistAtom,
   usePerpsWebSocketConnectedAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/perps';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { useDebugHooksDepsChangedChecker } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBook,
@@ -37,7 +38,10 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { EPerpsSubscriptionCategory } from '@onekeyhq/shared/types/hyperliquid/types';
-import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpUserType,
+  ESubscriptionType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady';
@@ -64,18 +68,42 @@ function useSyncContextOrderBookOptionsToGlobal() {
     const nSigFigs = stored?.nSigFigs ?? null;
     const mantissa =
       stored?.mantissa === undefined ? undefined : stored.mantissa;
-    return { nSigFigs, mantissa };
+    return { nSigFigs: nSigFigs ?? null, mantissa: mantissa ?? null };
   }, [orderBookTickOptions, activeAsset?.coin]);
 
-  useEffect(() => {
-    void perpsActiveOrderBookOptionsAtom.set(
-      (): IPerpsActiveOrderBookOptionsAtom => ({
+  const isFocusedRef = useRef(true);
+
+  const updateGlobalOrderBookOptions = useCallback(async () => {
+    if (isFocusedRef.current) {
+      const prev = await perpsActiveOrderBookOptionsAtom.get();
+      const next: IPerpsActiveOrderBookOptionsAtom = {
         coin: activeAsset?.coin,
         assetId: activeAsset?.assetId,
         ...l2SubscriptionOptions,
-      }),
-    );
+      };
+      if (isEqual(prev, next)) {
+        return;
+      }
+      await perpsActiveOrderBookOptionsAtom.set(
+        (): IPerpsActiveOrderBookOptionsAtom => next,
+      );
+    }
   }, [l2SubscriptionOptions, activeAsset?.coin, activeAsset?.assetId]);
+
+  useEffect(() => {
+    void updateGlobalOrderBookOptions();
+  }, [updateGlobalOrderBookOptions]);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    useCallback(
+      (isFocus: boolean) => {
+        isFocusedRef.current = isFocus;
+        void updateGlobalOrderBookOptions();
+      },
+      [updateGlobalOrderBookOptions],
+    ),
+  );
 }
 
 function useHyperliquidEventBusListener() {
@@ -330,12 +358,26 @@ function WebSocketSubscriptionUpdate() {
   const actions = useHyperliquidActions();
   const [isWebSocketConnected] = usePerpsWebSocketConnectedAtom();
 
+  const { checkDeps } = useDebugHooksDepsChangedChecker(
+    'PerpsGlobalEffects.WebSocketSubscriptionUpdate',
+  );
+
   // eslint-disable-next-line @typescript-eslint/no-inferrable-types
   const isLoading: boolean = !!loadingInfo?.selectAccountLoading;
   const isLoadingRef = useRef(isLoading);
   isLoadingRef.current = isLoading;
 
   useEffect(() => {
+    checkDeps({
+      isWebSocketConnected,
+      isLoading,
+      actions,
+      address: activePerpsAccount?.accountAddress,
+      coin: activeAsset?.coin,
+      mantissa: activeOrderBookOptions?.mantissa,
+      nSigFigs: activeOrderBookOptions?.nSigFigs,
+      orderBookCoin: activeOrderBookOptions?.coin,
+    });
     noop(activePerpsAccount?.accountAddress);
     noop(activeAsset?.coin);
     noop(activeOrderBookOptions?.coin);
@@ -352,6 +394,7 @@ function WebSocketSubscriptionUpdate() {
       void actions.current.updateSubscriptions();
     }
   }, [
+    checkDeps,
     isWebSocketConnected,
     isLoading,
     actions,
@@ -414,13 +457,21 @@ function AutoPauseSubscriptions() {
     ReturnType<typeof setTimeout> | undefined
   >(undefined);
 
+  const [perpsConfig] = usePerpsUserConfigPersistAtom();
+
   // const isFocusedRoute = useRouteIsFocused();
   // useEffect(() => {
   //   //
   // }, [isFocusedRoute]);
 
   const onFocusHandler = useCallback(
-    async ({ isFocus }: { isFocus: boolean }) => {
+    async ({
+      isFocus,
+      pauseDelay,
+    }: {
+      isFocus: boolean;
+      pauseDelay?: number;
+    }) => {
       // console.log('AutoPauseSubscriptions___useListenTabFocusState', {
       //   isFocus,
       //   isHideByModal,
@@ -432,15 +483,16 @@ function AutoPauseSubscriptions() {
       } else {
         void backgroundApiProxy.serviceHyperliquidSubscription.disableSubscriptionsHandler();
         clearTimeout(pauseSubscriptionsTimerRef.current);
-        pauseSubscriptionsTimerRef.current = setTimeout(
-          () => {
-            void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
-          },
+        // eslint-disable-next-line no-param-reassign
+        pauseDelay =
+          pauseDelay ??
           timerUtils.getTimeDurationMs({
             minute: 5,
             seconds: 30,
-          }),
-        );
+          });
+        pauseSubscriptionsTimerRef.current = setTimeout(() => {
+          void backgroundApiProxy.serviceHyperliquidSubscription.pauseSubscriptions();
+        }, pauseDelay);
       }
     },
     [],
@@ -464,16 +516,21 @@ function AutoPauseSubscriptions() {
   useEffect(() => {
     if (isLocked) {
       void onFocusHandler({ isFocus: false });
-    } else {
+    } else if (
+      perpsConfig?.perpUserConfig?.currentUserType === EPerpUserType.PERP_NATIVE
+    ) {
       void onFocusHandler({ isFocus: isFocusedRef.current });
+    } else {
+      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
     }
-  }, [isLocked, onFocusHandler]);
+  }, [isLocked, onFocusHandler, perpsConfig?.perpUserConfig?.currentUserType]);
 
   useEffect(() => {
     return () => {
       clearTimeout(pauseSubscriptionsTimerRef.current);
+      void onFocusHandler({ isFocus: false, pauseDelay: 300 });
     };
-  }, []);
+  }, [onFocusHandler]);
 
   return null;
 }
@@ -496,10 +553,17 @@ function PerpsGlobalEffectsView() {
   );
 }
 
-export function PerpsGlobalEffects() {
+const PerpsGlobalEffectsMemo = memo(() => {
+  console.log('PerpsGlobalEffectsMemo___mouted');
+
   return (
     <GlobalJotaiReady>
       <PerpsGlobalEffectsView />
     </GlobalJotaiReady>
   );
+});
+PerpsGlobalEffectsMemo.displayName = 'PerpsGlobalEffectsMemo';
+
+export function PerpsGlobalEffects() {
+  return <PerpsGlobalEffectsMemo />;
 }
