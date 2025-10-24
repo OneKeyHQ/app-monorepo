@@ -80,6 +80,8 @@ function ReceiveToken() {
     token,
     onDeriveTypeChange,
     disableSelector,
+    btcUsedAddress,
+    btcUsedAddressPath,
   } = route.params;
 
   const { account, network, wallet, vaultSettings, deriveType, deriveInfo } =
@@ -114,6 +116,15 @@ function ReceiveToken() {
   const [currentAccount, setCurrentAccount] = useState<
     INetworkAccount | undefined
   >(account);
+
+  const isBtcUsedAddressVerifyMode = btcUsedAddress && btcUsedAddressPath;
+
+  const displayAddress = isBtcUsedAddressVerifyMode
+    ? btcUsedAddress
+    : currentAccount?.address ?? '';
+  const verificationPath = isBtcUsedAddressVerifyMode
+    ? btcUsedAddressPath
+    : currentAccount?.addressDetail?.receiveAddressPath;
 
   const { bottom } = useSafeAreaInsets();
 
@@ -226,22 +237,23 @@ function ReceiveToken() {
   }, [currentAccount?.id, networkId, throttledSyncBTCFreshAddress]);
 
   const handleCopyAddress = useCallback(() => {
+    if (!displayAddress) return;
     if (vaultSettings?.mergeDeriveAssetsEnabled && currentDeriveInfo) {
       copyAddressWithDeriveType({
-        address: currentAccount?.address ?? '',
+        address: displayAddress,
         deriveInfo: currentDeriveInfo,
         networkName: network?.shortname,
       });
     } else {
       copyAddressWithDeriveType({
-        address: currentAccount?.address ?? '',
+        address: displayAddress,
         networkName: network?.shortname,
       });
     }
   }, [
     copyAddressWithDeriveType,
-    currentAccount?.address,
     currentDeriveInfo,
+    displayAddress,
     network?.shortname,
     vaultSettings?.mergeDeriveAssetsEnabled,
   ]);
@@ -255,6 +267,10 @@ function ReceiveToken() {
     setAddressState(EAddressState.Verifying);
     try {
       if (!currentDeriveType) return;
+      if (!displayAddress) {
+        setAddressState(EAddressState.Unverified);
+        return;
+      }
 
       const addresses =
         await backgroundApiProxy.serviceAccount.verifyHWAccountAddresses({
@@ -263,11 +279,11 @@ function ReceiveToken() {
           indexedAccountId: currentAccount?.indexedAccountId,
           deriveType: currentDeriveType,
           confirmOnDevice: EConfirmOnDeviceType.EveryItem,
+          customReceiveAddressPath: verificationPath,
         });
 
       const isSameAddress =
-        addresses?.[0]?.toLowerCase() ===
-        currentAccount?.address?.toLowerCase();
+        addresses?.[0]?.toLowerCase() === displayAddress.toLowerCase();
 
       defaultLogger.transaction.receive.showReceived({
         walletType: wallet?.type,
@@ -312,12 +328,13 @@ function ReceiveToken() {
       throw e;
     }
   }, [
-    currentAccount?.address,
     currentAccount?.indexedAccountId,
     currentDeriveType,
+    displayAddress,
     intl,
     networkId,
     requestsUrl,
+    verificationPath,
     wallet?.type,
     walletId,
   ]);
@@ -412,6 +429,12 @@ function ReceiveToken() {
     }
   }, [account, deriveInfo, deriveType]);
 
+  useEffect(() => {
+    if (btcUsedAddress || btcUsedAddressPath) {
+      setAddressState(EAddressState.Unverified);
+    }
+  }, [btcUsedAddress, btcUsedAddressPath]);
+
   const renderCopyAddressButton = useCallback(() => {
     if (
       isHardwareWallet &&
@@ -500,13 +523,13 @@ function ReceiveToken() {
 
   const renderAddress = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
+    if (!displayAddress) return null;
 
     let addressContent = '';
 
     if (shouldShowAddress) {
       addressContent =
-        currentAccount.address.match(/.{1,4}/g)?.join(' ') ||
-        currentAccount.address;
+        displayAddress.match(/.{1,4}/g)?.join(' ') || displayAddress;
     } else {
       addressContent = Array.from({ length: 11 })
         .map(() => '****')
@@ -543,7 +566,14 @@ function ReceiveToken() {
         <SizableText fontFamily="$monoMedium">{addressContent}</SizableText>
       </XStack>
     );
-  }, [currentAccount, network, wallet, shouldShowAddress, handleCopyAddress]);
+  }, [
+    currentAccount,
+    displayAddress,
+    network,
+    wallet,
+    shouldShowAddress,
+    handleCopyAddress,
+  ]);
 
   const renderReceiveFooter = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
@@ -624,7 +654,9 @@ function ReceiveToken() {
             )}
           </SizableText>
         ) : null}
-        {shouldShowAddress && isEnableBTCFreshAddressSetting ? (
+        {shouldShowAddress &&
+        isEnableBTCFreshAddressSetting &&
+        !isBtcUsedAddressVerifyMode ? (
           <HyperlinkText
             flexShrink={1}
             color="$textSubdued"
@@ -637,6 +669,7 @@ function ReceiveToken() {
                 networkId,
                 accountId: currentAccount?.id,
                 deriveInfo: currentDeriveInfo,
+                walletId,
               });
             }}
           />
@@ -664,10 +697,12 @@ function ReceiveToken() {
     wallet,
     walletId,
     navigation,
+    isBtcUsedAddressVerifyMode,
   ]);
 
   const renderReceiveQrCode = useCallback(() => {
     if (!currentAccount || !network || !wallet) return null;
+    if (!displayAddress) return null;
 
     return (
       <YStack flex={1} justifyContent="center" alignItems="center">
@@ -710,7 +745,7 @@ function ReceiveToken() {
         >
           {shouldShowQRCode ? (
             <YStack>
-              <QRCode value={currentAccount.address} size={224} />
+              <QRCode value={displayAddress} size={224} />
               {network.isCustomNetwork ? null : (
                 <YStack
                   position="absolute"
@@ -755,6 +790,7 @@ function ReceiveToken() {
     );
   }, [
     currentAccount,
+    displayAddress,
     network,
     wallet,
     shouldShowQRCode,
@@ -773,7 +809,7 @@ function ReceiveToken() {
       <Page.Body flex={1} pb="$5" px="$5">
         {renderReceiveQrCode()}
         <YStack gap="$2">
-          {banner && shouldShowQRCode ? (
+          {banner && shouldShowQRCode && !isBtcUsedAddressVerifyMode ? (
             <XStack
               py="$2.5"
               px="$3"

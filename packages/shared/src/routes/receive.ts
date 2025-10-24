@@ -33,6 +33,8 @@ export type IModalReceiveParamList = {
     token?: IToken;
     onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
     disableSelector?: boolean;
+    btcUsedAddress?: string;
+    btcUsedAddressPath?: string;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
     networkId: string;
@@ -47,5 +49,6 @@ export type IModalReceiveParamList = {
     networkId: string;
     accountId: string;
     deriveInfo: IAccountDeriveInfo | undefined;
+    walletId: string;
   };
 };

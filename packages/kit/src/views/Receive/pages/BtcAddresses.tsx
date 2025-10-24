@@ -16,14 +16,13 @@ import {
 } from '@onekeyhq/components';
 import type { IBtcFreshAddress } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type {
-  EModalReceiveRoutes,
-  IModalReceiveParamList,
-} from '@onekeyhq/shared/src/routes';
+import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useAccountData } from '../../../hooks/useAccountData';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useCopyAddressWithDeriveType } from '../../../hooks/useCopyAccountAddress';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -37,6 +36,8 @@ type IBtcAddressRow = {
   displayAddress: string;
   formattedTotalReceived: string;
   transfers: number;
+  path?: string;
+  name: string;
 };
 
 type IBtcAddressesPageResult = {
@@ -49,12 +50,31 @@ function BtcAddresses() {
     useRoute<
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.BtcAddresses>
     >();
-  const { accountId, networkId, deriveInfo } = route.params;
-
-  const { network } = useAccountData({
+  const {
     accountId,
     networkId,
+    deriveInfo: deriveInfoFromRoute,
+    walletId: routeWalletId,
+  } = route.params;
+
+  const navigation = useAppNavigation();
+
+  const {
+    account,
+    network,
+    wallet,
+    deriveInfo: deriveInfoFromHook,
+  } = useAccountData({
+    accountId,
+    networkId,
+    walletId: routeWalletId,
   });
+  const effectiveDeriveInfo = deriveInfoFromRoute ?? deriveInfoFromHook;
+  const effectiveWalletId =
+    routeWalletId ??
+    wallet?.id ??
+    accountUtils.getWalletIdFromAccountId({ accountId });
+  const isHardwareAccount = accountUtils.isHwAccount({ accountId });
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -103,17 +123,19 @@ function BtcAddresses() {
                 disableThousandSeparator: true,
               }).formattedValue
             } ${symbol}`;
-      const address = item.address ?? item.name;
+      const address = item.address ?? '-';
       return {
         key: `${item.name}-${item.path}`,
         address,
         displayAddress: accountUtils.shortenAddress({
           address,
-          leadingLength: 10,
-          trailingLength: 8,
+          leadingLength: 8,
+          trailingLength: 6,
         }),
         formattedTotalReceived: formatted,
         transfers: item.transfers,
+        path: item.path,
+        name: item.name,
       };
     });
   }, [network, usedAddresses]);
@@ -125,15 +147,47 @@ function BtcAddresses() {
   }, [totalPages]);
 
   const handleCopy = useCallback(
-    (address: string) => {
-      if (!address) return;
+    (row: IBtcAddressRow) => {
+      if (!row?.address) return;
+
+      if (isHardwareAccount) {
+        if (!effectiveWalletId || !row.path) {
+          copyAddressWithDeriveType({
+            address: row.address,
+            deriveInfo: effectiveDeriveInfo,
+            networkName: network?.shortname,
+          });
+          return;
+        }
+        navigation.push(EModalReceiveRoutes.ReceiveToken, {
+          networkId,
+          accountId,
+          walletId: effectiveWalletId,
+          indexedAccountId: account?.indexedAccountId,
+          btcUsedAddress: row.address,
+          btcUsedAddressPath: row.path,
+          disableSelector: true,
+        });
+        return;
+      }
+
       copyAddressWithDeriveType({
-        address,
-        deriveInfo,
+        address: row.address,
+        deriveInfo: effectiveDeriveInfo,
         networkName: network?.shortname,
       });
     },
-    [copyAddressWithDeriveType, deriveInfo, network],
+    [
+      account?.indexedAccountId,
+      accountId,
+      copyAddressWithDeriveType,
+      effectiveDeriveInfo,
+      effectiveWalletId,
+      isHardwareAccount,
+      navigation,
+      network?.shortname,
+      networkId,
+    ],
   );
 
   const isInitialLoading =
@@ -207,7 +261,7 @@ function BtcAddresses() {
                             variant="tertiary"
                             size="small"
                             icon="Copy3Outline"
-                            onPress={() => handleCopy(record.address)}
+                            onPress={() => handleCopy(record)}
                           />
                         </>
                       ),
