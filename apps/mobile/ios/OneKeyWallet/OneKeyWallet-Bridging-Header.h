@@ -5,3 +5,5 @@
 #import "LaunchOptionsManager.h"
 #import "BundleUpdateModule.h"
 #import "JPUSHService.h"
+#import "RCTJPushModule.h"
+
