@@ -34,6 +34,7 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 
 export const useColumnsDesktop = (
   networkId?: string,
+  isWatchlistMode?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
@@ -218,7 +219,7 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-    gtXl
+    gtXl && !isWatchlistMode
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_token_age }),
           dataIndex: 'tokenAge',
