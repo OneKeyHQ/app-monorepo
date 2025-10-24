@@ -32,7 +32,6 @@ public class AppDelegate: ExpoAppDelegate {
 
     // Save launch options to LaunchOptionsManager
     LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
-    UIApplication.shared.registerForRemoteNotifications()
 
     // JPUSHService Register
     let entity = JPUSHRegisterEntity()
@@ -77,8 +76,10 @@ public class AppDelegate: ExpoAppDelegate {
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
     LaunchOptionsManager.sharedInstance().log("didReceiveRemoteNotification")
+    JPUSHService.handleRemoteNotification(userInfo)
+    NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+    completionHandler(UIBackgroundFetchResult.newData)
   }
 }
 
