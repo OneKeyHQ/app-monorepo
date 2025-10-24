@@ -3556,6 +3556,7 @@
   wallet_no_address = 'wallet.no_address',
   wallet_no_address_desc = 'wallet.no_address_desc',
   wallet_no_tron_account = 'wallet.no_tron_account',
+  wallet_no_used_addresses_description = 'wallet.no_used_addresses_description',
   wallet_onekey_wallet_without_description = 'wallet.onekey_wallet_without_description',
   wallet_onekey_wallet_without_refresh = 'wallet.onekey_wallet_without_refresh',
   wallet_pay_with_usdt = 'wallet.pay_with_usdt',
