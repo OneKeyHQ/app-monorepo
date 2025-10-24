@@ -1652,6 +1652,13 @@ export default class VaultBtc extends VaultBase {
       return fallback;
     }
 
+    const isHwOrHdWallet =
+      accountUtils.isHwWallet({ walletId: this.walletId }) ||
+      accountUtils.isHdWallet({ walletId: this.walletId });
+    if (!isHwOrHdWallet) {
+      return fallback;
+    }
+
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
     if (!enableBTCFreshAddress) {
       return fallback;
