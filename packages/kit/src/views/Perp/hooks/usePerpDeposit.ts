@@ -57,8 +57,9 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 const usePerpDeposit = (
   amount: string,
-  indexedAccountId: string,
   selectedAction: 'withdraw' | 'deposit',
+  indexedAccountId?: string,
+  selectedAccountId?: string,
   token?: IPerpsDepositToken,
   checkFromTokenFiatValue?: boolean,
 ) => {
@@ -85,7 +86,7 @@ const usePerpDeposit = (
         !checkFromTokenFiatValue
       )
         return;
-      if (indexedAccountId && token?.networkId) {
+      if ((indexedAccountId || selectedAccountId) && token?.networkId) {
         const defaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId: token.networkId ?? '',
@@ -95,7 +96,7 @@ const usePerpDeposit = (
             indexedAccountId,
             networkId: token.networkId ?? '',
             deriveType: defaultDeriveType ?? 'default',
-            accountId: undefined,
+            accountId: indexedAccountId ? undefined : selectedAccountId ?? '',
           });
         const perpAccountDefaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
@@ -121,6 +122,7 @@ const usePerpDeposit = (
       indexedAccountId,
       token?.networkId,
       checkFromTokenFiatValue,
+      selectedAccountId,
     ],
     {
       watchLoading: true,

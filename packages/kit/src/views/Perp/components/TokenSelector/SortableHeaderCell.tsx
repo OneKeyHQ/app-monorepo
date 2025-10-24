@@ -49,6 +49,7 @@ function BaseSortableHeaderCell({
 
   return (
     <XStack
+      group="card"
       width={width}
       flex={flex}
       cursor="pointer"
@@ -66,18 +67,20 @@ function BaseSortableHeaderCell({
       >
         {label}
       </SizableText>
-      {isActive ? (
-        <Icon
-          name={
-            sortConfig?.direction === 'asc'
-              ? 'ChevronTopOutline'
-              : 'ChevronBottomOutline'
-          }
-          size="$3"
-          color="$icon"
-          flexShrink={0}
-        />
-      ) : null}
+      <Icon
+        name={
+          isActive && sortConfig?.direction === 'asc'
+            ? 'ChevronTopOutline'
+            : 'ChevronBottomOutline'
+        }
+        size="$3"
+        color={isActive ? '$icon' : '$iconSubdued'}
+        flexShrink={0}
+        opacity={isActive ? 1 : 0}
+        $group-card-hover={{
+          opacity: isActive ? 1 : 0.6,
+        }}
+      />
     </XStack>
   );
 }
