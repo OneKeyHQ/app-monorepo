@@ -7,8 +7,8 @@
 - (void)log:(NSString *)msg;
 - (void)saveLaunchOptions:(NSDictionary *)launchOptions;
 - (NSDictionary *)getLaunchOptions;
-- (void)saveDeviceToken:(NSString *)deviceToken;
-- (NSString *)getDeviceToken;
+- (void)saveDeviceToken:(NSData *)deviceToken;
+- (NSData *)getDeviceToken;
 - (void)saveStartupTime:(NSNumber *)startupTime;
 - (NSNumber *)getStartupTime;
 @end

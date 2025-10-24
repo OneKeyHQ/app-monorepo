@@ -64,8 +64,7 @@ public class AppDelegate: ExpoAppDelegate {
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
     LaunchOptionsManager.sharedInstance().log("didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
-    let tokenString = deviceToken.map { String(format: "%02.2hhx", $0)}.joined()
-    LaunchOptionsManager.sharedInstance().saveDeviceToken(tokenString)
+    LaunchOptionsManager.sharedInstance().saveDeviceToken(Data)
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries

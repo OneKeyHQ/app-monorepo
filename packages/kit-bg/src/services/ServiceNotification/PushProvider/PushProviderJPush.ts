@@ -13,6 +13,7 @@ import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
 import { PushProviderBase } from './PushProviderBase';
 
 import type { IPushProviderBaseProps } from './PushProviderBase';
+import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 
 // notifee
 // expo-notifications
@@ -33,6 +34,7 @@ export class PushProviderJPush extends PushProviderBase {
     };
     JPush.setLoggerEnable(true);
     defaultLogger.notification.jpush.consoleLog('JPush setLoggerEnable', true);
+    void LaunchOptionsManager.registerDeviceToken();
     JPush.init(options);
     defaultLogger.notification.jpush.consoleLog(
       'JPush 极光推送初始化完成',

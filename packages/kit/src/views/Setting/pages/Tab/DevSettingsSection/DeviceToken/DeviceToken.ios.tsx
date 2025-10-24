@@ -10,6 +10,7 @@ export function DeviceToken() {
     void LaunchOptionsManager.getDeviceToken().then((token) => {
       if (token) {
         setDeviceToken(token);
+        void LaunchOptionsManager.registerDeviceToken();
       }
     });
   }, []);
