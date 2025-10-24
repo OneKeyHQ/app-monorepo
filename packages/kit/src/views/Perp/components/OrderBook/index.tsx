@@ -1101,15 +1101,17 @@ export function OrderPairBook({
 const MOBILE_ROW_GAP = 0;
 const MOBILE_ROW_HEIGHT = 20;
 const MOBILE_SPREAD_ROW_HEIGHT = 60;
-const MOBILE_PRICE_FLEX = 0.45;
-const MOBILE_SIZE_FLEX = 0.55;
+const MOBILE_PRICE_FLEX = 0.5;
+const MOBILE_SIZE_FLEX = 0.5;
 const MobileRow = ({
   item,
+  priceFontSize,
   priceColor,
   sizeColor,
   isHovered = false,
 }: {
   item: IFormattedOBLevel;
+  priceFontSize: number;
   priceColor: string;
   sizeColor: string;
   isHovered?: boolean;
@@ -1130,7 +1132,7 @@ const MobileRow = ({
             styles.monospaceText,
             {
               color: priceColor,
-              fontSize: 11,
+              fontSize: priceFontSize ?? 11,
               lineHeight: 14,
             },
             isHovered ? styles.monospaceTextBold : null,
@@ -1146,7 +1148,7 @@ const MobileRow = ({
             styles.monospaceText,
             {
               color: sizeColor,
-              fontSize: 11,
+              fontSize: priceFontSize ?? 11,
               lineHeight: 14,
             },
             isHovered ? styles.monospaceTextBold : null,
@@ -1203,6 +1205,15 @@ export function OrderBookMobile({
     parseFloat(bids[0]?.px ?? '0'),
     parseFloat(asks[0]?.px ?? '0'),
   );
+
+  const priceFontSize = useMemo(() => {
+    if (!asks.length) {
+      return 11;
+    }
+    // get max length of all asks prices
+    const maxLength = Math.max(...asks.map((ask) => ask.px.length));
+    return Math.max(7, 11 - (maxLength - 6) * 0.5);
+  }, [asks]);
 
   // Handle tick option change
   const handleTickOptionChange = useCallback(
@@ -1369,6 +1380,7 @@ export function OrderBookMobile({
               >
                 {(state) => (
                   <MobileRow
+                    priceFontSize={priceFontSize}
                     item={itemData}
                     priceColor={textColor.red}
                     sizeColor={textColor.textSubdued}
@@ -1471,6 +1483,7 @@ export function OrderBookMobile({
               {(state) => (
                 <MobileRow
                   item={itemData}
+                  priceFontSize={priceFontSize}
                   priceColor={textColor.green}
                   sizeColor={textColor.textSubdued}
                   isHovered={getPressableHoverState(state)}

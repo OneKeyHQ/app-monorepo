@@ -233,7 +233,6 @@ export const {
 });
 
 // Token Selector Sort Config (Persisted)
-// null means no sorting applied, preserving default order from API
 export const {
   target: perpTokenSortConfigPersistAtom,
   use: usePerpTokenSortConfigPersistAtom,
