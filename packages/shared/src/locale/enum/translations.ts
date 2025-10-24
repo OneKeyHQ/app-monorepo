@@ -2088,6 +2088,7 @@
   perp_cost = 'perp.cost',
   perp_cross_mode_desc = 'perp.cross_mode_desc',
   perp_deposit_chain = 'perp.deposit_chain',
+  perp_deposit_direct = 'perp.deposit_direct',
   perp_deposit_on = 'perp.deposit_on',
   perp_deposit_try_to = 'perp.deposit_try_to',
   perp_enable_trading_desc = 'perp.enable_trading_desc',

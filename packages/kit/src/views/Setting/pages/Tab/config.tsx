@@ -188,34 +188,38 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
-            {
-              // OneKey Transfer
-              icon: 'MultipleDevicesOutline',
-              title: intl.formatMessage({
-                id: ETranslations.transfer_transfer,
-              }),
-              subtitle: intl.formatMessage({
-                id: ETranslations.prime_transfer_description,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.PrimeModal, {
-                  screen: EPrimePages.PrimeTransfer,
-                });
-              },
-            },
+            !platformEnv.isWebDappMode
+              ? {
+                  // OneKey Transfer
+                  icon: 'MultipleDevicesOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.transfer_transfer,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.prime_transfer_description,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeTransfer,
+                    });
+                  },
+                }
+              : undefined,
           ],
           [
-            {
-              icon: 'SignatureOutline',
-              title: intl.formatMessage({
-                id: ETranslations.manual_backup,
-              }),
-              onPress: (navigation) => {
-                navigation?.pushModal(EModalRoutes.ManualBackupModal, {
-                  screen: EManualBackupRoutes.ManualBackupSelectWallet,
-                });
-              },
-            },
+            !platformEnv.isWebDappMode
+              ? {
+                  icon: 'SignatureOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.manual_backup,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.ManualBackupModal, {
+                      screen: EManualBackupRoutes.ManualBackupSelectWallet,
+                    });
+                  },
+                }
+              : undefined,
             platformEnv.isNative
               ? {
                   icon: 'OnekeyLiteOutline',

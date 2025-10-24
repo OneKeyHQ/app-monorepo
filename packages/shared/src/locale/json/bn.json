@@ -2083,6 +2083,7 @@
   "perp.cost": "খরচ",
   "perp.cross_mode_desc": "মার্জিন এবং PnL সব পজিশনে ভাগ করা হয়। লিকুইডেশন হলে আপনি আপনার সব পজিশন হারাতে পারেন।",
   "perp.deposit_chain": "ডিপোজিট চেইন",
+  "perp.deposit_direct": "সরাসরি আমানত",
   "perp.deposit_on": "{chain}",
   "perp.deposit_try_to": "চেষ্টা করো",
   "perp.enable_trading_desc": "ট্রেডিং সক্ষম করলে তাৎক্ষণিক, Gas-মুক্ত অর্ডারের জন্য একটি নিবেদিত চ্যানেল খুলে যায়। সক্ষম করতে কোনো Gas ফি প্রয়োজন নেই।",
