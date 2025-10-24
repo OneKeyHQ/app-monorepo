@@ -2083,6 +2083,7 @@
   "perp.cost": "費用",
   "perp.cross_mode_desc": "証拠金と損益（PnL）はポジション間で共有されます。清算が発生すると、すべてのポジションを失う可能性があります。",
   "perp.deposit_chain": "入金チェーン",
+  "perp.deposit_direct": "直接入金",
   "perp.deposit_on": "{chain} 上",
   "perp.deposit_try_to": "試してみる",
   "perp.enable_trading_desc": "取引を有効にすると、即時でGas不要の注文に対応する専用チャネルが開きます。有効化にはGas手数料は不要です。",

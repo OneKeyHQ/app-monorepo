@@ -2083,6 +2083,7 @@
   "perp.cost": "Cost",
   "perp.cross_mode_desc": "Margin and PnL are shared across positions. You may lose all your positions if liquidation occurs.",
   "perp.deposit_chain": "Deposit Chain",
+  "perp.deposit_direct": "Direct Deposit",
   "perp.deposit_on": "on {chain}",
   "perp.deposit_try_to": "Try to ",
   "perp.enable_trading_desc": "Enabling trading opens a dedicated channel for instant, Gas-free orders. No Gas fees are required to enable.",
