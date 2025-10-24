@@ -11,6 +11,7 @@ import type {
   useInTabDialog,
 } from '@onekeyhq/components';
 import {
+  Badge,
   Button,
   DashText,
   Divider,
@@ -70,7 +71,10 @@ import {
   USDC_TOKEN_INFO,
   WITHDRAW_FEE,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { ISwapNativeTokenConfig } from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapNativeTokenConfig,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import usePerpDeposit from '../../../hooks/usePerpDeposit';
@@ -79,6 +83,7 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 import type { ListRenderItem } from 'react-native';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
@@ -184,6 +189,8 @@ function SelectTokenPopoverContent({
     networkId: string;
     isNative: boolean;
     amount: string;
+    symbol: string;
+    decimals: number;
   }) => void;
 }) {
   const intl = useIntl();
@@ -198,6 +205,13 @@ function SelectTokenPopoverContent({
         formatter: 'value',
         formatterOptions: { currency: symbol },
       });
+      const isArbUSDC = equalTokenNoCaseSensitive({
+        token1: item,
+        token2: {
+          networkId: PERPS_NETWORK_ID,
+          contractAddress: USDC_TOKEN_INFO.address,
+        },
+      });
       return (
         <ListItem
           justifyContent="space-between"
@@ -211,25 +225,44 @@ function SelectTokenPopoverContent({
               networkId: item.networkId,
               isNative: !!item.isNative,
               amount: item.balanceParsed || '0',
+              symbol: item.symbol ?? '',
+              decimals: item.decimals,
             });
             void closePopover?.();
           }}
         >
-          <XStack>
+          <XStack gap="$2" alignItems="center">
             <Token
               tokenImageUri={item.logoURI}
               networkImageUri={item.networkLogoURI}
               showNetworkIcon
+              size="md"
             />
             <YStack>
-              <SizableText size="$bodySm">{item.symbol}</SizableText>
+              <SizableText size="$bodySmMedium">{item.symbol}</SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
                 {item.name}
               </SizableText>
             </YStack>
+            {isArbUSDC ? (
+              <Badge
+                badgeSize="sm"
+                height={24}
+                borderRadius="$full"
+                borderColor="$borderInfo"
+                bg="$bgInfo"
+                px="$2.5"
+              >
+                <SizableText size="$bodySm" color="$textInfo">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_deposit_direct,
+                  })}
+                </SizableText>
+              </Badge>
+            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
-            <SizableText size="$bodySm">{balanceFormatted}</SizableText>
+            <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
               {fiatValueFormatted}
             </SizableText>
@@ -237,7 +270,7 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
   );
   return (
     <YStack>
@@ -301,8 +334,14 @@ function DepositWithdrawContent({
         currency: '$',
       },
     });
-    const pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
-    const pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    let pnlColor = '$text';
+    if (!pnlBn.isZero()) {
+      pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    }
+    let pnlPlusOrMinus = '';
+    if (!pnlBn.isZero()) {
+      pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    }
     return { pnlFormatted, pnlColor, pnlPlusOrMinus };
   }, [unrealizedPnl]);
   const [
@@ -339,12 +378,22 @@ function DepositWithdrawContent({
     });
   }, [navigation]);
 
+  const checkAccountSupport = useMemo(() => {
+    const isWatchingAccount = accountUtils.isWatchingAccount({
+      accountId: selectedAccount.accountId || '',
+    });
+    return !isWatchingAccount;
+  }, [selectedAccount.accountId]);
+
   const { result, isLoading: balanceLoading } = usePromiseResult(
     async () => {
-      if (!selectedAccount.accountId || !selectedAccount.accountAddress) {
+      if (
+        !selectedAccount.accountId ||
+        !selectedAccount.accountAddress ||
+        !checkAccountSupport
+      ) {
         return [];
       }
-
       try {
         const tokensList = Object.values(tokens).flat() || [];
         const networkIds = Object.keys(tokens) || [];
@@ -356,27 +405,42 @@ function DepositWithdrawContent({
                   networkId,
                 },
               );
-            const accountAddressInfo =
-              await backgroundApiProxy.serviceAccount.getNetworkAccount({
-                indexedAccountId: selectedAccount.indexedAccountId ?? '',
-                networkId,
-                deriveType: defaultDeriveType ?? 'default',
-                accountId: undefined,
-              });
-            const [tokenDetails, nativeTokenConfig] = await Promise.all([
-              backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
-                networkId,
-                contractAddress:
-                  tokens[networkId]
-                    ?.map((token) => token.contractAddress)
-                    .join(',') || '',
-                accountAddress: accountAddressInfo.addressDetail.address,
-                accountId: accountAddressInfo.id ?? '',
-              }),
-              await backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
-                networkId,
-              }),
-            ]);
+            let tokenDetails: ISwapToken[] | undefined;
+            let nativeTokenConfig: ISwapNativeTokenConfig | undefined;
+            try {
+              const accountAddressInfo =
+                await backgroundApiProxy.serviceAccount.getNetworkAccount({
+                  indexedAccountId: selectedAccount.indexedAccountId ?? '',
+                  networkId,
+                  deriveType: defaultDeriveType ?? 'default',
+                  accountId: selectedAccount.indexedAccountId
+                    ? undefined
+                    : selectedAccount.accountId ?? '',
+                });
+              const [tokenDetailsRes, nativeTokenConfigRes] = await Promise.all(
+                [
+                  backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
+                    networkId,
+                    contractAddress:
+                      tokens[networkId]
+                        ?.map((token) => token.contractAddress)
+                        .join(',') || '',
+                    accountAddress: accountAddressInfo.addressDetail.address,
+                    accountId: accountAddressInfo.id ?? '',
+                  }),
+                  backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+                    networkId,
+                  }),
+                ],
+              );
+              tokenDetails = tokenDetailsRes;
+              nativeTokenConfig = nativeTokenConfigRes;
+            } catch (e) {
+              console.error(
+                '[DepositWithdrawModal] Failed to fetch tokens balance:',
+                e,
+              );
+            }
             return {
               tokenDetails,
               nativeTokenConfig,
@@ -396,6 +460,11 @@ function DepositWithdrawContent({
         setNativeTokenConfigs(nativeTokenConfigsRes);
         if (tokenDetails) {
           const depositTokensWithPriceRes = tokensList
+            .filter((originToken) =>
+              tokenDetails.find((t) =>
+                equalTokenNoCaseSensitive({ token1: t, token2: originToken }),
+              ),
+            )
             .map((token) => ({
               ...token,
               balanceParsed: tokenDetails.find((t) =>
@@ -435,6 +504,7 @@ function DepositWithdrawContent({
       selectedAccount.indexedAccountId,
       tokens,
       setPerpsDepositTokensAtom,
+      checkAccountSupport,
     ],
     {
       watchLoading: true,
@@ -635,8 +705,9 @@ function DepositWithdrawContent({
     shouldApprove,
   } = usePerpDeposit(
     amount,
-    selectedAccount.indexedAccountId ?? '',
     selectedAction,
+    selectedAccount.indexedAccountId ?? '',
+    selectedAccount.accountId ?? '',
     currentPerpsDepositSelectedToken,
     checkFromTokenFiatValue.value,
   );
@@ -676,17 +747,15 @@ function DepositWithdrawContent({
       }
     }
   }, [amount, amountBN, selectedAction, checkFromTokenFiatValue.value]);
-  const reserveGasFormatter: INumberFormatProps = useMemo(() => {
-    return {
-      formatter: 'balance',
-      formatterOptions: {
-        tokenSymbol: currentPerpsDepositSelectedToken?.symbol,
-      },
-    };
-  }, [currentPerpsDepositSelectedToken?.symbol]);
 
   const checkNativeTokenGasToast = useCallback(
-    (isNative?: boolean, tokenNetworkId?: string, tokenBalance?: string) => {
+    (
+      isNative?: boolean,
+      tokenNetworkId?: string,
+      tokenBalance?: string,
+      tokenSymbol?: string,
+      tokenDecimals?: number,
+    ) => {
       let maxAmount = new BigNumber(tokenBalance || 0);
       if (isNative) {
         const reserveGas = nativeTokenConfigs.find(
@@ -696,14 +765,16 @@ function DepositWithdrawContent({
           maxAmount = BigNumber.max(
             0,
             maxAmount.minus(new BigNumber(reserveGas)),
-          );
+          ).decimalPlaces(tokenDecimals ?? 6, BigNumber.ROUND_DOWN);
         }
         let reserveGasFormatted: string | undefined | number = reserveGas;
         if (reserveGas) {
-          reserveGasFormatted = numberFormat(
-            reserveGas.toString(),
-            reserveGasFormatter,
-          );
+          reserveGasFormatted = numberFormat(reserveGas.toString(), {
+            formatter: 'balance',
+            formatterOptions: {
+              tokenSymbol,
+            },
+          });
         }
         const message = intl.formatMessage(
           {
@@ -721,7 +792,7 @@ function DepositWithdrawContent({
       }
       return maxAmount;
     },
-    [nativeTokenConfigs, intl, reserveGasFormatter],
+    [nativeTokenConfigs, intl],
   );
 
   const handleMaxPress = useCallback(
@@ -729,12 +800,16 @@ function DepositWithdrawContent({
       networkId: string;
       isNative: boolean;
       amount: string;
+      symbol: string;
+      decimals: number;
     }) => {
-      if (tokenParams) {
+      if (tokenParams && selectedAction === 'deposit') {
         const maxAmount = checkNativeTokenGasToast(
           tokenParams.isNative,
           tokenParams.networkId,
           tokenParams.amount,
+          tokenParams.symbol,
+          tokenParams.decimals,
         );
         setAmount(maxAmount.toFixed());
         return;
@@ -743,7 +818,7 @@ function DepositWithdrawContent({
         setAmount(availableBalance.balance || '0');
       }
     },
-    [availableBalance, checkNativeTokenGasToast],
+    [availableBalance, checkNativeTokenGasToast, selectedAction],
   );
 
   useEffect(() => {
@@ -948,7 +1023,8 @@ function DepositWithdrawContent({
   ]);
 
   const depositTokenSelectComponent = useMemo(() => {
-    if (balanceLoading) return <Skeleton w={50} h={14} />;
+    if (balanceLoading && checkAccountSupport)
+      return <Skeleton w={50} h={14} />;
     if (depositTokensWithPrice.length === 0)
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -964,7 +1040,12 @@ function DepositWithdrawContent({
           snapPoints: [80],
           snapPointsMode: 'percent',
         }}
+        floatingPanelProps={{
+          maxHeight: 400,
+          width: 352,
+        }}
         placement="bottom-end"
+        offset={{ mainAxis: 10, crossAxis: 12 }}
         renderTrigger={
           <XStack alignItems="center" gap="$1" cursor="pointer">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -995,6 +1076,7 @@ function DepositWithdrawContent({
     currentPerpsDepositSelectedToken?.symbol,
     settingsPersistAtom.currencyInfo?.symbol,
     depositTokensWithPrice,
+    checkAccountSupport,
   ]);
 
   const depositToAmount = useMemo(() => {
@@ -1010,7 +1092,12 @@ function DepositWithdrawContent({
       canDeposit: depositToAmountBN.gt(0) && !depositToAmountBN.isNaN(),
     };
   }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
-
+  const currentNetworkInfo = useMemo(() => {
+    if (!currentPerpsDepositSelectedToken?.networkId) return null;
+    return networkUtils.getLocalNetworkInfo(
+      currentPerpsDepositSelectedToken?.networkId ?? '',
+    );
+  }, [currentPerpsDepositSelectedToken?.networkId]);
   const content = (
     <YStack
       gap="$4"
@@ -1117,6 +1204,7 @@ function DepositWithdrawContent({
             onBlur={handleAmountBlur}
             keyboardType="decimal-pad"
             disabled={isSubmitting}
+            readonly={!checkAccountSupport}
             borderWidth={0}
             size="medium"
             fontSize={getFontSize('$bodyMd')}
@@ -1170,30 +1258,49 @@ function DepositWithdrawContent({
                 })}
           </SizableText>
           <XStack alignItems="center" gap="$2">
-            {balanceLoading ? (
+            {balanceLoading && checkAccountSupport ? (
               <Skeleton w={80} h={14} />
             ) : (
-              <DashText
-                dashColor="$textDisabled"
-                dashThickness={0.2}
-                dashGap={3}
-                cursor="pointer"
-                onPress={() => {
-                  handleMaxPress({
-                    networkId:
-                      currentPerpsDepositSelectedToken?.networkId ?? '',
-                    isNative: !!currentPerpsDepositSelectedToken?.isNative,
-                    amount:
-                      currentPerpsDepositSelectedToken?.balanceParsed || '0',
-                  });
-                }}
-                size="$bodyMd"
-              >
-                {availableBalance.displayBalance || '0.00'}
-              </DashText>
+              <>
+                <SizableText size="$bodyMd" color="$text">
+                  {availableBalance.displayBalance || '0.00'}
+                </SizableText>
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSuccess"
+                  cursor="pointer"
+                  onPress={() => {
+                    handleMaxPress({
+                      networkId:
+                        currentPerpsDepositSelectedToken?.networkId ?? '',
+                      isNative: !!currentPerpsDepositSelectedToken?.isNative,
+                      amount:
+                        currentPerpsDepositSelectedToken?.balanceParsed || '0',
+                      symbol: currentPerpsDepositSelectedToken?.symbol ?? '',
+                      decimals: currentPerpsDepositSelectedToken?.decimals ?? 6,
+                    });
+                  }}
+                >
+                  Max
+                </SizableText>
+              </>
             )}
           </XStack>
         </XStack>
+        {selectedAction === 'deposit' ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_deposit_chain,
+              })}
+            </SizableText>
+            <XStack alignItems="center" gap="$2">
+              <SizableText size="$bodyMd" color="$text">
+                {currentNetworkInfo?.name}
+              </SizableText>
+            </XStack>
+          </XStack>
+        ) : null}
         {selectedAction === 'withdraw' ? (
           <XStack justifyContent="space-between" alignItems="center">
             {gtMd ? (
