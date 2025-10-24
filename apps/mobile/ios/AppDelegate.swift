@@ -79,7 +79,7 @@ public class AppDelegate: ExpoAppDelegate {
     LaunchOptionsManager.sharedInstance().log("didReceiveRemoteNotification")
     JPUSHService.handleRemoteNotification(userInfo)
     NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
-    completionHandler(UIBackgroundFetchResult.newData)
+    completionHandler(.newData)
   }
 }
 
