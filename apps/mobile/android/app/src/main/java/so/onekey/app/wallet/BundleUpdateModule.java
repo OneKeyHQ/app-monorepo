@@ -507,7 +507,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String bundleVersion = params.getString("bundleVersion");
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == 0 || sha256 == null) {
+        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "downloadUrl, filePath, signature, appVersion, bundleVersion and sha256 are required");
             return;
         }
@@ -624,7 +624,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         long fileSize = params.getLong("fileSize");
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == 0) {
+        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == null) {
             isDownloading = false;
             promise.reject("INVALID_PARAMS", "downloadUrl, fileSize, sha256, appVersion and bundleVersion are required");
             return;
@@ -637,7 +637,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         result.putString("downloadedFile", filePath);
         result.putString("downloadUrl", downloadUrl);
         result.putString("latestVersion", appVersion);
-        result.putLong("bundleVersion", bundleVersion);
+        result.putString("bundleVersion", bundleVersion);
         result.putString("sha256", sha256);
 
         log("downloadBundle", "filePath: " + filePath);
@@ -729,7 +729,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         
-        if (filePath == null || appVersion == null || bundleVersion == 0) {
+        if (filePath == null || appVersion == null || bundleVersion == null) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
         }
