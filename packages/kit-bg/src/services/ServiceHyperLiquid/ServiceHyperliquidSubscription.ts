@@ -225,9 +225,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   @backgroundMethod()
   async refreshAllPerpsData(): Promise<void> {
-    await this.getWebSocketClient();
-    await this._cleanupAllSubscriptions();
-    await this.updateSubscriptions();
+    const client = await this.getWebSocketClient();
+    if (client?.transport?.socket?.readyState === WebSocket.CLOSED) {
+      await this.disconnect();
+      await this.getWebSocketClient();
+    } else {
+      await this._cleanupAllSubscriptions();
+      await this.updateSubscriptions();
+    }
     this.backgroundApi.serviceHyperliquid._getUserFillsByTimeMemo.clear();
     await perpsTradesHistoryRefreshHookAtom.set({
       refreshHook: Date.now(),
@@ -439,6 +444,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private async getWebSocketClient() {
     if (!this._client) {
+      let shouldReconnectValue = true;
       const transportOptions: IWebSocketTransportOptions = {
         url: 'wss://api.hyperliquid.xyz/ws',
         reconnect: {
@@ -447,7 +453,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
           connectionDelay: (attempt) =>
             // eslint-disable-next-line no-bitwise
             Math.min(~~(1 << attempt) * 150, 8000),
-          shouldReconnect: () => true,
+          shouldReconnect: () => shouldReconnectValue,
         },
       };
       const transport = new WebSocketTransport(transportOptions);
@@ -472,7 +478,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       transport.socket.addEventListener('error', this.socketErrorHandler);
       transport.socket.addEventListener('open', this.socketOpenHandler);
       // transport.socket.addEventListener('message', this.socketMessageHandler);
-
       const innerClient = new SubscriptionClient({ transport });
       // @ts-ignore
       const hlEventTarget = innerClient.transport._hlEvents;
@@ -553,6 +558,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         subscribe,
         unsubscribe,
         dispose: async () => {
+          shouldReconnectValue = false;
           try {
             removeAllSocketEventListeners();
           } catch (error) {
@@ -568,6 +574,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
               'dispose__removeAllSubscriptionHandlers__error',
               error,
             );
+          }
+          try {
+            transport.socket.close();
+          } catch (error) {
+            console.error('dispose__transport.socket.close__error', error);
           }
           await innerClient[Symbol.asyncDispose]();
         },
