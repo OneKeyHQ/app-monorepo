@@ -36,8 +36,8 @@ public class AppDelegate: ExpoAppDelegate {
     // JPUSHService Register
     let entity = JPUSHRegisterEntity()
     entity.types = 0
+    JPUSHService.setDebugMode()
     JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
-
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
