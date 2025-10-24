@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
   Empty,
@@ -16,6 +17,7 @@ import {
 } from '@onekeyhq/components';
 import type { IBtcFreshAddress } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -46,6 +48,7 @@ type IBtcAddressesPageResult = {
 };
 
 function BtcAddresses() {
+  const intl = useIntl();
   const route =
     useRoute<
       RouteProp<IModalReceiveParamList, EModalReceiveRoutes.BtcAddresses>
@@ -196,7 +199,11 @@ function BtcAddresses() {
 
   return (
     <Page>
-      <Page.Header title="Used addresses" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.wallet_used_addresses,
+        })}
+      />
       <Page.Body px="$0" py="$5">
         <YStack flex={1} width="100%" alignSelf="center">
           {isInitialLoading ? (
@@ -211,7 +218,9 @@ function BtcAddresses() {
                   contentContainerStyle={{ gap: '$3', px: '$0', pb: '$12' }}
                   columns={[
                     {
-                      title: 'Address',
+                      title: intl.formatMessage({
+                        id: ETranslations.global_address,
+                      }),
                       dataIndex: 'displayAddress',
                       titleProps: {
                         size: '$bodyMdMedium',
@@ -230,7 +239,9 @@ function BtcAddresses() {
                       ),
                     },
                     {
-                      title: 'Total received',
+                      title: intl.formatMessage({
+                        id: ETranslations.wallet_total_received,
+                      }),
                       dataIndex: 'formattedTotalReceived',
                       align: 'right',
                       titleProps: {
@@ -289,8 +300,12 @@ function BtcAddresses() {
                 <XStack flex={1} justifyContent="center" alignItems="center">
                   <Empty
                     icon="SearchOutline"
-                    title="No Results"
-                    description="Used addresses will appear after your first incoming transaction."
+                    title={intl.formatMessage({
+                      id: ETranslations.global_no_results,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.wallet_no_used_addresses_description,
+                    })}
                   />
                 </XStack>
               )}

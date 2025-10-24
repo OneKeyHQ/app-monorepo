@@ -11,7 +11,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  XStack,
   YStack,
 } from '@onekeyhq/components';
 import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';

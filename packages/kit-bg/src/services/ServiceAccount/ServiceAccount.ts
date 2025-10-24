@@ -3541,12 +3541,8 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice?: EConfirmOnDeviceType;
     customReceiveAddressPath?: string;
   }): Promise<string[]> {
-    const { customReceiveAddressPath, ...restParams } = params;
     const { prepareParams, deviceParams, networkId, walletId } =
-      await this.getPrepareHDOrHWAccountsParams({
-        ...restParams,
-        customReceiveAddressPath,
-      });
+      await this.getPrepareHDOrHWAccountsParams(params);
 
     prepareParams.isVerifyAddressAction = true;
 
