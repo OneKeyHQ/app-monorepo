@@ -2083,6 +2083,7 @@
   "perp.cost": "Cost",
   "perp.cross_mode_desc": "Маржа та PnL розподіляються між позиціями. Ви можете втратити всі свої позиції у разі ліквідації.",
   "perp.deposit_chain": "Мережа депозиту",
+  "perp.deposit_direct": "Прямий депозит",
   "perp.deposit_on": "На {chain}",
   "perp.deposit_try_to": "Спробуйте",
   "perp.enable_trading_desc": "Активація торгівлі відкриває канал для миттєвих ордерів без Gas. Комісія за активацію не потрібна.",

@@ -2083,6 +2083,7 @@
   "perp.cost": "Costo",
   "perp.cross_mode_desc": "Margine e PnL sono condivisi tra le posizioni. In caso di liquidazione, potresti perdere tutte le tue posizioni.",
   "perp.deposit_chain": "Catena di deposito",
+  "perp.deposit_direct": "Deposito diretto",
   "perp.deposit_on": "Su {chain}",
   "perp.deposit_try_to": "Prova a ",
   "perp.enable_trading_desc": "Abilitare il trading apre un canale dedicato per ordini istantanei e senza Gas. Non sono previste commissioni Gas per l’abilitazione.",
