@@ -16,7 +16,6 @@ import {
 } from '@onekeyhq/components';
 import type { IBtcFreshAddress } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import type { IDBUtxoAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type {
   EModalReceiveRoutes,
   IModalReceiveParamList,
@@ -40,15 +39,10 @@ type IBtcAddressRow = {
   transfers: number;
 };
 
-function parsePathIndex(path: string) {
-  const segments = path.split('/');
-  const branch = Number.parseInt(segments[4] ?? '0', 10);
-  const index = Number.parseInt(segments[5] ?? '0', 10);
-  if (Number.isNaN(branch) || Number.isNaN(index)) {
-    return { branch: 0, index: 0 };
-  }
-  return { branch, index };
-}
+type IBtcAddressesPageResult = {
+  total: number;
+  items: IBtcFreshAddress[];
+};
 
 function BtcAddresses() {
   const route =
@@ -57,56 +51,43 @@ function BtcAddresses() {
     >();
   const { accountId, networkId, deriveInfo } = route.params;
 
-  const { account, network } = useAccountData({
+  const { network } = useAccountData({
     accountId,
     networkId,
   });
   const copyAddressWithDeriveType = useCopyAddressWithDeriveType();
   const [currentPage, setCurrentPage] = useState(1);
 
-  const utxoAccount = account as IDBUtxoAccount | undefined;
-  const accountXpubSegwit = utxoAccount?.xpubSegwit;
-  const accountXpub = utxoAccount?.xpub;
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [accountId, networkId]);
 
-  const { result: usedAddresses, isLoading } = usePromiseResult<
-    IBtcFreshAddress[]
-  >(
-    async () => {
-      if (!networkId || !utxoAccount) {
-        return [];
-      }
-      const xpubSegwit = accountXpubSegwit ?? accountXpub;
-      if (!xpubSegwit) {
-        return [];
-      }
-      try {
-        const record =
-          await backgroundApiProxy.simpleDb.btcFreshAddress.getBTCFreshAddresses(
+  const { result: pageResult, isLoading } =
+    usePromiseResult<IBtcAddressesPageResult>(
+      async () => {
+        if (!accountId || !networkId) {
+          return { total: 0, items: [] };
+        }
+        try {
+          return await backgroundApiProxy.serviceAccountProfile.getBtcUsedAddressesByPage(
             {
+              accountId,
               networkId,
-              xpubSegwit,
+              page: currentPage,
+              pageSize: PAGE_SIZE,
             },
           );
+        } catch (error) {
+          console.error(error);
+          return { total: 0, items: [] };
+        }
+      },
+      [accountId, networkId, currentPage],
+      { initResult: { total: 0, items: [] }, watchLoading: true },
+    );
 
-        const freshUsed = record?.fresh?.used ?? [];
-        const filtered = freshUsed.filter((item) => item.transfers > 0);
-        filtered.sort((a, b) => {
-          const infoA = parsePathIndex(a.path);
-          const infoB = parsePathIndex(b.path);
-          if (infoA.branch !== infoB.branch) {
-            return infoA.branch - infoB.branch;
-          }
-          return infoB.index - infoA.index;
-        });
-        return filtered;
-      } catch (error) {
-        console.error(error);
-        return [];
-      }
-    },
-    [networkId, accountXpubSegwit, accountXpub, utxoAccount],
-    { initResult: [] as IBtcFreshAddress[], watchLoading: true },
-  );
+  const usedAddresses = pageResult.items;
+  const total = pageResult.total;
 
   const rows = useMemo<IBtcAddressRow[]>(() => {
     const decimals = network?.decimals ?? 8;
@@ -137,15 +118,11 @@ function BtcAddresses() {
     });
   }, [network, usedAddresses]);
 
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-    setCurrentPage((prev) => Math.min(prev, totalPages));
-  }, [rows.length]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const pagedRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return rows.slice(start, start + PAGE_SIZE);
-  }, [rows, currentPage]);
+  useEffect(() => {
+    setCurrentPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
 
   const handleCopy = useCallback(
     (address: string) => {
@@ -159,10 +136,9 @@ function BtcAddresses() {
     [copyAddressWithDeriveType, deriveInfo, network],
   );
 
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const showPagination = rows.length > PAGE_SIZE;
-  const isInitialLoading = Boolean(isLoading) && usedAddresses.length === 0;
-  const hasRows = pagedRows.length > 0;
+  const isInitialLoading =
+    Boolean(isLoading) && total === 0 && usedAddresses.length === 0;
+  const hasRows = rows.length > 0;
 
   return (
     <Page>
@@ -177,7 +153,7 @@ function BtcAddresses() {
             <YStack flex={1} gap="$6">
               {hasRows ? (
                 <Table
-                  dataSource={pagedRows}
+                  dataSource={rows}
                   contentContainerStyle={{ gap: '$3', px: '$0', pb: '$12' }}
                   columns={[
                     {
@@ -269,19 +245,17 @@ function BtcAddresses() {
         </YStack>
       </Page.Body>
       <Page.Footer>
-        {showPagination ? (
-          <XStack justifyContent="flex-end" py="$6" px="$5">
-            <Pagination
-              current={currentPage}
-              total={totalPages}
-              onChange={setCurrentPage}
-              showControls={false}
-              siblingCount={0}
-              maxPages={3}
-              pageButtonSize="small"
-            />
-          </XStack>
-        ) : null}
+        <XStack justifyContent="flex-end" py="$6" px="$5">
+          <Pagination
+            current={currentPage}
+            total={totalPages}
+            onChange={setCurrentPage}
+            showControls={false}
+            siblingCount={0}
+            maxPages={3}
+            pageButtonSize="small"
+          />
+        </XStack>
       </Page.Footer>
     </Page>
   );
