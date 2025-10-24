@@ -6,6 +6,7 @@ import type { IImageProps } from '@onekeyhq/components';
 import {
   AnimatePresence,
   Button,
+  Dialog,
   Divider,
   HeightTransition,
   Icon,
@@ -140,6 +141,43 @@ export default function CheckAndUpdate() {
       }, 2000);
     }, 2000);
   }, [navigation]);
+
+  const handleSkipUpdate = useCallback(() => {
+    Dialog.show({
+      icon: 'InfoCircleOutline',
+      tone: 'warning',
+      title: 'Skip firmware check?',
+      description:
+        'Are you sure you want to skip the check? Using up-to-date firmware gives you the best protection.',
+      onConfirm: () => {
+        // Execute skip logic after confirmation
+        setSteps((prev) => {
+          const newSteps = [...prev];
+          newSteps[1] = {
+            ...newSteps[1],
+            state: 'success',
+          };
+          newSteps[2] = {
+            ...newSteps[2],
+            state: 'inProgress',
+          };
+          return newSteps;
+        });
+
+        // After 2 seconds, set to warning to show setup instructions
+        setTimeout(() => {
+          setSteps((prev) => {
+            const newSteps = [...prev];
+            newSteps[2] = {
+              ...newSteps[2],
+              state: 'warning',
+            };
+            return newSteps;
+          });
+        }, 2000);
+      },
+    });
+  }, []);
 
   const DEVICE_SETUP_INSTRUCTIONS = [
     {
@@ -426,36 +464,7 @@ export default function CheckAndUpdate() {
                         </SizableText>
                         <XStack gap="$2">
                           <Button variant="primary">Update</Button>
-                          <Button
-                            onPress={() => {
-                              setSteps((prev) => {
-                                const newSteps = [...prev];
-                                newSteps[1] = {
-                                  ...newSteps[1],
-                                  state: 'success',
-                                };
-                                newSteps[2] = {
-                                  ...newSteps[2],
-                                  state: 'inProgress',
-                                };
-                                return newSteps;
-                              });
-
-                              // After 2 seconds, set to warning to show setup instructions
-                              setTimeout(() => {
-                                setSteps((prev) => {
-                                  const newSteps = [...prev];
-                                  newSteps[2] = {
-                                    ...newSteps[2],
-                                    state: 'warning',
-                                  };
-                                  return newSteps;
-                                });
-                              }, 2000);
-                            }}
-                          >
-                            Skip
-                          </Button>
+                          <Button onPress={handleSkipUpdate}>Skip</Button>
                         </XStack>
                       </XStack>
                     ) : null}

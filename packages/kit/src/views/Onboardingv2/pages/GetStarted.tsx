@@ -2,11 +2,20 @@ import { useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { MotiView } from 'moti';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, {
+  Defs,
+  Line,
+  Pattern,
+  RadialGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 
 import type { IYStackProps } from '@onekeyhq/components';
 import {
+  BlurView,
   Button,
+  Icon,
   Image,
   Page,
   SizableText,
@@ -28,6 +37,86 @@ import type { LayoutChangeEvent } from 'react-native';
 
 const DEVICE_SIZE = 24;
 
+// GridItem component - places items relative to center point
+function GridItem({
+  gridX,
+  gridY,
+  gridSize = 40,
+  unitSize = 2,
+  children,
+  blur = false,
+}: {
+  gridX: number; // Grid unit X coordinate relative to center (negative = left, positive = right)
+  gridY: number; // Grid unit Y coordinate relative to center (negative = up, positive = down)
+  gridSize?: number; // Size of single grid cell (default 40px)
+  unitSize?: number; // Number of cells per unit side (default 2, means 2x2=4 cells)
+  children: React.ReactNode;
+  blur?: boolean;
+}) {
+  // Calculate the pixel size of one unit
+  // unitSize=2, gridSize=40 => 2 * 40 = 80px (2x2 cells = 4 cells total)
+  const unitPixelSize = gridSize * unitSize;
+
+  // Calculate offset from center
+  // Positive gridX = move right, Negative = move left
+  // Positive gridY = move down, Negative = move up
+  const offsetX = gridX * unitPixelSize;
+  const offsetY = gridY * unitPixelSize;
+
+  return (
+    <YStack
+      position="absolute"
+      // Use transform to position relative to center
+      // 50% moves to center, then offset by grid coordinates
+      left="50%"
+      top="50%"
+      width={unitPixelSize}
+      height={unitPixelSize}
+      style={{
+        transform: [
+          { translateX: offsetX - unitPixelSize / 2 },
+          { translateY: offsetY - unitPixelSize / 2 },
+        ],
+      }}
+      alignItems="center"
+      justifyContent="center"
+      pointerEvents="none"
+      opacity={0.5}
+    >
+      <YStack
+        animation={[
+          'quick',
+          {
+            transform: {
+              delay: 500,
+            },
+          },
+        ]}
+        animateOnly={['transform']}
+        enterStyle={{
+          scale: 0.9,
+        }}
+        w="$14"
+        h="$14"
+        bg="$bg"
+        borderRadius="$2"
+        borderCurve="continuous"
+        alignItems="center"
+        justifyContent="center"
+        $platform-web={{
+          boxShadow:
+            '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        }}
+      >
+        {children}
+      </YStack>
+      {blur ? (
+        <BlurView position="absolute" inset={0} intensity={10} tint="light" />
+      ) : null}
+    </YStack>
+  );
+}
+
 function GridBackground({
   gridSize,
   lineColor,
@@ -44,32 +133,48 @@ function GridBackground({
     setDimensions({ width: layoutWidth, height: layoutHeight });
   };
 
-  const cols = Math.floor(dimensions.width / gridSize);
-  const rows = Math.floor(dimensions.height / gridSize);
+  // Ensure cols and rows are always even numbers for symmetry
+  const cols = Math.floor(dimensions.width / gridSize / 2) * 2;
+  const rows = Math.floor(dimensions.height / gridSize / 2) * 2;
+
+  // Calculate offsets to center the grid
+  const offsetX = (dimensions.width - cols * gridSize) / 2;
+  const offsetY = (dimensions.height - rows * gridSize) / 2;
 
   return (
     <YStack onLayout={handleLayout} {...rest}>
-      {Array.from({ length: rows + 1 }).map((_, index) => (
-        <YStack
-          key={`horizontal-${index}`}
-          position="absolute"
-          w="100%"
-          h="$px"
-          top={index * gridSize}
-          bg={lineColor}
-        />
-      ))}
-
-      {Array.from({ length: cols + 1 }).map((_, index) => (
-        <YStack
-          key={`vertical-${index}`}
-          position="absolute"
-          w="$px"
-          h="100%"
-          left={index * gridSize}
-          bg={lineColor}
-        />
-      ))}
+      <Svg width="100%" height="100%">
+        <Defs>
+          <Pattern
+            id="grid"
+            width={gridSize}
+            height={gridSize}
+            patternUnits="userSpaceOnUse"
+            x={offsetX}
+            y={offsetY}
+          >
+            {/* Horizontal line */}
+            <Line
+              x1="0"
+              y1="0"
+              x2={gridSize}
+              y2="0"
+              stroke={lineColor}
+              strokeWidth="1"
+            />
+            {/* Vertical line */}
+            <Line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2={gridSize}
+              stroke={lineColor}
+              strokeWidth="1"
+            />
+          </Pattern>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#grid)" />
+      </Svg>
     </YStack>
   );
 }
@@ -101,60 +206,103 @@ export default function GetStarted() {
         <OnboardingLayout.Header />
         <OnboardingLayout.Body scrollable={false} constrained={false}>
           <YStack gap={53} flex={1} justifyContent="center" alignItems="center">
-            <YStack>
-              <YStack
-                width={640}
-                height={640}
-                position="absolute"
-                left="50%"
-                top="50%"
+            <YStack
+              position="absolute"
+              left={40}
+              right={40}
+              top={0}
+              bottom={0}
+              overflow="hidden"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <GridBackground
+                w="100%"
+                h="100%"
+                gridSize={40}
+                lineColor={useThemeValue('$neutral6')}
+              />
+              <Svg
+                height="100%"
+                width="100%"
                 style={{
-                  transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
+                  position: 'absolute',
+                  inset: 0,
                 }}
-                overflow="hidden"
               >
-                <GridBackground
-                  w="100%"
-                  h="100%"
-                  gridSize={40}
-                  lineColor="$neutral4"
-                />
-                <Svg
-                  height="100%"
+                <Defs>
+                  <RadialGradient id="grad" cx="50%" cy="50%" rx="90%" ry="30%">
+                    <Stop
+                      offset="0%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="0"
+                    />
+                    <Stop
+                      offset="50%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="0.5"
+                    />
+                    <Stop
+                      offset="100%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="1"
+                    />
+                  </RadialGradient>
+                </Defs>
+                <Rect
+                  x="0"
+                  y="0"
                   width="100%"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                  }}
-                >
-                  <Defs>
-                    <RadialGradient id="grad" cx="50%" cy="50%">
-                      <Stop
-                        offset="0%"
-                        stopColor={useThemeValue('$bgApp')}
-                        stopOpacity="0"
-                      />
-                      <Stop
-                        offset="50%"
-                        stopColor={useThemeValue('$bgApp')}
-                        stopOpacity="0.5"
-                      />
-                      <Stop
-                        offset="100%"
-                        stopColor={useThemeValue('$bgApp')}
-                        stopOpacity="1"
-                      />
-                    </RadialGradient>
-                  </Defs>
-                  <Rect
-                    x="0"
-                    y="0"
-                    width="100%"
-                    height="100%"
-                    fill="url(#grad)"
-                  />
-                </Svg>
+                  height="100%"
+                  fill="url(#grad)"
+                />
+              </Svg>
+              <YStack
+                position="absolute"
+                inset={0}
+                animation={[
+                  'quick',
+                  {
+                    opacity: {
+                      delay: 500,
+                    },
+                  },
+                ]}
+                animateOnly={['opacity']}
+                enterStyle={{
+                  opacity: 0,
+                }}
+              >
+                <GridItem gridX={-6} gridY={-2} blur>
+                  <Icon name="OpCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={-3} gridY={-1.5}>
+                  <Icon name="BtcCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={-4.5} gridY={-0.5}>
+                  <Icon name="TrxCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={-3.5} gridY={2}>
+                  <Icon name="SuiCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={1} gridY={-3.5} blur>
+                  <Icon name="SolCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={1} gridY={3}>
+                  <Icon name="ArbCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={3.5} gridY={0}>
+                  <Icon name="EthCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={4.5} gridY={-2}>
+                  <Icon name="MaticCircleIllus" size="$8" />
+                </GridItem>
+                <GridItem gridX={5} gridY={2}>
+                  <Icon name="BnbCircleIllus" size="$8" />
+                </GridItem>
               </YStack>
+            </YStack>
+            <YStack>
               <YStack
                 $platform-web={{
                   boxShadow:
