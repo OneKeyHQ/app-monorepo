@@ -1,4 +1,7 @@
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type {
   IAggregateTokenSelectorParams,
@@ -14,6 +17,7 @@ export enum EModalReceiveRoutes {
   ReceiveSelectToken = 'ReceiveSelectToken',
   ReceiveSelectAggregateToken = 'ReceiveSelectAggregateToken',
   ReceiveSelectDeriveAddress = 'ReceiveSelectDeriveAddress',
+  BtcAddresses = 'BtcAddresses',
 }
 
 export type IModalReceiveParamList = {
@@ -29,6 +33,8 @@ export type IModalReceiveParamList = {
     token?: IToken;
     onDeriveTypeChange?: (deriveType: IAccountDeriveTypes) => void;
     disableSelector?: boolean;
+    btcUsedAddress?: string;
+    btcUsedAddressPath?: string;
   };
   [EModalReceiveRoutes.ReceiveInvoice]: {
     networkId: string;
@@ -39,4 +45,10 @@ export type IModalReceiveParamList = {
   [EModalReceiveRoutes.ReceiveSelectToken]: ITokenSelectorParamList;
   [EModalReceiveRoutes.ReceiveSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalReceiveRoutes.ReceiveSelectDeriveAddress]: IDeriveTypesAddressParams;
+  [EModalReceiveRoutes.BtcAddresses]: {
+    networkId: string;
+    accountId: string;
+    deriveInfo: IAccountDeriveInfo | undefined;
+    walletId: string;
+  };
 };

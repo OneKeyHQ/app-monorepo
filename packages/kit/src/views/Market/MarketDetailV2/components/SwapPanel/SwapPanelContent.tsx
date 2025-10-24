@@ -97,7 +97,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
       const maxAmount = BigNumber.max(
         0,
         balance.minus(new BigNumber(reserveGas)),
-      );
+      ).decimalPlaces(balanceToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
       setPaymentAmount(maxAmount);
       tokenInputRef.current?.setValue(maxAmount.toFixed());
     } else {
@@ -108,6 +108,7 @@ export function SwapPanelContent(props: ISwapPanelContentProps) {
     balance,
     balanceToken?.isNative,
     balanceToken?.networkId,
+    balanceToken?.decimals,
     setPaymentAmount,
     swapNativeTokenReserveGas,
   ]);

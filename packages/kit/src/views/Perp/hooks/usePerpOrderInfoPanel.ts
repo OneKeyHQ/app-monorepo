@@ -9,6 +9,7 @@ import {
 import { PERPS_HISTORY_FILLS_URL } from '@onekeyhq/shared/src/consts/perp';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFill, IWsUserFills } from '@onekeyhq/shared/types/hyperliquid';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
 
 export function usePerpTradesHistory() {
   const [currentAccount] = usePerpsActiveAccountAtom();
@@ -111,9 +113,22 @@ export function usePerpTradesHistory() {
     }
   }, [currentAccount?.accountAddress]);
 
+  const isFocusedRef = useRef(true);
+
+  useListenTabFocusState(
+    ETabRoutes.Perp,
+    useCallback((isFocus: boolean) => {
+      isFocusedRef.current = isFocus;
+    }, []),
+  );
+
   useEffect(() => {
     noop(refreshHook);
-    void backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+    setTimeout(() => {
+      if (isFocusedRef.current) {
+        void backgroundApiProxy.serviceHyperliquidSubscription.updateSubscriptionForUserFills();
+      }
+    }, 300);
   }, [refreshHook]);
 
   console.log('usePerpTradesHistory__render', tradesHistory, refreshHook);
