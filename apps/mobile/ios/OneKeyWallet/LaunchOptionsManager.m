@@ -1,6 +1,8 @@
 #import "LaunchOptionsManager.h"
 #import <React/RCTLog.h>
 #import <CocoaLumberjack/CocoaLumberjack.h>
+#import "JPUSHService.h"
+#import "RCTJPushModule.h"
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
