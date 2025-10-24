@@ -1,7 +1,6 @@
 import Expo
 import React
 import ReactAppDependencyProvider
-import JPush
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {

@@ -4,3 +4,4 @@
 
 #import "LaunchOptionsManager.h"
 #import "BundleUpdateModule.h"
+#import <JPushRN/JPUSHService.h>
