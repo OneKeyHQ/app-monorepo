@@ -110,7 +110,7 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 extension AppDelegate:JPUSHRegisterDelegate {
   //MARK - JPUSHRegisterDelegate
   @available(iOS 10.0, *)
-  func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                withCompletionHandler completionHandler: ((Int) -> Void)) {
     let userInfo = notification.request.content.userInfo
     
@@ -127,7 +127,7 @@ extension AppDelegate:JPUSHRegisterDelegate {
   }
   
   @available(iOS 10.0, *)
-  func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
+  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
     
     let userInfo = response.notification.request.content.userInfo
     if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
@@ -143,11 +143,11 @@ extension AppDelegate:JPUSHRegisterDelegate {
     
   }
   
-  func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
+  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
     
   }
   
-  func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
+  public func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
     LaunchOptionsManager.sharedInstance().log("receive notification authorization status: \(status), info: \(String(describing: info))")
   }
   
