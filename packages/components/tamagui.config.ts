@@ -37,6 +37,8 @@ const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
 const basicFontVariants = {
   size: {
+    bodyXs: 11,
+    bodyXsMedium: 11,
     bodySm: 12,
     bodySmMedium: 12,
     bodyMd: 14,
@@ -56,6 +58,8 @@ const basicFontVariants = {
     heading5xl: 40,
   },
   lineHeight: {
+    bodyXs: 12,
+    bodyXsMedium: 12,
     bodySm: 16,
     bodySmMedium: 16,
     bodyMd: 20,
@@ -75,6 +79,8 @@ const basicFontVariants = {
     heading5xl: 48,
   },
   weight: {
+    bodyXs: '400',
+    bodyXsMedium: '500',
     bodySm: '400',
     bodySmMedium: '500',
     bodyMd: '400',
@@ -94,6 +100,8 @@ const basicFontVariants = {
     heading5xl: '700',
   },
   transform: {
+    bodyXs: 'none',
+    bodyXsMedium: 'none',
     bodySm: 'none',
     bodySmMedium: 'none',
     bodyMd: 'none',
@@ -113,6 +121,8 @@ const basicFontVariants = {
     heading5xl: 'none',
   },
   letterSpacing: {
+    bodyXs: 0,
+    bodyXsMedium: 0,
     bodySm: 0,
     bodySmMedium: 0,
     bodyMd: 0,

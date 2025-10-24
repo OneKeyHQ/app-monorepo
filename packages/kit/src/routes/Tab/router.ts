@@ -225,9 +225,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           ? {
               name: ETabRoutes.DeviceManagement,
               tabBarIcon: () => 'OnekeyDeviceCustom',
-              translationId: ETranslations.global_my_onekey,
-              collapseSideBarTranslationId:
-                ETranslations.prime_cloud_data_found_sync_device,
+              translationId: ETranslations.global_device,
               tabbarOnPress: toMyOneKeyModal,
               children: null,
               trackId: 'global-my-onekey',

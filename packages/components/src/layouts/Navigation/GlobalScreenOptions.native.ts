@@ -171,7 +171,7 @@ export function makeFullScreenOptions(): IStackNavigationOptions {
 
 export function makeOnboardingScreenOptions(): IStackNavigationOptions {
   return {
-    headerShown: true,
+    headerShown: false,
     presentation: 'card',
     gestureEnabled: false,
     gestureDirection: 'horizontal',

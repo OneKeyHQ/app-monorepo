@@ -10,6 +10,7 @@ export interface IMarketTokenDetail {
   tvl?: string;
   liquidity?: string;
   holders?: number;
+  circulatingSupply?: string;
   extraData?: {
     website?: string;
     twitter?: string;
@@ -89,6 +90,7 @@ export interface IMarketTokenDetail {
   vSell8h?: string;
   vSell24h?: string;
   lastUpdated?: number;
+  communityRecognized?: boolean;
   [key: string]: unknown;
 }
 
@@ -122,6 +124,7 @@ export interface IMarketTokenListItem {
   holders?: number;
   extraData?: IMarketTokenListItemExtraData;
   price?: string;
+  firstTradeTime?: string;
   priceChange1mPercent?: string;
   priceChange5mPercent?: string;
   priceChange30mPercent?: string;
@@ -178,6 +181,7 @@ export interface IMarketTokenListItem {
   networkId?: string;
   liquidity?: string;
   chainId?: string;
+  communityRecognized?: boolean;
 }
 
 export interface IMarketTokenListResponse {
@@ -215,12 +219,14 @@ export interface IMarketTokenTransaction {
   url: string;
   from: IMarketTokenTransactionToken;
   to: IMarketTokenTransactionToken;
+  poolLogoUrl?: string;
 }
 
 export interface IMarketTokenTransactionsResponse {
   list: IMarketTokenTransaction[];
   hasMore?: boolean;
   total?: number;
+  cursor?: string;
 }
 
 export interface IMarketTokenHolder {

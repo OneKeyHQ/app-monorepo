@@ -88,7 +88,7 @@ function HeaderCollapseButton({
                 {intl.formatMessage({
                   id: isCollapse
                     ? ETranslations.shortcut_show_sidebar
-                    : ETranslations.shortcut_hide_sidebar,
+                    : ETranslations.shortcut_collapse_sidebar,
                 })}
               </Tooltip.Text>
             }
