@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "Browser-Cache",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "Browserverlauf, Lesezeichen, Pins, Risiko-dApp-Whitelist",
   "settings.btc_multiple_addresses": "Mehrere BTC-Adressen",
-  "settings.btc_multiple_addresses_description": "Zeigt nach jeder Zahlung eine neue Empfangsadresse an; Wechselgeld geht an eine frische Wechseladresse, um Wiederverwendung zu reduzieren und die Privatsphäre zu verbessern.",
+  "settings.btc_multiple_addresses_description": "Verwendet für jede Zahlung eine neue Adresse sowie separate Wechselgeldadressen, um die Privatsphäre zu erhöhen.",
   "settings.change_pin": "PIN ändern",
   "settings.clear_browser_cache": "Browser-Cache löschen",
   "settings.clear_browser_cache_desc": "Öffnen Sie diesen Link in Ihrem Browser, um den Cache zu leeren: {url}",

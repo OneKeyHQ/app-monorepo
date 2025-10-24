@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "Cache browser",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "Riwayat browser, bookmark, pin, daftar putih dApp berisiko",
   "settings.btc_multiple_addresses": "Beberapa alamat BTC",
-  "settings.btc_multiple_addresses_description": "Menampilkan alamat penerimaan baru setelah setiap pembayaran; kembalian dikirim ke alamat kembalian baru untuk mengurangi penggunaan ulang dan meningkatkan privasi.",
+  "settings.btc_multiple_addresses_description": "Menggunakan alamat baru untuk setiap pembayaran dan alamat kembalian terpisah untuk meningkatkan privasi.",
   "settings.change_pin": "Ganti PIN",
   "settings.clear_browser_cache": "Bersihkan cache browser",
   "settings.clear_browser_cache_desc": "Buka tautan ini di browser Anda untuk membersihkan cache: {url}",

@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "ブラウザキャッシュ",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "ブラウザの履歴、ブックマーク、ピン、リスクdAppホワイトリスト",
   "settings.btc_multiple_addresses": "BTC 複数アドレス",
-  "settings.btc_multiple_addresses_description": "各支払いの後に新しい受取アドレスを表示し、釣り銭は再利用を減らしてプライバシーを向上させるために新しいチェンジアドレスへ送られます。",
+  "settings.btc_multiple_addresses_description": "各支払いごとに新しいアドレスを使用し、プライバシーを高めるためにお釣り用のアドレスも分けて使用します。",
   "settings.change_pin": "PINの変更",
   "settings.clear_browser_cache": "ブラウザのキャッシュをクリアする",
   "settings.clear_browser_cache_desc": "キャッシュをクリアするには、ブラウザでこのリンクを開いてください: {url}",

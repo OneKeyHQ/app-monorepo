@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "浏览器缓存",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "浏览器历史记录、书签、固定页面、风险 dApp 白名单",
   "settings.btc_multiple_addresses": "BTC 多地址模式",
-  "settings.btc_multiple_addresses_description": "每次交易后显示新的接收地址，找零会转到新的找零地址，以减少地址重复使用并提高隐私性。",
+  "settings.btc_multiple_addresses_description": "每次收款都会使用新的地址，找零则会发送到新的找零地址，以提升隐私性。",
   "settings.change_pin": "修改 PIN 码",
   "settings.clear_browser_cache": "清除浏览器缓存",
   "settings.clear_browser_cache_desc": "在您的浏览器中打开此链接以清除缓存：{url}",

@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "แคชของเบราว์เซอร์",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "ประวัติเบราว์เซอร์, บุ๊กมาร์ก, พิน, รายการที่ได้รับการอนุญาตของ dApp ที่มีความเสี่ยง",
   "settings.btc_multiple_addresses": "ที่อยู่ BTC หลายรายการ",
-  "settings.btc_multiple_addresses_description": "จะแสดงที่อยู่สำหรับรับใหม่หลังจากการชำระเงินแต่ละครั้ง โดยยอดเงินทอนจะถูกส่งไปยังที่อยู่ทอนใหม่ เพื่อลดการใช้ซ้ำและเพิ่มความเป็นส่วนตัว",
+  "settings.btc_multiple_addresses_description": "ใช้ที่อยู่ใหม่สำหรับการชำระเงินแต่ละครั้ง และใช้ที่อยู่สำหรับทอนเงินแยกต่างหากเพื่อเพิ่มความเป็นส่วนตัว",
   "settings.change_pin": "เปลี่ยน PIN",
   "settings.clear_browser_cache": "ล้างแคชของเบราว์เซอร์",
   "settings.clear_browser_cache_desc": "เปิดลิงค์นี้ในเบราว์เซอร์ของคุณเพื่อล้างแคช: {url}",

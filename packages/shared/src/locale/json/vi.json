@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "Bộ nhớ cache trình duyệt",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "Lịch sử trình duyệt, dấu trang, ghim, danh sách trắng dApp rủi ro",
   "settings.btc_multiple_addresses": "Nhiều địa chỉ BTC",
-  "settings.btc_multiple_addresses_description": "Hiển thị một địa chỉ nhận mới sau mỗi lần thanh toán; tiền thừa sẽ được chuyển đến một địa chỉ đổi mới để giảm việc tái sử dụng và cải thiện quyền riêng tư.",
+  "settings.btc_multiple_addresses_description": "Sử dụng một địa chỉ mới cho mỗi khoản thanh toán và các địa chỉ tiền thừa riêng biệt để tăng cường quyền riêng tư.",
   "settings.change_pin": "Thay đổi pin",
   "settings.clear_browser_cache": "Xóa bộ nhớ cache của trình duyệt",
   "settings.clear_browser_cache_desc": "Mở liên kết này trong trình duyệt của bạn để xóa bộ nhớ cache: {url}",

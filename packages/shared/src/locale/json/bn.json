@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "ব্রাউজার ক্যাশ",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "ব্রাউজার ইতিহাস, বুকমার্ক, পিন, ঝুঁকি ড্যাপ সাদা তালিকা",
   "settings.btc_multiple_addresses": "BTC একাধিক ঠিকানা",
-  "settings.btc_multiple_addresses_description": "প্রতিটি পেমেন্টের পর একটি নতুন রিসিভিং ঠিকানা দেখায়; পুনঃব্যবহার কমাতে ও গোপনীয়তা বাড়াতে চেঞ্জ একটি নতুন চেঞ্জ ঠিকানায় যায়।",
+  "settings.btc_multiple_addresses_description": "প্রতিটি পেমেন্টের জন্য নতুন ঠিকানা এবং আলাদা চেঞ্জ ঠিকানা ব্যবহার করে গোপনীয়তা বাড়ায়।",
   "settings.change_pin": "পিন পরিবর্তন করুন",
   "settings.clear_browser_cache": "ব্রাউজার ক্যাশে পরিষ্কার করুন",
   "settings.clear_browser_cache_desc": "আপনার ব্রাউজারে এই লিঙ্কটি খুলুন ক্যাশে মুছতে: {url}",

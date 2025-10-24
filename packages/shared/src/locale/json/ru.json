@@ -2781,7 +2781,7 @@
   "settings.browser_cache": "Кэш браузера",
   "settings.browser_history_bookmarks_pins_risk_dapp_whitelist": "История браузера, закладки, закрепления, белый список безопасных dApp",
   "settings.btc_multiple_addresses": "Несколько адресов BTC",
-  "settings.btc_multiple_addresses_description": "После каждого платежа показывает новый адрес для получения, сдача отправляется на новый адрес для сдачи, чтобы сократить повторное использование и повысить конфиденциальность.",
+  "settings.btc_multiple_addresses_description": "Использует новый адрес для каждого платежа и отдельные адреса для сдачи, чтобы повысить конфиденциальность.",
   "settings.change_pin": "Изменить PIN-код",
   "settings.clear_browser_cache": "Очистить кэш браузера",
   "settings.clear_browser_cache_desc": "Откройте эту ссылку в вашем браузере, чтобы очистить кэш: {url}",
