@@ -1,4 +1,4 @@
-import { LogToConsole, LogToServer } from './decorators';
+import { LogToConsole, LogToLocal, LogToServer } from './decorators';
 
 export abstract class BaseScene {
   constructor() {
@@ -37,6 +37,7 @@ export abstract class BaseScene {
     return [];
   }
 
+  @LogToLocal()
   @LogToConsole()
   consoleLog(...args: any[]) {
     return args as unknown;
