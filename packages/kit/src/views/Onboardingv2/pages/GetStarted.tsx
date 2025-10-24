@@ -84,14 +84,7 @@ function GridItem({
       opacity={0.5}
     >
       <YStack
-        animation={[
-          'quick',
-          {
-            transform: {
-              delay: 500,
-            },
-          },
-        ]}
+        animation="quick"
         animateOnly={['transform']}
         enterStyle={{
           scale: 0.9,
@@ -106,6 +99,9 @@ function GridItem({
         $platform-web={{
           boxShadow:
             '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        }}
+        hoverStyle={{
+          scale: 0.9,
         }}
       >
         {children}
@@ -205,7 +201,7 @@ export default function GetStarted() {
       <OnboardingLayout>
         <OnboardingLayout.Header />
         <OnboardingLayout.Body scrollable={false} constrained={false}>
-          <YStack gap={53} flex={1} justifyContent="center" alignItems="center">
+          <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack
               position="absolute"
               left={40}
@@ -260,14 +256,7 @@ export default function GetStarted() {
               <YStack
                 position="absolute"
                 inset={0}
-                animation={[
-                  'quick',
-                  {
-                    opacity: {
-                      delay: 500,
-                    },
-                  },
-                ]}
+                animation="quick"
                 animateOnly={['opacity']}
                 enterStyle={{
                   opacity: 0,
@@ -302,7 +291,14 @@ export default function GetStarted() {
                 </GridItem>
               </YStack>
             </YStack>
-            <YStack>
+            <YStack
+              gap={53}
+              justifyContent="center"
+              alignItems="center"
+              animation="quick"
+              animateOnly={['opacity', 'transform']}
+              enterStyle={{ opacity: 0, scale: 0.98 }}
+            >
               <YStack
                 $platform-web={{
                   boxShadow:
@@ -312,6 +308,11 @@ export default function GetStarted() {
                   elevation: 1,
                 }}
                 borderRadius={13}
+                animation="quick"
+                animateOnly={['transform']}
+                hoverStyle={{
+                  scale: 0.95,
+                }}
               >
                 <Image
                   source={require('@onekeyhq/kit/assets/onboarding/logo-decorative.png')}
@@ -320,67 +321,67 @@ export default function GetStarted() {
                   zIndex={1}
                 />
               </YStack>
-            </YStack>
-            <Stack gap="$4" minWidth="$80" zIndex={1}>
-              <Button
-                size="large"
-                variant="primary"
-                alignSelf="stretch"
-                onPress={handleGetStarted}
-              >
-                <XStack alignItems="center" gap="$2">
-                  <YStack
-                    w="$5"
-                    h={DEVICE_SIZE}
-                    overflow="hidden"
-                    alignItems="center"
-                  >
-                    <MotiView
-                      from={{
-                        translateY: 0,
-                      }}
-                      animate={{
-                        translateY: Array.from(
-                          { length: DEVICE_DATA.length },
-                          (_, index) => ({
-                            type: 'spring',
-                            value: -index * DEVICE_SIZE,
-                            delay: 1000,
-                          }),
-                        ),
-                      }}
-                      transition={{
-                        loop: true,
-                      }}
+              <Stack gap="$4" minWidth="$80" zIndex={1}>
+                <Button
+                  size="large"
+                  variant="primary"
+                  alignSelf="stretch"
+                  onPress={handleGetStarted}
+                >
+                  <XStack alignItems="center" gap="$2">
+                    <YStack
+                      w="$5"
+                      h={DEVICE_SIZE}
+                      overflow="hidden"
+                      alignItems="center"
                     >
-                      <YStack>
-                        {DEVICE_DATA.map((device, index) => (
-                          <WalletAvatar
-                            key={index}
-                            wallet={undefined}
-                            img={device}
-                            size={DEVICE_SIZE}
-                          />
-                        ))}
-                      </YStack>
-                    </MotiView>
-                  </YStack>
-                  <SizableText size="$bodyLgMedium" color="$textInverse">
-                    Get started
-                  </SizableText>
-                </XStack>
-              </Button>
-              <Button
-                bg="$gray3"
-                hoverStyle={{ bg: '$gray4' }}
-                pressStyle={{ bg: '$gray5' }}
-                size="large"
-                icon="PlusLargeOutline"
-                onPress={handleCreateOrImportWallet}
-              >
-                Create or import wallet
-              </Button>
-            </Stack>
+                      <MotiView
+                        from={{
+                          translateY: 0,
+                        }}
+                        animate={{
+                          translateY: Array.from(
+                            { length: DEVICE_DATA.length },
+                            (_, index) => ({
+                              type: 'spring',
+                              value: -index * DEVICE_SIZE,
+                              delay: 1000,
+                            }),
+                          ),
+                        }}
+                        transition={{
+                          loop: true,
+                        }}
+                      >
+                        <YStack>
+                          {DEVICE_DATA.map((device, index) => (
+                            <WalletAvatar
+                              key={index}
+                              wallet={undefined}
+                              img={device}
+                              size={DEVICE_SIZE}
+                            />
+                          ))}
+                        </YStack>
+                      </MotiView>
+                    </YStack>
+                    <SizableText size="$bodyLgMedium" color="$textInverse">
+                      Get started
+                    </SizableText>
+                  </XStack>
+                </Button>
+                <Button
+                  bg="$gray3"
+                  hoverStyle={{ bg: '$gray4' }}
+                  pressStyle={{ bg: '$gray5' }}
+                  size="large"
+                  icon="PlusLargeOutline"
+                  onPress={handleCreateOrImportWallet}
+                >
+                  Create or import wallet
+                </Button>
+              </Stack>
+            </YStack>
           </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>

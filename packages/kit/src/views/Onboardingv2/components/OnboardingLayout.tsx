@@ -1,4 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
 
 import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
@@ -6,11 +7,15 @@ import {
   IconButton,
   LinearGradient,
   ScrollView,
+  Select,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useLanguageSelector } from '../../Setting/hooks';
 
 const OnboardingLayoutBack = () => {
   const navigation = useAppNavigation();
@@ -33,11 +38,35 @@ const OnboardingLayoutBack = () => {
   );
 };
 
-const OnboardingLayoutLanguageSelector = () => (
-  <Button size="small" icon="GlobusOutline" variant="tertiary" ml="auto">
-    English
-  </Button>
-);
+function OnboardingLayoutLanguageSelector() {
+  const intl = useIntl();
+  const { options, value, onChange } = useLanguageSelector();
+
+  return (
+    <YStack ml="auto">
+      <Select
+        offset={{ mainAxis: -4, crossAxis: -10 }}
+        title={intl.formatMessage({ id: ETranslations.global_language })}
+        items={options}
+        value={value}
+        onChange={onChange}
+        placement="bottom-end"
+        floatingPanelProps={{ maxHeight: 280 }}
+        sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
+        renderTrigger={({ label }) => (
+          <Button
+            size="small"
+            icon="GlobusOutline"
+            variant="tertiary"
+            ml="auto"
+          >
+            {label}
+          </Button>
+        )}
+      />
+    </YStack>
+  );
+}
 
 const OnboardingLayoutTitle = ({ children }: { children: React.ReactNode }) => (
   <SizableText
@@ -181,11 +210,11 @@ const OnboardingLayoutRoot = ({ children }: { children: React.ReactNode }) => (
     <YStack
       h="100%"
       w="100%"
-      maxWidth={1600}
-      maxHeight={1024}
       px="$10"
       bg="$bg"
       $gt2xl={{
+        maxWidth: 1600,
+        maxHeight: 1024,
         borderRadius: 40,
         borderCurve: 'continuous',
         '$platform-web': {
