@@ -3,14 +3,16 @@ import { useMemo } from 'react';
 
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import { createURL } from 'expo-linking';
+import { useIntl } from 'react-intl';
 
 import {
   type INavigationContainerProps,
   rootNavigationRef,
   useRouterEventsRef,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
@@ -136,9 +138,26 @@ const useBuildLinking = (): LinkingOptions<any> => {
   };
 };
 
+const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations> = {
+  [ETabRoutes.Home]: ETranslations.global_homescreen,
+  [ETabRoutes.Market]: ETranslations.global_market,
+  [ETabRoutes.Discovery]: ETranslations.global_discover,
+  [ETabRoutes.Me]: ETranslations.global_settings,
+  [ETabRoutes.Earn]: ETranslations.global_earn,
+  [ETabRoutes.Swap]: ETranslations.global_swap,
+  [ETabRoutes.Perp]: ETranslations.global_perp,
+  [ETabRoutes.WebviewPerpTrade]: ETranslations.global_perp,
+  [ETabRoutes.MultiTabBrowser]: ETranslations.global_browser,
+  [ETabRoutes.Developer]: ETranslations.global_homescreen,
+  [ETabRoutes.DeviceManagement]: ETranslations.global_homescreen,
+  [ETabRoutes.ReferFriends]: ETranslations.global_homescreen,
+};
+
 export const useRouterConfig = () => {
   const routerRef = useRouterEventsRef();
   const linking = useBuildLinking();
+  const intl = useIntl();
+
   return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
@@ -146,7 +165,35 @@ export const useRouterConfig = () => {
       routerConfig: rootRouter,
       containerProps: {
         documentTitle: {
-          formatter: () => 'OneKey',
+          formatter: (_options, _route) => {
+            if (!platformEnv.isWebDappMode) {
+              return 'OneKey';
+            }
+
+            const state = rootNavigationRef.current?.getRootState();
+            if (!state) {
+              return 'OneKey';
+            }
+
+            const rootState = state?.routes.find(
+              ({ name }) => name === ERootRoutes.Main,
+            )?.state;
+
+            if (!rootState) {
+              return 'OneKey';
+            }
+
+            const currentTabName = rootState?.routeNames
+              ? (rootState?.routeNames?.[rootState?.index || 0] as ETabRoutes)
+              : (rootState?.routes[0].name as ETabRoutes);
+
+            const translationKey = TAB_TITLE_TRANSLATION_MAP[currentTabName];
+            const tabTitle = translationKey
+              ? intl.formatMessage({ id: translationKey })
+              : '';
+
+            return tabTitle ? `OneKey - ${tabTitle}` : 'OneKey';
+          },
         },
         onStateChange: (state) => {
           routerRef.current.forEach((cb) => cb?.(state));
@@ -154,5 +201,5 @@ export const useRouterConfig = () => {
         linking,
       } as INavigationContainerProps,
     };
-  }, [linking, routerRef]);
+  }, [linking, routerRef, intl]);
 };

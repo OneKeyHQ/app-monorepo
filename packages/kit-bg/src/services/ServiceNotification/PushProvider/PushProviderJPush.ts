@@ -87,11 +87,15 @@ export class PushProviderJPush extends PushProviderBase {
     defaultLogger.notification.jpush.consoleLog('JPush 连接状态:', result);
     if (result.connectEnable) {
       JPush.getRegistrationID(async ({ registerID }) => {
+        if (!registerID) {
+          return;
+        }
         defaultLogger.notification.jpush.consoleLog(
           'JPush registerID:',
           result,
           registerID,
         );
+        defaultLogger.notification.jpush.registerRid(registerID);
         this.eventEmitter.emit(EPushProviderEventNames.jpush_connected, {
           jpushId: registerID,
         });

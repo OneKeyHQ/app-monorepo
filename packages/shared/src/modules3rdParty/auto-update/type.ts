@@ -128,6 +128,7 @@ export interface IBundleUpdate {
   getWebEmbedPathAsync: () => Promise<string>;
   getWebEmbedPath: () => string;
   getNativeAppVersion: () => Promise<string>;
+  getSha256FromFilePath: (filePath: string) => Promise<string>;
   getNativeBuildNumber: () => Promise<string>;
   getJsBundlePath: () => Promise<string>;
 }
