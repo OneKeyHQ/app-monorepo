@@ -187,6 +187,8 @@ function SelectTokenPopoverContent({
     networkId: string;
     isNative: boolean;
     amount: string;
+    symbol: string;
+    decimals: number;
   }) => void;
 }) {
   const intl = useIntl();
@@ -214,6 +216,8 @@ function SelectTokenPopoverContent({
               networkId: item.networkId,
               isNative: !!item.isNative,
               amount: item.balanceParsed || '0',
+              symbol: item.symbol ?? '',
+              decimals: item.decimals,
             });
             void closePopover?.();
           }}
@@ -711,17 +715,15 @@ function DepositWithdrawContent({
       }
     }
   }, [amount, amountBN, selectedAction, checkFromTokenFiatValue.value]);
-  const reserveGasFormatter: INumberFormatProps = useMemo(() => {
-    return {
-      formatter: 'balance',
-      formatterOptions: {
-        tokenSymbol: currentPerpsDepositSelectedToken?.symbol,
-      },
-    };
-  }, [currentPerpsDepositSelectedToken?.symbol]);
 
   const checkNativeTokenGasToast = useCallback(
-    (isNative?: boolean, tokenNetworkId?: string, tokenBalance?: string) => {
+    (
+      isNative?: boolean,
+      tokenNetworkId?: string,
+      tokenBalance?: string,
+      tokenSymbol?: string,
+      tokenDecimals?: number,
+    ) => {
       let maxAmount = new BigNumber(tokenBalance || 0);
       if (isNative) {
         const reserveGas = nativeTokenConfigs.find(
@@ -731,14 +733,16 @@ function DepositWithdrawContent({
           maxAmount = BigNumber.max(
             0,
             maxAmount.minus(new BigNumber(reserveGas)),
-          );
+          ).decimalPlaces(tokenDecimals ?? 6, BigNumber.ROUND_DOWN);
         }
         let reserveGasFormatted: string | undefined | number = reserveGas;
         if (reserveGas) {
-          reserveGasFormatted = numberFormat(
-            reserveGas.toString(),
-            reserveGasFormatter,
-          );
+          reserveGasFormatted = numberFormat(reserveGas.toString(), {
+            formatter: 'balance',
+            formatterOptions: {
+              tokenSymbol,
+            },
+          });
         }
         const message = intl.formatMessage(
           {
@@ -756,7 +760,7 @@ function DepositWithdrawContent({
       }
       return maxAmount;
     },
-    [nativeTokenConfigs, intl, reserveGasFormatter],
+    [nativeTokenConfigs, intl],
   );
 
   const handleMaxPress = useCallback(
@@ -764,12 +768,16 @@ function DepositWithdrawContent({
       networkId: string;
       isNative: boolean;
       amount: string;
+      symbol: string;
+      decimals: number;
     }) => {
-      if (tokenParams) {
+      if (tokenParams && selectedAction === 'deposit') {
         const maxAmount = checkNativeTokenGasToast(
           tokenParams.isNative,
           tokenParams.networkId,
           tokenParams.amount,
+          tokenParams.symbol,
+          tokenParams.decimals,
         );
         setAmount(maxAmount.toFixed());
         return;
@@ -778,7 +786,7 @@ function DepositWithdrawContent({
         setAmount(availableBalance.balance || '0');
       }
     },
-    [availableBalance, checkNativeTokenGasToast],
+    [availableBalance, checkNativeTokenGasToast, selectedAction],
   );
 
   useEffect(() => {
@@ -1224,6 +1232,8 @@ function DepositWithdrawContent({
                     isNative: !!currentPerpsDepositSelectedToken?.isNative,
                     amount:
                       currentPerpsDepositSelectedToken?.balanceParsed || '0',
+                    symbol: currentPerpsDepositSelectedToken?.symbol ?? '',
+                    decimals: currentPerpsDepositSelectedToken?.decimals ?? 6,
                   });
                 }}
                 size="$bodyMd"
