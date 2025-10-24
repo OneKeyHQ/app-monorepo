@@ -168,12 +168,12 @@ class ServiceMarketV2 extends ServiceBase {
   async fetchMarketTokenTransactions({
     tokenAddress,
     networkId,
-    offset,
+    cursor,
     limit,
   }: {
     tokenAddress: string;
     networkId: string;
-    offset?: number;
+    cursor?: string;
     limit?: number;
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
@@ -181,11 +181,11 @@ class ServiceMarketV2 extends ServiceBase {
       code: number;
       message: string;
       data: IMarketTokenTransactionsResponse;
-    }>('/utility/v2/market/token/transactions', {
+    }>('/utility/v3/market/token/transactions', {
       params: {
         tokenAddress,
         networkId,
-        ...(offset !== undefined && { offset }),
+        ...(cursor !== undefined && { cursor }),
         ...(limit !== undefined && { limit }),
       },
     });

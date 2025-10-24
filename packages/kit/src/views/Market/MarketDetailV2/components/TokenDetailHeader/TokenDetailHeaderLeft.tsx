@@ -10,6 +10,7 @@ import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
+import { CommunityRecognizedBadge } from '../../../components/CommunityRecognizedBadge';
 import { MarketStarV2 } from '../../../components/MarketStarV2';
 import { TokenSecurityAlert } from '../TokenSecurityAlert';
 
@@ -47,6 +48,7 @@ export function TokenDetailHeaderLeft({
     address = '',
     logoUrl = '',
     extraData,
+    communityRecognized,
   } = tokenDetail || {};
 
   const { website, twitter } = extraData || {};
@@ -74,9 +76,12 @@ export function TokenDetailHeaderLeft({
       />
 
       <YStack>
-        <SizableText size="$bodyLgMedium" color="$text">
-          {symbol}
-        </SizableText>
+        <XStack ai="center" gap="$1">
+          <SizableText size="$bodyLgMedium" color="$text">
+            {symbol}
+          </SizableText>
+          {communityRecognized ? <CommunityRecognizedBadge /> : null}
+        </XStack>
 
         <XStack gap="$2" ai="center">
           {address ? (

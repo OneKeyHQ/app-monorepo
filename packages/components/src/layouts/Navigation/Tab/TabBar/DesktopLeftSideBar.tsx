@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import {
-  type IActionListSection,
-  IconButton,
-} from '@onekeyhq/components/src/actions';
+import { Tooltip } from '@onekeyhq/components/src/actions';
+import type { IActionListSection } from '@onekeyhq/components/src/actions';
 import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import {
   EPortalContainerConstantName,
@@ -28,12 +27,13 @@ import {
 } from '@onekeyhq/components/src/utils/sidebar';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
-import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
@@ -83,8 +83,9 @@ function TabItemView({
     () => (
       <YStack
         ai={isCollapse ? 'center' : undefined}
-        gap={isCollapse ? '$1' : undefined}
-        py={isCollapse ? 5 : undefined}
+        gap={isCollapse ? '$0.5' : undefined}
+        pt={isCollapse ? 6 : undefined}
+        pb={isCollapse ? 6 : undefined}
         onPress={options.tabbarOnPress ?? onPress}
         onHoverIn={() => {
           if (isCollapse) {
@@ -118,7 +119,12 @@ function TabItemView({
           testID={route.name.toLowerCase()}
         />
         {isCollapse ? (
-          <SizableText size="$bodySmMedium" textAlign="center">
+          <SizableText
+            size="$bodyXsMedium"
+            cursor="default"
+            color="$text"
+            textAlign="center"
+          >
             {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
           </SizableText>
         ) : null}
@@ -138,6 +144,7 @@ export function DesktopLeftSideBar({
 }: BottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
+  const intl = useIntl();
   const { routes } = state;
   const [{ isCollapsed: isCollapse }, setAppSideBarStatus] =
     useAppSideBarStatusAtom();
@@ -298,27 +305,70 @@ export function DesktopLeftSideBar({
             setIsHovering(false);
           }}
           zIndex={1000}
-          right={-2}
+          right={-3}
           top={0}
           bottom={0}
-          width={4}
+          width={6}
+          pb="$20"
           ai="center"
           jc="center"
         >
           {isHovering ? (
-            <IconButton
-              onPress={() => {
-                setAppSideBarStatus((prev) => ({
-                  ...prev,
-                  isCollapsed: false,
-                }));
+            <MotiView
+              from={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={
+                {
+                  type: 'timing',
+                  duration: 200,
+                } as MotiTransition
+              }
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
               }}
-              icon="ChevronRightSmallOutline"
-              size="large"
-              iconProps={{
-                color: '$iconSubdued',
-              }}
-            />
+            >
+              <Tooltip
+                placement="right"
+                renderTrigger={
+                  <YStack
+                    aria-label="Toggle sidebar"
+                    role="button"
+                    height="$12"
+                    width="$2"
+                    bg="$neutral6"
+                    hoverStyle={{
+                      bg: '$neutral8',
+                    }}
+                    borderRadius="$full"
+                    cursor="e-resize"
+                    pressStyle={{
+                      bg: '$neutral7',
+                    }}
+                    focusVisibleStyle={{
+                      outlineWidth: 2,
+                      outlineColor: '$focusRing',
+                      outlineStyle: 'solid',
+                    }}
+                    onPress={() => {
+                      setAppSideBarStatus((prev) => ({
+                        ...prev,
+                        isCollapsed: false,
+                      }));
+                    }}
+                  />
+                }
+                renderContent={
+                  <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
+                    {intl.formatMessage({
+                      id: ETranslations.shortcut_expand_sidebar,
+                    })}
+                  </Tooltip.Text>
+                }
+              />
+            </MotiView>
           ) : null}
         </YStack>
       ) : null}

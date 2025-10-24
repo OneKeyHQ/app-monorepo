@@ -1,11 +1,18 @@
 import { LinearGradient, Stack, useTheme } from '@onekeyhq/components';
 
+type IGradientMaskPosition = 'left' | 'right';
+
 interface IGradientMaskProps {
-  position: 'left' | 'right';
+  position: IGradientMaskPosition;
   opacity?: number;
+  width?: number;
 }
 
-export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
+export function GradientMask({
+  position,
+  opacity = 1,
+  width = 20,
+}: IGradientMaskProps) {
   const theme = useTheme();
   const positionProps = position === 'left' ? { left: 0 } : { right: 0 };
 
@@ -15,7 +22,7 @@ export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
       position="absolute"
       top={0}
       bottom={0}
-      width={opacity ? 20 : 0}
+      width={opacity ? width : 0}
       zIndex={9}
       pointerEvents="none"
       opacity={opacity}
@@ -32,4 +39,5 @@ export const GradientMask = ({ position, opacity = 1 }: IGradientMaskProps) => {
       />
     </Stack>
   );
-};
+}
+
