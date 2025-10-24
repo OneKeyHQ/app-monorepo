@@ -1113,7 +1113,14 @@ class ServiceAccountProfile extends ServiceBase {
       },
     });
     appEventBus.emit(EAppEventBusNames.BtcFreshAddressUpdated, undefined);
-    // appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    // Update push notification subscription accounts after BTC fresh address update
+    void this.backgroundApi.serviceNotification.registerClientWithAppendAccounts(
+      {
+        dbAccounts: [account],
+      },
+    );
   }
 
   private getLocalPendingTxsForFreshAddress = memoizee(

@@ -672,6 +672,9 @@ function ReceiveToken() {
                 walletId,
               });
             }}
+            boldTextProps={{
+              size: '$bodyMd',
+            }}
           />
         ) : null}
       </YStack>
