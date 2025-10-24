@@ -1757,6 +1757,57 @@ export default class VaultBtc extends VaultBase {
     };
   }
 
+  public async deriveAddressesByPaths({
+    dbAccount,
+    paths,
+  }: {
+    dbAccount: IDBUtxoAccount;
+    paths: string[];
+  }): Promise<Record<string, string>> {
+    if (!paths.length) {
+      return {};
+    }
+
+    const deriveXpub = dbAccount.xpub;
+    if (!deriveXpub) {
+      throw new OneKeyInternalError('Account xpub not found');
+    }
+
+    const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
+    if (!uniquePaths.length) {
+      return {};
+    }
+
+    const { encoding } = await this.validateAddress(dbAccount.address);
+    const result: Record<string, string> = {};
+
+    // Sequentially derive addresses to reuse memoized cache and surface errors deterministically.
+    for (const path of uniquePaths) {
+      const derivationPath = checkIfValidPath(path);
+      const pathSegments = derivationPath.split('/');
+      if (pathSegments.length < 6) {
+        throw new OneKeyInternalError(
+          'Receive address path invalid, please contact support.',
+        );
+      }
+
+      const relativePath = `${pathSegments[4]}/${pathSegments[5]}`;
+      // reuse memoized helper to benefit from caching across calls
+      const derivedAddress = await this.memoizedDeriveReceiveAddress({
+        deriveXpub,
+        fullPath: derivationPath,
+        relativePath,
+        addressEncoding: encoding,
+        networkId: this.networkId,
+        accountAddress: dbAccount.address,
+      });
+
+      result[path] = derivedAddress;
+    }
+
+    return result;
+  }
+
   private async getChangeAddress({ dbAccount }: { dbAccount: IDBUtxoAccount }) {
     const fallbackAddress =
       (dbAccount as INetworkAccount).addressDetail.masterAddress ||

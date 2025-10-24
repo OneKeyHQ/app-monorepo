@@ -2,6 +2,7 @@ import type {
   IBtcFreshAddress,
   IBtcFreshAddressStructure,
 } from '@onekeyhq/core/src/chains/btc/types';
+import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -21,6 +22,7 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
 
   override enableCache = false;
 
+  @backgroundMethod()
   async getBTCFreshAddresses({
     networkId,
     xpubSegwit,
