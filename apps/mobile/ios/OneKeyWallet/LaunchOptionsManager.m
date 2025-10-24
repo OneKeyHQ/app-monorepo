@@ -1,8 +1,6 @@
 #import "LaunchOptionsManager.h"
 #import <React/RCTLog.h>
 #import <CocoaLumberjack/CocoaLumberjack.h>
-#import "JPUSHService.h"
-#import "RCTJPushModule.h"
 
 static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
@@ -141,7 +139,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
 RCT_EXPORT_METHOD(registerDeviceToken:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSData *deviceToken = [self getDeviceToken];
-    JPUSHService.registerDeviceToken(deviceToken);
+    [JPUSHService registerDeviceToken:deviceToken];
     DDLogDebug(@"registerDeviceToken: %@", [self getDeviceTokenString]);
     resolve(@YES);
 }

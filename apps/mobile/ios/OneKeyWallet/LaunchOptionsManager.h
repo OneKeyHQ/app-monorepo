@@ -1,6 +1,9 @@
 #import <React/RCTBridgeModule.h>
 #import <Foundation/Foundation.h>
 
+#import "JPUSHService.h"
+#import "RCTJPushModule.h"
+
 @interface LaunchOptionsManager : NSObject <RCTBridgeModule>
 
 + (instancetype)sharedInstance;
