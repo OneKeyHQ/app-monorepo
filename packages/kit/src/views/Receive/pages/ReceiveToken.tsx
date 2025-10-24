@@ -260,8 +260,12 @@ function ReceiveToken() {
 
   const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
   const isEnableBTCFreshAddressSetting = useMemo(() => {
-    return networkUtils.isBTCNetwork(networkId) && enableBTCFreshAddress;
-  }, [networkId, enableBTCFreshAddress]);
+    return accountUtils.isEnabledBtcFreshAddress({
+      enableBTCFreshAddress,
+      networkId,
+      walletId,
+    });
+  }, [networkId, enableBTCFreshAddress, walletId]);
 
   const handleVerifyOnDevicePress = useCallback(async () => {
     setAddressState(EAddressState.Verifying);

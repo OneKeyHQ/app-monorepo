@@ -1652,15 +1652,14 @@ export default class VaultBtc extends VaultBase {
       return fallback;
     }
 
-    const isHwOrHdWallet =
-      accountUtils.isHwWallet({ walletId: this.walletId }) ||
-      accountUtils.isHdWallet({ walletId: this.walletId });
-    if (!isHwOrHdWallet) {
-      return fallback;
-    }
-
     const { enableBTCFreshAddress } = await settingsPersistAtom.get();
-    if (!enableBTCFreshAddress) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        networkId,
+        walletId: this.walletId,
+        enableBTCFreshAddress,
+      })
+    ) {
       return fallback;
     }
 
@@ -1824,12 +1823,14 @@ export default class VaultBtc extends VaultBase {
       path: checkIfValidPath(getBIP44Path(dbAccount, fallbackAddress)),
     };
 
-    const isHwOrHdWallet =
-      accountUtils.isHwWallet({ walletId: this.walletId }) ||
-      accountUtils.isHdWallet({ walletId: this.walletId });
     const isEnabledBtcFreshAddress = await this.isEnabledBtcFreshAddress();
-    const isBTCNetwork = networkUtils.isBTCNetwork(this.networkId);
-    if (!isHwOrHdWallet || !isEnabledBtcFreshAddress || !isBTCNetwork) {
+    if (
+      !accountUtils.isEnabledBtcFreshAddress({
+        enableBTCFreshAddress: isEnabledBtcFreshAddress,
+        networkId: this.networkId,
+        walletId: this.walletId,
+      })
+    ) {
       return fallback;
     }
 
