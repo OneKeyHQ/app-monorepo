@@ -11,6 +11,7 @@ import type {
   useInTabDialog,
 } from '@onekeyhq/components';
 import {
+  Badge,
   Button,
   DashText,
   Divider,
@@ -82,6 +83,7 @@ import { PerpsAccountNumberValue } from '../components/PerpsAccountNumberValue';
 import { InputAccessoryDoneButton } from '../inputs/TradingFormInput';
 
 import type { ListRenderItem } from 'react-native';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export type IPerpsDepositWithdrawActionType = 'deposit' | 'withdraw';
 
@@ -203,6 +205,13 @@ function SelectTokenPopoverContent({
         formatter: 'value',
         formatterOptions: { currency: symbol },
       });
+      const isArbUSDC = equalTokenNoCaseSensitive({
+        token1: item,
+        token2: {
+          networkId: PERPS_NETWORK_ID,
+          contractAddress: USDC_TOKEN_INFO.address,
+        },
+      });
       return (
         <ListItem
           justifyContent="space-between"
@@ -222,21 +231,38 @@ function SelectTokenPopoverContent({
             void closePopover?.();
           }}
         >
-          <XStack>
+          <XStack gap="$2" alignItems="center">
             <Token
               tokenImageUri={item.logoURI}
               networkImageUri={item.networkLogoURI}
               showNetworkIcon
+              size="md"
             />
             <YStack>
-              <SizableText size="$bodySm">{item.symbol}</SizableText>
+              <SizableText size="$bodySmMedium">{item.symbol}</SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
                 {item.name}
               </SizableText>
             </YStack>
+            {isArbUSDC ? (
+              <Badge
+                badgeSize="sm"
+                height={24}
+                borderRadius="$full"
+                borderColor="$borderInfo"
+                bg="$bgInfo"
+                px="$2.5"
+              >
+                <SizableText size="$bodySm" color="$textInfo">
+                  {intl.formatMessage({
+                    id: ETranslations.perp_deposit_direct,
+                  })}
+                </SizableText>
+              </Badge>
+            ) : null}
           </XStack>
           <YStack alignItems="flex-end">
-            <SizableText size="$bodySm">{balanceFormatted}</SizableText>
+            <SizableText size="$bodySmMedium">{balanceFormatted}</SizableText>
             <SizableText size="$bodySm" color="$textSubdued">
               {fiatValueFormatted}
             </SizableText>
@@ -244,7 +270,7 @@ function SelectTokenPopoverContent({
         </ListItem>
       );
     },
-    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress],
+    [symbol, setPerpsDepositTokensAtom, closePopover, handleMaxPress, intl],
   );
   return (
     <YStack>
@@ -308,8 +334,14 @@ function DepositWithdrawContent({
         currency: '$',
       },
     });
-    const pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
-    const pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    let pnlColor = '$text';
+    if (!pnlBn.isZero()) {
+      pnlColor = pnlBn.lt(0) ? '$red11' : '$green11';
+    }
+    let pnlPlusOrMinus = '';
+    if (!pnlBn.isZero()) {
+      pnlPlusOrMinus = pnlBn.lt(0) ? '-' : '+';
+    }
     return { pnlFormatted, pnlColor, pnlPlusOrMinus };
   }, [unrealizedPnl]);
   const [
@@ -1008,7 +1040,12 @@ function DepositWithdrawContent({
           snapPoints: [80],
           snapPointsMode: 'percent',
         }}
+        floatingPanelProps={{
+          maxHeight: 400,
+          width: 352,
+        }}
         placement="bottom-end"
+        offset={{ mainAxis: 10, crossAxis: 12 }}
         renderTrigger={
           <XStack alignItems="center" gap="$1" cursor="pointer">
             <SizableText size="$bodyMd" color="$textSubdued">
@@ -1055,7 +1092,12 @@ function DepositWithdrawContent({
       canDeposit: depositToAmountBN.gt(0) && !depositToAmountBN.isNaN(),
     };
   }, [isArbitrumUsdcToken, amountBN, perpDepositQuote?.result?.toAmount]);
-
+  const currentNetworkInfo = useMemo(() => {
+    if (!currentPerpsDepositSelectedToken?.networkId) return null;
+    return networkUtils.getLocalNetworkInfo(
+      currentPerpsDepositSelectedToken?.networkId ?? '',
+    );
+  }, [currentPerpsDepositSelectedToken?.networkId]);
   const content = (
     <YStack
       gap="$4"
@@ -1219,30 +1261,46 @@ function DepositWithdrawContent({
             {balanceLoading && checkAccountSupport ? (
               <Skeleton w={80} h={14} />
             ) : (
-              <DashText
-                dashColor="$textDisabled"
-                dashThickness={0.2}
-                dashGap={3}
-                cursor="pointer"
-                disabled={!checkAccountSupport}
-                onPress={() => {
-                  handleMaxPress({
-                    networkId:
-                      currentPerpsDepositSelectedToken?.networkId ?? '',
-                    isNative: !!currentPerpsDepositSelectedToken?.isNative,
-                    amount:
-                      currentPerpsDepositSelectedToken?.balanceParsed || '0',
-                    symbol: currentPerpsDepositSelectedToken?.symbol ?? '',
-                    decimals: currentPerpsDepositSelectedToken?.decimals ?? 6,
-                  });
-                }}
-                size="$bodyMd"
-              >
-                {availableBalance.displayBalance || '0.00'}
-              </DashText>
+              <>
+                <SizableText size="$bodyMd" color="$text">
+                  {availableBalance.displayBalance || '0.00'}
+                </SizableText>
+                <SizableText
+                  size="$bodyMd"
+                  color="$textSuccess"
+                  cursor="pointer"
+                  onPress={() => {
+                    handleMaxPress({
+                      networkId:
+                        currentPerpsDepositSelectedToken?.networkId ?? '',
+                      isNative: !!currentPerpsDepositSelectedToken?.isNative,
+                      amount:
+                        currentPerpsDepositSelectedToken?.balanceParsed || '0',
+                      symbol: currentPerpsDepositSelectedToken?.symbol ?? '',
+                      decimals: currentPerpsDepositSelectedToken?.decimals ?? 6,
+                    });
+                  }}
+                >
+                  Max
+                </SizableText>
+              </>
             )}
           </XStack>
         </XStack>
+        {selectedAction === 'deposit' ? (
+          <XStack justifyContent="space-between" alignItems="center">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.perp_deposit_chain,
+              })}
+            </SizableText>
+            <XStack alignItems="center" gap="$2">
+              <SizableText size="$bodyMd" color="$text">
+                {currentNetworkInfo?.name}
+              </SizableText>
+            </XStack>
+          </XStack>
+        ) : null}
         {selectedAction === 'withdraw' ? (
           <XStack justifyContent="space-between" alignItems="center">
             {gtMd ? (

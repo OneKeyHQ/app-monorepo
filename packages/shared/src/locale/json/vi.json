@@ -2083,6 +2083,7 @@
   "perp.cost": "Chi phí",
   "perp.cross_mode_desc": "Ký quỹ và PnL được chia sẻ giữa các vị thế. Bạn có thể mất tất cả các vị thế nếu bị thanh lý.",
   "perp.deposit_chain": "Chuỗi Nạp Tiền",
+  "perp.deposit_direct": "Gửi tiền trực tiếp",
   "perp.deposit_on": "Trên {chain}",
   "perp.deposit_try_to": "Cố gắng ",
   "perp.enable_trading_desc": "Kích hoạt giao dịch sẽ mở một kênh riêng dành cho các lệnh tức thì, không tốn Gas. Không cần phí Gas để kích hoạt.",

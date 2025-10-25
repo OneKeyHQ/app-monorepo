@@ -2083,6 +2083,7 @@
   "perp.cost": "Custo",
   "perp.cross_mode_desc": "Margem e PnL são compartilhados entre as posições. Você pode perder todas as suas posições se ocorrer liquidação.",
   "perp.deposit_chain": "Rede de Depósito",
+  "perp.deposit_direct": "Depósito direto",
   "perp.deposit_on": "Em {chain}",
   "perp.deposit_try_to": "Tentar ",
   "perp.enable_trading_desc": "Activar el trading abre un canal para órdenes instantáneas sin Gas. No hay comisión por activarlo.",

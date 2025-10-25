@@ -2083,6 +2083,7 @@
   "perp.cost": "成本",
   "perp.cross_mode_desc": "保证金和盈亏在各持仓间共享。如果发生强制平仓，您可能会失去所有持仓",
   "perp.deposit_chain": "充值网络",
+  "perp.deposit_direct": "直接存款",
   "perp.deposit_on": "在 {chain}",
   "perp.deposit_try_to": "尝试",
   "perp.enable_trading_desc": "启用交易将开启专属交易通道，支持即时交易且免 Gas 下单，启用过程无需 Gas 费",
