@@ -1,4 +1,4 @@
-import { LogToConsole, LogToServer } from './decorators';
+import { LogToConsole, LogToLocal, LogToServer } from './decorators';
 
 export abstract class BaseScene {
   constructor() {

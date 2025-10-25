@@ -6,7 +6,7 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
 @interface LaunchOptionsManager ()
 @property (nonatomic, strong) NSDictionary *launchOptions;
-@property (nonatomic, strong) NSString *deviceToken;
+@property (nonatomic, strong) NSData *deviceToken;
 @property (nonatomic, strong) NSNumber *startupTime;
 
 @end
@@ -61,14 +61,25 @@ static LaunchOptionsManager *sharedInstance = nil;
     }
 }
 
-- (void)saveDeviceToken:(NSString *)deviceToken {
+- (void)saveDeviceToken:(NSData *)deviceToken {
     if (deviceToken) {
         self.deviceToken = deviceToken;
     }
 }
 
-- (NSString *)getDeviceToken {
+- (NSData *)getDeviceToken {
     return [LaunchOptionsManager sharedInstance].deviceToken;
+}
+
+- (NSString *)getDeviceTokenString {
+    NSData *deviceToken = [self getDeviceToken];
+    if (!deviceToken) {
+        return @"";
+    }
+    return [[[[deviceToken description]
+                         stringByReplacingOccurrencesOfString: @"<" withString: @""] 
+                        stringByReplacingOccurrencesOfString: @">" withString: @""] 
+                       stringByReplacingOccurrencesOfString: @" " withString: @""];
 }
 
 // MARK: - RCTBridgeModule
@@ -125,10 +136,18 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
     }
 }
 
+RCT_EXPORT_METHOD(registerDeviceToken:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject) {
+    NSData *deviceToken = [self getDeviceToken];
+    [JPUSHService registerDeviceToken:deviceToken];
+    DDLogDebug(@"registerDeviceToken: %@", [self getDeviceTokenString]);
+    resolve(@YES);
+}
+
 RCT_EXPORT_METHOD(getDeviceToken:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
-    NSString *deviceToken = [self getDeviceToken];
-    resolve(deviceToken);
+    NSString * deviceTokenString = [self getDeviceTokenString];
+    resolve(deviceTokenString);
 }
 
 RCT_EXPORT_METHOD(getStartupTime:(RCTPromiseResolveBlock)resolve

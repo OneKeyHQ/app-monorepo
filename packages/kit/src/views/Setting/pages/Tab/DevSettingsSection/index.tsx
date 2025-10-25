@@ -62,6 +62,8 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 
+import { exportLogs } from '../exportLogs';
+
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
@@ -1094,6 +1096,13 @@ const BaseDevSettingsSection = () => {
           }}
         />
       ) : null}
+      <SectionPressItem
+        icon="FolderOutline"
+        title="Export Logs"
+        onPress={() => {
+          void exportLogs('onekey_logs');
+        }}
+      />
     </Section>
   );
 };
