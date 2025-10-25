@@ -30,7 +30,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 type IBtcAddressRow = {
   key: string;
@@ -215,7 +215,7 @@ function BtcAddresses() {
               {hasRows ? (
                 <Table
                   dataSource={rows}
-                  contentContainerStyle={{ gap: '$3', px: '$0', pb: '$12' }}
+                  contentContainerStyle={{ gap: '$2', px: '$0' }}
                   columns={[
                     {
                       title: intl.formatMessage({
@@ -255,7 +255,7 @@ function BtcAddresses() {
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: '$2',
-                        minWidth: 140,
+                        minWidth: 180,
                         overflow: 'visible',
                       },
                       render: (text, record) => (
@@ -283,7 +283,7 @@ function BtcAddresses() {
                     mx: '$0',
                     px: '$5',
                     py: '$1',
-                    minHeight: 28,
+                    minHeight: 44,
                     alignItems: 'center',
                     borderRadius: 0,
                     overflow: 'visible',
