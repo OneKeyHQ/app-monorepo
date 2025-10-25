@@ -783,9 +783,11 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
   }) {
     if (
-      (networkUtils.isBTCNetwork(networkId) &&
-        accountUtils.isHdAccount({ accountId })) ||
-      accountUtils.isHwAccount({ accountId })
+      accountUtils.isEnabledBtcFreshAddress({
+        networkId,
+        accountId,
+        enableBTCFreshAddress: true, // always true, check in other method
+      })
     ) {
       const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
         accountId,
@@ -839,7 +841,14 @@ class ServiceAccountProfile extends ServiceBase {
         },
       );
     btcAccounts.networkAccounts?.forEach((account) => {
-      if (account.account?.id) {
+      if (
+        account.account?.id &&
+        accountUtils.isEnabledBtcFreshAddress({
+          networkId: btcAccounts.network.id,
+          accountId: account.account?.id ?? '',
+          enableBTCFreshAddress,
+        })
+      ) {
         void this.syncBTCFreshAddress({
           networkId: btcAccounts.network.id,
           accountId: account.account.id,
@@ -1113,7 +1122,14 @@ class ServiceAccountProfile extends ServiceBase {
       },
     });
     appEventBus.emit(EAppEventBusNames.BtcFreshAddressUpdated, undefined);
-    // appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    // Update push notification subscription accounts after BTC fresh address update
+    void this.backgroundApi.serviceNotification.registerClientWithAppendAccounts(
+      {
+        dbAccounts: [account],
+      },
+    );
   }
 
   private getLocalPendingTxsForFreshAddress = memoizee(
