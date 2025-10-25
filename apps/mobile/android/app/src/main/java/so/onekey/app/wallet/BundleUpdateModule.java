@@ -110,8 +110,16 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     public static String getBundleVersion(ReadableMap params) {
-        Double doubleBundleVersion = params.getDouble("bundleVersion");
-        return String.valueOf(doubleBundleVersion.intValue());
+        String key = "bundleVersion";
+        String stringBundleVersion = "";
+        try {
+            stringBundleVersion = params.getString(key);
+        } catch (Exception e) {
+            staticLog("getBundleVersion error", e.getMessage());
+            Double doubleBundleVersion = params.getDouble(key);
+            stringBundleVersion = String.valueOf(doubleBundleVersion.intValue());
+        }
+        return stringBundleVersion;
     }
 
     public static String getBundleDir(Context context) {
