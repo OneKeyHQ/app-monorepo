@@ -76,6 +76,7 @@ const EditableAccountChainSelector = ({
             accountId: account?.id,
             walletId: wallet?.id,
             networkIds,
+            useDefaultPinnedNetworks: true,
           },
         ),
       [account?.id, networkIds, wallet?.id],
