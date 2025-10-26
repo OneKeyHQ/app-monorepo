@@ -2083,6 +2083,7 @@
   "perp.cost": "成本",
   "perp.cross_mode_desc": "保證金和損益在各倉位間共享。如果發生強制平倉，您可能會失去所有倉位",
   "perp.deposit_chain": "存款網絡",
+  "perp.deposit_direct": "直接存款",
   "perp.deposit_on": "在 {chain}",
   "perp.deposit_try_to": "嘗試",
   "perp.enable_trading_desc": "启用交易將開啟專屬交易通道，支持即時交易且免 Gas 下單，啟用過程無需 Gas 費",
