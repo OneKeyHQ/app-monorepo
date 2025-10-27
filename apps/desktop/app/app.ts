@@ -812,8 +812,11 @@ async function createMainWindow() {
         // resolve iframe path
         if (isJsSdkFile && isIFrameHtml) {
           if (useJsBundle && indexHtmlPath && bundleDirPath) {
-            const key = path.join('static', 'js-sdk', 'iframe.html');
+            let key = path.join('static', 'js-sdk', 'iframe.html');
             const filePath = path.join(bundleDirPath, key);
+            if (isWin) {
+              key = key.replace(/\\/g, '/');
+            }
             const sha512 = metadata[key];
             if (!checkFileSha512(filePath, sha512)) {
               logger.info(
