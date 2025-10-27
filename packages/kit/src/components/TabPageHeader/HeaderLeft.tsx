@@ -53,6 +53,9 @@ export function HeaderLeft({
       return customHeaderLeftItems;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
+      if (platformEnv.isWebDappMode) {
+        return withWebNavigation(null);
+      }
       return withWebNavigation(
         <XStack gap="$1.5">
           <NavBackButton

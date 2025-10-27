@@ -49,6 +49,7 @@ export function ActionButton({
   onSwapAction,
   ...otherProps
 }: IActionButtonProps) {
+  const [hasClickedWithoutAmount, setHasClickedWithoutAmount] = useState(false);
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
@@ -191,8 +192,20 @@ export function ActionButton({
   }
 
   // Use colored style only for normal trading states (has amount, not disabled, has account)
-  const shouldUseColoredStyle =
+  let shouldUseColoredStyle =
     hasAmount && !shouldDisable && !noAccount && !disabled;
+
+  let isButtonDisabled = Boolean(
+    (shouldDisable || disabled || !hasAmount) &&
+      !shouldCreateAddress?.result &&
+      !noAccount,
+  );
+
+  if (!hasAmount && !hasClickedWithoutAmount) {
+    shouldUseColoredStyle = true;
+    buttonText = `${actionText} ${tokenDetail?.symbol || ''}`.trim();
+    isButtonDisabled = false;
+  }
 
   const buttonStyleProps = shouldUseColoredStyle
     ? {
@@ -201,7 +214,10 @@ export function ActionButton({
             ? '$buttonSuccess'
             : '$buttonCritical',
         color: '$textOnColor',
-        borderWidth: 0,
+        borderColor:
+          tradeType === ESwapDirection.BUY
+            ? '$buttonSuccess'
+            : '$buttonCritical',
         shadowOpacity: 0,
         elevation: 0,
         hoverStyle: {
@@ -217,6 +233,12 @@ export function ActionButton({
 
   const handlePress = useCallback(
     async (event: GestureResponderEvent) => {
+      setHasClickedWithoutAmount(true);
+
+      if (!hasAmount) {
+        return;
+      }
+
       if (noAccount) {
         navigation.pushModal(EModalRoutes.OnboardingModal, {
           screen: EOnboardingPages.GetStarted,
@@ -255,15 +277,16 @@ export function ActionButton({
       onPress?.(event);
     },
     [
-      networkId,
+      hasAmount,
       noAccount,
-      shouldCreateAddress,
+      shouldCreateAddress?.result,
       onPress,
       navigation,
       createAddress,
       activeAccount?.wallet?.id,
       activeAccount?.indexedAccount?.id,
       activeAccount?.deriveType,
+      networkId,
       onSwapAction,
     ],
   );
@@ -271,11 +294,7 @@ export function ActionButton({
   return (
     <Button
       size={gtMd ? 'medium' : 'large'}
-      disabled={Boolean(
-        (shouldDisable || disabled || !hasAmount) &&
-          !shouldCreateAddress?.result &&
-          !noAccount,
-      )}
+      disabled={isButtonDisabled}
       onPress={shouldDisable ? undefined : handlePress}
       loading={createAddressLoading || otherProps.loading}
       {...otherProps}
