@@ -281,7 +281,7 @@ function DesktopCustomTabBarItem({
     if (showTooltipRef.current) {
       closeTooltipTimer.current = setTimeout(() => {
         setShowTooltip(false);
-      }, 350);
+      }, 250);
     } else if (showTooltipTimer.current) {
       clearTimeout(showTooltipTimer.current);
     }
