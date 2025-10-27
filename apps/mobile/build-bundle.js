@@ -278,7 +278,7 @@ const buildIOSBundle = async () => {
 
   const zipFilePath = buildZipOutputAssetPath('ios-bundle.zip');
   fs.moveSync(buildIOSOutputAssetPath('dist/dist.zip'), zipFilePath);
-  generateFileInfo(zipFilePath);
+  generateFileInfo(zipFilePath, undefined, 'ios');
   generateFileInfo(
     buildIOSOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('ios.metadata.json.info'),
@@ -407,7 +407,7 @@ const buildAndroidBundle = async () => {
 
   const zipFilePath = buildZipOutputAssetPath('android-bundle.zip');
   fs.moveSync(buildAndroidOutputAssetPath('dist/dist.zip'), zipFilePath);
-  generateFileInfo(zipFilePath);
+  generateFileInfo(zipFilePath, undefined, 'android');
   generateFileInfo(
     buildAndroidOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('android.metadata.json.info'),
