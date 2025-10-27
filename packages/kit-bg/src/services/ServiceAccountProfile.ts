@@ -1,4 +1,5 @@
 import BigNumber from 'bignumber.js';
+
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
@@ -44,8 +45,6 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IDBUtxoAccount } from '../dbs/local/types';
-import type VaultBtc from '../vaults/impls/btc/Vault';
-import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceAccountProfile extends ServiceBase {
@@ -426,6 +425,19 @@ class ServiceAccountProfile extends ServiceBase {
         walletAccountItem.accountName
       ) {
         walletAccountItems = [walletAccountItem];
+      }
+
+      if (
+        walletAccountItems.length === 0 &&
+        networkUtils.isBTCNetwork(networkId)
+      ) {
+        walletAccountItems =
+          await this.backgroundApi.serviceFreshAddress.getAccountNameFromFreshAddress(
+            {
+              address,
+              networkId,
+            },
+          );
       }
 
       if (walletAccountItems.length > 0) {

@@ -36,6 +36,11 @@ export class SimpleDbEntityBTCFreshAddressMeta extends SimpleDbEntityBase<IBtcFr
     return raw?.data?.[key];
   }
 
+  async getRecordByKey(key: string) {
+    const raw = await this.getRawData();
+    return raw?.data?.[key];
+  }
+
   async updateRecord({
     networkId,
     xpubSegwit,
