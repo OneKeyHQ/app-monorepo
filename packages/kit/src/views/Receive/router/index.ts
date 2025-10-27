@@ -30,6 +30,10 @@ const DeriveTypesAddress = LazyLoadPage(
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
 );
 
+const BtcAddresses = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Receive/pages/BtcAddresses'),
+);
+
 export const ModalReceiveStack: IModalFlowNavigatorConfig<
   EModalReceiveRoutes,
   IModalReceiveParamList
@@ -57,5 +61,9 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
   {
     name: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
     component: DeriveTypesAddress,
+  },
+  {
+    name: EModalReceiveRoutes.BtcAddresses,
+    component: BtcAddresses,
   },
 ];

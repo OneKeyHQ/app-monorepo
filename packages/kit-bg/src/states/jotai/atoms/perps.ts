@@ -233,7 +233,6 @@ export const {
 });
 
 // Token Selector Sort Config (Persisted)
-// null means no sorting applied, preserving default order from API
 export const {
   target: perpTokenSortConfigPersistAtom,
   use: usePerpTokenSortConfigPersistAtom,
@@ -315,7 +314,7 @@ export interface IPerpsDepositToken {
 }
 
 export interface IPerpsDepositTokensAtom {
-  tokens: Map<string, IPerpsDepositToken[]>;
+  tokens: Record<string, IPerpsDepositToken[]>;
   currentPerpsDepositSelectedToken?: IPerpsDepositToken;
 }
 export const {
@@ -324,7 +323,7 @@ export const {
 } = globalAtom<IPerpsDepositTokensAtom>({
   name: EAtomNames.perpsDepositTokensAtom,
   initialValue: {
-    tokens: new Map(),
+    tokens: {},
   },
 });
 

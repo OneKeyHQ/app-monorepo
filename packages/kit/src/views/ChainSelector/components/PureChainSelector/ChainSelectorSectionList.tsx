@@ -229,7 +229,11 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
   const { result: frequentlyUsedNetworks, isLoading } = usePromiseResult(
     async () => {
       const _frequentlyUsed =
-        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks();
+        await backgroundApiProxy.serviceNetwork.getNetworkSelectorPinnedNetworks(
+          {
+            useDefaultPinnedNetworks: true,
+          },
+        );
       const availableNetworksMapFromNetworks = new Map(
         networks.map((network) => [network.id, network]),
       );

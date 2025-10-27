@@ -183,6 +183,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     try {
       const stored =
         await backgroundApiProxy.simpleDb.perp.getOrderBookTickOptions();
+      console.log(
+        'orderBookTickOptionsAtom__ensureOrderBookTickOptionsLoaded',
+        stored,
+      );
       set(orderBookTickOptionsAtom(), stored);
     } catch (error) {
       console.error('Failed to load order book tick options:', error);
@@ -230,6 +234,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         next[symbol] = option;
       }
 
+      console.log('orderBookTickOptionsAtom__setOrderBookTickOption', next);
       set(orderBookTickOptionsAtom(), next);
 
       try {

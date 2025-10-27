@@ -49,6 +49,9 @@ const LaunchOptionsManager: ILaunchOptionsManagerInterface = {
   getUIVisibleFromPerformanceNow: () => {
     return Promise.resolve(0);
   },
+  registerDeviceToken: () => {
+    return Promise.resolve(true);
+  },
 };
 
 export default LaunchOptionsManager;

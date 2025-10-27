@@ -172,7 +172,7 @@ const SwapQuoteInput = ({
         maxAmount = BigNumber.max(
           0,
           maxAmount.minus(new BigNumber(reserveGas)),
-        );
+        ).decimalPlaces(fromToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
       }
       let reserveGasFormatted: string | undefined | number = reserveGas;
       if (reserveGas) {
@@ -200,6 +200,7 @@ const SwapQuoteInput = ({
     fromTokenBalance,
     fromToken?.isNative,
     fromToken?.networkId,
+    fromToken?.decimals,
     swapNativeTokenReserveGas,
     intl,
     reserveGasFormatter,

@@ -19,4 +19,5 @@ export interface IMarketToken {
   chainId?: string;
   sortIndex?: number;
   isNative?: boolean;
+  communityRecognized?: boolean;
 }
