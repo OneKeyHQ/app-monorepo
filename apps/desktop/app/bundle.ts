@@ -290,6 +290,11 @@ export const checkFileHash = ({
       .replace('C:/', '')
       .replace(bundleDirPath, '')
       .replace(/\\/g, '/');
+
+    // Remove leading slash if present
+    if (key.startsWith('/')) {
+      key = key.substring(1);
+    }
   }
   if (!metadata[key]) {
     logger.info(`${key}: File ${url} not found in metadata.json`);
