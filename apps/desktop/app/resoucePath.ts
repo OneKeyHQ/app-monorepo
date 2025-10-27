@@ -27,14 +27,14 @@ export const getResourcesPath = () => {
   const staticPath = getJsBundleStaticPath();
   if (staticPath) {
     const dir = path.dirname(staticPath);
-    return dir;
+    return dir.replace(/\\/g, '/');
   }
   return getAppStaticResourcesPath();
 };
 
 export const getStaticPath = () => {
   const resourcesPath = getResourcesPath();
-  return isDev
+  return !isDev
     ? path.join(__dirname, '../../public/static')
     : path.join(resourcesPath, 'static');
 };
