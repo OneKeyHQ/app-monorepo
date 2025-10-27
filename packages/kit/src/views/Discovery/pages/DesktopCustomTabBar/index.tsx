@@ -360,7 +360,12 @@ function DesktopCustomTabBar() {
         renderSectionHeader={({ index }) =>
           index === 1 ? (
             <>
-              <XStack group="sidebarBrowserDivider" alignItems="center" p="$2">
+              <XStack
+                group="sidebarBrowserDivider"
+                alignItems="center"
+                p="$2"
+                px={isCollapsed ? '$0' : '$2'}
+              >
                 <Divider testID="pin-tab-divider" />
                 {tabs.filter((x) => !x.isPinned).length > 0 ? (
                   <XStack

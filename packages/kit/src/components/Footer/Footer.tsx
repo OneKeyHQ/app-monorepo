@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack, useOnRouterChange } from '@onekeyhq/components';
+import { Image, XStack, useOnRouterChange } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { usePerpsLogo } from '../../views/Perp/hooks/usePerpsLogo';
 import { PerpsProviderMirror } from '../../views/Perp/PerpsProviderMirror';
 import { NetworkStatus } from '../NetworkStatus';
 import { PerpRefreshButton } from '../PerpRefreshButton';
@@ -44,6 +45,7 @@ const LINKS = [
 export function Footer() {
   const intl = useIntl();
   const [currentTab, setCurrentTab] = useState<ETabRoutes | null>(null);
+  const { poweredByHyperliquidLogo } = usePerpsLogo();
 
   useOnRouterChange((state) => {
     if (!state) {
@@ -96,7 +98,18 @@ export function Footer() {
         ) : null}
       </XStack>
 
-      <FooterNavigation>{linkItems}</FooterNavigation>
+      <XStack gap="$3" alignItems="center">
+        <FooterNavigation>{linkItems}</FooterNavigation>
+
+        {isInPerpRoute ? (
+          <Image
+            source={poweredByHyperliquidLogo}
+            w={145}
+            h={25}
+            resizeMode="contain"
+          />
+        ) : null}
+      </XStack>
     </XStack>
   );
 }

@@ -60,11 +60,7 @@ export function TokenSupplementaryInfo() {
       return [];
     }
 
-    // Note: circulatingSupply and maxSupply are not available in IMarketTokenDetail
-    // Using fdv and marketCap as alternatives (similar to mobile TokenOverview)
-    const circulatingSupply = toSupplyInput(
-      tokenDetail.fdv || tokenDetail.marketCap,
-    );
+    const circulatingSupply = toSupplyInput(tokenDetail.circulatingSupply);
     const marketCap = toSupplyInput(tokenDetail.marketCap);
     const fdv = toSupplyInput(tokenDetail.fdv);
 

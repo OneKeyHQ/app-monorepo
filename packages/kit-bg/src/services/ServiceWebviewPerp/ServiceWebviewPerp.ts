@@ -757,6 +757,9 @@ class ServiceWebviewPerp extends ServiceBase {
 
   @backgroundMethod()
   async setPerpUserConfig(type: EPerpUserType) {
+    // if (type === EPerpUserType.PERP_WEB) {
+    //   void this.backgroundApi.serviceHyperliquidSubscription.pauseSubscriptions();
+    // }
     await perpsUserConfigPersistAtom.set((prev) => ({
       ...prev,
       perpUserConfig: { ...prev.perpUserConfig, currentUserType: type },

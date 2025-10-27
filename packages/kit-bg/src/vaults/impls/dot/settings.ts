@@ -96,6 +96,27 @@ const settings: IVaultSettings = {
       genesisHash:
         '0x6b5e488e0fa8f9821110d5c13f4c468abcd43ce5e297e62b34c53c3346465956',
     },
+    'dot--hydration': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'HDX',
+      genesisHash:
+        '0xafdc188f45c71dacbaa0b62e16a91f726c7b8699a9748cdf715459de6b7f366d',
+    },
+    'dot--asset-hub': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'DOT',
+      genesisHash:
+        '0x68d56f15f85d3136970ec16946040bc1752654e906147f7e43e9d539d7c3de2f',
+    },
+    'dot--bifrost-ksm': {
+      curve: 'ed25519',
+      addressPrefix: '0',
+      nativeTokenAddress: 'BNC',
+      genesisHash:
+        '0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed',
+    },
   },
 };
 

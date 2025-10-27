@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   ListView,
   Page,
   SizableText,
@@ -11,8 +12,17 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsAllAssetsFilteredLengthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsAllAssetCtxsAtom,
+  usePerpsAllAssetsFilteredAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { usePerpTokenSortConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { sortPerpsAssetIndices } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type {
+  IPerpTokenSortConfig,
+  IPerpTokenSortField,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpTokenSelector } from '../../hooks';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
@@ -42,17 +52,36 @@ function MobileTokenSelectorModal({
     }
   };
 
-  const [filteredTokensLength] = usePerpsAllAssetsFilteredLengthAtom();
-
-  // cause ListView rerender
-  // const [allAssetsFiltered] = usePerpsAllAssetsFilteredAtom();
-  // console.log(allAssetsFiltered);
+  const [{ assets }] = usePerpsAllAssetsFilteredAtom();
+  const [{ assetCtxs }] = usePerpsAllAssetCtxsAtom();
+  const [sortConfig, setSortConfig] = usePerpTokenSortConfigPersistAtom();
 
   const mockedListData = useMemo(() => {
-    return Array.from({ length: filteredTokensLength }, (_, index) => ({
-      index,
+    const sortedIndices = sortPerpsAssetIndices({
+      assets,
+      assetCtxs,
+      sortField: sortConfig?.field ?? '',
+      sortDirection: sortConfig?.direction ?? 'desc',
+    });
+    return sortedIndices.map((originalIndex) => ({
+      index: originalIndex,
     }));
-  }, [filteredTokensLength]);
+  }, [assets, assetCtxs, sortConfig]);
+
+  const handleSortPress = useCallback(
+    (field: IPerpTokenSortField) => {
+      setSortConfig((prev: IPerpTokenSortConfig | null) => {
+        if (prev?.field === field) {
+          if (prev.direction === 'asc') {
+            return null;
+          }
+          return { field, direction: 'asc' };
+        }
+        return { field, direction: 'desc' };
+      });
+    },
+    [setSortConfig],
+  );
 
   return (
     <Page>
@@ -76,24 +105,72 @@ function MobileTokenSelectorModal({
         borderBottomWidth="$px"
         borderBottomColor="$borderSubdued"
       >
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_asset,
-          })}{' '}
-          /{' '}
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_volume,
-          })}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_last_price,
-          })}{' '}
-          /{' '}
-          {intl.formatMessage({
-            id: ETranslations.perp_token_selector_24h_change,
-          })}
-        </SizableText>
+        <XStack
+          gap="$1"
+          alignItems="center"
+          onPress={() => handleSortPress('volume24h')}
+          cursor="pointer"
+          userSelect="none"
+        >
+          <SizableText
+            size="$bodySm"
+            color={sortConfig?.field === 'volume24h' ? '$text' : '$textSubdued'}
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_token_selector_asset,
+            })}{' '}
+            /{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_token_selector_volume,
+            })}
+          </SizableText>
+          {sortConfig?.field === 'volume24h' ? (
+            <Icon
+              name={
+                sortConfig.direction === 'asc'
+                  ? 'ChevronTopOutline'
+                  : 'ChevronBottomOutline'
+              }
+              size="$3"
+              color="$icon"
+            />
+          ) : null}
+        </XStack>
+        <XStack
+          gap="$1"
+          alignItems="center"
+          onPress={() => handleSortPress('change24hPercent')}
+          cursor="pointer"
+          userSelect="none"
+        >
+          <SizableText
+            size="$bodySm"
+            color={
+              sortConfig?.field === 'change24hPercent'
+                ? '$text'
+                : '$textSubdued'
+            }
+          >
+            {intl.formatMessage({
+              id: ETranslations.perp_token_selector_last_price,
+            })}{' '}
+            /{' '}
+            {intl.formatMessage({
+              id: ETranslations.perp_token_selector_24h_change,
+            })}
+          </SizableText>
+          {sortConfig?.field === 'change24hPercent' ? (
+            <Icon
+              name={
+                sortConfig.direction === 'asc'
+                  ? 'ChevronTopOutline'
+                  : 'ChevronBottomOutline'
+              }
+              size="$3"
+              color="$icon"
+            />
+          ) : null}
+        </XStack>
       </XStack>
       <Page.Body>
         <YStack flex={1} mt="$2">

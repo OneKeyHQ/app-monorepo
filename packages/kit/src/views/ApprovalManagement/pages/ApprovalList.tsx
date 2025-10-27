@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/native';
-import { pickBy } from 'lodash';
+import { isNil, pickBy } from 'lodash';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -76,14 +76,23 @@ function ApprovalList() {
     });
 
   useEffect(() => {
-    if (
-      typeof routeBulkMode !== 'undefined' &&
-      !accountUtils.isWatchingWallet({ walletId })
-    ) {
+    if (!isNil(routeBulkMode) && !accountUtils.isWatchingWallet({ walletId })) {
       updateIsBulkRevokeMode(!!routeBulkMode);
     }
-    // Only apply on mount or when param changes
-  }, [routeBulkMode, updateIsBulkRevokeMode, walletId]);
+    return () => {
+      updateSearchKey('');
+      updateIsBulkRevokeMode(false);
+      updateSelectedTokens({
+        selectedTokens: {},
+      });
+    };
+  }, [
+    routeBulkMode,
+    updateIsBulkRevokeMode,
+    updateSearchKey,
+    updateSelectedTokens,
+    walletId,
+  ]);
 
   const filteredSelectedTokensByNetwork = useMemo(() => {
     if (searchNetworkId === getNetworkIdsMap().onekeyall) {
@@ -248,16 +257,9 @@ function ApprovalList() {
       />
     );
   };
-  const handleOnClose = useCallback(() => {
-    updateSearchKey('');
-    updateIsBulkRevokeMode(false);
-    updateSelectedTokens({
-      selectedTokens: {},
-    });
-  }, [updateIsBulkRevokeMode, updateSelectedTokens, updateSearchKey]);
 
   return (
-    <Page onClose={handleOnClose}>
+    <Page>
       <Page.Header
         title={
           isBulkRevokeMode
