@@ -102,9 +102,7 @@ const resourcesPath = getResourcesPath();
 // const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
-const sdkConnectSrc = isDev
-  ? `file://${path.join(staticPath, 'js-sdk/')}`
-  : path.join('/static', 'js-sdk/');
+const sdkConnectSrc = `file://${path.join(staticPath, 'js-sdk/')}`;
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -542,7 +540,7 @@ async function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  const src = isDev
+  const src = !bundleIndexHtmlPath
     ? 'http://localhost:3001/'
     : formatUrl({
         pathname: bundleIndexHtmlPath || 'index.html',
