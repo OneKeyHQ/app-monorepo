@@ -116,9 +116,9 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
                 NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
                 userInfo[@"extras"] = remoteNotification ?: [NSNull null];
 
-                NSDictionary aps = remoteNotification[@"aps"];
+                NSDictionary *aps = remoteNotification[@"aps"];
                 if (aps) {
-                    NSDictionary alert = aps[@"alert"];
+                    NSDictionary *alert = aps[@"alert"];
                     if (alert) {
                         userInfo[@"title"] = alert[@"title"] ?: @"";
                         userInfo[@"content"] = alert[@"body"] ?: @"";
