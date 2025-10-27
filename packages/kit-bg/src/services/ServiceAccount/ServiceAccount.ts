@@ -610,7 +610,6 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice,
     hwAllNetworkPrepareAccountsResponse,
     isVerifyAddressAction,
-    customReceiveAddressPath,
   }: {
     walletId: string | undefined;
     networkId: string | undefined;
@@ -621,7 +620,6 @@ class ServiceAccount extends ServiceBase {
     confirmOnDevice?: EConfirmOnDeviceType;
     hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
     isVerifyAddressAction?: boolean;
-    customReceiveAddressPath?: string;
   }) {
     if (!walletId) {
       throw new OneKeyLocalError('walletId is required');
@@ -673,7 +671,6 @@ class ServiceAccount extends ServiceBase {
       networkId,
       indexedAccountId,
       deriveType,
-      customReceiveAddressPath,
     });
 
     let prepareParams:
@@ -3539,7 +3536,6 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
     confirmOnDevice?: EConfirmOnDeviceType;
-    customReceiveAddressPath?: string;
   }): Promise<string[]> {
     const { prepareParams, deviceParams, networkId, walletId } =
       await this.getPrepareHDOrHWAccountsParams(params);
@@ -5137,18 +5133,13 @@ class ServiceAccount extends ServiceBase {
     networkId,
     indexedAccountId,
     deriveType,
-    customReceiveAddressPath,
   }: {
     networkId: string;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    customReceiveAddressPath: string | undefined;
   }): Promise<IPrepareHDOrHWAccountChainExtraParams | undefined> {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return undefined;
-    }
-    if (customReceiveAddressPath) {
-      return { receiveAddressPath: customReceiveAddressPath };
     }
     if (!indexedAccountId) {
       return undefined;
