@@ -1,109 +1,168 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import pTimeout from 'p-timeout';
 import { useIntl } from 'react-intl';
 
+import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
+  Form,
   Input,
-  SizableText,
-  Spinner,
+  Skeleton,
   Toast,
   XStack,
   YStack,
   useClipboard,
+  useForm,
+  useMedia,
 } from '@onekeyhq/components';
+import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { TRANSFER_DEEPLINK_URL } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import { EPrimeTransferServerType } from '@onekeyhq/shared/types/prime/primeTransferTypes';
+
+import { usePrimeTransferExit } from './hooks/usePrimeTransferExit';
+import { usePrimeTransferSaveCustomServer } from './hooks/usePrimeTransferSaveCustomServer';
+
+interface IPrimeTransferForm {
+  pairingCode: string;
+}
 
 export function PrimeTransferHomeEnterLink({
   remotePairingCode,
   setRemotePairingCode,
+  autoConnect,
+  autoConnectCustomServer,
 }: {
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
+  autoConnect?: boolean;
+  autoConnectCustomServer?: string;
 }) {
+  // Initialize form
+  const form = useForm<IPrimeTransferForm>({
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    defaultValues: { pairingCode: remotePairingCode || '' },
+  });
+  const isFocused = useRouteIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
+  const { exitTransferFlow } = usePrimeTransferExit();
+  const { gtSm } = useMedia();
+
+  // Watch form value and sync with existing state
+  const watchedPairingCode = form.watch('pairingCode');
+
+  useEffect(() => {
+    if (watchedPairingCode !== remotePairingCode) {
+      setRemotePairingCode(watchedPairingCode);
+    }
+  }, [watchedPairingCode, remotePairingCode, setRemotePairingCode]);
+
+  const [primeTransferAtom] = usePrimeTransferAtom();
+  const websocketConnected = primeTransferAtom.websocketConnected;
+  // const websocketConnected = false;
+
   const intl = useIntl();
   const navigation = useAppNavigation();
 
   const { start } = useScanQrCode();
-  const { onPasteClearText, clearText, getClipboard } = useClipboard();
+  const { onPasteClearText, clearText, getClipboard, supportPaste } =
+    useClipboard();
   const [isConnecting, setIsConnecting] = useState(false);
+  const isConnectingRef = useRef(isConnecting);
+  isConnectingRef.current = isConnecting;
 
-  const [primeTransferAtom] = usePrimeTransferAtom();
-
-  const connectRemoteDevice = useCallback(async () => {
+  const connectRemoteDeviceFn = useCallback(async (pairingCode: string) => {
+    // Validation is now handled by Form validate rules
+    // Get room ID for connection
     const remoteRoomId =
       await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
-        remotePairingCode,
+        pairingCode,
       );
-    if (!remoteRoomId || !remotePairingCode) {
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.transfer_invalid_code }),
-      });
-      return;
-    }
-    if (
-      remoteRoomId &&
-      primeTransferAtom.myCreatedRoomId &&
-      remoteRoomId.toUpperCase() ===
-        primeTransferAtom.myCreatedRoomId.toUpperCase()
-    ) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.transfer_pair_code_own_error,
-        }),
-      });
-      return;
-    }
-    setIsConnecting(true);
-    try {
-      await backgroundApiProxy.servicePrimeTransfer.checkPairingCodeValidAsync(
-        remotePairingCode,
-      );
-      await backgroundApiProxy.servicePrimeTransfer.joinRoom({
-        roomId: remoteRoomId,
-      });
-      await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
-        pairingCode: remotePairingCode.toUpperCase(),
-      });
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [intl, primeTransferAtom.myCreatedRoomId, remotePairingCode]);
+
+    const r1 = await backgroundApiProxy.servicePrimeTransfer.joinRoom({
+      roomId: remoteRoomId,
+    });
+    const r2 = await backgroundApiProxy.servicePrimeTransfer.verifyPairingCode({
+      pairingCode: pairingCode.toUpperCase(),
+    });
+    return undefined;
+  }, []);
+
+  const connectRemoteDevice = useCallback(
+    async (pairingCode: string) => {
+      if (isConnectingRef.current) {
+        return;
+      }
+      setIsConnecting(true);
+      try {
+        const p = connectRemoteDeviceFn(pairingCode);
+        const timeoutMessage = 'TransferConnectRemoteDeviceTimeout';
+        const result = await pTimeout(p, {
+          // milliseconds: 1,
+          milliseconds: 30_000,
+          fallback: () => {
+            return new OneKeyError(timeoutMessage);
+          },
+        });
+        if (
+          result instanceof OneKeyError &&
+          result.message === timeoutMessage
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.communication_timeout,
+            }),
+          });
+          throw result;
+        }
+      } finally {
+        setIsConnecting(false);
+      }
+    },
+    [connectRemoteDeviceFn, intl],
+  );
 
   const cleanTextFn = useCallback((text: string) => {
     return text.replace(/[^a-zA-Z0-9-]/g, '').replace(/-/g, '');
   }, []);
 
   const handlePairingCodeChange = useCallback(
-    (text: string) => {
+    (text: string, skipPreviousCheck = false) => {
       // Check if this is deletion by comparing lengths
-      const previousCleanText = (remotePairingCode || '').replace(
-        /[^a-zA-Z0-9-]/g,
-        '',
-      );
+      const previousCleanText = skipPreviousCheck
+        ? ''
+        : (remotePairingCode || '').replace(/[^a-zA-Z0-9-]/g, '');
       const currentCleanText = text.replace(/[^a-zA-Z0-9-]/g, '');
       const isDeleting = currentCleanText.length < previousCleanText.length;
 
+      let formattedText = '';
       if (isDeleting) {
         // During deletion, only filter invalid characters and convert to uppercase
         // Don't do any separator manipulation to preserve cursor position
-        setRemotePairingCode(currentCleanText);
+        formattedText = currentCleanText;
       } else {
         const groupSize = 5;
         const isAppendingInput = currentCleanText.startsWith(previousCleanText);
         if (isAppendingInput) {
           // During input, apply full formatting
-          const formattedText = stringUtils.addSeparatorToString({
+          formattedText = stringUtils.addSeparatorToString({
             str: cleanTextFn(text),
             groupSize,
             separator: '-',
           });
-          setRemotePairingCode(formattedText);
         } else {
           let keepPrevious = false;
           if (currentCleanText.includes('--')) {
@@ -119,78 +178,251 @@ export function PrimeTransferHomeEnterLink({
             }
           }
           if (keepPrevious) {
-            setRemotePairingCode(previousCleanText);
+            formattedText = previousCleanText;
           } else {
-            setRemotePairingCode(currentCleanText);
+            formattedText = currentCleanText;
           }
         }
       }
+
+      const currentFormValue = form.getValues('pairingCode');
+      if (formattedText !== currentFormValue) {
+        // Update form value
+        form.setValue('pairingCode', formattedText, {
+          // shouldValidate: true,
+          // shouldDirty: true,
+        });
+      }
+      // Keep existing state sync for compatibility
+      setRemotePairingCode(formattedText);
+
+      if (skipPreviousCheck) {
+        void form.trigger('pairingCode');
+      }
     },
-    [cleanTextFn, remotePairingCode, setRemotePairingCode],
+    [cleanTextFn, remotePairingCode, setRemotePairingCode, form],
   );
 
-  if (!primeTransferAtom.websocketConnected) {
-    return <Spinner size="large" />;
-  }
+  // Form submit handler
+  const onSubmit = useCallback(
+    (data: IPrimeTransferForm) => {
+      void connectRemoteDevice(data.pairingCode);
+    },
+    [connectRemoteDevice],
+  );
+
+  const saveCustomServerConfig = usePrimeTransferSaveCustomServer();
+
+  const [autoConnectLoading, setAutoConnectLoading] = useState(false);
+  const isAutoConnectedRef = useRef(false);
+  useEffect(() => {
+    void (async () => {
+      const doAutoConnect = async ({ delay }: { delay: number }) => {
+        try {
+          setAutoConnectLoading(true);
+          await timerUtils.wait(delay);
+          onSubmit(form.getValues());
+        } finally {
+          setAutoConnectLoading(false);
+        }
+      };
+      if (autoConnect && remotePairingCode && websocketConnected) {
+        if (!isAutoConnectedRef.current) {
+          isAutoConnectedRef.current = true;
+          if (isFocusedRef.current) {
+            if (autoConnectCustomServer) {
+              Dialog.show({
+                description: intl.formatMessage(
+                  {
+                    id: ETranslations.transfer_transfer_server_custom_confirm,
+                  },
+                  {
+                    serverName: autoConnectCustomServer,
+                  },
+                ),
+                title: intl.formatMessage({
+                  id: ETranslations.transfer_transfer,
+                }),
+                onCancel: () => {
+                  exitTransferFlow();
+                },
+                onConfirm: async () => {
+                  await saveCustomServerConfig({
+                    customServerTrimmed: autoConnectCustomServer,
+                    serverType: EPrimeTransferServerType.CUSTOM,
+                  });
+                  void doAutoConnect({ delay: 4000 });
+                },
+              });
+            } else {
+              await doAutoConnect({ delay: 2000 });
+            }
+          }
+        }
+      }
+    })();
+  }, [
+    saveCustomServerConfig,
+    autoConnect,
+    remotePairingCode,
+    form,
+    onSubmit,
+    websocketConnected,
+    autoConnectCustomServer,
+    intl,
+    exitTransferFlow,
+  ]);
+
+  const addOns: IInputAddOnProps[] = [
+    // platformEnv.isExtension
+    //   ? null
+    //   :
+    supportPaste
+      ? {
+          iconName: 'ClipboardOutline' as IKeyOfIcons,
+          onPress: async () => {
+            const text = await getClipboard();
+            if (text) {
+              handlePairingCodeChange(text || '', true);
+              clearText();
+            }
+          },
+        }
+      : null,
+    {
+      iconName: 'ScanOutline' as IKeyOfIcons,
+      onPress: async () => {
+        const result = await start({
+          handlers: [],
+          autoHandleResult: false,
+        });
+        let text = result?.raw || '';
+        if (text.startsWith(TRANSFER_DEEPLINK_URL)) {
+          const parsedUrl = uriUtils.parseUrl(text);
+          const code = parsedUrl?.urlParamList?.code;
+          if (code) {
+            text = code;
+          }
+        }
+        handlePairingCodeChange(text, true);
+      },
+    },
+  ].filter(Boolean);
 
   return (
-    <>
+    <Form form={form} childrenGap={0}>
       <YStack gap="$1">
-        <SizableText size="$bodyMdMedium">
-          {intl.formatMessage({ id: ETranslations.transfer_pair_code })}
-        </SizableText>
-
-        <Input
-          size="large"
-          maxLength={59}
-          value={remotePairingCode}
-          onChangeText={handlePairingCodeChange}
-          onPaste={onPasteClearText}
-          autoCapitalize="characters"
-          textTransform="uppercase"
-          placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
-          addOns={[
-            {
-              iconName: 'ClipboardOutline',
-              onPress: async () => {
-                const text = await getClipboard();
-                if (text) {
-                  handlePairingCodeChange(text || '');
-                  clearText();
+        <Form.Field
+          label={intl.formatMessage({ id: ETranslations.transfer_pair_code })}
+          description={intl.formatMessage({
+            id: ETranslations.transfer_enter_pair_code_desc,
+          })}
+          name="pairingCode"
+          rules={{
+            required: {
+              value: true,
+              message: intl.formatMessage({
+                id: ETranslations.transfer_invalid_code,
+              }),
+            },
+            onChange: (e) => {
+              handlePairingCodeChange(
+                (e as { target: { value: string } })?.target?.value || '',
+                false,
+              );
+            },
+            validate: {
+              notSelfPairing: async (value) => {
+                if (!value) {
+                  return intl.formatMessage({
+                    id: ETranslations.transfer_invalid_code,
+                  });
+                }
+                try {
+                  const remoteRoomId =
+                    await backgroundApiProxy.servicePrimeTransfer.getRoomIdFromPairingCode(
+                      value,
+                    );
+                  if (!remoteRoomId) {
+                    return intl.formatMessage({
+                      id: ETranslations.transfer_invalid_code,
+                    });
+                  }
+                  if (
+                    remoteRoomId &&
+                    primeTransferAtom.myCreatedRoomId &&
+                    remoteRoomId.toUpperCase() ===
+                      primeTransferAtom.myCreatedRoomId.toUpperCase()
+                  ) {
+                    return intl.formatMessage({
+                      id: ETranslations.transfer_pair_code_own_error,
+                    });
+                  }
+                  return undefined;
+                } catch {
+                  return undefined;
+                }
+              },
+              validPairingCode: async (value) => {
+                if (!value) return undefined;
+                try {
+                  await backgroundApiProxy.servicePrimeTransfer.checkPairingCodeValidAsync(
+                    value,
+                  );
+                  return undefined;
+                } catch {
+                  return intl.formatMessage({
+                    id: ETranslations.transfer_invalid_code,
+                  });
                 }
               },
             },
-            {
-              iconName: 'ScanOutline',
-              onPress: async () => {
-                const result = await start({
-                  handlers: [],
-                  autoHandleResult: false,
-                });
-                handlePairingCodeChange(result?.raw || '');
-              },
-            },
-          ]}
-        />
-
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {intl.formatMessage({
-            id: ETranslations.transfer_enter_pair_code_desc,
-          })}
-        </SizableText>
+          }}
+        >
+          {websocketConnected ? (
+            <Input
+              size="large"
+              autoComplete="off"
+              autoCorrect={false}
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              maxLength={59}
+              allowSecureTextEye
+              onPaste={onPasteClearText}
+              // Fix for Android secureTextEntry not working properly with autoComplete
+              // See: https://stackoverflow.com/questions/54684814/react-native-securetextentry-not-working-on-android
+              autoCapitalize="none"
+              textTransform="uppercase"
+              onSubmitEditing={form.handleSubmit(onSubmit)}
+              placeholder="224RU-EZ172-4B483-ZN695-RM9XC-CJ6Z9-MQ67J-ZM3B2-4LXBS-JZP7D"
+              addOns={addOns}
+            />
+          ) : (
+            <Skeleton h={46} w="100%" borderRadius="$2" />
+          )}
+        </Form.Field>
       </YStack>
 
       <XStack>
         <Button
           mt="$4"
-          onPress={connectRemoteDevice}
+          onPress={form.handleSubmit(onSubmit)}
           variant="primary"
-          loading={isConnecting}
-          disabled={isConnecting}
+          loading={isConnecting || autoConnectLoading}
+          size={gtSm ? 'medium' : 'large'}
+          width={gtSm ? 'auto' : '100%'}
+          disabled={
+            !form.formState.isValid ||
+            isConnecting ||
+            !websocketConnected ||
+            autoConnectLoading
+          }
         >
           {intl.formatMessage({ id: ETranslations.global_connect })}
         </Button>
       </XStack>
-    </>
+    </Form>
   );
 }

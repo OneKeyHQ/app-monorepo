@@ -15,6 +15,7 @@ import type ServiceAddressBook from '../services/ServiceAddressBook';
 import type ServiceAllNetwork from '../services/ServiceAllNetwork';
 import type ServiceApp from '../services/ServiceApp';
 import type ServiceAppCleanup from '../services/ServiceAppCleanup';
+import type ServiceApproval from '../services/ServiceApproval';
 import type ServiceAppUpdate from '../services/ServiceAppUpdate';
 import type ServiceBatchCreateAccount from '../services/ServiceBatchCreateAccount';
 import type ServiceBootstrap from '../services/ServiceBootstrap';
@@ -37,6 +38,11 @@ import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
 import type ServiceHistory from '../services/ServiceHistory';
+import type ServiceHyperliquid from '../services/ServiceHyperLiquid/ServiceHyperliquid';
+import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
+import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
+import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
+import type ServiceInternalSignAndVerify from '../services/ServiceInternalSignAndVerify';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
@@ -67,10 +73,13 @@ import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceToken from '../services/ServiceToken';
+import type ServiceTransaction from '../services/ServiceTransaction';
 import type ServiceUniversalSearch from '../services/ServiceUniversalSearch';
 import type ServiceV4Migration from '../services/ServiceV4Migration';
 import type ServiceValidator from '../services/ServiceValidator';
+import type ServiceWalletBanner from '../services/ServiceWalletBanner';
 import type ServiceWalletConnect from '../services/ServiceWalletConnect';
+import type ServiceWebviewPerp from '../services/ServiceWebviewPerp';
 
 class BackgroundApiProxy
   extends BackgroundApiProxyBase
@@ -106,6 +115,10 @@ class BackgroundApiProxy
     'servicePassword',
   ) as ServicePassword;
 
+  serviceWebviewPerp = this._createProxyService(
+    'serviceWebviewPerp',
+  ) as ServiceWebviewPerp;
+
   serviceDevSetting = this._createProxyService(
     'serviceDevSetting',
   ) as ServiceDevSetting;
@@ -135,6 +148,10 @@ class BackgroundApiProxy
   ) as ServiceAppCleanup;
 
   serviceHistory = this._createProxyService('serviceHistory') as ServiceHistory;
+
+  serviceTransaction = this._createProxyService(
+    'serviceTransaction',
+  ) as ServiceTransaction;
 
   serviceDefi = this._createProxyService('serviceDefi') as ServiceDefi;
 
@@ -309,6 +326,34 @@ class BackgroundApiProxy
   servicePrimeTransfer = this._createProxyService(
     'servicePrimeTransfer',
   ) as ServicePrimeTransfer;
+
+  serviceWalletBanner = this._createProxyService(
+    'serviceWalletBanner',
+  ) as ServiceWalletBanner;
+
+  serviceApproval = this._createProxyService(
+    'serviceApproval',
+  ) as ServiceApproval;
+
+  serviceInternalSignAndVerify = this._createProxyService(
+    'serviceInternalSignAndVerify',
+  ) as ServiceInternalSignAndVerify;
+
+  serviceHyperliquid = this._createProxyService(
+    'serviceHyperliquid',
+  ) as ServiceHyperliquid;
+
+  serviceHyperliquidExchange = this._createProxyService(
+    'serviceHyperliquidExchange',
+  ) as ServiceHyperliquidExchange;
+
+  serviceHyperliquidWallet = this._createProxyService(
+    'serviceHyperliquidWallet',
+  ) as ServiceHyperliquidWallet;
+
+  serviceHyperliquidSubscription = this._createProxyService(
+    'serviceHyperliquidSubscription',
+  ) as ServiceHyperliquidSubscription;
 }
 
 export default BackgroundApiProxy;

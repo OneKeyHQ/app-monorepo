@@ -94,8 +94,8 @@ const SwapQuoteResultRate = ({
         >
           {`1 ${
             isReverse
-              ? toToken.symbol.toUpperCase()
-              : fromToken.symbol.toUpperCase()
+              ? toToken?.symbol?.toUpperCase() ?? '-'
+              : fromToken?.symbol?.toUpperCase() ?? '-'
           } = `}
           <NumberSizeableText size="$bodyMd" formatter="balance">
             {isReverse

@@ -17,24 +17,31 @@ import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
+  useOnboardingConnectWalletLoadingAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  EUpdateFileType,
+  getUpdateFileType,
+} from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { electronUpdateListeners } from '@onekeyhq/shared/src/modules3rdParty/auto-update/electronUpdateListeners';
 import { initIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import performance from '@onekeyhq/shared/src/performance';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EMultiTabBrowserRoutes,
+  EOnboardingPages,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
@@ -270,6 +277,11 @@ const useDesktopEvents = platformEnv.isDesktop
               navigation.switchTab(ETabRoutes.Market);
             });
             break;
+          case EShortcutEvents.TabPerps:
+            ensureModalClosedAndNavigate(() => {
+              navigation.switchTab(ETabRoutes.Perp);
+            });
+            break;
           case EShortcutEvents.TabReferAFriend:
             if (!isOpenedReferFriendsPage()) {
               ensureModalClosedAndNavigate(() => {
@@ -363,6 +375,18 @@ const useAboutVersion =
 export const useFetchCurrencyList = () => {
   useEffect(() => {
     void backgroundApiProxy.serviceSetting.fetchCurrencyList();
+  }, []);
+};
+
+export const useFetchMarketBasicConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceMarketV2.fetchMarketBasicConfig();
+  }, []);
+};
+
+export const useFetchPerpConfig = () => {
+  useEffect(() => {
+    void backgroundApiProxy.serviceHyperliquid.updatePerpsConfigByServerWithCache();
   }, []);
 };
 
@@ -474,21 +498,29 @@ export const useCheckUpdateOnDesktop =
   !platformEnv.isDesktopWinMsStore
     ? () => {
         useEffect(() => {
-          globalThis.desktopApi.on(
-            ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
+          const subscription = electronUpdateListeners.onDownloadedFileEvent?.(
             (downloadUrl) => {
-              defaultLogger.update.app.log(
-                'UPDATE_DOWNLOAD_FILE_INFO',
-                downloadUrl,
-              );
               void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
                 downloadUrl,
               );
             },
           );
-          setTimeout(() => {
+          setTimeout(async () => {
+            const updateInfo =
+              await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+            const fileType = getUpdateFileType(updateInfo);
+            if (
+              updateInfo.status === EAppUpdateStatus.done ||
+              fileType === EUpdateFileType.appShell
+            ) {
+              return;
+            }
             const previousBuildNumber =
-              globalThis.desktopApi.getPreviousUpdateBuildNumber();
+              await globalThis.desktopApiProxy.appUpdate.getPreviousUpdateBuildNumber();
+            defaultLogger.app.appUpdate.isInstallFailed(
+              previousBuildNumber,
+              platformEnv.buildNumber || '',
+            );
             if (
               previousBuildNumber &&
               getBuilderNumber(previousBuildNumber) >=
@@ -497,6 +529,9 @@ export const useCheckUpdateOnDesktop =
               void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
             }
           }, 0);
+          return () => {
+            subscription?.();
+          };
         }, []);
       }
     : noop;
@@ -520,10 +555,46 @@ export const useClearStorageOnExtension = platformEnv.isExtension
     }
   : noop;
 
+export const useRemindDevelopmentBuildExtension =
+  platformEnv.isExtensionDevelopmentBuild
+    ? () => {
+        useEffect(() => {
+          void (async () => {
+            const visited = await backgroundApiProxy.serviceSpotlight.isVisited(
+              ESpotlightTour.showFloatingIconDialog,
+            );
+            if (visited) {
+              return;
+            }
+            Dialog.confirm({
+              title: 'RISK WARNING',
+              dismissOnOverlayPress: false,
+              disableDrag: true,
+              tone: 'warning',
+              description:
+                'This is a development build for testing purposes. While we strive for stability, some features may not work as expected. Please use with caution and consider backing up important data.',
+              onConfirm: async () => {
+                await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+                  ESpotlightTour.showDevelopmentBuildWarningDialog,
+                );
+              },
+            });
+          })();
+        }, []);
+      }
+    : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
   const autoNavigation = devSettings.settings?.autoNavigation;
+
+  const [, setOnboardingConnectWalletLoading] =
+    useOnboardingConnectWalletLoadingAtom();
+
+  useEffect(() => {
+    setOnboardingConnectWalletLoading(false);
+  }, [setOnboardingConnectWalletLoading]);
 
   useEffect(() => {
     if (
@@ -537,6 +608,9 @@ export function Bootstrap() {
         // navigation.pushModal(EModalRoutes.PrimeModal, {
         //   screen: EPrimePages.PrimeTransfer,
         // });
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.ConnectWallet,
+        });
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -544,12 +618,24 @@ export function Bootstrap() {
     return undefined;
   }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
 
+  useEffect(() => {
+    if (devSettings.enabled) {
+      performance.start(true, !!devSettings.settings?.showPerformanceMonitor);
+    }
+    return () => {
+      performance.stop();
+    };
+  }, [devSettings.enabled, devSettings.settings?.showPerformanceMonitor]);
+
   useFetchCurrencyList();
+  useFetchMarketBasicConfig();
+  useFetchPerpConfig();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
   useIntercomInit();
   useClearStorageOnExtension();
+  useRemindDevelopmentBuildExtension();
   return null;
 }

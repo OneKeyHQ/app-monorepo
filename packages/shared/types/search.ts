@@ -7,12 +7,13 @@ import type { IServerNetwork } from '.';
 import type { INetworkAccount } from './account';
 import type { IAddressValidation } from './address';
 import type { IDApp } from './discovery';
-import type { IMarketToken } from './market';
+import type { IMarketSearchV2Token, IMarketToken } from './market';
 import type { IAccountToken, ITokenFiat } from './token';
 
 export enum EUniversalSearchType {
   Address = 'Address',
   MarketToken = 'MarketToken',
+  V2MarketToken = 'V2MarketToken',
   AccountAssets = 'AccountAssets',
   Dapp = 'Dapp',
 }
@@ -56,6 +57,11 @@ export type IUniversalSearchMarketToken = {
   payload: IMarketToken;
 };
 
+export type IUniversalSearchV2MarketToken = {
+  type: EUniversalSearchType.V2MarketToken;
+  payload: IMarketSearchV2Token;
+};
+
 export type IUniversalSearchAccountAssets = {
   type: EUniversalSearchType.AccountAssets;
   payload: {
@@ -72,11 +78,16 @@ export type IUniversalSearchDapp = {
 export type IUniversalSearchResultItem =
   | IUniversalSearchAddress
   | IUniversalSearchMarketToken
+  | IUniversalSearchV2MarketToken
   | IUniversalSearchAccountAssets
   | IUniversalSearchDapp;
 
 export type IUniversalSearchMarketTokenResult = {
   items: IUniversalSearchMarketToken[];
+};
+
+export type IUniversalSearchV2MarketTokenResult = {
+  items: IUniversalSearchV2MarketToken[];
 };
 
 export type IUniversalSearchAccountAssetsResult = {
@@ -90,6 +101,7 @@ export type IUniversalSearchDappResult = {
 export type IUniversalSearchBatchResult = {
   [EUniversalSearchType.Address]?: IUniversalSearchSingleResult;
   [EUniversalSearchType.MarketToken]?: IUniversalSearchMarketTokenResult;
+  [EUniversalSearchType.V2MarketToken]?: IUniversalSearchV2MarketTokenResult;
   [EUniversalSearchType.AccountAssets]?: IUniversalSearchAccountAssetsResult;
   [EUniversalSearchType.Dapp]?: IUniversalSearchDappResult;
 };

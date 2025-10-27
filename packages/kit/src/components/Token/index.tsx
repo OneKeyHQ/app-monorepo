@@ -25,8 +25,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import { useAggregateTokensListMapAtom } from '../../states/jotai/contexts/tokenList';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
 import type { ImageURISource } from 'react-native';
@@ -40,6 +42,7 @@ export type ITokenProps = {
   networkImageUri?: ImageURISource['uri'];
   showNetworkIcon?: boolean;
   networkId?: string;
+  isAggregateToken?: boolean;
 } & Omit<IImageProps, 'size'>;
 
 const sizeMap: Record<
@@ -65,6 +68,7 @@ export function Token({
   networkId,
   showNetworkIcon,
   fallbackIcon,
+  isAggregateToken,
   ...rest
 }: ITokenProps) {
   const { tokenImageSize, chainImageSize, fallbackIconSize } = size
@@ -84,11 +88,14 @@ export function Token({
     }
     return '$full';
   }, [isNFT]);
+  const source = useMemo(() => {
+    return tokenImageUri ? { uri: tokenImageUri } : undefined;
+  }, [tokenImageUri]);
   const tokenImage = (
     <Image
       size={tokenImageSize}
       borderRadius={borderRadius}
-      source={tokenImageUri ? { uri: tokenImageUri } : undefined}
+      source={source}
       fallback={
         <Stack
           bg="$gray5"
@@ -152,31 +159,67 @@ export function Token({
 }
 
 export function TokenName({
+  $key,
   name,
   isNative,
   isAllNetworks,
   withNetwork,
   networkId,
   textProps,
+  isAggregateToken,
+  withAggregateBadge,
+  allAggregateTokenMap,
   ...rest
 }: {
+  $key: string;
   name: string;
   isNative?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
   textProps?: ISizableTextProps;
+  isAggregateToken?: boolean;
+  withAggregateBadge?: boolean;
+  allAggregateTokenMap?: Record<string, { tokens: IAccountToken[] }>;
 } & IXStackProps) {
   const { network } = useAccountData({ networkId });
   const intl = useIntl();
+
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  const aggregateTokenList = aggregateTokensListMap[$key]?.tokens ?? [];
+  const allAggregateTokenList = allAggregateTokenMap?.[$key]?.tokens ?? [];
+  const firstAggregateToken = aggregateTokenList?.[0] ?? [];
+  const { network: firstAggregateTokenNetwork } = useAccountData({
+    networkId: firstAggregateToken?.networkId,
+  });
+
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {withNetwork && network ? (
+      {isAllNetworks &&
+      withAggregateBadge &&
+      isAggregateToken &&
+      aggregateTokenList &&
+      (aggregateTokenList.length > 1 || allAggregateTokenList.length > 1) ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge.Text>
+        </Badge>
+      ) : null}
+      {withNetwork &&
+      ((network && !network.isAggregateNetwork && !isAggregateToken) ||
+        (firstAggregateTokenNetwork &&
+          aggregateTokenList?.length === 1 &&
+          allAggregateTokenList.length === 0)) ? (
+        <Badge flexShrink={1}>
+          <Badge.Text numberOfLines={1}>
+            {network?.isAggregateNetwork
+              ? firstAggregateTokenNetwork?.name
+              : network?.name || firstAggregateTokenNetwork?.name}
+          </Badge.Text>
         </Badge>
       ) : null}
       {isNative && !isAllNetworks ? (

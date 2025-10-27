@@ -1,5 +1,12 @@
-import type { SizableTextProps } from 'tamagui';
+import {
+  type SizableTextProps,
+  SizableText as TamaguiSizableText,
+} from '@onekeyhq/components/src/shared/tamagui';
 
-export { SizableText } from 'tamagui';
+export const StyledSizableText = TamaguiSizableText;
+
+export function SizableText({ size = '$bodyMd', ...props }: SizableTextProps) {
+  return <StyledSizableText allowFontScaling={false} size={size} {...props} />;
+}
 
 export type ISizableTextProps = SizableTextProps;

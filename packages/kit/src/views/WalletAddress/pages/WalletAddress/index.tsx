@@ -16,7 +16,6 @@ import type {
   IPageScreenProps,
 } from '@onekeyhq/components';
 import {
-  Badge,
   Empty,
   Icon,
   Page,
@@ -32,27 +31,27 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useFuseSearch } from '@onekeyhq/kit/src/views/ChainSelector/hooks/useFuseSearch';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAllNetworksPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EModalReceiveRoutes,
-  EModalRoutes,
+import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type {
   EModalWalletAddressRoutes,
-  type IModalWalletAddressParamList,
+  IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import debugUtils, {
@@ -68,11 +67,9 @@ import {
   EAccountSelectorSceneName,
   type IServerNetwork,
 } from '@onekeyhq/shared/types';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import { EWalletAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { WalletAddressContext } from './WalletAddressContext';
-import WalletAddressHeaderRight from './WalletAddressHeaderRight';
-import WalletAddressListHeader from './WalletAddressListHeader';
 
 import type { IWalletAddressContext } from './WalletAddressContext';
 
@@ -83,151 +80,19 @@ type ISectionItem = {
   data: IServerNetwork[];
 };
 
-function WalletAddressDeriveTypeItem({ network }: { network: IServerNetwork }) {
-  const appNavigation =
-    useAppNavigation<IPageNavigationProp<IModalWalletAddressParamList>>();
-  const intl = useIntl();
-  const {
-    networkAccountMap,
-    indexedAccountId,
-    isAllNetworksEnabled,
-    setIsAllNetworksEnabled,
-    refreshLocalData,
-  } = useContext(WalletAddressContext);
-
-  const memoData = useMemo(() => {
-    const networkAccounts = networkAccountMap[network.id];
-    const deriveAccounts = networkAccounts ?? [];
-    const isDeriveAccountsInitialized = !isNil(networkAccounts);
-    const deriveAccountsEnabledCount = deriveAccounts.filter(
-      (a) => a.dbAccount,
-    ).length;
-
-    return {
-      deriveAccountsEnabledCount,
-      networkAccounts,
-      deriveAccounts,
-      isDeriveAccountsInitialized,
-    };
-  }, [networkAccountMap, network.id]);
-
-  const isEnabledNetwork = !!isAllNetworksEnabled[network.id];
-  const { deriveAccountsEnabledCount, isDeriveAccountsInitialized } = memoData;
-
-  const onPress = useCallback(() => {
-    appNavigation.push(EModalWalletAddressRoutes.DeriveTypesAddress, {
-      networkId: network.id,
-      indexedAccountId,
-      onUnmounted: async ({
-        isAccountCreated,
-      }: {
-        isAccountCreated: boolean;
-      }) => {
-        if (isAccountCreated) {
-          refreshLocalData();
-          setIsAllNetworksEnabled((prev) => ({
-            ...prev,
-            [network.id]: true,
-          }));
-          await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
-            enabledNetworks: {
-              [network.id]: true,
-            },
-          });
-        }
-      },
-      actionType: EDeriveAddressActionType.Copy,
-    });
-  }, [
-    appNavigation,
-    indexedAccountId,
-    network.id,
-    refreshLocalData,
-    setIsAllNetworksEnabled,
-  ]);
-
-  const isEnabled = useMemo(
-    () => isDeriveAccountsInitialized || deriveAccountsEnabledCount > 0,
-    [deriveAccountsEnabledCount, isDeriveAccountsInitialized],
-  );
-
-  const subtitle = useMemo(
-    () =>
-      isEnabled
-        ? intl.formatMessage(
-            { id: ETranslations.global_count_addresses },
-            { count: deriveAccountsEnabledCount },
-          )
-        : intl.formatMessage({
-            id: ETranslations.copy_address_modal_item_create_address_instruction,
-          }),
-    [isEnabled, intl, deriveAccountsEnabledCount],
-  );
-
-  const copyIcon = useMemo(
-    () => (
-      <Icon
-        name={isEnabled ? 'Copy3Outline' : 'PlusLargeOutline'}
-        color="$iconSubdued"
-      />
-    ),
-    [isEnabled],
-  );
-
-  const avatar = useMemo(
-    () => (
-      <NetworkAvatarBase
-        logoURI={network.logoURI}
-        isCustomNetwork={network.isCustomNetwork}
-        networkName={network.name}
-        size="$10"
-      />
-    ),
-    [network.isCustomNetwork, network.logoURI, network.name],
-  );
-
-  return useMemo(
-    () => (
-      <ListItem
-        renderItemText={(textProps) => (
-          <ListItem.Text
-            {...textProps}
-            primary={
-              <XStack alignItems="center" gap="$2">
-                <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {isEnabledNetwork ? null : (
-                  <Badge badgeSize="sm">
-                    {intl.formatMessage({
-                      id: ETranslations.network_not_enabled,
-                    })}
-                  </Badge>
-                )}
-              </XStack>
-            }
-          />
-        )}
-        subtitle={subtitle}
-        onPress={onPress}
-        renderAvatar={avatar}
-      >
-        <XStack gap="$6" alignItems="center">
-          {copyIcon}
-        </XStack>
-      </ListItem>
-    ),
-    [avatar, copyIcon, intl, isEnabledNetwork, network.name, onPress, subtitle],
-  );
-}
-
-const WalletAddressDeriveTypeItemMemo = memo(WalletAddressDeriveTypeItem);
-
 function WalletAddressListItemIcon({
   account,
 }: {
   account?: IAllNetworkAccountInfo;
 }) {
+  const { actionType } = useContext(WalletAddressContext);
+
   if (!account) {
     return <Icon name="PlusLargeOutline" color="$iconSubdued" />;
+  }
+
+  if (actionType === EWalletAddressActionType.ViewInExplorer) {
+    return <Icon name="OpenOutline" color="$iconSubdued" />;
   }
 
   return (
@@ -242,13 +107,14 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const {
+    walletId,
     networkAccountMap,
-    networkDeriveTypeMap,
     indexedAccountId,
     refreshLocalData,
     isAllNetworksEnabled,
     setIsAllNetworksEnabled,
     setAccountsCreated,
+    actionType,
   } = useContext(WalletAddressContext);
 
   const isEnabledNetwork = isAllNetworksEnabled[network.id];
@@ -262,6 +128,7 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     () => networkAccountMap[network.id]?.[0],
     [networkAccountMap, network.id],
   );
+
   const subtitle = useMemo(() => {
     if (account) {
       if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
@@ -280,23 +147,17 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     if (!account) {
       try {
         setLoading(true);
-        const { walletId } = accountUtils.parseIndexedAccountId({
-          indexedAccountId: indexedAccountId ?? '',
-        });
         const globalDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId: network.id,
           });
-        const deriveType: IAccountDeriveTypes =
-          networkDeriveTypeMap?.[network.id]?.[0] ||
-          globalDeriveType ||
-          'default';
+
         const createAddressResult = await createAddress({
           account: {
             walletId,
             networkId: network.id,
             indexedAccountId,
-            deriveType,
+            deriveType: globalDeriveType,
           },
           selectAfterCreate: false,
           num: 0,
@@ -323,7 +184,17 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       } finally {
         setLoading(false);
       }
-    } else if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
+    }
+
+    if (actionType === EWalletAddressActionType.ViewInExplorer) {
+      await openExplorerAddressUrl({
+        networkId: network.id,
+        address: account.apiAddress,
+      });
+      return;
+    }
+
+    if (networkUtils.isLightningNetworkByNetworkId(network.id)) {
       appNavigation.pushModal(EModalRoutes.ReceiveModal, {
         screen: EModalReceiveRoutes.CreateInvoice,
         params: {
@@ -335,18 +206,23 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
       await copyAccountAddress({
         accountId: account.accountId,
         networkId: network.id,
+        deriveInfo: account.deriveInfo,
+        onDeriveTypeChange: () => {
+          refreshLocalData({ alwaysSetState: true });
+        },
       });
     }
   }, [
     account,
+    actionType,
     network.id,
-    indexedAccountId,
-    networkDeriveTypeMap,
     createAddress,
-    intl,
-    refreshLocalData,
+    walletId,
+    indexedAccountId,
     setAccountsCreated,
     setIsAllNetworksEnabled,
+    intl,
+    refreshLocalData,
     appNavigation,
     copyAccountAddress,
   ]);
@@ -378,13 +254,32 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
             primary={
               <XStack alignItems="center" gap="$2">
                 <SizableText size="$bodyLgMedium">{network.name}</SizableText>
-                {isEnabledNetwork ? null : (
-                  <Badge badgeSize="sm">
-                    {intl.formatMessage({
-                      id: ETranslations.network_not_enabled,
-                    })}
-                  </Badge>
-                )}
+                {networkUtils
+                  .getDefaultDeriveTypeVisibleNetworks()
+                  .includes(network.id) ? (
+                  <AddressTypeSelector
+                    placement="bottom-start"
+                    walletId={walletId ?? ''}
+                    networkId={network.id}
+                    activeDeriveType={account?.deriveType}
+                    activeDeriveInfo={account?.deriveInfo}
+                    indexedAccountId={indexedAccountId ?? ''}
+                    onSelect={async () => {
+                      refreshLocalData();
+                    }}
+                    onCreate={async ({ deriveType }) => {
+                      const defaultDeriveType =
+                        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+                          {
+                            networkId: network.id,
+                          },
+                        );
+                      if (deriveType === defaultDeriveType) {
+                        refreshLocalData();
+                      }
+                    }}
+                  />
+                ) : null}
               </XStack>
             }
             flex={1}
@@ -413,25 +308,21 @@ function SingleWalletAddressListItem({ network }: { network: IServerNetwork }) {
     [
       account,
       avatar,
-      intl,
+      indexedAccountId,
       isEnabledNetwork,
       loading,
+      network.id,
       network.name,
       onPress,
+      refreshLocalData,
       subtitle,
+      walletId,
     ],
   );
 }
 const SingleWalletAddressListItemMemo = memo(SingleWalletAddressListItem);
 
 function WalletAddressListItem({ network }: { network: IServerNetwork }) {
-  if (
-    networkUtils.getDefaultDeriveTypeVisibleNetworks().includes(network.id)
-    // item.id === getNetworkIdsMap().btc ||
-    // item.id === getNetworkIdsMap().ltc
-  ) {
-    return <WalletAddressDeriveTypeItemMemo network={network} />;
-  }
   return <SingleWalletAddressListItemMemo network={network} />;
 }
 const WalletAddressListItemMemo = memo(WalletAddressListItem);
@@ -440,10 +331,12 @@ function WalletAddressContent({
   mainnetItems: m,
   testnetItems: t,
   frequentlyUsedNetworks: f,
+  actionType,
 }: {
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
+  actionType?: EWalletAddressActionType;
 }) {
   log('WalletAddressContentRender');
 
@@ -463,6 +356,18 @@ function WalletAddressContent({
     testnetItems = testnetItems.filter((o) => isAllNetworksEnabled[o.id]);
     frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
       (o) => isAllNetworksEnabled[o.id],
+    );
+  }
+
+  if (actionType === EWalletAddressActionType.ViewInExplorer) {
+    mainnetItems = mainnetItems.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
+    );
+    testnetItems = testnetItems.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
+    );
+    frequentlyUsedNetworks = frequentlyUsedNetworks.filter(
+      (o) => !networkUtils.isViewInExplorerDisabled({ networkId: o.id }),
     );
   }
 
@@ -555,7 +460,6 @@ function WalletAddressContent({
         sections={sections}
         renderSectionHeader={renderSectionHeader}
         renderItem={renderItem}
-        ListHeaderComponent={WalletAddressListHeader}
         ListEmptyComponent={
           <Empty
             icon="SearchOutline"
@@ -588,9 +492,6 @@ const WalletAddressContentMemo = memo(WalletAddressContent);
 function WalletAddressPageView({
   onClose,
   children,
-  walletId,
-  accountId,
-  indexedAccountId,
 }: {
   onClose?: () => Promise<void>;
   children: React.ReactNode;
@@ -599,23 +500,17 @@ function WalletAddressPageView({
   indexedAccountId?: string;
 }) {
   const intl = useIntl();
-  const renderHeaderRight = useCallback(() => {
-    return (
-      <WalletAddressHeaderRight
-        walletId={walletId ?? ''}
-        accountId={accountId}
-        indexedAccountId={indexedAccountId}
-      />
-    );
-  }, [accountId, indexedAccountId, walletId]);
+  const { title } = useContext(WalletAddressContext);
   return (
     <Page safeAreaEnabled={false} onClose={onClose}>
       <Page.Header
         // title={accountId || ''}
-        title={intl.formatMessage({
-          id: ETranslations.copy_address_modal_title,
-        })}
-        headerRight={renderHeaderRight}
+        title={
+          title ||
+          intl.formatMessage({
+            id: ETranslations.copy_address_modal_title,
+          })
+        }
       />
       <Page.Body>{children}</Page.Body>
     </Page>
@@ -630,6 +525,7 @@ function WalletAddress({
   mainnetItems,
   testnetItems,
   frequentlyUsedNetworks,
+  actionType,
 }: {
   accountId: string | undefined;
   walletId: string | undefined;
@@ -637,6 +533,7 @@ function WalletAddress({
   mainnetItems: IServerNetwork[];
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
+  actionType?: EWalletAddressActionType;
 }) {
   const {
     originalAllNetworksState,
@@ -690,6 +587,7 @@ function WalletAddress({
         testnetItems={testnetItems}
         mainnetItems={mainnetItems}
         frequentlyUsedNetworks={frequentlyUsedNetworks}
+        actionType={actionType}
       />
     </WalletAddressPageView>
   );
@@ -707,15 +605,23 @@ function PageLoading() {
 }
 
 function WalletAddressPageMainView({
+  title,
+  actionType,
   accountId,
   walletId,
   indexedAccountId,
   excludeTestNetwork,
+  includingNotEqualGlobalDeriveTypeAccount,
+  includingDeriveTypeMismatchInDefaultVisibleNetworks,
 }: {
+  title?: string;
+  actionType?: EWalletAddressActionType;
   accountId?: string;
   walletId?: string;
   indexedAccountId: string;
   excludeTestNetwork?: boolean;
+  includingNotEqualGlobalDeriveTypeAccount?: boolean;
+  includingDeriveTypeMismatchInDefaultVisibleNetworks?: boolean;
 }) {
   const [accountsCreated, setAccountsCreated] = useState(false);
   const [isAllNetworksEnabled, setIsAllNetworksEnabled] = useState<
@@ -774,6 +680,10 @@ function WalletAddressPageMainView({
             accountId,
             networkId: getNetworkIdsMap().onekeyall,
             excludeTestNetwork: excludeTestNetwork ?? false,
+            includingNotEqualGlobalDeriveTypeAccount:
+              includingNotEqualGlobalDeriveTypeAccount ?? false,
+            includingDeriveTypeMismatchInDefaultVisibleNetworks:
+              includingDeriveTypeMismatchInDefaultVisibleNetworks ?? false,
           });
         networksAccount = accountsInfo;
       }
@@ -800,7 +710,13 @@ function WalletAddressPageMainView({
         allNetworksState,
       };
     },
-    [accountId, walletId, excludeTestNetwork],
+    [
+      accountId,
+      walletId,
+      excludeTestNetwork,
+      includingNotEqualGlobalDeriveTypeAccount,
+      includingDeriveTypeMismatchInDefaultVisibleNetworks,
+    ],
     {
       watchLoading: true,
       initResult: {
@@ -888,26 +804,19 @@ function WalletAddressPageMainView({
     // });
 
     const networkAccountMap: Record<string, IAllNetworkAccountInfo[]> = {};
-    const networkDeriveTypeMap: Record<string, IAccountDeriveTypes[]> = {};
     for (let i = 0; i < result.networksAccount.length; i += 1) {
       const item = result.networksAccount[i];
-      const { networkId, deriveType, dbAccount } = item;
+      const { networkId, dbAccount } = item;
       if (dbAccount) {
         networkAccountMap[networkId] = [
           ...(networkAccountMap[networkId] ?? []),
           item,
         ];
       }
-      if (deriveType) {
-        networkDeriveTypeMap[networkId] = [
-          ...(networkDeriveTypeMap[networkId] ?? []),
-          deriveType,
-        ];
-      }
     }
     const contextData: IWalletAddressContext = {
+      title,
       networkAccountMap,
-      networkDeriveTypeMap,
       originalAllNetworksState,
       accountId,
       walletId,
@@ -919,9 +828,12 @@ function WalletAddressPageMainView({
       setIsAllNetworksEnabled,
       allNetworksStateInit,
       originalAllNetworksStateInit,
+      actionType,
     };
     return contextData;
   }, [
+    title,
+    actionType,
     originalAllNetworksState,
     accountId,
     walletId,
@@ -951,6 +863,7 @@ function WalletAddressPageMainView({
             testnetItems={result.networks.testnetItems}
             mainnetItems={result.networks.mainnetItems}
             frequentlyUsedNetworks={result.networks.frequentlyUsedItems}
+            actionType={actionType}
           />
         )}
       </WalletAddressContext.Provider>
@@ -966,8 +879,16 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, walletId, indexedAccountId, excludeTestNetwork } =
-    route.params;
+  const {
+    title,
+    accountId,
+    walletId,
+    indexedAccountId,
+    excludeTestNetwork,
+    includingNotEqualGlobalDeriveTypeAccount,
+    includingDeriveTypeMismatchInDefaultVisibleNetworks,
+    actionType,
+  } = route.params;
 
   const { result: allNetworkMockedAccountId } = usePromiseResult(async () => {
     if (!accountId) {
@@ -986,10 +907,18 @@ export default function WalletAddressPage({
 
   return (
     <WalletAddressPageMainViewMemo
+      title={title}
+      actionType={actionType}
       accountId={allNetworkMockedAccountId}
       walletId={walletId}
       indexedAccountId={indexedAccountId}
       excludeTestNetwork={excludeTestNetwork}
+      includingNotEqualGlobalDeriveTypeAccount={
+        includingNotEqualGlobalDeriveTypeAccount
+      }
+      includingDeriveTypeMismatchInDefaultVisibleNetworks={
+        includingDeriveTypeMismatchInDefaultVisibleNetworks
+      }
     />
   );
 }

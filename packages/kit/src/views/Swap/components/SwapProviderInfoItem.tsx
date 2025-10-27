@@ -114,9 +114,6 @@ const SwapProviderInfoItem = ({
               </SizableText>
             </>
           )}
-          {showLock ? (
-            <Icon name="LockOutline" color="$iconSubdued" ml="$1" size="$5" />
-          ) : null}
           {onPress ? (
             <Icon
               name="ChevronRightSmallOutline"

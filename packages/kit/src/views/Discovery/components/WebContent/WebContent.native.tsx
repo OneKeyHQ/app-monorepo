@@ -91,24 +91,15 @@ function WebContent({
         title,
         url: navUrl,
       } = navigationStateChangeEvent;
-      if (loading) {
-        onNavigation({
-          url: navUrl,
-          title,
-          canGoBack: navCanGoBack,
-          canGoForward,
-          loading,
-          id,
-        });
-      } else {
-        onNavigation({
-          title,
-          canGoBack: navCanGoBack,
-          canGoForward,
-          loading,
-          id,
-        });
-      }
+
+      onNavigation({
+        url: navUrl,
+        title,
+        canGoBack: navCanGoBack,
+        canGoForward,
+        loading,
+        id,
+      });
     },
     [id, onNavigation],
   );

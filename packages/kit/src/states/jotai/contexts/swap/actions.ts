@@ -272,9 +272,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       token: ISwapToken,
       disableCheckToToken?: boolean,
       skipCleanManualSelectQuoteProviders?: boolean,
+      skipCheckEqualToken?: boolean,
     ) => {
       const toToken = get(swapSelectToTokenAtom());
       if (
+        !skipCheckEqualToken &&
         equalTokenNoCaseSensitive({
           token1: toToken,
           token2: token,
@@ -314,12 +316,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       token: ISwapToken,
       skipCleanManualSelectQuoteProviders?: boolean,
+      skipCheckEqualToken?: boolean,
     ) => {
       if (!skipCleanManualSelectQuoteProviders) {
         this.cleanManualSelectQuoteProviders.call(set);
       }
       const fromToken = get(swapSelectFromTokenAtom());
       if (
+        !skipCheckEqualToken &&
         equalTokenNoCaseSensitive({
           token1: fromToken,
           token2: token,
@@ -1022,11 +1026,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
             }
             rateDifferenceRes = {
-              value: `${difference.isPositive() ? '+' : ''}${
-                numberFormat(difference.toFixed(), {
+              value: `${difference.isPositive() ? '+' : ''}${numberFormat(
+                difference.toFixed(),
+                {
                   formatter: 'priceChange',
-                }) as string
-              }`,
+                },
+              )}`,
               unit,
             };
           }
@@ -1138,7 +1143,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   {
                     n: numberFormat(tokenAmountBN.toFixed(), {
                       formatter: 'balance',
-                    }) as string,
+                    }),
                     token: item.token?.symbol ?? '',
                   },
                 ),

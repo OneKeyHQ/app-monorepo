@@ -16,8 +16,13 @@ import { JsBridgeDesktopHost } from '@onekeyfe/onekey-cross-webview';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import {
+  checkOneKeyCardGoogleOauthUrl,
+  needEraseElectronFeatureUrl,
+} from '@onekeyhq/shared/src/utils/uriUtils';
 
 import ErrorView from './ErrorView';
 import { createMessageInjectedScript } from './utils';
@@ -48,23 +53,11 @@ export type {
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-function usePreloadJsUrl() {
-  const { preloadJsUrl } = globalThis.ONEKEY_DESKTOP_GLOBALS ?? {};
-  useEffect(() => {
-    if (preloadJsUrl) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      if (!preloadJsUrl) {
-        console.error(`Webview render failed:
-      Please send messages of channel SET_ONEKEY_DESKTOP_GLOBALS at app start
-      `);
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [preloadJsUrl]);
-  return preloadJsUrl as string;
-}
+let preloadJsUrl = '';
+
+void globalThis.desktopApiProxy.webview.getPreloadJsContent().then((url) => {
+  preloadJsUrl = url;
+});
 
 // Used for webview type referencing
 const WEBVIEW_TAG = 'webview';
@@ -94,10 +87,31 @@ const DesktopWebView = forwardRef(
     ref: any,
   ) => {
     const [isWebviewReady, setIsWebviewReady] = useState(false);
+    const [isDomReady, setIsDomReady] = useState(false);
     const webviewRef = useRef<IElectronWebView | null>(null);
+    const pendingScriptsRef = useRef<string[]>([]);
     const [devToolsAtLeft, setDevToolsAtLeft] = useState(false);
+    const [devSettings] = useDevSettingsPersistAtom();
 
     const [desktopLoadError, setDesktopLoadError] = useState(false);
+
+    const flushPendingScripts = useCallback(() => {
+      if (!isDomReady || !webviewRef.current) {
+        return;
+      }
+      while (pendingScriptsRef.current.length) {
+        const script = pendingScriptsRef.current.shift();
+        if (!script) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        try {
+          webviewRef.current.executeJavaScript(script);
+        } catch (error) {
+          console.error('DesktopWebView: failed to flush queued script', error);
+        }
+      }
+    }, [isDomReady]);
 
     // Register event listeners
     useEffect(() => {
@@ -111,6 +125,22 @@ const DesktopWebView = forwardRef(
         const checkGoogleOauth = (checkUrl: string) => {
           try {
             if (checkOneKeyCardGoogleOauthUrl({ url: checkUrl })) {
+              const originUA = webview.getUserAgent();
+              const updatedUserAgent = originUA.replace(
+                / Electron\/[\d.]+/,
+                '',
+              );
+              webview.setUserAgent(updatedUserAgent);
+            }
+          } catch (e) {
+            // debugLogger.webview.error('handleNavigation', e);
+            console.error(e);
+          }
+        };
+
+        const checkEraseElectronFeature = (checkUrl: string) => {
+          try {
+            if (needEraseElectronFeatureUrl({ url: checkUrl })) {
               const originUA = webview.getUserAgent();
               const updatedUserAgent = originUA.replace(
                 / Electron\/[\d.]+/,
@@ -141,8 +171,10 @@ const DesktopWebView = forwardRef(
           const { isMainFrame, url } = event ?? {};
           if (isMainFrame) {
             setDesktopLoadError(false);
+            setIsDomReady(false);
           }
           checkGoogleOauth(url);
+          checkEraseElectronFeature(url);
           onDidStartNavigation?.(event);
         };
 
@@ -162,7 +194,12 @@ const DesktopWebView = forwardRef(
         webview.addEventListener('page-title-updated', onPageTitleUpdated);
         webview.addEventListener('page-favicon-updated', onPageFaviconUpdated);
         webview.addEventListener('new-window', onNewWindow);
-        webview.addEventListener('dom-ready', onDomReady);
+        const handleDomReady = (event: Event) => {
+          setIsDomReady(true);
+          onDomReady?.(event);
+        };
+
+        webview.addEventListener('dom-ready', handleDomReady);
 
         return () => {
           webview.removeEventListener('did-start-loading', onDidStartLoading);
@@ -179,7 +216,7 @@ const DesktopWebView = forwardRef(
             onPageFaviconUpdated,
           );
           webview.removeEventListener('new-window', onNewWindow);
-          webview.removeEventListener('dom-ready', onDomReady);
+          webview.removeEventListener('dom-ready', handleDomReady);
         };
       } catch (error) {
         console.error(error);
@@ -211,41 +248,66 @@ const DesktopWebView = forwardRef(
     );
 
     // TODO extract to hooks
-    const jsBridgeHost = useMemo(
-      () =>
-        new JsBridgeDesktopHost({
-          webviewRef,
-          receiveHandler,
-        }),
-      [receiveHandler],
-    );
+    const jsBridgeHost = useMemo(() => {
+      const b = new JsBridgeDesktopHost({
+        webviewRef,
+        receiveHandler,
+      });
+      if (process.env.NODE_ENV !== 'production') {
+        // @ts-ignore
+        b.$$devInstanceUUID = stringUtils.generateUUID();
+      }
+      return b;
+    }, [receiveHandler]);
 
-    useImperativeHandle(ref as Ref<unknown>, (): IWebViewWrapperRef => {
-      const wrapper = {
-        innerRef: webviewRef.current,
-        jsBridge: jsBridgeHost,
-        reload: () => {
-          webviewRef.current?.reload();
-        },
-        loadURL: (url: string) => {
-          if (webviewRef.current && url) {
-            webviewRef.current.loadURL(url);
-          }
-        },
-        sendMessageViaInjectedScript: (message: unknown) => {
-          if (webviewRef.current) {
+    useImperativeHandle(
+      ref as Ref<unknown>,
+      (): IWebViewWrapperRef => {
+        const wrapper = {
+          innerRef: webviewRef.current,
+          jsBridge: jsBridgeHost,
+          reload: () => {
+            webviewRef.current?.reload();
+          },
+          loadURL: (url: string) => {
+            if (webviewRef.current && url) {
+              webviewRef.current.loadURL(url);
+            }
+          },
+          sendMessageViaInjectedScript: (message: unknown) => {
             const script = createMessageInjectedScript(message);
-            webviewRef.current.executeJavaScript(script);
-          }
-        },
-      };
-      jsBridgeHost.webviewWrapper = wrapper;
-      return wrapper as IWebViewRef;
-    });
+            if (!isDomReady || !webviewRef.current) {
+              pendingScriptsRef.current.push(script);
+              if (pendingScriptsRef.current.length > 50) {
+                console.warn(
+                  'DesktopWebView: queued script count exceeded 50, dropping oldest entry.',
+                );
+                pendingScriptsRef.current.shift();
+              }
+              return;
+            }
+            if (webviewRef.current) {
+              try {
+                webviewRef.current.executeJavaScript(script);
+              } catch (error) {
+                console.error(
+                  'DesktopWebView: failed to execute script',
+                  error,
+                );
+              }
+            }
+          },
+        };
+        jsBridgeHost.webviewWrapper = wrapper;
+        return wrapper as IWebViewRef;
+      },
+      [isDomReady, jsBridgeHost],
+    );
 
     const initWebviewByRef = useCallback(($ref: any) => {
       webviewRef.current = $ref;
-      setIsWebviewReady(true);
+      setIsDomReady(false);
+      setIsWebviewReady(Boolean($ref));
     }, []);
 
     useEffect(() => {
@@ -323,16 +385,21 @@ const DesktopWebView = forwardRef(
       };
     }, [jsBridgeHost, isWebviewReady, src]);
 
-    const preloadJsUrl = usePreloadJsUrl();
+    useEffect(() => {
+      flushPendingScripts();
+    }, [flushPendingScripts, isWebviewReady]);
 
     if (!preloadJsUrl) {
       return null;
     }
 
+    console.log('preloadJsUrl', preloadJsUrl);
+
     return (
       <>
-        {isDev ? (
+        {devSettings?.enabled && devSettings?.settings?.showWebviewDevTools ? (
           <button
+            data-testid="webview-dev-tools"
             type="button"
             style={{
               fontSize: 12,

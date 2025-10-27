@@ -114,6 +114,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 xpub: account.payload?.xpub || '',
                 serializedPath: account.payload?.serializedPath || '',
                 stakeAddress: account.payload?.stakeAddress || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -160,7 +161,13 @@ export class KeyringHardware extends KeyringHardwareBase {
         const firstAddressRelPath = '0/0';
         const stakingAddressRelPath = '2/0';
         for (const addressInfo of addressesInfo) {
-          const { address, xpub, serializedPath, stakeAddress } = addressInfo;
+          const {
+            address,
+            xpub,
+            serializedPath,
+            stakeAddress,
+            __hwExtraInfo__,
+          } = addressInfo;
           if (address) {
             const addresses: Record<string, string> = {
               [firstAddressRelPath]: address,
@@ -176,6 +183,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               relPath: firstAddressRelPath,
               xpub: xpub ?? '',
               addresses,
+              __hwExtraInfo__,
             });
           }
         }
@@ -188,7 +196,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const { PROTO } = await CoreSDKLoader();
-    const HardwareSDK = await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
 

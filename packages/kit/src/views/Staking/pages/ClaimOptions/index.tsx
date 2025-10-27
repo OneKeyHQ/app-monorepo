@@ -59,8 +59,8 @@ const ClaimOptions = () => {
         amount: item.amount,
         symbol,
         provider,
-        morphoVault: protocolInfo?.approve?.approveTarget || '',
-        vault: protocolInfo?.approve?.approveTarget || '',
+        protocolVault: protocolInfo?.vault || '',
+        vault: protocolInfo?.vault || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -106,7 +106,7 @@ const ClaimOptions = () => {
       handleClaim,
       symbol,
       provider,
-      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
       tokenInfo?.token,

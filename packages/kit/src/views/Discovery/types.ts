@@ -77,6 +77,7 @@ export enum ESiteMode {
 export interface IWebTab {
   id: string;
   url: string;
+  displayUrl?: string; // URL for address bar display and UI functions (sharing, external browser)
   isActive?: boolean;
   title?: string;
   customTitle?: string;

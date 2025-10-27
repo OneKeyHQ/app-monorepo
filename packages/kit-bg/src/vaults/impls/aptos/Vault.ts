@@ -917,6 +917,14 @@ export default class VaultAptos extends VaultBase {
     return params;
   }
 
+  override async buildParseTransactionParams({
+    encodedTx,
+  }: {
+    encodedTx: IEncodedTxAptos | undefined;
+  }) {
+    return this.buildEstimateFeeParams({ encodedTx });
+  }
+
   override async attachFeeInfoToDAppEncodedTx(params: {
     encodedTx: IEncodedTx;
     feeInfo: IFeeInfoUnit;

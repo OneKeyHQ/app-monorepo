@@ -9,12 +9,14 @@ export class TronRewardScene extends BaseScene {
     sourceFlag,
     isSuccess,
     resourceType,
+    isAutoClaimed,
   }: {
     networkId: string | undefined;
     address: string | undefined;
     sourceFlag: string | undefined;
     isSuccess: boolean | undefined;
     resourceType: string | undefined;
+    isAutoClaimed: boolean | undefined;
   }) {
     return {
       networkId,
@@ -22,6 +24,7 @@ export class TronRewardScene extends BaseScene {
       sourceFlag,
       isSuccess,
       resourceType,
+      isAutoClaimed,
     };
   }
 

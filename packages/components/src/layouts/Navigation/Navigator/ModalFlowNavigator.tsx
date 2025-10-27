@@ -40,11 +40,23 @@ const ModalStack = hasStackNavigatorModal
   ? createStackNavigator()
   : createWebModalNavigator();
 
+/**
+ * Renders a modal stack navigator with configurable screens and lifecycle hooks.
+ *
+ * Displays a sequence of modal screens defined by the provided configuration, applying theme and internationalization settings. Optionally invokes lifecycle callbacks when the navigator mounts and unmounts. The navigator adapts its page type context based on the current page type.
+ *
+ * @param config - Array of modal screen configurations to render in the navigator
+ * @param onMounted - Optional callback invoked when the navigator is mounted
+ * @param onUnmounted - Optional callback invoked when the navigator is unmounted
+ */
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
   onMounted,
   onUnmounted,
-}: IModalFlowNavigatorProps<RouteName, P>) {
+  pageType: pageTypeFromProps,
+}: IModalFlowNavigatorProps<RouteName, P> & {
+  pageType?: EPageType;
+}) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
 
@@ -68,9 +80,9 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
 
   const contextValue = useMemo(
     () => ({
-      pageType: EPageType.modal,
+      pageType: pageTypeFromProps || EPageType.modal,
     }),
-    [],
+    [pageTypeFromProps],
   );
   return (
     <PageTypeContext.Provider value={contextValue}>

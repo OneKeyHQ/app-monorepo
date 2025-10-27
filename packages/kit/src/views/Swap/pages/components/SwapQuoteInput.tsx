@@ -1,13 +1,15 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
-import { InputAccessoryView } from 'react-native';
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { IconButton, Stack, Toast, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -18,7 +20,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -26,7 +31,6 @@ import {
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
-  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
@@ -49,6 +53,7 @@ const SwapQuoteInput = ({
   selectLoading,
   onSelectPercentageStage,
 }: ISwapQuoteInputProps) => {
+  const intl = useIntl();
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
@@ -63,6 +68,7 @@ const SwapQuoteInput = ({
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
 
@@ -71,7 +77,7 @@ const SwapQuoteInput = ({
       return { transform: 'translate(-50%, -50%)' };
     }
     return {
-      transform: [{ translateX: -24 }, { translateY: -24 }],
+      transform: [{ translateX: -13 }, { translateY: -13 }], // size small
     };
   }, []);
 
@@ -147,6 +153,59 @@ const SwapQuoteInput = ({
     toToken,
   ]);
 
+  const reserveGasFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: fromToken?.symbol,
+      },
+    };
+  }, [fromToken?.symbol]);
+
+  const checkNativeTokenGasToast = useCallback(() => {
+    let maxAmount = new BigNumber(fromTokenBalance ?? 0);
+    if (fromToken?.isNative) {
+      const reserveGas = swapNativeTokenReserveGas.find(
+        (item) => item.networkId === fromToken.networkId,
+      )?.reserveGas;
+      if (reserveGas) {
+        maxAmount = BigNumber.max(
+          0,
+          maxAmount.minus(new BigNumber(reserveGas)),
+        ).decimalPlaces(fromToken?.decimals ?? 6, BigNumber.ROUND_DOWN);
+      }
+      let reserveGasFormatted: string | undefined | number = reserveGas;
+      if (reserveGas) {
+        reserveGasFormatted = numberFormat(
+          reserveGas.toString(),
+          reserveGasFormatter,
+        );
+      }
+      const message = intl.formatMessage(
+        {
+          id: reserveGasFormatted
+            ? ETranslations.swap_native_token_max_tip_already
+            : ETranslations.swap_native_token_max_tip,
+        },
+        {
+          num_token: reserveGasFormatted,
+        },
+      );
+      Toast.message({
+        title: message,
+      });
+    }
+    return maxAmount;
+  }, [
+    fromTokenBalance,
+    fromToken?.isNative,
+    fromToken?.networkId,
+    fromToken?.decimals,
+    swapNativeTokenReserveGas,
+    intl,
+    reserveGasFormatter,
+  ]);
+
   return (
     <YStack gap="$2">
       <SwapInputContainer
@@ -165,9 +224,9 @@ const SwapQuoteInput = ({
         onSelectPercentageStage={onSelectPercentageStage}
         amountValue={fromInputAmount.value}
         onBalanceMaxPress={() => {
-          const maxAmount = fromTokenBalance;
+          const maxAmount = checkNativeTokenGasToast();
           setFromInputAmount({
-            value: maxAmount,
+            value: maxAmount?.toFixed() ?? '',
             isInput: true,
           });
         }}
@@ -175,7 +234,6 @@ const SwapQuoteInput = ({
         balance={fromTokenBalance}
       />
       <Stack
-        bg="$bgApp"
         borderRadius="$full"
         style={{
           position: 'absolute',
@@ -187,23 +245,20 @@ const SwapQuoteInput = ({
       >
         <IconButton
           alignSelf="center"
-          bg="$bgSubdued"
+          bg="$bgApp"
+          variant="tertiary"
           icon="SwapVerOutline"
           iconProps={{
             color: '$icon',
           }}
-          size="medium"
+          size="small"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
-          hoverStyle={{
-            bg: '$bgStrongHover',
-          }}
-          pressStyle={{
-            bg: '$bgStrongActive',
-          }}
-          borderRadius="$full"
-          borderWidth="$1.5"
-          borderColor="$bgApp"
+          borderWidth="$1"
+          cursor="pointer"
+          hoverStyle={{}}
+          pressStyle={{}}
+          opacity={1}
         />
       </Stack>
       <SwapInputContainer
@@ -223,12 +278,6 @@ const SwapQuoteInput = ({
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />
-
-      {platformEnv.isNativeIOS ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <SizableText h="$0" />
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 };

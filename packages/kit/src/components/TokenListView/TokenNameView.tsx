@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,43 +11,106 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { checkIsOnlyOneTokenHasBalance } from '@onekeyhq/shared/src/utils/tokenUtils';
 
 import { useAccountData } from '../../hooks/useAccountData';
+import {
+  useAggregateTokensListMapAtom,
+  useAllTokenListMapAtom,
+} from '../../states/jotai/contexts/tokenList';
+
+import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
+  $key: string;
   name: string;
   isNative?: boolean;
+  isAggregateToken?: boolean;
   isAllNetworks?: boolean;
   withNetwork?: boolean;
   networkId: string | undefined;
   textProps?: ISizableTextProps;
+  withAggregateBadge?: boolean;
+  showNetworkName?: boolean;
 } & IXStackProps;
 
 function TokenNameView(props: IProps) {
   const {
+    $key,
     name,
     isNative,
+    isAggregateToken,
     isAllNetworks,
     withNetwork,
     networkId,
     textProps,
+    withAggregateBadge,
+    showNetworkName,
     ...rest
   } = props;
   const intl = useIntl();
 
   const { network } = useAccountData({ networkId });
+  const [aggregateTokensListMap] = useAggregateTokensListMapAtom();
+  const { allAggregateTokenMap } = useTokenListViewContext();
+  const [allTokenListMap] = useAllTokenListMapAtom();
+  const allAggregateTokenList = useMemo(
+    () => allAggregateTokenMap?.[$key]?.tokens ?? [],
+    [allAggregateTokenMap, $key],
+  );
+  const aggregateTokenList = useMemo(
+    () => aggregateTokensListMap[$key]?.tokens ?? [],
+    [aggregateTokensListMap, $key],
+  );
+  const firstAggregateToken = aggregateTokenList?.[0];
+  const { network: firstAggregateTokenNetwork } = useAccountData({
+    networkId: firstAggregateToken?.networkId,
+  });
+
+  const { tokenHasBalance, tokenHasBalanceCount } = useMemo(() => {
+    return checkIsOnlyOneTokenHasBalance({
+      tokenMap: allTokenListMap,
+      aggregateTokenList,
+      allAggregateTokenList,
+    });
+  }, [aggregateTokenList, allTokenListMap, allAggregateTokenList]);
+
+  const { network: tokenHasBalanceNetwork } = useAccountData({
+    networkId: tokenHasBalance?.networkId,
+  });
 
   return (
     <XStack alignItems="center" gap="$1" {...rest}>
       <SizableText minWidth={0} numberOfLines={1} {...textProps}>
         {name}
       </SizableText>
-      {withNetwork && network ? (
+      {isAllNetworks &&
+      withAggregateBadge &&
+      isAggregateToken &&
+      (aggregateTokenList?.length > 1 || allAggregateTokenList?.length > 1) &&
+      !tokenHasBalance ? (
         <Badge flexShrink={1}>
-          <Badge.Text numberOfLines={1}>{network.name}</Badge.Text>
+          <Badge.Text numberOfLines={1}>
+            {intl.formatMessage({ id: ETranslations.global__multichain })}
+          </Badge.Text>
         </Badge>
       ) : null}
-      {isNative && !isAllNetworks ? (
+      {withNetwork &&
+      ((network && !network.isAggregateNetwork && !isAggregateToken) ||
+        (firstAggregateTokenNetwork &&
+          aggregateTokenList?.length === 1 &&
+          allAggregateTokenList.length === 0) ||
+        (tokenHasBalance && tokenHasBalanceCount === 1)) ? (
+        <Badge flexShrink={1}>
+          <Badge.Text numberOfLines={1}>
+            {network?.isAggregateNetwork
+              ? tokenHasBalanceNetwork?.name ?? firstAggregateTokenNetwork?.name
+              : (network?.name || tokenHasBalanceNetwork?.name) ??
+                firstAggregateTokenNetwork?.name}
+          </Badge.Text>
+        </Badge>
+      ) : null}
+      {isNative && !isAllNetworks && !showNetworkName ? (
         <Tooltip
           renderContent={intl.formatMessage({
             id: ETranslations.native_token_tooltip,

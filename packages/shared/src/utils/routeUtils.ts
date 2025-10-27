@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppUpdateRoutes,
   EGalleryRoutes,
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -10,6 +11,7 @@ import {
   ETabDeveloperRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 
@@ -138,7 +140,24 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}${ETabMarketRoutes.MarketDetailV2}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
     [pagePath`${ERootRoutes.Main}${ETabRoutes.Earn}`]: {
+      showUrl: true,
+      showParams: true,
+    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Market}`]: {
+      showUrl: true,
+      showParams: true,
+    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Perp}`]: {
+      showUrl: true,
+      showParams: true,
+    },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.WebviewPerpTrade}`]: {
       showUrl: true,
       showParams: true,
     },
@@ -157,11 +176,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     // it will automatically find the real route according to the route stacks.
 
     // Swap Pages
-    // [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
-    //   {
-    //     showUrl: true,
-    //     showParams: true,
-    //   },
+    [pagePath`${ERootRoutes.Main}${ETabRoutes.Swap}${ETabSwapRoutes.TabSwap}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
 
     // Discovery Pages
     // [pagePath`${ERootRoutes.Main}${ETabRoutes.Discovery}${ETabDiscoveryRoutes.TabDiscovery}`]:
@@ -186,6 +205,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showParams: true,
       },
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.AppUpdateModal}${EAppUpdateRoutes.UpdatePreview}`]:
       {
         showUrl: true,
         showParams: true,

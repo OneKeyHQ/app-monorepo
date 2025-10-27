@@ -341,11 +341,13 @@ class ServiceMasterPassword extends ServiceBase {
     masterPasswordUUID: string;
     encryptedSecurityPasswordR1: string;
   }) {
-    // primeMasterPasswordPersistAtom
-    await primeMasterPasswordPersistAtom.set({
-      masterPasswordUUID,
-      encryptedSecurityPasswordR1,
-    });
+    await primeMasterPasswordPersistAtom.set(
+      (v): IPrimeMasterPasswordPersistAtomData => ({
+        ...v,
+        masterPasswordUUID,
+        encryptedSecurityPasswordR1,
+      }),
+    );
   }
 
   @backgroundMethod()
@@ -553,6 +555,24 @@ class ServiceMasterPassword extends ServiceBase {
   }
 
   @backgroundMethod()
+  async IsServerMasterPasswordSet({
+    serverUserInfo,
+  }: {
+    serverUserInfo: IPrimeServerUserInfo | undefined;
+  }) {
+    if (!serverUserInfo) {
+      // eslint-disable-next-line no-param-reassign
+      ({ serverUserInfo } =
+        await this.backgroundApi.servicePrime.apiFetchPrimeUserInfo());
+    }
+    const serverPasswordUUID = serverUserInfo?.pwdHash;
+    const isServerMasterPasswordSet = Boolean(
+      serverPasswordUUID && serverPasswordUUID !== RESET_MASTER_PASSWORD_UUID,
+    );
+    return isServerMasterPasswordSet;
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async setupMasterPassword({ passcode }: { passcode?: string } = {}): Promise<{
     encryptedSecurityPasswordR1: string;
@@ -582,9 +602,9 @@ class ServiceMasterPassword extends ServiceBase {
     }
 
     const serverPasswordUUID = serverUserInfo?.pwdHash;
-    const isServerMasterPasswordSet = Boolean(
-      serverPasswordUUID && serverPasswordUUID !== RESET_MASTER_PASSWORD_UUID,
-    );
+    const isServerMasterPasswordSet = await this.IsServerMasterPasswordSet({
+      serverUserInfo,
+    });
 
     const localMasterPasswordAtom = await primeMasterPasswordPersistAtom.get();
 
@@ -926,12 +946,13 @@ class ServiceMasterPassword extends ServiceBase {
           encryptedSecurityPasswordR1:
             oldPasswordResult.encryptedSecurityPasswordR1,
         });
+
         // start server sync flow to ensure the server data is up to date
-        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
-          {
-            throwError: true,
-          },
-        );
+        // await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
+        //   {
+        //     throwError: true,
+        //   },
+        // );
       },
     );
 

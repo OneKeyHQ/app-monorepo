@@ -48,7 +48,10 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
-import type { IStakeTxCosmosAmino } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTxCosmosAmino,
+} from '@onekeyhq/shared/types/staking';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
@@ -274,10 +277,13 @@ export default class VaultCosmos extends VaultBase {
     return this._buildEncodedTxWithFee({ transfersInfo });
   }
 
-  override async buildStakeEncodedTx(
-    params: IStakeTxCosmosAmino,
+  override async buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
   ): Promise<IEncodedTxCosmos> {
-    return TransactionWrapper.fromAminoSignDoc(params, undefined).toObject();
+    return TransactionWrapper.fromAminoSignDoc(
+      params.internalDappTx as IStakeTxCosmosAmino,
+      undefined,
+    ).toObject();
   }
 
   private _getTransactionTypeByMessage(

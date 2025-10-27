@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { IPrimeTransferValue } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers/primeTransfer';
 import type {
   IAnimationValue,
   IBaseValue,
@@ -25,11 +26,14 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EAppUpdateRoutes,
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -172,8 +176,19 @@ const useParseQRCode = () => {
         }
         return result;
       }
-
       switch (result.type) {
+        case EQRCodeHandlerType.REWARD_CENTER: {
+          await closeScanPage();
+          navigation.pushModal(EModalRoutes.MainModal, {
+            screen: EModalRewardCenterRoutes.RewardCenter,
+            params: {
+              accountId: options?.account?.id ?? '',
+              networkId: options?.network?.id ?? '',
+              walletId: options?.wallet?.id ?? '',
+            },
+          });
+          break;
+        }
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
           await closeScanPage();
@@ -199,6 +214,26 @@ const useParseQRCode = () => {
           navigation.pushModal(EModalRoutes.SettingModal, {
             screen: EModalSettingRoutes.SettingProtectModal,
           });
+          break;
+        case EQRCodeHandlerType.UPDATE_PREVIEW:
+          await closeScanPage();
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.UpdatePreview,
+          });
+          break;
+        case EQRCodeHandlerType.PRIME_TRANSFER:
+          {
+            const primeTransferData = result.data as IPrimeTransferValue;
+            await closeScanPage();
+            await timerUtils.wait(600);
+            navigation.pushModal(EModalRoutes.PrimeModal, {
+              screen: EPrimePages.PrimeTransfer,
+              params: {
+                code: primeTransferData.code,
+                server: primeTransferData.server,
+              },
+            });
+          }
           break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:

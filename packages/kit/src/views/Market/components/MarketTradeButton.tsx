@@ -10,9 +10,9 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
-import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -28,11 +28,11 @@ import {
 export function MarketTradeButton({
   coinGeckoId,
   token,
-  wallet,
+  accountId,
 }: {
   coinGeckoId: string;
   token: IMarketTokenDetail;
-  wallet: IDBWallet | undefined;
+  accountId: string;
 }) {
   const intl = useIntl();
 
@@ -42,6 +42,12 @@ export function MarketTradeButton({
   const networkId = useMarketTradeNetworkId(network, token.symbol);
 
   const { tokenAddress: realContractAddress = '' } = network || {};
+
+  const walletId = accountUtils.getWalletIdFromAccountId({
+    accountId,
+  });
+
+  const actionDisabled = !accountId;
 
   const sections = useMemo(
     () => [
@@ -54,7 +60,7 @@ export function MarketTradeButton({
               if (
                 await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
                   {
-                    walletId: wallet?.id ?? '',
+                    walletId,
                   },
                 )
               ) {
@@ -71,7 +77,7 @@ export function MarketTradeButton({
         ] as IActionListItemProps[],
       },
     ],
-    [coinGeckoId, intl, onSell, wallet?.id],
+    [coinGeckoId, intl, onSell, walletId],
   );
 
   const { result: show, isLoading } = usePromiseResult(
@@ -131,7 +137,7 @@ export function MarketTradeButton({
   const handleBuy = useCallback(async () => {
     if (
       await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
-        walletId: wallet?.id ?? '',
+        walletId,
       })
     ) {
       return;
@@ -142,7 +148,7 @@ export function MarketTradeButton({
       from: 'detailsPage',
     });
     onBuy();
-  }, [coinGeckoId, onBuy, wallet?.id]);
+  }, [coinGeckoId, onBuy, walletId]);
 
   return (
     <XStack $gtMd={{ mt: '$6' }} ai="center" gap="$4">
@@ -151,17 +157,32 @@ export function MarketTradeButton({
       ) : (
         <>
           <XStack gap="$2.5" flex={1}>
-            <Button flex={1} variant="primary" onPress={handleSwap}>
+            <Button
+              flex={1}
+              variant="primary"
+              onPress={handleSwap}
+              disabled={actionDisabled}
+            >
               {intl.formatMessage({ id: ETranslations.global_trade })}
             </Button>
             {canStaking ? (
-              <Button flex={1} variant="secondary" onPress={handleStaking}>
+              <Button
+                flex={1}
+                variant="secondary"
+                onPress={handleStaking}
+                disabled={actionDisabled}
+              >
                 {intl.formatMessage({ id: ETranslations.global_earn })}
               </Button>
             ) : null}
             {show.buy ? (
               <ReviewControl>
-                <Button flex={1} variant="secondary" onPress={handleBuy}>
+                <Button
+                  flex={1}
+                  variant="secondary"
+                  onPress={handleBuy}
+                  disabled={actionDisabled}
+                >
                   {intl.formatMessage({ id: ETranslations.global_buy })}
                 </Button>
               </ReviewControl>
@@ -170,6 +191,7 @@ export function MarketTradeButton({
           {show.sell ? (
             <ReviewControl>
               <ActionList
+                disabled={actionDisabled}
                 title={token.symbol.toUpperCase() || ''}
                 renderTrigger={
                   <IconButton
@@ -179,6 +201,7 @@ export function MarketTradeButton({
                     icon="DotVerSolid"
                     variant="tertiary"
                     iconSize="$5"
+                    disabled={actionDisabled}
                   />
                 }
                 sections={sections}

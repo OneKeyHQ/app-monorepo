@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { type LayoutChangeEvent } from 'react-native';
 
-import { Icon, Page, Stack, Tabs, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Page,
+  ScrollView,
+  Stack,
+  Tabs,
+  XStack,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { TabBarItem } from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import { getNetworksSupportBulkRevokeApproval } from '@onekeyhq/shared/src/config/presetNetworks';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -10,19 +23,30 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalApprovalManagementRoutes } from '@onekeyhq/shared/src/routes/approvalManagement';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EHomeWalletTab } from '@onekeyhq/shared/types/wallet';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
 import { WalletBackupAlert } from '../../../components/WalletBackup';
+import { WebDappEmptyView } from '../../../components/WebDapp/WebDappEmptyView';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import {
+  useAccountOverviewActions,
+  useApprovalsInfoAtom,
+} from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { HomeSupportedWallet } from '../components/HomeSupportedWallet';
 
+import { ApprovalListContainerWithProvider } from './ApprovalListContainer';
 import { HomeHeaderContainer } from './HomeHeaderContainer';
 import { NFTListContainerWithProvider } from './NFTListContainer';
 import { TabHeaderSettings } from './TabHeaderSettings';
@@ -30,7 +54,8 @@ import { TokenListContainerWithProvider } from './TokenListContainer';
 import { TxHistoryListContainerWithProvider } from './TxHistoryContainer';
 import WalletContentWithAuth from './WalletContentWithAuth';
 
-import type { LayoutChangeEvent } from 'react-native';
+const networksSupportBulkRevokeApproval =
+  getNetworksSupportBulkRevokeApproval();
 
 export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -53,6 +78,11 @@ export function HomePageView({
       indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
+
+  const navigation = useAppNavigation();
+
+  const [{ hasRiskApprovals }] = useApprovalsInfoAtom();
+  const { updateApprovalsInfo } = useAccountOverviewActions().current;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addressType = deriveInfo?.labelKey
@@ -88,19 +118,111 @@ export function HomePageView({
     };
   }, [network, indexedAccount]);
 
+  usePromiseResult(async () => {
+    if (network?.id && account?.id) {
+      const resp =
+        await backgroundApiProxy.serviceApproval.fetchAccountApprovals({
+          networkId: network.id,
+          accountId: account.id,
+          indexedAccountId: indexedAccount?.id,
+          accountAddress: account.address,
+        });
+
+      const riskApprovals = resp.contractApprovals.filter(
+        (item) => item.isRiskContract,
+      );
+      const inactiveApprovals = resp.contractApprovals.filter(
+        (item) => item.isInactiveApproval,
+      );
+
+      updateApprovalsInfo({
+        hasRiskApprovals: !!(riskApprovals && riskApprovals.length > 0),
+      });
+
+      if (
+        !accountUtils.isWatchingWallet({ walletId: wallet?.id }) &&
+        (riskApprovals.length > 0 || inactiveApprovals.length > 0)
+      ) {
+        const [
+          shouldShowRiskApprovalsRevokeSuggestion,
+          shouldShowInactiveApprovalsRevokeSuggestion,
+        ] = await Promise.all([
+          backgroundApiProxy.serviceApproval.shouldShowRiskApprovalsRevokeSuggestion(
+            {
+              accountId: account.id,
+              indexedAccountId: indexedAccount?.id,
+            },
+          ),
+          backgroundApiProxy.serviceApproval.shouldShowInactiveApprovalsRevokeSuggestion(
+            {
+              accountId: account.id,
+              indexedAccountId: indexedAccount?.id,
+            },
+          ),
+        ]);
+        if (
+          (shouldShowRiskApprovalsRevokeSuggestion &&
+            riskApprovals.length > 0) ||
+          (shouldShowInactiveApprovalsRevokeSuggestion &&
+            inactiveApprovals.length > 0)
+        ) {
+          await timerUtils.wait(2000);
+          navigation.pushModal(EModalRoutes.ApprovalManagementModal, {
+            screen: EModalApprovalManagementRoutes.RevokeSuggestion,
+            params: {
+              approvals: [...riskApprovals, ...inactiveApprovals],
+              contractMap: resp.contractMap,
+              tokenMap: resp.tokenMap,
+              accountId: account.id,
+              networkId: network.id,
+              indexedAccountId: indexedAccount?.id,
+              autoShow: true,
+            },
+          });
+        }
+      }
+    }
+  }, [
+    network?.id,
+    indexedAccount?.id,
+    navigation,
+    account,
+    updateApprovalsInfo,
+    wallet?.id,
+  ]);
+
   const { vaultSettings, networkAccounts } = result.result ?? {};
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
     getEnabledNFTNetworkIds().includes(network?.id ?? '');
+
+  const isBulkRevokeApprovalEnabled = useMemo(() => {
+    if (network?.isAllNetworks) {
+      if (
+        accountUtils.isOthersAccount({
+          accountId: account?.id ?? '',
+        })
+      ) {
+        return networkUtils.isEvmNetwork({
+          networkId: account?.createAtNetwork ?? '',
+        });
+      }
+      return true;
+    }
+
+    return networksSupportBulkRevokeApproval[network?.id ?? ''] ?? false;
+  }, [
+    network?.isAllNetworks,
+    network?.id,
+    account?.id,
+    account?.createAtNetwork,
+  ]);
+
   const isRequiredValidation = vaultSettings?.validationRequired;
   const softwareAccountDisabled = vaultSettings?.softwareAccountDisabled;
   const supportedDeviceTypes = vaultSettings?.supportedDeviceTypes;
   const watchingAccountEnabled = vaultSettings?.watchingAccountEnabled;
-
-  const onRefresh = useCallback(() => {
-    appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
-  }, []);
 
   const emptyAccountView = useMemo(
     () => (
@@ -126,81 +248,124 @@ export function HomePageView({
     return <HomeHeaderContainer />;
   }, []);
 
-  const tabContainerProps = useMemo(() => {
-    return {
-      headerContainerStyle: {
-        shadowOpacity: 0,
-        elevation: 0,
+  const tabContainerWidth: any = useTabContainerWidth();
+
+  const tabConfigs = useMemo(() => {
+    return [
+      {
+        id: EHomeWalletTab.Tokens,
+        name: intl.formatMessage({
+          id: ETranslations.global_crypto,
+        }),
+        component: <TokenListContainerWithProvider />,
       },
-      renderHeader,
-      renderTabBar: (props: any) => (
-        <Tabs.TabBar
-          {...props}
-          renderToolbar={({ focusedTab }) => (
-            <TabHeaderSettings focusedTab={focusedTab} />
-          )}
-        />
-      ),
-    };
-  }, [renderHeader]);
+      isNFTEnabled
+        ? {
+            id: EHomeWalletTab.NFT,
+            name: intl.formatMessage({
+              id: ETranslations.global_nft,
+            }),
+            component: <NFTListContainerWithProvider />,
+          }
+        : undefined,
+      {
+        id: EHomeWalletTab.History,
+        name: intl.formatMessage({
+          id: ETranslations.global_history,
+        }),
+        component: <TxHistoryListContainerWithProvider />,
+      },
+      isBulkRevokeApprovalEnabled
+        ? {
+            id: EHomeWalletTab.Approvals,
+            name: intl.formatMessage({
+              id: ETranslations.global_approval,
+            }),
+            component: <ApprovalListContainerWithProvider />,
+          }
+        : undefined,
+    ].filter(Boolean);
+  }, [intl, isNFTEnabled, isBulkRevokeApprovalEnabled]);
+
+  const handleRenderItem = useCallback(
+    (props: ITabBarItemProps) => {
+      const tabId = tabConfigs.find((i) => i.name === props.name)?.id;
+      return (
+        <XStack position="relative">
+          <TabBarItem {...props} />
+          {tabId === EHomeWalletTab.Approvals && hasRiskApprovals ? (
+            <Stack
+              position="absolute"
+              right={-6}
+              top={12}
+              w="$1.5"
+              h="$1.5"
+              bg="$iconCritical"
+              borderRadius="$full"
+            />
+          ) : null}
+        </XStack>
+      );
+    },
+    [hasRiskApprovals, tabConfigs],
+  );
 
   const tabs = useMemo(() => {
     const key = `${account?.id ?? ''}-${account?.indexedAccountId ?? ''}-${
       network?.id ?? ''
-    }-${isNFTEnabled ? '1' : '0'}`;
-    return isNFTEnabled ? (
-      <Tabs.Container {...tabContainerProps} key={key}>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_crypto,
-          })}
-        >
-          <TokenListContainerWithProvider />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_nft,
-          })}
-        >
-          <NFTListContainerWithProvider />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_history,
-          })}
-        >
-          <TxHistoryListContainerWithProvider />
-        </Tabs.Tab>
-      </Tabs.Container>
-    ) : (
-      <Tabs.Container {...tabContainerProps} key={key}>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_crypto,
-          })}
-        >
-          <TokenListContainerWithProvider />
-        </Tabs.Tab>
-        <Tabs.Tab
-          name={intl.formatMessage({
-            id: ETranslations.global_history,
-          })}
-        >
-          <TxHistoryListContainerWithProvider />
-        </Tabs.Tab>
+    }-${isNFTEnabled ? '1' : '0'}-${isBulkRevokeApprovalEnabled ? '1' : '0'}`;
+    return (
+      <Tabs.Container
+        key={key}
+        allowHeaderOverscroll
+        width={tabContainerWidth}
+        renderHeader={renderHeader}
+        renderTabBar={(props: any) => (
+          <Tabs.TabBar
+            {...props}
+            renderItem={handleRenderItem}
+            renderToolbar={({ focusedTab }) => (
+              <TabHeaderSettings focusedTab={focusedTab} />
+            )}
+          />
+        )}
+      >
+        {tabConfigs.map((tab) => (
+          <Tabs.Tab key={tab.name} name={tab.name}>
+            {tab.component}
+          </Tabs.Tab>
+        ))}
       </Tabs.Container>
     );
   }, [
     account?.id,
     account?.indexedAccountId,
-    intl,
+    handleRenderItem,
+    isBulkRevokeApprovalEnabled,
     isNFTEnabled,
     network?.id,
-    tabContainerProps,
+    renderHeader,
+    tabConfigs,
+    tabContainerWidth,
   ]);
 
   useEffect(() => {
     void Icon.prefetch('CloudOffOutline');
+  }, []);
+
+  useEffect(() => {
+    const clearCache = async () => {
+      await backgroundApiProxy.serviceAccount.clearAccountNameFromAddressCache();
+    };
+
+    appEventBus.on(EAppEventBusNames.WalletUpdate, clearCache);
+    appEventBus.on(EAppEventBusNames.AccountUpdate, clearCache);
+    appEventBus.on(EAppEventBusNames.AddressBookUpdate, clearCache);
+    return () => {
+      appEventBus.off(EAppEventBusNames.WalletUpdate, clearCache);
+      appEventBus.off(EAppEventBusNames.AccountUpdate, clearCache);
+      appEventBus.off(EAppEventBusNames.AddressBookUpdate, clearCache);
+    };
   }, []);
 
   const homePageContent = useMemo(() => {
@@ -282,9 +447,12 @@ export function HomePageView({
     }
 
     let content = (
-      <Stack h="100%" justifyContent="center">
-        <EmptyWallet />
-      </Stack>
+      <ScrollView
+        h="100%"
+        contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}
+      >
+        {platformEnv.isWebDappMode ? <WebDappEmptyView /> : <EmptyWallet />}
+      </ScrollView>
     );
 
     if (wallet) {

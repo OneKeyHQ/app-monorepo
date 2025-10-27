@@ -6,6 +6,7 @@ import {
   formatMarketCap,
   formatPrice,
   formatPriceChange,
+  formatPriceChangeCapped,
   formatValue,
   fromBigIntHex,
   numberFormat,
@@ -795,19 +796,19 @@ test('formatMarketCap', () => {
     formatDisplayNumber(
       formatMarketCap('999500000000000', { capAtMaxT: true }),
     ),
-  ).toEqual('> 999T');
+  ).toEqual('>999T');
 
   expect(
     formatDisplayNumber(
       formatMarketCap('1000000000000000', { capAtMaxT: true }),
     ),
-  ).toEqual('> 999T');
+  ).toEqual('>999T');
 
   expect(
     formatDisplayNumber(
       formatMarketCap('21953896250000000000000', { capAtMaxT: true }),
     ),
-  ).toEqual('> 999T');
+  ).toEqual('>999T');
 
   // Test without capAtMaxT (default behavior)
   expect(
@@ -822,7 +823,7 @@ test('formatMarketCap', () => {
         currency: '$',
       }),
     ),
-  ).toEqual('> $999T');
+  ).toEqual('>$999T');
 
   // Test meta.isCapped flag
   const cappedResult = formatMarketCap('21953896250000000000000', {
@@ -834,4 +835,179 @@ test('formatMarketCap', () => {
     capAtMaxT: true,
   });
   expect(notCappedResult.meta.isCapped).toBe(false);
+});
+
+test('formatPriceChangeCapped', () => {
+  // Test normal range values without capping
+  expect(formatPriceChangeCapped('15.67')).toEqual({
+    formattedValue: '15.67',
+    meta: {
+      value: '15.67',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  expect(formatPriceChangeCapped('-8.32')).toEqual({
+    formattedValue: '-8.32',
+    meta: {
+      value: '-8.32',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  // Test boundary values (not capped)
+  expect(formatPriceChangeCapped('999.99')).toEqual({
+    formattedValue: '999.99',
+    meta: {
+      value: '999.99',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  expect(formatPriceChangeCapped('-999.99')).toEqual({
+    formattedValue: '-999.99',
+    meta: {
+      value: '-999.99',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  // Test values that exceed the cap (should be capped and marked as isCapped)
+  expect(formatPriceChangeCapped('1500.5')).toEqual({
+    formattedValue: '999.99',
+    meta: {
+      value: '1500.5',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: true,
+    },
+  });
+
+  expect(formatPriceChangeCapped('-1200.8')).toEqual({
+    formattedValue: '-999.99',
+    meta: {
+      value: '-1200.8',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: true,
+    },
+  });
+
+  // Test zero value
+  expect(formatPriceChangeCapped('0')).toEqual({
+    formattedValue: '0.00',
+    meta: {
+      value: '0',
+      isZero: true,
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+    },
+  });
+
+  // Test NaN value
+  expect(formatPriceChangeCapped('invalid')).toEqual({
+    formattedValue: 'invalid',
+    meta: {
+      value: 'invalid',
+      invalid: true,
+    },
+  });
+
+  // Test with showPlusMinusSigns option
+  expect(
+    formatPriceChangeCapped('15.67', { showPlusMinusSigns: true }),
+  ).toEqual({
+    formattedValue: '15.67',
+    meta: {
+      value: '15.67',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+      showPlusMinusSigns: true,
+    },
+  });
+
+  expect(
+    formatPriceChangeCapped('-8.32', { showPlusMinusSigns: true }),
+  ).toEqual({
+    formattedValue: '-8.32',
+    meta: {
+      value: '-8.32',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: false,
+      showPlusMinusSigns: true,
+    },
+  });
+
+  // Test capped values with showPlusMinusSigns
+  expect(
+    formatPriceChangeCapped('1500.5', { showPlusMinusSigns: true }),
+  ).toEqual({
+    formattedValue: '999.99',
+    meta: {
+      value: '1500.5',
+      symbol: '%',
+      decimalSymbol: '.',
+      isCapped: true,
+      showPlusMinusSigns: true,
+    },
+  });
+
+  // Test formatted display with > symbol for capped values
+  expect(
+    formatDisplayNumber(
+      formatPriceChangeCapped('1500.5', { showPlusMinusSigns: true }),
+    ),
+  ).toEqual('>+999.99%');
+
+  expect(
+    formatDisplayNumber(
+      formatPriceChangeCapped('-1200.8', { showPlusMinusSigns: true }),
+    ),
+  ).toEqual('>-999.99%');
+
+  // Test formatted display for normal values with plus/minus signs
+  expect(
+    formatDisplayNumber(
+      formatPriceChangeCapped('15.67', { showPlusMinusSigns: true }),
+    ),
+  ).toEqual('+15.67%');
+
+  expect(
+    formatDisplayNumber(
+      formatPriceChangeCapped('-8.32', { showPlusMinusSigns: true }),
+    ),
+  ).toEqual('-8.32%');
+
+  // Test numberFormat integration with new formatter
+  expect(
+    numberFormat('1500.5', {
+      formatter: 'priceChangeCapped',
+      formatterOptions: { showPlusMinusSigns: true },
+    }),
+  ).toEqual('>+999.99%');
+
+  expect(
+    numberFormat('-1200.8', {
+      formatter: 'priceChangeCapped',
+      formatterOptions: { showPlusMinusSigns: true },
+    }),
+  ).toEqual('>-999.99%');
+
+  expect(
+    numberFormat('15.67', {
+      formatter: 'priceChangeCapped',
+      formatterOptions: { showPlusMinusSigns: true },
+    }),
+  ).toEqual('+15.67%');
 });

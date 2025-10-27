@@ -1,3 +1,5 @@
 import { MarketHomeV2 } from './MarketHomeV2';
 
-export { MarketHomeV2 as default };
+export default function MarketHome(props: any) {
+  return <MarketHomeV2 {...props} />;
+}

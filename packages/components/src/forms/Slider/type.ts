@@ -1,5 +1,7 @@
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { IFormFieldProps } from '../types';
-import type { StackStyle } from '@tamagui/web';
+import type { LayoutChangeEvent } from 'react-native';
 
 type INonGestureStackStyleProps = Omit<
   StackStyle,
@@ -25,6 +27,8 @@ interface IBaseGestureSliderProps extends INonGestureStackStyleProps {
   onSlideStart?: () => void;
   onSlideMove?: (value: number) => void;
   onSlideEnd?: () => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  segments?: number;
 }
 
 export type IBaseSliderProps = IFormFieldProps<number, IBaseGestureSliderProps>;

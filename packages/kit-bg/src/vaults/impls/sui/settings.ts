@@ -1,12 +1,15 @@
 import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { SuiUSDC, SuiWBTC } from '@onekeyhq/shared/src/consts/addresses';
 import {
   COINTYPE_SUI,
   IMPL_SUI,
   INDEX_PLACEHOLDER,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
@@ -50,6 +53,28 @@ const settings: IVaultSettings = {
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 120,
   customRpcEnabled: true,
+
+  stakingConfig: {
+    [getNetworkIdsMap().sui]: {
+      providers: {
+        [EEarnProviderEnum.Momentum]: {
+          supportedSymbols: ['USDC', 'WBTC'],
+          configs: {
+            USDC: {
+              enabled: true,
+              tokenAddress: SuiUSDC,
+              displayProfit: true,
+            },
+            WBTC: {
+              enabled: true,
+              tokenAddress: SuiWBTC,
+              displayProfit: true,
+            },
+          },
+        },
+      },
+    },
+  },
 
   accountDeriveInfo,
   networkInfo: {

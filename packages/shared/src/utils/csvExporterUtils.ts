@@ -40,7 +40,7 @@ async function exportCSVExpo(data: any[], filename = 'export.csv') {
     }
 
     const csvString = convertToCSV(data);
-    const fileUri = `${FileSystem.documentDirectory ?? ''}${filename}`;
+    const fileUri = `${FileSystem.cacheDirectory ?? ''}${filename}`;
 
     await FileSystem.writeAsStringAsync(fileUri, csvString);
 

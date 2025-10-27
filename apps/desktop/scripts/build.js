@@ -22,6 +22,14 @@ const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
   .map((name) => name.split('app/').pop());
 
+console.log('process.env.NODE_ENV', process.env.NODE_ENV);
+console.log('process.env.DESK_CHANNEL', process.env.DESK_CHANNEL);
+console.log('process.env.SNAP', process.env.SNAP);
+console.log('process.env.BUILD_NUMBER', process.env.BUILD_NUMBER);
+console.log('process.env.BUILD_TIME', process.env.BUILD_TIME);
+console.log('process.env.VERSION', process.env.VERSION);
+console.log('process.env.BUNDLE_VERSION', process.env.BUNDLE_VERSION);
+console.log('process.env.GITHUB_SHA', process.env.GITHUB_SHA);
 build({
   entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map((f) =>
     path.join(electronSource, f),
@@ -60,8 +68,8 @@ build({
   },
   external: [
     'electron',
-    '@abandonware/noble',
-    '@abandonware/bluetooth-hci-socket',
+    '@stoprocent/noble',
+    '@stoprocent/bluetooth-hci-socket',
     'bufferutil',
     'utf-8-validate',
     ...Object.keys(pkg.dependencies),
@@ -69,6 +77,11 @@ build({
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
+    'process.env.VERSION': JSON.stringify(process.env.VERSION || '1.0.0'),
+    'process.env.BUILD_NUMBER': JSON.stringify(process.env.BUILD_NUMBER || '1'),
+    'process.env.BUNDLE_VERSION': JSON.stringify(
+      process.env.BUNDLE_VERSION || '1',
+    ),
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',
     ),

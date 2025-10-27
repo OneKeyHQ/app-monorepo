@@ -3,8 +3,13 @@ import { cloneElement, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { createStyledContext, styled, useThemeName } from 'tamagui';
 
+import {
+  createStyledContext,
+  styled,
+  useThemeName,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { ColorTokens } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import {
@@ -23,7 +28,6 @@ import type {
   IStackProps,
   IYStackProps,
 } from '../../primitives';
-import type { ColorTokens } from 'tamagui';
 
 export type IAlertType =
   | 'info'
@@ -31,7 +35,8 @@ export type IAlertType =
   | 'critical'
   | 'success'
   | 'default'
-  | 'danger';
+  | 'danger'
+  | 'caution';
 
 type IAlertActionProps = {
   primary: string;
@@ -40,6 +45,8 @@ type IAlertActionProps = {
   onSecondaryPress?: () => void;
   isPrimaryLoading?: boolean;
   isSecondaryLoading?: boolean;
+  isPrimaryDisabled?: boolean;
+  isSecondaryDisabled?: boolean;
 };
 
 interface IAlertContext {
@@ -90,6 +97,10 @@ const AlertFrame = styled(XStack, {
         backgroundColor: '$bgCautionSubdued',
         borderColor: '$borderCautionSubdued',
       },
+      caution: {
+        backgroundColor: '$bgSubdued',
+        borderColor: '$borderSubdued',
+      },
       critical: {
         backgroundColor: '$bgCriticalSubdued',
         borderColor: '$borderCriticalSubdued',
@@ -128,6 +139,7 @@ const AlertIcon = (props: { children: any }) => {
     critical: '$iconCritical',
     danger: '$iconCritical',
     success: '$iconSuccess',
+    caution: '$iconCritical',
   };
   return cloneElement(props.children, {
     color: colorMapping[type],
@@ -222,6 +234,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
             size="small"
             onPress={action.onPrimaryPress}
             loading={action.isPrimaryLoading}
+            disabled={action.isPrimaryDisabled}
           >
             {action.primary}
           </Button>
@@ -231,6 +244,7 @@ export const Alert: ComponentType<IAlertProps> = AlertFrame.styleable<
               variant="tertiary"
               onPress={action.onSecondaryPress}
               loading={action.isSecondaryLoading}
+              disabled={action.isSecondaryDisabled}
             >
               {action.secondary}
             </Button>

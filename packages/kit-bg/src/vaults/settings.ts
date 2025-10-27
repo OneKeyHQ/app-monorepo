@@ -1,5 +1,6 @@
 import {
   IMPL_ADA,
+  IMPL_AGGREGATE,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
   IMPL_ALPH,
@@ -106,6 +107,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_ALPH]: () => import('./impls/alph/settings'),
     [IMPL_BFC]: () => import('./impls/bfc/settings'),
     [IMPL_NEO]: () => import('./impls/neo/settings'),
+    [IMPL_AGGREGATE]: () => import('./impls/aggregate/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

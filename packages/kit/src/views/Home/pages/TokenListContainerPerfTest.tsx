@@ -90,7 +90,7 @@ export function TokenListContainerPerfTest() {
     [],
   );
 
-  const handleAllNetworkCacheData = useCallback(() => {
+  const handleAllNetworkCacheData = useCallback(async () => {
     setOverview({
       isRefreshing: false,
       initialized: true,

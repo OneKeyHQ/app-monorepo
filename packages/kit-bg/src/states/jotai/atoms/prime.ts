@@ -60,6 +60,18 @@ export const {
   },
 });
 
+export const {
+  target: primeServerMasterPasswordStatusAtom,
+  use: usePrimeServerMasterPasswordStatusAtom,
+} = globalAtom<{
+  isServerMasterPasswordSet: boolean;
+}>({
+  name: EAtomNames.primeServerMasterPasswordStatusAtom,
+  initialValue: {
+    isServerMasterPasswordSet: false,
+  },
+});
+
 export type IPrimeInitAtomData = {
   isReady: boolean;
 };
@@ -114,11 +126,15 @@ export enum EPrimeTransferStatus {
   transferring = 'transferring',
 }
 export type IPrimeTransferAtomData = {
+  shouldPreventExit: boolean;
   websocketConnected: boolean;
+  websocketError: string | undefined;
+  websocketEndpointUpdatedAt: number | undefined;
   status: EPrimeTransferStatus;
   pairedRoomId: string | undefined;
   myCreatedRoomId: string | undefined;
   myUserId: string | undefined;
+  refreshQrcodeHook?: number | undefined;
   transferDirection:
     | {
         fromUserId: string | undefined;
@@ -130,18 +146,33 @@ export type IPrimeTransferAtomData = {
     total: number;
     current: number;
     isImporting: boolean;
+    stats?: {
+      errorsInfo: {
+        category: string;
+        walletId: string;
+        accountId: string;
+        networkInfo: string;
+        error: string;
+      }[];
+      progressTotal: number;
+      progressCurrent: number;
+    };
   };
 };
 export const { target: primeTransferAtom, use: usePrimeTransferAtom } =
   globalAtom<IPrimeTransferAtomData>({
     name: EAtomNames.primeTransferAtom,
     initialValue: {
+      shouldPreventExit: false,
       websocketConnected: false,
+      websocketError: undefined,
+      websocketEndpointUpdatedAt: undefined,
       status: EPrimeTransferStatus.init,
       pairedRoomId: undefined,
       myCreatedRoomId: undefined,
       myUserId: undefined,
       transferDirection: undefined,
       importProgress: undefined,
+      refreshQrcodeHook: undefined,
     },
   });

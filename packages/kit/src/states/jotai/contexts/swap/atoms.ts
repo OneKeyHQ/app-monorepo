@@ -6,7 +6,6 @@ import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
-import type { ISwapProviderInfo } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapProviderSort,
   mevSwapNetworks,
@@ -16,12 +15,11 @@ import type {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
-  IFetchQuoteFee,
-  IFetchQuoteInfo,
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
   ISwapLimitPriceInfo,
+  ISwapNativeTokenReserveGas,
   ISwapNetwork,
   ISwapPreSwapData,
   ISwapStep,
@@ -31,6 +29,7 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapNetworkFeeLevel,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -249,6 +248,42 @@ export const {
     });
   }
   const receivedSorted = resetList.slice().sort((a, b) => {
+    // check toAmountSlippage
+    const aToAmountSlippage = new BigNumber(a.toAmountSlippage || 0).plus(1);
+    const bToAmountSlippage = new BigNumber(b.toAmountSlippage || 0).plus(1);
+    const aVal = new BigNumber(a.toAmount || 0).multipliedBy(aToAmountSlippage);
+    const bVal = new BigNumber(b.toAmount || 0).multipliedBy(bToAmountSlippage);
+    // Check if limit exists for a and b
+    const aHasLimit = !!a.limit;
+    const bHasLimit = !!b.limit;
+
+    if (aVal.isZero() && bVal.isZero() && aHasLimit && !bHasLimit) {
+      return -1;
+    }
+
+    if (aVal.isZero() && bVal.isZero() && bHasLimit && !aHasLimit) {
+      return 1;
+    }
+
+    if (
+      aVal.isZero() ||
+      aVal.isNaN() ||
+      fromTokenAmountBN.lt(new BigNumber(a.limit?.min || 0)) ||
+      fromTokenAmountBN.gt(new BigNumber(a.limit?.max || Infinity))
+    ) {
+      return 1;
+    }
+    if (
+      bVal.isZero() ||
+      bVal.isNaN() ||
+      fromTokenAmountBN.lt(new BigNumber(b.limit?.min || 0)) ||
+      fromTokenAmountBN.gt(new BigNumber(b.limit?.max || Infinity))
+    ) {
+      return -1;
+    }
+    return bVal.comparedTo(aVal);
+  });
+  const receivedOriginalSorted = resetList.slice().sort((a, b) => {
     const aVal = new BigNumber(a.toAmount || 0);
     const bVal = new BigNumber(b.toAmount || 0);
     // Check if limit exists for a and b
@@ -352,7 +387,7 @@ export const {
     if (p?.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
       p.isBest = true;
     }
-    if (p?.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
+    if (p?.quoteId === receivedOriginalSorted?.[0]?.quoteId && p.toAmount) {
       p.receivedBest = true;
     }
     if (p.quoteId === gasFeeSorted?.[0]?.quoteId && p.toAmount) {
@@ -638,7 +673,21 @@ export const { atom: swapStepsAtom, use: useSwapStepsAtom } = contextAtom<{
   preSwapData: {},
 });
 
+export const {
+  atom: swapStepNetFeeLevelAtom,
+  use: useSwapStepNetFeeLevelAtom,
+} = contextAtom<{
+  networkFeeLevel: ESwapNetworkFeeLevel;
+}>({
+  networkFeeLevel: ESwapNetworkFeeLevel.MEDIUM,
+});
+
 // swap tips
 export const { atom: swapTipsAtom, use: useSwapTipsAtom } = contextAtom<
   ISwapTips | undefined
 >(undefined);
+
+export const {
+  atom: swapNativeTokenReserveGasAtom,
+  use: useSwapNativeTokenReserveGasAtom,
+} = contextAtom<ISwapNativeTokenReserveGas[]>([]);

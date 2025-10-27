@@ -43,6 +43,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFetchAccountHistoryParams,
@@ -506,6 +507,7 @@ export default class Vault extends VaultBase {
       const deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId: this.walletId,
+          hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
         });
       connectId = deviceParams?.dbDevice?.connectId;
       deviceId = deviceParams?.dbDevice?.deviceId;
@@ -559,7 +561,7 @@ export default class Vault extends VaultBase {
     return (this.keyring as KeyringHd).lnurlAuth(params);
   }
 
-  async verifyMessage({
+  async verifyLightningMessage({
     message,
     signature,
   }: {

@@ -1,32 +1,35 @@
-import { TradingView } from '@onekeyhq/kit/src/components/TradingView';
+import { memo } from 'react';
+
+import { TradingViewV2 } from '@onekeyhq/kit/src/components/TradingView/TradingViewV2';
 
 interface IMarketTradingViewProps {
   tokenAddress: string;
   networkId: string;
   tokenSymbol?: string;
-  identifier?: string;
   decimal?: number;
+  onPanesCountChange?: (count: number) => void;
+  isNative?: boolean;
+  dataSource: 'websocket' | 'polling';
 }
 
-export function MarketTradingView({
-  tokenAddress,
-  networkId,
-  tokenSymbol = '',
-  identifier = 'OneKey',
-  decimal = 8,
-}: IMarketTradingViewProps) {
-  return (
-    <TradingView
-      version="v2"
-      mode="realtime"
-      identifier={identifier}
-      baseToken={tokenSymbol}
-      targetToken="USDT"
-      symbol={tokenSymbol}
-      tokenAddress={tokenAddress}
-      networkId={networkId}
-      decimal={decimal}
-      onLoadEnd={() => {}}
-    />
-  );
-}
+export const MarketTradingView = memo(
+  ({
+    tokenAddress,
+    networkId,
+    tokenSymbol = '',
+    decimal = 8,
+    dataSource,
+  }: IMarketTradingViewProps) => {
+    return (
+      <TradingViewV2
+        symbol={tokenSymbol}
+        tokenAddress={tokenAddress}
+        networkId={networkId}
+        decimal={decimal}
+        dataSource={dataSource}
+      />
+    );
+  },
+);
+
+MarketTradingView.displayName = 'MarketTradingView';

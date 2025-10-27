@@ -194,6 +194,7 @@ export type IFetchAccountHistoryResp = {
   tokens: Record<string, IOnChainHistoryTxToken>; // <tokenAddress, token>
   nfts: Record<string, IOnChainHistoryTxNFT>; // <nftAddress, nft>
   addressMap?: Record<string, IAddressBadge>; // <networkId_address, {label, tip, type}>
+  hasMore?: boolean;
 };
 
 export type IFetchHistoryTxDetailsParams = {

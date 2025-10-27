@@ -129,6 +129,7 @@ export const {
 });
 export type IAccountSelectorUpdateMeta = {
   eventEmitDisabled: boolean;
+  updatedAt: number;
 };
 export const {
   atom: accountSelectorUpdateMetaAtom,

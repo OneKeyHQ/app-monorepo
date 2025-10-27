@@ -2,11 +2,7 @@ import type { ForwardedRef } from 'react';
 import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
-import {
-  Dimensions,
-  type View as IView,
-  type KeyboardEvent,
-} from 'react-native';
+import { Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,6 +14,7 @@ import {
   DesktopDragZoneBox,
   Heading,
   Image,
+  Keyboard,
   Stack,
   ThemeableStack,
   updateHeightWhenKeyboardHide,
@@ -32,7 +29,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { APP_STATE_LOCK_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 
+import { DevPerpsWebSocketUpdateView } from '../../FullWindowOverlayContainer/DevOverlayWindow';
+
 import { AppStateContainer } from './AppStateContainer';
+
+import type { View as IView, KeyboardEvent } from 'react-native';
 
 interface IAppStateLockProps extends IThemeableStackProps {
   passwordVerifyContainer: React.ReactNode;
@@ -87,6 +88,7 @@ const AppStateLock = ({
         flex={1}
         bg="$bgApp"
         pointerEvents={platformEnv.isNative ? undefined : 'auto'}
+        onPress={Keyboard.dismiss}
         {...props}
       >
         <Animated.View style={safeKeyboardAnimationStyle}>
@@ -122,6 +124,7 @@ const AppStateLock = ({
               {passwordVerifyContainer}
             </Stack>
           </Stack>
+          <DevPerpsWebSocketUpdateView />
           <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
             {v4migrationData?.isMigrationModalOpen ||
             v4migrationData?.isProcessing ? null : (

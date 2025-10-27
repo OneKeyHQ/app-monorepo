@@ -9,6 +9,8 @@ type IExternalWalletLogoKeys =
   | 'rainbow'
   | 'imtoken'
   | 'okx'
+  | 'coinbase'
+  | 'phantom'
   | 'tokenpocket'
   | 'zerion'
   | 'walletconnect'
@@ -49,6 +51,14 @@ const map: Record<IExternalWalletLogoKeys, IExternalWalletLogoInfo> = {
     name: 'OKX Wallet',
     logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_okx.png'),
   },
+  'coinbase': {
+    name: 'Coinbase Wallet',
+    logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_coinbase.png'),
+  },
+  'phantom': {
+    name: 'Phantom',
+    logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_phantom.png'),
+  },
   'tokenpocket': {
     name: 'TokenPocket',
     logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_tokenpocket.png'),
@@ -58,7 +68,7 @@ const map: Record<IExternalWalletLogoKeys, IExternalWalletLogoInfo> = {
     logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_zerion.png'),
   },
   'walletconnect': {
-    name: 'Walletconnect',
+    name: 'WalletConnect',
     logo: require('@onekeyhq/shared/src/assets/wallet/external/logo/logo_walletconnect.png'),
   },
   'fireblocks': {

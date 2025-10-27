@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -17,6 +17,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   EModalBulkCopyAddressesRoutes,
   IModalBulkCopyAddressesParamList,
@@ -65,8 +66,9 @@ function ExportAddresses({
         data.push({
           type: 'address',
           address:
-            item.account?.address ||
+            item.account?.displayAddress ||
             item.account?.addressDetail?.displayAddress ||
+            item.account?.address ||
             '',
           accountName: item.account?.name ?? '',
           deriveType: item.deriveInfo.labelKey
@@ -142,6 +144,12 @@ function ExportAddresses({
     );
   }, [addressesData, copyText]);
 
+  useEffect(() => {
+    if (addressesData.length > 0) {
+      defaultLogger.prime.usage.bulkCopyAddressSuccess();
+    }
+  }, [addressesData]);
+
   const renderAddresses = useCallback(() => {
     return (
       <ScrollView
@@ -154,48 +162,89 @@ function ExportAddresses({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderStrong"
       >
-        <YStack gap="$1">
-          {addressesData.map((item, index) => {
-            return (
-              <XStack key={index} alignItems="flex-start">
-                <Stack width={32} justifyContent="flex-start" userSelect="none">
-                  <SizableText
-                    size="$bodyLgMedium"
-                    color="$textDisabled"
-                    numberOfLines={1}
-                    userSelect="none"
-                    style={{
-                      userSelect: 'none',
-                    }}
-                  >
-                    {index + 1}
-                  </SizableText>
-                </Stack>
-                <Stack flex={1} mr="$0.5">
-                  {item.type === 'address' ? (
+        <Stack>
+          <YStack gap="$1" pb="$5" userSelect="none">
+            {addressesData.map((item, index) => {
+              return (
+                <XStack key={index} alignItems="flex-start">
+                  <Stack width={32} justifyContent="flex-start">
                     <SizableText
-                      size="$bodyLg"
-                      style={{
-                        wordBreak: 'break-all',
-                        userSelect: 'text',
-                      }}
+                      size="$bodyLgMedium"
+                      color="$textDisabled"
+                      numberOfLines={1}
                     >
-                      {item.address}
+                      {index + 1}
                     </SizableText>
-                  ) : null}
-                  {item.type === 'title' ? (
-                    <SizableText size="$bodyLg" color="$textDisabled">
-                      {`// ${item.title ?? ''}`}
-                    </SizableText>
-                  ) : null}
-                  {item.type === 'blankLine' ? (
-                    <SizableText size="$bodyLg" />
-                  ) : null}
-                </Stack>
-              </XStack>
-            );
-          })}
-        </YStack>
+                  </Stack>
+                  <Stack flex={1} mr="$0.5">
+                    {item.type === 'address' ? (
+                      <SizableText
+                        size="$bodyLg"
+                        color="$transparent"
+                        style={{
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        {item.address}
+                      </SizableText>
+                    ) : null}
+                    {item.type === 'title' ? (
+                      <SizableText size="$bodyLg" color="$transparent">
+                        {`// ${item.title ?? ''}`}
+                      </SizableText>
+                    ) : null}
+                    {item.type === 'blankLine' ? (
+                      <SizableText size="$bodyLg" />
+                    ) : null}
+                  </Stack>
+                </XStack>
+              );
+            })}
+          </YStack>
+          <YStack
+            gap="$1"
+            pb="$5"
+            position="absolute"
+            top={0}
+            left={0}
+            zIndex={1000}
+            w="100%"
+            userSelect="none"
+          >
+            {addressesData.map((item, index) => {
+              return (
+                <XStack key={index} alignItems="flex-start">
+                  <Stack width={32} height={24} />
+                  <Stack flex={1} mr="$0.5">
+                    {item.type === 'address' ? (
+                      <SizableText
+                        size="$bodyLg"
+                        userSelect="text"
+                        style={{
+                          wordBreak: 'break-all',
+                        }}
+                      >
+                        {item.address}
+                      </SizableText>
+                    ) : null}
+                    {item.type === 'title' ? (
+                      <SizableText
+                        size="$bodyLg"
+                        color="$textDisabled"
+                        userSelect="text"
+                      >
+                        {`// ${item.title ?? ''}`}
+                      </SizableText>
+                    ) : null}
+                    {item.type === 'blankLine' ? (
+                      <SizableText size="$bodyLg" />
+                    ) : null}
+                  </Stack>
+                </XStack>
+              );
+            })}
+          </YStack>
+        </Stack>
       </ScrollView>
     );
   }, [addressesData]);

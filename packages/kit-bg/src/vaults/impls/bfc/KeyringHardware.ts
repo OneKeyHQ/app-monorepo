@@ -75,6 +75,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 publicKey: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
             });
             if (allNetworkAccounts) {
@@ -100,7 +101,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (const addressInfo of addressesInfo) {
-          const { address, path, publicKey } = addressInfo;
+          const { address, path, publicKey, __hwExtraInfo__ } = addressInfo;
           if (!address) {
             throw new OneKeyHardwareError('Address is empty');
           }
@@ -108,6 +109,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             address,
             path,
             publicKey: publicKey || '',
+            __hwExtraInfo__,
           };
           ret.push(item);
         }
@@ -119,7 +121,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxBfc;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
@@ -172,7 +176,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    const HardwareSDK = await this.getHardwareSDKInstance();
+    const HardwareSDK = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();

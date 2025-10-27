@@ -1,0 +1,601 @@
+diff --git a/node_modules/react-native-performance-stats/android/build.gradle b/node_modules/react-native-performance-stats/android/build.gradle
+index 8d78d92..7d21d24 100644
+--- a/node_modules/react-native-performance-stats/android/build.gradle
++++ b/node_modules/react-native-performance-stats/android/build.gradle
+@@ -51,6 +51,7 @@ repositories {
+ 
+ dependencies {
+     implementation 'com.facebook.react:react-native:+'
++    implementation 'org.greenrobot:eventbus-java:3.3.1+'
+ }
+ 
+ if (isNewArchitectureEnabled()) {
+diff --git a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
+index 621ef85..38f635d 100644
+--- a/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
++++ b/node_modules/react-native-performance-stats/android/src/main/java/nl/skillnation/perfstats/PerformanceStatsImpl.java
+@@ -1,8 +1,24 @@
+ package nl.skillnation.perfstats;
+ 
+-
++import android.annotation.SuppressLint;
++import android.app.Activity;
++import android.content.Context;
++import android.content.Intent;
++import android.graphics.Color;
++import android.graphics.PixelFormat;
++import android.net.Uri;
++import android.os.Build;
+ import android.os.Debug;
+ import android.os.Handler;
++import android.provider.Settings;
++import android.text.TextUtils;
++import android.util.Log;
++import android.util.TypedValue;
++import android.view.Gravity;
++import android.view.MotionEvent;
++import android.view.View;
++import android.view.WindowManager;
++import android.widget.TextView;
+ 
+ import androidx.annotation.Nullable;
+ 
+@@ -12,9 +28,12 @@ import com.facebook.react.bridge.WritableMap;
+ import com.facebook.react.modules.core.DeviceEventManagerModule;
+ import com.facebook.react.modules.debug.FpsDebugFrameCallback;
+ 
++import org.greenrobot.eventbus.EventBus;
++
+ import java.io.BufferedReader;
+ import java.io.IOException;
+ import java.io.InputStreamReader;
++import java.util.ArrayList;
+ 
+ // Most important impl details from: https://github.com/facebook/react-native/blob/main/ReactAndroid/src/main/java/com/facebook/react/devsupport/FpsView.java
+ public class PerformanceStatsImpl {
+@@ -28,28 +47,45 @@ public class PerformanceStatsImpl {
+     private Handler handler;
+     private final String packageName;
+ 
++    // Floating view
++    private FPSFloatingView fpsFloatingView;
++    private WindowManager windowManager;
++    private boolean isFloatingViewShown = false;
++
+     public PerformanceStatsImpl(ReactContext context) {
+         mFrameCallback = new FpsDebugFrameCallback(context);
+         mStatsMonitorRunnable = new StatsMonitorRunnable();
+         reactContext = context;
+         packageName = context.getPackageName();
++        windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+     }
+ 
+     // Config
+     private boolean withCPU = false;
++    private boolean withMonitorView = false;
+ 
+     public void start(Boolean withCPU) {
+-        this.withCPU = withCPU;
++        start(withCPU, false);
++    }
++
++    // Overload to support monitor view
++    public void start(Boolean withCPU, Boolean withMonitorView) {
++        this.withCPU = withCPU != null && withCPU;
++        this.withMonitorView = withMonitorView != null && withMonitorView;
+         handler = new Handler();
+         mFrameCallback.reset();
+         mFrameCallback.start();
+         mStatsMonitorRunnable.start();
++        if (this.withMonitorView) {
++            showFPSFloatingView();
++        }
+     }
+ 
+     public void stop() {
+         handler = null;
+         mFrameCallback.stop();
+         mStatsMonitorRunnable.stop();
++        hideFPSFloatingView();
+     }
+ 
+     private void setCurrentStats(double uiFPS, double jsFPS, int framesDropped, int shutters, double usedRam, double usedCpu) {
+@@ -61,7 +97,18 @@ public class PerformanceStatsImpl {
+         state.putDouble("usedRam", usedRam);
+         state.putDouble("usedCpu", usedCpu);
+ 
++        if ((uiFPS > 0 && uiFPS < 30 )|| (jsFPS > 0 && jsFPS < 30)) {
++            EventBus.getDefault().post(new ArrayList<String>() {{
++                add("PerformanceStats");
++                add("jsFPS:" + jsFPS + " uiFPS:" + uiFPS + " usedRam:" + usedRam + " usedCpu:" + usedCpu);
++            }});
++        }
+         sendEvent(state);
++
++        // Update floating view if shown
++        if (fpsFloatingView != null && isFloatingViewShown) {
++            fpsFloatingView.updateStats(uiFPS, jsFPS, usedCpu, usedRam);
++        }
+     }
+ 
+     private void sendEvent(@Nullable Object data) {
+@@ -75,6 +122,78 @@ public class PerformanceStatsImpl {
+         reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("performanceStatsUpdate", data);
+     }
+ 
++    private void showFPSFloatingView() {
++        if (fpsFloatingView != null && isFloatingViewShown) return;
++        if (windowManager == null) return;
++
++        fpsFloatingView = new FPSFloatingView(reactContext);
++        WindowManager.LayoutParams params = new WindowManager.LayoutParams();
++        params.width = WindowManager.LayoutParams.WRAP_CONTENT;
++        params.height = WindowManager.LayoutParams.WRAP_CONTENT;
++        params.format = PixelFormat.TRANSLUCENT;
++        params.gravity = Gravity.TOP | Gravity.START;
++        params.x = dp2px(reactContext, 30);
++        params.y = dp2px(reactContext, 100);
++
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++            params.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
++        } else {
++            params.type = WindowManager.LayoutParams.TYPE_PHONE;
++        }
++        // Check overlay permission
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
++            if (!Settings.canDrawOverlays(reactContext)) {
++                Log.w("PerformanceStats", "No overlay permission, cannot show floating view");
++                // Show dialog to guide user to settings to grant permission
++                new android.app.AlertDialog.Builder(reactContext.getCurrentActivity())
++                        .setTitle("Overlay Permission Required")
++                        .setMessage("Please grant overlay permission in settings to display the performance monitor floating window.")
++                        .setPositiveButton("Go to Settings", (dialog, which) -> {
++                            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
++                                    Uri.parse("package:" + reactContext.getPackageName()));
++                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
++                            reactContext.startActivity(intent);
++                        })
++                        .setNegativeButton("Cancel", null)
++                        .show();
++                return;
++            }
++        }
++
++        // FLAG_LAYOUT_IN_SCREEN 可能导致部分设备不显示，尝试加 FLAG_LAYOUT_NO_LIMITS
++        params.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
++                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
++                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
++
++        // 检查 View 是否已添加，避免重复 addView 导致异常
++        try {
++            if (fpsFloatingView.getWindowToken() == null && fpsFloatingView.getParent() == null) {
++                windowManager.addView(fpsFloatingView, params);
++                isFloatingViewShown = true;
++                Log.d("PerformanceStats", "Floating view added to window");
++            } else {
++                Log.w("PerformanceStats", "Floating view already added");
++            }
++        } catch (Exception e) {
++            Log.e("PerformanceStats", "Failed to add floating view: " + e.getMessage(), e);
++        }
++    }
++
++    private void hideFPSFloatingView() {
++        if (fpsFloatingView != null && isFloatingViewShown && windowManager != null) {
++            try {
++                windowManager.removeView(fpsFloatingView);
++            } catch (Exception e) {
++                // ignore
++            }
++            isFloatingViewShown = false;
++            fpsFloatingView = null;
++        }
++    }
++
++    private int dp2px(Context context, float dp) {
++        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
++    }
+ 
+     /** Timer that runs every UPDATE_INTERVAL_MS ms and updates the currently displayed FPS and resource usages. */
+     private class StatsMonitorRunnable implements Runnable {
+@@ -91,8 +210,8 @@ public class PerformanceStatsImpl {
+             // Collect FPS info
+             mTotalFramesDropped += mFrameCallback.getExpectedNumFrames() - mFrameCallback.getNumFrames();
+             mTotal4PlusFrameStutters += mFrameCallback.get4PlusFrameStutters();
+-            double fps = mFrameCallback.getFPS();
+-            double jsFps = mFrameCallback.getJSFPS();
++            double fps = mFrameCallback.getFps();
++            double jsFps = mFrameCallback.getJsFPS();
+ 
+             // Collect system resource usage
+             double cpuUsage = 0;
+@@ -114,7 +233,6 @@ public class PerformanceStatsImpl {
+             );
+             mFrameCallback.reset();
+ 
+-            // TODO: not sure if we need to run that on a view
+             handler.postDelayed(this, UPDATE_INTERVAL_MS);
+         }
+ 
+@@ -146,11 +264,91 @@ public class PerformanceStatsImpl {
+             while ((line = reader.readLine()) != null) {
+                 if (!line.contains(packageName)) continue;
+                 line = line.replace(packageName, "").replaceAll(" ", "");
+-                cpuUsage = Double.parseDouble(line);
++                if (!TextUtils.isEmpty(line)) {
++                    try {
++                        cpuUsage = Double.parseDouble(line);
++                    } catch (Exception ignore) {}
++                }
+                 break;
+             }
+             reader.close();
+             return cpuUsage;
+         }
+     }
++
++    /**
++     * Floating view to show FPS, JS FPS, CPU, RAM, always on top and draggable.
++     */
++    @SuppressLint("AppCompatCustomView")
++    private static class FPSFloatingView extends TextView {
++        private float lastX, lastY;
++        private int lastRawX, lastRawY;
++
++        public FPSFloatingView(Context context) {
++            super(context);
++            setTextColor(Color.WHITE);
++            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
++            setPadding(dp2px(context, 12), dp2px(context, 8), dp2px(context, 12), dp2px(context, 8));
++            setBackgroundColor(0xB0000000);
++            setGravity(Gravity.CENTER);
++            setMaxLines(4);
++            setText("UI FPS: --\nJS FPS: --\nCPU: --\nRAM: --");
++            setClickable(true);
++
++            setOnTouchListener(new OnTouchListener() {
++                private int lastAction;
++                private float dX, dY;
++                private int screenWidth = getResources().getDisplayMetrics().widthPixels;
++                private int screenHeight = getResources().getDisplayMetrics().heightPixels;
++
++                @Override
++                public boolean onTouch(View v, MotionEvent event) {
++                    WindowManager.LayoutParams params = (WindowManager.LayoutParams) getLayoutParams();
++                    switch (event.getAction()) {
++                        case MotionEvent.ACTION_DOWN:
++                            dX = event.getRawX() - params.x;
++                            dY = event.getRawY() - params.y;
++                            lastAction = MotionEvent.ACTION_DOWN;
++                            return true;
++                        case MotionEvent.ACTION_MOVE:
++                            int newX = (int) (event.getRawX() - dX);
++                            int newY = (int) (event.getRawY() - dY);
++
++                            // Clamp to screen bounds
++                            int halfW = getWidth() / 2;
++                            int halfH = getHeight() / 2;
++                            newX = Math.max(0, Math.min(screenWidth - getWidth(), newX));
++                            newY = Math.max(0, Math.min(screenHeight - getHeight(), newY));
++
++                            params.x = newX;
++                            params.y = newY;
++                            WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
++                            wm.updateViewLayout(FPSFloatingView.this, params);
++                            lastAction = MotionEvent.ACTION_MOVE;
++                            return true;
++                        case MotionEvent.ACTION_UP:
++                            lastAction = MotionEvent.ACTION_UP;
++                            return true;
++                    }
++                    return false;
++                }
++            });
++        }
++
++        public void updateStats(double uiFPS, double jsFPS, double cpu, double mem) {
++            String cpuStr = cpu >= 0 ? String.format("%.1f%%", cpu) : "--";
++            String memStr = mem >= 0 ? String.format("%.1fMB", mem) : "--";
++            String text = String.format("UI FPS: %s\nJS FPS: %s\nCPU: %s\nRAM: %s",
++                    uiFPS >= 0 ? String.format("%.0f", uiFPS) : "--",
++                    jsFPS >= 0 ? String.format("%.0f", jsFPS) : "--",
++                    cpuStr,
++                    memStr
++            );
++            setText(text);
++        }
++
++        private int dp2px(Context context, float dp) {
++            return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
++        }
++    }
+ }
+diff --git a/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java b/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java
+index 6fb0b1f..046d95c 100644
+--- a/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java
++++ b/node_modules/react-native-performance-stats/android/src/newarch/java/nl/skillnation/perfstats/PerformanceStatsModule.java
+@@ -21,8 +21,8 @@ public class PerformanceStatsModule extends NativePerformanceStatsSpec {
+ 
+     @Override
+     @ReactMethod
+-    public void start(Boolean withCPU) {
+-        performanceStats.start(withCPU);
++    public void start(Boolean withCPU, Boolean withMonitorView) {
++        performanceStats.start(withCPU, withMonitorView);
+     }
+ 
+     @Override
+diff --git a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
+index c574f23..d8e11a8 100644
+--- a/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
++++ b/node_modules/react-native-performance-stats/ios/PerformanceStats/PerformanceStats.mm
+@@ -10,8 +10,91 @@
+ #import "RNPerformanceStatsSpec.h"
+ #endif
+ 
++#import <CocoaLumberjack/CocoaLumberjack.h>
++static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
++
+ // NOTICE: Mainly copied from here: https://github.com/facebook/react-native/blob/main/React/CoreModules/RCTPerfMonitor.mm
+ 
++#pragma mark - Floating FPS View
++
++@interface FPSFloatingView : UIView
++@property (nonatomic, strong) UILabel *label;
++@property (nonatomic, assign) CGPoint lastLocation;
++- (void)updateWithUIFPS:(NSUInteger)uiFPS jsFPS:(NSUInteger)jsFPS cpu:(float)cpu mem:(double)mem;
++@end
++
++@implementation FPSFloatingView
++
++- (instancetype)init {
++    self = [super initWithFrame:CGRectMake(30, 100, 160, 60)];
++    if (self) {
++        self.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.7];
++        self.layer.cornerRadius = 8;
++        self.layer.masksToBounds = YES;
++        self.userInteractionEnabled = YES;
++
++        _label = [[UILabel alloc] initWithFrame:self.bounds];
++        _label.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
++        _label.textColor = [UIColor whiteColor];
++        _label.font = [UIFont systemFontOfSize:13 weight:UIFontWeightBold];
++        _label.textAlignment = NSTextAlignmentCenter;
++        _label.numberOfLines = 4;
++        _label.text = @"UI FPS: --\nJS FPS: --\nCPU: --\nRAM: --";
++        [self addSubview:_label];
++
++        UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handlePan:)];
++        [self addGestureRecognizer:pan];
++    }
++    return self;
++}
++
++- (void)adjustHeightToFitLabel {
++    CGSize maxSize = CGSizeMake(self.bounds.size.width, CGFLOAT_MAX);
++    CGRect labelRect = [self.label.text boundingRectWithSize:maxSize
++                                                     options:NSStringDrawingUsesLineFragmentOrigin|NSStringDrawingUsesFontLeading
++                                                  attributes:@{NSFontAttributeName: self.label.font}
++                                                     context:nil];
++    CGFloat newHeight = ceil(labelRect.size.height) + 16; // 适当padding
++    CGRect newFrame = self.frame;
++    newFrame.size.height = newHeight;
++    self.frame = newFrame;
++    self.label.frame = self.bounds;
++}
++
++- (void)updateWithUIFPS:(NSUInteger)uiFPS jsFPS:(NSUInteger)jsFPS cpu:(float)cpu mem:(double)mem {
++    dispatch_async(dispatch_get_main_queue(), ^{
++        NSString *cpuStr = cpu >= 0 ? [NSString stringWithFormat:@"%.1f%%", cpu] : @"--";
++        NSString *memStr = mem >= 0 ? [NSString stringWithFormat:@"%.1fMB", mem] : @"--";
++        self.label.text = [NSString stringWithFormat:@"UI FPS: %lu\nJS FPS: %lu\nCPU: %@\nRAM: %@", (unsigned long)uiFPS, (unsigned long)jsFPS, cpuStr, memStr];
++        [self adjustHeightToFitLabel];
++
++        UIWindow *keyWindow = [UIApplication sharedApplication].keyWindow;
++        if (keyWindow && self.superview != keyWindow) {
++            [self removeFromSuperview];
++            [keyWindow addSubview:self];
++        } else if (keyWindow) {
++            [keyWindow bringSubviewToFront:self];
++        }
++    });
++}
++
++- (void)handlePan:(UIPanGestureRecognizer *)pan {
++    CGPoint translation = [pan translationInView:self.superview];
++    if (pan.state == UIGestureRecognizerStateBegan) {
++        self.lastLocation = self.center;
++    }
++    CGPoint newCenter = CGPointMake(self.lastLocation.x + translation.x, self.lastLocation.y + translation.y);
++    // Optional: Clamp to screen bounds
++    CGSize screenSize = [UIScreen mainScreen].bounds.size;
++    CGFloat halfW = self.bounds.size.width / 2.0;
++    CGFloat halfH = self.bounds.size.height / 2.0;
++    newCenter.x = MAX(halfW, MIN(screenSize.width - halfW, newCenter.x));
++    newCenter.y = MAX(halfH, MIN(screenSize.height - halfH, newCenter.y));
++    self.center = newCenter;
++}
++
++@end
++
+ #pragma Resource usage methods
+ static vm_size_t RCTGetResidentMemorySize(void)
+ {
+@@ -98,6 +181,8 @@ @implementation PerformanceStats {
+     
+     CADisplayLink *_uiDisplayLink;
+     CADisplayLink *_jsDisplayLink;
++
++    FPSFloatingView *_fpsFloatingView;
+ }
+ 
+ RCT_EXPORT_MODULE(PerformanceStats)
+@@ -117,6 +202,31 @@ - (dispatch_queue_t)methodQueue
+   return @[ @"performanceStatsUpdate" ];
+ }
+ 
++- (void)showFPSFloatingView {
++    if (_fpsFloatingView == nil) {
++        _fpsFloatingView = [[FPSFloatingView alloc] init];
++        UIWindow *window = [UIApplication sharedApplication].keyWindow;
++        if (window) {
++            [window addSubview:_fpsFloatingView];
++        } else {
++            // fallback: add after delay if window not ready
++            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
++                UIWindow *window2 = [UIApplication sharedApplication].keyWindow;
++                if (window2 && self->_fpsFloatingView.superview == nil) {
++                    [window2 addSubview:self->_fpsFloatingView];
++                }
++            });
++        }
++    }
++}
++
++- (void)hideFPSFloatingView {
++    if (_fpsFloatingView) {
++        [_fpsFloatingView removeFromSuperview];
++        _fpsFloatingView = nil;
++    }
++}
++
+ - (void)updateStats:(bool)withCPU
+ {
+     // View count
+@@ -134,6 +244,16 @@ - (void)updateStats:(bool)withCPU
+     float cpu = 0;
+     if (withCPU) {
+         cpu = cpu_usage();
++    } else {
++        cpu = -1;
++    }
++    if (_jsFPSTracker.FPS < 30 || _uiFPSTracker.FPS < 30) {
++        DDLogDebug(@"Performance warning: cpu=%.2f, jsFps=%lu, uiFps=%lu, usedRam=%.2fMB, viewCount=%lu, visibleViewCount=%lu", cpu, (unsigned long)_jsFPSTracker.FPS, (unsigned long)_uiFPSTracker.FPS, mem, (unsigned long)viewCount, (unsigned long)visibleViewCount);
++    }
++    
++    // Update floating FPS view
++    if (_fpsFloatingView) {
++        [_fpsFloatingView updateWithUIFPS:_uiFPSTracker.FPS jsFPS:_jsFPSTracker.FPS cpu:cpu mem:mem];
+     }
+     
+     [self sendEventWithName:@"performanceStatsUpdate" body:@{
+@@ -160,7 +280,7 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+   [tracker onTick:displayLink.timestamp];
+ }
+ 
+-RCT_REMAP_METHOD(start, withCpu:(NSInteger*)withCpu)
++RCT_REMAP_METHOD(start, withCpu:(BOOL)withCpu widthMonitorView:(BOOL)widthMonitorView)
+ {
+     _isRunning = true;
+     _uiFPSTracker= [[FPSTracker alloc] init];
+@@ -180,6 +300,10 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+         }
+                 queue:RCTJSThread];
+     
++    if (widthMonitorView) {
++        // Show floating FPS view
++        [self showFPSFloatingView];
++    }
+ }
+ 
+ RCT_EXPORT_METHOD(stop)
+@@ -193,6 +317,9 @@ - (void)threadUpdate:(CADisplayLink *)displayLink
+     
+     _uiDisplayLink = nil;
+     _jsDisplayLink = nil;
++
++    // Hide floating FPS view
++    [self hideFPSFloatingView];
+ }
+ 
+ // Thanks to this guard, we won't compile this code when we build for the old architecture.
+diff --git a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
+index 82dd7fe..516e13d 100644
+--- a/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
++++ b/node_modules/react-native-performance-stats/react-native-performance-stats.podspec
+@@ -2,8 +2,7 @@ require "json"
+ 
+ package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+ 
+-folly_version = '2021.06.28.00-v2'
+-folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
++# folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1 -Wno-comma -Wno-shorten-64-to-32'
+ 
+ Pod::Spec.new do |s|
+   s.name            = "react-native-performance-stats"
+@@ -18,20 +17,22 @@ Pod::Spec.new do |s|
+ 
+   s.source_files    = "ios/**/*.{h,m,mm,swift}"
+ 
+-  s.dependency "React-Core"
++  install_modules_dependencies(s)
++  s.dependency "CocoaLumberjack"
++#   s.dependency "React-Core"
+ 
+-  # This guard prevent to install the dependencies when we run `pod install` in the old architecture.
+-  if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
+-        s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
+-        s.pod_target_xcconfig    = {
+-            "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
+-            "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
+-        }
++#   # This guard prevent to install the dependencies when we run `pod install` in the old architecture.
++#   if ENV['RCT_NEW_ARCH_ENABLED'] == '1' then
++#         s.compiler_flags = folly_compiler_flags + " -DRCT_NEW_ARCH_ENABLED=1"
++#         s.pod_target_xcconfig    = {
++#             "HEADER_SEARCH_PATHS" => "\"$(PODS_ROOT)/boost\"",
++#             "CLANG_CXX_LANGUAGE_STANDARD" => "c++17"
++#         }
+ 
+-        s.dependency "React-Codegen"
+-        s.dependency "RCT-Folly", folly_version
+-        s.dependency "RCTRequired"
+-        s.dependency "RCTTypeSafety"
+-        s.dependency "ReactCommon/turbomodule/core"
+-    end
++#         s.dependency "React-Codegen"
++#         s.dependency "RCT-Folly"
++#         s.dependency "RCTRequired"
++#         s.dependency "RCTTypeSafety"
++#         s.dependency "ReactCommon/turbomodule/core"
++#     end
+ end
+diff --git a/node_modules/react-native-performance-stats/src/NativePerformanceStats.js b/node_modules/react-native-performance-stats/src/NativePerformanceStats.js
+index 01464e9..52bb6bf 100644
+--- a/node_modules/react-native-performance-stats/src/NativePerformanceStats.js
++++ b/node_modules/react-native-performance-stats/src/NativePerformanceStats.js
+@@ -3,7 +3,7 @@ import type { TurboModule } from 'react-native/Libraries/TurboModule/RCTExport';
+ import { TurboModuleRegistry } from 'react-native';
+ 
+ export interface Spec extends TurboModule {
+-  start(withCPU?: boolean): void;
++  start(withCPU?: boolean, widthMonitorView?: boolean): void;
+   stop(): void;
+ }
+ export default (TurboModuleRegistry.get<Spec>(
+diff --git a/node_modules/react-native-performance-stats/src/index.js b/node_modules/react-native-performance-stats/src/index.js
+index b31e1a2..174f40c 100644
+--- a/node_modules/react-native-performance-stats/src/index.js
++++ b/node_modules/react-native-performance-stats/src/index.js
+@@ -10,7 +10,7 @@ const PerformanceStatsNativeModule = isTurboModuleEnabled ?
+ // export default PerformanceStatsNativeModule;
+ 
+ export default {
+-  start: (withCPU = false) => PerformanceStatsNativeModule.start(withCPU),
++  start: (withCPU = false, widthMonitorView = false) => PerformanceStatsNativeModule.start(withCPU, widthMonitorView),
+   stop: () => PerformanceStatsNativeModule.stop(),
+   addListener: (listenerCallback) => {
+     const eventEmitter = new NativeEventEmitter(PerformanceStatsNativeModule);
+diff --git a/node_modules/react-native-performance-stats/types.d.ts b/node_modules/react-native-performance-stats/types.d.ts
+index ab218fc..eb0134b 100644
+--- a/node_modules/react-native-performance-stats/types.d.ts
++++ b/node_modules/react-native-performance-stats/types.d.ts
+@@ -10,7 +10,7 @@ export type PerformanceStatsData = {
+ }
+ 
+ type PerformanceStatsModule = {
+-    start: (withCPU?: boolean) => void;
++    start: (withCPU?: boolean, widthMonitorView?: boolean) => void;
+     stop: () => void;
+     addListener: (listener: (stats: PerformanceStatsData) => unknown) => EmitterSubscription;
+ }

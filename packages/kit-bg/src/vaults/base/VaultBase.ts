@@ -76,6 +76,7 @@ import type {
   IServerFetchAccountHistoryDetailResp,
 } from '@onekeyhq/shared/types/history';
 import { EOnChainHistoryTxType } from '@onekeyhq/shared/types/history';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import type {
@@ -85,7 +86,11 @@ import type {
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
 import type { IAfterSendTxActionParams } from '@onekeyhq/shared/types/signatureConfirm';
-import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
+import type {
+  IInternalDappTxParams,
+  IStakeTx,
+  IStakingInfo,
+} from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
   IAccountToken,
@@ -127,6 +132,7 @@ import type {
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
   ISignTransactionParams,
+  ITransferPayload,
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../types';
@@ -359,6 +365,12 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<IFetchServerTokenDetailResponse> {
     throw new NotImplemented();
   }
+
+  async verifyMessage(params: IVerifyMessageParams) {
+    return Promise.resolve({
+      valid: false,
+    });
+  }
 }
 
 // **** more VaultBase: VaultBaseEvmLike, VaultBaseUtxo, VaultBaseVariant
@@ -449,8 +461,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   async preActionsBeforeSending(params: {
     unsignedTxs: IUnsignedTxPro[];
     tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }): Promise<any> {
-    return Promise.resolve();
+  }): Promise<
+    | {
+        preSendTx?: {
+          txid: string;
+        };
+      }
+    | undefined
+  > {
+    return Promise.resolve({});
+  }
+
+  async preActionsBeforeConfirm(params: {
+    unsignedTxs: IUnsignedTxPro[];
+  }): Promise<Partial<ITransferPayload> | undefined> {
+    return Promise.resolve(undefined);
   }
 
   async buildEstimateFeeParams({
@@ -1275,9 +1300,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve({});
   }
 
-  // Staking
-  buildStakeEncodedTx(params: IStakeTx): Promise<IEncodedTx> {
-    return Promise.resolve(params as IEncodedTx);
+  // Staking / Swap
+  buildInternalDappEncodedTx(
+    params: IInternalDappTxParams,
+  ): Promise<IEncodedTx> {
+    return Promise.resolve(params.internalDappTx as IEncodedTx);
   }
 
   // Api Request

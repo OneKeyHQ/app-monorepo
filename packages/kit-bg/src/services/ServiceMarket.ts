@@ -4,14 +4,18 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
   IMarketDetailPlatform,
   IMarketDetailPool,
+  IMarketSearchV2Token,
   IMarketToken,
   IMarketTokenChart,
   IMarketTokenDetail,
@@ -32,13 +36,23 @@ class ServiceMarket extends ServiceBase {
     super({ backgroundApi });
   }
 
+  _fetchCategories = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        data: IMarketCategory[];
+      }>('/utility/v1/market/category/list');
+      return response.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 15 }),
+    },
+  );
+
   @backgroundMethod()
   async fetchCategories(filters = [ONEKEY_SEARCH_TRANDING]) {
-    const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const response = await client.get<{
-      data: IMarketCategory[];
-    }>('/utility/v1/market/category/list');
-    const { data } = response.data;
+    const data = await this._fetchCategories();
     return filters.length
       ? data
           .filter((i) => !filters.includes(i.categoryId))
@@ -46,18 +60,28 @@ class ServiceMarket extends ServiceBase {
       : data;
   }
 
+  _fetchSearchTrending = memoizee(
+    async () => {
+      const categories = await this.fetchCategories([]);
+      const searchTrendingCategory = categories.find(
+        (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
+      );
+      return searchTrendingCategory
+        ? this.fetchCategory(
+            searchTrendingCategory.categoryId,
+            searchTrendingCategory.coingeckoIds,
+          )
+        : [];
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
   @backgroundMethod()
   async fetchSearchTrending() {
-    const categories = await this.fetchCategories([]);
-    const searchTrendingCategory = categories.find(
-      (i) => i.categoryId === ONEKEY_SEARCH_TRANDING,
-    );
-    return searchTrendingCategory
-      ? this.fetchCategory(
-          searchTrendingCategory.categoryId,
-          searchTrendingCategory.coingeckoIds,
-        )
-      : [];
+    return this._fetchSearchTrending();
   }
 
   @backgroundMethod()
@@ -195,31 +219,48 @@ class ServiceMarket extends ServiceBase {
     return [];
   }
 
-  async buildMarketWatchListSyncItems({
-    watchList,
-    isDeleted,
-  }: {
+  @backgroundMethod()
+  async searchV2Token(query: string) {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const response = await client.get<{
+      data: IMarketSearchV2Token[];
+    }>('/utility/v2/market/search', {
+      params: {
+        query,
+      },
+    });
+    const { data } = response.data;
+    if (Array.isArray(data) && data.length) {
+      return data;
+    }
+    return [];
+  }
+
+  async buildMarketWatchListSyncItems(_: {
     watchList: IMarketWatchListItem[];
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem[]> {
-    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
-    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
-    const syncCredential =
-      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+    throw new OneKeyLocalError(
+      'MarketWatchList is deprecated, use ServiceMarketV2 instead',
+    );
+    // const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    // const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    // const syncCredential =
+    //   await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
 
-    const syncItems = (
-      await Promise.all(
-        watchList.map(async (watchListItem) => {
-          return syncManagers.marketWatchList.buildSyncItemByDBQuery({
-            syncCredential,
-            dbRecord: watchListItem,
-            dataTime: now,
-            isDeleted,
-          });
-        }),
-      )
-    ).filter(Boolean);
-    return syncItems;
+    // const syncItems = (
+    //   await Promise.all(
+    //     watchList.map(async (watchListItem) => {
+    //       return syncManagers.marketWatchList.buildSyncItemByDBQuery({
+    //         syncCredential,
+    //         dbRecord: watchListItem,
+    //         dataTime: now,
+    //         isDeleted,
+    //       });
+    //     }),
+    //   )
+    // ).filter(Boolean);
+    // return syncItems;
   }
 
   async withMarketWatchListCloudSync({

@@ -6,6 +6,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
   const transformInlineEnvironmentVariables = [
     'NODE_ENV',
     'VERSION',
+    'BUNDLE_VERSION',
     'BUILD_NUMBER',
     'BUILD_TIME',
     'ONEKEY_PLATFORM',

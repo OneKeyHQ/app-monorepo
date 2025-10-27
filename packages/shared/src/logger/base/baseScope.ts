@@ -1,9 +1,8 @@
-import { InteractionManager } from 'react-native';
-
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { formatTime } from '../../utils/dateUtils';
 import { isPromiseObject } from '../../utils/promiseUtils';
+import timerUtils from '../../utils/timerUtils';
 import { stringifyFunc } from '../stringifyFunc';
 import { Metadata } from '../types';
 
@@ -83,38 +82,36 @@ export abstract class BaseScope implements IScope {
             sceneInstance.lastTimestamp = now.getTime();
 
             // runAfterInteraction
-            void InteractionManager.runAfterInteractions(() => {
-              setTimeout(() => {
-                if (obj && obj instanceof Metadata) {
-                  const rawMsg = stringifyFunc(...obj.args);
-                  if (Array.isArray(obj.metadata)) {
-                    for (let i = 0; i < obj.metadata.length; i += 1) {
-                      const metadata = obj.metadata[i];
-                      logFn({
-                        timestamp,
-                        durationInfo,
-                        scopeName: this.scopeName,
-                        sceneName,
-                        metadata,
-                        methodName: prop,
-                        rawMsg,
-                        obj,
-                      });
-                    }
-                  } else {
+            void timerUtils.setTimeoutPromised(() => {
+              if (obj && obj instanceof Metadata) {
+                const rawMsg = stringifyFunc(...obj.args);
+                if (Array.isArray(obj.metadata)) {
+                  for (let i = 0; i < obj.metadata.length; i += 1) {
+                    const metadata = obj.metadata[i];
                     logFn({
                       timestamp,
                       durationInfo,
                       scopeName: this.scopeName,
                       sceneName,
-                      metadata: obj.metadata,
+                      metadata,
                       methodName: prop,
                       rawMsg,
                       obj,
                     });
                   }
+                } else {
+                  logFn({
+                    timestamp,
+                    durationInfo,
+                    scopeName: this.scopeName,
+                    sceneName,
+                    metadata: obj.metadata,
+                    methodName: prop,
+                    rawMsg,
+                    obj,
+                  });
                 }
-              });
+              }
             });
           } catch (error) {
             console.error(error);

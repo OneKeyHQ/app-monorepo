@@ -1,111 +1,121 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Stack, XStack } from '@onekeyhq/components';
+import { Tabs, YStack } from '@onekeyhq/components';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  NUMBER_FORMATTER,
+  formatDisplayNumber,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
 import { Holders } from '../components/Holders';
 import { TransactionsHistory } from '../components/TransactionsHistory';
+import { useBottomTabAnalytics } from '../hooks/useBottomTabAnalytics';
 
-// Extract component definitions outside render to prevent re-creation on each render
-const createHoldersComponent = (tokenAddress: string, networkId: string) => {
-  const Component = () => (
-    <Holders tokenAddress={tokenAddress} networkId={networkId} />
+import { StickyHeader } from './StickyHeader';
+
+import type {
+  CollapsibleProps,
+  TabBarProps,
+} from 'react-native-collapsible-tab-view';
+
+function MobileInformationTabsHeader(props: TabBarProps<string>) {
+  const { tabNames } = props;
+  const firstTabName = useMemo(() => {
+    return tabNames[0];
+  }, [tabNames]);
+  return (
+    <YStack bg="$bgApp" pointerEvents="box-none">
+      <Tabs.TabBar {...props} />
+      <StickyHeader firstTabName={firstTabName} />
+    </YStack>
   );
-  Component.displayName = 'HoldersComponent';
-  return Component;
-};
+}
 
-// Factory function to create the TransactionsHistory component with props
-const createTransactionsHistoryComponent = (
-  tokenAddress: string,
-  networkId: string,
-) => {
-  const Component = () => (
-    <TransactionsHistory tokenAddress={tokenAddress} networkId={networkId} />
-  );
-  Component.displayName = 'TransactionsHistoryComponent';
-  return Component;
-};
-
-export function MobileInformationTabs() {
+export function MobileInformationTabs({
+  renderHeader,
+  onScrollEnd,
+}: {
+  renderHeader: CollapsibleProps['renderHeader'];
+  onScrollEnd: () => void;
+}) {
   const intl = useIntl();
-  const { tokenAddress, networkId } = useTokenDetail();
-  const [activeTab, setActiveTab] = useState<'transactions' | 'holders'>(
-    'transactions',
-  );
+  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
+  const { handleTabChange } = useBottomTabAnalytics();
 
-  const TransactionsHistoryComponent = useMemo(
-    () => createTransactionsHistoryComponent(tokenAddress, networkId),
-    [tokenAddress, networkId],
-  );
+  const shouldShowHolders = useMemo(() => {
+    return networkId === getNetworkIdsMap().sol;
+  }, [networkId]);
 
-  const HoldersComponent = useMemo(
-    () => createHoldersComponent(tokenAddress, networkId),
-    [tokenAddress, networkId],
-  );
+  const holdersTabName = useMemo(() => {
+    const baseTitle = intl.formatMessage({
+      id: ETranslations.dexmarket_holders,
+    });
+    const holders = tokenDetail?.holders;
+    if (holders !== undefined && holders > 0) {
+      const displayValue = String(
+        formatDisplayNumber(NUMBER_FORMATTER.marketCap(String(holders))),
+      );
+      return `${baseTitle} (${displayValue})`;
+    }
+    return baseTitle;
+  }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
-    // Parameter validation: return empty array if parameters are empty
-    if (!tokenAddress || !networkId) {
-      return [];
-    }
-
-    return [
-      {
-        id: 'transactions' as const,
-        title: intl.formatMessage({
+    const items = [
+      <Tabs.Tab
+        key="transactions"
+        name={intl.formatMessage({
           id: ETranslations.dexmarket_details_transactions,
-        }),
-        component: TransactionsHistoryComponent,
-      },
-      networkId === 'sol--101'
-        ? {
-            id: 'holders' as const,
-            title: intl.formatMessage({
-              id: ETranslations.dexmarket_holders,
-            }),
-            component: HoldersComponent,
-          }
-        : null,
-    ].filter(Boolean);
+        })}
+      >
+        <TransactionsHistory
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+          onScrollEnd={onScrollEnd}
+        />
+      </Tabs.Tab>,
+    ];
+    if (shouldShowHolders) {
+      items.push(
+        <Tabs.Tab key="holders" name={holdersTabName}>
+          <Holders tokenAddress={tokenAddress} networkId={networkId} />
+        </Tabs.Tab>,
+      );
+    }
+    return items;
   }, [
-    TransactionsHistoryComponent,
-    HoldersComponent,
+    intl,
     tokenAddress,
     networkId,
-    intl,
+    onScrollEnd,
+    shouldShowHolders,
+    holdersTabName,
   ]);
 
-  if (!tokenAddress || !networkId || tabs.length === 0) {
+  const renderTabBar = useCallback(({ ...props }: any) => {
+    return <MobileInformationTabsHeader {...props} />;
+  }, []);
+
+  if (!tokenAddress || !networkId) {
     return null;
   }
 
-  const ActiveComponent = tabs.find((tab) => tab?.id === activeTab)?.component;
-
   return (
-    <Stack flex={1}>
-      {/* Tab buttons */}
-      <XStack p="$2" gap="$2">
-        {tabs.map((tab) => {
-          if (!tab) return null;
-          return (
-            <Button
-              key={tab.id}
-              flex={1}
-              variant={activeTab === tab.id ? 'primary' : 'secondary'}
-              onPress={() => setActiveTab(tab.id)}
-            >
-              {tab.title}
-            </Button>
-          );
-        })}
-      </XStack>
-
-      {/* Tab content */}
-      <Stack flex={1}>{ActiveComponent ? <ActiveComponent /> : null}</Stack>
-    </Stack>
+    <Tabs.Container
+      key={tabs.length}
+      headerContainerStyle={{
+        width: '100%',
+        shadowColor: 'transparent',
+      }}
+      renderHeader={renderHeader}
+      renderTabBar={renderTabBar}
+      onTabChange={handleTabChange}
+    >
+      {tabs}
+    </Tabs.Container>
   );
 }

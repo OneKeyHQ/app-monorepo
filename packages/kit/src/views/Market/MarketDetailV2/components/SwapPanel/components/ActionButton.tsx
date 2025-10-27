@@ -1,15 +1,19 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
@@ -28,6 +32,8 @@ export interface IActionButtonProps extends IButtonProps {
   balance?: BigNumber;
   paymentToken?: IToken;
   networkId?: string;
+  isWrapped?: boolean;
+  onSwapAction?: () => void;
 }
 
 export function ActionButton({
@@ -37,21 +43,25 @@ export function ActionButton({
   balance,
   disabled,
   onPress,
+  isWrapped,
   paymentToken,
   networkId,
+  onSwapAction,
   ...otherProps
 }: IActionButtonProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const { tokenDetail } = useTokenDetail();
   const [settingsValue] = useSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
+  const { createAddress } = useAccountSelectorCreateAddress();
   // Get payment token price for buy orders
   const { price: paymentTokenPrice } = usePaymentTokenPrice(
     tradeType === ESwapDirection.BUY ? paymentToken : undefined,
     networkId,
   );
-
+  const [createAddressLoading, setCreateAddressLoading] = useState(false);
   const actionText =
     tradeType === ESwapDirection.BUY
       ? intl.formatMessage({ id: ETranslations.global_buy })
@@ -86,6 +96,54 @@ export function ActionButton({
     amountBN,
   ]);
 
+  const tokenFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'balance',
+      formatterOptions: {
+        tokenSymbol: token?.symbol || '',
+      },
+    };
+  }, [token?.symbol]);
+
+  const currencyFormatter: INumberFormatProps = useMemo(() => {
+    return {
+      formatter: 'value',
+      formatterOptions: {
+        currency: settingsValue.currencyInfo.symbol,
+      },
+    };
+  }, [settingsValue.currencyInfo.symbol]);
+
+  const shouldCreateAddress = usePromiseResult(async () => {
+    let result = false;
+    if (activeAccount?.canCreateAddress && !createAddressLoading) {
+      try {
+        const networkAccount =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            networkId: networkId ?? '',
+            accountId: activeAccount?.indexedAccount?.id
+              ? undefined
+              : activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id,
+            deriveType: activeAccount?.deriveType ?? 'default',
+          });
+        if (!networkAccount.address && activeAccount?.canCreateAddress) {
+          result = true;
+        }
+      } catch (e) {
+        result = Boolean(activeAccount?.canCreateAddress);
+      }
+    }
+    return result;
+  }, [
+    networkId,
+    createAddressLoading,
+    activeAccount?.account?.id,
+    activeAccount?.canCreateAddress,
+    activeAccount?.deriveType,
+    activeAccount?.indexedAccount?.id,
+  ]);
+
   // Check for insufficient balance for both buy and sell operations
   const hasAmount = amountBN.gt(0);
   const isInsufficientBalance = balance && hasAmount && amountBN.gt(balance);
@@ -94,24 +152,18 @@ export function ActionButton({
     !activeAccount?.indexedAccount?.id && !activeAccount?.account?.id;
 
   // Disable button if insufficient balance
-  let shouldDisable = isInsufficientBalance;
-  const displayAmountFormatted = numberFormat(displayAmount, {
-    formatter: 'balance',
-    formatterOptions: {
-      tokenSymbol: token?.symbol || '',
-    },
-  });
+  const shouldDisable = isInsufficientBalance;
+  const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
-  let buttonText = `${actionText} ${displayAmountFormatted as string} `;
+  let buttonText = `${actionText} ${displayAmountFormatted} `;
   if (typeof totalValue === 'number') {
-    buttonText += `(${
-      numberFormat(totalValue.toFixed(2), {
-        formatter: 'value',
-        formatterOptions: {
-          currency: settingsValue.currencyInfo.symbol,
-        },
-      }) as string
-    })`;
+    buttonText += `(${numberFormat(totalValue.toFixed(2), currencyFormatter)})`;
+  }
+
+  if (isWrapped) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.swap_page_button_wrap,
+    });
   }
 
   if (shouldDisable) {
@@ -126,32 +178,108 @@ export function ActionButton({
     });
   }
 
+  if (shouldCreateAddress?.result || createAddressLoading) {
+    buttonText = intl.formatMessage({
+      id: ETranslations.global_create_address,
+    });
+  }
+
   if (noAccount) {
     buttonText = intl.formatMessage({
       id: ETranslations.swap_page_button_no_connected_wallet,
     });
-    shouldDisable = false;
   }
+
+  // Use colored style only for normal trading states (has amount, not disabled, has account)
+  const shouldUseColoredStyle =
+    hasAmount && !shouldDisable && !noAccount && !disabled;
+
+  const buttonStyleProps = shouldUseColoredStyle
+    ? {
+        bg:
+          tradeType === ESwapDirection.BUY
+            ? '$buttonSuccess'
+            : '$buttonCritical',
+        color: '$textOnColor',
+        borderWidth: 0,
+        shadowOpacity: 0,
+        elevation: 0,
+        hoverStyle: {
+          opacity: 0.9,
+        },
+        pressStyle: {
+          opacity: 0.8,
+        },
+      }
+    : {
+        variant: 'primary' as const,
+      };
+
+  const handlePress = useCallback(
+    async (event: GestureResponderEvent) => {
+      if (noAccount) {
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.GetStarted,
+        });
+        return;
+      }
+      if (shouldCreateAddress?.result) {
+        setCreateAddressLoading(true);
+        try {
+          await createAddress({
+            num: 0,
+            selectAfterCreate: false,
+            account: {
+              walletId: activeAccount?.wallet?.id,
+              networkId: networkId ?? '',
+              indexedAccountId: activeAccount?.indexedAccount?.id,
+              deriveType: activeAccount?.deriveType ?? 'default',
+            },
+          });
+        } catch (e) {
+          console.error('Create address failed:', e);
+        } finally {
+          setCreateAddressLoading(false);
+        }
+        return;
+      }
+
+      // Log swap action before executing - with error protection
+      try {
+        onSwapAction?.();
+      } catch (analyticsError) {
+        // Don't let analytics errors block the swap action
+        console.warn('Analytics logging failed:', analyticsError);
+      }
+
+      onPress?.(event);
+    },
+    [
+      networkId,
+      noAccount,
+      shouldCreateAddress,
+      onPress,
+      navigation,
+      createAddress,
+      activeAccount?.wallet?.id,
+      activeAccount?.indexedAccount?.id,
+      activeAccount?.deriveType,
+      onSwapAction,
+    ],
+  );
 
   return (
     <Button
-      variant="primary"
-      size="medium"
-      disabled={shouldDisable || disabled || !hasAmount}
-      onPress={
-        shouldDisable
-          ? undefined
-          : (event: GestureResponderEvent) => {
-              if (noAccount) {
-                navigation.pushModal(EModalRoutes.OnboardingModal, {
-                  screen: EOnboardingPages.GetStarted,
-                });
-                return;
-              }
-              onPress?.(event);
-            }
-      }
+      size={gtMd ? 'medium' : 'large'}
+      disabled={Boolean(
+        (shouldDisable || disabled || !hasAmount) &&
+          !shouldCreateAddress?.result &&
+          !noAccount,
+      )}
+      onPress={shouldDisable ? undefined : handlePress}
+      loading={createAddressLoading || otherProps.loading}
       {...otherProps}
+      {...buttonStyleProps}
     >
       {buttonText}
     </Button>

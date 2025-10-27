@@ -119,7 +119,7 @@ async function pbkdf2ByWebCrypto({
 }: IPbkdf2Params): Promise<Buffer> {
   const key = await globalThis.crypto.subtle.importKey(
     'raw',
-    password,
+    password as unknown as ArrayBuffer,
     'PBKDF2',
     false,
     ['deriveBits', 'deriveKey'],
@@ -127,7 +127,7 @@ async function pbkdf2ByWebCrypto({
   const derivedBits = await globalThis.crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt as unknown as ArrayBuffer,
       iterations,
       hash: 'SHA-256',
     },

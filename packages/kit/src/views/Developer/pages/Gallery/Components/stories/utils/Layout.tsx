@@ -60,10 +60,10 @@ export function Layout({
   elements = [],
   scrollEnabled = true,
   contentInsetAdjustmentBehavior = 'never',
-  skipLoading = false,
+  lazyLoad = false,
   wideScreen: initialWideScreen = false,
   children,
-  filePath,
+  getFilePath,
 }: React.PropsWithChildren<{
   componentName?: string;
   description?: string;
@@ -76,9 +76,9 @@ export function Layout({
     | 'automatic'
     | 'scrollableAxes'
     | undefined;
-  skipLoading?: boolean;
+  lazyLoad?: boolean;
   wideScreen?: boolean;
-  filePath?: string;
+  getFilePath?: () => string | undefined;
   elements?: {
     title: string;
     description?: string;
@@ -97,7 +97,7 @@ export function Layout({
   };
 
   return (
-    <Page skipLoading={skipLoading}>
+    <Page lazyLoad={lazyLoad}>
       <ScrollView
         maxWidth="100%"
         scrollEnabled={scrollEnabled}
@@ -185,10 +185,12 @@ export function Layout({
                 />
               ) : null}
 
-              {(platformEnv.isWeb || platformEnv.isDesktop) && filePath ? (
+              {(platformEnv.isWeb || platformEnv.isDesktop) &&
+              getFilePath &&
+              getFilePath() ? (
                 <IconButton
                   onPress={() => {
-                    openUrlExternal(`cursor://file/${filePath}`);
+                    openUrlExternal(`cursor://file/${getFilePath() || ''}`);
                   }}
                   size="medium"
                   icon="CodeOutline"

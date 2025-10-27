@@ -25,7 +25,7 @@ export type IModalBulkCopyAddressesParamList = {
       {
         deriveType: IAccountDeriveTypes;
         deriveInfo: IAccountDeriveInfo;
-        account: INetworkAccount;
+        account: INetworkAccount & { displayAddress?: string };
       }[]
     >;
   };

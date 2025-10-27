@@ -20,7 +20,6 @@ import {
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
@@ -374,8 +373,9 @@ export function SearchResultContent({
           avatarProps={{
             src: item.logo || item.originLogo,
             loading: LoadingSkeleton,
+            bg: '$bgStrong',
             fallbackProps: {
-              bg: '$bgStrong',
+              bg: '$transparent',
               justifyContent: 'center',
               alignItems: 'center',
               children: <Icon name="GlobusOutline" />,
@@ -392,7 +392,10 @@ export function SearchResultContent({
             >
               {item?.keyword
                 ? item.name.replace(
-                    new RegExp(item.keyword, 'ig'),
+                    new RegExp(
+                      item.keyword.replace(/[[\]()+?*^$.|\\{}]/g, '\\$&'),
+                      'ig',
+                    ),
                     (match) => `<a>${match}</a>`,
                   )
                 : item.name}

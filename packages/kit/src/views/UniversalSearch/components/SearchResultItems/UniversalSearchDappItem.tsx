@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { StyleSheet } from 'react-native';
 
-import { Icon, Image, Skeleton } from '@onekeyhq/components';
+import { Icon, Image } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { isGoogleSearchItem } from '@onekeyhq/shared/src/consts/discovery';

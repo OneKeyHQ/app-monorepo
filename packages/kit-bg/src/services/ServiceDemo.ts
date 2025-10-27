@@ -505,7 +505,11 @@ class ServiceDemo extends ServiceBase {
         account,
       },
     );
-    const result = await provider.request(payload, wcChain);
+    const result = await provider.request({
+      args: payload,
+      wcChain,
+      account,
+    });
     console.log('testExternalAccountPersonalSign RESULT: ', payload, result);
 
     return result as string;
@@ -563,7 +567,9 @@ class ServiceDemo extends ServiceBase {
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
-    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance();
+    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+    });
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'btc1' });
@@ -673,7 +679,9 @@ class ServiceDemo extends ServiceBase {
     }
 
     defaultLogger.app.perf.logTime({ message: 'getSDKInstance' });
-    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance();
+    const sdk = await this.backgroundApi.serviceHardware.getSDKInstance({
+      connectId,
+    });
     defaultLogger.app.perf.logTime({ message: 'getSDKInstanceDone' });
 
     defaultLogger.app.perf.logTime({ message: 'demoHwGetAllNetworkAddresses' });

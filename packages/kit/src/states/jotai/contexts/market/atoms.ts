@@ -2,6 +2,7 @@ import memoizee from 'memoizee';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';

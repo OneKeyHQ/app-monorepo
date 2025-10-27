@@ -44,14 +44,12 @@ import {
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
-import {
-  type EMnemonicType,
-  validateMnemonic,
-} from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useRecoveryPhraseProtected from '@onekeyhq/kit/src/hooks/useRecoveryPhraseProtected';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { parseSecretRecoveryPhrase } from '@onekeyhq/shared/src/utils/phrase';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import { PHRASE_LENGTHS, useSuggestion } from './hooks';
 
@@ -266,8 +264,7 @@ function BasicPhaseInput(
       const trimmedValue = v ? parseSecretRecoveryPhrase(v) : '';
       if (
         trimmedValue &&
-        trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
-        validateMnemonic(trimmedValue)
+        trimmedValue.split(' ').filter(Boolean).length === phraseLength
       ) {
         if (onPasteMnemonic(trimmedValue, 0)) {
           onInputChange('');
@@ -553,6 +550,8 @@ export function PhaseInputArea({
     [handleClear],
   );
 
+  useRecoveryPhraseProtected();
+
   return (
     <>
       <Page.Body>
@@ -597,7 +596,6 @@ export function PhaseInputArea({
             ) : null}
           </XStack>
         ) : null}
-
         <Form form={form}>
           <XStack px="$4" flexWrap="wrap">
             {Array.from({ length: phraseLengthNumber }).map((_, index) => (

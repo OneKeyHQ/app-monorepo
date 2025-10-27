@@ -10,6 +10,11 @@ import type {
 // };
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
+export enum EPrimeTransferServerType {
+  OFFICIAL = 'official',
+  CUSTOM = 'custom',
+}
+
 type IHasVersion = {
   version: number;
 };
@@ -49,11 +54,15 @@ export type IPrimeTransferPrivateData = {
 export type IPrimeTransferData = {
   privateData: IPrimeTransferPrivateData;
   isEmptyData: boolean;
+  isWatchingOnly: boolean;
   appVersion: string;
 };
 
 export type IPrimeTransferSelectedItemMapInfo = {
-  [id: string]: boolean;
+  [id: string]: {
+    checked: boolean;
+    disabled: boolean;
+  };
 };
 export type IPrimeTransferSelectedItemMap = {
   wallet: IPrimeTransferSelectedItemMapInfo;
@@ -61,21 +70,16 @@ export type IPrimeTransferSelectedItemMap = {
   watchingAccount: IPrimeTransferSelectedItemMapInfo;
 };
 
+export type IPrimeTransferSelectedDataItem<T> = {
+  item: T;
+  credential?: string;
+  tonMnemonicCredential?: string;
+  id: string;
+};
 export type IPrimeTransferSelectedData = {
-  wallets: {
-    item: IPrimeTransferHDWallet;
-    credential?: string;
-    id: string;
-  }[];
-  importedAccounts: {
-    item: IPrimeTransferAccount;
-    credential?: string;
-    id: string;
-  }[];
-  watchingAccounts: {
-    item: IPrimeTransferAccount;
-    id: string;
-  }[];
+  wallets: IPrimeTransferSelectedDataItem<IPrimeTransferHDWallet>[];
+  importedAccounts: IPrimeTransferSelectedDataItem<IPrimeTransferAccount>[];
+  watchingAccounts: IPrimeTransferSelectedDataItem<IPrimeTransferAccount>[];
 };
 
 export interface IE2EESocketUserInfo {

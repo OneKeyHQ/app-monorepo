@@ -4,7 +4,7 @@ import { Layout } from './utils/Layout';
 
 const TooltipGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Tooltip"
     description="A tooltip on web, with only accessibility output on native"
     elements={[

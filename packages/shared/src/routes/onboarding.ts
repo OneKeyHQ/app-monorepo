@@ -1,4 +1,4 @@
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
+import type { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 
 import type { EConnectDeviceChannel } from '../../types/connectDevice';
 import type { IWalletConnectConnectToWalletParams } from '../walletConnect/types';
@@ -32,6 +32,7 @@ export enum EOnboardingPages {
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',
+  ConnectWalletOptions = 'ConnectWalletOptions',
   ConnectWalletSelectNetworks = 'ConnectWalletSelectNetworks',
 
   // finalize wallet setup
@@ -101,6 +102,9 @@ export type IOnboardingParamList = {
   // connect 3rd-party wallet
   [EOnboardingPages.ConnectWallet]: IWalletConnectConnectToWalletParams & {
     title: string;
+  };
+  [EOnboardingPages.ConnectWalletOptions]: {
+    defaultTab?: 'onekey' | 'others';
   };
   [EOnboardingPages.ConnectWalletSelectNetworks]: undefined;
 

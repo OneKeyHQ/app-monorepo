@@ -32,6 +32,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   name: RouteName;
   tabBarIcon: (focused?: boolean) => IKeyOfIcons;
   translationId: ETranslations;
+  collapseSideBarTranslationId?: ETranslations;
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;
@@ -42,6 +43,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents;
   tabbarOnPress?: () => void;
+  onPressWhenSelected?: () => void;
   trackId?: string;
 }
 

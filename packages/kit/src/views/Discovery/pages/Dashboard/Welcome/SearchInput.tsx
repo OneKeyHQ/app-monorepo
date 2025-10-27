@@ -105,9 +105,15 @@ export function SearchInput() {
     focusInputWithDelay();
   });
 
-  const handleInputChange = useCallback((text: string) => {
-    setSearchValue(text);
-  }, []);
+  const handleInputChange = useCallback(
+    (text: string) => {
+      setSearchValue(text);
+      if (text.length > 0) {
+        setIsPopoverOpen(true);
+      }
+    },
+    [setIsPopoverOpen],
+  );
 
   useShortcuts(EShortcutEvents.NewTab, () => {
     if (searchPopoverShortcutsFeatureFlag) {

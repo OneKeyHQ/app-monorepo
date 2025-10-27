@@ -1,15 +1,15 @@
 import type { ReactNode } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import * as React from 'react';
 
 import { Header } from '@react-navigation/elements';
-import { useIsFocused } from '@react-navigation/native';
-import { get } from 'lodash';
-import { useMedia, useTheme } from 'tamagui';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useDebouncedCallback } from 'use-debounce';
 
+import { useMedia, useTheme } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../../hocs';
+import { useIsModalPage } from '../../../hocs';
 import { Stack, XStack } from '../../../primitives';
 import { DesktopDragZoneBox } from '../../DesktopDragZoneBox';
 import { rootNavigationRef } from '../Navigator/NavigationContainer';
@@ -38,23 +38,42 @@ function getHeaderTitle(
     : fallback;
 }
 
-const useIsTabFocused = () => {
-  const isFocused = useIsFocused();
-
-  if ((rootNavigationRef.current?.getState().routes.length || 0) > 1) {
-    return true;
-  }
-  return isFocused;
-};
-
 const DesktopDragZoneBoxView = platformEnv.isDesktop
   ? ({ disabled, children }: IDesktopDragZoneBoxProps) => {
-      const isPageFocus = useIsTabFocused();
-      const pageType = usePageType();
+      const isModalPage = useIsModalPage();
+
+      const [isFocus, setIsFocus] = useState(true);
+
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      const { getState } = useNavigation();
+
+      const currentRouteName = useMemo(() => {
+        const state = getState?.();
+        return state?.routes?.at(-1)?.name;
+      }, [getState]);
+
+      const handlePageFocus = useDebouncedCallback(() => {
+        setIsFocus(
+          currentRouteName ===
+            rootNavigationRef.current?.getCurrentRoute()?.name,
+        );
+      }, 100);
+
+      const handlePageBlur = useDebouncedCallback(() => {
+        setIsFocus(false);
+      }, 100);
+
+      const handlePageEffect = useCallback(() => {
+        handlePageFocus();
+        return () => {
+          handlePageBlur();
+        };
+      }, [handlePageBlur, handlePageFocus]);
+
+      useFocusEffect(handlePageEffect);
+
       return (
-        <DesktopDragZoneBox
-          disabled={disabled || !isPageFocus || pageType === EPageType.modal}
-        >
+        <DesktopDragZoneBox disabled={disabled || !isFocus || isModalPage}>
           {children}
         </DesktopDragZoneBox>
       );
@@ -221,6 +240,8 @@ function HeaderView({
             onFocus={headerSearchBarOptions?.onFocus}
             onSearchButtonPress={headerSearchBarOptions?.onSearchButtonPress}
             isModalScreen={isModelScreen}
+            addOns={headerSearchBarOptions?.addOns}
+            searchBarInputValue={headerSearchBarOptions?.searchBarInputValue}
           />
         ) : null}
       </Stack>

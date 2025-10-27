@@ -24,6 +24,8 @@ export type ITokenListItemProps = {
   isTokenSelector?: boolean;
   hideValue?: boolean;
   withSwapAction?: boolean;
+  showNetworkIcon?: boolean;
+  withAggregateBadge?: boolean;
 } & Omit<IListItemProps, 'onPress'>;
 
 function BasicTokenListItem(props: ITokenListItemProps) {
@@ -37,6 +39,8 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     isTokenSelector,
     hideValue,
     withSwapAction,
+    showNetworkIcon,
+    withAggregateBadge,
     ...rest
   } = props;
 
@@ -45,13 +49,23 @@ function BasicTokenListItem(props: ITokenListItemProps) {
       return (
         <XStack alignItems="center" gap="$3" maxWidth="60%">
           <TokenIconView
+            $key={token.$key}
+            isAggregateToken={token.isAggregateToken}
             networkId={token.networkId}
             icon={token.logoURI}
             isAllNetworks={isAllNetworks}
+            showNetworkIcon={showNetworkIcon}
           />
           <YStack flex={1}>
             <TokenNameView
-              name={token.symbol}
+              withAggregateBadge={withAggregateBadge}
+              $key={token.$key}
+              name={
+                token.isAggregateToken
+                  ? token.commonSymbol ?? token.symbol
+                  : token.symbol
+              }
+              isAggregateToken={token.isAggregateToken}
               isNative={token.isNative}
               isAllNetworks={isAllNetworks}
               networkId={token.networkId}
@@ -82,13 +96,23 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     return (
       <XStack alignItems="center" gap="$3" flexGrow={1} flexBasis={0}>
         <TokenIconView
+          $key={token.$key}
+          isAggregateToken={token.isAggregateToken}
           networkId={token.networkId}
           icon={token.logoURI}
+          showNetworkIcon={showNetworkIcon}
           isAllNetworks={isAllNetworks}
         />
         <YStack flex={1}>
           <TokenNameView
-            name={token.symbol}
+            $key={token.$key}
+            withAggregateBadge={withAggregateBadge ?? isTokenSelector}
+            name={
+              token.isAggregateToken
+                ? token.commonSymbol ?? token.symbol
+                : token.symbol
+            }
+            isAggregateToken={token.isAggregateToken}
             isNative={token.isNative}
             isAllNetworks={isAllNetworks}
             networkId={token.networkId}
@@ -99,6 +123,7 @@ function BasicTokenListItem(props: ITokenListItemProps) {
             }}
           />
           <TokenNameView
+            $key={token.$key}
             name={token.name}
             // name={token.accountId || ''}
             networkId={token.networkId}
@@ -106,11 +131,23 @@ function BasicTokenListItem(props: ITokenListItemProps) {
               size: '$bodyMd',
               color: '$textSubdued',
             }}
+            isNative={token.isNative}
+            isAllNetworks={isAllNetworks}
+            isAggregateToken={token.isAggregateToken}
+            showNetworkName
           />
         </YStack>
       </XStack>
     );
-  }, [token, isAllNetworks, withNetwork, tableLayout, isTokenSelector]);
+  }, [
+    token,
+    isAllNetworks,
+    withNetwork,
+    tableLayout,
+    isTokenSelector,
+    showNetworkIcon,
+    withAggregateBadge,
+  ]);
 
   const renderSecondColumn = useCallback(() => {
     if (isTokenSelector) {

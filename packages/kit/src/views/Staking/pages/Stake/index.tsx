@@ -25,6 +25,7 @@ import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
 import { UniversalStake } from '../../components/UniversalStake';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
@@ -85,10 +86,10 @@ function BasicStakePage() {
         // TODO: remove term after babylon remove term
         term: undefined,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
-        morphoVault: earnUtils.isMorphoProvider({
+        protocolVault: earnUtils.isVaultBasedProvider({
           providerName,
         })
-          ? protocolInfo?.approve?.approveTarget
+          ? protocolInfo?.vault
           : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
@@ -130,7 +131,7 @@ function BasicStakePage() {
       symbol,
       providerName,
       protocolInfo?.providerDetail.logoURI,
-      protocolInfo?.approve?.approveTarget,
+      protocolInfo?.vault,
       token,
       actionTag,
       btcFeeRate,
@@ -207,7 +208,11 @@ function BasicStakePage() {
           approveTarget={{
             accountId,
             networkId,
-            spenderAddress: protocolInfo?.approve?.approveTarget ?? '',
+            spenderAddress: earnUtils.isVaultBasedProvider({
+              providerName: protocolInfo?.provider || '',
+            })
+              ? protocolInfo?.vault ?? ''
+              : protocolInfo?.approve?.approveTarget ?? '',
             token: tokenInfo?.token,
           }}
         />
@@ -226,7 +231,9 @@ export default function StakePage() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <BasicStakePage />
+        <DiscoveryBrowserProviderMirror>
+          <BasicStakePage />
+        </DiscoveryBrowserProviderMirror>
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

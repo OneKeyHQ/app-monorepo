@@ -18,6 +18,10 @@ jobs:
         xcode-version: [16.4]
 
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -95,7 +99,7 @@ jobs:
       - name: Upload App File
         uses: actions/upload-artifact@v4
         with:
-          name: release-App-debug
+          name: release-ios-debug-${{ github.sha }}
           path: |
             ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
           if-no-files-found: error

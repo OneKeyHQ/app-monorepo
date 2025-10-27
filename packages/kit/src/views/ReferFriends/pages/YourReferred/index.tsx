@@ -1,5 +1,3 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import {
@@ -7,7 +5,7 @@ import {
   Page,
   SizableText,
   Spinner,
-  Tab,
+  Tabs,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -78,9 +76,16 @@ function HardwareSales() {
           </SizableText>
           {items.map((item, key) => (
             <XStack key={key} py="$3" ai="center" jc="space-between">
-              <SizableText size="$bodyLgMedium" numberOfLines={1}>
-                {item.orderName}
-              </SizableText>
+              <YStack>
+                <SizableText size="$bodyLgMedium" numberOfLines={1}>
+                  {item.orderName}
+                </SizableText>
+                {item.source ? (
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {item.source}
+                  </SizableText>
+                ) : null}
+              </YStack>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {item.createdAt
                   ? formatDate(item.createdAt, {
@@ -177,35 +182,32 @@ function WalletList() {
 
 export default function YourReferred() {
   const intl = useIntl();
-  const tabs = useMemo(
-    () => [
-      {
-        title: intl.formatMessage({
-          id: ETranslations.global_wallet,
-        }),
-        page: WalletList,
-      },
-      {
-        title: intl.formatMessage({
-          id: ETranslations.referral_referred_type_3,
-        }),
-        page: HardwareSales,
-      },
-    ],
-    [intl],
-  );
-
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
       />
       <Page.Body>
-        <Tab.Page
-          data={tabs}
-          initialScrollIndex={0}
-          showsVerticalScrollIndicator={false}
-        />
+        <Tabs.Container>
+          <Tabs.Tab
+            name={intl.formatMessage({
+              id: ETranslations.global_wallet,
+            })}
+          >
+            <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <WalletList />
+            </Tabs.ScrollView>
+          </Tabs.Tab>
+          <Tabs.Tab
+            name={intl.formatMessage({
+              id: ETranslations.referral_referred_type_3,
+            })}
+          >
+            <Tabs.ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+              <HardwareSales />
+            </Tabs.ScrollView>
+          </Tabs.Tab>
+        </Tabs.Container>
       </Page.Body>
     </Page>
   );

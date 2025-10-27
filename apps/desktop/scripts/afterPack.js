@@ -43,6 +43,9 @@ exports.default = async function fileOperation(context) {
     await context.packager.addElectronFuses(context, {
       version: FuseVersion.V1,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+      [FuseV1Options.EnableCookieEncryption]: true,
     });
   }
 };

@@ -14,6 +14,7 @@ import type {
 import type { AirGapUR, IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import {
+  OneKeyErrorAirGapDeviceMismatch,
   OneKeyErrorAirGapWalletMismatch,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
@@ -49,9 +50,16 @@ export function useCreateQrWallet() {
     async (
       params: ICreateQrWalletByScanParams & {
         urJson: IAirGapUrJson;
+        isCreateAccountAction?: boolean;
       },
     ) => {
-      const { urJson, byWallet, isOnboarding } = params;
+      const {
+        urJson,
+        byWallet,
+        isOnboarding,
+        byDevice,
+        isCreateAccountAction,
+      } = params;
       const { qrDevice, airGapAccounts, airGapMultiAccounts } =
         await backgroundApiProxy.serviceQrWallet.buildAirGapMultiAccounts({
           urJson,
@@ -62,6 +70,13 @@ export function useCreateQrWallet() {
         airGapAccounts,
         airGapMultiAccounts,
       );
+
+      if (isCreateAccountAction && byDevice?.deviceId && qrDevice?.deviceId) {
+        if (byDevice?.deviceId !== qrDevice?.deviceId) {
+          throw new OneKeyErrorAirGapDeviceMismatch();
+        }
+      }
+
       if (
         qrDevice?.xfp &&
         byWallet?.xfp &&
@@ -176,6 +191,7 @@ export function useCreateQrWallet() {
         urJson,
         byDevice,
         byWallet,
+        isCreateAccountAction: true,
       });
       return result;
     },

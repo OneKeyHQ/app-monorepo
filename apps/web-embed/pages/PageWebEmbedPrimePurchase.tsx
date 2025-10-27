@@ -81,6 +81,9 @@ export default function PageWebEmbedPrimePurchase() {
   const [debugText, setDebugText] = useState<string>('');
 
   const { webEmbedQueryParams, purchasePackageWeb } = usePrimePaymentMethods();
+
+  console.log('webEmbedQueryParams', webEmbedQueryParams);
+
   const {
     apiKey,
     primeUserId,
@@ -102,6 +105,8 @@ export default function PageWebEmbedPrimePurchase() {
 
     try {
       isRunning.current = true;
+
+      console.log('call purchasePackageWeb');
 
       const purchaseResult = await purchasePackageWeb?.({
         subscriptionPeriod,

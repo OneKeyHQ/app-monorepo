@@ -36,4 +36,20 @@ export class PageScene extends BaseScene {
   public testWebEmbed() {
     return { test: 'test' };
   }
+
+  @LogToServer()
+  @LogToLocal()
+  public jsReadyTime(time: number) {
+    return {
+      time,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal()
+  public uiVisibleTime(time: number) {
+    return {
+      time,
+    };
+  }
 }

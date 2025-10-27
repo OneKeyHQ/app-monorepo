@@ -141,7 +141,8 @@ export default function DesktopApiProxyTestDevSettings() {
   // New system methods tests
   const testSystemGetVersion = useCallback(async () => {
     try {
-      const result = await globalThis.desktopApiProxy.system.getVersion();
+      const result =
+        await globalThis.desktopApiProxy.bundleUpdate.getNativeAppVersion();
       Dialog.debugMessage({
         debugMessage: { version: result },
       });
@@ -523,7 +524,7 @@ export default function DesktopApiProxyTestDevSettings() {
   return (
     <Page scrollEnabled>
       <Page.Header title="DesktopApiProxyTestDevSettings" />
-      <YStack space="$2">
+      <YStack gap="$2">
         {/* System Module Tests */}
         <ListItem
           title="🖥️ System Module"

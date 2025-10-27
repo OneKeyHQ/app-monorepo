@@ -179,6 +179,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         [stakingAddressPath]: stakingAddress.address,
       },
       relPath: firstAddressRelPath,
+      __hwExtraInfo__: undefined,
     };
     return result;
   }

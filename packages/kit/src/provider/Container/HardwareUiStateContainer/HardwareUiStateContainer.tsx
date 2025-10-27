@@ -23,6 +23,7 @@ import {
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { DeviceNotFoundDialogContent } from '@onekeyhq/kit/src/components/Hardware/ConnectionTroubleShootingAccordion';
 import {
   usePromptWebDeviceAccess,
   useToPromptWebDeviceAccessPage,
@@ -36,15 +37,18 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IHardwareErrorDialogPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 
 import {
+  BluetoothDevicePairingContent,
+  BluetoothPermissionUnauthorizedContent,
   CommonDeviceLoading,
   ConfirmOnDeviceToastContent,
-  EnterHiddenWalletPinOnDevice,
+  DesktopBluetoothPermissionContent,
   EnterPassphraseOnDevice,
   EnterPhase,
   EnterPin,
@@ -92,10 +96,13 @@ function HardwareSingletonDialogCmp(
   const { state }: { state: IHardwareUiState | undefined } = props;
   const action = state?.action;
   const connectId = state?.connectId || '';
+
   // state?.payload?.deviceType
   const { serviceHardwareUI, serviceSetting } = backgroundApiProxy;
   const intl = useIntl();
   const [showCloseButton, setIsShowExitButton] = useState(false);
+  const [persistBluetoothUnauthorized, setPersistBluetoothUnauthorized] =
+    useState(false);
 
   // TODO make sure toast is last session action
   // TODO pin -> passpharse -> confirm -> address -> sign -> confirm
@@ -140,8 +147,21 @@ function HardwareSingletonDialogCmp(
   useEffect(() => {
     if (!open) {
       setIsShowExitButton(false);
+      setPersistBluetoothUnauthorized(false);
     }
   }, [open]);
+
+  // Track when bluetooth unauthorized state is shown
+  useEffect(() => {
+    if (action === EHardwareUiStateAction.DeviceChecking) {
+      const eventType = state?.payload?.eventType;
+      if (
+        eventType === EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED
+      ) {
+        setPersistBluetoothUnauthorized(true);
+      }
+    }
+  }, [action, state?.payload?.eventType]);
 
   const result = useMemo<{ title: string; content: React.ReactNode }>(() => {
     let title = intl.formatMessage({ id: ETranslations.global_processing });
@@ -149,10 +169,50 @@ function HardwareSingletonDialogCmp(
     let content = defaultLoadingView;
 
     if (action === EHardwareUiStateAction.DeviceChecking) {
-      title = intl.formatMessage({
-        id: ETranslations.global_checking_device,
-      });
-      content = defaultLoadingView;
+      const eventType = state?.payload?.eventType;
+      if (
+        eventType ===
+        EHardwareUiStateAction.DESKTOP_REQUEST_BLUETOOTH_PERMISSION
+      ) {
+        title = intl.formatMessage({
+          id: ETranslations.hardware_bluetooth_requires_permission_error,
+        });
+        content = (
+          <DesktopBluetoothPermissionContent
+            promiseId={state?.payload?.promiseId}
+          />
+        );
+      } else if (
+        // If bluetooth unauthorized is persisted, keep showing it
+        persistBluetoothUnauthorized ||
+        eventType === EHardwareUiStateAction.BLUETOOTH_PERMISSION_UNAUTHORIZED
+      ) {
+        title = intl.formatMessage({
+          id: ETranslations.communication_communicating,
+        });
+        content = <BluetoothPermissionUnauthorizedContent />;
+      } else if (
+        eventType === EHardwareUiStateAction.BLUETOOTH_DEVICE_PAIRING
+      ) {
+        title = intl.formatMessage({
+          id: ETranslations.bluetooth_paring_dialog_title,
+        });
+        content = (
+          <BluetoothDevicePairingContent
+            deviceId={state?.payload?.deviceId}
+            usbConnectId={state?.payload?.connectId}
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            features={state?.payload?.rawPayload?.features}
+            promiseId={state?.payload?.promiseId}
+          />
+        );
+      } else {
+        console.log('CheckDevice!!!!!!--->>>>: ', connectId);
+        title = intl.formatMessage({
+          id: ETranslations.communication_communicating,
+        });
+        content = defaultLoadingView;
+      }
     }
 
     if (action === EHardwareUiStateAction.ProcessLoading) {
@@ -167,26 +227,27 @@ function HardwareSingletonDialogCmp(
         title = intl.formatMessage({
           id: ETranslations.global_enter_hidden_wallet_pin_on_device,
         });
-        content = (
-          <EnterHiddenWalletPinOnDevice
-            deviceType={state?.payload?.deviceType}
-          />
-        );
       } else {
         title = intl.formatMessage({
           id: ETranslations.enter_pin_enter_on_device,
         });
-        content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
       }
+      content = <EnterPinOnDevice deviceType={state?.payload?.deviceType} />;
     }
 
     // EnterPin on App
     if (action === EHardwareUiStateAction.REQUEST_PIN) {
-      title = intl.formatMessage({
-        id: ETranslations.enter_pin_title,
-      });
+      const isAttachPin = state?.payload?.requestPinType === 'AttachPin';
+      title = isAttachPin
+        ? intl.formatMessage({
+            id: ETranslations.global_enter_hidden_wallet_pin,
+          })
+        : intl.formatMessage({
+            id: ETranslations.enter_pin_title,
+          });
       content = (
         <EnterPin
+          title={title}
           onConfirm={async (value) => {
             await serviceHardwareUI.sendPinToDevice({
               pin: value,
@@ -285,9 +346,20 @@ function HardwareSingletonDialogCmp(
     serviceSetting,
     state?.connectId,
     state?.payload,
+    persistBluetoothUnauthorized,
   ]);
 
-  const dialogKey = result.title + (action?.toString() || '');
+  const getDialogKey = (params: {
+    action: EHardwareUiStateAction | undefined;
+  }) => {
+    // Use consistent dialogKey for bluetooth permission flow
+    if (params.action === EHardwareUiStateAction.DeviceChecking) {
+      return 'DeviceCheckingFlow';
+    }
+    return result.title + (params.action?.toString() || '');
+  };
+
+  const dialogKey = getDialogKey({ action });
 
   // Need Open Bluetooth Dialog Container
   if (action === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
@@ -329,7 +401,7 @@ function HardwareSingletonDialogCmp(
   ) : null;
 }
 
-const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
+const _hasConfirmAction = (localState: IHardwareUiState | undefined) => {
   if (localState?.action === EHardwareUiStateAction.REQUEST_BUTTON) {
     return true;
   }
@@ -430,6 +502,9 @@ function HardwareUiStateContainerCmpControlled() {
       if (!currentState?.action) return false;
 
       if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_WINDOW) {
+        return true;
+      }
+      if (currentState?.action === EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW) {
         return true;
       }
 
@@ -536,6 +611,7 @@ function HardwareUiStateContainerCmpControlled() {
         EHardwareUiStateAction.FIRMWARE_TIP,
         EHardwareUiStateAction.FIRMWARE_PROGRESS,
         EHardwareUiStateAction.FIRMWARE_PROCESSING,
+        EHardwareUiStateAction.CLOSE_UI_PIN_WINDOW,
       ].includes(action)
     ) {
       return true;
@@ -574,11 +650,15 @@ function HardwareUiStateContainerCmpControlled() {
 
   const dialogInstanceRef = useRef<IDialogInstance | null>(null);
   const toastInstanceRef = useRef<IShowToasterInstance | null>(null);
+  const hardwareErrorDialogInstanceRef = useRef<IDialogInstance | null>(null);
   if (process.env.NODE_ENV !== 'production') {
     // @ts-ignore
     globalThis.$$hardwareUiStateDialogInstanceRef = dialogInstanceRef;
     // @ts-ignore
     globalThis.$$hardwareUiStateToastInstanceRef = toastInstanceRef;
+    // @ts-ignore
+    globalThis.$$hardwareErrorDialogInstanceRef =
+      hardwareErrorDialogInstanceRef;
   }
 
   const toastElement = (
@@ -652,6 +732,50 @@ function HardwareUiStateContainerCmpControlled() {
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
   const toPromptWebDeviceAccessPage = useToPromptWebDeviceAccessPage();
 
+  // Handle hardware error dialog
+  useEffect(() => {
+    const callback = throttle(
+      ({
+        errorType,
+        payload,
+        errorCode: _errorCode,
+        errorMessage: _errorMessage,
+      }: IHardwareErrorDialogPayload) => {
+        // Only handle DeviceNotFound errors for now, can be extended for other error types
+        if (errorType !== 'DeviceNotFound') {
+          return;
+        }
+        // Prevent duplicate dialog instances
+        if (hardwareErrorDialogInstanceRef.current?.isExist()) {
+          return;
+        }
+
+        void serviceHardwareUI.cleanHardwareUiState();
+
+        hardwareErrorDialogInstanceRef.current = Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.communication_timeout,
+          }),
+          showFooter: false,
+          renderContent: (
+            <DeviceNotFoundDialogContent
+              connectId={payload?.connectId as string | undefined}
+              // @ts-expect-error
+              inBluetoothCommunication={payload?.inBluetoothCommunication}
+            />
+          ),
+        });
+      },
+      2500, // Same throttle duration as other hardware dialog instances
+    );
+
+    appEventBus.on(EAppEventBusNames.ShowHardwareErrorDialog, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.ShowHardwareErrorDialog, callback);
+      hardwareErrorDialogInstanceRef.current = null;
+    };
+  }, [intl, serviceHardwareUI]);
+
   useEffect(() => {
     const instanceRef: {
       current: IDialogInstance | undefined;
@@ -675,8 +799,10 @@ function HardwareUiStateContainerCmpControlled() {
           uiRequestType ===
           EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
         ) {
+          const connectId = stateRef.current?.connectId;
           dialogProps = buildWebDeviceAccessDialogProps({
             intl,
+            connectId,
             // @ts-expect-error
             promptWebUsbDeviceAccess: (dialogInstance?: IDialogInstance) => {
               // Use the provided instance or the current instance
@@ -717,11 +843,11 @@ function HardwareUiStateContainerCmpControlled() {
 
   return (
     <>
-      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
-        {toastElement}
-      </Portal.Body>
       <Portal.Body container={Portal.Constant.FULL_WINDOW_OVERLAY_PORTAL}>
         {dialogElement}
+      </Portal.Body>
+      <Portal.Body container={Portal.Constant.TOASTER_OVERLAY_PORTAL}>
+        {toastElement}
       </Portal.Body>
     </>
   );

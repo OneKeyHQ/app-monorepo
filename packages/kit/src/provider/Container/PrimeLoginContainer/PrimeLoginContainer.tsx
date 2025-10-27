@@ -132,6 +132,7 @@ export function PrimeLoginContainer() {
           }
 
           passwordDialogRef.current = Dialog.show({
+            disableDrag: true,
             dismissOnOverlayPress: !data?.isRegister,
             title,
             // description,
@@ -154,6 +155,8 @@ export function PrimeLoginContainer() {
         if (data?.isRegister && !data?.isChangeMasterPassword) {
           let shouldRejectOnClose = true;
           passwordHintDialogRef.current = Dialog.show({
+            disableDrag: true,
+            dismissOnOverlayPress: false,
             icon: 'ShieldKeyholeOutline',
             title: intl.formatMessage({
               id: ETranslations.prime_set_up_backup_password,
@@ -272,6 +275,8 @@ export function PrimeLoginContainer() {
 
   useEffect(() => {
     const fn = () => {
+      void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+
       Dialog.show({
         dismissOnOverlayPress: false,
         disableDrag: true,

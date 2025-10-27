@@ -3,6 +3,8 @@ package so.onekey.app.wallet;
 import android.app.Application;
 import android.content.res.Configuration;
 import android.database.CursorWindow;
+import android.os.Build;
+
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,6 +22,7 @@ import com.facebook.soloader.SoLoader;
 import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
+import so.onekey.app.wallet.splashscreen.SplashScreenPackage;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -28,7 +31,7 @@ import java.util.List;
 public class MainApplication extends Application implements ReactApplication {
 
   private final ReactNativeHost mReactNativeHost =
-    new ReactNativeHostWrapper(this, new DefaultReactNativeHost(this) {
+    new ReactNativeHostWrapper(this, new CustomReactNativeHost(this) {
       @Override
       public boolean getUseDeveloperSupport() {
         return BuildConfig.DEBUG;
@@ -40,10 +43,15 @@ public class MainApplication extends Application implements ReactApplication {
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new AutoUpdateModulePackage(mReactNativeHost));
+        packages.add(new BundleUpdatePackage());
         packages.add(new RootViewBackgroundPackage());
         // packages.add(new GeckoViewPackage());
         packages.add(new ExitPackage());
         packages.add(new WebViewCheckerPackage());
+        packages.add(new LaunchOptionPackage());
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+          packages.add(new SplashScreenPackage());
+        }
         return packages;
       }
 
@@ -90,6 +98,10 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     super.onCreate();
+    
+    long startupTime = System.currentTimeMillis();
+    LaunchOptionModule.saveStartupTimeStatic(startupTime);
+    
     try {
       Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
       field.setAccessible(true);

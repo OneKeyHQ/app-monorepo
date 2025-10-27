@@ -1,3 +1,4 @@
+import type { ColorTokens } from '@onekeyhq/components/src/primitives';
 import type {
   IMarketTokenSecurityData,
   IMarketTokenSecurityItem,
@@ -5,78 +6,7 @@ import type {
 
 import type { ISecurityKeyValue, ISecurityStatus } from '../types';
 
-// Define warning keys for different chains
-const COMMON_WARNING_KEYS = [
-  'is_honeypot',
-  'is_proxy',
-  'cannot_sell_all',
-  'is_anti_whale',
-  'is_blacklisted',
-  'external_call',
-  'hidden_owner',
-  'is_mintable',
-  'can_take_back_ownership',
-  'owner_change_balance',
-  'cannot_buy',
-  'transfer_pausable',
-];
-
-const SOLANA_WARNING_KEYS = [
-  'is_balance_mutable_authority',
-  'closable',
-  'is_metadata_upgrade_authority',
-  'freezable',
-  'mintable',
-  'non_transferable',
-  'transfer_fee_upgradable',
-  'transfer_hook_upgradable',
-];
-
-const SUI_WARNING_KEYS = [
-  'is_blacklisted',
-  'is_contract_upgradeable',
-  'is_metadata_modifiable',
-  'is_mintable',
-];
-
-const ALL_WARNING_KEYS = [
-  ...COMMON_WARNING_KEYS,
-  ...SOLANA_WARNING_KEYS,
-  ...SUI_WARNING_KEYS,
-];
-
-const TRUST_KEYS = [
-  'trusted_token',
-  'is_trusted_token',
-  'trust_list',
-  'is_open_source',
-];
-
-const TAX_KEYS = ['buy_tax', 'sell_tax', 'transfer_tax'];
-
-// Helper function to check if a key is a warning
-const isWarningKey = (key: string, value: any): boolean => {
-  // Check each warning key
-  if (ALL_WARNING_KEYS.includes(key)) {
-    if (typeof value === 'boolean' && value) return true;
-    if (typeof value === 'string' && value === 'true') return true;
-  }
-
-  // Check for trusted/open source items (warning if false)
-  if (TRUST_KEYS.includes(key)) {
-    if (typeof value === 'boolean' && !value) return true;
-    if (typeof value === 'string' && value === 'false') return true;
-  }
-
-  // Check tax values
-  if (TAX_KEYS.includes(key) && typeof value === 'number' && value > 0) {
-    return true;
-  }
-
-  return false;
-};
-
-// Helper function to format new security data structure into key-value pairs
+// Simplified function to format security data - directly use API structure
 export const formatSecurityData = (
   data: IMarketTokenSecurityData | null,
 ): ISecurityKeyValue[] => {
@@ -87,20 +17,13 @@ export const formatSecurityData = (
   // Iterate through all security items and format them
   Object.entries(data).forEach(
     ([key, item]: [string, IMarketTokenSecurityItem]) => {
-      const { value, content } = item;
-
-      let displayValue: string;
-      if (typeof value === 'boolean') {
-        displayValue = ''; // Don't show yes/no text for boolean values
-      } else {
-        displayValue = String(value);
-      }
+      const { value, content, riskType } = item;
 
       items.push({
         key,
         label: content,
-        value: displayValue,
-        isWarning: isWarningKey(key, value),
+        value,
+        riskType, // Pass through the risk type for color handling
       });
     },
   );
@@ -108,23 +31,97 @@ export const formatSecurityData = (
   return items;
 };
 
-// Helper function to determine security status from new data structure
+// Simplified function to analyze security data - directly use riskType with separated counts
 export const analyzeSecurityData = (
   data: IMarketTokenSecurityData | null,
-): { status: ISecurityStatus | null; count: number } => {
-  if (!data) return { status: null, count: 0 };
+): {
+  status: ISecurityStatus | null;
+  riskCount: number;
+  cautionCount: number;
+} => {
+  if (!data) return { status: null, riskCount: 0, cautionCount: 0 };
 
-  let warningCount = 0;
+  let riskCount = 0;
+  let cautionCount = 0;
 
-  // Count warnings for all keys
-  Object.entries(data).forEach(
-    ([key, item]: [string, IMarketTokenSecurityItem]) => {
-      if (isWarningKey(key, item.value)) {
-        warningCount += 1;
-      }
-    },
-  );
+  // Count risks and cautions separately based on riskType
+  Object.values(data).forEach((item: IMarketTokenSecurityItem) => {
+    if (item.riskType === 'risk') {
+      riskCount += 1;
+    } else if (item.riskType === 'caution') {
+      cautionCount += 1;
+    }
+  });
 
-  const status = warningCount > 0 ? 'warning' : 'safe';
-  return { status, count: warningCount };
+  // Determine status based on priority: risk > caution > safe
+  let status: ISecurityStatus;
+  if (riskCount > 0) {
+    status = 'risk'; // Highest priority: show red if any risk items
+  } else if (cautionCount > 0) {
+    status = 'caution'; // Medium priority: show yellow if any caution items
+  } else {
+    status = 'safe'; // Lowest priority: show green if no issues
+  }
+
+  return {
+    status,
+    riskCount,
+    cautionCount,
+  };
+};
+
+// Shared function for getting security display information (count and color)
+export const getSecurityDisplayInfo = (
+  securityStatus: ISecurityStatus | null,
+  riskCount: number,
+  cautionCount: number,
+): {
+  count: number;
+  color: ColorTokens;
+} => {
+  if (securityStatus === 'risk') {
+    return {
+      count: riskCount,
+      color: '$iconCritical',
+    };
+  }
+  if (securityStatus === 'caution') {
+    return {
+      count: cautionCount,
+      color: '$iconCaution',
+    };
+  }
+  return {
+    count: 0,
+    color: '$iconSuccess',
+  };
+};
+
+// Function for getting total security display information (total count with priority color)
+export const getTotalSecurityDisplayInfo = (
+  securityStatus: ISecurityStatus | null,
+  riskCount: number,
+  cautionCount: number,
+): {
+  count: number;
+  color: ColorTokens;
+} => {
+  const totalCount = riskCount + cautionCount;
+
+  if (securityStatus === 'risk') {
+    return {
+      count: totalCount,
+      color: '$iconCritical',
+    };
+  }
+  if (securityStatus === 'caution') {
+    return {
+      count: totalCount,
+      color: '$iconCaution',
+    };
+  }
+  return {
+    count: 0,
+    color: '$iconSuccess',
+  };
 };

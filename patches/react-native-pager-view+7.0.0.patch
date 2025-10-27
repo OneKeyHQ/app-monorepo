@@ -1,0 +1,73 @@
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
+index 8ec286a..a46ba48 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManager.kt
+@@ -17,7 +17,7 @@ import com.facebook.soloader.SoLoader
+ import com.reactnativepagerview.event.PageScrollEvent
+ import com.reactnativepagerview.event.PageScrollStateChangedEvent
+ import com.reactnativepagerview.event.PageSelectedEvent
+-
++import com.reactnativepagerview.PagerViewViewManagerImpl.reduceDragSensitivity
+ 
+ @ReactModule(name = PagerViewViewManagerImpl.NAME)
+ class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>(), RNCViewPagerManagerInterface<NestedScrollableHost> {
+@@ -173,6 +173,12 @@ class PagerViewViewManager : ViewGroupManager<NestedScrollableHost>(), RNCViewPa
+         return
+     }
+ 
++    @ReactProp(name = "scrollSensitivity", defaultInt = 2)
++    override fun setScrollSensitivity(host: NestedScrollableHost, value: Int) {
++        val view = PagerViewViewManagerImpl.getViewPager(host)
++        view.reduceDragSensitivity(value)
++    }
++
+     fun goTo(root: NestedScrollableHost?, selectedPage: Int, scrollWithAnimation: Boolean) {
+         if (root == null) {
+             return
+diff --git a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
+index d5b82ff..a4bed78 100644
+--- a/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
++++ b/node_modules/react-native-pager-view/android/src/main/java/com/reactnativepagerview/PagerViewViewManagerImpl.kt
+@@ -7,6 +7,7 @@ import com.facebook.react.uimanager.PixelUtil
+ import android.os.Handler
+ import android.os.Looper
+ import android.view.Choreographer
++import androidx.recyclerview.widget.RecyclerView
+ 
+ object PagerViewViewManagerImpl {
+     const val NAME = "RNCViewPager"
+@@ -26,6 +27,16 @@ object PagerViewViewManagerImpl {
+         view.setCurrentItem(selectedTab, scrollSmooth)
+     }
+ 
++    fun ViewPager2.reduceDragSensitivity(value: Int) {
++        val recyclerViewField = ViewPager2::class.java.getDeclaredField("mRecyclerView")
++        recyclerViewField.isAccessible = true
++        val recyclerView = recyclerViewField.get(this) as RecyclerView
++        val touchSlopField = RecyclerView::class.java.getDeclaredField("mTouchSlop")
++        touchSlopField.isAccessible = true
++        val touchSlop = touchSlopField.get(recyclerView) as Int
++        touchSlopField.set(recyclerView, touchSlop*value)
++    }
++
+     fun addView(host: NestedScrollableHost, child: View?, index: Int) {
+         if (child == null) {
+             return
+diff --git a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
+index 19d935e..4109654 100644
+--- a/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
++++ b/node_modules/react-native-pager-view/src/PagerViewNativeComponent.ts
+@@ -33,6 +33,13 @@ export interface NativeProps extends ViewProps {
+   overScrollMode?: WithDefault<'auto' | 'always' | 'never', 'auto'>;
+   overdrag?: WithDefault<boolean, false>;
+   keyboardDismissMode?: WithDefault<'none' | 'on-drag', 'none'>;
++  /**
++  * Controls the sensitivity of scroll gestures on Android.
++  * Higher values make scrolling less sensitive.
++  * Valid range: 2 - 8
++  * @platform android
++  */
++  scrollSensitivity?: Int32;
+   onPageScroll?: DirectEventHandler<OnPageScrollEventData>;
+   onPageSelected?: DirectEventHandler<OnPageSelectedEventData>;
+   onPageScrollStateChanged?: DirectEventHandler<OnPageScrollStateChangedEventData>;

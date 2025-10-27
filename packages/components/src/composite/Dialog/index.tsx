@@ -16,23 +16,27 @@ import {
 import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+
 import {
   AnimatePresence,
   Sheet,
   SizableText,
-  Dialog as TMDialog,
+  TMDialog,
   useMedia,
-} from 'tamagui';
-
-import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
+} from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Toast } from '../../actions/Toast';
-import { SheetGrabber } from '../../content';
+import { Keyboard, SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
-import { EPortalContainerConstantName, Portal } from '../../hocs';
+import {
+  EPageType,
+  EPortalContainerConstantName,
+  Portal,
+  usePageType,
+} from '../../hocs';
 import {
   useBackHandler,
   useModalNavigatorContextPortalId,
@@ -87,6 +91,15 @@ export const FIX_SHEET_PROPS: IYStackProps = {
   display: 'block',
 };
 
+const MAX_CONTENT_WIDTH = 400;
+
+/**
+ * Renders a responsive dialog component that adapts between a sheet (for medium and larger screens) and a modal dialog (for smaller screens or web), supporting customizable content, footer actions, and platform-specific behaviors.
+ *
+ * Handles dialog open/close state, confirm and cancel actions (including async handlers), backdrop and back button interactions, and tracks dialog events. Supports custom header, footer, and content rendering, as well as various configuration options for appearance and interactivity.
+ *
+ * @returns The rendered dialog UI as a React element.
+ */
 function DialogFrame({
   title,
   open,
@@ -258,6 +271,10 @@ function DialogFrame({
           bg="$bg"
           borderCurve="continuous"
           disableHideBottomOverflow
+          // Fix width issue for portrait iPad mini - ensure proper dialog width
+          mx={platformEnv.isNativeIOSPad ? 'auto' : undefined}
+          width={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
+          maxWidth={platformEnv.isNativeIOSPad ? MAX_CONTENT_WIDTH : undefined}
         >
           {!disableDrag ? <SheetGrabber /> : null}
           {renderDialogContent}
@@ -323,11 +340,17 @@ function DialogFrame({
               exitStyle={{ opacity: 0, scale: 0.85 }}
               borderRadius="$4"
               borderWidth="$0"
-              outlineColor="$borderSubdued"
-              outlineStyle="solid"
-              outlineWidth="$px"
+              $theme-dark={{
+                outlineColor: '$neutral5',
+              }}
+              outlineWidth={1}
+              outlineOffset={0}
+              outlineColor="$neutral3"
+              style={{
+                outlineStyle: 'solid',
+              }}
               bg="$bg"
-              width={400}
+              width={MAX_CONTENT_WIDTH}
               p="$0"
               {...floatingPanelProps}
               zIndex={floatingPanelProps?.zIndex || zIndex}
@@ -386,6 +409,7 @@ function BaseDialogContainer(
         });
       }
       changeIsOpen(false);
+      void Keyboard.dismissWithDelay(50);
       return onClose(extra);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
@@ -490,7 +514,7 @@ function dialogShow({
   isOverTopAllViews,
   ...props
 }: IDialogShowFunctionProps): IDialogInstance {
-  dismissKeyboard();
+  void Keyboard.dismissWithDelay(50);
   let instanceRef: React.RefObject<IDialogInstance | null> | undefined =
     createRef();
 
@@ -521,6 +545,7 @@ function dialogShow({
             removeDialogInstance(dialogInstance);
             dialogInstance = undefined;
           }
+          void Keyboard.dismissWithDelay(50);
           void options.onClose?.(extra);
           resolve();
         }, 300);
@@ -682,14 +707,19 @@ export const Dialog = {
   debugMessage: dialogDebugMessage,
 };
 
-enum EInPageDialogType {
+export enum EInPageDialogType {
   inTabPages = 'inTabPages',
   inModalPage = 'inModalPage',
 }
-const useInPageDialog = (type: EInPageDialogType) => {
+export const useInPageDialog = (dialogType?: EInPageDialogType) => {
   const navigatorPortalId = useModalNavigatorContextPortalId();
   const { pagePortalId } = usePageContext();
-
+  const pageType = usePageType();
+  const type =
+    dialogType ||
+    (pageType === EPageType.modal
+      ? EInPageDialogType.inModalPage
+      : EInPageDialogType.inTabPages);
   const portalId = useMemo(() => {
     if (type === EInPageDialogType.inTabPages) {
       return EPortalContainerConstantName.IN_PAGE_TAB_CONTAINER;

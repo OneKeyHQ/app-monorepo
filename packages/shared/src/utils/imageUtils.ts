@@ -1,3 +1,4 @@
+/* eslint-disable no-plusplus */
 import {
   downloadAsync as ExpoFSDownloadAsync,
   readAsStringAsync as ExpoFSReadAsStringAsync,
@@ -6,6 +7,7 @@ import {
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
+import { canvasRGBA as blurCanvasRGBA } from 'stackblur-canvas';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -137,8 +139,9 @@ async function resizeImage(params: {
   originW: number;
   originH: number;
   isMonochrome?: boolean;
+  compress?: number;
 }): Promise<IResizeImageResult> {
-  const { uri, width, height, isMonochrome } = params;
+  const { uri, width, height, isMonochrome, compress } = params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
   const actions: ExpoImageManipulatorAction[] = [
     // resize first
@@ -162,7 +165,7 @@ async function resizeImage(params: {
     });
   }
   const imageResult: ImageResult = await manipulateAsync(uri, actions, {
-    compress: 0.8,
+    compress: compress || 0.8,
     format: SaveFormat.JPEG,
     base64: true,
   });
@@ -545,8 +548,95 @@ async function getBase64ImageFromUrl(imageUrl: string) {
   });
 }
 
+/**
+ * core method for image blur
+ * @param {string} base64Data - Base64 string
+ * @param {number} blurRadius - blur radius (0-300, recommended 200)
+ * @param {number} overlayOpacity - black mask opacity (0-1, recommended 0.2)
+ * @returns {Promise<string>} processed base64 string
+ */
+async function processImageBlur({
+  base64Data,
+  blurRadius = 100,
+  overlayOpacity = 0.2,
+}: {
+  base64Data: string;
+  blurRadius?: number;
+  overlayOpacity?: number;
+}): Promise<{
+  hex: string;
+  width: number;
+  height: number;
+}> {
+  if (platformEnv.isNative) {
+    return appGlobals.$webembedApiProxy.imageUtils.processImageBlur({
+      base64Data,
+      blurRadius,
+      overlayOpacity,
+    });
+  }
+
+  if (!base64Data || typeof base64Data !== 'string') {
+    throw new OneKeyLocalError('Invalid base64 data');
+  }
+
+  if (!base64Data.startsWith('data:image/')) {
+    throw new OneKeyLocalError('base64 data must be image format');
+  }
+
+  const img = await buildHtmlImage(base64Data);
+
+  try {
+    // 1. create canvas
+    const { canvas, ctx } = htmlImageToCanvas({
+      image: img,
+      width: img.width,
+      height: img.height,
+    });
+
+    // 2. add black semi-transparent mask
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 3. apply blur effect
+    if (blurRadius > 0) {
+      try {
+        blurCanvasRGBA(
+          canvas,
+          0,
+          0,
+          canvas.width,
+          canvas.height,
+          Math.min(blurRadius, 300),
+        );
+      } catch (blurError) {
+        console.warn('blur processing failed, skip blur effect:', blurError);
+      }
+    }
+
+    const base64Uri = canvas.toDataURL('image/jpeg');
+
+    const base64 = stripBase64UriPrefix(base64Uri);
+    const buffer = Buffer.from(base64, 'base64');
+    const hex = bufferUtils.bytesToHex(buffer);
+
+    return {
+      hex: hex || '',
+      width: canvas.width,
+      height: canvas.height,
+    };
+  } catch (error) {
+    throw new OneKeyLocalError(
+      `Canvas processing failed: ${(error as Error).message}`,
+    );
+  }
+}
+
 export default {
   resizeImage,
+  processImageBlur,
   prefixBase64Uri,
   stripBase64UriPrefix,
   convertToBlackAndWhiteImageBase64,

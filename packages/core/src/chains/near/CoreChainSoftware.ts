@@ -212,6 +212,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     return Promise.resolve({
       address,
       publicKey: pub,
+      __hwExtraInfo__: undefined,
     });
   }
 

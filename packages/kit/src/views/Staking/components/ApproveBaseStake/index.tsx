@@ -281,7 +281,7 @@ export function ApproveBaseStake({
         symbol: token.symbol,
         action: shouldApprove ? 'approve' : 'stake',
         amount: amountNumber.toFixed(),
-        morphoVault: earnUtils.isMorphoProvider({ providerName })
+        protocolVault: earnUtils.isVaultBasedProvider({ providerName })
           ? approveTarget.spenderAddress
           : undefined,
         accountAddress: account?.address,
@@ -860,17 +860,13 @@ export function ApproveBaseStake({
               id: ETranslations.earn_est_receive,
             })}
           </CalculationListItem.Label>
-          <CalculationListItem.Value>
-            <NumberSizeableText
-              formatter="balance"
-              size="$bodyMdMedium"
-              formatterOptions={{ tokenSymbol: estReceiveToken }}
-            >
-              {BigNumber(amountValue)
-                .multipliedBy(estReceiveTokenRate)
-                .toFixed()}
-            </NumberSizeableText>
-          </CalculationListItem.Value>
+          <NumberSizeableText
+            formatter="balance"
+            size="$bodyMdMedium"
+            formatterOptions={{ tokenSymbol: estReceiveToken }}
+          >
+            {BigNumber(amountValue).multipliedBy(estReceiveTokenRate).toFixed()}
+          </NumberSizeableText>
         </CalculationListItem>,
       );
     }

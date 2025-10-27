@@ -2,7 +2,8 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Anchor, SizableText, View } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import { Anchor, SizableText } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,12 +11,16 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { FormatXMLElementFn } from 'intl-messageformat';
 
-export function TermsAndPrivacy() {
+interface ITermsAndPrivacyProps {
+  contentContainerProps?: Omit<IStackProps, 'children'>;
+}
+
+export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
   const intl = useIntl();
   const termsLink = useHelpLink({
-    path: 'articles/11461297-user-service-agreement',
+    path: 'articles/11461297',
   });
-  const privacyLink = useHelpLink({ path: 'articles/11461298-privacy-policy' });
+  const privacyLink = useHelpLink({ path: 'articles/11461298' });
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>
@@ -61,6 +66,7 @@ export function TermsAndPrivacy() {
       textAlign="center"
       p="$5"
       pt="$0"
+      {...props?.contentContainerProps}
     >
       {intl.formatMessage(
         { id: ETranslations.terms_privacy },

@@ -47,6 +47,8 @@ const settings: IVaultSettings = {
       addressPrefix: '',
     },
   },
+
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);

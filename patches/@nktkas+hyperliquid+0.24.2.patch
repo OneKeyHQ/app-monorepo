@@ -1,0 +1,38 @@
+diff --git a/node_modules/@nktkas/hyperliquid/esm/src/types/exchange/requests.d.ts b/node_modules/@nktkas/hyperliquid/esm/src/types/exchange/requests.d.ts
+index 8ecaf28..49c4550 100644
+--- a/node_modules/@nktkas/hyperliquid/esm/src/types/exchange/requests.d.ts
++++ b/node_modules/@nktkas/hyperliquid/esm/src/types/exchange/requests.d.ts
+@@ -573,12 +573,12 @@ export interface OrderRequest {
+          */
+         grouping: "na" | "normalTpsl" | "positionTpsl";
+         /** Builder fee. */
+-        builder?: {
++        builder: {
+             /** Builder address. */
+             b: Hex;
+             /** Builder fee in 0.1bps (1 = 0.0001%). */
+             f: number;
+-        };
++        } | undefined;
+     };
+     /** Unique request identifier (current timestamp in ms). */
+     nonce: number;
+diff --git a/node_modules/@nktkas/hyperliquid/script/src/types/exchange/requests.d.ts b/node_modules/@nktkas/hyperliquid/script/src/types/exchange/requests.d.ts
+index 8ecaf28..49c4550 100644
+--- a/node_modules/@nktkas/hyperliquid/script/src/types/exchange/requests.d.ts
++++ b/node_modules/@nktkas/hyperliquid/script/src/types/exchange/requests.d.ts
+@@ -573,12 +573,12 @@ export interface OrderRequest {
+          */
+         grouping: "na" | "normalTpsl" | "positionTpsl";
+         /** Builder fee. */
+-        builder?: {
++        builder: {
+             /** Builder address. */
+             b: Hex;
+             /** Builder fee in 0.1bps (1 = 0.0001%). */
+             f: number;
+-        };
++        } | undefined;
+     };
+     /** Unique request identifier (current timestamp in ms). */
+     nonce: number;

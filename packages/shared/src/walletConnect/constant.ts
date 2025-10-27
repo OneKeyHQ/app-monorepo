@@ -28,6 +28,7 @@ export const DAPP_SIDE_SINGLE_WALLET_MODE = true;
 export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
 
 export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
+// type Level = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
 
 const platformName = uniq([
@@ -48,9 +49,16 @@ export const WALLET_CONNECT_CLIENT_META = {
   name: WALLET_CONNECT_CLIENT_NAME,
   description: WALLET_CONNECT_CLIENT_DESC,
   // wallet-connect identify different dApps by url
-  url: platformEnv.isWeb
-    ? `https://app.onekey.so`
-    : `https://${platformName}.app.onekey.so`,
+  get url(): string {
+    return platformEnv.isWeb
+      ? `https://app.onekey.so`
+      : `https://${platformName}.app.onekey.so`;
+  },
+  set url(value) {
+    // AppKit sdk will update url, but we don't want to change it
+    // do nothing
+    // debugger;
+  },
   icons: [ONEKEY_LOGO_ICON_URL],
   // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
   redirect: platformEnv.isNative

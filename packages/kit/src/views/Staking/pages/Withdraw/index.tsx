@@ -4,18 +4,16 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { UniversalWithdraw } from '../../components/UniversalWithdraw';
 import { useUniversalWithdraw } from '../../hooks/useUniversalHooks';
 
@@ -42,7 +40,7 @@ const WithdrawPage = () => {
   const active = protocolInfo?.activeBalance;
   const overflow = protocolInfo?.overflowBalance;
   const price = tokenInfo?.price ? String(tokenInfo.price) : '0';
-  const vault = protocolInfo?.approve?.approveTarget || '';
+  const vault = protocolInfo?.vault || '';
   const actionTag = protocolInfo?.stakeTag || '';
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
@@ -57,7 +55,7 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
-        morphoVault: earnUtils.isMorphoProvider({
+        protocolVault: earnUtils.isVaultBasedProvider({
           providerName,
         })
           ? vault
@@ -97,37 +95,11 @@ const WithdrawPage = () => {
     ],
   );
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: providerName,
-      symbol: tokenSymbol,
-      action: 'unstake',
-      amount: '1',
-      txId:
-        providerName.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
-          ? identity
-          : undefined,
-      morphoVault: earnUtils.isMorphoProvider({
-        providerName,
-      })
-        ? vault
-        : undefined,
-      identity,
-      accountAddress: account.address,
-    });
-    return resp;
-  }, [accountId, networkId, providerName, tokenSymbol, identity, vault]);
-
   const balance = useMemo(() => {
     if (fromPage === EModalStakingRoutes.WithdrawOptions) {
       return BigNumber(initialAmount ?? 0).toFixed();
     }
-    return earnUtils.isMorphoProvider({ providerName })
+    return earnUtils.isVaultBasedProvider({ providerName })
       ? BigNumber(protocolInfo?.maxUnstakeAmount ?? active ?? 0).toFixed()
       : BigNumber(active ?? 0)
           .plus(overflow ?? 0)
@@ -162,18 +134,24 @@ const WithdrawPage = () => {
           tokenImageUri={token?.logoURI}
           providerLogo={protocolInfo?.providerDetail.logoURI}
           providerName={providerName}
+          identity={identity}
           onConfirm={onConfirm}
           minAmount={
             Number(protocolInfo?.minUnstakeAmount) > 0
               ? String(protocolInfo?.minUnstakeAmount)
               : undefined
           }
-          estimateFeeResp={estimateFeeResp}
-          morphoVault={vault}
+          protocolVault={vault}
         />
       </Page.Body>
     </Page>
   );
 };
 
-export default WithdrawPage;
+export default function WithdrawPageWithProvider() {
+  return (
+    <DiscoveryBrowserProviderMirror>
+      <WithdrawPage />
+    </DiscoveryBrowserProviderMirror>
+  );
+}

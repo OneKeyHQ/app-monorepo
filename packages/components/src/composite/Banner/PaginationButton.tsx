@@ -16,6 +16,10 @@ export function PaginationButton({
   isHovering,
   theme,
   variant = 'secondary',
+  iconSize = 'default',
+  positionOffset = 8,
+  zIndex,
+  onMouseEnter,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
@@ -23,16 +27,28 @@ export function PaginationButton({
   isHovering?: boolean;
   theme?: 'light' | 'dark';
   variant?: IIconButtonProps['variant'];
+  iconSize?: 'default' | 'small';
+  positionOffset?: number;
+  zIndex?: number;
+  onMouseEnter?: () => void;
 }) {
-  const icon =
+  const smallIcon =
+    direction === 'previous'
+      ? 'ChevronLeftSmallOutline'
+      : 'ChevronRightSmallOutline';
+  const defaultIcon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
-  const positionStyle = direction === 'previous' ? { left: 8 } : { right: 8 };
+  const icon = iconSize === 'small' ? smallIcon : defaultIcon;
+  const positionStyle =
+    direction === 'previous'
+      ? { left: positionOffset }
+      : { right: positionOffset };
   const hoverOpacity = useHoverOpacity(isHovering);
 
   const opacity = useSharedValue(isVisible ? 1 : 0);
 
   useEffect(() => {
-    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 250 });
+    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 50 });
   }, [isVisible, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -41,6 +57,7 @@ export function PaginationButton({
 
   return (
     <Animated.View
+      pointerEvents="box-none"
       style={[
         animatedStyle,
         {
@@ -50,6 +67,7 @@ export function PaginationButton({
           justifyContent: 'center',
           alignItems: 'center',
           ...positionStyle,
+          zIndex,
         },
       ]}
     >
@@ -60,6 +78,7 @@ export function PaginationButton({
         onPress={onPress}
         iconProps={hoverOpacity}
         theme={theme}
+        onMouseEnter={onMouseEnter}
       />
     </Animated.View>
   );

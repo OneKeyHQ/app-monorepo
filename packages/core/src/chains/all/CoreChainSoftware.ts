@@ -70,6 +70,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
             template: query.template,
             index: query.indexes[0],
           }),
+          __hwExtraInfo__: undefined,
         },
       ],
     });

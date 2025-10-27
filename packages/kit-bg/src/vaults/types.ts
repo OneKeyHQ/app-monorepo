@@ -64,6 +64,7 @@ import type {
 import type { IBackgroundApi } from '../apis/IBackgroundApi';
 import type { EDBAccountType } from '../dbs/local/consts';
 import type { IDBAccount, IDBWalletId } from '../dbs/local/types';
+import type { HardwareAllNetworkGetAddressResponse } from '../services/ServiceHardware/HardwareAllNetworkGetAddressResponse';
 import type { AllNetworkAddressParams, IDeviceType } from '@onekeyfe/hd-core';
 import type { HDNodeType } from '@onekeyfe/hd-transport';
 import type { SignClientTypes } from '@walletconnect/types';
@@ -280,6 +281,8 @@ export type IVaultSettings = {
 
   maxRetryBroadcastTxCount?: number;
   minRetryBroadcastTxInterval?: number;
+
+  enabledInternalSignAndVerify?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -331,6 +334,9 @@ export type IPrepareImportedAccountsParams = {
   template?: string; // TODO use deriveInfo
   deriveInfo?: IAccountDeriveInfo;
 };
+export type IPrepareHDOrHWAccountChainExtraParams = {
+  receiveAddressPath?: string;
+};
 export type IPrepareHdAccountsParamsBase = {
   indexes: Array<number>;
   names?: Array<string>; // custom names
@@ -357,6 +363,7 @@ export type IPrepareHdAccountsOptions = {
 export type IPrepareHardwareAccountsParams = IPrepareHdAccountsParamsBase & {
   deviceParams: IDeviceSharedCallParams;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
+  chainExtraParams?: IPrepareHDOrHWAccountChainExtraParams;
 };
 export type IPrepareAccountsParams =
   | IPrepareWatchingAccountsParams
@@ -414,10 +421,12 @@ type IHwAllNetworkPrepareAccountsItemCommon = {
 };
 export type IHwAllNetworkPrepareAccountsItem =
   IHwAllNetworkPrepareAccountsItemCommon & {
-    success: true;
+    success: boolean;
 
     payload?: IHwAllNetworkPrepareAccountsItemErrorPayload & {
       address?: string;
+      path?: string;
+      rootFingerprint?: number;
 
       pub?: string;
       publicKey?: string; // cosmos, sui, aptos 缺
@@ -438,7 +447,8 @@ export type IHwAllNetworkPrepareAccountsItem =
   };
 
 export type IHwAllNetworkPrepareAccountsResponse =
-  IHwAllNetworkPrepareAccountsItem[];
+  HardwareAllNetworkGetAddressResponse;
+// IHwAllNetworkPrepareAccountsItem[];
 
 export type IExportAccountSecretKeysResult = string;
 // GetAddress ----------------------------------------------
@@ -513,6 +523,12 @@ export type ITransferPayload = {
   paymentId?: string;
   note?: string;
   tokenInfo?: IToken;
+  isCustomHexData?: boolean;
+  isTronResourceAutoClaimed?: boolean;
+  txOriginalFee?: {
+    totalNative: string;
+    totalFiat: string;
+  };
 };
 
 export type IWrappedInfo = {
@@ -563,6 +579,7 @@ export interface IBuildDecodedTxParams {
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
   isToContract?: boolean;
+  sourceInfo?: IDappSourceInfo;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -579,6 +596,8 @@ export interface IBuildUnsignedTxParams {
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
   disableMev?: boolean;
+  withoutNonce?: boolean;
+  withUuid?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

@@ -1,5 +1,3 @@
-import { useCallback } from 'react';
-
 import {
   Divider,
   ScrollView,
@@ -7,75 +5,72 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { useLeftColumnWidthAtom } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
 
 import {
   MarketTradingView,
   SwapPanel,
   TokenActivityOverview,
   TokenDetailHeader,
+  TokenSupplementaryInfo,
 } from '../components';
 import { DesktopInformationTabs } from '../components/InformationTabs/layout/DesktopInformationTabs';
 import { useTokenDetail } from '../hooks/useTokenDetail';
 
-import type { LayoutChangeEvent } from 'react-native';
-
 export function DesktopLayout() {
-  const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
-  const [, setLeftColumnWidth] = useLeftColumnWidthAtom();
-
-  const handleLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      const { width } = event.nativeEvent.layout;
-      setLeftColumnWidth(width);
-    },
-    [setLeftColumnWidth],
-  );
+  const { tokenAddress, networkId, tokenDetail, isNative, websocketConfig } =
+    useTokenDetail();
 
   return (
-    <>
-      {/* Header */}
-      <TokenDetailHeader />
+    <XStack flex={1}>
+      {/* Left column */}
+      <YStack flex={1}>
+        {/* Header */}
+        <TokenDetailHeader />
 
-      {/* Main Content */}
-      <XStack flex={1}>
-        {/* Left column */}
-        <YStack flex={1} onLayout={handleLayout}>
-          {/* Trading view */}
-          <Stack flex={1} minHeight={300}>
-            {tokenAddress && networkId && tokenDetail?.symbol ? (
-              <MarketTradingView
-                tokenAddress={tokenAddress}
-                networkId={networkId}
-                tokenSymbol={tokenDetail?.symbol}
-              />
-            ) : null}
-          </Stack>
+        {/* Trading view */}
+        <Stack flex={1} minHeight={300}>
+          {networkId && tokenDetail?.symbol ? (
+            <MarketTradingView
+              tokenAddress={tokenAddress}
+              networkId={networkId}
+              tokenSymbol={tokenDetail?.symbol}
+              isNative={isNative}
+              dataSource={websocketConfig?.kline ? 'websocket' : 'polling'}
+            />
+          ) : null}
+        </Stack>
 
-          {/* Info tabs */}
+        {/* Info tabs */}
+        {!isNative ? (
           <Stack h="30vh">
             <DesktopInformationTabs />
           </Stack>
-        </YStack>
+        ) : null}
+      </YStack>
 
-        {/* Right column */}
+      {/* Right column */}
+      {!isNative ? (
         <Stack w={320}>
           <ScrollView>
             <Stack w={320}>
-              <Stack p="$4">
+              <Stack px="$5" py="$4">
                 <SwapPanel
                   networkId={networkId}
                   tokenAddress={tokenDetail?.address}
                 />
               </Stack>
 
-              <Divider mx="$4" my="$2" />
+              <Divider mx="$5" my="$2" />
 
               <TokenActivityOverview />
+
+              <Divider mx="$5" />
+
+              <TokenSupplementaryInfo />
             </Stack>
           </ScrollView>
         </Stack>
-      </XStack>
-    </>
+      ) : null}
+    </XStack>
   );
 }

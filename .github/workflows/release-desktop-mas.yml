@@ -17,6 +17,10 @@ jobs:
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -131,7 +135,7 @@ jobs:
       - name: Upload Artifacts mas
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mas
+          name: onekey-desktop-mas-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/mas-universal/*.pkg
 
@@ -143,6 +147,7 @@ jobs:
           xcrun altool --validate-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
       - name: upload mas for Testflight
+        continue-on-error: true
         env:
           APPLEID: ${{ secrets.APPLEID }}
           APPLEIDPASS: ${{ secrets.APPLEIDPASS }}

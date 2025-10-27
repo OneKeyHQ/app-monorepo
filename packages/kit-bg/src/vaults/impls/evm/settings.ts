@@ -1,6 +1,7 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  BinanceSmartChainUSDT,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumCbBTC,
   EthereumDAI,
@@ -179,6 +180,21 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
+  [getNetworkIdsMap().bsc]: {
+    providers: {
+      [EEarnProviderEnum.Lista]: {
+        supportedSymbols: ['USDT'],
+        configs: {
+          USDT: {
+            enabled: true,
+            tokenAddress: BinanceSmartChainUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+        },
+      },
+    },
+  },
 };
 
 const accountDeriveInfo: IAccountDeriveInfoMapEvm = {
@@ -295,6 +311,8 @@ const settings: IVaultSettings = {
     [networkIdMap.taiko]: true,
     [networkIdMap.mantle]: true,
   },
+
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);

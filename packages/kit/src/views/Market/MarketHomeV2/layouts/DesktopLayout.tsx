@@ -1,79 +1,92 @@
-import { Stack } from '@onekeyhq/components';
+import { useCallback, useMemo } from 'react';
+
 import {
-  useMarketWatchListV2Atom,
-  useShowWatchlistOnlyValue,
-} from '@onekeyhq/kit/src/states/jotai/contexts/marketV2';
+  Carousel,
+  Tabs,
+  YStack,
+  useTabContainerWidth,
+} from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { MarketFilterBar } from '../components/MarketFilterBar';
-import {
-  MarketRecommendList,
-  mockRecommendedTokens,
-} from '../components/MarketRecommendList';
-import { MarketTokenList } from '../components/MarketTokenList';
+import { MarketNormalTokenList } from '../components/MarketTokenList/MarketNormalTokenList';
+import { MarketWatchlistTokenList } from '../components/MarketTokenList/MarketWatchlistTokenList';
+
+import { useMarketTabsLogic } from './hooks';
 
 import type { ITimeRangeSelectorValue } from '../components/TimeRangeSelector';
-import type { ILiquidityFilter, IMarketHomeTabValue } from '../types';
+import type { IMarketHomeTabValue } from '../types';
 
 interface IDesktopLayoutProps {
   filterBarProps: {
     selectedNetworkId: string;
     timeRange: ITimeRangeSelectorValue;
-    liquidityFilter: ILiquidityFilter;
     onNetworkIdChange: (networkId: string) => void;
     onTimeRangeChange: (timeRange: ITimeRangeSelectorValue) => void;
-    onLiquidityFilterChange: (filter: ILiquidityFilter) => void;
   };
   selectedNetworkId: string;
-  liquidityFilter: ILiquidityFilter;
-  activeTab: IMarketHomeTabValue;
+  onTabChange: (tabId: IMarketHomeTabValue) => void;
 }
 
 export function DesktopLayout({
   filterBarProps,
   selectedNetworkId,
-  liquidityFilter,
-  activeTab,
+  onTabChange,
 }: IDesktopLayoutProps) {
-  const [watchlistState] = useMarketWatchListV2Atom();
-  const [showWatchlistOnly] = useShowWatchlistOnlyValue();
+  const {
+    tabNames,
+    watchlistTabName,
+    focusedTab,
+    carouselRef,
+    handleTabChange,
+    defaultIndex,
+    handlePageChanged,
+  } = useMarketTabsLogic(onTabChange);
 
-  const watchlistItems = watchlistState.data;
-  const isWatchlistEmpty = !watchlistItems || watchlistItems.length === 0;
-  const shouldShowRecommendList = showWatchlistOnly && isWatchlistEmpty;
+  const height = useMemo(() => {
+    return platformEnv.isNative ? undefined : 'calc(100vh - 96px)';
+  }, []);
+
+  const pageWidth = useTabContainerWidth();
+  const renderItem = useCallback(
+    ({ item }: { item: string }) => {
+      if (item === watchlistTabName) {
+        return (
+          <YStack px="$4" height={height} flex={1}>
+            <MarketWatchlistTokenList />
+          </YStack>
+        );
+      }
+      return (
+        <YStack px="$4" height={height} flex={1}>
+          <MarketFilterBar {...filterBarProps} />
+          <MarketNormalTokenList networkId={selectedNetworkId} />
+        </YStack>
+      );
+    },
+    [filterBarProps, height, selectedNetworkId, watchlistTabName],
+  );
 
   return (
-    <>
-      <Stack>
-        <MarketFilterBar {...filterBarProps} />
-      </Stack>
-
-      {shouldShowRecommendList ? (
-        <Stack
-          position="absolute"
-          bottom={0}
-          top="20vh"
-          left={0}
-          right={0}
-          zIndex={1000}
-        >
-          <MarketRecommendList
-            recommendedTokens={mockRecommendedTokens}
-            maxSize={8}
-            enableSelection
-            showTitle
-            showAddButton
-            networkId={selectedNetworkId}
-          />
-        </Stack>
-      ) : (
-        <Stack px="$5" flex={1}>
-          <MarketTokenList
-            networkId={selectedNetworkId}
-            liquidityFilter={liquidityFilter}
-            key={`${selectedNetworkId}-${activeTab}`} // Force re-render when tab changes
-          />
-        </Stack>
-      )}
-    </>
+    <YStack>
+      <Tabs.TabBar
+        divider={false}
+        onTabPress={handleTabChange}
+        tabNames={tabNames}
+        focusedTab={focusedTab}
+      />
+      <Carousel
+        pageWidth={pageWidth}
+        defaultIndex={defaultIndex}
+        onPageChanged={handlePageChanged}
+        disableAnimation
+        containerStyle={{ height }}
+        ref={carouselRef as any}
+        loop={false}
+        showPagination={false}
+        data={tabNames}
+        renderItem={renderItem}
+      />
+    </YStack>
   );
 }

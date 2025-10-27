@@ -1,29 +1,21 @@
-import { type ReactNode, useMemo, useState } from 'react';
-
-import { useIntl } from 'react-intl';
+import { type ReactNode, useMemo } from 'react';
 
 import {
+  DebugRenderTracker,
   NavBackButton,
   Page,
   SizableText,
   XStack,
+  rootNavigationRef,
   useMedia,
 } from '@onekeyhq/components';
-import { AccountSelectorActiveAccountHome } from '@onekeyhq/kit/src/components/AccountSelector';
-import { NetworkSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector/NetworkSelectorTrigger';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
+import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../AccountSelector';
-import { useSpotlight } from '../Spotlight';
+import { AccountSelectorProviderMirror } from '../AccountSelector';
 
+import { WalletConnectionGroup, WebHeaderNavigation } from './components';
 import { UrlAccountPageHeader } from './urlAccountPageHeader';
 
 export function HeaderLeftCloseButton() {
@@ -43,95 +35,73 @@ export function HeaderLeft({
   tabRoute: ETabRoutes;
   customHeaderLeftItems?: ReactNode;
 }) {
-  const intl = useIntl();
-  const { tourTimes, tourVisited } = useSpotlight(
-    ESpotlightTour.switchDappAccount,
-  );
   const { gtMd } = useMedia();
 
-  const [isFocus, setIsFocus] = useState(false);
-
-  useListenTabFocusState(
-    ETabRoutes.Home,
-    async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(!hideByModal && focus);
-    },
-  );
-  const spotlightVisible = useMemo(
-    () => tourTimes === 1 && isFocus,
-    [isFocus, tourTimes],
-  );
   const items = useMemo(() => {
+    const withWebNavigation = (content: ReactNode) => {
+      if (!(platformEnv.isWeb && gtMd)) {
+        return content;
+      }
+      return (
+        <XStack gap="$6" ai="center">
+          <WebHeaderNavigation />
+          {content}
+        </XStack>
+      );
+    };
     if (customHeaderLeftItems) {
       return customHeaderLeftItems;
     }
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
-      return (
+      return withWebNavigation(
         <XStack gap="$1.5">
-          <HeaderLeftCloseButton />
+          <NavBackButton
+            onPress={() => {
+              rootNavigationRef.current?.navigate(
+                ETabRoutes.Home,
+                {
+                  screen: ETabHomeRoutes.TabHome,
+                },
+                {
+                  pop: true,
+                },
+              );
+            }}
+          />
           {platformEnv.isNativeIOS ? <UrlAccountPageHeader /> : null}
-        </XStack>
+        </XStack>,
       );
     }
 
-    const accountSelectorTrigger = (
-      <AccountSelectorTriggerHome
-        num={0}
-        key="accountSelectorTrigger"
-        spotlightProps={{
-          visible: spotlightVisible,
-          content: (
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.spotlight_account_alignment_desc,
-              })}
-            </SizableText>
-          ),
-          onConfirm: () => {
-            void tourVisited(2);
-          },
-          childrenPaddingVertical: 0,
-        }}
-      />
-    );
-
     if (tabRoute === ETabRoutes.Discovery) {
-      return (
+      return withWebNavigation(
         <SizableText size="$headingLg">
           {/* {intl.formatMessage({
             id: ETranslations.global_browser,
           })} */}
-        </SizableText>
+        </SizableText>,
       );
     }
-    return (
-      <XStack gap="$3" ai="center">
-        {accountSelectorTrigger}
-        {tabRoute === ETabRoutes.Home && gtMd ? (
-          <NetworkSelectorTriggerHome
-            num={0}
-            recordNetworkHistoryEnabled
-            hideOnNoAccount
-          />
-        ) : null}
-        <AccountSelectorActiveAccountHome
-          num={0}
-          showAccountAddress={false}
-          showCopyButton={tabRoute === ETabRoutes.Home}
-          showCreateAddressButton={false}
-          showNoAddressTip={false}
-        />
-      </XStack>
-    );
-  }, [
-    gtMd,
-    intl,
-    sceneName,
-    spotlightVisible,
-    tabRoute,
-    tourVisited,
-    customHeaderLeftItems,
-  ]);
+
+    if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+      return withWebNavigation(
+        <SizableText size="$headingLg">
+          {/* {intl.formatMessage({
+            id: ETranslations.global_browser,
+          })} */}
+        </SizableText>,
+      );
+    }
+
+    // For web platform, only show WebHeaderNavigation (logo + navigation)
+    // Account selector will be moved to HeaderRight
+    if (platformEnv.isWebDappMode && gtMd) {
+      return <WebHeaderNavigation />;
+    }
+
+    // For mobile and native platforms, keep the original layout
+    return <WalletConnectionGroup tabRoute={tabRoute} />;
+  }, [customHeaderLeftItems, sceneName, tabRoute, gtMd]);
   return (
     <AccountSelectorProviderMirror
       enabledNum={[0]}
@@ -140,7 +110,9 @@ export function HeaderLeft({
         sceneUrl: '',
       }}
     >
-      {items}
+      <DebugRenderTracker name="TabPageHeader__HeaderLeft" position="top-right">
+        {items}
+      </DebugRenderTracker>
     </AccountSelectorProviderMirror>
   );
 }

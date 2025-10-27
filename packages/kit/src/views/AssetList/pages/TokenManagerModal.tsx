@@ -12,6 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAssetListRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalAssetListParamList } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   ECustomTokenStatus,
   type IAccountToken,
@@ -57,6 +58,7 @@ function TokenManagerModal() {
   } = useTokenManagement({
     networkId,
     accountId,
+    indexedAccountId,
   });
   const {
     searchValue,
@@ -74,12 +76,35 @@ function TokenManagerModal() {
     if (isSearchMode && Array.isArray(searchResult)) {
       return [{ title: '', data: searchResult }];
     }
+
     return sectionTokens;
   }, [isSearchMode, searchResult, sectionTokens]);
 
   const isEditRef = useRef(false);
   const onAddCustomToken = useCallback(
     async (token?: ICustomTokenItem) => {
+      if (token?.isAggregateToken) {
+        const accountXpubOrAddress = accountUtils.isOthersAccount({ accountId })
+          ? accountId
+          : indexedAccountId;
+
+        await backgroundApiProxy.serviceCustomToken.addCustomToken({
+          token: {
+            ...token,
+            accountXpubOrAddress: accountXpubOrAddress || '',
+            tokenStatus: ECustomTokenStatus.Custom,
+          },
+        });
+        void refreshTokenLists();
+        isEditRef.current = true;
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.address_book_add_address_toast_add_success,
+          }),
+        });
+        return;
+      }
+
       let currentNetworkDeriveType = deriveType;
 
       if (token?.networkId) {
@@ -104,14 +129,15 @@ function TokenManagerModal() {
       });
     },
     [
+      deriveType,
       navigation,
       walletId,
       isOthersWallet,
       indexedAccountId,
       networkId,
       accountId,
-      deriveType,
       refreshTokenLists,
+      intl,
     ],
   );
 
@@ -120,35 +146,51 @@ function TokenManagerModal() {
     async (token: IAccountToken) => {
       let currentNetworkDeriveType = deriveType;
 
-      if (token?.networkId) {
-        currentNetworkDeriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-            networkId: token.networkId,
-          });
-      }
+      if (token.isAggregateToken) {
+        const accountXpubOrAddress = accountUtils.isOthersAccount({ accountId })
+          ? accountId
+          : indexedAccountId;
 
-      const { accountIdForNetwork } = await findAccountInfoForNetwork({
-        accountId,
-        networkId,
-        isOthersWallet,
-        indexedAccountId,
-        deriveType: currentNetworkDeriveType,
-        selectedNetworkId: token.networkId ?? networkId,
-      });
-      const accountXpubOrAddress =
-        await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
-          accountId: accountIdForNetwork,
-          networkId: token.networkId ?? networkId,
+        await backgroundApiProxy.serviceCustomToken.hideToken({
+          token: {
+            ...token,
+            accountXpubOrAddress: accountXpubOrAddress || '',
+            tokenStatus: ECustomTokenStatus.Hidden,
+          },
         });
+      } else {
+        if (token?.networkId) {
+          currentNetworkDeriveType =
+            await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork(
+              {
+                networkId: token.networkId,
+              },
+            );
+        }
 
-      await backgroundApiProxy.serviceCustomToken.hideToken({
-        token: {
-          ...token,
-          networkId: token.networkId ?? networkId,
-          accountXpubOrAddress: accountXpubOrAddress || '',
-          tokenStatus: ECustomTokenStatus.Hidden,
-        },
-      });
+        const { accountIdForNetwork } = await findAccountInfoForNetwork({
+          accountId,
+          networkId,
+          isOthersWallet,
+          indexedAccountId,
+          deriveType: currentNetworkDeriveType,
+          selectedNetworkId: token.networkId ?? networkId,
+        });
+        const accountXpubOrAddress =
+          await backgroundApiProxy.serviceAccount.getAccountXpubOrAddress({
+            accountId: accountIdForNetwork,
+            networkId: token.networkId ?? networkId,
+          });
+
+        await backgroundApiProxy.serviceCustomToken.hideToken({
+          token: {
+            ...token,
+            networkId: token.networkId ?? networkId,
+            accountXpubOrAddress: accountXpubOrAddress || '',
+            tokenStatus: ECustomTokenStatus.Hidden,
+          },
+        });
+      }
       isEditRef.current = true;
       setTimeout(() => {
         void refreshTokenLists();

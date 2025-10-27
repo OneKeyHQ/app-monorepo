@@ -24,10 +24,15 @@ export function SelectAddWalletTypeDialogContent({
           })}
         </Dialog.Title>
       </Dialog.Header>
-      <YStack gap="$1.5">
+      <YStack gap="$4">
         <ListItem
+          px="$4"
           mx="$0"
-          py="$5"
+          py="$3"
+          borderRadius="$2"
+          borderCurve="continuous"
+          borderWidth={1}
+          borderColor="$borderSubdued"
           icon="WalletOutline"
           title={intl.formatMessage({
             id: ETranslations.global_standard_wallet,
@@ -35,25 +40,33 @@ export function SelectAddWalletTypeDialogContent({
           subtitle={intl.formatMessage({
             id: ETranslations.global_standard_wallet_desc,
           })}
-          drillIn
           onPress={onAddStandardWalletPress}
-          alignItems="flex-start"
-        />
+        >
+          <ListItem.DrillIn />
+        </ListItem>
 
         <ListItem
+          px="$4"
           mx="$0"
-          py="$5"
+          py="$3"
+          borderRadius="$2"
+          borderCurve="continuous"
+          borderWidth={1}
+          borderColor="$borderSubdued"
           icon="LockOutline"
+          iconProps={{
+            alignSelf: 'flex-start',
+          }}
           title={intl.formatMessage({
             id: ETranslations.global_hidden_wallet,
           })}
           subtitle={intl.formatMessage({
             id: ETranslations.global_hidden_wallet_desc,
           })}
-          drillIn
           onPress={onAddHiddenWalletPress}
-          alignItems="flex-start"
-        />
+        >
+          <ListItem.DrillIn />
+        </ListItem>
       </YStack>
     </YStack>
   );

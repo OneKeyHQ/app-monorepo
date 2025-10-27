@@ -1,6 +1,12 @@
 import { memo } from 'react';
 
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Image,
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IMarketTokenTransaction } from '@onekeyhq/shared/types/marketV2';
 
@@ -19,7 +25,7 @@ function TransactionItemNormalBase({
   item,
   networkId,
 }: ITransactionItemNormalProps) {
-  const { styles } = useTransactionsLayoutNormal();
+  const { styles, isSmallScreen } = useTransactionsLayoutNormal();
   const {
     baseToken,
     quoteToken,
@@ -39,9 +45,19 @@ function TransactionItemNormalBase({
         {formattedTime}
       </SizableText>
 
-      <SizableText size="$bodyMdMedium" color={typeColor} {...styles.type}>
-        {typeText}
-      </SizableText>
+      <XStack alignItems="center" gap="$2" {...styles.type}>
+        {item.poolLogoUrl ? (
+          <Image
+            width="$5"
+            height="$5"
+            borderRadius="$full"
+            source={{ uri: item.poolLogoUrl }}
+          />
+        ) : null}
+        <SizableText size="$bodyMdMedium" color={typeColor}>
+          {typeText}
+        </SizableText>
+      </XStack>
 
       <TransactionAmount
         baseToken={baseToken}
@@ -52,31 +68,60 @@ function TransactionItemNormalBase({
         style={styles.amount}
       />
 
-      <NumberSizeableText
-        size="$bodyMd"
-        color="$text"
-        autoFormatter="price-marketCap"
-        formatterOptions={{
-          capAtMaxT: true,
-          currency: settingsPersistAtom.currencyInfo.symbol,
-        }}
-        {...styles.price}
-      >
-        {price}
-      </NumberSizeableText>
+      {isSmallScreen ? (
+        <YStack {...styles.priceValue} justifyContent="center">
+          <NumberSizeableText
+            size="$bodyMdMedium"
+            color="$text"
+            autoFormatter="price-marketCap"
+            formatterOptions={{
+              capAtMaxT: true,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+          >
+            {value}
+          </NumberSizeableText>
+          <NumberSizeableText
+            color="$textSubdued"
+            size="$bodySm"
+            autoFormatter="price-marketCap"
+            formatterOptions={{
+              capAtMaxT: true,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+          >
+            {price}
+          </NumberSizeableText>
+        </YStack>
+      ) : (
+        <>
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$text"
+            autoFormatter="price-marketCap"
+            formatterOptions={{
+              capAtMaxT: true,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+            {...styles.price}
+          >
+            {price}
+          </NumberSizeableText>
 
-      <NumberSizeableText
-        size="$bodyMd"
-        color="$text"
-        autoFormatter="price-marketCap"
-        formatterOptions={{
-          capAtMaxT: true,
-          currency: settingsPersistAtom.currencyInfo.symbol,
-        }}
-        {...styles.value}
-      >
-        {value}
-      </NumberSizeableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color="$text"
+            autoFormatter="price-marketCap"
+            formatterOptions={{
+              capAtMaxT: true,
+              currency: settingsPersistAtom.currencyInfo.symbol,
+            }}
+            {...styles.value}
+          >
+            {value}
+          </NumberSizeableText>
+        </>
+      )}
 
       <AddressDisplay
         address={item.owner}

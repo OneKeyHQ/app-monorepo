@@ -6,6 +6,7 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID } from '@onekeyhq/shared/src/consts/primeConsts';
 import type { OneKeyError } from '@onekeyhq/shared/src/errors';
 import {
   OneKeyLocalError,
@@ -31,6 +32,7 @@ import type {
 import {
   primeLoginDialogAtom,
   primePersistAtom,
+  primeServerMasterPasswordStatusAtom,
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 
@@ -232,6 +234,11 @@ class ServicePrime extends ServiceBase {
         serverUserInfo,
       },
     );
+    void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordChanged(
+      {
+        serverUserInfo,
+      },
+    );
     if (serverUserInfo.isPrime) {
       primeSubscription = {
         isActive: true,
@@ -262,6 +269,17 @@ class ServicePrime extends ServiceBase {
       }),
     );
     const localUserInfo = await primePersistAtom.get();
+
+    const serverPasswordUUID = serverUserInfo?.pwdHash;
+    const isServerMasterPasswordSet = Boolean(
+      serverPasswordUUID &&
+        serverPasswordUUID !== RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+    );
+    await primeServerMasterPasswordStatusAtom.set((v) => ({
+      ...v,
+      isServerMasterPasswordSet,
+    }));
+
     return {
       userInfo: localUserInfo,
       serverUserInfo,
@@ -288,6 +306,10 @@ class ServicePrime extends ServiceBase {
       }),
     );
     await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
+    await primeServerMasterPasswordStatusAtom.set((v) => ({
+      ...v,
+      isServerMasterPasswordSet: false,
+    }));
   }
 
   @backgroundMethod()

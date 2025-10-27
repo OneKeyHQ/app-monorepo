@@ -12,6 +12,7 @@ import {
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { BundleUpdate } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { captureException } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 import { EWebEmbedPostMessageType } from '@onekeyhq/shared/src/modules3rdParty/webEmebd/postMessage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -121,6 +122,12 @@ export function WebViewWebEmbed({
     if (remoteUrl) {
       return undefined;
     }
+    const webEmbedPath = BundleUpdate.getWebEmbedPath();
+    if (webEmbedPath) {
+      return {
+        uri: webEmbedPath,
+      };
+    }
     // Android
     if (platformEnv.isNativeAndroid) {
       return {
@@ -135,6 +142,13 @@ export function WebViewWebEmbed({
     }
     return undefined;
   }, [remoteUrl]);
+
+  useEffect(() => {
+    defaultLogger.app.webembed.webEmbedWebViewUriChanged({
+      uri: nativeWebviewSource?.uri,
+      remoteUrl,
+    });
+  }, [nativeWebviewSource?.uri, remoteUrl]);
 
   // Handle messages from WebView - only works in native environments
   const handleMessage = useCallback((event?: WebViewMessageEvent) => {

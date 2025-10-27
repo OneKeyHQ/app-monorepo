@@ -13,6 +13,7 @@ export type IActionProps = PropsWithChildren<{
   walletId: string;
   walletType: string | undefined;
   source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
+  isTabView?: boolean;
 }> &
   Partial<IActionItemsProps>;
 
@@ -28,5 +29,6 @@ export type IActionBaseProps = PropsWithChildren<{
   walletType: string | undefined;
   hiddenIfDisabled?: boolean;
   source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
+  isTabView?: boolean;
 }> &
   Partial<IActionItemsProps>;

@@ -1,18 +1,20 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
-import { withStaticProperties } from 'tamagui';
-
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
+import type {
+  CheckedState,
+  TMCheckboxProps,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Divider } from '../../content';
 import { ListView } from '../../layouts';
 import { Icon, Label, SizableText, XStack, YStack } from '../../primitives';
-import { NATIVE_HIT_SLOP } from '../../utils';
+import { NATIVE_HIT_SLOP } from '../../utils/getFontSize';
 
 import type { ILabelProps, IXStackProps, IYStackProps } from '../../primitives';
 import type { IFormFieldProps } from '../types';
 import type { GestureResponderEvent, ViewStyle } from 'react-native';
-import type { CheckedState, CheckboxProps as TMCheckboxProps } from 'tamagui';
 
 export type ICheckedState = CheckedState;
 
@@ -35,6 +37,7 @@ function RawCheckbox({
   description,
   labelProps,
   onChange,
+  onChangeForDisabled,
   value,
   containerProps,
   labelContainerProps,
@@ -51,12 +54,23 @@ function RawCheckbox({
         event.stopPropagation();
         event.preventDefault();
       }
+      if (checkboxProps.disabled) {
+        onChangeForDisabled?.(!usedValue);
+        return;
+      }
       if (isUncontrolled) {
         setInnerValue(!usedValue);
       }
       onChange?.(!usedValue);
     },
-    [isUncontrolled, onChange, usedValue, shouldStopPropagation],
+    [
+      shouldStopPropagation,
+      checkboxProps.disabled,
+      isUncontrolled,
+      onChange,
+      usedValue,
+      onChangeForDisabled,
+    ],
   );
   return (
     <XStack
@@ -114,6 +128,7 @@ function RawCheckbox({
               pointerEvents="none"
               variant="$bodyLgMedium"
               onPress={platformEnv.isNativeAndroid ? onPress : undefined}
+              color={checkboxProps.disabled ? '$textDisabled' : '$text'}
               userSelect="none"
               {...labelProps}
             >
@@ -121,7 +136,11 @@ function RawCheckbox({
             </Label>
           ) : null}
           {description ? (
-            <SizableText size="$bodyMd" color="$textSubdued" pt="$0.5">
+            <SizableText
+              size="$bodyMd"
+              color={checkboxProps.disabled ? '$textDisabled' : '$textSubdued'}
+              pt="$0.5"
+            >
               {description}
             </SizableText>
           ) : null}

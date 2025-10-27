@@ -1,4 +1,9 @@
-import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentProps,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import {
   Children,
   cloneElement,
@@ -10,8 +15,12 @@ import {
 
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
-import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
+import {
+  TMForm,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -27,18 +36,19 @@ import {
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
+import { Fieldset } from './Fieldset';
 import { addFormInstance, removeFormInstance } from './formInstances';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
 import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
-import type { GetProps } from 'tamagui';
 
 export type IFormProps = IPropsWithTestId<{
   form: UseFormReturn<any> & {
     submit?: () => void;
   };
   header?: ReactNode;
+  childrenGap?: ComponentProps<typeof YStack>['gap'];
 }>;
 
 function HiddenSubmit() {
@@ -55,7 +65,11 @@ function HiddenSubmit() {
   );
 }
 
-export function FormWrapper({ form: formContext, children }: IFormProps) {
+export function FormWrapper({
+  form: formContext,
+  children,
+  childrenGap,
+}: IFormProps) {
   useEffect(() => {
     addFormInstance(formContext);
 
@@ -67,7 +81,7 @@ export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
       <TMForm onSubmit={formContext.submit} position="relative">
-        <YStack gap="$5">{children}</YStack>
+        <YStack gap={childrenGap ?? '$5'}>{children}</YStack>
         {formContext.submit ? <HiddenSubmit /> : null}
       </TMForm>
     </FormProvider>

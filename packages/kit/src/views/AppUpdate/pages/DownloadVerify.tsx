@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { usePreventRemove } from '@react-navigation/core';
-import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
@@ -11,17 +10,12 @@ import {
   Page,
   SizableText,
   Stepper,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  installPackage,
-  useDownloadProgress,
-} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useDownloadProgress } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import type {
   EAppUpdateRoutes,
   IAppUpdatePagesParamList,
@@ -100,6 +94,7 @@ function DownloadVerify({
     verifyASC,
     verifyPackage,
     showUpdateInCompleteDialog,
+    installPackage,
   } = useDownloadPackage();
 
   const showInCompleteDialog = useCallback(() => {
@@ -113,26 +108,24 @@ function DownloadVerify({
   const [installing, setIsInstalling] = useState(false);
 
   const handleToUpdate = useCallback(async () => {
-    try {
-      setIsInstalling(true);
-      const timer = setTimeout(() => {
-        setIsInstalling(false);
-      }, 3500);
-      await installPackage(data);
-      return () => clearTimeout(timer);
-    } catch (e: unknown) {
+    setIsInstalling(true);
+    setTimeout(() => {
       setIsInstalling(false);
-      if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+    }, 5500);
+    await installPackage(
+      () => {},
+      () => {
         showInCompleteDialog();
-      } else {
-        Toast.error({ title: (e as Error).message });
-      }
-    }
-  }, [data, showInCompleteDialog]);
+        setTimeout(() => {
+          setIsInstalling(false);
+        }, 350);
+      },
+    );
+  }, [installPackage, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const hasError = checkIsError(data.status);
 
-  const percent = useDownloadProgress(noop, noop);
+  const percent = useDownloadProgress();
 
   const renderDownloadError = useCallback(
     () => (
@@ -155,29 +148,47 @@ function DownloadVerify({
     [data.errorText, intl],
   );
   const fileUrl = useMemo(() => {
-    if (platformEnv.isNativeAndroid) {
+    if (data?.downloadUrl?.startsWith('https:')) {
       return data.downloadUrl;
     }
+    if (data.jsBundle?.downloadUrl?.startsWith('https:')) {
+      return data.jsBundle?.downloadUrl;
+    }
     return data.downloadedEvent?.downloadUrl || '';
-  }, [data.downloadUrl, data.downloadedEvent?.downloadUrl]);
+  }, [
+    data.downloadUrl,
+    data.downloadedEvent?.downloadUrl,
+    data.jsBundle?.downloadUrl,
+  ]);
+
+  const headerLeft = useCallback(() => {
+    return null;
+  }, []);
+
+  const headerParams = useMemo(() => {
+    const title = intl.formatMessage({
+      id: ETranslations.update_download_and_verify_text,
+    });
+    return isForceUpdate
+      ? {
+          title,
+          headerLeft,
+        }
+      : {
+          title,
+        };
+  }, [intl, isForceUpdate, headerLeft]);
+
   return (
     <Page scrollEnabled>
-      <Page.Header
-        title={intl.formatMessage({
-          id: ETranslations.update_download_and_verify_text,
-        })}
-      />
+      <Page.Header {...headerParams} />
       <Page.Body px="$5" py="$2.5">
         <Stepper stepIndex={stepIndex} hasError={hasError}>
           <Stepper.Item
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
             })}
-            badgeText={
-              Number(percent) !== 100 && Number(percent) !== 0
-                ? `${percent}%`
-                : undefined
-            }
+            badgeText={Number(percent) > 0 ? `${percent}%` : undefined}
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return renderDownloadError();
@@ -371,6 +382,7 @@ function DownloadVerify({
           id: ETranslations.global_secure_install,
         })}
         confirmButtonProps={{
+          loading: installing,
           icon:
             data.status === EAppUpdateStatus.ready
               ? 'BadgeVerifiedSolid'

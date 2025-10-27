@@ -13,11 +13,10 @@ import {
   Page,
   Spinner,
   Stack,
-  Toast,
   usePreventRemove,
 } from '@onekeyhq/components';
-import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import { useWalletBoundReferralCode } from '@onekeyhq/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode';
+import { OneKeyHardwareError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -32,6 +31,8 @@ import type {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -98,6 +99,14 @@ function FinalizeWalletSetupPage({
 
   const created = useRef(false);
 
+  const popPage = useCallback(
+    async ({ delay }: { delay?: number } = {}) => {
+      await timerUtils.wait(delay || 0);
+      navigation.pop();
+    },
+    [navigation],
+  );
+
   useEffect(() => {
     void (async () => {
       try {
@@ -126,11 +135,11 @@ function FinalizeWalletSetupPage({
         }
         setShowStep(true);
       } catch (error) {
-        navigation.pop();
+        void popPage({ delay: 300 });
         throw error;
       }
     })();
-  }, [actions, intl, mnemonic, mnemonicType, navigation, isWalletBackedUp]);
+  }, [actions, intl, mnemonic, mnemonicType, popPage, isWalletBackedUp]);
 
   useEffect(() => {
     const fn = (
@@ -145,19 +154,6 @@ function FinalizeWalletSetupPage({
     };
   }, []);
 
-  useEffect(() => {
-    const fn = (
-      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
-    ) => {
-      setOnboardingError(event.error);
-    };
-
-    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
-    return () => {
-      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
-    };
-  }, []);
-
   const isFirstCreateWallet = useRef(false);
   const readIsFirstCreateWallet = async () => {
     const { isOnboardingDone } =
@@ -165,16 +161,38 @@ function FinalizeWalletSetupPage({
     isFirstCreateWallet.current = !isOnboardingDone;
   };
 
-  const popPage = useCallback(() => {
-    navigation.pop();
-  }, [navigation]);
-
   const closePage = useCallback(() => {
     closePageCalled.current = true;
+    void backgroundApiProxy.serviceHardware.clearForceTransportType();
     navigation.navigate(ERootRoutes.Main, undefined, {
       pop: true,
     });
   }, [navigation]);
+
+  useEffect(() => {
+    const fn = (
+      event: IAppEventBusPayload[EAppEventBusNames.FinalizeWalletSetupError],
+    ) => {
+      setOnboardingError(event.error);
+      console.log('FinalizeWalletSetupError', event.error);
+      setTimeout(
+        () => {
+          if (
+            event.error instanceof OneKeyHardwareError ||
+            event.error?.name === 'OneKeyHardwareError'
+          ) {
+            void popPage();
+          }
+        },
+        platformEnv.isNative ? 450 : 200,
+      );
+    };
+
+    appEventBus.on(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.FinalizeWalletSetupError, fn);
+    };
+  }, [popPage]);
 
   const handleWalletSetupReadyInner = useCallback(async () => {
     const needBondReferralCode = await getReferralCodeBondStatus({
@@ -220,7 +238,7 @@ function FinalizeWalletSetupPage({
     return (
       <NavBackButton
         opacity={showCloseButton ? 1 : 0}
-        onPress={showCloseButton ? popPage : undefined}
+        onPress={showCloseButton ? () => void popPage() : undefined}
       />
     );
   }, [showCloseButton, shouldBondReferralCode, popPage, closePage]);
@@ -303,8 +321,7 @@ function FinalizeWalletSetupPage({
       {onboardingError ? (
         <Page.Footer
           onCancel={() => {
-            //
-            navigation.pop();
+            void popPage();
           }}
         />
       ) : null}

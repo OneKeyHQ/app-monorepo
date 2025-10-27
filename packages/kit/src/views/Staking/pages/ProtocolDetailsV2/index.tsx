@@ -6,7 +6,6 @@ import { StyleSheet } from 'react-native';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
-  Alert,
   Badge,
   Button,
   Divider,
@@ -16,6 +15,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useShare,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -24,9 +24,13 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { PeriodSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/PeriodSectionV2';
 import { ProtectionSection } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/ProtectionSectionV2';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useDevSettingsPersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -35,16 +39,19 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { ISupportedSymbol } from '@onekeyhq/shared/types/earn';
+import {
+  normalizeToEarnProvider,
+  normalizeToEarnSymbol,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnActivateActionIcon,
   IEarnAlert,
   IEarnDetailActions,
   IEarnReceiveActionIcon,
-  IEarnText,
   IEarnTokenInfo,
   IEarnTradeActionIcon,
   IEarnWithdrawActionIcon,
@@ -54,6 +61,8 @@ import type {
   ISubscriptionAction,
 } from '@onekeyhq/shared/types/staking';
 
+import { showRiskNoticeDialogBeforeDepositOrWithdraw } from '../../../Earn/components/RiskNoticeDialog';
+import { EarnNavigation, EarnNetworkUtils } from '../../../Earn/earnUtils';
 import {
   PageFrame,
   isErrorState,
@@ -400,12 +409,11 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
                       jc="center"
                       w="$6"
                       h="$6"
-                      bg="$bgCaution"
                       borderRadius="$1"
                     >
                       <EarnIcon
                         icon={item.icon}
-                        size="$4"
+                        size="$6"
                         color="$iconCaution"
                       />
                     </XStack>
@@ -449,10 +457,83 @@ function RiskSection({ risk }: { risk?: IStakeEarnDetail['risk'] }) {
 const ProtocolDetailsPage = () => {
   const route = useAppRoute<
     IModalStakingParamList,
-    EModalStakingRoutes.ProtocolDetailsV2
+    | EModalStakingRoutes.ProtocolDetailsV2
+    | EModalStakingRoutes.ProtocolDetailsV2Share
   >();
+  const { activeAccount } = useActiveAccount({ num: 0 });
+
+  // parse route params, support two types of routes
+  const resolvedParams = useMemo<{
+    accountId: string;
+    indexedAccountId: string | undefined;
+    networkId: string;
+    symbol: ISupportedSymbol;
+    provider: string;
+    vault: string | undefined;
+    isFromShareLink: boolean;
+  }>(() => {
+    const routeParams = route.params as any;
+
+    // check if it is the new share link format
+    if ('network' in routeParams) {
+      // new format: /earn/:network/:symbol/:provider
+      const {
+        network,
+        symbol: symbolParam,
+        provider: providerParam,
+        vault,
+      } = routeParams;
+      const networkId = EarnNetworkUtils.getNetworkIdByName(network);
+      const symbol = normalizeToEarnSymbol(symbolParam);
+      const provider = normalizeToEarnProvider(providerParam);
+
+      if (!networkId) {
+        throw new OneKeyLocalError(`Unknown network: ${String(network)}`);
+      }
+      if (!symbol) {
+        throw new OneKeyLocalError(`Unknown symbol: ${String(symbolParam)}`);
+      }
+      if (!provider) {
+        throw new OneKeyLocalError(
+          `Unknown provider: ${String(providerParam)}`,
+        );
+      }
+
+      return {
+        accountId: activeAccount.account?.id || '',
+        indexedAccountId: activeAccount.indexedAccount?.id,
+        networkId,
+        symbol,
+        provider,
+        vault,
+        isFromShareLink: true,
+      };
+    }
+
+    // old format: /defi/staking/v2/:symbol/:provider
+    const {
+      accountId: routeAccountId,
+      indexedAccountId: routeIndexedAccountId,
+      networkId,
+      symbol,
+      provider,
+      vault,
+    } = routeParams;
+
+    return {
+      accountId: routeAccountId || activeAccount.account?.id || '',
+      indexedAccountId:
+        routeIndexedAccountId || activeAccount.indexedAccount?.id,
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isFromShareLink: false,
+    };
+  }, [route.params, activeAccount]);
+
   const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
-    route.params;
+    resolvedParams;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
   const [keepSkeletonVisible, setKeepSkeletonVisible] = useState(false);
@@ -593,6 +674,7 @@ const ProtocolDetailsPage = () => {
 
           // staking
           minTransactionFee: detailInfo.nums?.minTransactionFee,
+          remainingCap: detailInfo.nums?.remainingCap,
 
           // claim
           claimable: detailInfo.nums?.claimable,
@@ -606,6 +688,7 @@ const ProtocolDetailsPage = () => {
     detailInfo?.nums?.maxUnstakeAmount,
     detailInfo?.nums?.minTransactionFee,
     detailInfo?.nums?.minUnstakeAmount,
+    detailInfo?.nums?.remainingCap,
     detailInfo?.nums?.overflow,
     detailInfo?.protocol,
     earnAccount,
@@ -614,6 +697,47 @@ const ProtocolDetailsPage = () => {
   ]);
 
   const onStake = useCallback(async () => {
+    if (
+      earnAccount?.accountAddress &&
+      protocolInfo?.provider &&
+      networkId &&
+      detailInfo?.riskNoticeDialog?.deposit
+    ) {
+      const isFirstDeposit =
+        await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
+          networkId,
+          protocolInfo.provider,
+          earnAccount.accountAddress,
+          'deposit',
+        );
+
+      if (isFirstDeposit) {
+        showRiskNoticeDialogBeforeDepositOrWithdraw({
+          networkId,
+          providerName: protocolInfo.provider,
+          address: earnAccount.accountAddress,
+          operationType: 'deposit',
+          riskNoticeDialogContent: detailInfo?.riskNoticeDialog?.deposit,
+          onConfirm: async () => {
+            await handleStake({
+              protocolInfo,
+              tokenInfo,
+              accountId: earnAccount?.accountId,
+              networkId,
+              indexedAccountId,
+              setStakeLoading,
+              onSuccess: async () => {
+                // if (networkUtils.isBTCNetwork(networkId)) {
+                //   await run();
+                // }
+              },
+            });
+          },
+        });
+        return;
+      }
+    }
+
     await handleStake({
       protocolInfo,
       tokenInfo,
@@ -632,12 +756,56 @@ const ProtocolDetailsPage = () => {
     protocolInfo,
     tokenInfo,
     earnAccount?.accountId,
+    earnAccount?.accountAddress,
     networkId,
     indexedAccountId,
+    detailInfo?.riskNoticeDialog?.deposit,
   ]);
 
   const onWithdraw = useCallback(
     async (withdrawType: EStakingActionType) => {
+      if (
+        earnAccount?.accountAddress &&
+        protocolInfo?.provider &&
+        networkId &&
+        detailInfo?.riskNoticeDialog?.withdraw
+      ) {
+        const isFirstWithdraw =
+          await backgroundApiProxy.simpleDb.earnExtra.isFirstOperation(
+            networkId,
+            protocolInfo.provider,
+            earnAccount.accountAddress,
+            'withdraw',
+          );
+
+        if (isFirstWithdraw) {
+          showRiskNoticeDialogBeforeDepositOrWithdraw({
+            networkId,
+            providerName: protocolInfo.provider,
+            address: earnAccount.accountAddress,
+            operationType: 'withdraw',
+            riskNoticeDialogContent: detailInfo?.riskNoticeDialog?.withdraw,
+            onConfirm: async () => {
+              await handleWithdraw({
+                withdrawType,
+                protocolInfo,
+                tokenInfo,
+                accountId: earnAccount?.accountId,
+                networkId,
+                symbol,
+                provider,
+                onSuccess: async () => {
+                  // if (networkUtils.isBTCNetwork(networkId)) {
+                  //   await run();
+                  // }
+                },
+              });
+            },
+          });
+          return;
+        }
+      }
+
       await handleWithdraw({
         withdrawType,
         protocolInfo,
@@ -655,12 +823,14 @@ const ProtocolDetailsPage = () => {
     },
     [
       earnAccount?.accountId,
+      earnAccount?.accountAddress,
       handleWithdraw,
       networkId,
       protocolInfo,
       provider,
       symbol,
       tokenInfo,
+      detailInfo?.riskNoticeDialog?.withdraw,
     ],
   );
 
@@ -680,7 +850,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         stakeTag: protocolInfo?.stakeTag || '',
-        morphoVault: vault,
+        protocolVault: vault,
         filterType,
       });
     };
@@ -697,6 +867,26 @@ const ProtocolDetailsPage = () => {
 
   const intl = useIntl();
   const media = useMedia();
+  const { shareText } = useShare();
+  const [devSettings] = useDevSettingsPersistAtom();
+
+  // Generate share URL
+  const shareUrl = useMemo(() => {
+    if (!symbol || !provider || !networkId) return undefined;
+    const shareLink = EarnNavigation.generateShareLink({
+      networkId,
+      symbol,
+      provider,
+      vault,
+      isDevMode: devSettings.enabled,
+    });
+    return shareLink;
+  }, [symbol, provider, networkId, vault, devSettings.enabled]);
+
+  const handleShare = useCallback(() => {
+    if (!shareUrl) return;
+    void shareText(shareUrl);
+  }, [shareUrl, shareText]);
 
   const depositActionProps = useMemo(() => {
     const item = detailInfo?.actions?.find((i) => i.type === 'deposit');
@@ -1011,6 +1201,8 @@ const ProtocolDetailsPage = () => {
                   historyAction={historyAction}
                   onRefresh={run}
                   onPress={onHistory}
+                  shareUrl={shareUrl}
+                  onShare={handleShare}
                 />
               ) : null}
             </PageFrame>

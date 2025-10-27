@@ -2,9 +2,14 @@ import type { ISubscriptionPeriod } from '@onekeyhq/kit/src/views/Prime/hooks/us
 
 // eslint-disable-next-line import/order
 import type {
+  EOneKeyDeepLinkPath,
+  IEOneKeyDeepLinkParams,
+} from '../consts/deeplinkConsts';
+import type {
   IE2EESocketUserInfo,
   IPrimeTransferData,
 } from '../../types/prime/primeTransferTypes';
+import type { IPrimeServerUserInfo } from '../../types/prime/primeTypes';
 
 export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',
@@ -24,6 +29,8 @@ export enum EPrimeFeatures {
   BulkRevoke = 'BulkRevoke',
   DeviceManagement = 'DeviceManagement',
   CloudTransfer = 'CloudTransfer',
+  Notifications = 'Notifications',
+  HistoryExport = 'HistoryExport',
 }
 
 export type IPrimeParamList = {
@@ -35,6 +42,7 @@ export type IPrimeParamList = {
   };
   [EPrimePages.PrimeCloudSync]: {
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
+    serverUserInfo?: IPrimeServerUserInfo;
   };
   [EPrimePages.PrimeCloudSyncDebug]: undefined;
   [EPrimePages.PrimeCloudSyncInfo]: undefined;
@@ -42,9 +50,10 @@ export type IPrimeParamList = {
     selectedFeature?: EPrimeFeatures;
     selectedSubscriptionPeriod?: ISubscriptionPeriod;
     showAllFeatures?: boolean;
+    serverUserInfo?: IPrimeServerUserInfo;
   };
   [EPrimePages.PrimeDeleteAccount]: undefined;
-  [EPrimePages.PrimeTransfer]: undefined;
+  [EPrimePages.PrimeTransfer]: IEOneKeyDeepLinkParams[EOneKeyDeepLinkPath.cross_device_transfer];
   [EPrimePages.PrimeTransferPreview]: {
     directionUserInfo:
       | {

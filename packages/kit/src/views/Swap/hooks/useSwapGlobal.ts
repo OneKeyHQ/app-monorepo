@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isNil } from 'lodash';
 
-import { EPageType, usePageType } from '@onekeyhq/components';
+import { useIsModalPage } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -26,6 +26,7 @@ import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
   useSwapMevConfigAtom,
+  useSwapNativeTokenReserveGasAtom,
   useSwapNetworksAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -35,6 +36,14 @@ import {
 
 import { useSwapAddressInfo } from './useSwapAccount';
 
+/**
+ * Initializes and manages state and side effects for the token swap feature, including networks, tokens, providers, and related UI state.
+ *
+ * This hook synchronizes swap networks, selected tokens, provider managers, MEV configuration, and swap tips by integrating with background APIs, local storage, and global state atoms. It handles data fetching, caching, and updates in response to parameter changes and app lifecycle events.
+ *
+ * @param params - Optional parameters for initializing swap state, such as imported tokens or network IDs
+ * @returns An object containing `fetchLoading`, indicating whether the swap network list is currently loading
+ */
 export function useSwapInit(params?: ISwapInitParams) {
   const [swapNetworks, setSwapNetworks] = useSwapNetworksAtom();
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
@@ -51,6 +60,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [, setInAppNotification] = useInAppNotificationAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [, setSwapTips] = useSwapTipsAtom();
   const { swapTypeSwitchAction } = useSwapActions().current;
   if (swapAddressInfoRef.current !== swapAddressInfo) {
@@ -601,11 +611,11 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.importNetworkId,
   ]);
 
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
-      if (pageType !== EPageType.modal) {
+      if (!isModalPage) {
         if (isFocus) {
           if (isHiddenModel) {
             setSkipSyncDefaultSelectedToken(true);
@@ -616,6 +626,32 @@ export function useSwapInit(params?: ISwapInitParams) {
       }
     },
   );
+
+  useEffect(() => {
+    if (fromToken?.networkId && fromToken?.isNative) {
+      void (async () => {
+        const nativeTokenConfig =
+          await backgroundApiProxy.serviceSwap.fetchSwapNativeTokenConfig({
+            networkId: fromToken.networkId,
+          });
+        setSwapNativeTokenReserveGas((pre) => {
+          const find = pre.find(
+            (item) => item.networkId === fromToken.networkId,
+          );
+          if (find) {
+            return [
+              ...pre.filter((item) => item.networkId !== fromToken.networkId),
+              {
+                networkId: fromToken.networkId,
+                reserveGas: nativeTokenConfig.reserveGas,
+              },
+            ];
+          }
+          return [...pre, nativeTokenConfig];
+        });
+      })();
+    }
+  }, [fromToken?.networkId, fromToken?.isNative, setSwapNativeTokenReserveGas]);
 
   return {
     fetchLoading: networkListFetching,

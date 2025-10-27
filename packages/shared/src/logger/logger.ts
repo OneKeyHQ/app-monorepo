@@ -4,13 +4,18 @@ import { AccountScope } from './scopes/account';
 import { AccountSelectorScope } from './scopes/accountSelector';
 import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
+import { ApprovalScope } from './scopes/approval';
 import { CloudBackupScope } from './scopes/cloudBackup';
+import { CloudSyncScope } from './scopes/cloudSync';
 import { DemoScope } from './scopes/demo';
+import { DexScope } from './scopes/dex';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
 import { HardwareScope } from './scopes/hardware';
 import { MarketScope } from './scopes/market';
 import { NotificationScope } from './scopes/notification/notification';
+import { PerpScope } from './scopes/perp';
+import { PrimeScope } from './scopes/prime';
 import { ReferralScope } from './scopes/referral';
 import { RewardScope } from './scopes/reward';
 import { ScanQrCodeScope } from './scopes/scanQrCode';
@@ -29,9 +34,13 @@ export class DefaultLogger {
 
   cloudBackup = new CloudBackupScope();
 
+  cloudSync = new CloudSyncScope();
+
   accountSelector = new AccountSelectorScope();
 
   app = new AppScope();
+
+  approval = new ApprovalScope();
 
   demo = new DemoScope();
 
@@ -61,6 +70,8 @@ export class DefaultLogger {
 
   market = new MarketScope();
 
+  perp = new PerpScope();
+
   scanQrCode = new ScanQrCodeScope();
 
   wallet = new WalletScope();
@@ -70,6 +81,10 @@ export class DefaultLogger {
   referral = new ReferralScope();
 
   reward = new RewardScope();
+
+  dex = new DexScope();
+
+  prime = new PrimeScope();
 }
 
 const defaultLogger = new DefaultLogger();

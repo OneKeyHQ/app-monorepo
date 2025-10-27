@@ -54,6 +54,11 @@
           }
         </script>
       <% } %>
+      <script>
+        if (typeof window.$$onekeyStartupTimeAt === 'undefined') {
+          window.$$onekeyStartupTimeAt = Date.now();
+        }
+      </script>
   </head>
 
   <!-- html template copy from node_modules/@expo/webpack-config/web-default/index.html -->
@@ -119,7 +124,7 @@
     <!-- The root element for your Expo app.  -->
     <div id="root">
       <% if ( platform == 'web-embed' ) { %> 
-        webEmbed index.html 
+        <!-- webEmbed index.html -->
       <% } %>
     </div>
 

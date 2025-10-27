@@ -14,9 +14,10 @@ import {
 import { StackView } from '@react-navigation/stack';
 import _ from 'lodash';
 import { useWindowDimensions } from 'react-native';
-import { useMedia } from 'tamagui';
 import { useThrottledCallback } from 'use-debounce';
 
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
+import type { TamaguiElement } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { Portal } from '../../../hocs';
@@ -25,7 +26,7 @@ import {
   ModalNavigatorContext,
   createPortalId,
 } from '../../../hooks/useModalNavigatorContext';
-import { Stack, YStack } from '../../../primitives/Stack';
+import { Stack, XStack, YStack } from '../../../primitives/Stack';
 
 import type {
   IModalNavigationConfig,
@@ -40,7 +41,6 @@ import type {
   StackRouterOptions,
 } from '@react-navigation/native';
 import type { GestureResponderEvent } from 'react-native';
-import type { TamaguiElement } from 'tamagui';
 
 const MODAL_ANIMATED_VIEW_REF_LIST: TamaguiElement[] = [];
 let MODAL_ANIMATED_BACKDROP_VIEW_REF: TamaguiElement | null;
@@ -285,7 +285,22 @@ function WebModalNavigator({
                   transition: 'opacity .25s cubic-bezier(0.4, 0, 0.2, 1)',
                   willChange: 'opacity',
                 }}
-              />
+              >
+                {platformEnv.isDesktopMac ? (
+                  <XStack
+                    style={
+                      {
+                        WebkitAppRegion: 'drag',
+                      } as any
+                    }
+                    position="absolute"
+                    top={0}
+                    h={48}
+                    left={0}
+                    right={0}
+                  />
+                ) : null}
+              </YStack>
             ) : null}
 
             <Stack

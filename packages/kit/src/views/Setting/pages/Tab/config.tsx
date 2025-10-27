@@ -9,10 +9,13 @@ import type {
   ISizableTextProps,
   IStackStyle,
 } from '@onekeyhq/components';
-import { Dialog, SizableText, Stack, useClipboard } from '@onekeyhq/components';
+import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import PasswordUpdateContainer from '@onekeyhq/kit/src/components/Password/container/PasswordUpdateContainer';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthInfo';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
@@ -22,6 +25,7 @@ import {
   usePasswordBiologyAuthInfoAtom,
   usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
+  usePerpsCommonConfigPersistAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -42,6 +46,7 @@ import {
   EModalRoutes,
   EModalSettingRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EManualBackupRoutes } from '@onekeyhq/shared/src/routes/manualBackup';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { EModalShortcutsRoutes } from '@onekeyhq/shared/src/routes/shortcuts';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -50,19 +55,23 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 import { usePrimeAvailable } from '../../../Prime/hooks/usePrimeAvailable';
+import { showApiEndpointDialog } from '../../components/ApiEndpointDialog';
 
 import {
   AutoLockListItem,
+  BTCFreshAddressListItem,
   BiologyAuthListItem,
   CleanDataListItem,
+  ClearAppCacheListItem,
   CurrencyListItem,
+  DesktopBluetoothListItem,
   HardwareTransportTypeListItem,
   LanguageListItem,
   ListVersionItem,
   ThemeListItem,
 } from './CustomElement';
 import { DevSettingsSection } from './DevSettingsSection';
-import { exportLogs } from './exportLogs';
+import { showExportLogsDialog } from './exportLogs/showExportLogsDialog';
 import { SubSearchSettings } from './SubSettings';
 
 import type { RouteProp } from '@react-navigation/native';
@@ -70,6 +79,7 @@ import type { RouteProp } from '@react-navigation/native';
 export interface ISubSettingConfig {
   icon: string | IKeyOfIcons;
   title: string;
+  subtitle?: string;
   badgeProps?: {
     badgeSize: 'sm' | 'md' | 'lg';
     badgeText: string;
@@ -93,6 +103,7 @@ export type ISettingsConfig = (
   | {
       icon: string;
       title: string;
+      subtitle?: string;
       name: ESettingsTabNames;
       isHidden?: boolean;
       showDot?: boolean;
@@ -110,8 +121,13 @@ export type ISettingsConfig = (
 )[];
 export const useSettingsConfig: () => ISettingsConfig = () => {
   const appUpdateInfo = useAppUpdateInfo();
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const intl = useIntl();
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
   });
@@ -119,13 +135,14 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
-  const { copyText } = useClipboard();
   const biometricAuthInfo = useBiometricAuthInfo();
-  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
-  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
+  const userAgreementUrl = useHelpLink({ path: 'articles/11461297' });
+  const privacyPolicyUrl = useHelpLink({ path: 'articles/11461298' });
   const helpCenterUrl = useHelpLink({ path: '' });
   const [devSettings] = useDevSettingsPersistAtom();
   const { isPrimeAvailable } = usePrimeAvailable();
+  const { isLoggedIn } = usePrimeAuthV2();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const [settings] = useSettingsPersistAtom();
   return useMemo(
     () => [
@@ -152,30 +169,57 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : null,
             isPrimeAvailable
               ? {
+                  // OneKey Cloud
                   icon: 'CloudOutline',
                   title: intl.formatMessage({
                     id: ETranslations.global_onekey_cloud,
                   }),
                   onPress: (navigation) => {
-                    if (isPrimeSubscriptionActive) {
-                      navigation?.pushModal(EModalRoutes.PrimeModal, {
-                        screen: EPrimePages.PrimeCloudSync,
-                      });
-                    } else {
-                      navigation?.pushModal(EModalRoutes.PrimeModal, {
-                        screen: EPrimePages.PrimeFeatures,
-                        params: {
-                          showAllFeatures: false,
-                          selectedFeature: EPrimeFeatures.OneKeyCloud,
-                          selectedSubscriptionPeriod: 'P1Y',
-                        },
-                      });
-                    }
+                    defaultLogger.prime.subscription.primeEntryClick({
+                      featureName: EPrimeFeatures.OneKeyCloud,
+                      entryPoint: 'settingsPage',
+                    });
+
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeCloudSync,
+                    });
                   },
                 }
-              : null,
+              : undefined,
           ],
           [
+            !platformEnv.isWebDappMode
+              ? {
+                  // OneKey Transfer
+                  icon: 'MultipleDevicesOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.transfer_transfer,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.prime_transfer_description,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeTransfer,
+                    });
+                  },
+                }
+              : undefined,
+          ],
+          [
+            !platformEnv.isWebDappMode
+              ? {
+                  icon: 'SignatureOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.manual_backup,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.ManualBackupModal, {
+                      screen: EManualBackupRoutes.ManualBackupSelectWallet,
+                    });
+                  },
+                }
+              : undefined,
             platformEnv.isNative
               ? {
                   icon: 'OnekeyLiteOutline',
@@ -190,6 +234,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
             {
+              // OneKey Keytag
               icon: 'OnekeyKeytagOutline',
               title: intl.formatMessage({
                 id: ETranslations.global_onekey_keytag,
@@ -264,6 +309,17 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                 }
               : undefined,
           ],
+          [
+            platformEnv.isSupportDesktopBle
+              ? {
+                  icon: 'BluetoothOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.global_bluetooth,
+                  }),
+                  renderElement: <DesktopBluetoothListItem />,
+                }
+              : undefined,
+          ],
         ],
       },
       {
@@ -320,6 +376,31 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   EModalSettingRoutes.SettingAccountDerivationModal,
                 );
               },
+            },
+          ],
+          [
+            !perpConfigCommon.disablePerp && !perpConfigCommon.usePerpWeb
+              ? {
+                  icon: 'BrowserOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.perp_setting_interface,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.push(EModalSettingRoutes.SettingPerpUserConfig);
+                  },
+                }
+              : null,
+          ],
+          [
+            {
+              icon: 'FlashCardsOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses,
+              }),
+              subtitle: intl.formatMessage({
+                id: ETranslations.settings_btc_multiple_addresses_description,
+              }),
+              renderElement: <BTCFreshAddressListItem />,
             },
           ],
         ],
@@ -434,6 +515,28 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               : undefined,
           ],
           [
+            isLoggedIn
+              ? {
+                  icon: 'RemovePeopleOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.id_delete_onekey_id,
+                  }),
+                  onPress: (navigation) => {
+                    navigation?.pushModal(EModalRoutes.PrimeModal, {
+                      screen: EPrimePages.PrimeDeleteAccount,
+                    });
+                  },
+                }
+              : null,
+          ],
+          [
+            {
+              icon: 'BroomOutline',
+              title: intl.formatMessage({
+                id: ETranslations.settings_clear_cache_on_app,
+              }),
+              renderElement: <ClearAppCacheListItem />,
+            },
             {
               icon: 'FolderDeleteOutline',
               title: intl.formatMessage({
@@ -473,8 +576,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               },
             },
             platformEnv.isSupportWebUSB ||
-            (platformEnv.isDesktopMac &&
-              devSettings.settings?.enableDesktopBluetooth)
+            (platformEnv.isSupportDesktopBle && platformEnv.isDev)
               ? {
                   icon: 'UsbOutline',
                   title: intl.formatMessage({
@@ -517,7 +619,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         title: intl.formatMessage({
           id: ETranslations.global_about,
         }),
-        showDot: !!appUpdateInfo.isNeedUpdate,
+        showDot: isShowAppUpdateUI && !!appUpdateInfo.isNeedUpdate,
         configs: [
           [
             {
@@ -615,50 +717,11 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               title: intl.formatMessage({
                 id: ETranslations.settings_export_state_logs,
               }),
-              onPress: (navigation) => {
-                Dialog.show({
-                  icon: 'FileDownloadOutline',
+              onPress: () => {
+                showExportLogsDialog({
                   title: intl.formatMessage({
                     id: ETranslations.settings_export_state_logs,
                   }),
-                  renderContent: (
-                    <Stack>
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage({
-                          id: ETranslations.settings_logs_do_not_include_sensitive_data,
-                        })}
-                      </SizableText>
-                      <Stack h="$5" />
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.settings_export_state_logs_desc,
-                          },
-                          {
-                            email: (
-                              <SizableText
-                                size="$bodyLg"
-                                textDecorationLine="underline"
-                                onPress={() => copyText('hi@onekey.so')}
-                              >
-                                hi@onekey.so
-                              </SizableText>
-                            ),
-                          },
-                        )}
-                      </SizableText>
-                    </Stack>
-                  ),
-                  confirmButtonProps: {
-                    variant: 'primary',
-                  },
-                  onConfirmText: intl.formatMessage({
-                    id: ETranslations.global_export,
-                  }),
-                  onConfirm: () => {
-                    const str = new Date().toISOString().replace(/[-:.]/g, '');
-                    void exportLogs(`OneKeyLogs-${str}`);
-                  },
                 });
               },
             },
@@ -690,6 +753,13 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                   }),
                   renderElement: <DevSettingsSection />,
                 },
+                {
+                  icon: 'ApiConnectionOutline',
+                  title: 'API Endpoint Management',
+                  onPress: () => {
+                    showApiEndpointDialog();
+                  },
+                },
               ],
             ],
           }
@@ -708,21 +778,22 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     [
       intl,
       isPrimeAvailable,
+      perpConfigCommon.disablePerp,
+      perpConfigCommon.usePerpWeb,
       isPasswordSet,
       biologyAuthIsSupport,
       webAuthIsSupport,
       biometricAuthInfo.title,
       biometricAuthInfo.icon,
+      isLoggedIn,
+      settings.hardwareTransportType,
+      isShowAppUpdateUI,
       appUpdateInfo.isNeedUpdate,
       devSettings.enabled,
-      isPrimeSubscriptionActive,
       onPressAddressBook,
       helpCenterUrl,
       userAgreementUrl,
       privacyPolicyUrl,
-      copyText,
-      devSettings.settings?.enableDesktopBluetooth,
-      settings.hardwareTransportType,
     ],
   );
 };

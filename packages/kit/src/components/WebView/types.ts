@@ -70,6 +70,11 @@ export interface IInpageProviderWebViewProps
    * @default true
    */
   useInjectedNativeCode?: boolean;
+  /** @platform ios
+   * @description Whether to allow back/forward navigation gestures (swipe to go back/forward)
+   * @default true
+   */
+  allowsBackForwardNavigationGestures?: boolean;
 }
 
 export type IWebViewRef = {
@@ -87,7 +92,7 @@ export type IElectronWebView = {
   addEventListener: (name: string, callback: unknown) => void;
   removeEventListener: (name: string, callback: unknown) => void;
   executeJavaScript: (code: string) => void;
-  send: (channel: string, payload: any) => void;
+  send: (channel: string, payload: any) => Promise<void>;
   insertCSS: (css: string) => void;
   canGoBack: () => boolean;
   canGoForward: () => boolean;

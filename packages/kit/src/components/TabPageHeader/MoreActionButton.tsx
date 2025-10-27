@@ -48,7 +48,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalBulkCopyAddressesRoutes } from '@onekeyhq/shared/src/routes/bulkCopyAddresses';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -67,7 +67,10 @@ import { usePrimeAvailable } from '../../views/Prime/hooks/usePrimeAvailable';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 import { UpdateReminder } from '../UpdateReminder';
-import { useAppUpdateInfo } from '../UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '../UpdateReminder/hooks';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -442,18 +445,24 @@ function MoreActionContentGrid() {
     });
   }, [navigation]);
 
-  const checkIsPrimeUser = useCallback(() => {
-    if (user?.primeSubscription?.isActive && user?.privyUserId) {
-      return true;
-    }
-    navigation.pushFullModal(EModalRoutes.PrimeModal, {
-      screen: EPrimePages.PrimeDashboard,
-      params: {
-        networkId: network?.id,
-      },
-    });
-    return false;
-  }, [navigation, user, network?.id]);
+  const checkIsPrimeUser = useCallback(
+    (showFeature: EPrimeFeatures) => {
+      if (user?.primeSubscription?.isActive && user?.privyUserId) {
+        return true;
+      }
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeFeatures,
+        params: {
+          showAllFeatures: false,
+          selectedFeature: showFeature,
+          selectedSubscriptionPeriod: 'P1Y',
+          networkId: network?.id,
+        },
+      });
+      return false;
+    },
+    [navigation, user, network?.id],
+  );
 
   const handleCustomerSupport = useCallback(() => {
     void showIntercom();
@@ -473,7 +482,7 @@ function MoreActionContentGrid() {
 
     if (!networkId) return;
 
-    if (!checkIsPrimeUser()) return;
+    if (!checkIsPrimeUser(EPrimeFeatures.BulkCopyAddresses)) return;
 
     navigation.pushModal(EModalRoutes.BulkCopyAddressesModal, {
       screen: EModalBulkCopyAddressesRoutes.BulkCopyAddressesModal,
@@ -490,6 +499,8 @@ function MoreActionContentGrid() {
   const [map] = useAllTokenListMapAtom();
 
   const scanQrCode = useScanQrCode();
+
+  const isPrimeUser = user?.primeSubscription?.isActive && user?.privyUserId;
 
   const handleScan = useCallback(async () => {
     await scanQrCode.start({
@@ -574,7 +585,15 @@ function MoreActionContentGrid() {
           id: ETranslations.global_bulk_copy_addresses,
         }),
         icon: 'Copy3Outline',
-        onPress: openBulkCopyAddressesModal,
+        onPress: () => {
+          if (!isPrimeUser) {
+            defaultLogger.prime.subscription.primeEntryClick({
+              featureName: EPrimeFeatures.BulkCopyAddresses,
+              entryPoint: 'moreActions',
+            });
+          }
+          void openBulkCopyAddressesModal();
+        },
         trackID: 'bulk-copy-addresses-in-more-action',
         isPrimeFeature: true,
       },
@@ -593,6 +612,7 @@ function MoreActionContentGrid() {
     openBulkCopyAddressesModal,
     themeVariant,
     toReferFriendsPage,
+    isPrimeUser,
   ]);
 
   return (
@@ -671,16 +691,26 @@ const useIsShowWalletXfpStatus = () => {
 // This component may trigger multiple update checks simultaneously
 // Deduplicate or throttle API requests.
 // to prevent unnecessary API calls and improve performance
-const useIsShowUpgradeDot = () => {
+const useIsShowAppUpdateDot = () => {
   const appUpdateInfo = useAppUpdateInfo(true);
   const isAppNeedUpdate = appUpdateInfo.isNeedUpdate;
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
   const isNeedUpgradeFirmware = useIsNeedUpgradeFirmware();
   const isShowWalletXfpStatus = useIsShowWalletXfpStatus();
-  return isAppNeedUpdate || isNeedUpgradeFirmware || isShowWalletXfpStatus;
+  return (
+    (isShowAppUpdateUI && isAppNeedUpdate) ||
+    isNeedUpgradeFirmware ||
+    isShowWalletXfpStatus
+  );
 };
 
 function UpdateReminders() {
-  const isShowUpgradeComponents = useIsShowUpgradeDot();
+  const isShowUpgradeComponents = useIsShowAppUpdateDot();
   return isShowUpgradeComponents ? (
     <YStack gap="$2">
       <UpdateReminder />
@@ -750,7 +780,7 @@ function Dot({ color }: { color: IStackStyle['bg'] }) {
 function MoreButtonWithDot({ onPress }: { onPress?: IButtonProps['onPress'] }) {
   const intl = useIntl();
   const isShowRedDot = useIsShowRedDot();
-  const isShowUpgradeDot = useIsShowUpgradeDot();
+  const isShowUpgradeDot = useIsShowAppUpdateDot();
   const dot = useMemo(() => {
     if (isShowUpgradeDot) {
       return <Dot color="$blue8" />;

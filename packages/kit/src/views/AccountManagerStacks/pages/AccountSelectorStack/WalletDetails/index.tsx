@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useAccountSelectorActions,
@@ -33,7 +32,7 @@ import type {
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
 import {
   EAppEventBusNames,
@@ -60,23 +59,40 @@ export interface IWalletDetailsProps {
 
 function WalletDetailsView({ num }: IWalletDetailsProps) {
   const intl = useIntl();
-  const { serviceAccount, serviceAccountSelector, serviceNetwork } =
-    backgroundApiProxy;
+  const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
   const actions = useAccountSelectorActions();
   const listRef = useRef<ISortableSectionListRef<any> | null>(null);
   const route = useAccountSelectorRoute();
-  const linkNetwork = route.params?.linkNetwork;
+
+  const linkNetwork: boolean | undefined = route.params?.linkNetwork;
+  const linkNetworkId: string | undefined = route.params?.linkNetworkId;
+  const linkNetworkDeriveType: IAccountDeriveTypes | undefined =
+    route.params?.linkNetworkDeriveType;
+
   const isEditableRouteParams = route.params?.editable;
-  const linkedNetworkId = linkNetwork ? selectedAccount?.networkId : undefined;
+  const keepAllOtherAccounts = route.params?.keepAllOtherAccounts;
+  const allowSelectEmptyAccount = route.params?.allowSelectEmptyAccount;
+  const hideAddress = route.params?.hideAddress;
+  const linkedNetworkId = useMemo(() => {
+    if (linkNetworkId) {
+      return linkNetworkId;
+    }
+    return linkNetwork ? selectedAccount?.networkId : undefined;
+  }, [linkNetworkId, linkNetwork, selectedAccount?.networkId]);
+  const usedDeriveType = useMemo(() => {
+    if (linkNetworkId && linkNetworkDeriveType) {
+      return linkNetworkDeriveType;
+    }
+    return selectedAccount?.deriveType;
+  }, [linkNetworkId, linkNetworkDeriveType, selectedAccount?.deriveType]);
+  const selectedNetworkId = selectedAccount?.networkId;
   const [searchText, setSearchText] = useState('');
   const { createQrWallet } = useCreateQrWallet();
 
   defaultLogger.accountSelector.perf.renderAccountsList({
     selectedAccount,
   });
-
-  const navigation = useAppNavigation();
 
   // TODO move to hooks
   const isOthers = selectedAccount?.focusedWallet === '$$others';
@@ -95,7 +111,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     setResult: setListDataResult,
   } = usePromiseResult(
     async () => {
-      if (!selectedAccount?.focusedWallet || !selectedAccount.deriveType) {
+      if (!selectedAccount?.focusedWallet || !usedDeriveType) {
         return Promise.resolve(undefined);
       }
       // await timerUtils.wait(1000);
@@ -103,15 +119,19 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         await serviceAccountSelector.buildAccountSelectorAccountsListData({
           focusedWallet: selectedAccount?.focusedWallet,
           linkedNetworkId,
-          deriveType: selectedAccount.deriveType,
+          selectedNetworkId,
+          deriveType: usedDeriveType,
           othersNetworkId: selectedAccount?.networkId,
+          keepAllOtherAccounts,
         });
 
       return accountSelectorAccountsListData;
     },
     [
+      keepAllOtherAccounts,
       linkedNetworkId,
-      selectedAccount.deriveType,
+      selectedNetworkId,
+      usedDeriveType,
       selectedAccount?.focusedWallet,
       selectedAccount?.networkId,
       serviceAccountSelector,
@@ -443,6 +463,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     } else if (listViewLayout.height) {
       sectionListView = (
         <SectionList
+          useFlashList
           ref={listRef}
           // TODO performance
           onLayout={(e) => {
@@ -505,6 +526,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
               editable={editable}
               accountsCount={accountsCount}
               focusedWalletInfo={focusedWalletInfo}
+              allowSelectEmptyAccount={allowSelectEmptyAccount}
+              mergeDeriveAssetsEnabled={
+                listDataResult?.mergeDeriveAssetsEnabled
+              }
+              hideAddress={hideAddress}
             />
           )}
           renderSectionFooter={({
@@ -552,6 +578,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     accountsCount,
     accountsValue,
     actions,
+    allowSelectEmptyAccount,
     createQrWallet,
     editable,
     focusedWalletInfo,
@@ -560,6 +587,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     handleLayoutForContainer,
     handleLayoutForHeader,
     handleLayoutForSectionList,
+    hideAddress,
     initialScrollIndex,
     intl,
     isDeprecatedWallet,
@@ -568,6 +596,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     isOthersUniversal,
     linkNetwork,
     linkedNetworkId,
+    listDataResult?.mergeDeriveAssetsEnabled,
     listViewLayout.height,
     num,
     searchText,
@@ -602,6 +631,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       // renderAccountValue,
       // sectionData,
       // selectedAccount.deriveType,
+      // usedDeriveType,
       // selectedAccount.indexedAccountId,
       // selectedAccount?.networkId,
       // selectedAccount.othersWalletAccountId,
@@ -655,6 +685,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           num={num}
           isOthersUniversal={isOthersUniversal}
           focusedWalletInfo={focusedWalletInfo}
+          editable={editable}
         />
       ) : null}
 

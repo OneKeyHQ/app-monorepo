@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketDetailPool } from '@onekeyhq/shared/types/market';
 
 import { MarketPoolIcon } from './MarketPoolIcon';
@@ -176,12 +177,14 @@ export function PoolDetailDialog({
           tokenName={baseTokenName.trim()}
           address={baseToken.data.id.split('_').pop() as string}
           uri={baseTokenImageUrl}
+          copyFrom={ECopyFrom.Detail}
         />
         <MarketTokenAddress
           networkId={onekeyNetworkId}
           tokenName={quoteTokenName.trim()}
           address={quoteToken.data.id.split('_').pop() as string}
           uri={quoteTokenImageUrl}
+          copyFrom={ECopyFrom.Detail}
         />
         <MarketTokenAddress
           networkId={onekeyNetworkId}
@@ -189,6 +192,7 @@ export function PoolDetailDialog({
             id: ETranslations.global_pair_contract,
           })}
           address={pairAddress.split('_').pop() as string}
+          copyFrom={ECopyFrom.Detail}
         />
       </YStack>
     </YStack>

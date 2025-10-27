@@ -2,7 +2,8 @@ import { createAnimations } from '@tamagui/animations-moti';
 import { createMedia } from '@tamagui/react-native-media-driver';
 import { shorthands } from '@tamagui/shorthands';
 import { themes } from '@tamagui/themes';
-import { createFont, createTamagui, createTokens } from 'tamagui';
+import { createFont, createTokens } from '@tamagui/web';
+import { createTamagui } from 'tamagui';
 
 import {
   brand,
@@ -28,6 +29,7 @@ import {
   success,
   successDark,
 } from './colors';
+import { webFontFamily } from './src/utils/webFontFamily';
 
 import type { Variable } from '@tamagui/web';
 
@@ -35,6 +37,8 @@ const isTamaguiNative = process.env.TAMAGUI_TARGET === 'native';
 
 const basicFontVariants = {
   size: {
+    bodyXs: 11,
+    bodyXsMedium: 11,
     bodySm: 12,
     bodySmMedium: 12,
     bodyMd: 14,
@@ -54,6 +58,8 @@ const basicFontVariants = {
     heading5xl: 40,
   },
   lineHeight: {
+    bodyXs: 12,
+    bodyXsMedium: 12,
     bodySm: 16,
     bodySmMedium: 16,
     bodyMd: 20,
@@ -73,6 +79,8 @@ const basicFontVariants = {
     heading5xl: 48,
   },
   weight: {
+    bodyXs: '400',
+    bodyXsMedium: '500',
     bodySm: '400',
     bodySmMedium: '500',
     bodyMd: '400',
@@ -92,6 +100,8 @@ const basicFontVariants = {
     heading5xl: '700',
   },
   transform: {
+    bodyXs: 'none',
+    bodyXsMedium: 'none',
     bodySm: 'none',
     bodySmMedium: 'none',
     bodyMd: 'none',
@@ -111,6 +121,8 @@ const basicFontVariants = {
     heading5xl: 'none',
   },
   letterSpacing: {
+    bodyXs: 0,
+    bodyXsMedium: 0,
     bodySm: 0,
     bodySmMedium: 0,
     bodyMd: 0,
@@ -131,10 +143,10 @@ const basicFontVariants = {
   },
 } as const;
 
+const tamaguiWebFontFamily = webFontFamily;
+
 const font = createFont({
-  family: isTamaguiNative
-    ? 'System'
-    : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+  family: isTamaguiNative ? 'System' : tamaguiWebFontFamily,
   ...basicFontVariants,
 });
 
@@ -244,6 +256,8 @@ const lightColors = {
   bgSuccess: success.success3,
   bgSuccessStrong: success.success9,
   bgSuccessSubdued: success.success2,
+  buttonSuccess: success.success9,
+  buttonCritical: critical.critical9,
   border: neutral.neutral6,
   borderActive: primary.primary12,
   borderCaution: caution.caution7,
@@ -311,7 +325,7 @@ const darkColors: typeof lightColors = {
   bg: '#1b1b1b',
   bgActive: neutralDark.neutral4,
   bgApp: '#0f0f0f',
-  bgBackdrop: grayA.grayA8,
+  bgBackdrop: grayA.grayA11,
   bgCaution: cautionDark.caution3,
   bgCautionStrong: cautionDark.caution9,
   bgCautionSubdued: cautionDark.caution2,
@@ -340,6 +354,8 @@ const darkColors: typeof lightColors = {
   bgSuccess: successDark.success3,
   bgSuccessStrong: successDark.success9,
   bgSuccessSubdued: successDark.success2,
+  buttonSuccess: successDark.success9,
+  buttonCritical: criticalDark.critical9,
   border: neutralDark.neutral6,
   borderActive: primaryDark.primary12,
   borderCaution: cautionDark.caution7,
@@ -461,7 +477,6 @@ const mergedTokens = createTokens({
     100: 400,
     160: 640,
     180: 720,
-    sideBarWidth: 208,
   },
   radius: {
     0: 0,

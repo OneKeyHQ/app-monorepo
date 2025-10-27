@@ -321,8 +321,8 @@ public class Verification {
         return isLineEnding(b) || b == '\t' || b == ' ';
     }
 
-    public static String extractedSha256FromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
-        InputStream        keyIn = PGPUtil.getDecoderStream(new ByteArrayInputStream(PUBLIC_KEY.getBytes()));
+    public static String extractedTextContentFromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
+        InputStream  keyIn = PGPUtil.getDecoderStream(new ByteArrayInputStream(PUBLIC_KEY.getBytes()));
         InputStream in = new ByteArrayInputStream(ascFileContent.getBytes());
         boolean isVerified = verifyFile(in, keyIn, cacheFilePath);
         if (!isVerified) {
@@ -337,7 +337,82 @@ public class Verification {
             bOut.write((byte)ch);
         }
         ascFileContentIn.close();
-        String extractedSha256 = bOut.toString().split(" ")[0];
+        // Filter out lines that start with "Hash:" (similar to desktop implementation)
+        return bOut.toString();
+    }
+
+    public static String extractedSha256FromVerifyAscFile(String ascFileContent, String cacheFilePath) throws Exception {
+        String extractedTextContent = extractedTextContentFromVerifyAscFile(ascFileContent, cacheFilePath);
+        String extractedSha256 = extractedTextContent.split(" ")[0];
         return extractedSha256;
+    }
+
+    public static boolean testExtractedSha256FromVerifyAscFile(String cacheFilePath) throws Exception {
+        String ascFileContent = "-----BEGIN PGP SIGNED MESSAGE-----\n" +
+                "Hash: SHA256\n" +
+                "\n" +
+                "{\n" +
+                "  \"fileName\": \"metadata.json\",\n" +
+                "  \"sha256\": \"2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba\",\n" +
+                "  \"size\": 158590,\n" +
+                "  \"generatedAt\": \"2025-09-19T07:49:13.000Z\"\n" +
+                "}\n" +
+                "-----BEGIN PGP SIGNATURE-----\n" +
+                "\n" +
+                "iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmjNJ1IOHGRldkBvbmVr\n" +
+                "ZXkuc28ACgkQs2mmepC/OHs6Rw/9FKHl5aNsE7V0IsFf/l+h16BYKFwVsL69alMk\n" +
+                "CFLna8oUn0+tyECF6wKBKw5pHo5YR27o2pJfYbAER6dygDF6WTZ1lZdf5QcBMjGA\n" +
+                "LCeXC0hzUBzSSOH4bKBTa3fHp//HdSV1F2OnkymbXqYN7WXvuQPLZ0nV6aU88hCk\n" +
+                "HgFifcvkXAnWKoosUtj0Bban/YBRyvmQ5C2akxUPEkr4Yck1QXwzJeNRd7wMXHjH\n" +
+                "JFK6lJcuABiB8wpJDXJkFzKs29pvHIK2B2vdOjU2rQzKOUwaKHofDi5C4+JitT2b\n" +
+                "2pSeYP3PAxXYw6XDOmKTOiC7fPnfLjtcPjNYNFCezVKZT6LKvZW9obnW8Q9LNJ4W\n" +
+                "okMPgHObkabv3OqUaTA9QNVfI/X9nvggzlPnaKDUrDWTf7n3vlrdexugkLtV/tJA\n" +
+                "uguPlI5hY7Ue5OW7ckWP46hfmq1+UaIdeUY7dEO+rPZDz6KcArpaRwBiLPBhneIr\n" +
+                "/X3KuMzS272YbPbavgCZGN9xJR5kZsEQE5HhPCbr6Nf0qDnh+X8mg0tAB/U6F+ZE\n" +
+                "o90sJL1ssIaYvST+VWVaGRr4V5nMDcgHzWSF9Q/wm22zxe4alDaBdvOlUseW0iaM\n" +
+                "n2DMz6gqk326W6SFynYtvuiXo7wG4Cmn3SuIU8xfv9rJqunpZGYchMd7nZektmEJ\n" +
+                "91Js0rQ=\n" +
+                "=A/Ii\n" +
+                "-----END PGP SIGNATURE-----";
+        String content = extractedTextContentFromVerifyAscFile(ascFileContent, cacheFilePath);
+
+        String ascFileContent2 = "-----BEGIN PGP SIGNED MESSAGE-----\n" +
+                "Hash: SHA256\n" +
+                "\n" +
+                "df3249b2ffb84bc66530c6f93c6fbe8ed2bcdbc0576ed1657800c4a697316267  OneKey-Wallet-5.10.0-android.apk\n" +
+                "-----BEGIN PGP SIGNATURE-----\n" +
+                "\n" +
+                "iQJCBAEBCAAsFiEE62iuVE8f3YzSZGJPs2mmepC/OHsFAmhmdH4OHGRldkBvbmVr\n" +
+                "ZXkuc28ACgkQs2mmepC/OHsTDA/+LoSfk0a3tMpJFunBltzWClLsyZIbkrDJwlT4\n" +
+                "gnGuHpOzm3q+GOmsq1T0R7dz91/K2pe5P5efE6cBT+YtlscHqVwRR3ziDO+O0Fyn\n" +
+                "pnkbfpYr2LeYKa89L5/U4cMKOcSi2HJ0dOTicrqRyJZFSLDHNwoteFCK3PN2NJGM\n" +
+                "okK9lVqE+6Ze1NqSDRfvJlyt0eFl+Gd6N2oOXoEh4nfqdl07BIcadAUrQ9ESzaXi\n" +
+                "sCt8TJKYRySqdc28U4YkchQjZAJj+pIYb1RUjli/Xgd6jLKHSAX0ZObxjQvpdIVn\n" +
+                "O/yCOBsDtZVAW6gVrToHM+z4xuE2Q/4PXyZOGtIKasldQtf5mFnB5JjxJtO5fcaq\n" +
+                "c1Cel/vYXGL1Ye2Cwg8HIBAQkiL3z2q7/w2xfNEhY/nSsOshuJ1Aa/1ZWH7AVn1w\n" +
+                "RRKzVS1Qka4cT01SNKmN/B6yVV/dCS8XbUTIRx+2en+JNwHcBFH3NzpNs96wd053\n" +
+                "xU1re9XrNe5wM9jPpP/Y6T9Z0apn3Ksf8HVMJdfdAIcTH7lwQlJGXjza87teqIaD\n" +
+                "mBzpzs7bkR8AvlhXMTyvDosE2nVD9e6nuZq74YCmqx+npelOqGxsA3j8doK5ARiA\n" +
+                "3GZte6Bg5yXBRxK1X8nwKSN5CZLlp5QWyY9NZXBAZKyV3u4MzWITHY4WqlF7eph9\n" +
+                "LgEB7DE=\n" +
+                "=tnDs\n" +
+                "-----END PGP SIGNATURE-----";
+        
+        String extractedSha256 = extractedSha256FromVerifyAscFile(ascFileContent2, cacheFilePath);
+
+        if (content == null || content.isEmpty()) {
+            return false;
+        }
+        
+        try {
+            // Parse the JSON content to extract sha256
+            org.json.JSONObject jsonObject = new org.json.JSONObject(content);
+            String expectedSha256 = jsonObject.getString("sha256");
+            return expectedSha256.equals("2ada9c871104fc40649fa3de67a7d8e33faadc18e9abd587e8bb85be0a003eba") && extractedSha256.equals("df3249b2ffb84bc66530c6f93c6fbe8ed2bcdbc0576ed1657800c4a697316267");
+        } catch (Exception e) {
+            return false;
+        }
+
+       
     }
 }

@@ -19,11 +19,11 @@ yarn
 
 Développez un code commercial différent en exécutant les commandes suivantes dans le répertoire racine
 
-- `yarn web` : développer le mode web, qui démarrera localement un serveur statique sur le port 3000
-- `yarn ios` : déboguer le développement sur les appareils iphone via une connexion USB
-- `yarn android` : déboguer Android
-- `yarn desktop` : développement en mode desktop
-- `yarn ext` : développer des plugins de navigateur
+- `yarn app:web`: développer le mode web, qui démarrera localement un serveur statique sur le port 3000
+- `yarn app:ios`: déboguer le développement sur les appareils iphone via une connexion USB
+- `yarn app:android`: déboguer Android
+- `yarn app:desktop`: développement en mode desktop
+- `yarn app:ext`: développer des plugins de navigateur
 
 ### Configuration du projet Android
 

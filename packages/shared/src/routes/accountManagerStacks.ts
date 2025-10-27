@@ -6,6 +6,7 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 
 export enum EAccountManagerStacksRoutes {
   AccountSelectorStack = 'AccountSelectorStack',
@@ -17,9 +18,14 @@ export enum EAccountManagerStacksRoutes {
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
-  linkNetwork?: boolean;
+  linkNetwork?: boolean; // if true, the account selector will link the network of the selected account
+  linkNetworkId?: string;
+  linkNetworkDeriveType?: IAccountDeriveTypes;
   editable?: boolean;
   hideNonBackedUpWallet?: boolean;
+  keepAllOtherAccounts?: boolean;
+  allowSelectEmptyAccount?: boolean;
+  hideAddress?: boolean;
 };
 
 export type IExportAccountSecretKeysRouteParams = {

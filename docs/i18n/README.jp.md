@@ -19,11 +19,11 @@ yarn
 
 ルートディレクトリで以下のコマンドを実行し、異なるビジネスコードを開発します。
 
-- `yarn web`: ウェブモードを開発し、ポート 3000 の静的サーバをローカルに起動します。
-- yarn ios`: USB接続でiphoneデバイスの開発をデバッグする。
-- `yarn android`: Androidのデバッグ
-- `yarn desktop`: デスクトップモードでの開発
-- `yarn ext`：ブラウザプラグインを開発します
+- `yarn app:web`: ウェブモードを開発し、ポート 3000 の静的サーバをローカルに起動します。
+- `yarn app:ios`: USB接続でiphoneデバイスの開発をデバッグする。
+- `yarn app:android`: Androidのデバッグ
+- `yarn app:desktop`: デスクトップモードでの開発
+- `yarn app:ext`: ブラウザプラグインを開発します
 
 ### Androidプロジェクトの構成
 

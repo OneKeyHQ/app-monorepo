@@ -1,6 +1,8 @@
 import type { IResponseAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppUpdateStatus,
+  EUpdateStrategy,
+  gtVersion,
   isFirstLaunchAfterUpdated,
 } from '@onekeyhq/shared/src/appUpdate';
 import {
@@ -8,11 +10,14 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
-  type IUpdateDownloadedEvent,
-  clearPackage,
+  AppUpdate,
+  BundleUpdate,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -20,8 +25,9 @@ import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
 
-let extensionSyncTimerId: ReturnType<typeof setTimeout>;
+let syncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
+let firstLaunch = true;
 @backgroundClass()
 class ServiceAppUpdate extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -74,39 +80,62 @@ class ServiceAppUpdate extends ServiceBase {
     if (isFirstLaunchAfterUpdated(appInfo)) {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
-        isForceUpdate: false,
+        updateAt: 0,
+        updateStrategy: EUpdateStrategy.manual,
         errorText: undefined,
         status: EAppUpdateStatus.done,
+        jsBundleVersion: undefined,
+        jsBundle: undefined,
+        downloadedEvent: undefined,
       }));
     }
   }
 
   @backgroundMethod()
-  async isNeedSyncAppUpdateInfo() {
+  async isNeedSyncAppUpdateInfo(forceUpdate = false) {
     const { status, updateAt } = await appUpdatePersistAtom.get();
+    clearTimeout(syncTimerId);
+    if (
+      status === EAppUpdateStatus.downloadPackage ||
+      status === EAppUpdateStatus.ready
+    ) {
+      return false;
+    }
+
+    if (firstLaunch) {
+      firstLaunch = false;
+      return true;
+    }
+
+    if (forceUpdate) {
+      return true;
+    }
+
+    const timeout =
+      timerUtils.getTimeDurationMs({
+        hour: 1,
+      }) +
+      timerUtils.getTimeDurationMs({
+        minute: 30,
+      }) *
+        Math.random();
+    syncTimerId = setTimeout(() => {
+      void this.fetchAppUpdateInfo();
+    }, timeout);
+    const now = Date.now();
     if (platformEnv.isExtension) {
-      clearTimeout(extensionSyncTimerId);
-      // add random time to avoid all extension request at the same time.
-      const timeout =
-        timerUtils.getTimeDurationMs({
-          hour: 1,
-        }) +
-        timerUtils.getTimeDurationMs({
-          minute: 5,
-        }) *
-          Math.random();
-      extensionSyncTimerId = setTimeout(() => {
-        void this.fetchAppUpdateInfo();
-      }, timeout);
       return (
-        Date.now() - updateAt >
+        now - updateAt >
         timerUtils.getTimeDurationMs({
           day: 1,
         })
       );
     }
-    return ![EAppUpdateStatus.downloadPackage, EAppUpdateStatus.ready].includes(
-      status,
+    return (
+      now - updateAt >
+      timerUtils.getTimeDurationMs({
+        hour: 1,
+      })
     );
   }
 
@@ -153,6 +182,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else if (statusNumber === 404 || statusNumber === 403) {
       errorText = ETranslations.update_server_not_responding_try_later;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
   }
 
@@ -222,6 +252,7 @@ class ServiceAppUpdate extends ServiceBase {
         errorText =
           ETranslations.update_signature_verification_failed_alert_text;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: errorText as ETranslations,
@@ -240,6 +271,7 @@ class ServiceAppUpdate extends ServiceBase {
         errorText = ETranslations.update_installation_not_safe_alert_text;
       }
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: errorText as ETranslations,
@@ -258,6 +290,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else {
       errorText = ETranslations.update_network_instability_check_connection;
     }
+    defaultLogger.app.error.log(e?.message || errorText);
     this.updateErrorText(EAppUpdateStatus.downloadASCFailed, errorText);
   }
 
@@ -272,15 +305,18 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async reset() {
-    clearTimeout(extensionSyncTimerId);
+    clearTimeout(syncTimerId);
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set({
-      latestVersion: '0.0.0',
-      isForceUpdate: false,
+      latestVersion: platformEnv.version,
+      jsBundleVersion: platformEnv.bundleVersion,
+      updateStrategy: EUpdateStrategy.manual,
       updateAt: 0,
       summary: '',
       status: EAppUpdateStatus.done,
-      isShowUpdateDialog: false,
+      jsBundle: undefined,
+      previousAppVersion: undefined,
+      downloadedEvent: undefined,
     });
     await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
@@ -306,41 +342,70 @@ class ServiceAppUpdate extends ServiceBase {
   @backgroundMethod()
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
-    await clearPackage();
+    await AppUpdate.clearPackage();
+    await BundleUpdate.clearBundle();
     await this.reset();
   }
 
+  fetchAppChangeLog = memoizee(
+    async () => {
+      const client = await this.getClient(EServiceEndpointEnum.Utility);
+      const response = await client.get<{
+        code: number;
+        data: {
+          changeLog: string;
+        };
+      }>('/utility/v1/app-update/version-info');
+      const { code, data } = response.data;
+      return code === 0 ? data?.changeLog : undefined;
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+      promise: true,
+    },
+  );
+
   @backgroundMethod()
   public async fetchChangeLog() {
-    const response = await this.getAppLatestInfo();
-    return {
-      changeLog: response?.changeLog,
-      summary: response?.summary,
-    };
+    const changeLog = await this.fetchAppChangeLog();
+    return changeLog;
   }
 
   @backgroundMethod()
   public async fetchAppUpdateInfo(forceUpdate = false) {
     await this.refreshUpdateStatus();
     // downloading app or ready to update via local package
-    if (!(await this.isNeedSyncAppUpdateInfo())) {
-      return;
+    const isNeedSync = await this.isNeedSyncAppUpdateInfo(forceUpdate);
+    defaultLogger.app.appUpdate.isNeedSyncAppUpdateInfo(isNeedSync);
+    if (!isNeedSync) {
+      return appUpdatePersistAtom.get();
     }
 
     const releaseInfo = await this.getAppLatestInfo(forceUpdate);
-    if (releaseInfo?.version) {
-      await appUpdatePersistAtom.set((prev) => ({
-        ...prev,
-        ...releaseInfo,
-        summary: releaseInfo?.summary || '',
-        latestVersion: releaseInfo.version || prev.latestVersion,
-        updateAt: Date.now(),
-        status:
-          releaseInfo?.version && releaseInfo.version !== prev.latestVersion
-            ? EAppUpdateStatus.notify
-            : prev.status,
-        isShowUpdateDialog: platformEnv.version !== releaseInfo.version,
-      }));
+    defaultLogger.app.appUpdate.fetchConfig(releaseInfo);
+    if (releaseInfo?.version || releaseInfo?.jsBundleVersion) {
+      const shouldUpdate = gtVersion(
+        releaseInfo.version,
+        releaseInfo.jsBundleVersion,
+      );
+      await appUpdatePersistAtom.set((prev) => {
+        const isUpdating = prev.status !== EAppUpdateStatus.done;
+        return {
+          ...prev,
+          ...releaseInfo,
+          jsBundleVersion: releaseInfo.jsBundleVersion || undefined,
+          jsBundle: releaseInfo.jsBundle || undefined,
+          summary: releaseInfo?.summary || '',
+          latestVersion: releaseInfo.version || prev.latestVersion,
+          updateAt: Date.now(),
+          status:
+            shouldUpdate && !isUpdating ? EAppUpdateStatus.notify : prev.status,
+          previousAppVersion:
+            shouldUpdate && !isUpdating
+              ? platformEnv.version
+              : prev.previousAppVersion,
+        };
+      });
     } else {
       await this.reset();
     }

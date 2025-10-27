@@ -37,7 +37,7 @@ import { ShareEventsContext } from '../../components/ProtocolDetails/ShareEvents
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { useFalconUSDfRegister } from '../../hooks/useEarnSignMessage';
+import { useEarnSignMessage } from '../../hooks/useEarnSignMessage';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
@@ -168,7 +168,6 @@ const ProtocolDetailsPage = () => {
   const handleClaim = useHandleClaim({
     accountId: earnAccount?.accountId,
     networkId,
-    updateFrequency: result?.updateFrequency,
   });
   const onClaim = useCallback(
     async (params?: {
@@ -240,7 +239,7 @@ const ProtocolDetailsPage = () => {
           providerName: result.provider.name,
           tokenSymbol: result.token.info.symbol,
         }),
-        morphoVault: vault,
+        protocolVault: vault,
         filterType,
       });
     };
@@ -294,7 +293,7 @@ const ProtocolDetailsPage = () => {
     ],
   );
 
-  const falconUSDfRegister = useFalconUSDfRegister();
+  const falconUSDfRegister = useEarnSignMessage();
   const shouldRegisterBeforeStake = useMemo(() => {
     if (
       earnUtils.isFalconProvider({ providerName: result?.provider.name ?? '' })
@@ -312,7 +311,9 @@ const ProtocolDetailsPage = () => {
         void falconUSDfRegister({
           accountId: earnAccount?.accountId ?? '',
           networkId: earnAccount?.networkId ?? '',
-          details: result,
+          provider: result?.provider.name,
+          symbol: result?.token.info.symbol,
+          request: { origin: 'https://app.falcon.finance/', scope: 'ethereum' },
         });
       },
     }),

@@ -4,13 +4,17 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  Button,
   Image,
+  LottieView,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { ISwapStep, ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapStepStatus } from '@onekeyhq/shared/types/swap/types';
@@ -21,12 +25,14 @@ interface IPreSwapConfirmResultProps {
   lastStep: ISwapStep;
   fromToken?: ISwapToken;
   supportUrl?: string;
+  onConfirm?: () => void;
 }
 
 const PreSwapConfirmResult = ({
   lastStep,
   fromToken,
   supportUrl,
+  onConfirm,
 }: IPreSwapConfirmResultProps) => {
   const [explorerUrl, setExplorerUrl] = useState<string>('');
   const intl = useIntl();
@@ -106,11 +112,11 @@ const PreSwapConfirmResult = ({
               </YStack>
             ) : (
               <YStack key={lastStep.status}>
-                <Image
-                  key={lastStep.status}
-                  source={require('@onekeyhq/kit/assets/preSwapPending2.png')}
+                <LottieView
+                  source={require('@onekeyhq/kit/assets/animations/swap_order_pending.json')}
                   width={110}
                   height={110}
+                  autoPlay
                 />
               </YStack>
             )}
@@ -149,12 +155,45 @@ const PreSwapConfirmResult = ({
           ) : null}
         </YStack>
       </YStack>
-      {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
-        <XStack alignItems="center" justifyContent="center">
+
+      <XStack alignItems="center" justifyContent="center" gap="$2" w="100%">
+        {supportUrl && lastStep.status === ESwapStepStatus.FAILED ? (
+          <Button
+            flexGrow={1}
+            flexBasis={0}
+            variant="secondary"
+            onPress={() => {
+              if (supportUrl?.includes(SUPPORT_URL)) {
+                void showIntercom();
+              } else {
+                openUrlExternal(supportUrl ?? '');
+              }
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.swap_review_tx_failed_2 })}
+          </Button>
+        ) : null}
+        <Button
+          flexGrow={1}
+          flexBasis={0}
+          variant="primary"
+          onPress={onConfirm}
+          size="medium"
+        >
+          {intl.formatMessage({
+            id:
+              lastStep.status === ESwapStepStatus.FAILED
+                ? ETranslations.global_retry
+                : ETranslations.global_done,
+          })}
+        </Button>
+      </XStack>
+      {lastStep.status === ESwapStepStatus.FAILED ? (
+        <XStack alignItems="center" justifyContent="flex-start" mt="$3">
           <SizableText size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.swap_review_tx_failed_1,
-            })}
+              id: ETranslations.global_still_have_issues,
+            })}{' '}
           </SizableText>
           <SizableText
             size="$bodySm"
@@ -166,31 +205,29 @@ const PreSwapConfirmResult = ({
             textDecorationStyle="dotted"
             color="$textSubdued"
             cursor="pointer"
-            onPress={() => openUrlExternal(supportUrl ?? '')}
+            onPress={() => {
+              openUrlExternal(SUPPORT_URL);
+            }}
           >
-            {intl.formatMessage(
-              {
-                id: ETranslations.swap_review_tx_failed_2,
-              },
-              {
-                url: supportUrl,
-              },
-            )}
+            {intl.formatMessage({
+              id: ETranslations.settings_submit_request,
+            })}
           </SizableText>
         </XStack>
       ) : null}
       {lastStep.status === ESwapStepStatus.PENDING ? (
-        <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodySm" color="$textSubdued">
+        <XStack alignItems="center" justifyContent="center" mt="$3">
+          <SizableText size="$bodySm" textAlign="center" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_pending,
             })}
           </SizableText>
         </XStack>
       ) : null}
+
       {lastStep.status === ESwapStepStatus.SUCCESS ? (
-        <XStack alignItems="center" justifyContent="center" mt="$4">
-          <SizableText size="$bodySm" color="$textSubdued">
+        <XStack alignItems="center" justifyContent="center" mt="$3">
+          <SizableText size="$bodySm" textAlign="center" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.swap_review_tx_success,
             })}

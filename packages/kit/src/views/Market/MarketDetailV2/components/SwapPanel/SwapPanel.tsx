@@ -1,17 +1,25 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
-  Dialog,
+  EInPageDialogType,
   Spinner,
   Stack,
   View,
+  useInPageDialog,
+  useIsModalPage,
   useMedia,
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -28,13 +36,11 @@ export function SwapPanel({
 }) {
   const intl = useIntl();
   const media = useMedia();
-  const dialogRef = useRef<ReturnType<typeof Dialog.show>>(undefined);
-
-  useEffect(() => {
-    if (!media.md) {
-      void dialogRef.current?.close();
-    }
-  }, [media.md]);
+  const isModalPage = useIsModalPage();
+  const inPageDialog = useInPageDialog(
+    isModalPage ? EInPageDialogType.inModalPage : EInPageDialogType.inTabPages,
+  );
+  const dialogRef = useRef<IDialogInstance>(null);
 
   if (!networkId || !tokenAddress) {
     return (
@@ -50,28 +56,42 @@ export function SwapPanel({
   }
 
   const showSwapDialog = () => {
-    dialogRef.current = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_swap }),
-      renderContent: (
-        <AccountSelectorProviderMirror
-          config={{
-            sceneName: EAccountSelectorSceneName.home,
-            sceneUrl: '',
-          }}
-          enabledNum={[0]}
-        >
-          <MarketWatchListProviderMirrorV2
-            storeName={EJotaiContextStoreNames.marketWatchListV2}
-          >
-            <SwapPanelWrap />
-          </MarketWatchListProviderMirrorV2>
-        </AccountSelectorProviderMirror>
-      ),
-      showFooter: false,
-    });
+    if (networkId && tokenAddress) {
+      dialogRef.current = inPageDialog.show({
+        onClose: () => {
+          appEventBus.emit(
+            EAppEventBusNames.SwapPanelDismissKeyboard,
+            undefined,
+          );
+          void dismissKeyboardWithDelay(100);
+        },
+        title: intl.formatMessage({ id: ETranslations.global_swap }),
+        showFooter: false,
+        showExitButton: true,
+        renderContent: (
+          <View>
+            <AccountSelectorProviderMirror
+              config={{
+                sceneName: EAccountSelectorSceneName.home,
+                sceneUrl: '',
+              }}
+              enabledNum={[0]}
+            >
+              <MarketWatchListProviderMirrorV2
+                storeName={EJotaiContextStoreNames.marketWatchListV2}
+              >
+                <SwapPanelWrap
+                  onCloseDialog={() => dialogRef.current?.close()}
+                />
+              </MarketWatchListProviderMirrorV2>
+            </AccountSelectorProviderMirror>
+          </View>
+        ),
+      });
+    }
   };
 
-  if (media.md) {
+  if (media.lg) {
     return (
       <View p="$3">
         <Button size="large" variant="primary" onPress={() => showSwapDialog()}>

@@ -15,15 +15,14 @@ function TransactionsHeaderSmallBase() {
 
   return (
     <XStack
-      px="$4"
-      py="$3"
+      px="$5"
+      pt="$3"
+      pb="$1"
       alignItems="center"
-      borderBottomWidth="$px"
-      borderBottomColor="$borderSubdued"
       backgroundColor="$bgApp"
     >
-      <YStack>
-        <SizableText {...commonTextProps} {...styles.time}>
+      <YStack {...styles.time}>
+        <SizableText {...commonTextProps}>
           {intl.formatMessage({
             id: ETranslations.dexmarket_details_history_type,
           })}

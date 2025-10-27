@@ -19,11 +19,23 @@ export interface IPageLifeCycle {
 export type IBasicPageProps = PropsWithChildren<
   {
     fullPage?: boolean;
-    /* enable the insets that you use to determine the safe area for this view. the default value is true  */
+    /** @platform cross-platform
+     * @description Enable the insets that you use to determine the safe area for this view. The default value is true
+     *  @default false
+     */
     safeAreaEnabled?: boolean;
-    /* skip loading view. the default value is false  */
-    skipLoading?: boolean;
-    /* scrollEnabled. When false, the view cannot be scrolled via interaction.  */
+    /** @platform native
+     * @description Lazy load. The default value is false.
+     * Mainly used to reduce stuttering when heavy rendering Native pages.
+     * If the page doesn't have much content on initial render, this doesn't need to be enabled.
+     * @default false
+     */
+    lazyLoad?: boolean;
+    /** @platform cross-platform
+     * @description ScrollEnabled. When false, the view cannot be scrolled via interaction.
+     * Note: If there are other scroll containers within the page, it may cause scroll conflicts on Native platforms.
+     * @default false
+     */
     scrollEnabled?: boolean;
     scrollProps?: Omit<IScrollViewProps, 'children'>;
   } & IPageLifeCycle

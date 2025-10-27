@@ -4,14 +4,13 @@ import { Layout } from './utils/Layout';
 
 const TradingViewGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="TradingView"
     elements={[
       {
         title: '默认状态',
         element: (
           <TradingView
-            mode="realtime"
             baseToken="BTC"
             targetToken="USDT"
             identifier="binance"

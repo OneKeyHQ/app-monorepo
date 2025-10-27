@@ -36,6 +36,8 @@ declare global {
     showMainWindow: () => void;
     refreshMenu: () => void;
     getAppName: () => string;
+    getBundleIndexHtmlPath: () => string | undefined;
+    useJsBundle: () => boolean;
   };
 
   var $$appGlobals: IAppGlobals;
@@ -43,6 +45,13 @@ declare global {
   var $indexedDBIsMigratedToBucket:
     | ICheckCurrentDBIsMigratedToBucketResult
     | undefined;
+  var $$onekeyStartupTimeAt: number | undefined;
+  var $$onekeyJsReadyAt: number | undefined;
+  var $$onekeyUIVisibleAt: number | undefined;
+  var $$onekeyJsReadyFromPerformanceNow: number | undefined;
+  var $$onekeyAppWillMountFromPerformanceNow: number | undefined;
+  var $$onekeyUIVisibleFromPerformanceNow: number | undefined;
+  var nativePerformanceNow: () => number;
 
   // eslint-disable-next-line
   // var onekey: WindowOneKey;

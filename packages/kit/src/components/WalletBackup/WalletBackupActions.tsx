@@ -5,7 +5,7 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
-import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
+import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useLiteCard from '@onekeyhq/kit/src/views/LiteCard/hooks/useLiteCard';
@@ -92,7 +92,6 @@ export function WalletBackupActions({
 
   return (
     <ActionList
-      placement="bottom-start"
       title={intl.formatMessage({ id: ETranslations.global_backup })}
       items={[
         {

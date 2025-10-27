@@ -9,7 +9,6 @@ import type { ViewStyle } from 'react-native';
 import type { WebViewProps } from 'react-native-webview';
 
 interface IBaseTradingViewProps {
-  mode: 'overview' | 'realtime';
   identifier: string;
   baseToken: string;
   targetToken: string;
@@ -22,7 +21,6 @@ interface IBaseTradingViewProps {
    */
   tokenAddress?: string;
   networkId?: string;
-  tradingViewUrl?: string;
   interval?: string;
   timeFrom?: number;
   timeTo?: number;
@@ -40,7 +38,6 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
     // Strip out TradingViewV2-specific optional props so they are not forwarded to the inner WebView.
     tokenAddress: _tokenAddress,
     networkId: _networkId,
-    tradingViewUrl: _tradingViewUrl,
     interval: _interval,
     timeFrom: _timeFrom,
     timeTo: _timeTo,
@@ -56,7 +53,15 @@ export function TradingViewV1(props: ITradingViewProps & WebViewProps) {
   const isIPadPortrait = platformEnv.isNativeIOSPad && !isLandscape;
 
   return (
-    <Stack position="relative" style={style as ViewStyle}>
+    <Stack
+      position="relative"
+      paddingBottom={
+        (platformEnv.isNative && !platformEnv.isNativeIOSPad) || isIPadPortrait
+          ? 60
+          : 0
+      }
+      style={style as ViewStyle}
+    >
       <WebView
         tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}

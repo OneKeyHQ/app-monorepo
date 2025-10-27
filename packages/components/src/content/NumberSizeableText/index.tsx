@@ -3,18 +3,19 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { isString } from 'lodash';
 
+import type { FontSizeTokens } from '@onekeyhq/components/src/shared/tamagui';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { SizableText } from '../../primitives';
-import { getFontSize } from '../../utils';
+import { getFontSize } from '../../utils/getFontSize';
 
 import type { ISizableTextProps } from '../../primitives';
-import type { FontSizeTokens } from 'tamagui';
 
 export type INumberSizeableTextProps = Omit<ISizableTextProps, 'children'> &
   INumberFormatProps & {
     subTextStyle?: Omit<ISizableTextProps, 'children'>;
+    contentStyle?: Omit<ISizableTextProps, 'children'>;
     children: string | number | undefined;
     autoFormatter?: 'price-marketCap' | 'balance-marketCap' | 'value-marketCap';
     autoFormatterThreshold?: number;
@@ -25,6 +26,7 @@ export function NumberSizeableText({
   formatter,
   formatterOptions,
   subTextStyle,
+  contentStyle,
   hideValue,
   autoFormatter,
   autoFormatterThreshold = 1_000_000,
@@ -54,11 +56,10 @@ export function NumberSizeableText({
       return children;
     }
     return ['string', 'number'].includes(typeof children)
-      ? numberFormat(
-          String(children),
-          { formatter: actualFormatter, formatterOptions },
-          true,
-        )
+      ? numberFormatAsRenderText(String(children), {
+          formatter: actualFormatter,
+          formatterOptions,
+        })
       : '';
   }, [actualFormatter, formatterOptions, children]);
 
@@ -86,9 +87,11 @@ export function NumberSizeableText({
   }
 
   return typeof result === 'string' ? (
-    <SizableText {...props}>{result}</SizableText>
+    <SizableText {...props} {...contentStyle}>
+      {result}
+    </SizableText>
   ) : (
-    <SizableText {...props}>
+    <SizableText {...props} {...contentStyle}>
       {result.map((r, index) =>
         typeof r === 'string' ? (
           <SizableText key={index} {...props}>

@@ -1,9 +1,13 @@
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { InteractionManager, Keyboard } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
+import { Keyboard } from 'react-native';
 
+import {
+  useMedia,
+  withStaticProperties,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { Popover, Trigger } from '../../actions';
 import { ListView, SectionList } from '../../layouts';
@@ -21,7 +25,7 @@ import type {
   ISelectSection,
   ISelectTriggerProps,
 } from './type';
-import type { IListViewProps, ISectionListProps } from '../../layouts';
+import type { IListViewProps } from '../../layouts';
 import type { GestureResponderEvent } from 'react-native';
 
 const useTriggerLabel = (value: string | number | undefined | boolean) => {
@@ -104,6 +108,7 @@ function SelectItemView({
   return (
     <>
       <SizableText
+        size="$bodyLg"
         $gtMd={{
           size: '$bodyMd',
         }}
@@ -217,6 +222,11 @@ const requestIdleCallback = (callback: () => void) => {
   setTimeout(callback, 150);
 };
 
+/**
+ * Renders the dropdown content for the select component, displaying a list or sectioned list of selectable items within a popover.
+ *
+ * The content adapts to the presence of sections or a flat item list, and configures popover behavior and layout based on the number of items. Selection changes are deferred until after the dropdown closes.
+ */
 function SelectContent() {
   const {
     changeOpenStatus,
@@ -230,6 +240,7 @@ function SelectContent() {
     floatingPanelProps,
     placement,
     labelInValue,
+    usingPercentSnapPoints: usingPercentSnapPointsFromContext,
     offset,
   } = useContext(SelectContext);
   const handleSelect = useCallback(
@@ -301,6 +312,7 @@ function SelectContent() {
         <SectionList
           sections={sections}
           renderSectionHeader={renderSectionHeader}
+          SectionSeparatorComponent={<Stack h="$2" />}
           {...(listProps as any)}
         />
       ) : (
@@ -315,15 +327,18 @@ function SelectContent() {
   );
 
   const popoverTrigger = useRenderPopoverTrigger();
+  const usingPercentSnapPoints =
+    usingPercentSnapPointsFromContext || (items?.length && items?.length > 10);
   return (
     <Popover
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
-      keepChildrenMounted
+      keepChildrenMounted={!platformEnv.isNative}
       sheetProps={{
         dismissOnSnapToBottom: true,
-        snapPointsMode: 'fit',
+        snapPointsMode: usingPercentSnapPoints ? 'percent' : 'fit',
+        snapPoints: usingPercentSnapPoints ? [65] : undefined,
         ...sheetProps,
       }}
       floatingPanelProps={{
@@ -355,13 +370,14 @@ function SelectFrame<
   offset,
   labelInValue = false,
   floatingPanelProps,
-  placement = 'bottom-start',
+  placement = platformEnv.isNative ? 'bottom-start' : undefined,
+  usingPercentSnapPoints,
 }: ISelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const changeOpenStatus = useCallback(
     (openStatus: boolean) => {
       setIsOpen(openStatus);
-      void InteractionManager.runAfterInteractions(() => {
+      void timerUtils.setTimeoutPromised(() => {
         onOpenChange?.(openStatus);
       });
     },
@@ -384,6 +400,7 @@ function SelectFrame<
       floatingPanelProps,
       placement,
       offset,
+      usingPercentSnapPoints,
     }),
     [
       isOpen,
@@ -400,6 +417,7 @@ function SelectFrame<
       floatingPanelProps,
       placement,
       offset,
+      usingPercentSnapPoints,
     ],
   );
   return (
@@ -420,7 +438,7 @@ function BasicSelect<
   const media = useMedia();
   const defaultRenderTrigger = useCallback(
     ({ label, placeholder, disabled }: ISelectRenderTriggerProps) => (
-      <>
+      <Stack position="relative" flex={1}>
         <Input
           value={label}
           disabled={disabled}
@@ -443,7 +461,7 @@ function BasicSelect<
           right="$3"
           top={media.gtMd ? '$2' : '$3'}
         />
-      </>
+      </Stack>
     ),
     [defaultTriggerInputProps, media.gtMd, testID],
   );

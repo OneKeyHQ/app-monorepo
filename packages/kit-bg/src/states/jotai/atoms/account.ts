@@ -53,3 +53,14 @@ export const {
   name: EAtomNames.accountSelectorAccountsListIsLoadingAtom,
   initialValue: false,
 });
+
+export type IAccountSelectorStatusAtom = {
+  passphraseProtectionChangedAt?: number;
+};
+export const {
+  target: accountSelectorStatusAtom,
+  use: useAccountSelectorStatusAtom,
+} = globalAtom<IAccountSelectorStatusAtom>({
+  name: EAtomNames.accountSelectorStatusAtom,
+  initialValue: { passphraseProtectionChangedAt: undefined },
+});

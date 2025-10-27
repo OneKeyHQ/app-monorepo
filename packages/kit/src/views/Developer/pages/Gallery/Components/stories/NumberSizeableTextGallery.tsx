@@ -10,7 +10,7 @@ import { Layout } from './utils/Layout';
 
 const NumberSizeableTextGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="NumberSizeableText"
     elements={[
       {
@@ -394,7 +394,7 @@ const NumberSizeableTextGallery = () => (
               <SizableText size="$bodyMd">
                 More examples with capAtMaxT:
               </SizableText>
-              <XStack space="$4">
+              <XStack gap="$4">
                 <YStack gap="$1">
                   <SizableText size="$bodySm">500T (not capped):</SizableText>
                   <NumberSizeableText

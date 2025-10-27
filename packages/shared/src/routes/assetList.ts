@@ -20,6 +20,7 @@ export type IModalAssetListParamList = {
     accountId: string;
     networkId: string;
     walletId: string;
+    indexedAccountId?: string;
     tokenList: {
       tokens: IAccountToken[];
       keys: string;
@@ -32,6 +33,21 @@ export type IModalAssetListParamList = {
     deriveInfo?: IAccountDeriveInfo;
     deriveType?: IAccountDeriveTypes;
     isAllNetworks?: boolean;
+    hideValue?: boolean;
+    aggregateTokensListMap?: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    >;
+    aggregateTokensMap?: Record<string, ITokenFiat>;
+    accountAddress?: string;
+    allAggregateTokenMap?: Record<
+      string,
+      {
+        tokens: IAccountToken[];
+      }
+    >;
   };
   [EModalAssetListRoutes.TokenManagerModal]: {
     walletId: string;
@@ -46,6 +62,7 @@ export type IModalAssetListParamList = {
   [EModalAssetListRoutes.RiskTokenManager]: {
     accountId: string;
     networkId: string;
+    walletId: string;
     tokenList: {
       tokens: IAccountToken[];
       keys: string;
@@ -53,5 +70,8 @@ export type IModalAssetListParamList = {
     };
     isAllNetworks?: boolean;
     hideValue?: boolean;
+    deriveType?: IAccountDeriveTypes;
+    deriveInfo?: IAccountDeriveInfo;
+    accountAddress?: string;
   };
 };

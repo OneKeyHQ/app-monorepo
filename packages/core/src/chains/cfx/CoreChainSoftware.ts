@@ -147,6 +147,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         [checkIsDefined(networkId)]: cfxAddress,
       },
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

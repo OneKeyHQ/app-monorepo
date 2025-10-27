@@ -17,6 +17,11 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '../consts/addresses';
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '../consts/networkConsts';
+import {
+  type EHyperLiquidAgentName,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
+} from '../consts/perp';
 import {
   COINTYPE_ALLNETWORKS,
   COINTYPE_BTC,
@@ -548,6 +553,10 @@ function isAccountCompatibleWithNetwork({
     );
   }
 
+  if (networkId === AGGREGATE_TOKEN_MOCK_NETWORK_ID) {
+    return true;
+  }
+
   const impl = networkUtils.getNetworkImpl({ networkId });
   // check if impl matched
   if (impl !== account.impl && account.impl) {
@@ -769,6 +778,29 @@ function isTonMnemonicCredentialId(credentialId: string): boolean {
   return credentialId.endsWith('--ton_credential');
 }
 
+function getAccountIdFromTonMnemonicCredentialId({
+  credentialId,
+}: {
+  credentialId: string;
+}) {
+  return credentialId.replace(/--ton_credential$/, '');
+}
+
+function buildHyperLiquidAgentCredentialId({
+  userAddress,
+  agentName,
+}: {
+  userAddress: string;
+  agentName: EHyperLiquidAgentName;
+}) {
+  if (!userAddress) {
+    throw new OneKeyLocalError(
+      'buildHyperLiquidAgentCredentialId ERROR: userAddress is required',
+    );
+  }
+  return `${HYPERLIQUID_AGENT_CREDENTIAL_PREFIX}--${userAddress}--${agentName}`;
+}
+
 function buildCustomEvmNetworkId({ chainId }: { chainId: string }) {
   return `evm--${chainId}`;
 }
@@ -822,6 +854,45 @@ function getHDAccountPathIndex({ account }: { account: IDBAccount }) {
     });
   }
   return isNumber(index) && !isNaN(index) ? index : undefined;
+}
+
+function getBTCFreshAddressKey({
+  networkId,
+  xpubSegwit,
+}: {
+  networkId: string;
+  xpubSegwit: string;
+}) {
+  if (!xpubSegwit) {
+    throw new OneKeyLocalError('xpubSegwit is required');
+  }
+  return `${networkId}__${xpubSegwit}`;
+}
+
+function isEnabledBtcFreshAddress({
+  accountId,
+  walletId,
+  networkId,
+  enableBTCFreshAddress,
+}: {
+  accountId?: string | undefined;
+  walletId?: string | undefined;
+  networkId?: string | undefined;
+  enableBTCFreshAddress?: boolean | undefined;
+}) {
+  if (!networkUtils.isBTCNetwork(networkId)) {
+    return false;
+  }
+  if (!enableBTCFreshAddress) {
+    return false;
+  }
+  if (accountId) {
+    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+  }
+  if (walletId) {
+    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+  }
+  return false;
 }
 
 export default {
@@ -885,8 +956,13 @@ export default {
   buildAccountLocalAssetsKey,
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
+  getAccountIdFromTonMnemonicCredentialId,
+  buildHyperLiquidAgentCredentialId,
+  HYPERLIQUID_AGENT_CREDENTIAL_PREFIX,
   buildCustomEvmNetworkId,
   isValidWalletXfp,
   buildFullXfp,
   getShortXfp,
+  getBTCFreshAddressKey,
+  isEnabledBtcFreshAddress,
 };

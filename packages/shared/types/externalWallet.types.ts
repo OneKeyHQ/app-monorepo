@@ -1,5 +1,3 @@
-import { type EIP1193Provider } from 'viem';
-
 import type { ExternalConnectorWalletConnect } from '@onekeyhq/kit-bg/src/connectors/chains/walletconnect/ExternalConnectorWalletConnect';
 import type { IDBAccountAddressesMap } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { WalletConnectDappSideProvider } from '@onekeyhq/kit-bg/src/services/ServiceWalletConnect/WalletConnectDappSideProvider';
@@ -10,8 +8,18 @@ import type {
   IWalletConnectPeerMeta,
   IWalletConnectSession,
 } from '../src/walletConnect/types';
-import type { ConnectorEventMap, CreateConnectorFn } from '@wagmi/core';
+import type { ConnectorEventMap } from '@wagmi/core';
 import type { EIP6963ProviderInfo, Rdns } from 'mipd';
+import type {
+  AddEthereumChainParameter,
+  Address,
+  Chain,
+  Client,
+  EIP1193Provider,
+  ExactPartial,
+  ProviderConnectInfo,
+  ProviderMessage,
+} from 'viem';
 
 export type IEvmEIP6963ProviderInfo = EIP6963ProviderInfo<Rdns>;
 export type IWagmiConnectorEventMap = ConnectorEventMap;
@@ -99,10 +107,46 @@ export type IExternalConnectResult =
   | IExternalConnectResultEvm
   | IExternalConnectResultWalletConnect
   | undefined;
-export type IExternalConnectorBase<TProvider = any> = Omit<
+/*
+  Omit<
   ReturnType<CreateConnectorFn<TProvider>>,
   'connect'
-> & {
+> & 
+ */
+// copy from node_modules/@wagmi/core/src/connectors/createConnector.ts  CreateConnectorFn return type
+export type IExternalConnectorBase<TProvider = any> = {
+  readonly icon?: string | undefined;
+  readonly id: string;
+  readonly name: string;
+  readonly rdns?: string | readonly string[] | undefined;
+  /** @deprecated */
+  readonly supportsSimulation?: boolean | undefined;
+  readonly type: string;
+
+  setup?(): Promise<void>;
+  disconnect(): Promise<void>;
+  getAccounts(): Promise<readonly Address[]>;
+  getChainId(): Promise<number>;
+  getProvider(
+    parameters?: { chainId?: number | undefined } | undefined,
+  ): Promise<TProvider>;
+  getClient?(
+    parameters?: { chainId?: number | undefined } | undefined,
+  ): Promise<Client>;
+  isAuthorized(): Promise<boolean>;
+  switchChain?(parameters: {
+    addEthereumChainParameter?:
+      | ExactPartial<Omit<AddEthereumChainParameter, 'chainId'>>
+      | undefined;
+    chainId: number;
+  }): Promise<Chain>;
+
+  onAccountsChanged(accounts: string[]): void;
+  onChainChanged(chainId: string): void;
+  onConnect?(connectInfo: ProviderConnectInfo): void;
+  onDisconnect(error?: Error | undefined): void;
+  onMessage?(message: ProviderMessage): void;
+
   emitter: Emitter<ConnectorEventMap>;
   uid: string;
   connectionInfo: IExternalConnectionInfo;

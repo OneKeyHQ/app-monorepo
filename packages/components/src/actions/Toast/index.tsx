@@ -1,10 +1,12 @@
 import type { RefObject } from 'react';
 import { createRef, useEffect } from 'react';
 
-import { ToastProvider } from '@tamagui/toast';
 import { useWindowDimensions } from 'react-native';
-import { useMedia } from 'tamagui';
 
+import {
+  ToastProvider,
+  useMedia,
+} from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -13,6 +15,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { Portal } from '../../hocs';
 import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Icon, View, XStack, YStack } from '../../primitives';
+import { Spinner } from '../../primitives/Spinner/Spinner';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
@@ -36,7 +39,7 @@ export interface IToastBaseProps extends IToastProps {
   title: string;
   message?: string;
   duration?: number;
-  haptic?: 'success' | 'warning' | 'info' | 'error' | 'none';
+  haptic?: 'success' | 'warning' | 'info' | 'error' | 'loading' | 'none';
   preset?: 'done' | 'error' | 'none' | 'custom';
   /**
    * Change the position of the toast.
@@ -51,6 +54,7 @@ const iconMap = {
   error: <Icon name="ErrorSolid" color="$iconCritical" size="$5" />,
   info: <Icon name="InfoCircleSolid" color="$iconInfo" size="$5" />,
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
+  loading: <Spinner size="small" />,
 };
 
 function RenderLines({
@@ -254,6 +258,9 @@ export const Toast = {
   },
   message: (props: IToastProps) => {
     return toastMessage({ haptic: 'info', preset: 'none', ...props });
+  },
+  loading: (props: IToastProps) => {
+    return toastMessage({ haptic: 'loading', ...props });
   },
   /* show custom view on Toast */
   show: ({

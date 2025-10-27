@@ -6,7 +6,13 @@ import { LogToServer } from '../../../base/decorators';
 type IWalletActionBaseParams = {
   walletType: string;
   networkId: string;
-  source: 'homePage' | 'tokenDetails' | 'homeTokenList' | 'earn' | 'swap';
+  source:
+    | 'homePage'
+    | 'tokenDetails'
+    | 'homeTokenList'
+    | 'earn'
+    | 'swap'
+    | 'accountSelector';
   isSoftwareWalletOnlyUser: boolean;
 };
 
@@ -82,6 +88,18 @@ export class WalletActionsScene extends BaseScene {
   public actionExportXprvt(
     params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
   ) {
+    return params;
+  }
+
+  @LogToServer()
+  public actionVote(
+    params: Omit<IWalletActionBaseParams, 'isSoftwareWalletOnlyUser'>,
+  ) {
+    return params;
+  }
+
+  @LogToServer()
+  public actionStaking(params: IWalletActionBaseParams) {
     return params;
   }
 

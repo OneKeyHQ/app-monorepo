@@ -237,7 +237,7 @@ export function useAccountSelectorCreateAddress() {
                       ]}
                     />
 
-                    <XStack mt="$2" gap="$1.5">
+                    <XStack mt="$2" gap="$1.5" alignItems="center">
                       <SizableText color="$textSubdued">
                         {intl.formatMessage({
                           id: ETranslations.contact_us_instruction,

@@ -35,6 +35,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -334,6 +335,21 @@ function CumulativeRewardsLineItem({
   );
 }
 
+function FiatValue({ fiatValue }: { fiatValue?: string | number }) {
+  if (!fiatValue) {
+    return null;
+  }
+  return (
+    <>
+      <SizableText size="$bodyMd"> (</SizableText>
+      <Currency formatter="value" size="$bodyMd">
+        {fiatValue}
+      </Currency>
+      <SizableText size="$bodyMd">)</SizableText>
+    </>
+  );
+}
+
 function Dashboard({
   enabledNetworks,
   hardwareSales,
@@ -429,9 +445,17 @@ function Dashboard({
       .toFixed(2);
   }, [onChain.available]);
 
+  const onChainSummaryFiat = useMemo(() => {
+    return onChain.available
+      ?.reduce((acc, curr) => {
+        return acc.plus(BigNumber(curr.fiatValue));
+      }, BigNumber(0))
+      .toFixed(2);
+  }, [onChain.available]);
+
   const { result: earnToken } = usePromiseResult(async () => {
     return backgroundApiProxy.serviceToken.getToken({
-      networkId: 'evm--42161',
+      networkId: PERPS_NETWORK_ID,
       tokenIdOnNetwork: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
       accountId: activeAccount.account?.id ?? '',
     });
@@ -708,8 +732,13 @@ function Dashboard({
                     tokenSymbol: hardwareSales.available?.[0]?.token?.symbol,
                   }}
                 >
-                  {hardwareSales.available?.[0]?.fiatValue || 0}
+                  {hardwareSales.available?.[0]?.amount || 0}
                 </NumberSizeableText>
+                {hardwareSales.available?.[0]?.amount ? (
+                  <FiatValue
+                    fiatValue={hardwareSales.available?.[0]?.fiatValue}
+                  />
+                ) : null}
                 {showHardwarePendingFiat ? (
                   <>
                     <SizableText size="$bodyMd">{` + `}</SizableText>
@@ -722,6 +751,11 @@ function Dashboard({
                     >
                       {hardwareSales.pending?.[0]?.amount || 0}
                     </NumberSizeableText>
+                    {hardwareSales.pending?.[0]?.amount ? (
+                      <FiatValue
+                        fiatValue={hardwareSales.pending?.[0]?.fiatValue}
+                      />
+                    ) : null}
                   </>
                 ) : null}
               </SizableText>
@@ -764,17 +798,20 @@ function Dashboard({
                   size="xs"
                   tokenImageUri={earnToken?.logoURI || DEFAULT_EARN_IMAGE_URL}
                 />
-                <XStack pl="$2" pr="$3" gap="$1">
-                  <SizableText size="$bodyMd">≈</SizableText>
-                  <NumberSizeableText
-                    formatter="value"
-                    size="$bodyMd"
-                    formatterOptions={{
-                      tokenSymbol: 'USDC',
-                    }}
-                  >
-                    {onChainSummary}
-                  </NumberSizeableText>
+                <XStack pl="$2" pr="$3">
+                  <XStack gap="$1">
+                    <SizableText size="$bodyMd">≈</SizableText>
+                    <NumberSizeableText
+                      formatter="value"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: 'USDC',
+                      }}
+                    >
+                      {onChainSummary}
+                    </NumberSizeableText>
+                  </XStack>
+                  <FiatValue fiatValue={onChainSummaryFiat} />
                 </XStack>
                 <Popover.Tooltip
                   iconSize="$5"

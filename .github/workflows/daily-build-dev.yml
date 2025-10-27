@@ -14,6 +14,7 @@ jobs:
     steps:
       - name: 'Setup ENV'
         run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
           DATE=`date "+%m%d"`
           run_number=$(($GITHUB_RUN_NUMBER % 100))
           run_number=$(printf "%02d" $run_number)

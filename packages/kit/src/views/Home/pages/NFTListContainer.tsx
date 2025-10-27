@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { isEmpty, uniqBy } from 'lodash';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
-import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
@@ -31,10 +30,11 @@ import {
   withNFTListProvider,
 } from '../../../states/jotai/contexts/nftList';
 import { NFTListView } from '../components/NFTListView';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
 const networkIdsMap = getNetworkIdsMap();
 
-function NFTListContainer(_props: ITabPageProps) {
+function NFTListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
   const { updateAllNetworksState } = useAccountOverviewActions().current;
@@ -141,7 +141,13 @@ function NFTListContainer(_props: ITabPageProps) {
   );
 
   const handleAllNetworkRequestsFinished = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.NFT,
@@ -153,7 +159,13 @@ function NFTListContainer(_props: ITabPageProps) {
   );
 
   const handleAllNetworkRequestsStarted = useCallback(
-    ({ accountId, networkId }: { accountId?: string; networkId?: string }) => {
+    async ({
+      accountId,
+      networkId,
+    }: {
+      accountId?: string;
+      networkId?: string;
+    }) => {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.NFT,
@@ -192,7 +204,7 @@ function NFTListContainer(_props: ITabPageProps) {
   );
 
   const handleAllNetworkCacheData = useCallback(
-    ({ data }: { data: IAccountNFT[] }) => {
+    async ({ data }: { data: IAccountNFT[] }) => {
       const allNFTs = data.flat();
       if (!isEmpty(allNFTs)) {
         setNftList(allNFTs);
@@ -326,6 +338,7 @@ function NFTListContainer(_props: ITabPageProps) {
 
   return (
     <NFTListView
+      onRefresh={onHomePageRefresh}
       data={nftList ?? []}
       isLoading={nftListState.isRefreshing}
       initialized={nftListState.initialized}

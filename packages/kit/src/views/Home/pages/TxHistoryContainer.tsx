@@ -3,7 +3,6 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { isEmpty, uniqBy } from 'lodash';
 
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
-import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import {
@@ -35,11 +34,14 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import {
+  ProviderJotaiContextHistoryList,
   useHistoryListActions,
-  withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
+import { useAllTokenListMapAtom } from '../../../states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
+import { onHomePageRefresh } from '../components/PullToRefresh';
 
-function TxHistoryListContainer(_props: ITabPageProps) {
+function TxHistoryListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 
@@ -47,8 +49,11 @@ function TxHistoryListContainer(_props: ITabPageProps) {
     updateSearchKey,
     updateAddressesInfo,
     initAddressesInfoDataFromStorage,
+    setHasMoreOnChainHistory,
   } = useHistoryListActions().current;
   const { updateAllNetworksState } = useAccountOverviewActions().current;
+
+  const [allTokenListMap] = useAllTokenListMapAtom();
 
   const [historyData, setHistoryData] = useState<IAccountHistoryTx[]>([]);
 
@@ -140,14 +145,17 @@ function TxHistoryListContainer(_props: ITabPageProps) {
           networkId: string;
         }[];
         addressMap?: Record<string, IAddressBadge>;
+        hasMoreOnChainHistory?: boolean;
       } = {
         allAccounts: [],
         txs: [],
         accountsWithChangedPendingTxs: [],
         addressMap: {},
+        hasMoreOnChainHistory: false,
       };
 
       if (mergeDeriveAddressData) {
+        let hasMoreOnChainHistory = false;
         const { networkAccounts } =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
             {
@@ -178,6 +186,9 @@ function TxHistoryListContainer(_props: ITabPageProps) {
             ...item.accountsWithChangedPendingTxs,
           ];
           r.addressMap = { ...r.addressMap, ...item.addressMap };
+          if (item.hasMoreOnChainHistory) {
+            hasMoreOnChainHistory = true;
+          }
         });
 
         r.txs = r.txs
@@ -187,6 +198,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
           )
           .slice(0, HISTORY_PAGE_SIZE);
+        setHasMoreOnChainHistory(hasMoreOnChainHistory);
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
@@ -201,6 +213,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
           sourceCurrency: settings.currencyInfo.id,
           currencyMap,
         });
+        setHasMoreOnChainHistory(!!r.hasMoreOnChainHistory);
         updateAddressesInfo({
           data: r.addressMap ?? {},
         });
@@ -242,6 +255,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
       currencyMap,
+      setHasMoreOnChainHistory,
     ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
@@ -354,6 +368,10 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       setHistoryData((prev) =>
         prev.filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending),
       );
+
+    const reloadCallback = () => run({ alwaysSetState: true });
+
+    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
     appEventBus.on(
       EAppEventBusNames.ClearLocalHistoryPendingTxs,
       clearCallback,
@@ -370,23 +388,7 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
       appEventBus.off(EAppEventBusNames.RefreshHistoryList, refresh);
-    };
-  }, [isFocused, run]);
-
-  useEffect(() => {
-    const reloadCallback = () => run({ alwaysSetState: true });
-
-    const fn = () => {
-      if (isFocused) {
-        void run();
-      }
-    };
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, fn);
-
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
-    return () => {
       appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reloadCallback);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, fn);
     };
   }, [isFocused, run]);
 
@@ -396,12 +398,19 @@ function TxHistoryListContainer(_props: ITabPageProps) {
 
   return (
     <TxHistoryListView
+      isTabFocused={isFocused}
       showIcon
       inTabList
       hideValue
+      onRefresh={onHomePageRefresh}
       data={historyData ?? []}
       onPressHistory={handleHistoryItemPress}
       showHeader
+      showFooter
+      walletId={wallet?.id}
+      accountId={account?.id}
+      networkId={network?.id}
+      indexedAccountId={indexedAccount?.id}
       isLoading={historyState.isRefreshing}
       initialized={historyState.initialized}
       {...(media.gtLg && {
@@ -409,15 +418,27 @@ function TxHistoryListContainer(_props: ITabPageProps) {
       })}
       listViewStyleProps={{
         contentContainerStyle: {
-          pt: '$3',
+          mt: '$3',
         },
       }}
+      tokenMap={allTokenListMap}
     />
   );
 }
 
-const TxHistoryListContainerWithProvider = memo(
-  withHistoryListProvider(TxHistoryListContainer),
-);
+const TxHistoryListContainerWithProvider = memo(() => {
+  const {
+    activeAccount: { account },
+  } = useActiveAccount({ num: 0 });
+  return (
+    <HomeTokenListProviderMirrorWrapper accountId={account?.id ?? ''}>
+      <ProviderJotaiContextHistoryList>
+        <TxHistoryListContainer />
+      </ProviderJotaiContextHistoryList>
+    </HomeTokenListProviderMirrorWrapper>
+  );
+});
+TxHistoryListContainerWithProvider.displayName =
+  'TxHistoryListContainerWithProvider';
 
 export { TxHistoryListContainerWithProvider };

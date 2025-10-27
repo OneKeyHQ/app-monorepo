@@ -60,6 +60,8 @@ export type ISettingsPersistAtom = {
 
   hiddenWalletImmediately: boolean;
   showAddHiddenInWalletSidebar?: boolean;
+  enableDesktopBluetooth?: boolean;
+  enableBTCFreshAddress?: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -89,10 +91,12 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: true,
-  isFilterLowValueHistoryEnabled: false,
+  isFilterLowValueHistoryEnabled: true,
   hardwareTransportType: getDefaultHardwareTransportType(),
   hiddenWalletImmediately: true,
   showAddHiddenInWalletSidebar: true,
+  enableDesktopBluetooth: true,
+  enableBTCFreshAddress: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -147,5 +151,32 @@ export const {
     hideValue: false,
   },
 });
+
+export type ISettingsTronRentalPersistAtom = {
+  preventDisableTronRental: boolean;
+};
+
+export const {
+  target: settingsTronRentalPersistAtom,
+  use: useSettingsTronRentalPersistAtom,
+} = globalAtom<ISettingsTronRentalPersistAtom>({
+  persist: true,
+  name: EAtomNames.settingsTronRentalPersistAtom,
+  initialValue: {
+    preventDisableTronRental: false,
+  },
+});
+
+export type IAppSideBarStatusAtom = {
+  isCollapsed: boolean;
+};
+export const { target: appSideBarStatusAtom, use: useAppSideBarStatusAtom } =
+  globalAtom<IAppSideBarStatusAtom>({
+    name: EAtomNames.appSideBarStatusAtom,
+    persist: true,
+    initialValue: {
+      isCollapsed: true,
+    },
+  });
 
 // extract high frequency refresh data to another atom

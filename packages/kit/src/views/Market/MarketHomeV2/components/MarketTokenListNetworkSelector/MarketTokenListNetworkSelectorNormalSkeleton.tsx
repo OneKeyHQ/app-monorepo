@@ -7,16 +7,10 @@ interface IMarketTokenListNetworkSelectorNormalSkeletonProps {
 }
 
 function MarketTokenListNetworkSelectorNormalSkeleton({
-  count = 6,
+  count = 8,
 }: IMarketTokenListNetworkSelectorNormalSkeletonProps) {
   return (
-    <XStack
-      py="$1"
-      gap="$2"
-      borderWidth={1}
-      borderColor="$borderSubdued"
-      borderRadius="$2"
-    >
+    <XStack py="$1" gap="$2" borderWidth={1} borderColor="$transparent">
       {Array.from({ length: count }).map((_, index) => (
         <XStack
           key={index}

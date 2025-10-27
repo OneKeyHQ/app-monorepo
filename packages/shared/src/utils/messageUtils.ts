@@ -319,7 +319,7 @@ export function validateTypedSignMessageDataV3V4(
 
     if (!activeChainIdBN.isEqualTo(chainIdBN)) {
       throw new OneKeyError(
-        `Provided chainId "${chainIdBN.toFixed()}" must match the active chainId "${activeChainIdBN.toFixed()}"`,
+        `OneKey Sign Message ERROR: Provided chainId "${chainIdBN.toFixed()}" must match the active chainId "${activeChainIdBN.toFixed()}"`,
       );
     }
   }

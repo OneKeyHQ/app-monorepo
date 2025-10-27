@@ -7,6 +7,7 @@ import type {
   EMessageTypesEth,
   EMessageTypesSolana,
   EMessageTypesTon,
+  EMessageTypesTron,
 } from '@onekeyhq/shared/types/message';
 
 import type { ISignMessageRequest } from '../chains/aptos/types';
@@ -82,12 +83,19 @@ export type IUnsignedMessageSolana = {
   };
 };
 
+export type IUnsignedMessageTron = {
+  type: EMessageTypesTron;
+  message: string;
+  payload?: any;
+};
+
 export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
   | IUnsignedMessageBtc
   | IUnsignedMessageAptos
   | IUnsignedMessageTon
+  | IUnsignedMessageTron
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
   | IUnsignedMessageCfx

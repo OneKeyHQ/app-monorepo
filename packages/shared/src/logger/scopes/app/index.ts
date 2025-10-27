@@ -1,6 +1,7 @@
 import { BaseScope } from '../../base/baseScope';
 import { EScopeName } from '../../types';
 
+import { AppUpdateScene } from './scenes/appUpdate';
 import { BackgroundScene } from './scenes/background';
 import { BootstrapScene } from './scenes/bootstrap';
 import { ComponentScene } from './scenes/component';
@@ -34,4 +35,6 @@ export class AppScope extends BaseScope {
   error = this.createScene('error', ErrorScene);
 
   webembed = this.createScene('webembed', WebembedScene);
+
+  appUpdate = this.createScene('appUpdate', AppUpdateScene);
 }

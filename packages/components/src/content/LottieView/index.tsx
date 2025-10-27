@@ -3,8 +3,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import AnimatedLottieView from 'lottie-react-native';
 import { AppState } from 'react-native';
-import { usePropsAndStyle } from 'tamagui';
 
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ILottieViewProps } from './type';

@@ -27,7 +27,9 @@ export function GridItem({
       <Alert
         m="$3"
         flex={1}
-        title={title.text}
+        renderTitle={() => {
+          return <EarnText text={title} size="$bodyMdMedium" />;
+        }}
         description={description?.text}
       />
     );
@@ -39,7 +41,9 @@ export function GridItem({
         type="critical"
         m="$3"
         flex={1}
-        title={title.text}
+        renderTitle={() => {
+          return <EarnText text={title} size="$bodyMdMedium" />;
+        }}
         description={description?.text}
       />
     );

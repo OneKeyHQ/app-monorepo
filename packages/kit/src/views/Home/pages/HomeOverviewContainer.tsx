@@ -7,7 +7,6 @@ import {
   Button,
   IconButton,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -25,7 +24,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { EHomeTab } from '@onekeyhq/shared/types';
 
@@ -33,7 +32,6 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { AllNetworksManagerTrigger } from '../../../components/AccountSelector/AllNetworksManagerTrigger';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { showResourceDetailsDialog } from '../../../components/Resource';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import {
   useAccountOverviewActions,
   useAccountOverviewStateAtom,
@@ -55,6 +53,8 @@ function HomeOverviewContainer() {
   const [isRefreshingTokenList, setIsRefreshingTokenList] = useState(false);
   const [isRefreshingNftList, setIsRefreshingNftList] = useState(false);
   const [isRefreshingHistoryList, setIsRefreshingHistoryList] = useState(false);
+  const [isRefreshingApprovalList, setIsRefreshingApprovalList] =
+    useState(false);
 
   const listRefreshKey = useRef('');
 
@@ -113,6 +113,8 @@ function HomeOverviewContainer() {
         setIsRefreshingNftList(isRefreshing);
       } else if (type === EHomeTab.HISTORY) {
         setIsRefreshingHistoryList(isRefreshing);
+      } else if (type === EHomeTab.APPROVALS) {
+        setIsRefreshingApprovalList(isRefreshing);
       }
       setIsRefreshingWorth(isRefreshing);
     };
@@ -197,7 +199,8 @@ function HomeOverviewContainer() {
     isRefreshingWorth ||
     isRefreshingTokenList ||
     isRefreshingNftList ||
-    isRefreshingHistoryList;
+    isRefreshingHistoryList ||
+    isRefreshingApprovalList;
 
   const refreshButton = useMemo(() => {
     return platformEnv.isNative ? undefined : (
@@ -279,13 +282,6 @@ function HomeOverviewContainer() {
     account?.id,
   ]);
 
-  if (overviewState.isRefreshing && !overviewState.initialized)
-    return (
-      <Stack py="$2.5">
-        <Skeleton w="$40" h="$7" my="$2.5" />
-      </Stack>
-    );
-
   const balanceSizeList: { length: number; size: FontSizeTokens }[] = [
     { length: 17, size: '$headingXl' },
     { length: 13, size: '$heading4xl' },
@@ -296,6 +292,10 @@ function HomeOverviewContainer() {
     formatterOptions: { currency: settings.currencyInfo.symbol },
   };
 
+  const showSkeleton = useMemo(() => {
+    return overviewState.isRefreshing && !overviewState.initialized;
+  }, [overviewState.isRefreshing, overviewState.initialized]);
+
   return (
     <YStack gap="$2.5" alignItems="flex-start">
       <YStack w="100%" gap="$2">
@@ -304,54 +304,58 @@ function HomeOverviewContainer() {
           containerProps={{
             ml: '$1',
           }}
+          showSkeleton={showSkeleton}
         />
-        <XStack alignItems="center" gap="$3">
-          <XStack
-            flexShrink={1}
-            borderRadius="$3"
-            px="$1"
-            py="$0.5"
-            mx="$-1"
-            my="$-0.5"
-            cursor="default"
-            focusable
-            hoverStyle={{
-              bg: '$bgHover',
-            }}
-            pressStyle={{
-              bg: '$bgActive',
-            }}
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineWidth: 2,
-              outlineOffset: 0,
-              outlineStyle: 'solid',
-            }}
-            onPress={handleBalanceOnPress}
-          >
-            <NumberSizeableTextWrapper
-              hideValue
+        {showSkeleton ? (
+          <Skeleton.Heading5Xl my="$-0.5" />
+        ) : (
+          <XStack alignItems="center" gap="$3">
+            <XStack
               flexShrink={1}
-              minWidth={0}
-              {...numberFormatter}
-              size={
-                md
-                  ? balanceSizeList.find(
-                      (item) =>
-                        numberFormat(
-                          String(balanceString),
-                          numberFormatter,
-                          true,
-                        ).length >= item.length,
-                    )?.size ?? defaultBalanceSize
-                  : defaultBalanceSize
-              }
+              borderRadius="$3"
+              px="$1"
+              py="$0.5"
+              mx="$-1"
+              my="$-0.5"
+              cursor="default"
+              focusable
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              focusVisibleStyle={{
+                outlineColor: '$focusRing',
+                outlineWidth: 2,
+                outlineOffset: 0,
+                outlineStyle: 'solid',
+              }}
+              onPress={handleBalanceOnPress}
             >
-              {balanceString}
-            </NumberSizeableTextWrapper>
+              <NumberSizeableTextWrapper
+                hideValue
+                flexShrink={1}
+                minWidth={0}
+                {...numberFormatter}
+                size={
+                  md
+                    ? balanceSizeList.find(
+                        (item) =>
+                          numberFormatAsRenderText(
+                            String(balanceString),
+                            numberFormatter,
+                          ).length >= item.length,
+                      )?.size ?? defaultBalanceSize
+                    : defaultBalanceSize
+                }
+              >
+                {balanceString}
+              </NumberSizeableTextWrapper>
+            </XStack>
+            {refreshButton}
           </XStack>
-          {refreshButton}
-        </XStack>
+        )}
       </YStack>
       {vaultSettings?.hasFrozenBalance ? (
         <Button

@@ -20,7 +20,8 @@ import PasswordVerifyPromptMount from '../components/Password/container/Password
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
-import { ColdStartByNotification, Container } from './Container';
+import { Container } from './Container';
+import { ColdStartByNotification } from './Container/ColdStartByNotification';
 import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { HardwareServiceProvider } from './HardwareServiceProvider';

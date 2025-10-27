@@ -10,10 +10,10 @@ import { useColumnsMobile } from './useColumnsMobile';
 
 export const useMarketTokenColumns = (
   networkId?: string,
-  watchlistActive = false,
+  isWatchlistMode?: boolean,
 ): ITableColumn<IMarketToken>[] => {
-  const desktopColumns = useColumnsDesktop(networkId);
-  const mobileColumns = useColumnsMobile(networkId, watchlistActive);
+  const desktopColumns = useColumnsDesktop(networkId, isWatchlistMode);
+  const mobileColumns = useColumnsMobile();
 
   const { md } = useMedia();
 

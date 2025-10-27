@@ -73,6 +73,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   );
   return (
     <Page
+      lazyLoad
       safeAreaEnabled={false}
       onClose={() => {
         if (allNetworksChanged && networkUtils.isAllNetwork({ networkId })) {

@@ -18,6 +18,10 @@ jobs:
 
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
+      - name: Show executed time
+        run: |
+          echo "Executed at: $(date '+%Y-%m-%d %H:%M:%S')"
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -80,19 +84,19 @@ jobs:
         run: |
           echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
 
-      - name: Publish and Sign Static Linux / Macos / Windows Installer
-        if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-          APPLEID: ${{ secrets.APPLEID }}
-          APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-          ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_LINK: './sign.p12'
-        run: 'cd apps/desktop && yarn publish:all'
+      # - name: Publish and Sign Static Linux / Macos
+      #   if: ${{ (github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/x') }}
+      #   env:
+      #     NODE_OPTIONS: '--max_old_space_size=8192'
+      #     APPLEID: ${{ secrets.APPLEID }}
+      #     APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
+      #     ASC_PROVIDER: ${{ secrets.ASC_PROVIDER }}
+      #     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      #     CSC_LINK: './sign.p12'
+      #   run: 'cd apps/desktop && yarn publish:all'
 
-      - name: Build and Sign Static Linux / Macos / Windows Installer
+      - name: Build and Sign Static Linux / Macos
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           APPLEID: ${{ secrets.APPLEID }}
@@ -106,35 +110,42 @@ jobs:
       - name: Upload Artifacts latest.yml
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-yml
+          name: onekey-desktop-mac-and-linux-yml-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.yml
 
-      - name: Upload Artifacts Mac
+      - name: Upload universal Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-mac
+          name: onekey-desktop-mac-universal-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
-            ./apps/desktop/build-electron/*.dmg
+            ./apps/desktop/build-electron/*-universal.dmg
 
-      - name: Upload Artifacts Windows
+      - name: Upload x64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-windows
+          name: onekey-desktop-mac-x64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
-            ./apps/desktop/build-electron/*.exe
+            ./apps/desktop/build-electron/*-x64.dmg
 
-      - name: Upload Artifacts Linux
+      - name: Upload arm64 Mac DMG
         uses: actions/upload-artifact@v4
         with:
-          name: onekey-desktop-linux
+          name: onekey-desktop-mac-arm64-dmg-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
+          path: |
+            ./apps/desktop/build-electron/*-arm64.dmg
+
+      - name: Upload Linux AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: onekey-desktop-linux-appimage-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*.AppImage
 
       - name: Upload Artifacts Release
         uses: actions/upload-artifact@v4
         with:
-          name: release
+          name: onekey-desktop-mac-and-linux-${{ env.BUILD_APP_VERSION }}-${{ env.BUILD_NUMBER }}-${{ env.BUILD_BUNDLE_VERSION }}-${{ github.sha }}
           path: |
             ./apps/desktop/build-electron/*
             !./apps/desktop/build-electron/win-unpacked

@@ -1,78 +1,78 @@
 import { useEffect } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
-import { Page, XStack, useMedia } from '@onekeyhq/components';
+import { Page, useMedia } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
-  type ETabMarketV2Routes,
-  ETabRoutes,
-  type ITabMarketV2ParamList,
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  ETabMarketRoutes,
+  ITabMarketParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import {
-  AccountSelectorProviderMirror,
-  AccountSelectorTriggerHome,
-} from '../../../components/AccountSelector';
-import { TabPageHeader } from '../../../components/TabPageHeader';
-import { HeaderLeftCloseButton } from '../../../components/TabPageHeader/HeaderLeft';
-import { useTokenDetailActions } from '../../../states/jotai/contexts/marketV2';
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import { useMarketEnterAnalytics } from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
+import { MarketDetailHeader } from './components/MarketDetailHeader';
 import { useAutoRefreshTokenDetail } from './hooks';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 
 function MarketDetail({
   route,
-}: IPageScreenProps<ITabMarketV2ParamList, ETabMarketV2Routes.MarketDetail>) {
-  const { tokenAddress, networkId } = route.params;
-  const tokenDetailActions = useTokenDetailActions();
+}: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>) {
+  const { tokenAddress, network, isNative } = route.params;
 
-  // Clear all token detail content when unmount
-  useEffect(() => {
-    const actions = tokenDetailActions.current;
-    return () => {
-      actions.setTokenDetail(undefined);
-      actions.setTokenDetailLoading(false);
-      actions.setTokenAddress('');
-      actions.setNetworkId('');
-    };
-  }, [tokenDetailActions]);
+  // Convert shortcode back to full networkId if needed
+  // network is a shortcode like 'bsc', convert it to 'evm--56'
+  const networkId =
+    networkUtils.getNetworkIdFromShortCode({ shortCode: network }) || network;
+  const isNativeBoolean =
+    typeof isNative === 'string' ? isNative === 'true' : isNative ?? false;
+
+  // Track market entry analytics
+  useMarketEnterAnalytics();
 
   // Start auto-refresh for token details every 5 seconds
+  // Use actualNetworkId (converted from shortcode if needed) for API calls
   useAutoRefreshTokenDetail({
     tokenAddress,
     networkId,
+    isNative: isNativeBoolean,
   });
-
-  const customHeaderLeft = (
-    <XStack gap="$3" ai="center">
-      <HeaderLeftCloseButton />
-      <AccountSelectorTriggerHome num={0} />
-    </XStack>
-  );
 
   const media = useMedia();
 
   return (
     <Page>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        tabRoute={ETabRoutes.Market}
-        customHeaderLeftItems={customHeaderLeft}
-      />
-      <Page.Body>{media.gtMd ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
+      <MarketDetailHeader />
+
+      <Page.Body>{media.gtLg ? <DesktopLayout /> : <MobileLayout />}</Page.Body>
     </Page>
   );
 }
 
 function MarketDetailV2(
-  props: IPageScreenProps<
-    ITabMarketV2ParamList,
-    ETabMarketV2Routes.MarketDetail
-  >,
+  props: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetailV2>,
 ) {
+  useEffect(() => {
+    if (platformEnv.isExtension) {
+      return;
+    }
+
+    appEventBus.emit(EAppEventBusNames.HideTabBar, true);
+
+    return () => {
+      appEventBus.emit(EAppEventBusNames.HideTabBar, false);
+    };
+  }, []);
+
   return (
     <AccountSelectorProviderMirror
       config={{

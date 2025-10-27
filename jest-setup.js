@@ -53,17 +53,6 @@ jest.mock('react-native-file-logger', () => ({
   },
 }));
 
-jest.mock('react-native-device-info', () => ({
-  getBuildNumber: jest.fn(),
-  getDeviceId: jest.fn(),
-  getIncrementalSync: jest.fn(),
-  getModel: jest.fn(),
-  getSystemName: jest.fn(),
-  getSystemVersion: jest.fn(),
-  getTotalMemorySync: jest.fn(),
-  getUsedMemorySync: jest.fn(),
-}));
-
 jest.mock('@sentry/electron/renderer', () => ({
   init: () => jest.fn(),
 }));

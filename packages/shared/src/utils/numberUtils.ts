@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { check } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { appLocale, fallbackAppLocaleIntl } from '../locale/appLocale';
 import platformEnv from '../platformEnv';
@@ -63,6 +64,7 @@ export type IFormatterOptions = {
   showPlusMinusSigns?: boolean;
   disableThousandSeparator?: boolean;
   capAtMaxT?: boolean;
+  keepLeadingZero?: boolean;
 };
 
 export interface IDisplayNumber {
@@ -362,6 +364,64 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
   };
 };
 
+/** PriceChange with capping and > symbol support */
+export const formatPriceChangeCapped: IFormatNumberFunc = (value, options) => {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { formattedValue: value, meta: { value, invalid: true } };
+  }
+
+  // Check if value exceeds the clamp range
+  const isOverMax = val.gt(999.99);
+  const isUnderMin = val.lt(-999.99);
+  const isCapped = isOverMax || isUnderMin;
+
+  // Apply clamping (same logic as clampPercentage)
+  const min = new BigNumber(-999.99);
+  const max = new BigNumber(999.99);
+  const clampedValue = BigNumber.max(min, BigNumber.min(max, val));
+  const finalValue = clampedValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+
+  if (finalValue.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
+    return {
+      formattedValue,
+      meta: {
+        value,
+        isZero: true,
+        symbol: '%',
+        decimalSymbol,
+        isCapped,
+        ...options,
+      },
+    };
+  }
+
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    finalValue.toFixed(2),
+    {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
+
+  return {
+    formattedValue,
+    meta: {
+      value,
+      symbol: '%',
+      decimalSymbol,
+      isCapped,
+      ...options,
+    },
+  };
+};
+
 /** DeFi Value */
 export const formatValue: IFormatNumberFunc = (value, options) => {
   const { currency } = options || {};
@@ -555,6 +615,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
       showPlusMinusSigns,
       tokenSymbol,
       isZero,
+      keepLeadingZero,
     },
   } = value;
   const isNegativeNumber =
@@ -578,7 +639,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
 
   // Add ">" prefix for capped values
   if (value.meta.isCapped) {
-    strings.push('> ');
+    strings.push('>');
   }
 
   if (isNegativeNumber && !isZero) {
@@ -592,7 +653,7 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     strings.push(currency);
   }
 
-  if (leadingZeros && leadingZeros > 4) {
+  if (leadingZeros && leadingZeros > 4 && !keepLeadingZero) {
     const { value: formattedZero } = formatLocalNumber('0', {
       digits: 1,
       removeTrailingZeros: false,
@@ -624,6 +685,8 @@ export const NUMBER_FORMATTER = {
   price: formatPrice,
   /** PriceChange */
   priceChange: formatPriceChange,
+  /** PriceChange with capping and > symbol support */
+  priceChangeCapped: formatPriceChangeCapped,
   /** DeFi */
   value: formatValue,
   /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
@@ -638,34 +701,45 @@ export interface INumberFormatProps {
   formatterOptions?: IFormatterOptions;
 }
 
-export const numberFormat = (
+export const numberFormatAsRaw = (
   value: string,
   { formatter, formatterOptions }: INumberFormatProps,
-  isRaw = false,
 ) => {
-  const result =
-    formatter && value
-      ? formatDisplayNumber(
-          NUMBER_FORMATTER[formatter](String(value), formatterOptions),
-        )
-      : '';
-  if (isRaw) {
-    return result;
-  }
+  return formatter && value
+    ? formatDisplayNumber(
+        NUMBER_FORMATTER[formatter](String(value), formatterOptions),
+      )
+    : '';
+};
 
-  if (typeof result === 'string') {
-    return result;
-  }
+export const numberFormat = memoizee(
+  (value: string, { formatter, formatterOptions }: INumberFormatProps) => {
+    const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+    if (typeof result === 'string') {
+      return result;
+    }
+    return result
+      .map((r) => {
+        if (typeof r === 'string') {
+          return r;
+        }
+        if (r.type === 'sub') {
+          return new Array(r.value - 1).fill(0).join('');
+        }
+        return '';
+      })
+      .join('');
+  },
+  {
+    max: 200,
+    maxAge: 1000 * 60 * 5, // 5 minutes
+  },
+);
 
-  return result
-    .map((r) => {
-      if (typeof r === 'string') {
-        return r;
-      }
-      if (r.type === 'sub') {
-        return new Array(r.value - 1).fill(0).join('');
-      }
-      return '';
-    })
-    .join('');
+export const numberFormatAsRenderText = (
+  value: string,
+  { formatter, formatterOptions }: INumberFormatProps,
+) => {
+  const result = numberFormatAsRaw(value, { formatter, formatterOptions });
+  return result;
 };

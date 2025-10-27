@@ -6,14 +6,12 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useMarketWatchListAtom } from '@onekeyhq/kit/src/states/jotai/contexts/market/atoms';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EUniversalSearchPages } from '@onekeyhq/shared/src/routes/universalSearch';
 import type { IUniversalSearchMarketToken } from '@onekeyhq/shared/types/search';
 import { ESearchStatus } from '@onekeyhq/shared/types/search';
 
-import { MarketStar } from '../../../Market/components/MarketStar';
 import { MarketTokenIcon } from '../../../Market/components/MarketTokenIcon';
-import { MarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
+import { BaseMarketTokenPrice } from '../../../Market/components/MarketTokenPrice';
 
 interface IUniversalSearchMarketTokenItemProps {
   item: IUniversalSearchMarketToken;
@@ -24,17 +22,15 @@ export function UniversalSearchMarketTokenItem({
   item,
   searchStatus,
 }: IUniversalSearchMarketTokenItemProps) {
-  const navigation = useAppNavigation();
+  const appNavigation = useAppNavigation();
   // Ensure market watch list atom is initialized
   const [{ isMounted }] = useMarketWatchListAtom();
   const universalSearchActions = useUniversalSearchActions();
   const { image, coingeckoId, price, symbol, name, lastUpdated } = item.payload;
 
   const handlePress = useCallback(() => {
-    navigation.pop();
     setTimeout(async () => {
-      navigation.switchTab(ETabRoutes.Market);
-      navigation.push(ETabMarketRoutes.MarketDetail, {
+      appNavigation.push(EUniversalSearchPages.MarketDetail, {
         token: coingeckoId,
       });
       defaultLogger.market.token.searchToken({
@@ -56,9 +52,9 @@ export function UniversalSearchMarketTokenItem({
       }
     }, 80);
   }, [
+    appNavigation,
     coingeckoId,
     item.type,
-    navigation,
     searchStatus,
     symbol,
     universalSearchActions,
@@ -80,17 +76,12 @@ export function UniversalSearchMarketTokenItem({
       }}
     >
       <XStack>
-        <MarketTokenPrice
+        <BaseMarketTokenPrice
           price={String(price)}
           size="$bodyLgMedium"
           lastUpdated={lastUpdated}
           tokenName={name}
           tokenSymbol={symbol}
-        />
-        <MarketStar
-          coingeckoId={coingeckoId}
-          ml="$3"
-          from={EWatchlistFrom.search}
         />
       </XStack>
     </ListItem>

@@ -19,19 +19,25 @@ import {
   useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
+import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import {
   useSignatureConfirmActions,
   useTronResourceRentalInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import {
+  settingsTronRentalPersistAtom,
+  useSettingsTronRentalPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
-import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import {
+  openUrlExternal,
+  openUrlInApp,
+} from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { ETronResourceRentalPayType } from '@onekeyhq/shared/types/fee';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-
-const TRON_RESOURCE_RENTAL_DOC_URL = 'https://help.onekey.so/articles/11461320';
 
 const showResourceRentalDetailsDialog = ({
   title,
@@ -58,9 +64,18 @@ const showResourceRentalDetailsDialog = ({
     ...dialogProps,
   });
 
-function ResourceRentalLearnMoreButton() {
+function ResourceRentalLearnMoreButton({
+  closeDialogAfterClick = true,
+  openLinkInApp = true,
+}: {
+  closeDialogAfterClick?: boolean;
+  openLinkInApp?: boolean;
+}) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
+  const resourceRentalHelpLink = useHelpLink({
+    path: 'articles/11461320',
+  });
   return (
     <Button
       flex={1}
@@ -70,8 +85,14 @@ function ResourceRentalLearnMoreButton() {
       variant="tertiary"
       icon="QuestionmarkOutline"
       onPress={() => {
-        openUrlInApp(TRON_RESOURCE_RENTAL_DOC_URL);
-        void dialogInstance.close();
+        if (openLinkInApp) {
+          openUrlInApp(resourceRentalHelpLink);
+        } else {
+          openUrlExternal(resourceRentalHelpLink);
+        }
+        if (closeDialogAfterClick) {
+          void dialogInstance.close();
+        }
       }}
     >
       {intl.formatMessage({
@@ -92,15 +113,50 @@ function ResourceRental() {
     isSwapTrxEnabled,
     payType,
     payTokenInfo,
-    saveTRX,
     resourcePrice,
   } = resourceRentalInfo;
+  const [{ preventDisableTronRental }] = useSettingsTronRentalPersistAtom();
 
   const handleResourceRentalToggle = useCallback(
     (value: boolean) => {
+      if (!preventDisableTronRental && !value) {
+        void settingsTronRentalPersistAtom.set({
+          preventDisableTronRental: true,
+        });
+        showResourceRentalDetailsDialog({
+          title: intl.formatMessage({
+            id: ETranslations.wallet_disable_energy_rental_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.wallet_disable_energy_rental_description,
+          }),
+          content: (
+            <ResourceRentalLearnMoreButton
+              closeDialogAfterClick={false}
+              openLinkInApp={false}
+            />
+          ),
+          onCancelText: intl.formatMessage({
+            id: ETranslations.global_disable_button,
+          }),
+          onCancel: (close) => {
+            updateTronResourceRentalInfo({ isResourceRentalEnabled: value });
+            void close();
+          },
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_cancel,
+          }),
+          onConfirm: ({ close }) => {
+            void close();
+          },
+          showCancelButton: true,
+        });
+        return;
+      }
+
       updateTronResourceRentalInfo({ isResourceRentalEnabled: value });
     },
-    [updateTronResourceRentalInfo],
+    [intl, preventDisableTronRental, updateTronResourceRentalInfo],
   );
 
   const handleSwapTrxToggle = useCallback(
@@ -300,12 +356,9 @@ function ResourceRental() {
                     <XStack alignItems="center" gap="$1">
                       <Icon name="FlashSolid" size="$4" color="$iconSuccess" />
                       <SizableText size="$bodySmMedium" color="$textSuccess">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.wallet_save_amount,
-                          },
-                          { number: saveTRX ?? '0' },
-                        )}
+                        {intl.formatMessage({
+                          id: ETranslations.wallet_save_amount,
+                        })}
                       </SizableText>
                     </XStack>
                   </Badge>

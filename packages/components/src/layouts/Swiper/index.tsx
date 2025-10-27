@@ -1,7 +1,7 @@
 import type { ForwardedRef } from 'react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo } from 'react';
 
-import { YStack } from 'tamagui';
+import { YStack } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Stack } from '../../primitives';
 import { ListView } from '../ListView/list';
@@ -29,6 +29,7 @@ function BaseSwiperFlatList<T>(
     autoplayLoopKeepAnimation = false,
     disableGesture = false,
     initialNumToRender = 1,
+    onChangeIndex,
     ...restProps
   }: ISwiperProps<T>,
   ref: ForwardedRef<ISwiperRef>,
@@ -76,6 +77,7 @@ function BaseSwiperFlatList<T>(
     autoplayLoop,
     autoplayLoopKeepAnimation,
     dataLength,
+    onChangeIndex,
   });
 
   useImperativeHandle(ref, () => ({
@@ -113,6 +115,7 @@ function BaseSwiperFlatList<T>(
         <>
           <ListView
             {...restProps}
+            useFlashList
             horizontal
             pagingEnabled
             ref={swiperRef}

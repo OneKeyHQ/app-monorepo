@@ -169,7 +169,9 @@ function AssetProtocolListContent({
           earnAccount?.account.indexedAccountId || indexedAccountId,
         symbol,
         provider: item.provider.name,
-        vault: earnUtils.isMorphoProvider({ providerName: item.provider.name })
+        vault: earnUtils.isVaultBasedProvider({
+          providerName: item.provider.name,
+        })
           ? item.provider.vault
           : undefined,
       });
@@ -276,8 +278,7 @@ function AssetProtocolList() {
         symbol,
         accountId,
         indexedAccountId,
-        networkId,
-        filter,
+        filterNetworkId: filter ? networkId : undefined,
       }),
     [filter, symbol, networkId, accountId, indexedAccountId],
     { watchLoading: true },

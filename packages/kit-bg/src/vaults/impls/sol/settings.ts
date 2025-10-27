@@ -99,12 +99,25 @@ const settings: IVaultSettings = {
             },
           },
         },
+        [EEarnProviderEnum.Stakefish]: {
+          supportedSymbols: ['SOL'],
+          configs: {
+            'SOL': {
+              enabled: true,
+              tokenAddress: EMPTY_NATIVE_TOKEN_ADDRESS,
+              displayProfit: true,
+              withdrawWithTx: true,
+              claimWithTx: true,
+            },
+          },
+        },
       },
     },
   },
   stakingResultPollingInterval: 5,
   maxRetryBroadcastTxCount: 5,
   minRetryBroadcastTxInterval: timerUtils.getTimeDurationMs({ seconds: 1 }),
+  enabledInternalSignAndVerify: true,
 };
 
 export default Object.freeze(settings);

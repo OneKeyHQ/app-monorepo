@@ -21,13 +21,18 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
+import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import * as deviceErrorUtils from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  type IDeviceSharedCallParams,
+} from '@onekeyhq/shared/types/device';
 import type {
   IPasswordRes,
   IPasswordSecuritySession,
@@ -60,7 +65,7 @@ import webembedApiProxy from '../../webembeds/instance/webembedApiProxy';
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
-import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
+import { biologyAuthUtils } from './biologyAuthUtils';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
@@ -253,6 +258,7 @@ export default class ServicePassword extends ServiceBase {
       deviceParams =
         await this.backgroundApi.serviceAccount.getWalletDeviceParams({
           walletId,
+          hardwareCallContext: EHardwareCallContext.BACKGROUND_TASK,
         });
     }
     if (
@@ -327,6 +333,9 @@ export default class ServicePassword extends ServiceBase {
       }
     }
     await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
+    if (platformEnv.isExtension && !enable) {
+      await this.clearWebAuthCredentialId();
+    }
   }
 
   // validatePassword --------------------------------
@@ -429,6 +438,13 @@ export default class ServicePassword extends ServiceBase {
     const checkPasswordSet = await localDb.isPasswordSet();
     await this.setPasswordSetStatus(checkPasswordSet);
     return checkPasswordSet;
+  }
+
+  async clearWebAuthCredentialId(): Promise<void> {
+    await passwordPersistAtom.set((v) => ({
+      ...v,
+      webAuthCredentialId: '',
+    }));
   }
 
   async setPasswordSetStatus(
@@ -567,8 +583,11 @@ export default class ServicePassword extends ServiceBase {
           let skipAppStatusCheck = false;
           if (
             !this._mergeDuplicateHDWalletsExecuted &&
-            !globalThis?.$indexedDBIsMigratedToBucket?.isMigrated
+            globalThis?.$indexedDBIsMigratedToBucket?.isMigrated === false
           ) {
+            console.log('verifyPassword__mergeDuplicateHDWallets', {
+              skipAppStatusCheck,
+            });
             skipAppStatusCheck = true;
           }
           await this.backgroundApi.serviceAccount.mergeDuplicateHDWallets({
@@ -658,9 +677,11 @@ export default class ServicePassword extends ServiceBase {
   async promptPasswordVerifyByWallet({
     walletId,
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
+    hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
+    hardwareCallContext?: EHardwareCallContext;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -672,9 +693,16 @@ export default class ServicePassword extends ServiceBase {
         deviceParams =
           await this.backgroundApi.serviceAccount.getWalletDeviceParams({
             walletId,
+            hardwareCallContext,
           });
       } catch (error) {
-        //
+        // Check if this is a hardware error that should be thrown
+        if (
+          deviceErrorUtils.isHardwareError({ error: error as IOneKeyError })
+        ) {
+          throw error;
+        }
+        // ignore other errors
       }
     }
 

@@ -11,6 +11,7 @@ export interface ITransactionRowProps {
   buyCount: number;
   sellCount: number;
   totalCount: number;
+  isLoading?: boolean;
 }
 
 export interface IVolumeRowProps {
@@ -18,10 +19,12 @@ export interface IVolumeRowProps {
   buyVolume: number;
   sellVolume: number;
   totalVolume: number;
+  isLoading?: boolean;
 }
 
 export interface ITimeRangeSelectorProps {
   options: ITimeRangeOption[];
   value: string;
   onChange: (value: string) => void;
+  isLoading?: boolean;
 }

@@ -29,13 +29,17 @@ export function FAQPanel({
   faqList,
   isLoading = false,
 }: {
-  faqList: Array<{ question: string; answer: string }>;
+  faqList?: Array<{ question: string; answer: string }>;
   isLoading?: boolean;
 }) {
   const intl = useIntl();
 
   if (isLoading) {
     return <FAQPanelSkeleton />;
+  }
+
+  if (!faqList?.length) {
+    return null;
   }
 
   return (

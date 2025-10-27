@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
-import { Switch as TMSwitch, useTheme } from 'tamagui';
+import { TMSwitch, useTheme } from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 import type { IFormFieldProps } from '../types';
-import type { GetProps } from 'tamagui';
 
 export enum ESwitchSize {
   'small' = 'small',

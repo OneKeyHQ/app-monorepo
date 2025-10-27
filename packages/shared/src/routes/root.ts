@@ -1,5 +1,5 @@
 export enum ERootRoutes {
-  Main = 'main',
+  Main = 'main', // TabNavigator -> ETabRoutes
 
   Modal = 'modal',
 

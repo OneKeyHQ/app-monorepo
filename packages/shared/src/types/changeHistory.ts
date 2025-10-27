@@ -4,11 +4,13 @@ export enum EChangeHistoryEntityType {
   IndexedAccount = 'indexedAccount',
   AddressBook = 'addressBook',
   BrowserBookmark = 'browserBookmark',
+  PrimeTransfer = 'primeTransfer',
 }
 
 export enum EChangeHistoryContentType {
   Name = 'name',
   // Memo = 'memo',
+  ServerUrl = 'serverUrl',
 }
 
 export interface IChangeHistoryItem {

@@ -10,6 +10,7 @@ import {
   addressesInfoAtom,
   addressesInfoDataReadyAtom,
   contextAtomMethod,
+  hasMoreOnChainHistoryAtom,
   searchKeyAtom,
 } from './atoms';
 
@@ -54,6 +55,10 @@ class ContextJotaiActionsHistoryList extends ContextJotaiActionsBase {
     set(addressesInfoAtom(), addressesInfoData);
     set(addressesInfoDataReadyAtom(), true);
   });
+
+  setHasMoreOnChainHistory = contextAtomMethod((_, set, value: boolean) => {
+    set(hasMoreOnChainHistoryAtom(), value);
+  });
 }
 
 const createActions = memoFn(() => {
@@ -70,10 +75,13 @@ export function useHistoryListActions() {
   const initAddressesInfoDataFromStorage =
     actions.initAddressesInfoDataFromStorage.use();
 
+  const setHasMoreOnChainHistory = actions.setHasMoreOnChainHistory.use();
+
   return useRef({
     updateSearchKey,
     updateAddressesInfo,
     setAddressesInfoDataReady,
     initAddressesInfoDataFromStorage,
+    setHasMoreOnChainHistory,
   });
 }

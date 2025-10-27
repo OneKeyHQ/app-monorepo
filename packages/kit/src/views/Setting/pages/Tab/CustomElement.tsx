@@ -14,19 +14,25 @@ import {
   ActionList,
   Badge,
   Dialog,
+  ESwitchSize,
   IconButton,
   Select,
   SizableText,
+  Switch,
   Toast,
   Tooltip,
   XStack,
   YStack,
+  startViewTransition,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { UniversalContainerWithSuspense } from '@onekeyhq/kit/src/components/BiologyAuthComponent/container/UniversalContainer';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  isShowAppUpdateUIWhenUpdating,
+  useAppUpdateInfo,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { TabFreezeOnBlurContext } from '@onekeyhq/kit/src/provider/Container/TabFreezeOnBlurContainer';
 import {
@@ -36,17 +42,20 @@ import {
   usePasswordWebAuthInfoAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { displayAppUpdateVersion } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
   ONEKEY_URL,
-  TWITTER_URL,
+  TWITTER_FOLLOW_URL,
+  TWITTER_FOLLOW_URL_CN,
 } from '@onekeyhq/shared/src/config/appConfig';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -57,7 +66,7 @@ import openUrlUtils, {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
-import { useLocaleOptions, useResetApp } from '../../hooks';
+import { useLanguageSelector, useResetApp } from '../../hooks';
 import { handleOpenDevMode } from '../../utils/devMode';
 import { useOptions } from '../AppAutoLock/useOptions';
 
@@ -93,25 +102,7 @@ export function CurrencyListItem(props: ICustomElementProps) {
 }
 
 export function LanguageListItem(props: ICustomElementProps) {
-  const locales = useLocaleOptions();
-  const [{ locale }] = useSettingsPersistAtom();
-
-  // Fix issue where en-US is deprecated but still exists in user settings
-  const options = useMemo(() => {
-    return locales.filter((item) => item.value !== 'en-US');
-  }, [locales]);
-  const value = useMemo(() => {
-    return locale === 'en-US' ? 'en' : locale;
-  }, [locale]);
-  const onChange = useCallback(async (text: string) => {
-    await backgroundApiProxy.serviceSetting.setLocale(text as ILocaleSymbol);
-    setTimeout(() => {
-      if (platformEnv.isDesktop) {
-        void globalThis.desktopApiProxy?.system?.changeLanguage?.(text);
-      }
-      void backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
-  }, []);
+  const { options, value, onChange } = useLanguageSelector();
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -231,14 +222,18 @@ export function BiologyAuthListItem({
   );
 }
 
+export function ClearAppCacheListItem(props: ICustomElementProps) {
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingClearAppCache);
+  }, [navigation]);
+  return <TabSettingsListItem {...props} onPress={onPress} drillIn />;
+}
+
 export function CleanDataListItem(props: ICustomElementProps) {
   const intl = useIntl();
   const resetApp = useResetApp();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
-  const toSettingClearAppCachePage = useCallback(() => {
-    navigation.push(EModalSettingRoutes.SettingClearAppCache);
-  }, [navigation]);
   return (
     <ActionList
       offset={{ mainAxis: -4, crossAxis: -10 }}
@@ -249,12 +244,6 @@ export function CleanDataListItem(props: ICustomElementProps) {
         </TabSettingsListItem>
       }
       items={[
-        {
-          label: intl.formatMessage({
-            id: ETranslations.settings_clear_cache_on_app,
-          }),
-          onPress: toSettingClearAppCachePage,
-        },
         {
           label: intl.formatMessage({
             id: ETranslations.settings_clear_pending_transactions,
@@ -299,6 +288,7 @@ export function CleanDataListItem(props: ICustomElementProps) {
 
 export function HardwareTransportTypeListItem(props: ICustomElementProps) {
   const [{ hardwareTransportType }] = useSettingsPersistAtom();
+  const [devPersist] = useDevSettingsPersistAtom();
 
   const transportOptions = useMemo(() => {
     if (platformEnv.isNative) {
@@ -310,24 +300,27 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     if (platformEnv.isDesktop) {
-      if (platformEnv.isDesktopMac) {
-        return [
-          {
-            label: 'Bridge',
-            value: EHardwareTransportType.Bridge,
-          },
-          {
-            label: 'Bluetooth',
-            value: EHardwareTransportType.DesktopWebBle,
-          },
-        ];
-      }
-      return [
-        {
+      const usb = devPersist?.settings?.usbCommunicationMode;
+      const desktopTransportList: ISelectItem[] = [];
+      if (usb === 'bridge') {
+        desktopTransportList.push({
           label: 'Bridge',
           value: EHardwareTransportType.Bridge,
-        },
-      ];
+        });
+      } else {
+        desktopTransportList.push({
+          label: 'WebUSB',
+          value: EHardwareTransportType.WEBUSB,
+        });
+      }
+
+      if (platformEnv.isSupportDesktopBle) {
+        desktopTransportList.push({
+          label: 'Bluetooth',
+          value: EHardwareTransportType.DesktopWebBle,
+        });
+      }
+      return desktopTransportList;
     }
     if (platformEnv.isSupportWebUSB) {
       return [
@@ -343,7 +336,7 @@ export function HardwareTransportTypeListItem(props: ICustomElementProps) {
       ];
     }
     return [];
-  }, []);
+  }, [devPersist?.settings?.usbCommunicationMode]);
   const onChange = useCallback(async (value: string) => {
     const newTransportType = value as EHardwareTransportType;
 
@@ -392,7 +385,13 @@ export function ListVersionItem(props: ICustomElementProps) {
   const handleToUpdatePreviewPage = useCallback(() => {
     appUpdateInfo.toUpdatePreviewPage();
   }, [appUpdateInfo]);
-  return appUpdateInfo.isNeedUpdate ? (
+  const isShowAppUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: appUpdateInfo.data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, appUpdateInfo.data.status]);
+  return isShowAppUpdateUI && appUpdateInfo.isNeedUpdate ? (
     <TabSettingsListItem
       {...props}
       onPress={handleToUpdatePreviewPage}
@@ -403,7 +402,7 @@ export function ListVersionItem(props: ICustomElementProps) {
       <ListItem.Text
         primary={
           <Badge badgeType="info" badgeSize="lg">
-            {appUpdateInfo.data.latestVersion}
+            {displayAppUpdateVersion(appUpdateInfo.data)}
           </Badge>
         }
         align="right"
@@ -521,25 +520,51 @@ function SupportButton({ text }: { text: string }) {
 export function SocialButtonGroup() {
   const intl = useIntl();
   const { copyText } = useClipboard();
+  const [{ locale }] = useSettingsPersistAtom();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const isTabNavigator = useIsTabNavigator();
+  const version = useMemo(() => {
+    return `${platformEnv.version ?? ''} ${platformEnv.buildNumber ?? ''}`;
+  }, []);
   const versionString = intl.formatMessage(
     {
       id: ETranslations.settings_version_versionnum,
     },
     {
-      'versionNum': `${platformEnv.version ?? ''} ${
-        platformEnv.buildNumber ?? ''
-      }`,
+      'versionNum': version,
     },
   );
-  const handlePress = useCallback(() => {
+  const handleCopyVersion = useCallback(() => {
     void handleOpenDevMode(() =>
-      copyText(`${upperFirst(versionString)}-${platformEnv.githubSHA || ''}`),
+      copyText(
+        `${upperFirst(versionString)}-${platformEnv.bundleVersion || ''}-${
+          platformEnv.githubSHA || ''
+        }`,
+      ),
     );
   }, [copyText, versionString]);
   const textSize = isTabNavigator ? '$bodySmMedium' : '$bodyMd';
   const textColor = isTabNavigator ? '$textDisabled' : '$textSubdued';
+  const isUpToDate = useMemo(() => {
+    if (!appUpdateInfo.latestVersion) {
+      return true;
+    }
+    if (appUpdateInfo.jsBundleVersion) {
+      return (
+        appUpdateInfo.latestVersion === platformEnv.version &&
+        appUpdateInfo.jsBundleVersion === platformEnv.bundleVersion
+      );
+    }
+    return appUpdateInfo.latestVersion === platformEnv.version;
+  }, [appUpdateInfo.jsBundleVersion, appUpdateInfo.latestVersion]);
+  const twitterFollowUrl = useMemo(() => {
+    if (!locale) {
+      return TWITTER_FOLLOW_URL;
+    }
+    return ['zh-CN', 'zh-HK', 'zh-TW'].includes(locale)
+      ? TWITTER_FOLLOW_URL_CN
+      : TWITTER_FOLLOW_URL;
+  }, [locale]);
   return (
     <YStack pt="$3" pb="$4" gap={isTabNavigator ? '$2' : '$6'}>
       <XStack
@@ -556,7 +581,7 @@ export function SocialButtonGroup() {
         />
         <SocialButton
           icon="Xbrand"
-          url={TWITTER_URL}
+          url={twitterFollowUrl}
           text={intl.formatMessage({ id: ETranslations.global_x })}
         />
         <SocialButton
@@ -579,12 +604,17 @@ export function SocialButtonGroup() {
         userSelect="none"
         testID="setting-version"
       >
-        <SizableText color={textColor} size={textSize} onPress={handlePress}>
+        <SizableText
+          color={textColor}
+          size={textSize}
+          minWidth={platformEnv.isNativeAndroid ? 240 : undefined}
+          textAlign={platformEnv.isNativeAndroid ? 'center' : undefined}
+          numberOfLines={platformEnv.isNativeAndroid ? 1 : undefined}
+          onPress={handleCopyVersion}
+        >
           {upperFirst(versionString)}
         </SizableText>
-        {!isTabNavigator &&
-        (!appUpdateInfo.latestVersion ||
-          appUpdateInfo.latestVersion === platformEnv.version) ? (
+        {!isTabNavigator && isUpToDate ? (
           <SizableText
             color={textColor}
             size={textSize}
@@ -595,5 +625,46 @@ export function SocialButtonGroup() {
         ) : null}
       </YStack>
     </YStack>
+  );
+}
+
+export function DesktopBluetoothListItem(props: ICustomElementProps) {
+  const [{ enableDesktopBluetooth }] = useSettingsPersistAtom();
+  const toggleBluetooth = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableDesktopBluetooth(value);
+      defaultLogger.setting.page.settingsEnableBluetooth({ enabled: value });
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        size={ESwitchSize.small}
+        value={enableDesktopBluetooth}
+        onChange={toggleBluetooth}
+      />
+    </TabSettingsListItem>
+  );
+}
+
+export function BTCFreshAddressListItem(props: ICustomElementProps) {
+  const [{ enableBTCFreshAddress }] = useSettingsPersistAtom();
+  const toggleBTCFreshAddress = useCallback(async (value: boolean) => {
+    startViewTransition(() => {
+      void backgroundApiProxy.serviceSetting.setEnableBTCFreshAddress(value);
+      defaultLogger.setting.page.settingsEnableBTCFreshAddress({
+        enabled: value,
+      });
+    });
+  }, []);
+  return (
+    <TabSettingsListItem {...props} userSelect="none">
+      <Switch
+        alignSelf="flex-start"
+        size={ESwitchSize.small}
+        value={enableBTCFreshAddress}
+        onChange={toggleBTCFreshAddress}
+      />
+    </TabSettingsListItem>
   );
 }

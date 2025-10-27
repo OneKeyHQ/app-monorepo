@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-const maxDataLength = 100;
+const DEFAULT_MAX_DATA_LENGTH = 2000;
+const NATIVE_TOKEN_MAX_DATA_LENGTH = 200;
+const MAX_TIME_SPAN_YEARS = 5;
+const MAX_TIME_SPAN_SECONDS = MAX_TIME_SPAN_YEARS * 365 * 24 * 60 * 60; // 5 years in seconds
 
 export interface ITimeSlice {
   from: number;
@@ -8,11 +11,22 @@ export interface ITimeSlice {
   interval: string;
 }
 
+export interface ISliceRequestOptions {
+  isNativeToken?: boolean;
+}
+
 export function sliceRequest(
   interval: string,
   timeFrom: number,
   timeTo: number,
+  options?: ISliceRequestOptions,
 ): ITimeSlice[] {
+  // Limit time span to maximum 5 years, adjust timeFrom if necessary
+  const timeSpan = timeTo - timeFrom;
+  const adjustedTimeFrom =
+    timeSpan > MAX_TIME_SPAN_SECONDS
+      ? timeTo - MAX_TIME_SPAN_SECONDS
+      : timeFrom;
   const getIntervalInSeconds = (intervalStr: string): number => {
     const match = intervalStr.match(/^(\d+)([mHDWMy])$/);
     if (!match) {
@@ -42,31 +56,38 @@ export function sliceRequest(
 
   const intervalSeconds = getIntervalInSeconds(interval);
 
-  // Calculate total data points
-  const totalDataPoints = Math.ceil((timeTo - timeFrom) / intervalSeconds);
+  // Determine max data length based on token type
+  const maxDataLength = options?.isNativeToken
+    ? NATIVE_TOKEN_MAX_DATA_LENGTH
+    : DEFAULT_MAX_DATA_LENGTH;
 
-  // If data points don't exceed the limit, return the original range directly
+  // Calculate total data points with adjusted time range
+  const totalDataPoints = Math.ceil(
+    (timeTo - adjustedTimeFrom) / intervalSeconds,
+  );
+
+  // If data points don't exceed the limit, return the adjusted range directly
   if (totalDataPoints <= maxDataLength) {
-    return [{ from: timeFrom, to: timeTo, interval }];
+    return [{ from: adjustedTimeFrom, to: timeTo, interval }];
   }
 
   // Calculate how many slices are needed
   const sliceCount = Math.ceil(totalDataPoints / maxDataLength);
 
   // Calculate time length per slice
-  const timePerSlice = Math.floor((timeTo - timeFrom) / sliceCount);
+  const timePerSlice = Math.floor((timeTo - adjustedTimeFrom) / sliceCount);
 
   const slices: ITimeSlice[] = [];
 
   for (let i = 0; i < sliceCount; i += 1) {
-    const sliceFrom = timeFrom + i * timePerSlice;
+    const sliceFrom = adjustedTimeFrom + i * timePerSlice;
     let sliceTo: number;
 
     if (i === sliceCount - 1) {
       // Last slice uses the original end time to ensure no data is missed
       sliceTo = timeTo;
     } else {
-      sliceTo = timeFrom + (i + 1) * timePerSlice;
+      sliceTo = adjustedTimeFrom + (i + 1) * timePerSlice;
     }
 
     slices.push({

@@ -34,12 +34,12 @@ function TransactionAmountBase({
     <XStack {...style} alignItems="center" justifyContent="flex-start" gap="$1">
       <YStack width="49%" alignItems="flex-end">
         <XStack>
-          <SizableText size="$bodySm" color={typeColor} numberOfLines={1}>
+          <SizableText size="$bodyMd" color={typeColor} numberOfLines={1}>
             {`${baseSign}`}
           </SizableText>
 
           <NumberSizeableText
-            size="$bodySm"
+            size="$bodyMd"
             autoFormatter="value-marketCap"
             color={typeColor}
           >
@@ -48,21 +48,21 @@ function TransactionAmountBase({
         </XStack>
 
         <XStack>
-          <SizableText size="$bodySm" numberOfLines={1}>
+          <SizableText size="$bodyMd" numberOfLines={1}>
             {`${quoteSign}`}
           </SizableText>
 
-          <NumberSizeableText autoFormatter="value-marketCap" size="$bodySm">
+          <NumberSizeableText autoFormatter="value-marketCap" size="$bodyMd">
             {quoteToken.amount}
           </NumberSizeableText>
         </XStack>
       </YStack>
 
       <YStack width="49%" alignItems="flex-start">
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
           {baseToken.symbol}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
+        <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
           {quoteToken.symbol}
         </SizableText>
       </YStack>

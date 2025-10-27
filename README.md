@@ -1,4 +1,6 @@
-# OneKey - Open Source Crypto Wallet
+# OneKey: Secure Crypto Wallet
+
+Anti-scam crypto wallet for every chain. Supports major blockchains like Bitcoin, Ethereum, Solana, Tron, BNB Smart Chain and more.
 
 [![Github Stars](https://img.shields.io/github/stars/OneKeyHQ/app-monorepo?t&logo=github&style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/stargazers)
 [![Version](https://img.shields.io/github/release/OneKeyHQ/app-monorepo.svg?style=for-the-badge&labelColor=000)](https://github.com/OneKeyHQ/app-monorepo/releases)
@@ -13,8 +15,8 @@
 [![Playstore](https://github.com/rayston92/graph_bed/blob/275d053220d5b54b32b01ce4c4985210951043c5/img/play.svg
 )](https://play.google.com/store/apps/details?id=so.onekey.app.wallet)
 
-- [Desktop clients: macOS, Windows & Linux](https://onekey.so/zh_CN/download?client=desktop)
-- [Browser extensions: Chrome, Firefox, Edge & Brave](https://onekey.so/zh_CN/download?client=browserExtension)
+- [Desktop apps: macOS, Windows & Linux](https://onekey.so/zh_CN/download?client=desktop)
+- [Browser extensions: Chrome](https://onekey.so/zh_CN/download?client=browserExtension)
 - [Bridge](https://onekey.so/zh_CN/download?client=bridge)
 
 ## Document
@@ -23,17 +25,10 @@
 
 ![CleanShot 2025-04-27 at 15 43 53@2x](https://github.com/user-attachments/assets/7e1a9c12-f79d-49da-be8e-9a8de8252563)
 
-
 ## Community & Enterprise Edition
 
 - 🏡 🧔🏻‍♂️ For Community Edition. It will always remain FREE FOREVER for open-source projects by individuals and communities.
 - 🏦 💼 For Enterprise Edition. We've got this plan on the radar, but we're not quite ready yet. Just star our repo, and you'll be pinged as soon as we're all set.
-
-
-
-
-
-
 
 ## Support
 

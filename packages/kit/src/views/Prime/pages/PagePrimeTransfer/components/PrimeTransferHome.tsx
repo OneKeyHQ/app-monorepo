@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+/* eslint-disable spellcheck/spell-checker */
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,12 +10,16 @@ import {
   SegmentControl,
   SizableText,
   Stack,
+  YStack,
 } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import { usePrimeTransferAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { PrimeTransferHomeEnterLink } from './PrimeTransferHomeEnterLink';
 import { PrimeTransferHomeQrCode } from './PrimeTransferHomeQrCode';
 import { PrimeTransferHomeSteps } from './PrimeTransferHomeSteps';
+import { PrimeTransferServerStatusBar } from './PrimeTransferServerStatusBar';
 
 export const TRANSFER_METHOD = {
   QR_CODE: 'qr-code',
@@ -28,10 +33,16 @@ type ITransferMethod = (typeof TRANSFER_METHOD)[keyof typeof TRANSFER_METHOD];
 export function PrimeTransferHome({
   remotePairingCode,
   setRemotePairingCode,
+  autoConnect,
+  autoConnectCustomServer,
 }: {
   remotePairingCode: string;
   setRemotePairingCode: (code: string) => void;
+  autoConnect?: boolean;
+  autoConnectCustomServer?: string;
 }) {
+  const [primeTransferAtom] = usePrimeTransferAtom();
+
   const intl = useIntl();
   const TRANSFER_OPTIONS = useMemo(
     () =>
@@ -50,7 +61,18 @@ export function PrimeTransferHome({
     [intl],
   );
 
-  const [value, setValue] = useState<ITransferMethod>(QR_CODE);
+  const [value, setValue] = useState<ITransferMethod>(
+    autoConnect ? ENTER_LINK : QR_CODE,
+  );
+
+  const qrcodeViewRef = useRef<React.ReactNode | null>(null);
+  const [refreshQrcodeView, setRefreshQrcodeView] = useState(0);
+  useEffect(() => {
+    if (value === QR_CODE && !qrcodeViewRef.current) {
+      qrcodeViewRef.current = <PrimeTransferHomeQrCode />;
+      setRefreshQrcodeView(refreshQrcodeView + 1);
+    }
+  }, [refreshQrcodeView, value]);
 
   return (
     <>
@@ -60,7 +82,9 @@ export function PrimeTransferHome({
         })}
       />
 
-      <Stack px="$4" gap="$4">
+      <PrimeTransferServerStatusBar />
+
+      <Stack px="$4" gap="$5" mt="$2">
         <SegmentControl
           fullWidth
           value={value}
@@ -71,12 +95,14 @@ export function PrimeTransferHome({
         />
 
         <Stack display={value === QR_CODE ? 'flex' : 'none'}>
-          <PrimeTransferHomeQrCode />
+          {qrcodeViewRef.current}
         </Stack>
         <Stack display={value === ENTER_LINK ? 'flex' : 'none'}>
           <PrimeTransferHomeEnterLink
             remotePairingCode={remotePairingCode}
             setRemotePairingCode={setRemotePairingCode}
+            autoConnect={autoConnect}
+            autoConnectCustomServer={autoConnectCustomServer}
           />
         </Stack>
 
@@ -84,12 +110,16 @@ export function PrimeTransferHome({
 
         <Divider />
 
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
-        </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc2 })}
-        </SizableText>
+        <YStack gap="$1.5">
+          <SizableText size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.transfer_qr_stepall_desc })}
+          </SizableText>
+          <HyperlinkText
+            size="$bodySm"
+            color="$textSubdued"
+            translationId={ETranslations.transfer_qr_stepall_desc2}
+          />
+        </YStack>
         <Stack h="$4" />
       </Stack>
     </>

@@ -45,6 +45,8 @@ export function DesktopDragZoneBox({
         !disabled && {
           // @ts-expect-error
           WebkitAppRegion: 'drag',
+        },
+        {
           WebkitUserSelect: 'none',
           cursor: 'default',
         },

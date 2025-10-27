@@ -10,10 +10,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useDecodedTxsInitAtom,
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { calculateTxExtraFee } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -25,6 +25,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { calculateTxExtraFee } from '@onekeyhq/shared/src/utils/feeUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -41,6 +42,7 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
+import TaskQueueController from '../../components/TaskQueueController/TaskQueueController';
 import { usePreCheckTokenBalance } from '../../hooks/usePreCheckTokenBalance';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -56,8 +58,13 @@ function TxConfirm() {
 
   const intl = useIntl();
 
-  const { accountId, networkId, transferPayload, sourceInfo, unsignedTxs } =
-    route.params;
+  const {
+    transferPayload,
+    sourceInfo,
+    unsignedTxs,
+    isQueueMode,
+    unsignedTxQueue,
+  } = route.params;
 
   const {
     updateDecodedTxs,
@@ -66,12 +73,19 @@ function TxConfirm() {
     updatePreCheckTxStatus,
     updateSendFeeStatus,
     updateExtraFeeInfo,
+    updateDecodedTxsInit,
+    updateSendTxStatus,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
   const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
-  const decodedTxsInit = useRef(false);
+  const [decodedTxsInit] = useDecodedTxsInitAtom();
   const txConfirmParamsInit = useRef(false);
+
+  const accountId =
+    reactiveUnsignedTxs?.[0]?.accountId ?? route.params.accountId;
+  const networkId =
+    reactiveUnsignedTxs?.[0]?.networkId ?? route.params.networkId;
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -98,6 +112,7 @@ function TxConfirm() {
             networkId,
             unsignedTxs: reactiveUnsignedTxs,
             transferPayload,
+            sourceInfo,
           });
 
         let extraFeeNativeTotal = new BigNumber(0);
@@ -113,7 +128,7 @@ function TxConfirm() {
           isBuildingDecodedTxs: false,
         });
 
-        decodedTxsInit.current = true;
+        updateDecodedTxsInit(true);
 
         return r;
       },
@@ -123,12 +138,39 @@ function TxConfirm() {
         accountId,
         networkId,
         transferPayload,
+        sourceInfo,
         updateExtraFeeInfo,
+        updateDecodedTxsInit,
       ],
       {
         watchLoading: true,
       },
     );
+
+  useEffect(() => {
+    if (accountId && networkId && reactiveUnsignedTxs?.[0]?.uuid) {
+      updateSendTxStatus({
+        isInsufficientNativeBalance: false,
+        isInsufficientTokenBalance: false,
+        fillUpNativeBalance: '0',
+        isBaseOnEstimateMaxFee: false,
+        maxFeeNative: '0',
+      });
+      updateSendFeeStatus({
+        status: ESendFeeStatus.Idle,
+        errMessage: '',
+      });
+      txConfirmParamsInit.current = false;
+    }
+  }, [
+    txConfirmParamsInit,
+    reactiveUnsignedTxs,
+    updateDecodedTxsInit,
+    accountId,
+    networkId,
+    updateSendFeeStatus,
+    updateSendTxStatus,
+  ]);
 
   usePromiseResult(async () => {
     if (txConfirmParamsInit.current) return;
@@ -185,7 +227,7 @@ function TxConfirm() {
   ]);
 
   const txConfirmTitle = useMemo(() => {
-    if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit.current) {
+    if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit) {
       return '';
     }
 
@@ -201,7 +243,7 @@ function TxConfirm() {
     return intl.formatMessage({
       id: ETranslations.transaction__transaction_confirm,
     });
-  }, [decodedTxs, intl]);
+  }, [decodedTxs, intl, decodedTxsInit]);
 
   const swapInfo = useMemo(() => {
     const swapTx = find(unsignedTxs, 'swapInfo');
@@ -233,7 +275,13 @@ function TxConfirm() {
     return () => {
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
     };
-  }, [unsignedTxs, updateSendFeeStatus, updateUnsignedTxs]);
+  }, [
+    isQueueMode,
+    unsignedTxQueue,
+    unsignedTxs,
+    updateSendFeeStatus,
+    updateUnsignedTxs,
+  ]);
 
   useEffect(() => {
     if (sourceInfo) {
@@ -247,7 +295,7 @@ function TxConfirm() {
   }, [sourceInfo, accountId]);
 
   const renderTxConfirmContent = useCallback(() => {
-    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {
+    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit) {
       return <SignatureConfirmLoading />;
     }
 
@@ -286,7 +334,15 @@ function TxConfirm() {
     unsignedTxs,
     swapInfo,
     stakingInfo,
+    decodedTxsInit,
   ]);
+
+  const renderTxQueueController = useCallback(() => {
+    if (!isQueueMode) {
+      return null;
+    }
+    return <TaskQueueController taskQueue={unsignedTxQueue} />;
+  }, [isQueueMode, unsignedTxQueue]);
 
   const renderHeaderRight = useCallback(
     () => (
@@ -299,9 +355,14 @@ function TxConfirm() {
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID="tx-confirmation-body" px="$5">
+        {renderTxQueueController()}
         {renderTxConfirmContent()}
       </Page.Body>
-      <TxConfirmActions {...route.params} />
+      <TxConfirmActions
+        {...route.params}
+        accountId={accountId}
+        networkId={networkId}
+      />
     </Page>
   );
 }

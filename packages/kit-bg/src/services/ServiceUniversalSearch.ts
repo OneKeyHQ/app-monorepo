@@ -92,6 +92,7 @@ class ServiceUniversalSearch extends ServiceBase {
     searchTypes,
     tokenListCache,
     tokenListCacheMap,
+    aggregateTokenListCacheMap,
   }: {
     input: string;
     networkId?: string;
@@ -100,11 +101,15 @@ class ServiceUniversalSearch extends ServiceBase {
     searchTypes: EUniversalSearchType[];
     tokenListCache?: IAccountToken[];
     tokenListCacheMap?: Record<string, ITokenFiat>;
+    aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }): Promise<IUniversalSearchBatchResult> {
     const result: IUniversalSearchBatchResult = {};
     const promiseResults = await Promise.allSettled([
       searchTypes.includes(EUniversalSearchType.Address)
         ? this.universalSearchOfAddress({ input, networkId })
+        : Promise.resolve([]),
+      searchTypes.includes(EUniversalSearchType.V2MarketToken)
+        ? this.universalSearchOfV2MarketToken(input)
         : Promise.resolve([]),
       searchTypes.includes(EUniversalSearchType.MarketToken)
         ? this.universalSearchOfMarketToken(input)
@@ -120,6 +125,7 @@ class ServiceUniversalSearch extends ServiceBase {
             indexedAccountId,
             tokenListCache,
             tokenListCacheMap,
+            aggregateTokenListCacheMap,
           })
         : Promise.resolve({
             tokens: [],
@@ -131,6 +137,7 @@ class ServiceUniversalSearch extends ServiceBase {
     ]);
     const [
       addressResultSettled,
+      v2MarketTokenResultSettled,
       marketTokenResultSettled,
       accountAssetsResultSettled,
       dappResultSettled,
@@ -143,6 +150,19 @@ class ServiceUniversalSearch extends ServiceBase {
       addressResultSettled.value.items.length > 0
     ) {
       result[EUniversalSearchType.Address] = addressResultSettled.value;
+    }
+
+    if (
+      v2MarketTokenResultSettled.status === 'fulfilled' &&
+      v2MarketTokenResultSettled.value &&
+      v2MarketTokenResultSettled.value.length > 0
+    ) {
+      result[EUniversalSearchType.V2MarketToken] = {
+        items: v2MarketTokenResultSettled.value.map((item) => ({
+          type: EUniversalSearchType.V2MarketToken,
+          payload: item,
+        })),
+      };
     }
 
     if (
@@ -191,6 +211,10 @@ class ServiceUniversalSearch extends ServiceBase {
     return this.backgroundApi.serviceMarket.searchToken(query);
   }
 
+  async universalSearchOfV2MarketToken(query: string) {
+    return this.backgroundApi.serviceMarket.searchV2Token(query);
+  }
+
   async universalSearchOfAccountAssets({
     input,
     networkId,
@@ -198,6 +222,7 @@ class ServiceUniversalSearch extends ServiceBase {
     indexedAccountId,
     tokenListCache,
     tokenListCacheMap,
+    aggregateTokenListCacheMap,
   }: {
     input: string;
     networkId: string;
@@ -205,6 +230,7 @@ class ServiceUniversalSearch extends ServiceBase {
     indexedAccountId: string;
     tokenListCache?: IAccountToken[];
     tokenListCacheMap?: Record<string, ITokenFiat>;
+    aggregateTokenListCacheMap?: Record<string, { tokens: IAccountToken[] }>;
   }) {
     if (tokenListCache && tokenListCacheMap) {
       return {
@@ -213,6 +239,7 @@ class ServiceUniversalSearch extends ServiceBase {
             tokens: tokenListCache,
             searchKey: input,
             allowEmptyWhenBelowMinLength: true,
+            aggregateTokenListMap: aggregateTokenListCacheMap,
           }),
           map: tokenListCacheMap,
         }),
@@ -257,6 +284,7 @@ class ServiceUniversalSearch extends ServiceBase {
           allNetworksNetworkId: networkId,
           saveToLocal: true,
           customTokensRawData,
+          indexedAccountId,
         });
       });
 
@@ -286,6 +314,7 @@ class ServiceUniversalSearch extends ServiceBase {
           tokens: getFilteredTokenBySearchKey({
             tokens,
             searchKey: input,
+            aggregateTokenListMap: aggregateTokenListCacheMap,
           }),
           map: tokenMap,
         }),
@@ -312,6 +341,7 @@ class ServiceUniversalSearch extends ServiceBase {
             networkId,
             flag: 'universal-search',
             saveToLocal: true,
+            indexedAccountId,
           }),
         ),
       );
@@ -330,6 +360,7 @@ class ServiceUniversalSearch extends ServiceBase {
         networkId,
         flag: 'universal-search',
         saveToLocal: true,
+        indexedAccountId,
       });
 
       tokens = r.allTokens?.data ?? [];
@@ -341,6 +372,7 @@ class ServiceUniversalSearch extends ServiceBase {
         tokens: getFilteredTokenBySearchKey({
           tokens,
           searchKey: input,
+          aggregateTokenListMap: aggregateTokenListCacheMap,
         }),
         map: tokenMap,
       }),
@@ -634,6 +666,45 @@ class ServiceUniversalSearch extends ServiceBase {
     });
 
     return { items: sortedItems } as IUniversalSearchSingleResult;
+  }
+
+  @backgroundMethod()
+  async searchUrlAccount({
+    input,
+    networkId,
+  }: {
+    input: string;
+    networkId?: string;
+  }): Promise<IUniversalSearchSingleResult> {
+    const { serviceValidator } = this.backgroundApi;
+    const trimmedInput = input.trim();
+
+    // Step 1: Get supported networks and batch validate
+    const networkIdList = await this.getUniversalValidateNetworkIds({
+      networkId,
+    });
+    const batchValidateResult =
+      await serviceValidator.serverBatchValidateAddress({
+        networkIdList,
+        accountAddress: trimmedInput,
+      });
+
+    if (!batchValidateResult.isValid) {
+      return { items: [] } as IUniversalSearchSingleResult;
+    }
+
+    // Step 2: Only search for external addresses
+    const externalAddressResults = await this.findExternalAddresses({
+      input: trimmedInput,
+      networkId,
+      batchValidateResult,
+    });
+
+    console.log('[searchUrlAccount] externalItems: ', {
+      items: externalAddressResults.items,
+    });
+
+    return externalAddressResults;
   }
 
   private sortAddressResults(

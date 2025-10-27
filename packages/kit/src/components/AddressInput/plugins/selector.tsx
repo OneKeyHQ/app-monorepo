@@ -88,6 +88,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   currentAddress,
   clearNotMatch,
   disabled,
+  onActiveAccountChange,
 }) => {
   const intl = useIntl();
   const accountSelectorNum = num ?? 0;
@@ -95,21 +96,30 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
   const showAddressBook = useAddressBookPick();
   const actions = useAccountSelectorActions();
   const { hideNonBackedUpWallet } = useContext(AddressInputContext);
-  const {
-    activeAccount: { account },
-    showAccountSelector,
-  } = useAccountSelectorTrigger({
-    num: accountSelectorNum,
-    linkNetwork: true,
-    hideNonBackedUpWallet,
-  });
+  const { activeAccount: activeAccountFromSelector, showAccountSelector } =
+    useAccountSelectorTrigger({
+      num: accountSelectorNum,
+      linkNetwork: true,
+      hideNonBackedUpWallet,
+    });
 
   useEffect(() => {
-    if (account?.address && accountSelectorOpen.current) {
-      onChange?.(account?.address);
+    if (
+      activeAccountFromSelector?.account?.address &&
+      accountSelectorOpen.current
+    ) {
+      onChange?.(activeAccountFromSelector?.account?.address);
+      onActiveAccountChange?.(activeAccountFromSelector);
       onInputTypeChange?.(EInputAddressChangeType.AccountSelector);
+      accountSelectorOpen.current = false;
     }
-  }, [account, onChange, onInputTypeChange, onExtraDataChange]);
+  }, [
+    activeAccountFromSelector,
+    onChange,
+    onInputTypeChange,
+    onExtraDataChange,
+    onActiveAccountChange,
+  ]);
 
   const onContacts = useCallback(() => {
     void showAddressBook({
@@ -224,6 +234,7 @@ const AccountSelectorAddressBookPlugin: FC<ISelectorPluginProps> = ({
 
 export const SelectorPlugin: FC<ISelectorPluginProps> = ({
   onChange,
+  onActiveAccountChange,
   onInputTypeChange,
   onExtraDataChange,
   networkId,
@@ -239,6 +250,7 @@ export const SelectorPlugin: FC<ISelectorPluginProps> = ({
     return (
       <AccountSelectorAddressBookPlugin
         onChange={onChange}
+        onActiveAccountChange={onActiveAccountChange}
         num={num}
         networkId={networkId}
         accountId={accountId}

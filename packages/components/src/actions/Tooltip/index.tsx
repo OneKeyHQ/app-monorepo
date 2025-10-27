@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { InteractionManager } from 'react-native';
-import { Tooltip as TMTooltip } from 'tamagui';
-
+import { TMTooltip } from '@onekeyhq/components/src/shared/tamagui';
+import type { PopoverContentProps } from '@onekeyhq/components/src/shared/tamagui';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -12,13 +11,13 @@ import {
   type EShortcutEvents,
   shortcutsMap,
 } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { SizableText, XStack } from '../../primitives';
 import { Shortcut } from '../Shortcut';
 
 import type { ITooltipProps } from './type';
 import type { ISizableTextProps } from '../../primitives';
-import type { PopoverContentProps } from 'tamagui';
 
 export function TooltipText({
   children,
@@ -61,7 +60,7 @@ export function TooltipText({
     };
     const onDragEnd = () => {
       appEventBus.off(EAppEventBusNames.onDragEndInListView, onDragEnd);
-      void InteractionManager.runAfterInteractions(() => {
+      void timerUtils.setTimeoutPromised(() => {
         onDisabledChange?.(false);
       });
     };

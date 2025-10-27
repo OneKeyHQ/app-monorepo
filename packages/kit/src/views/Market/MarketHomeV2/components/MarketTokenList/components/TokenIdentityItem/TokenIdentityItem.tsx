@@ -4,12 +4,19 @@ import { memo, useMemo } from 'react';
 import {
   Icon,
   NATIVE_HIT_SLOP,
+  NumberSizeableText,
   SizableText,
   Stack,
   XStack,
   useClipboard,
+  useMedia,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { CommunityRecognizedBadge } from '@onekeyhq/kit/src/views/Market/components/CommunityRecognizedBadge';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -47,6 +54,22 @@ interface ITokenIdentityItemProps {
    * Whether to show the copy button. Defaults to false.
    */
   showCopyButton?: boolean;
+  /**
+   * Whether to show volume instead of address. Defaults to false.
+   */
+  showVolume?: boolean;
+  /**
+   * Volume value to display when showVolume is true.
+   */
+  volume?: number;
+  /**
+   * Where the copy action is triggered from.
+   */
+  copyFrom?: ECopyFrom;
+  /**
+   * Whether the token is community recognized.
+   */
+  communityRecognized?: boolean;
 }
 
 const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
@@ -56,8 +79,15 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
   networkLogoURI,
   onCopied,
   showCopyButton = false,
+  showVolume = false,
+  volume,
+  copyFrom = ECopyFrom.Homepage,
+  communityRecognized,
 }) => {
+  const { gtMd } = useMedia();
   const { copyText } = useClipboard();
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
 
   const shortened = useMemo(
     () =>
@@ -69,48 +99,91 @@ const BasicTokenIdentityItem: FC<ITokenIdentityItemProps> = ({
     [address],
   );
 
+  const shouldShowVolume = showVolume && volume !== undefined;
+  const shouldShowAddress = !showVolume && Boolean(address);
+  const shouldShowCopyButton = showCopyButton && Boolean(address);
+  const shouldShowSecondRow = shouldShowVolume || shouldShowAddress;
+
   const handleCopy = (e: GestureResponderEvent) => {
     e.stopPropagation();
     copyText(address);
     onCopied?.(address);
+    // Dex analytics
+    defaultLogger.dex.actions.dexCopyCA({
+      copyFrom,
+      copiedContent: address,
+    });
+  };
+
+  const getTokenImageUri = () => {
+    if (!platformEnv.isNative || !tokenLogoURI) {
+      return tokenLogoURI;
+    }
+
+    if (tokenLogoURI.toLowerCase().includes('svg')) {
+      return undefined;
+    }
+
+    return tokenLogoURI;
   };
 
   return (
     <XStack alignItems="center" gap="$3" userSelect="none">
       <Token
-        tokenImageUri={tokenLogoURI}
-        networkImageUri={networkLogoURI}
+        tokenImageUri={getTokenImageUri()}
+        networkImageUri={address ? networkLogoURI : undefined}
         fallbackIcon="CryptoCoinOutline"
         size="md"
       />
 
       <Stack flex={1} minWidth={0}>
-        <SizableText
-          width={100}
-          size="$bodyLgMedium"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {symbol}
-        </SizableText>
-        <XStack alignItems="center" gap="$1" height="$4">
-          <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-            {shortened}
+        <XStack alignItems="center" gap="$1" bg="red3">
+          <SizableText
+            size="$bodyLgMedium"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {symbol}
           </SizableText>
-          {showCopyButton ? (
-            <Stack
-              cursor="pointer"
-              p="$1"
-              borderRadius="$full"
-              hoverStyle={{ bg: '$bgHover' }}
-              pressStyle={{ bg: '$bgActive' }}
-              hitSlop={NATIVE_HIT_SLOP}
-              onPress={handleCopy}
-            >
-              <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
-            </Stack>
-          ) : null}
+          {communityRecognized ? <CommunityRecognizedBadge /> : null}
         </XStack>
+        {shouldShowSecondRow ? (
+          <XStack alignItems="center" gap="$1" height="$4">
+            {shouldShowVolume ? (
+              <NumberSizeableText
+                size={gtMd ? '$bodySm' : '$bodyMd'}
+                color="$textSubdued"
+                numberOfLines={1}
+                formatter="marketCap"
+                formatterOptions={{ currency }}
+              >
+                {volume}
+              </NumberSizeableText>
+            ) : null}
+            {shouldShowAddress ? (
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                numberOfLines={1}
+              >
+                {shortened}
+              </SizableText>
+            ) : null}
+            {shouldShowCopyButton ? (
+              <Stack
+                cursor="pointer"
+                p="$1"
+                borderRadius="$full"
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                hitSlop={NATIVE_HIT_SLOP}
+                onPress={handleCopy}
+              >
+                <Icon name="Copy3Outline" size="$4" color="$iconSubdued" />
+              </Stack>
+            ) : null}
+          </XStack>
+        ) : null}
       </Stack>
     </XStack>
   );

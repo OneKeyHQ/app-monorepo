@@ -1,0 +1,30 @@
+diff --git a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
+index 3c58b04..55f58e7 100644
+--- a/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
++++ b/node_modules/@backpackapp-io/react-native-toast/src/components/Toast.tsx
+@@ -343,7 +343,7 @@ export const Toast: FC<Props> = ({
+             borderRadius: 8,
+             position: 'absolute',
+             left: leftPosition,
+-            zIndex: toast.visible ? 9999 : undefined,
++            zIndex: toast.visible ? 1e6 : undefined,
+             alignItems: 'center',
+             justifyContent: 'center',
+           },
+diff --git a/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx b/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx
+index d9f4fd2..2f58e80 100644
+--- a/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx
++++ b/node_modules/@backpackapp-io/react-native-toast/src/components/Toasts.tsx
+@@ -74,6 +74,12 @@ export const Toasts: FunctionComponent<Props> = ({
+     return null;
+   }
+ 
++  // This is a hack to ensure the toasts are on top of other components
++  // packages/shared/src/utils/overlayUtils.ts
++  if (toasts.length === 0 && Platform.OS === 'ios') {
++    return null;
++  }
++
+   return (
+     <View
+       style={{

@@ -81,6 +81,7 @@ export class KeyringHardware extends KeyringHardwareBase {
                 path: account.path,
                 address: account.payload?.address || '',
                 pub: account.payload?.pub || '',
+                __hwExtraInfo__: undefined,
               }),
               hwSdkNetwork: this.hwSdkNetwork,
             });
@@ -111,7 +112,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const ret = [];
         const firstAddressRelPath = '0/0';
         for (const addressInfo of addressesInfo) {
-          const { address, path, pub } = addressInfo;
+          const { address, path, pub, __hwExtraInfo__ } = addressInfo;
           const formattedPath = accountUtils.formatUtxoPath(path);
           ret.push({
             // The address of nexa must be pub, not the actual address, because the mainnet and testnet addresses of nexa are different
@@ -121,6 +122,7 @@ export class KeyringHardware extends KeyringHardwareBase {
             relPath: firstAddressRelPath,
             xpub: '',
             addresses: { [this.networkId]: address },
+            __hwExtraInfo__,
           });
         }
         return ret;
@@ -150,7 +152,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           scheme: SIGN_TYPE,
         }));
 
-        const sdk = await this.getHardwareSDKInstance();
+        const sdk = await this.getHardwareSDKInstance({
+          connectId,
+        });
 
         const response = await sdk.nexaGetAddress(connectId, deviceId, {
           ...params.deviceParams.deviceCommonParams,
@@ -169,7 +173,9 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    const sdk = await this.getHardwareSDKInstance();
+    const sdk = await this.getHardwareSDKInstance({
+      connectId: params.deviceParams?.dbDevice?.connectId || '',
+    });
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxNexa;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;

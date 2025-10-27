@@ -131,6 +131,7 @@ export type IGetDeviceAccountDataParams = {
   pathSuffix: string;
   template: string;
   coinName: string | undefined;
+  receiveAddressPath: string | undefined;
   showOnOnekeyFn: (index: number) => boolean | undefined;
 };
 
@@ -163,6 +164,10 @@ export type IHardwarePopup = {
   content?: string;
 };
 export type IPopupType = 'normal' | 'inputPin' | 'inputPassphrase';
+
+export type IHardwareGetPubOrAddressExtraInfo = {
+  rootFingerprint?: number;
+};
 
 export type ISYSFirmwareInfo = {
   required: boolean;
@@ -386,3 +391,13 @@ export type IFirmwareUpdateV3VersionParams = {
   firmwareVersion: string | undefined;
   bootloaderVersion: string | undefined;
 };
+
+export enum EHardwareCallContext {
+  USER_INTERACTION = 'user_interaction',
+  USER_INTERACTION_NO_BLE_DIALOG = 'user_interaction_no_ble_dialog',
+  BACKGROUND_TASK = 'background_task',
+  SDK_INITIALIZATION = 'sdk_initialization',
+  SILENT_CALL = 'silent_call',
+}
+
+export type IHardwareCallContext = EHardwareCallContext;

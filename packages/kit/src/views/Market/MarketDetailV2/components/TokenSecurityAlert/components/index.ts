@@ -2,3 +2,4 @@ export { TokenSecurityAlertDialogContent } from './TokenSecurityAlertDialogConte
 export { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
 export { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDialogContentOverview';
 export { TokenSecurityAlertDialogContentIcon } from './TokenSecurityAlertDialogContentIcon';
+export { TokenSecurityDisclaimer } from './TokenSecurityDisclaimer';

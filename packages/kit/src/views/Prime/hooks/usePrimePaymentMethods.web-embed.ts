@@ -8,6 +8,7 @@ import { BigNumber } from 'bignumber.js';
 import { useSearchParams } from 'react-router-dom';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
 
 import purchaseSdkUtils from '../purchasesSdk/purchaseSdkUtils';
 
@@ -20,9 +21,8 @@ import type {
 } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
-import type { ILocaleJSONSymbol } from '@onekeyhq/shared/src/locale';
-
 if (process.env.NODE_ENV !== 'production') {
+  console.log('Purchases.setLogLevel Verbose');
   Purchases.setLogLevel(LogLevel.Verbose);
 }
 
@@ -68,7 +68,9 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
+    console.log('Purchases.configure', apiKey, primeUserId);
     Purchases.configure(apiKey, primeUserId);
+    console.log('Purchases.configure done');
   }, [isReady, params.apiKey, params.primeUserId]);
 
   const getCustomerInfo = useCallback(async () => {
@@ -151,7 +153,16 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
+      console.log('purchasePackageWeb77632723>>>>>>', {
+        subscriptionPeriod,
+        email,
+        locale,
+      });
+
       await initSdk();
+
+      console.log('purchasePackageWeb77632723>>>>>> initSdk done');
+
       try {
         if (!isReady) {
           throw new OneKeyLocalError('PrimeAuth Not ready');
@@ -164,8 +175,15 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
         //   }),
         // });
 
+        console.log(
+          'purchasePackageWeb77632723>>>>>> getOfferings',
+          typeof Purchases.getSharedInstance().getOfferings,
+        );
         const offerings = await Purchases.getSharedInstance().getOfferings({
           currency: 'USD',
+        });
+        console.log('purchasePackageWeb77632723>>>>>> offerings', {
+          offerings,
         });
 
         if (!offerings.current) {
@@ -183,6 +201,10 @@ export function usePrimePaymentMethods(): IUsePrimePayment {
             'purchasePaywallPackage ERROR: No paywall package',
           );
         }
+
+        console.log('purchasePackageWeb77632723>>>>>> paywallPackage', {
+          paywallPackage,
+        });
 
         const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,

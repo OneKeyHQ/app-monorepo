@@ -2,11 +2,14 @@ import type { PropsWithChildren } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Dimensions, StatusBar } from 'react-native';
-import { AnimatePresence, useThemeName } from 'tamagui';
 
+import {
+  AnimatePresence,
+  useThemeName,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { EPageType, usePageType } from '../../hocs';
+import { useIsModalPage } from '../../hocs';
 import { useIsIpadLandscape } from '../../hooks/useOrientation';
 import { Spinner, Stack, View } from '../../primitives';
 
@@ -25,7 +28,7 @@ function Loading() {
 // On iOS, in the tab container, when initializing the page,
 //  the elements cannot fill the container space, so a minimum height needs to be set
 const useMinHeight = (isFullPage: boolean) => {
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const tabHeight = useTabBarHeight();
   const isIpadLandscape = useIsIpadLandscape();
   return useMemo(() => {
@@ -35,7 +38,7 @@ const useMinHeight = (isFullPage: boolean) => {
     if (!isFullPage) {
       return undefined;
     }
-    if (pageType !== EPageType.modal) {
+    if (!isModalPage) {
       if (platformEnv.isNativeIOSPad) {
         if (isIpadLandscape) {
           return Math.min(
@@ -53,18 +56,23 @@ const useMinHeight = (isFullPage: boolean) => {
       return Dimensions.get('window').height - tabHeight;
     }
     return undefined;
-  }, [isFullPage, isIpadLandscape, pageType, tabHeight]);
+  }, [isFullPage, isIpadLandscape, isModalPage, tabHeight]);
 };
 
+/**
+ * Renders a status bar with the appropriate style based on the current theme and whether the page is a modal.
+ *
+ * Uses a light content style for dark themes or modal pages, and a dark content style otherwise.
+ */
 function PageStatusBar() {
-  const pageType = usePageType();
+  const isModalPage = useIsModalPage();
   const themeName: 'light' | 'dark' = useThemeName();
 
   if (themeName === 'dark') {
     return <StatusBar animated barStyle="light-content" />;
   }
 
-  if (pageType === EPageType.modal) {
+  if (isModalPage) {
     return <StatusBar animated barStyle="light-content" />;
   }
   return <StatusBar animated barStyle="dark-content" />;
@@ -78,12 +86,15 @@ function LoadingScreen({
   const [showChildren, changeChildrenVisibleStatus] = useState(false);
 
   useEffect(() => {
-    setTimeout(() => {
-      changeChildrenVisibleStatus(true);
-      setTimeout(() => {
-        changeLoadingVisibleStatus(false);
-      }, 0);
-    }, 0);
+    setTimeout(
+      () => {
+        changeChildrenVisibleStatus(true);
+        setTimeout(() => {
+          changeLoadingVisibleStatus(false);
+        }, 250);
+      },
+      platformEnv.isNativeAndroid ? 80 : 0,
+    );
   }, []);
 
   const minHeight = useMinHeight(fullPage);
@@ -116,18 +127,17 @@ function LoadingScreen({
 
 export function BasicPage({
   children,
-  skipLoading = true,
+  lazyLoad = false,
   fullPage = false,
 }: IBasicPageProps) {
   return (
     <Stack bg="$bgApp" flex={1}>
       {platformEnv.isNativeIOS ? <PageStatusBar /> : undefined}
-      {/* {skipLoading ? (
-        children
-      ) : (
+      {lazyLoad ? (
         <LoadingScreen fullPage={fullPage}>{children}</LoadingScreen>
-      )} */}
-      {children}
+      ) : (
+        children
+      )}
     </Stack>
   );
 }

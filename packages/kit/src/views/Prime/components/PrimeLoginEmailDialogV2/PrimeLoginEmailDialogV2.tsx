@@ -8,6 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
@@ -68,6 +69,8 @@ export function PrimeLoginEmailDialogV2(props: {
       );
 
       try {
+        onComplete?.();
+        await timerUtils.wait(550);
         const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
@@ -90,7 +93,6 @@ export function PrimeLoginEmailDialogV2(props: {
             />
           ),
         });
-        onComplete?.();
       } catch (error) {
         preventClose?.();
         throw error;

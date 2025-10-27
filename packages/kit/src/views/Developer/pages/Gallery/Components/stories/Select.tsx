@@ -126,12 +126,14 @@ const sections: ISelectSection[] = [
         label: 'Apple🍎',
         value: 'Apple',
         leading: <SizableText size="$bodyMdMedium">😀</SizableText>,
+        description: 'Apple description',
       },
 
       {
         label: 'Pear🌰',
         value: 'Pear',
         leading: <SizableText size="$bodyMdMedium">🚅</SizableText>,
+        description: 'Pear description',
       },
 
       {
@@ -191,7 +193,7 @@ const SelectDefaultValue = () => {
 
 const SelectGallery = () => (
   <Layout
-    filePath={__CURRENT_FILE_PATH__}
+    getFilePath={() => __CURRENT_FILE_PATH__}
     componentName="Select"
     elements={[
       {

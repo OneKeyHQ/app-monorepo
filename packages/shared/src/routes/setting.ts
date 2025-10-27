@@ -7,14 +7,18 @@ export enum EModalSettingRoutes {
   SettingSpendUTXOModal = 'SettingSpendUTXOModal',
   SettingCustomRPC = 'SettingCustomRPC',
   SettingCustomTransaction = 'SettingCustomTransaction',
+  SettingPerpUserConfig = 'SettingPerpUserConfig',
   SettingCustomNetwork = 'SettingCustomNetwork',
   SettingAppAutoLockModal = 'SettingAppAutoLockModal',
   SettingProtectModal = 'SettingProtectModal',
   SettingSignatureRecordModal = 'SettingSignatureRecordModal',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
+  SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
   SettingDevDesktopApiProxyTestModal = 'SettingDevDesktopApiProxyTestModal',
+  SettingDevPerpGalleryModal = 'SettingDevPerpGalleryModal',
+  SettingDevCryptoGalleryModal = 'SettingDevCryptoGalleryModal',
   SettingExportCustomNetworkConfig = 'SettingExportCustomNetworkConfig',
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
@@ -41,12 +45,16 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingProtectModal]: undefined;
   [EModalSettingRoutes.SettingSignatureRecordModal]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
+  [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;
   [EModalSettingRoutes.SettingDevDesktopApiProxyTestModal]: undefined;
+  [EModalSettingRoutes.SettingDevPerpGalleryModal]: undefined;
+  [EModalSettingRoutes.SettingDevCryptoGalleryModal]: undefined;
   [EModalSettingRoutes.SettingExportCustomNetworkConfig]: undefined;
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
   [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
+  [EModalSettingRoutes.SettingPerpUserConfig]: undefined;
 };

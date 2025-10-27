@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo } from 'react';
 
-import { RefreshControl, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
@@ -10,12 +10,9 @@ import {
   Page,
   ScrollView,
   SizableText,
-  Skeleton,
   Stack,
-  Tab,
   XStack,
 } from '@onekeyhq/components';
-import { getTokens } from '@onekeyhq/components/src/hooks';
 import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -66,7 +63,6 @@ const ListRoute = () => (
 
 function HomePage() {
   const screenWidth = useWindowDimensions().width;
-  const sideBarWidth = getTokens().size.sideBarWidth.val;
   const actions = useAccountSelectorActions();
 
   const onRefresh = useCallback(() => {
@@ -151,7 +147,7 @@ function HomePage() {
           )}
         />
         <Page.Body alignItems="center">
-          <Tab
+          {/* <Tab
             data={data}
             ListHeaderComponent={<>{renderHeaderView()}</>}
             initialScrollIndex={3}
@@ -165,18 +161,11 @@ function HomePage() {
               <RefreshControl refreshing={false} onRefresh={onRefresh} />
             }
             showsVerticalScrollIndicator={false}
-          />
+          /> */}
         </Page.Body>
       </Page>
     ),
-    [
-      data,
-      renderHeaderView,
-      screenWidth,
-      sideBarWidth,
-      onRefresh,
-      navigateAccountManagerStacks,
-    ],
+    [navigateAccountManagerStacks],
   );
 }
 

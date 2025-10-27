@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
-import { analyzeSecurityData } from '../utils';
+import { analyzeSecurityData, formatSecurityData } from '../utils';
 
 import type {
   IUseTokenSecurityParams,
@@ -21,12 +21,10 @@ export const useTokenSecurity = ({
       }
 
       const batchData =
-        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity([
-          {
-            contractAddress: tokenAddress,
-            chainId: networkId,
-          },
-        ]);
+        await backgroundApiProxy.serviceMarketV2.fetchMarketTokenSecurity({
+          contractAddress: tokenAddress,
+          chainId: networkId,
+        });
 
       const tokenSecurityData =
         batchData[tokenAddress] || batchData[tokenAddress.toLowerCase()];
@@ -39,14 +37,31 @@ export const useTokenSecurity = ({
     },
   );
 
-  const { securityStatus, warningCount } = useMemo(() => {
-    const { status, count } = analyzeSecurityData(securityData);
-    return { securityStatus: status, warningCount: count };
-  }, [securityData]);
+  // Note: Removed trusted_token special handling since we now use dynamic structure
+  // and rely on API's riskType directly. Backend should handle data filtering.
+
+  const { securityStatus, riskCount, cautionCount, formattedData } =
+    useMemo(() => {
+      const {
+        status,
+        riskCount: risks,
+        cautionCount: cautions,
+      } = analyzeSecurityData(securityData);
+      const formatted = formatSecurityData(securityData);
+
+      return {
+        securityStatus: status,
+        riskCount: risks,
+        cautionCount: cautions,
+        formattedData: formatted,
+      };
+    }, [securityData]);
 
   return {
     securityData,
     securityStatus,
-    warningCount,
+    riskCount,
+    cautionCount,
+    formattedData,
   };
 };

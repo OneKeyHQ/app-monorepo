@@ -124,6 +124,9 @@ export type IUnsignedTxPro = IUnsignedTx & {
 
   isKRC20RevealTx?: boolean;
   commitTxScriptHex?: string;
+
+  accountId?: string;
+  networkId?: string;
 };
 export type ISignedTx = {
   txid: string;

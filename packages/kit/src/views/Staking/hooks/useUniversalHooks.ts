@@ -9,10 +9,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
-import type {
-  EApproveType,
-  IStakeTxResponse,
-  IStakingInfo,
+import {
+  type EApproveType,
+  EInternalDappEnum,
+  type IStakeTxResponse,
+  type IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -73,7 +74,7 @@ export function useUniversalStake({
       symbol,
       term,
       feeRate,
-      morphoVault,
+      protocolVault,
       approveType,
       permitSignature,
       provider,
@@ -85,7 +86,7 @@ export function useUniversalStake({
       symbol: string;
       term?: number;
       feeRate?: number;
-      morphoVault?: string;
+      protocolVault?: string;
       approveType?: EApproveType;
       permitSignature?: string;
       provider: string;
@@ -102,16 +103,18 @@ export function useUniversalStake({
           term,
           provider,
           feeRate,
-          morphoVault,
+          protocolVault,
           approveType,
           permitSignature,
         });
 
-      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-        networkId,
-        accountId,
-        tx: stakeTx.tx,
-      });
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+          networkId,
+          accountId,
+          tx: stakeTx.tx,
+          internalDappType: EInternalDappEnum.Staking,
+        });
 
       let useFeeInTx;
       let feeInfoEditable;
@@ -165,7 +168,7 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
-      morphoVault,
+      protocolVault,
       withdrawAll,
       stakingInfo,
       onSuccess,
@@ -175,7 +178,7 @@ export function useUniversalWithdraw({
       symbol: string;
       provider: string;
       identity?: string;
-      morphoVault?: string;
+      protocolVault?: string;
       withdrawAll: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -238,15 +241,17 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
-            morphoVault,
+            protocolVault,
             withdrawAll,
           });
       }
-      const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-        networkId,
-        accountId,
-        tx: stakeTx.tx,
-      });
+      const encodedTx =
+        await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+          networkId,
+          accountId,
+          tx: stakeTx.tx,
+          internalDappType: EInternalDappEnum.Staking,
+        });
       let useFeeInTx;
       let feeInfoEditable;
       if (
@@ -316,7 +321,7 @@ export function useUniversalClaim({
       amount,
       provider,
       claimTokenAddress,
-      morphoVault,
+      protocolVault,
       vault,
       symbol,
       stakingInfo,
@@ -328,7 +333,7 @@ export function useUniversalClaim({
       symbol: string;
       provider: string;
       claimTokenAddress?: string;
-      morphoVault?: string;
+      protocolVault?: string;
       stakingInfo?: IStakingInfo;
       vault: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -346,11 +351,13 @@ export function useUniversalClaim({
             claimTokenAddress,
             vault,
           });
-        const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
-          networkId,
-          accountId,
-          tx: stakeTx.tx,
-        });
+        const encodedTx =
+          await backgroundApiProxy.serviceStaking.buildInternalDappTx({
+            networkId,
+            accountId,
+            tx: stakeTx.tx,
+            internalDappType: EInternalDappEnum.Staking,
+          });
         let useFeeInTx;
         let feeInfoEditable;
         if (
@@ -394,7 +401,7 @@ export function useUniversalClaim({
             symbol,
             action: 'claim',
             amount,
-            morphoVault,
+            protocolVault,
             identity,
             accountAddress: account.address,
           });

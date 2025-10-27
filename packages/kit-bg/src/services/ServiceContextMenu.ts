@@ -277,7 +277,7 @@ class ServiceContextMenu extends ServiceBase {
     );
     return {
       isDefaultWallet: result.isDefaultWallet,
-      excludedDappListWithLogo,
+      excludedDappListWithLogo: excludedDappListWithLogo.toReversed(),
     };
   }
 }

@@ -13,7 +13,9 @@ import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/a
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
+import type { IOneKeyHardwareErrorPayload } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -24,6 +26,8 @@ import { EAppEventBusNames } from './appEventBusNames';
 
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
+import type { ESubscriptionType } from '../../types/hyperliquid/types';
+import type { INotificationViewDialogPayload } from '../../types/notification';
 import type { IPrimeTransferData } from '../../types/prime/primeTransferTypes';
 import type {
   ESwapCrossChainStatus,
@@ -36,7 +40,23 @@ import type {
 } from '../../types/swap/types';
 import type { IAccountToken, ITokenFiat } from '../../types/token';
 import type { IOneKeyError } from '../errors/types/errorTypes';
+import type { IWalletConnectSession } from '../walletConnect/types';
 import type { FuseResult } from 'fuse.js';
+
+// Supported hardware error types for dialog display
+export const HARDWARE_ERROR_DIALOG_TYPES = {
+  DEVICE_NOT_FOUND: 'DeviceNotFound',
+  NEED_ONEKEY_BRIDGE: 'NeedOneKeyBridge',
+  DEVICE_NOT_OPENED_PASSPHRASE: 'DeviceNotOpenedPassphrase',
+} as const;
+
+// Hardware error dialog event payload type
+export interface IHardwareErrorDialogPayload {
+  errorType: string; // Extensible but type-safe error types
+  payload?: IOneKeyHardwareErrorPayload | Record<string, unknown>; // Original error payload with type safety
+  errorCode?: number | string; // Hardware error code
+  errorMessage?: string; // Error message
+}
 
 export enum EFinalizeWalletSetupSteps {
   CreatingWallet = 'CreatingWallet',
@@ -101,6 +121,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.NetworkDeriveTypeChanged]: undefined;
   [EAppEventBusNames.AccountSelectorSelectedAccountUpdate]: {
     selectedAccount: IAccountSelectorSelectedAccount;
+    selectedAccountUpdatedAt: number | undefined;
     sceneName: EAccountSelectorSceneName;
     sceneUrl?: string;
     num: number;
@@ -126,6 +147,12 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletConnectCloseModal]: undefined;
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
+  };
+  [EAppEventBusNames.WalletConnectConnectSuccess]: {
+    session: IWalletConnectSession;
+  };
+  [EAppEventBusNames.WalletConnectConnectError]: {
+    error: IOneKeyError;
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowAirGapQrcode]: {
@@ -204,6 +231,7 @@ export interface IAppEventBusPayload {
         }[];
       };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
+  [EAppEventBusNames.RefreshApprovalList]: undefined;
   [EAppEventBusNames.RefreshBookmarkList]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
@@ -287,6 +315,9 @@ export interface IAppEventBusPayload {
     promiseId: number;
     walletId: string;
   };
+  [EAppEventBusNames.doubleConfirmTxFeeInfo]: {
+    promiseId: number;
+  };
   [EAppEventBusNames.HardwareFeaturesUpdate]: {
     deviceId: string;
   };
@@ -296,9 +327,10 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.AddressBookUpdate]: undefined;
   [EAppEventBusNames.MarketWSDataUpdate]: {
     channel: string;
-    networkId: string;
     tokenAddress: string;
+    messageType?: string;
     data: any;
+    originalData?: any;
   };
   [EAppEventBusNames.MarketWatchlistOnlyChanged]: {
     showWatchlistOnly: boolean;
@@ -319,9 +351,47 @@ export interface IAppEventBusPayload {
     features?: any;
     promiseId?: number;
   };
-  [EAppEventBusNames.DesktopBleRepairProgress]: {
-    stage: 'searching' | 'matching' | 'connecting' | 'success' | 'failed';
-    message: string;
+  [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
+  [EAppEventBusNames.SwapPanelDismissKeyboard]: undefined;
+  [EAppEventBusNames.HyperliquidDataUpdate]: {
+    type: string;
+    subType: ESubscriptionType;
+    data: unknown;
+  };
+  [EAppEventBusNames.HyperliquidConnectionChange]: {
+    type: 'connection';
+    subType: 'datastream';
+    data: {
+      status: 'connected' | 'disconnected';
+      lastConnected: number;
+      service: string;
+      activeSubscriptions: number;
+    };
+    metadata: {
+      timestamp: number;
+      source: string;
+    };
+  };
+  [EAppEventBusNames.ShowFallbackUpdateDialog]: {
+    version: string | null | undefined;
+  };
+  [EAppEventBusNames.ShowNotificationViewDialog]: {
+    payload: INotificationViewDialogPayload;
+  };
+  [EAppEventBusNames.ShowNotificationPageNavigation]: {
+    payload: {
+      screen: string;
+      params: Record<string, any>;
+    };
+  };
+  [EAppEventBusNames.UpdateNotificationBadge]: undefined;
+  [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
+  [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
+  [EAppEventBusNames.ClientLogUploadProgress]: {
+    stage: ELogUploadStage;
+    progressPercent?: number;
+    retry?: number;
+    message?: string;
   };
 }
 

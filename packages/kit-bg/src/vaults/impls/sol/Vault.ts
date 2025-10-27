@@ -45,6 +45,7 @@ import { isEmpty, isNil } from 'lodash';
 
 import { BLOCK_HASH_NOT_FOUND_ERROR_CODE } from '@onekeyhq/core/src/chains/sol/constants';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import { verifySignedMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/signMessage';
 import type {
   IDecodedTxExtraSol,
   IEncodedTxSol,
@@ -78,6 +79,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IVerifyMessageParams } from '@onekeyhq/shared/types/message';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
@@ -105,6 +107,7 @@ import {
   CREATE_TOKEN_ACCOUNT_RENT,
   MIN_PRIORITY_FEE,
   TOKEN_AUTH_RULES_ID,
+  isCustomProgram,
   isTxOverSize,
   masterEditionAddress,
   metadataAddress,
@@ -804,11 +807,17 @@ export default class Vault extends VaultBase {
     isNFT: boolean | undefined;
     amountToSend: string | undefined;
   }) {
-    const actions: Array<IDecodedTxAction> = [];
+    let actions: Array<IDecodedTxAction> = [];
 
     const createdAta: Record<string, IAssociatedTokenInfo> = {};
 
+    let hasCustomProgram = false;
+
     for (const instruction of instructions) {
+      if (isCustomProgram(instruction.programId.toString())) {
+        hasCustomProgram = true;
+      }
+
       // TODO: only support system transfer & token transfer now
       if (
         instruction.programId.toString() === SystemProgram.programId.toString()
@@ -985,6 +994,14 @@ export default class Vault extends VaultBase {
         }
       }
     }
+
+    // If the instruction contains custom instructions,
+    // the client will parse it as an unknown instruction,
+    // and the server will parse it specifically
+    if (hasCustomProgram) {
+      actions = [];
+    }
+
     if (actions.length === 0) {
       const accountAddress = await this.getAccountAddress();
       actions.push({
@@ -1297,6 +1314,22 @@ export default class Vault extends VaultBase {
   ): Promise<IGeneralInputValidation> {
     const { result } = await this.baseValidateGeneralInput(params);
     return result;
+  }
+
+  override async verifyMessage(
+    params: IVerifyMessageParams,
+  ): Promise<{ valid: boolean }> {
+    const { message, address, signature } = params;
+
+    const valid = verifySignedMessage({
+      message,
+      address,
+      signature,
+    });
+
+    return Promise.resolve({
+      valid,
+    });
   }
 
   override async buildEstimateFeeParams({

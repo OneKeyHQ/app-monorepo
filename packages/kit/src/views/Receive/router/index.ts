@@ -18,9 +18,20 @@ const TokenSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
 );
 
+const AggregateTokenSelector = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/AssetSelector/pages/AggregateTokenSelector'
+    ),
+);
+
 const DeriveTypesAddress = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
+);
+
+const BtcAddresses = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Receive/pages/BtcAddresses'),
 );
 
 export const ModalReceiveStack: IModalFlowNavigatorConfig<
@@ -44,7 +55,15 @@ export const ModalReceiveStack: IModalFlowNavigatorConfig<
     component: TokenSelector,
   },
   {
+    name: EModalReceiveRoutes.ReceiveSelectAggregateToken,
+    component: AggregateTokenSelector,
+  },
+  {
     name: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
     component: DeriveTypesAddress,
+  },
+  {
+    name: EModalReceiveRoutes.BtcAddresses,
+    component: BtcAddresses,
   },
 ];

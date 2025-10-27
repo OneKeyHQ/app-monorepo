@@ -1,6 +1,7 @@
 import MobileDetect from 'mobile-detect';
 import { Platform } from 'react-native';
 
+import { ANDROID_CHANNEL } from './androidNativeEnv';
 import appGlobals from './appGlobals';
 import { isWebInDappMode } from './utils/devModeUtils';
 
@@ -43,6 +44,8 @@ export type IPlatformEnv = {
 
   appFullName: string;
   version: string | undefined;
+  androidChannel: string | undefined;
+  bundleVersion: string | undefined;
   buildNumber: string | undefined;
   buildTime: number | undefined;
   githubSHA: string | undefined;
@@ -119,6 +122,7 @@ export type IPlatformEnv = {
   isExtensionUiExpandTab?: boolean;
   isExtensionUiSidePanel?: boolean;
   isExtensionUiStandaloneWindow?: boolean;
+  isExtensionDevelopmentBuild?: boolean;
 
   isRuntimeBrowser?: boolean;
   isRuntimeMacOSBrowser?: boolean;
@@ -162,16 +166,17 @@ const {
   isE2E: boolean;
 } = require('./buildTimeEnv.js');
 
-const isDesktopMac = isDesktop && globalThis?.desktopApi?.platform === 'darwin';
-const isDesktopMacArm64 =
-  isDesktopMac && globalThis?.desktopApi?.arch === 'arm64';
-const isDesktopWin = isDesktop && globalThis?.desktopApi?.platform === 'win32';
-const isDesktopWinMsStore =
-  isDesktopWin && process.env.DESK_CHANNEL === 'ms-store';
-const isDesktopLinux =
-  isDesktop && globalThis?.desktopApi?.platform === 'linux';
-const isDesktopLinuxSnap =
-  isDesktopLinux && globalThis?.desktopApi?.channel === 'snap';
+const desktopDeskChannel = globalThis?.desktopApi?.deskChannel || '';
+const desktopArch = globalThis?.desktopApi?.arch || '';
+const desktopPlatform = globalThis?.desktopApi?.platform || '';
+const desktopChannel = globalThis?.desktopApi?.channel || '';
+
+const isDesktopMac = isDesktop && desktopPlatform === 'darwin';
+const isDesktopMacArm64 = isDesktopMac && desktopArch === 'arm64';
+const isDesktopWin = isDesktop && desktopPlatform === 'win32';
+const isDesktopWinMsStore = isDesktopWin && desktopDeskChannel === 'ms-store';
+const isDesktopLinux = isDesktop && desktopPlatform === 'linux';
+const isDesktopLinuxSnap = isDesktopLinux && desktopChannel === 'snap';
 
 const isNativeIOS = isNative && Platform.OS === 'ios';
 const isNativeIOSStore = isNativeIOS && isProduction;
@@ -180,10 +185,10 @@ const isNativeIOSPhone =
 const isNativeIOSPad = isNative && Platform.OS === 'ios' && Platform.isPad;
 const isNativeIOSPadStore = isNativeIOSPad && isProduction;
 const isNativeAndroid = isNative && Platform.OS === 'android';
+const androidChannel = ANDROID_CHANNEL;
 const isNativeAndroidGooglePlay =
-  isNativeAndroid && process.env.ANDROID_CHANNEL === 'google';
-const isNativeAndroidHuawei =
-  isNativeAndroid && process.env.ANDROID_CHANNEL === 'huawei';
+  isNativeAndroid && androidChannel === 'google';
+const isNativeAndroidHuawei = isNativeAndroid && androidChannel === 'huawei';
 const isMas = isDesktop && globalThis?.desktopApi?.isMas;
 
 // for platform building by file extension
@@ -384,10 +389,10 @@ const isRuntimeChrome = checkIsRuntimeChrome();
 const isRuntimeEdge = checkIsRuntimeEdge();
 const isRuntimeBrave = checkIsRuntimeBrave();
 const isRuntimeMacOSBrowser = isDesktopMac || checkIsRuntimeMacOSBrowser();
-const isSupportWebUSB = isExtension || isWeb;
+// Desktop (Electron) now supports WebUSB directly through Chromium, no need for bridge
+const isSupportWebUSB = isExtension || isWeb || isDesktop;
 
-// const isSupportDesktopBle = isDesktopMac;
-const isSupportDesktopBle = false;
+const isSupportDesktopBle = isDesktopMac || isDesktopWin;
 
 // Ext manifest v2 background
 export const isExtensionBackgroundHtml: boolean =
@@ -435,6 +440,13 @@ export const isExtensionUiStandaloneWindow: boolean =
   isExtensionUi &&
   globalThis.location.pathname.startsWith('/ui-standalone-window.html');
 
+export const isExtensionDevelopmentBuild: boolean =
+  isExtension &&
+  (globalThis.chrome?.runtime
+    ?.getManifest?.()
+    ?.name?.includes('DEVELOPMENT BUILD') ||
+    false);
+
 export const isManifestV3: boolean =
   // TODO firefox check v3
   isExtension && chrome?.runtime?.getManifest?.()?.manifest_version === 3;
@@ -449,7 +461,9 @@ const platformEnv: IPlatformEnv = {
   isNewRouteMode: true,
 
   appFullName: '',
+  androidChannel,
   version: process.env.VERSION,
+  bundleVersion: process.env.BUNDLE_VERSION,
   buildNumber: process.env.BUILD_NUMBER,
   buildTime: Number(process.env.BUILD_TIME) || undefined,
   githubSHA: process.env.WORKFLOW_GITHUB_SHA || process.env.GITHUB_SHA,
@@ -511,6 +525,7 @@ const platformEnv: IPlatformEnv = {
   isExtensionUiSidePanel,
   isExtensionUiStandaloneWindow,
   isExtFirefoxUiPopup: isExtFirefox && isExtensionUiPopup,
+  isExtensionDevelopmentBuild,
 
   isRuntimeBrowser,
   isRuntimeMacOSBrowser,

@@ -26,7 +26,7 @@ export default function useScanQrCode() {
   const navigation = useAppNavigation();
   const parseQRCode = useParseQRCode();
   const start = useCallback(
-    ({
+    async ({
       autoHandleResult = false,
       handlers,
       account,
@@ -34,45 +34,49 @@ export default function useScanQrCode() {
       tokens,
       qrWalletScene = false,
       showProTutorial = false,
-    }: IQRCodeHandlerParseOutsideOptions) =>
-      new Promise<IQRCodeHandlerParseResult<IBaseValue>>((resolve, reject) => {
-        void backgroundApiProxy.serviceScanQRCode.resetAnimationData();
+    }: IQRCodeHandlerParseOutsideOptions) => {
+      const result = await new Promise<IQRCodeHandlerParseResult<IBaseValue>>(
+        (resolve, reject) => {
+          void backgroundApiProxy.serviceScanQRCode.resetAnimationData();
 
-        navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
-          screen: EScanQrCodeModalPages.ScanQrCodeStack,
-          params: {
-            qrWalletScene,
-            showProTutorial,
-            callback: async ({ value, popNavigation }) => {
-              if (value?.length > 0) {
-                const parseValue = await parseQRCode.parse(value, {
-                  autoHandleResult,
-                  handlers,
-                  account,
-                  network,
-                  tokens,
-                  popNavigation,
-                });
-                if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
-                  const animationValue = parseValue.data as IAnimationValue;
-                  if (animationValue.fullData) {
-                    parseValue.raw = animationValue.fullData;
-                    resolve(parseValue);
+          navigation.pushModal(EModalRoutes.ScanQrCodeModal, {
+            screen: EScanQrCodeModalPages.ScanQrCodeStack,
+            params: {
+              qrWalletScene,
+              showProTutorial,
+              callback: async ({ value, popNavigation }) => {
+                if (value?.length > 0) {
+                  const parseValue = await parseQRCode.parse(value, {
+                    autoHandleResult,
+                    handlers,
+                    account,
+                    network,
+                    tokens,
+                    popNavigation,
+                  });
+                  if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
+                    const animationValue = parseValue.data as IAnimationValue;
+                    if (animationValue.fullData) {
+                      parseValue.raw = animationValue.fullData;
+                      resolve(parseValue);
+                    }
+                    Haptics.impact(ImpactFeedbackStyle.Light);
+                    return {
+                      progress: animationValue.progress,
+                    };
                   }
-                  Haptics.impact(ImpactFeedbackStyle.Light);
-                  return {
-                    progress: animationValue.progress,
-                  };
+                  resolve(parseValue);
+                  return {};
                 }
-                resolve(parseValue);
+                reject(new OneKeyErrorScanQrCodeCancel());
                 return {};
-              }
-              reject(new OneKeyErrorScanQrCodeCancel());
-              return {};
+              },
             },
-          },
-        });
-      }),
+          });
+        },
+      );
+      return result;
+    },
     [navigation, parseQRCode],
   );
   return useMemo(() => ({ start, PARSE_HANDLER_NAMES }), [start]);

@@ -2,23 +2,27 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { Image as ExpoImage } from 'expo-image';
 import { StyleSheet } from 'react-native';
-import { usePropsAndStyle } from 'tamagui';
+
+import { usePropsAndStyle } from '@onekeyhq/components/src/shared/tamagui';
 
 import { Skeleton } from '../Skeleton';
+import { Stack } from '../Stack';
 
 import { AnimatedExpoImage } from './AnimatedImage';
 import { useImage } from './useImage';
+import { isEmptyResolvedSource, useResetError } from './utils';
 
 import type { IImageV2Props } from './type';
 import type { ImageErrorEventData, ImageSource, ImageStyle } from 'expo-image';
 
 const getRandomRetryTimes = () => {
-  return Math.floor(Math.random() * 2) * 1000;
+  return Math.floor(Math.random() * 3) * 1000;
 };
 
 export function ImageV2({
   style: defaultStyle,
   animated,
+  canRetry = true,
   ...props
 }: IImageV2Props) {
   const sizeProps = useMemo(() => {
@@ -60,23 +64,30 @@ export function ImageV2({
     onDisplay,
     ...imageProps
   } = restProps;
-  const retryTimesLimit = useRef<number>(defaultRetryTimes || 5);
+  const retryTimesLimit = useRef<number>(defaultRetryTimes || 1);
   const retryTimes = useRef<number>(0);
 
   const [hasError, setHasError] = useState(false);
   const { image, reFetchImage } = useImage((source as ImageSource) || src, {
     onError(error, retry) {
       console.error('Loading failed:', error.message);
-      if (retryTimes.current < retryTimesLimit.current) {
+      if (canRetry && retryTimes.current < retryTimesLimit.current) {
         retryTimes.current += 1;
         setTimeout(() => {
           retry();
-        }, getRandomRetryTimes() + retryTimes.current * 1000);
+        }, getRandomRetryTimes());
       } else {
         setHasError(true);
       }
     },
   });
+
+  const onResetError = useCallback((error: boolean) => {
+    setHasError(error);
+    retryTimes.current = 0;
+  }, []);
+
+  useResetError(image, hasError, onResetError);
 
   const handleError = useCallback(
     (event: ImageErrorEventData) => {
@@ -87,8 +98,20 @@ export function ImageV2({
   );
 
   if (!image) {
-    if (hasError) {
-      return fallback;
+    if (hasError || isEmptyResolvedSource(source as ImageSource | null)) {
+      return (
+        <Stack
+          style={{
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            ...style,
+          }}
+        >
+          {fallback}
+        </Stack>
+      );
     }
     return skeleton || <Skeleton width={style.width} height={style.height} />;
   }

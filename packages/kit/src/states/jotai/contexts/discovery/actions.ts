@@ -320,9 +320,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     (
       get,
       set,
-      payload: { tabId: string; entry: 'Menu' | 'ShortCut' | 'BlockView' },
+      payload: {
+        tabId: string;
+        entry: 'Menu' | 'ShortCut' | 'BlockView';
+        isDesktop?: boolean;
+        navigation?: ReturnType<typeof useAppNavigation>;
+      },
     ) => {
-      const { tabId, entry } = payload;
+      const { tabId, entry, navigation } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
@@ -358,6 +363,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTab) {
             newActiveTab.isActive = true;
             this.setCurrentWebTab.call(set, newActiveTab.id);
+          } else if (platformEnv.isDesktop) {
+            // if the new active tab is not in tabs, switch to Discovery (Desktop only)
+            navigation?.switchTab(ETabRoutes.Discovery);
           }
         };
 
@@ -505,7 +513,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { data, isRemove, options, skipSaveLocalSyncItem } = payload;
       const isReady = get(browserDataReadyAtom());
       // web always ready
-      const isBrowserDataReady = isReady || platformEnv.isWeb;
+      const isBrowserDataReady =
+        isReady || platformEnv.isWeb || platformEnv.isExtension;
       if (!isBrowserDataReady && !options?.isInitFromStorage) {
         return;
       }
@@ -583,6 +592,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         next: IBrowserBookmark | undefined;
       },
     ) => {
+      console.log('sortBrowserBookmark_____', payload);
       const { target, prev, next } = payload;
       const newSortIndex = sortUtils.buildNewSortIndex({
         target,
@@ -896,17 +906,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           return;
         }
 
-        void this.gotoSite.call(set, {
-          url,
-          title,
-          favicon,
-          isNewWindow,
-          isInPlace,
-          id: tab.id,
-        });
+        // Only call gotoSite for real navigation, not SPA route changes
+        // SPA route changes typically have loading: false and navigationType: "other"
+        if (loading) {
+          void this.gotoSite.call(set, {
+            url,
+            title,
+            favicon,
+            isNewWindow,
+            isInPlace,
+            id: tab.id,
+          });
+        }
       }
 
       this.setWebTabData.call(set, {
+        displayUrl: url,
         id: tab.id,
         title,
         favicon,

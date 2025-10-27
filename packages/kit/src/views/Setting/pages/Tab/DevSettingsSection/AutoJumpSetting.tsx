@@ -27,6 +27,7 @@ export const AutoJumpSetting = memo(() => {
     <YStack>
       <YStack borderRadius="$2" overflow="hidden">
         <ListItem
+          icon="UfoOutline"
           title="Auto Jump on Launch"
           onPress={() => {
             setDevSettings((prev) => ({

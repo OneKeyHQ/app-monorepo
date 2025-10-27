@@ -1,4 +1,5 @@
 import {
+  Divider,
   Icon,
   ScrollView,
   SizableText,
@@ -12,15 +13,18 @@ import { formatSecurityData } from '../utils';
 
 import { TokenSecurityAlertDialogContentItem } from './TokenSecurityAlertDialogContentItem';
 import { TokenSecurityAlertDialogContentOverview } from './TokenSecurityAlertDialogContentOverview';
+import { TokenSecurityDisclaimer } from './TokenSecurityDisclaimer';
 
 type ITokenSecurityAlertDialogContentProps = {
   securityData: IMarketTokenSecurityData | null;
-  warningCount: number;
+  riskCount: number;
+  cautionCount: number;
 };
 
 function TokenSecurityAlertDialogContent({
   securityData,
-  warningCount,
+  riskCount,
+  cautionCount,
 }: ITokenSecurityAlertDialogContentProps) {
   const formattedData = formatSecurityData(securityData);
 
@@ -28,10 +32,13 @@ function TokenSecurityAlertDialogContent({
     <ScrollView maxHeight="$96">
       <Stack gap="$4">
         {/* Overview section with warning count */}
-        <TokenSecurityAlertDialogContentOverview warningCount={warningCount} />
+        <TokenSecurityAlertDialogContentOverview
+          riskCount={riskCount}
+          cautionCount={cautionCount}
+        />
 
         {formattedData.length > 0 ? (
-          <YStack>
+          <YStack gap="$4">
             {formattedData.map((item) => {
               return (
                 <TokenSecurityAlertDialogContentItem
@@ -45,13 +52,18 @@ function TokenSecurityAlertDialogContent({
 
         {securityData && formattedData.length === 0 ? (
           <XStack gap="$2" alignItems="center" justifyContent="center" py="$4">
-            <Icon name="CheckRadioSolid" size="$4" color="$iconSuccess" />
+            <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />
 
             <SizableText color="$textSuccess">
               No security issues detected
             </SizableText>
           </XStack>
         ) : null}
+
+        <Divider />
+
+        {/* Disclaimer */}
+        <TokenSecurityDisclaimer />
       </Stack>
     </ScrollView>
   );

@@ -1,6 +1,5 @@
 export enum ESpotlightTour {
   createAllNetworks = 'createAllNetworks',
-  oneKeyProBanner = 'oneKeyProBanner',
   allNetworkAccountValue = 'allNetworkAccountValue',
   switchDappAccount = 'switchDappAccount',
   showFloatingIconDialog = 'showFloatingIconDialog',
@@ -9,6 +8,7 @@ export enum ESpotlightTour {
   earnRewardAlert = 'earnRewardAlert',
   allNetworksInfo = 'allNetworksInfo',
   earnRewardHistory = 'earnRewardHistory',
+  showDevelopmentBuildWarningDialog = 'showDevelopmentBuildWarningDialog',
 }
 
 export type ITourTripTimes = number;

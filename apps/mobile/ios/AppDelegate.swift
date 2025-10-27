@@ -1,7 +1,6 @@
 import Expo
 import React
 import ReactAppDependencyProvider
-import JPush
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -14,6 +13,7 @@ public class AppDelegate: ExpoAppDelegate {
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    LaunchOptionsManager.sharedInstance().saveStartupTime(NSNumber(value: Date().timeIntervalSince1970))
     let delegate = ReactNativeDelegate()
     let factory = ExpoReactNativeFactory(delegate: delegate)
     delegate.dependencyProvider = RCTAppDependencyProvider()
@@ -29,6 +29,15 @@ public class AppDelegate: ExpoAppDelegate {
       in: window,
       launchOptions: launchOptions)
 #endif
+
+    // Save launch options to LaunchOptionsManager
+    LaunchOptionsManager.sharedInstance().saveLaunchOptions(launchOptions)
+
+    // JPUSHService Register
+    let entity = JPUSHRegisterEntity()
+    entity.types = 0
+    JPUSHService.setDebugMode()
+    JPUSHService.register(forRemoteNotificationConfig: entity, delegate: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -53,17 +62,23 @@ public class AppDelegate: ExpoAppDelegate {
   
   // Register APNS & Upload DeviceToken
   public override func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    LaunchOptionsManager.sharedInstance().log("didRegisterForRemoteNotificationsWithDeviceToken")
     JPUSHService.registerDeviceToken(deviceToken)
+    LaunchOptionsManager.sharedInstance().saveDeviceToken(deviceToken)
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
-    return super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+    super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+    LaunchOptionsManager.sharedInstance().log("didFailToRegisterForRemoteNotificationsWithError error: \(error)")
   }
   
   // Explicitly define remote notification delegates to ensure compatibility with some third-party libraries
   public override func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable : Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
-    return super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+    LaunchOptionsManager.sharedInstance().log("didReceiveRemoteNotification")
+    JPUSHService.handleRemoteNotification(userInfo)
+    NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+    completionHandler(.newData)
   }
 }
 
@@ -79,7 +94,67 @@ class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
 #if DEBUG
     return RCTBundleURLProvider.sharedSettings().jsBundleURL(forBundleRoot: ".expo/.virtual-metro-entry")
 #else
+    // Check for updated bundle in Documents directory first
+    let bundlePath = BundleUpdateModule.currentBundleMainJSBundle()
+
+    if bundlePath != nil {
+      return URL(string: bundlePath!)
+    }
+
+    // Fallback to main bundle
     return Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
+  }
+}
+
+extension AppDelegate:JPUSHRegisterDelegate {
+  //MARK - JPUSHRegisterDelegate
+  @available(iOS 10.0, *)
+  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                               withCompletionHandler completionHandler: ((Int) -> Void)) {
+    let userInfo = notification.request.content.userInfo
+    
+    if (notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
+      JPUSHService.handleRemoteNotification(userInfo)
+      NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+      LaunchOptionsManager.sharedInstance().log("received remote notification: \(userInfo)")
+    } else {
+      NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_ARRIVED_EVENT), object: userInfo)
+      LaunchOptionsManager.sharedInstance().log("received local notification: \(userInfo)")
+    }
+    
+    completionHandler(Int(UNNotificationPresentationOptions.badge.rawValue | UNNotificationPresentationOptions.sound.rawValue | UNNotificationPresentationOptions.alert.rawValue))
+  }
+  
+  @available(iOS 10.0, *)
+  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: (() -> Void)) {
+    
+    let userInfo = response.notification.request.content.userInfo
+    if (response.notification.request.trigger?.isKind(of: UNPushNotificationTrigger.self) == true) {
+      JPUSHService.handleRemoteNotification(userInfo)
+      NotificationCenter.default.post(name: NSNotification.Name(J_APNS_NOTIFICATION_OPENED_EVENT), object: userInfo)
+      LaunchOptionsManager.sharedInstance().log("clicked remote notification: \(userInfo)")
+    } else {
+      LaunchOptionsManager.sharedInstance().log("clicked local notification: \(userInfo)")
+      NotificationCenter.default.post(name: NSNotification.Name(J_LOCAL_NOTIFICATION_OPENED_EVENT), object: userInfo)
+    }
+    
+    completionHandler()
+    
+  }
+  
+  public func jpushNotificationCenter(_ center: UNUserNotificationCenter, openSettingsFor notification: UNNotification) {
+    
+  }
+  
+  public func jpushNotificationAuthorization(_ status: JPAuthorizationStatus, withInfo info: [AnyHashable : Any]?) {
+    LaunchOptionsManager.sharedInstance().log("receive notification authorization status: \(status), info: \(String(describing: info))")
+  }
+  
+  
+  // //MARK - 自定义消息
+  func networkDidReceiveMessage(_ notification: NSNotification) {
+    let userInfo = notification.userInfo!
+    NotificationCenter.default.post(name: NSNotification.Name(J_CUSTOM_NOTIFICATION_EVENT), object: userInfo)
   }
 }

@@ -29,13 +29,27 @@ export interface ITokenDetailsContextValue {
   }) => void;
   updateTokenDetails: ({
     accountId,
+    networkId,
     isInit,
     data,
   }: {
     accountId: string;
+    networkId: string;
     isInit: boolean;
     data: IFetchTokenDetailItem;
   }) => void;
+  batchUpdateTokenDetails: (
+    details: {
+      accountId: string;
+      networkId: string;
+      isInit: boolean;
+      data: IFetchTokenDetailItem;
+    }[],
+  ) => void;
+  tokenAccountMap: Record<string, string>;
+  setTokenAccountMap: React.Dispatch<
+    React.SetStateAction<Record<string, string>>
+  >;
 }
 
 export const TokenDetailsContext = createContext<ITokenDetailsContextValue>({
@@ -45,6 +59,9 @@ export const TokenDetailsContext = createContext<ITokenDetailsContextValue>({
   updateIsLoadingTokenDetails: () => {},
   tokenDetails: {},
   updateTokenDetails: () => {},
+  batchUpdateTokenDetails: () => {},
+  tokenAccountMap: {},
+  setTokenAccountMap: () => {},
 });
 
 export const useTokenDetailsContext = () => useContext(TokenDetailsContext);

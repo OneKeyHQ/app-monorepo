@@ -6,9 +6,13 @@ import { TOAST_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import { View } from '../../primitives';
 
 function ToastContainer() {
-  return platformEnv.isNative ? (
-    <Toasts />
-  ) : (
+  if (platformEnv.isNativeIOS) {
+    // TODO:
+    // On iOS, need to create a higher level native view layer above window overlay
+    //  to ensure toasts are always visible
+    return <Toasts />;
+  }
+  return (
     <View
       position="absolute"
       left={0}

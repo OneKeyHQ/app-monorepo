@@ -1,11 +1,34 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable spellcheck/spell-checker */
+import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { ENetworkStatus } from '@onekeyhq/shared/types';
 
 import platformEnv from '../platformEnv';
+
+export const dangerAggregateTokenNetworkRepresent: IServerNetwork = {
+  'chainId': '0',
+  'code': 'aggregate',
+  'decimals': 0,
+  'id': AGGREGATE_TOKEN_MOCK_NETWORK_ID,
+  'impl': 'aggregate',
+  'isTestnet': false,
+  'isAllNetworks': false,
+  'name': 'Aggregate Token Network',
+  'logoURI': '',
+  'shortcode': 'aggregate',
+  'shortname': 'aggregate',
+  'symbol': 'AGGREGATE',
+  'feeMeta': {
+    'decimals': 0,
+    'symbol': '0',
+  },
+  'defaultEnabled': false,
+  'isAggregateNetwork': true,
+  'status': ENetworkStatus.LISTED,
+};
 
 // dangerNetwork represents a virtual network
 export const dangerAllNetworkRepresent: IServerNetwork = {
@@ -59,7 +82,7 @@ const eth: IServerNetwork = {
 };
 const bsc: IServerNetwork = {
   'impl': 'evm',
-  'chainId': '56',
+  'chainId': '56', // 0x38
   'id': 'evm--56',
   'name': 'BNB Chain',
   'symbol': 'BNB',
@@ -2566,6 +2589,66 @@ const joystream: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const hydradx: IServerNetwork = {
+  'chainId': 'hydration',
+  'code': 'hydration',
+  'decimals': 12,
+  'id': 'dot--hydration',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hdx.png',
+  'name': 'Hydration',
+  'shortcode': 'hydration',
+  'shortname': 'HDX',
+  'symbol': 'HDX',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'HDX',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const assethubPolkadot: IServerNetwork = {
+  'chainId': 'polkadot-asset-hub',
+  'code': 'assetHub',
+  'decimals': 10,
+  'id': 'dot--asset-hub',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
+  'name': 'Assethub Polkadot',
+  'shortcode': 'assetHub',
+  'shortname': 'DOT',
+  'symbol': 'DOT',
+  'feeMeta': {
+    'decimals': 10,
+    'symbol': 'DOT',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bifrost: IServerNetwork = {
+  'chainId': 'bifrost-ksm',
+  'code': 'bifrost',
+  'decimals': 12,
+  'id': 'dot--bifrost-ksm',
+  'impl': 'dot',
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/bnc.png',
+  'name': 'Bifrost Kusama',
+  'shortcode': 'bifrost',
+  'shortname': 'BNC',
+  'symbol': 'BNC',
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'BNC',
+  },
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const kaspa: IServerNetwork = {
   'chainId': 'kaspa',
   'code': 'kaspa',
@@ -2930,6 +3013,9 @@ export const presetNetworksMap = {
   kusama,
   manta,
   joystream,
+  hydradx,
+  bifrost,
+  assethubPolkadot,
 
   aptos,
   lightning,
@@ -3126,6 +3212,9 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     kusama,
     manta,
     joystream,
+    hydradx,
+    bifrost,
+    assethubPolkadot,
 
     aptos,
     lightning,
@@ -3208,5 +3297,17 @@ export const getNetworksSupportMevProtection = memoFn(
       name: 'Shio',
       logoURI: 'https://uni.onekey-asset.com/static/logo/shio.png',
     },
+  }),
+);
+
+export const getNetworksSupportBulkRevokeApproval = memoFn(
+  (): Record<string, boolean> => ({
+    [eth.id]: true,
+    [bsc.id]: true,
+    [polygon.id]: true,
+    [arbitrum.id]: true,
+    [avalanche.id]: true,
+    [optimism.id]: true,
+    [base.id]: true,
   }),
 );

@@ -311,7 +311,7 @@ class ServiceApp extends ServiceBase {
 
   @backgroundMethod()
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
-    await extUtils.openExpandTab(routeInfo);
+    return extUtils.openExpandTab(routeInfo);
   }
 
   @backgroundMethod()

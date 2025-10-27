@@ -17,6 +17,7 @@ interface ISwapNetworkToggleGroupProps {
   onSelectNetwork: (network: ISwapNetwork) => void;
   selectedNetwork?: ISwapNetwork;
   onMoreNetwork: () => void;
+  onDisableNetworksClick: () => void;
 }
 
 const SwapNetworkToggleGroup = ({
@@ -27,6 +28,7 @@ const SwapNetworkToggleGroup = ({
   disableNetworks,
   moreNetworksCount,
   onMoreNetwork,
+  onDisableNetworksClick,
 }: ISwapNetworkToggleGroupProps) => {
   const { width } = useWindowDimensions();
   const intl = useIntl();
@@ -51,7 +53,9 @@ const SwapNetworkToggleGroup = ({
           isSelected={network?.networkId === selectedNetwork?.networkId}
           onPress={
             disableNetworks?.includes(network.networkId)
-              ? undefined
+              ? () => {
+                  onDisableNetworksClick();
+                }
               : () => {
                   onSelectNetwork(network);
                 }

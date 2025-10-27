@@ -70,6 +70,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       useGeckoView,
       useInjectedNativeCode = true,
       pullToRefreshEnabled,
+      allowsBackForwardNavigationGestures,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -222,6 +223,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           // https://github.com/react-native-webview/react-native-webview/issues/1779
           onMessage={onMessage || defaultOnMessage}
           useGeckoView={useGeckoView}
+          allowsBackForwardNavigationGestures={
+            allowsBackForwardNavigationGestures
+          }
           {...nativeWebviewProps}
         />
       </Stack>

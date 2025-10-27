@@ -8,6 +8,12 @@ export enum ESendFeeStatus {
   Error = 'Error',
 }
 
+export enum ESendFeeDiscountStatus {
+  None = 'None',
+  Discounted = 'Discounted',
+  Free = 'Free',
+}
+
 export enum EFeeType {
   Standard = 'Standard',
   Custom = 'Custom',
@@ -61,6 +67,7 @@ export type IGasEIP1559 = {
 };
 
 export type IGasLegacy = {
+  originalGasPrice?: string;
   gasPrice: string;
   gasLimit: string;
   gasLimitForDisplay?: string;
@@ -72,6 +79,12 @@ export type IFeeUTXO = {
 };
 
 export type IFeeTron = {
+  accountInfo: {
+    energyTotal: number;
+    energyUsed: number;
+    freeEnergyTotal: number;
+    freeEnergyUsed: number;
+  };
   requiredBandwidth: number;
   requiredEnergy: number;
   originalFee: number;
@@ -253,6 +266,11 @@ export type IEstimateGasResp = {
   }[];
   feeBudget?: IFeeSui[];
   feeNeoN3?: IFeeNeoN3[];
+
+  megafuelEligible?: {
+    sponsorable: boolean;
+    sponsorName: string;
+  };
 };
 
 export type IServerBatchEstimateFeeResponse = {

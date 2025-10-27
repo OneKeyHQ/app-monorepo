@@ -19,10 +19,12 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { AccountSelectorRootProvider } from '../../../components/AccountSelector/AccountSelectorRootProvider';
 import { DiscoveryBrowserRootProvider } from '../../../views/Discovery/components/DiscoveryBrowserRootProvider';
 import { EarnProvider } from '../../../views/Earn/EarnProvider';
+import { HomeApprovalListRootProvider } from '../../../views/Home/components/HomeApprovalListProvider/HomeApprovalListRootProvider';
 import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTokenListProvider/HomeTokenListRootProvider';
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
 import { MarketWatchListProviderV2 } from '../../../views/Market/MarketWatchListProviderV2';
+import { PerpsRootProvider } from '../../../views/Perp/PerpsProvider';
 import { SendConfirmRootProvider } from '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider';
 import { SignatureConfirmRootProvider } from '../../../views/SignatureConfirm/components/SignatureConfirmProvider/SignatureConfirmRootProvider';
 import {
@@ -135,6 +137,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           case EJotaiContextStoreNames.homeTokenList: {
             return <HomeTokenListRootProvider key={key} />;
           }
+          case EJotaiContextStoreNames.homeApprovalList: {
+            return <HomeApprovalListRootProvider key={key} />;
+          }
           case EJotaiContextStoreNames.urlAccountHomeTokenList: {
             return <UrlAccountHomeTokenListProvider key={key} />;
           }
@@ -164,6 +169,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.signatureConfirm: {
             return <SignatureConfirmRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.perps: {
+            return <PerpsRootProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

@@ -1,4 +1,5 @@
-import type { StackStyle } from '@tamagui/web';
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
+
 import type {
   DragEndParams,
   DraggableFlatListProps,
@@ -38,11 +39,15 @@ export type ISortableListViewProps<T> = Omit<
     data: T[];
     keyExtractor: (item: T, index: number) => string;
     renderItem: (params: IRenderItemParams<T>) => React.ReactNode;
-    getItemLayout: (
+    /**
+     * @deprecated
+     * @description: Will be removed in FlashListV2
+     */
+    getItemLayout?: (
       item: ArrayLike<T> | undefined | null,
       index: number,
     ) => { length: number; offset: number; index: number };
-
+    useFlashList?: boolean;
     enabled?: boolean;
     containerStyle?: StackStyle;
     contentContainerStyle?: StackStyle;
@@ -50,4 +55,5 @@ export type ISortableListViewProps<T> = Omit<
     ListHeaderComponentStyle?: StackStyle;
     ListFooterComponentStyle?: StackStyle;
     onDragEnd?: (params: IDragEndParamsWithItem<T>) => void;
+    getItemDragDisabled?: (item: T, index: number) => boolean;
   };

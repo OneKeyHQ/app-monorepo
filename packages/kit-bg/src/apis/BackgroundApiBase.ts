@@ -9,20 +9,20 @@ import {
   backgroundMethod,
   bindThis,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import {
   GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME,
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import type { IGlobalEventBusSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import {
-  EEventBusBroadcastMethodNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EEventBusBroadcastMethodNames,
+  appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -321,6 +321,13 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           data = await data({ origin: this.bridge.remoteInfo.origin });
         }
         ensureSerializable(data);
+
+        if (scope === 'ethereum') {
+          // console.log('sendMessagesToInjectedBridge>>>>>>', scope, data, {
+          //   targetOrigin,
+          //   globalOnMessageEnabled: this.bridge.globalOnMessageEnabled,
+          // });
+        }
 
         // this.bridge.requestSync({ scope, data });
         if (this.bridge.globalOnMessageEnabled) {

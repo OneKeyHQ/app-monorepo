@@ -12,9 +12,12 @@ import {
 
 export function useAccountSelectorTrigger({
   num,
+  showConnectWalletModalInDappMode,
+  linkNetworkId,
   ...others
 }: {
   num: number;
+  showConnectWalletModalInDappMode?: boolean;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const navigation = useAppNavigation();
   const { activeAccount } = useActiveAccount({ num });
@@ -32,6 +35,15 @@ export function useAccountSelectorTrigger({
       'showAccountSelector>>>>',
       activeAccountRef.current,
       selectedAccountRef.current,
+      {
+        activeWallet: activeAccount.wallet,
+        num,
+        sceneName,
+        sceneUrl,
+        showConnectWalletModalInDappMode,
+        linkNetworkId,
+        ...others,
+      },
     );
     void actions.current.showAccountSelector({
       activeWallet: activeAccount.wallet,
@@ -39,9 +51,12 @@ export function useAccountSelectorTrigger({
       navigation,
       sceneName,
       sceneUrl,
+      showConnectWalletModalInDappMode,
+      linkNetworkId,
       ...others,
     });
   }, [
+    linkNetworkId,
     actions,
     activeAccount.wallet,
     others,
@@ -49,6 +64,7 @@ export function useAccountSelectorTrigger({
     num,
     sceneName,
     sceneUrl,
+    showConnectWalletModalInDappMode,
   ]);
 
   return {

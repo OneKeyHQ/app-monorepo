@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   IMPL_ADA,
+  IMPL_AGGREGATE,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
   IMPL_ALPH,
@@ -159,6 +160,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ALPH]: () => import('./impls/alph/Vault') as any,
     [IMPL_BFC]: () => import('./impls/bfc/Vault') as any,
     [IMPL_NEO]: () => import('./impls/neo/Vault') as any,
+    [IMPL_AGGREGATE]: () => import('./impls/aggregate/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

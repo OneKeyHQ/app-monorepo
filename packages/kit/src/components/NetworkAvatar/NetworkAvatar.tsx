@@ -6,11 +6,14 @@ import type {
   SizeTokens,
 } from '@onekeyhq/components';
 import { Icon, Image, XStack } from '@onekeyhq/components';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { LetterAvatar } from '../LetterAvatar';
+
+import type { FontSizeTokens } from 'tamagui';
 
 export const NetworkAvatarBase = ({
   logoURI,
@@ -19,6 +22,7 @@ export const NetworkAvatarBase = ({
   networkName,
   isAllNetworks,
   allNetworksIconProps,
+  isAggregateToken,
 }: {
   logoURI: string;
   size?: IImageProps['size'];
@@ -26,25 +30,26 @@ export const NetworkAvatarBase = ({
   networkName?: string;
   isAllNetworks?: boolean;
   allNetworksIconProps?: ComponentProps<typeof Icon>;
+  isAggregateToken?: boolean;
 }) => {
   if (isCustomNetwork) {
     return <LetterAvatar letter={networkName?.[0]} size={size} />;
   }
-  if (isAllNetworks) {
+  if (isAllNetworks || isAggregateToken) {
     if (size) {
       return (
         <Icon
-          name="GlobusOutline"
-          color="$iconSubdued"
+          name="AllNetworksSolid"
           size={size as SizeTokens}
+          color="$iconActive"
           {...allNetworksIconProps}
         />
       );
     }
     return (
       <Icon
-        name="GlobusOutline"
-        color="$iconSubdued"
+        name="AllNetworksSolid"
+        color="$iconActive"
         {...allNetworksIconProps}
       />
     );
@@ -55,7 +60,13 @@ export const NetworkAvatarBase = ({
       src={logoURI}
       borderRadius="$full"
       source={{ uri: logoURI }}
-      fallback={<Icon name="GlobusOutline" color="$iconSubdued" />}
+      fallback={
+        <Icon
+          size={size as FontSizeTokens}
+          name="GlobusOutline"
+          color="$iconSubdued"
+        />
+      }
     />
   );
 };
@@ -92,6 +103,18 @@ export function NetworkAvatar({
   if (isCustomNetwork) {
     return <LetterAvatar letter={name?.[0]} size={size} />;
   }
+
+  if (networkUtils.isAggregateNetwork({ networkId })) {
+    return (
+      <NetworkAvatarBase
+        size={size}
+        isAggregateToken
+        logoURI=""
+        allNetworksIconProps={allNetworksIconProps}
+      />
+    );
+  }
+
   return logoURI ? (
     <NetworkAvatarBase
       size={size}

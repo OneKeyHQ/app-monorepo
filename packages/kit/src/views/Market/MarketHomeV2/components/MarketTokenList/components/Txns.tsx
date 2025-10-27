@@ -36,11 +36,11 @@ export function Txns({ transactions, walletInfo }: ITxnsProps) {
     <YStack gap="$0.5">
       {/* Total transactions */}
       <NumberSizeableText size="$bodyMd" formatter="marketCap">
-        {transactions}
+        {transactions === 0 ? '--' : transactions}
       </NumberSizeableText>
 
       {/* Wallet info breakdown */}
-      {walletInfo ? (
+      {walletInfo && transactions > 0 ? (
         <XStack gap="$0.5">
           <NumberSizeableText
             size="$bodySm"

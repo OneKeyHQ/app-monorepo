@@ -71,6 +71,28 @@ export class LocalDBRecordNotFoundError extends OneKeyAppError {
   override className = EOneKeyErrorClassNames.LocalDBRecordNotFoundError;
 }
 
+export class TransferInvalidCodeError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'TransferInvalidCodeError',
+        defaultKey: ETranslations.transfer_invalid_code,
+      }),
+    );
+  }
+}
+
+export class RequestLimitExceededError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'RequestLimitExceededError',
+        defaultKey: ETranslations.global_request_limit,
+      }),
+    );
+  }
+}
+
 export class SystemDiskFullError extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -132,6 +154,19 @@ export class OneKeyErrorAirGapWalletMismatch extends OneKeyAppError {
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyErrorAirGapWalletMismatch',
         defaultKey: ETranslations.feedback_invalid_qr_code,
+      }),
+    );
+  }
+
+  override autoToast?: boolean | undefined = true;
+}
+
+export class OneKeyErrorAirGapDeviceMismatch extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyErrorAirGapDeviceMismatch',
+        defaultKey: ETranslations.hardware_not_same,
       }),
     );
   }
@@ -1050,6 +1085,18 @@ export class ManageTokenInsufficientBalanceError extends OneKeyAppError<IManageT
       normalizeErrorProps(props, {
         defaultMessage: 'ManageTokenInsufficientBalanceError',
         defaultKey: ETranslations.manage_token_account_no_found,
+      }),
+    );
+  }
+}
+
+export class BTCFreshAddressCanNotConnectDappError extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'BTCFreshAddressCanNotConnectDappError',
+        defaultKey:
+          ETranslations.wallet_banner_single_address_required_description,
       }),
     );
   }

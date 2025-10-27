@@ -4,7 +4,7 @@ import {
   isValidElement,
   useCallback,
   useEffect,
-  useLayoutEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
 } from 'react';
@@ -24,7 +24,10 @@ import { useConvertAnimatedToValue } from './useFocusedTab';
 
 import type { ISectionListProps } from '../../layouts';
 import type { FlashListProps } from '@shopify/flash-list';
-import type { CollectionCellRendererParams } from 'react-virtualized';
+import type {
+  CollectionCellRendererParams,
+  ListRowProps,
+} from 'react-virtualized';
 
 type IListProps<Item> = FlashListProps<Item>;
 
@@ -71,33 +74,44 @@ const renderElement = (Element: ReactNode | ComponentType<any>) => {
 };
 
 export function List<Item>({
+  ref: parentRef,
   renderItem,
   data,
   sections,
   ListHeaderComponent,
   ListFooterComponent,
   ListEmptyComponent,
-  estimatedItemSize,
   renderSectionHeader,
   renderSectionFooter,
   ListHeaderComponentStyle,
   ListFooterComponentStyle,
   numColumns = 1,
   extraData,
+  keyExtractor,
   contentContainerStyle,
+  horizontalPadding = 0,
+  onEndReached,
+  onEndReachedThreshold = 0.5,
 }: Omit<IListProps<Item>, 'ListEmptyComponent'> &
   Omit<ISectionListProps<Item>, 'ListEmptyComponent'> & {
     ListEmptyComponent?: ReactNode | ComponentType<any>;
     contentContainerStyle?: CSSProperties;
+    horizontalPadding?: number;
+    onEndReached?: () => void;
+    onEndReachedThreshold?: number;
   }) {
   const {
     registerChild,
     height,
-    width,
+    width: tabWidth,
     isScrolling,
     onChildScroll,
     scrollTop,
   } = useTabsScrollContext();
+
+  const width = useMemo(() => {
+    return tabWidth - horizontalPadding;
+  }, [tabWidth, horizontalPadding]);
   const currentTabName = useTabNameContext();
   const { focusedTab } = useTabsContext();
 
@@ -107,32 +121,10 @@ export function List<Item>({
 
   const scrollTabElementsRef = useTabsContext().scrollTabElementsRef;
 
-  // Cell measurement cache for react-virtualized list optimization
-  // Can be optimized with keyExtractor for better height caching performance
-  const cache = useMemo(
-    () =>
-      new CellMeasurerCache({
-        fixedWidth: true,
-        defaultHeight: estimatedItemSize || 60,
-      }),
-    [estimatedItemSize],
-  );
-
-  const isVisible = useMemo(() => {
-    return focusedTabValue === currentTabName;
-  }, [focusedTabValue, currentTabName]);
-
-  useEffect(() => {
-    if (focusedTabValue === currentTabName) {
-      if (scrollTabElementsRef?.current[currentTabName]) {
-        scrollTabElementsRef.current[currentTabName].element =
-          ref.current as HTMLElement;
-      }
-      registerChild(ref.current);
-    }
-  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
-
   const listData: IListData<Item>[] = useMemo(() => {
+    if (!data?.length && !sections?.length) {
+      return [];
+    }
     const list: IListData<Item>[] = [];
     if (ListHeaderComponent) {
       list.push({ type: 'header' });
@@ -192,6 +184,52 @@ export function List<Item>({
     sections,
   ]);
 
+  // Cell measurement cache for react-virtualized list optimization
+  // Can be optimized with keyExtractor for better height caching performance
+  const cache = useMemo(
+    () =>
+      new CellMeasurerCache({
+        fixedWidth: true,
+        defaultHeight: 60,
+        keyMapper: (rowIndex, columnIndex) => {
+          if (keyExtractor) {
+            const item = listData[rowIndex];
+            if (
+              item.type === 'header' ||
+              item.type === 'footer' ||
+              item.type === 'section-header' ||
+              item.type === 'section-footer'
+            ) {
+              return `${rowIndex}-${columnIndex}-${item.type}`;
+            }
+            return item
+              ? keyExtractor(item.data as any, rowIndex)
+              : `${rowIndex}-${columnIndex}`;
+          }
+          return `${rowIndex}-${columnIndex}`;
+        },
+      }),
+    [keyExtractor, listData],
+  );
+
+  const isVisible = useMemo(() => {
+    return focusedTabValue === currentTabName;
+  }, [focusedTabValue, currentTabName]);
+
+  useEffect(() => {
+    if (focusedTabValue === currentTabName) {
+      if (
+        scrollTabElementsRef?.current &&
+        !scrollTabElementsRef?.current[currentTabName]
+      ) {
+        scrollTabElementsRef.current[currentTabName] = {} as any;
+      }
+      scrollTabElementsRef.current[currentTabName].element =
+        ref.current as HTMLElement;
+      registerChild(ref.current);
+    }
+  }, [focusedTabValue, currentTabName, registerChild, scrollTabElementsRef]);
+
   const listRef = useRef<typeof VirtualizedList>(null);
 
   const HeaderElement = useMemo(() => {
@@ -218,15 +256,15 @@ export function List<Item>({
 
   const rowRenderer = useCallback(
     ({
-      index,
+      rowIndex,
       key,
+      parent,
       style,
-    }: {
-      index: number;
-      key: string;
-      style: React.CSSProperties;
+      columnIndex = 0,
+      index,
+    }: ListRowProps & {
+      rowIndex?: number;
     }) => {
-      const parent = listRef.current;
       const item = listData[index];
       let element = null;
       if (item.type === 'header') {
@@ -260,12 +298,12 @@ export function List<Item>({
         return (
           <CellMeasurer
             cache={cache}
-            columnIndex={0}
-            key={key}
-            parent={parent as any}
-            rowIndex={index}
+            columnIndex={columnIndex}
+            rowIndex={rowIndex || index}
+            key={key || index}
+            parent={parent}
           >
-            <div key={key} style={style}>
+            <div style={style} key={key || index}>
               {element as React.ReactNode}
             </div>
           </CellMeasurer>
@@ -273,7 +311,7 @@ export function List<Item>({
       }
 
       return (
-        <div key={key} style={style}>
+        <div key={key || index} style={style}>
           {element as React.ReactNode}
         </div>
       );
@@ -330,24 +368,40 @@ export function List<Item>({
   );
 
   useEffect(() => {
+    if (keyExtractor) {
+      return;
+    }
     if (data?.length || sections?.length || numColumns || width || extraData) {
       recompute({ numColumns, width });
     }
-  }, [data?.length, sections?.length, numColumns, width, extraData, recompute]);
+  }, [
+    data?.length,
+    sections?.length,
+    numColumns,
+    width,
+    extraData,
+    recompute,
+    keyExtractor,
+  ]);
 
   const cellRenderer = useCallback(
     (params: CollectionCellRendererParams) => {
-      const { index, key, style } = params;
+      const { index, key, style, isScrolling: isScrollingParam } = params;
       return rowRenderer({
         index,
         key: String(key),
+        rowIndex: index,
         style,
+        isScrolling: isScrollingParam,
+        columnIndex: 0,
+        isVisible: true,
+        parent: listRef.current as any,
       });
     },
     [rowRenderer],
   );
 
-  if (!data?.length && !sections?.length) {
+  const noContentRenderer = useCallback(() => {
     return (
       <>
         {HeaderElement}
@@ -355,28 +409,83 @@ export function List<Item>({
         {FooterElement}
       </>
     );
-  }
+  }, [HeaderElement, ListEmptyComponent, FooterElement]);
+
+  useImperativeHandle(parentRef as any, () => ({
+    recomputeLayout: () => {
+      recompute({ numColumns, width });
+    },
+  }));
+
+  const handleScroll = useCallback(
+    (params: {
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+      [key: string]: any;
+    }) => {
+      if (!isVisible) return;
+
+      onChildScroll?.(params);
+
+      // Check if we've reached the end for infinite scroll
+      if (onEndReached && params && typeof params.scrollTop === 'number') {
+        const {
+          scrollTop: currentScrollTop,
+          scrollHeight,
+          clientHeight,
+        } = params;
+        const threshold = onEndReachedThreshold || 0.5;
+        const scrollPosition = (currentScrollTop + clientHeight) / scrollHeight;
+
+        if (scrollPosition >= 1 - threshold) {
+          onEndReached();
+        }
+      }
+    },
+    [isVisible, onChildScroll, onEndReached, onEndReachedThreshold],
+  );
+
+  const listProps = useMemo(() => {
+    return {
+      ref: listRef as any,
+      autoHeight: true,
+      height,
+      data: listData,
+      rowCount: listData.length,
+      isScrolling: isVisible ? isScrolling : false,
+      onScroll: isVisible ? handleScroll : undefined,
+      scrollTop: isVisible && listData.length > 0 ? scrollTop : 0,
+      overscanRowCount: 10,
+      deferredMeasurementCache: cache,
+    };
+  }, [
+    height,
+    listData,
+    isVisible,
+    isScrolling,
+    handleScroll,
+    scrollTop,
+    cache,
+  ]);
 
   if (numColumns > 1) {
     return (
       <AutoSizer disableHeight>
         {({ width: autoSizerWidth }) => {
           return (
-            <div ref={ref as React.RefObject<HTMLDivElement>}>
+            <div
+              ref={ref as React.RefObject<HTMLDivElement>}
+              style={contentContainerStyle as any}
+            >
               <Collection
-                ref={listRef as any}
-                autoHeight
-                data={listData}
-                isScrolling={isVisible ? isScrolling : false}
-                scrollTop={isVisible ? scrollTop : 0}
-                onScroll={isVisible ? onChildScroll : undefined}
-                width={autoSizerWidth}
-                height={height}
+                {...listProps}
+                width={width}
                 cellCount={listData.length}
                 cellSizeAndPositionGetter={cellSizeAndPositionGetter}
-                cellRenderer={cellRenderer as any}
-                overscanRowCount={30}
+                cellRenderer={cellRenderer}
                 rowCount={Math.ceil(listData.length / numColumns)}
+                noContentRenderer={noContentRenderer}
               />
             </div>
           );
@@ -394,18 +503,12 @@ export function List<Item>({
             style={contentContainerStyle as any}
           >
             <VirtualizedList
-              ref={listRef as any}
-              autoHeight
+              {...listProps}
               width={autoSizerWidth}
-              data={listData}
               height={autoSizerHeight || height || 400}
-              isScrolling={isVisible ? isScrolling : false}
-              onScroll={isVisible ? onChildScroll : undefined}
-              overscanRowCount={30}
-              scrollTop={isVisible ? scrollTop : 0}
-              rowCount={listData.length}
               rowHeight={cache.rowHeight}
               rowRenderer={rowRenderer}
+              noRowsRenderer={noContentRenderer}
             />
           </div>
         );

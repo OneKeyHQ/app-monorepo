@@ -1,3 +1,5 @@
+import { SUI_TYPE_ARG } from '@mysten/sui/utils';
+
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import {
   EthereumCbBTC,
@@ -9,6 +11,7 @@ import {
   EthereumWBTC,
   EthereumWETH,
 } from '../../src/consts/addresses';
+import { EEarnProviderEnum } from '../earn';
 import { ESwapTabSwitchType } from '../swap/types';
 
 import type { ISupportedSymbol } from '../earn';
@@ -45,6 +48,26 @@ const earnTradeDefaultSetSOL = {
   'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
 };
 
+const earnTradeDefaultSetSui = {
+  'networkId': 'sui--mainnet',
+  'contractAddress': SUI_TYPE_ARG,
+  'name': 'SUI',
+  'symbol': 'SUI',
+  'decimals': 9,
+  'isNative': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sui.png',
+};
+
+const earnTradeDefaultSetBNB = {
+  'networkId': 'evm--56',
+  'contractAddress': '',
+  'name': 'BNB',
+  'symbol': 'BNB',
+  'decimals': 18,
+  'isNative': true,
+  'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
+};
+
 export const isSupportStaking = (symbol: string) =>
   [
     'BTC',
@@ -65,11 +88,12 @@ export const isSupportStaking = (symbol: string) =>
 
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,
-  getNetworkIdsMap().base,
   getNetworkIdsMap().cosmoshub,
   getNetworkIdsMap().apt,
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
+  getNetworkIdsMap().sui,
+  getNetworkIdsMap().bsc,
 ];
 
 export function normalizeToEarnSymbol(
@@ -92,8 +116,24 @@ export function normalizeToEarnSymbol(
     'usdf': 'USDf',
     'usde': 'USDe',
   };
-
   return symbolMap[symbol.toLowerCase()];
+}
+
+export function normalizeToEarnProvider(
+  provider: string,
+): EEarnProviderEnum | undefined {
+  const providerMap: Record<string, EEarnProviderEnum> = {
+    'lido': EEarnProviderEnum.Lido,
+    'everstake': EEarnProviderEnum.Everstake,
+    'babylon': EEarnProviderEnum.Babylon,
+    'morpho': EEarnProviderEnum.Morpho,
+    'lista': EEarnProviderEnum.Lista,
+    'stakefish': EEarnProviderEnum.Stakefish,
+    'falcon': EEarnProviderEnum.Falcon,
+    'ethena': EEarnProviderEnum.Ethena,
+    'momentum': EEarnProviderEnum.Momentum,
+  };
+  return providerMap[provider.toLowerCase()];
 }
 
 export function getImportFromToken({
@@ -147,11 +187,45 @@ export function getImportFromToken({
       importFromToken = earnTradeDefaultSetETH;
       swapTabSwitchType = ESwapTabSwitchType.BRIDGE;
       break;
+    case networkIdsMap.sui:
+      importFromToken = earnTradeDefaultSetSui;
+      swapTabSwitchType = ESwapTabSwitchType.SWAP;
+      break;
+    case networkIdsMap.bsc:
+      importFromToken = earnTradeDefaultSetBNB;
+      swapTabSwitchType = ESwapTabSwitchType.SWAP;
+      break;
     default:
       break;
   }
   return {
     importFromToken,
     swapTabSwitchType,
+  };
+}
+
+// Symbol to supported networks mapping for earn protocols
+export function getSymbolSupportedNetworks(): Record<
+  ISupportedSymbol,
+  string[]
+> {
+  const networkIdsMap = getNetworkIdsMap();
+
+  return {
+    'BTC': [networkIdsMap.btc],
+    'SBTC': [networkIdsMap.sbtc],
+    'ETH': [networkIdsMap.eth],
+    'SOL': [networkIdsMap.sol],
+    'APT': [networkIdsMap.apt],
+    'ATOM': [networkIdsMap.cosmoshub],
+    'POL': [networkIdsMap.eth],
+    'USDC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDT': [networkIdsMap.eth, networkIdsMap.bsc],
+    'DAI': [networkIdsMap.eth],
+    'WETH': [networkIdsMap.eth],
+    'cbBTC': [networkIdsMap.eth],
+    'WBTC': [networkIdsMap.eth, networkIdsMap.sui],
+    'USDf': [networkIdsMap.eth],
+    'USDe': [networkIdsMap.eth],
   };
 }

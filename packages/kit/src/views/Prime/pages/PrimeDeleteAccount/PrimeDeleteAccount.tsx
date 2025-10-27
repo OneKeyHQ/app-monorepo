@@ -4,10 +4,8 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Button,
   Checkbox,
   Dialog,
-  Icon,
   Markdown,
   Page,
   SizableText,
@@ -20,9 +18,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EPrimeEmailOTPScene } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
@@ -205,19 +201,26 @@ export default function PrimeDeleteAccount() {
             alignSelf="center"
             mb={0}
           />
-          <SizableText size="$headingXl" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.id_delete_onekey_id,
-            })}
-          </SizableText>
-          <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            {intl.formatMessage({
-              id: ETranslations.id_delete_onekey_id_desc,
-            })}
-          </SizableText>
+          <YStack gap="$2" alignItems="center">
+            <SizableText size="$headingXl" textAlign="center">
+              {intl.formatMessage({
+                id: ETranslations.id_delete_onekey_id,
+              })}
+            </SizableText>
+            <SizableText
+              size="$bodyMd"
+              color="$textSubdued"
+              textAlign="center"
+              maxWidth={420}
+            >
+              {intl.formatMessage({
+                id: ETranslations.id_delete_onekey_id_desc,
+              })}
+            </SizableText>
+          </YStack>
 
           {/* Warning Alert */}
-          <Alert type="default">
+          <Alert type="default" w="100%">
             <Markdown>
               {intl.formatMessage({
                 id: ETranslations.id_delete_onekey_id_detail_markdown,

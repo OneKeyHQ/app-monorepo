@@ -9,6 +9,7 @@ __generated__
 .chat/
 .claude/PRPs
 .claude/settings.local.json
+.tmp/
 
 dist
 build-electron
@@ -87,3 +88,8 @@ test-report.html
 /packages/shared/src/web/index.html
 /mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/jpush
 apps/mobile/android/.kotlin/
+apps/mobile/android/build-logic/privacy-security-plugins/bin/main/onekey/privacy/**/*.class
+/apps/mobile/out-dir-bundle
+/apps/mobile/out-dir-bundle-zip
+/apps/mobile/ios/go-install
+/apps/mobile/ios/tmp-oc-test

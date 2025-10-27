@@ -1,12 +1,12 @@
 import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
-import { SizableText, styled } from 'tamagui';
+import { SizableText, styled } from '@onekeyhq/components/src/shared/tamagui';
+import type { GetProps } from '@onekeyhq/components/src/shared/tamagui';
 
 import { XStack, YStack } from '../../primitives';
 
 import type { IXStackProps } from '../../primitives';
-import type { GetProps } from 'tamagui';
 
 export interface ISegmentControlProps extends IXStackProps {
   fullWidth?: boolean;
@@ -58,6 +58,13 @@ function SegmentControlItem({
         ? {
             bg: '$bg',
             elevation: 2,
+            '$platform-native': {
+              elevation: 2,
+            },
+            '$platform-web': {
+              boxShadow:
+                '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+            },
           }
         : {
             hoverStyle: {

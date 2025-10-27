@@ -22,8 +22,18 @@ Embedded wallet is only available over HTTPS
 to 
 
 ```js
-Embedded wallet is only available over HTTPS/CHROME-EXTENSION/FILE
+Privy Embedded wallet is only available over HTTPS/CHROME-EXTENSION/FILE
 ```
 
 
+## Domain whitelist
 
+```js
+["localhost","127.0.0.1"].indexOf(window.location.hostname)
+```
+
+to 
+
+```js
+["localhost","127.0.0.1","localhost.app.onekeytest.com"].indexOf(window.location.hostname)
+```

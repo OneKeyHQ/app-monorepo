@@ -59,7 +59,7 @@
 //         },
 //         symbol: tokenInfo?.token.symbol || '',
 //         provider: providerName,
-//         morphoVault: earnUtils.isMorphoProvider({
+//         protocolVault: earnUtils.isMorphoProvider({
 //           providerName,
 //         })
 //           ? protocolInfo?.approve?.approveTarget

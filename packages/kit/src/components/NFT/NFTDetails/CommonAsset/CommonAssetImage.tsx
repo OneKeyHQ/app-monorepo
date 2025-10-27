@@ -52,6 +52,8 @@ function CommonAssetImage(props: IProps) {
               h="100%"
               fallback={
                 <Image.Fallback
+                  w="100%"
+                  h="100%"
                   bg="$bgStrong"
                   justifyContent="center"
                   alignItems="center"

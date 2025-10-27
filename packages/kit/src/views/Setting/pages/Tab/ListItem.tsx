@@ -78,6 +78,7 @@ export function TabSettingsListGrid({
     cloneElement(item.renderElement, {
       titleMatch,
       title: item.title,
+      subtitle: item?.subtitle,
       icon: item.icon as IKeyOfIcons,
       onPress: item?.onPress,
       badgeProps: item?.badgeProps,
@@ -97,6 +98,7 @@ export function TabSettingsListGrid({
       icon={item?.icon as IKeyOfIcons}
       iconProps={iconProps}
       title={item?.title}
+      subtitle={item?.subtitle}
       drillIn
     >
       {item?.badgeProps ? (

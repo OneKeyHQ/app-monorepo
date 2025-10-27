@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useRef,
   useState,
 } from 'react';
 import type { Ref } from 'react';
@@ -16,14 +17,18 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
+import type { IInputRef } from '@onekeyhq/components';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { ISwapNativeTokenReserveGas } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapDirection, type ITradeType } from '../../hooks/useTradeType';
 
@@ -31,6 +36,7 @@ import { QuickAmountSelector } from './QuickAmountSelector';
 import { TokenSelectorPopover } from './TokenSelectorPopover';
 
 import type { IToken } from '../../types';
+import type { IAmountEnterSource } from '../../types/analytics';
 import type BigNumber from 'bignumber.js';
 
 export interface ITokenInputSectionRef {
@@ -45,6 +51,8 @@ export interface ITokenInputSectionProps {
   onPressTokenSelector?: () => void;
   tradeType: ITradeType;
   balance?: BigNumber;
+  swapNativeTokenReserveGas: ISwapNativeTokenReserveGas[];
+  onAmountEnterTypeChange?: (source: IAmountEnterSource) => void;
 }
 
 function TokenInputSectionComponent(
@@ -55,12 +63,17 @@ function TokenInputSectionComponent(
     onTokenChange,
     tradeType,
     balance,
+    swapNativeTokenReserveGas,
+    onAmountEnterTypeChange,
   }: ITokenInputSectionProps,
   ref: Ref<ITokenInputSectionRef>,
 ) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [internalValue, setInternalValue] = useState('');
+  const inputRef = useRef<IInputRef>(null);
+  const isPresetSelectionRef = useRef(false);
 
   useImperativeHandle(
     ref,
@@ -78,9 +91,24 @@ function TokenInputSectionComponent(
       if (validateAmountInput(newValue, selectedToken?.decimals)) {
         setInternalValue(newValue);
         onChange(newValue);
+        // Track manual input in analytics (only if not from preset selection)
+        if (!isPresetSelectionRef.current) {
+          onAmountEnterTypeChange?.('manual');
+        }
+        // Reset the preset selection flag
+        isPresetSelectionRef.current = false;
       }
     },
-    [onChange, selectedToken?.decimals],
+    [onChange, selectedToken?.decimals, onAmountEnterTypeChange],
+  );
+
+  // Handler for preset amount selection with analytics tracking
+  const handlePresetAmountSelect = useCallback(
+    (value: string) => {
+      isPresetSelectionRef.current = true;
+      handleInternalChange(value);
+    },
+    [handleInternalChange],
   );
 
   const handleTokenSelect = useCallback(
@@ -133,10 +161,32 @@ function TokenInputSectionComponent(
     };
   }, [selectedToken, onChange]);
 
+  // Listen for keyboard dismiss events
+  useEffect(() => {
+    const handleDismissKeyboard = () => {
+      inputRef.current?.blur();
+      dismissKeyboard();
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.SwapPanelDismissKeyboard,
+      handleDismissKeyboard,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.SwapPanelDismissKeyboard,
+        handleDismissKeyboard,
+      );
+      dismissKeyboard();
+    };
+  }, []);
+
   return (
     <YStack gap="$1">
       <Input
-        size="medium"
+        ref={inputRef}
+        size={gtMd ? 'medium' : 'large'}
         keyboardType="decimal-pad"
         value={internalValue}
         placeholder={intl.formatMessage({
@@ -200,9 +250,13 @@ function TokenInputSectionComponent(
           })) ?? []
         }
         selectedTokenDecimals={selectedToken?.decimals}
-        onSelect={handleInternalChange}
+        selectedTokenNetworkId={selectedToken?.networkId}
+        selectedTokenIsNative={selectedToken?.isNative}
+        onSelect={handlePresetAmountSelect}
+        onPresetSelect={onAmountEnterTypeChange}
         tradeType={tradeType}
         balance={balance}
+        swapNativeTokenReserveGas={swapNativeTokenReserveGas}
       />
     </YStack>
   );

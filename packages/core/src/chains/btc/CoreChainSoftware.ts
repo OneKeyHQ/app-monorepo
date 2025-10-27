@@ -293,6 +293,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       xpub,
       xpubSegwit,
       addresses,
+      __hwExtraInfo__: undefined,
     };
   }
 
@@ -829,6 +830,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       relPath: firstAddressRelPath,
       address,
       addresses,
+      __hwExtraInfo__: undefined,
     });
   }
 
@@ -969,6 +971,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           xpub,
           xpubSegwit,
           addresses: { [firstAddressRelPath]: address },
+          __hwExtraInfo__: undefined,
         };
 
         return addressItem;

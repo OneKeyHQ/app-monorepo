@@ -5,6 +5,7 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Dialog,
   NumberSizeableText,
   SizableText,
@@ -27,6 +28,7 @@ import {
   useDecodedTxsAtom,
   useExtraFeeInfoAtom,
   useIsSinglePresetAtom,
+  useMegafuelEligibleAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePayWithTokenInfoAtom,
@@ -37,15 +39,11 @@ import {
   useTokenTransferAmountAtom,
   useTronResourceRentalInfoAtom,
   useTxAdvancedSettingsAtom,
+  useTxFeeInfoInitAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import {
-  calculateFeeForSend,
-  calculateTotalFeeRange,
-  getFeeIcon,
-  getFeeLabel,
-} from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
@@ -60,6 +58,12 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import {
+  calculateFeeForSend,
+  calculateTotalFeeRange,
+  getFeeIcon,
+  getFeeLabel,
+} from '@onekeyhq/shared/src/utils/feeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import {
@@ -83,6 +87,7 @@ type IProps = {
   feeInfoEditable?: boolean;
   tableLayout?: boolean;
   feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
+  transferPayload?: ITransferPayload;
 };
 
 function TxFeeInfo(props: IProps) {
@@ -92,9 +97,9 @@ function TxFeeInfo(props: IProps) {
     useFeeInTx,
     feeInfoEditable = true,
     feeInfoWrapperProps,
+    transferPayload,
   } = props;
   const intl = useIntl();
-  const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
   const tronRentalUpdated = useRef(false);
   const [sendSelectedFee] = useSendSelectedFeeAtom();
@@ -113,6 +118,8 @@ function TxFeeInfo(props: IProps) {
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tokenTransferAmount] = useTokenTransferAmountAtom();
+  const [megafuelEligible] = useMegafuelEligibleAtom();
+  const [txFeeInfoInit] = useTxFeeInfoInitAtom();
   const {
     isResourceRentalNeeded,
     isResourceRentalEnabled,
@@ -130,6 +137,8 @@ function TxFeeInfo(props: IProps) {
     updateTxAdvancedSettings,
     updateTronResourceRentalInfo,
     updatePayWithTokenInfo,
+    updateMegafuelEligible,
+    updateTxFeeInfoInit,
   } = useSignatureConfirmActions().current;
 
   const isMultiTxs = unsignedTxs.length > 1;
@@ -210,7 +219,7 @@ function TxFeeInfo(props: IProps) {
                 status: ESendFeeStatus.Success,
                 errMessage: '',
               });
-              setTxFeeInit(true);
+              updateTxFeeInfoInit(true);
               return {
                 r: undefined,
                 e: undefined,
@@ -242,7 +251,7 @@ function TxFeeInfo(props: IProps) {
             status: ESendFeeStatus.Success,
             errMessage: '',
           });
-          setTxFeeInit(true);
+          updateTxFeeInfoInit(true);
           updateTxAdvancedSettings({ dataChanged: false });
           return {
             r,
@@ -260,7 +269,7 @@ function TxFeeInfo(props: IProps) {
             status: ESendFeeStatus.Success,
             errMessage: '',
           });
-          setTxFeeInit(true);
+          updateTxFeeInfoInit(true);
           updateTxAdvancedSettings({ dataChanged: false });
           return {
             r: {
@@ -287,6 +296,28 @@ function TxFeeInfo(props: IProps) {
           accountAddress,
           transfersInfo: unsignedTxs[0].transfersInfo,
         });
+
+        if (r.megafuelEligible) {
+          const customRpcInfo =
+            await backgroundApiProxy.serviceCustomRpc.getCustomRpcForNetwork(
+              networkId,
+            );
+          // if custom rpc is enabled, disable megafuel eligible
+          if (customRpcInfo?.rpc && customRpcInfo?.enabled) {
+            r.megafuelEligible = undefined;
+            r.gas = r.gas?.map((gas) => ({
+              ...gas,
+              gasPrice: gas.originalGasPrice ?? gas.gasPrice,
+            }));
+            updateMegafuelEligible({
+              sponsorable: false,
+              sponsorName: '',
+            });
+          } else {
+            updateMegafuelEligible(r.megafuelEligible);
+          }
+        }
+
         // if gasEIP1559 returns 5 gas level, then pick the 1st, 3rd and 5th as default gas level
         // these five levels are also provided as predictions on the custom fee page for users to choose
         if (r.gasEIP1559 && r.gasEIP1559.length === 5) {
@@ -369,7 +400,7 @@ function TxFeeInfo(props: IProps) {
           status: ESendFeeStatus.Success,
           errMessage: '',
         });
-        setTxFeeInit(true);
+        updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         return {
           r,
@@ -377,7 +408,7 @@ function TxFeeInfo(props: IProps) {
           m: undefined,
         };
       } catch (e) {
-        setTxFeeInit(true);
+        updateTxFeeInfoInit(true);
         updateTxAdvancedSettings({ dataChanged: false });
         updateSendFeeStatus({
           status: ESendFeeStatus.Error,
@@ -398,10 +429,12 @@ function TxFeeInfo(props: IProps) {
       network?.isTestnet,
       networkId,
       unsignedTxs,
+      updateMegafuelEligible,
       updatePayWithTokenInfo,
       updateSendFeeStatus,
       updateTronResourceRentalInfo,
       updateTxAdvancedSettings,
+      updateTxFeeInfoInit,
     ],
     {
       watchLoading: true,
@@ -934,6 +967,8 @@ function TxFeeInfo(props: IProps) {
       totalFiatForDisplay: string;
       totalNativeMinForDisplay: string;
       totalFiatMinForDisplay: string;
+      originalTotalNative?: string;
+      originalTotalFiat?: string;
     }[] = [];
 
     let baseGasLimit =
@@ -950,6 +985,8 @@ function TxFeeInfo(props: IProps) {
     let totalNativeMinForDisplay = new BigNumber(0);
     let totalFiatForDisplay = new BigNumber(0);
     let totalFiatMinForDisplay = new BigNumber(0);
+    let originalTotalNative = new BigNumber(0);
+    let originalTotalFiat = new BigNumber(0);
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const selectedFeeInfo = selectedFeeInfos[i];
@@ -1046,6 +1083,16 @@ function TxFeeInfo(props: IProps) {
         feeResult.totalFiatMinForDisplay,
       );
 
+      if (feeResult.originalTotalNative) {
+        originalTotalNative = originalTotalNative.plus(
+          feeResult.originalTotalNative,
+        );
+      }
+
+      if (feeResult.originalTotalFiat) {
+        originalTotalFiat = originalTotalFiat.plus(feeResult.originalTotalFiat);
+      }
+
       feeInfos.push({
         feeInfo: txFeeInfo,
         total: feeResult.total,
@@ -1058,6 +1105,8 @@ function TxFeeInfo(props: IProps) {
         totalFiatMinForDisplay: feeResult.totalFiatMinForDisplay,
         totalNativeForDisplay: feeResult.totalNativeForDisplay,
         totalFiatForDisplay: feeResult.totalFiatForDisplay,
+        originalTotalNative: feeResult.originalTotalNative,
+        originalTotalFiat: feeResult.originalTotalFiat,
       });
     }
 
@@ -1090,6 +1139,8 @@ function TxFeeInfo(props: IProps) {
         totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
         totalFiatForDisplay: totalFiatForDisplay.toFixed(),
         totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
+        originalTotalNative: originalTotalNative.toFixed(),
+        originalTotalFiat: originalTotalFiat.toFixed(),
       },
     };
   }, [
@@ -1153,7 +1204,7 @@ function TxFeeInfo(props: IProps) {
   }, [networkId, updateSendSelectedFee, vaultSettings?.defaultFeePresetIndex]);
 
   useEffect(() => {
-    if (!txFeeInit) return;
+    if (!txFeeInfoInit) return;
 
     if (payWithTokenInfo.enabled) {
       let requiredTokenBalance = new BigNumber(tokenTransferAmount ?? 0);
@@ -1238,6 +1289,7 @@ function TxFeeInfo(props: IProps) {
     }
   }, [
     decodedTxs,
+    txFeeInfoInit,
     extraFeeInfo.feeNative,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
@@ -1253,7 +1305,6 @@ function TxFeeInfo(props: IProps) {
     payWithTokenInfo.enabled,
     selectedFee,
     tokenTransferAmount,
-    txFeeInit,
     updateSendFeeStatus,
     updateSendTxStatus,
   ]);
@@ -1271,6 +1322,12 @@ function TxFeeInfo(props: IProps) {
       appEventBus.off(EAppEventBusNames.EstimateTxFeeRetry, callback);
     };
   }, [run]);
+
+  useEffect(() => {
+    if (unsignedTxs?.[0]?.uuid) {
+      updateTxFeeInfoInit(false);
+    }
+  }, [unsignedTxs, updateTxFeeInfoInit]);
 
   const handlePress = useCallback(() => {
     Dialog.show({
@@ -1315,13 +1372,17 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderFeeEditor = useCallback(() => {
-    if (!vaultSettings?.editFeeEnabled || !feeInfoEditable) {
+    if (
+      !vaultSettings?.editFeeEnabled ||
+      !feeInfoEditable ||
+      megafuelEligible.sponsorable
+    ) {
       return null;
     }
 
     if (sendFeeStatus.errMessage) return null;
 
-    if (!txFeeInit) {
+    if (!txFeeInfoInit) {
       return (
         <Stack py="$1">
           <Skeleton height="$3" width="$12" />
@@ -1346,11 +1407,14 @@ function TxFeeInfo(props: IProps) {
     return (
       <TxFeeSelectorTrigger
         onPress={handlePress}
-        disabled={sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInit}
+        disabled={
+          sendFeeStatus.status === ESendFeeStatus.Error || !txFeeInfoInit
+        }
       />
     );
   }, [
     feeInfoEditable,
+    megafuelEligible.sponsorable,
     handlePress,
     intl,
     isSinglePreset,
@@ -1359,11 +1423,15 @@ function TxFeeInfo(props: IProps) {
     sendFeeStatus.status,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
-    txFeeInit,
+    txFeeInfoInit,
     vaultSettings?.editFeeEnabled,
   ]);
 
   const renderTotalNative = useCallback(() => {
+    if (megafuelEligible.sponsorable) {
+      return null;
+    }
+
     if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
       let payTokenAmount = payTokenInfo.totalAmount;
 
@@ -1378,6 +1446,7 @@ function TxFeeInfo(props: IProps) {
           formatter="balance"
           formatterOptions={{
             tokenSymbol: payTokenInfo.symbol,
+            keepLeadingZero: true,
           }}
         >
           {payTokenAmount ?? '-'}
@@ -1392,12 +1461,14 @@ function TxFeeInfo(props: IProps) {
         formatter="balance"
         formatterOptions={{
           tokenSymbol: txFeeCommon?.nativeSymbol,
+          keepLeadingZero: true,
         }}
       >
         {selectedFee?.totalNativeMinForDisplay ?? '-'}
       </NumberSizeableText>
     );
   }, [
+    megafuelEligible.sponsorable,
     isResourceRentalEnabled,
     isResourceRentalNeeded,
     isSwapTrxEnabled,
@@ -1408,12 +1479,20 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   const renderTotalFiat = useCallback(() => {
+    if (megafuelEligible.sponsorable) {
+      return null;
+    }
+
     if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
       let payTokenAmount = payTokenInfo.totalAmount;
 
       if (payType === ETronResourceRentalPayType.Token && !isSwapTrxEnabled) {
         payTokenAmount = payTokenInfo.payTxFeeAmount;
       }
+
+      const totalFiat = new BigNumber(payTokenAmount ?? 0).times(
+        payTokenInfo.price ?? 0,
+      );
 
       return (
         <SizableText size="$bodyMd" color="$textSubdued">
@@ -1426,9 +1505,7 @@ function TxFeeInfo(props: IProps) {
               currency: settings.currencyInfo.symbol,
             }}
           >
-            {new BigNumber(payTokenAmount ?? 0)
-              .times(payTokenInfo.price ?? 0)
-              .toFixed() ?? '-'}
+            {totalFiat.toFixed() ?? '-'}
           </NumberSizeableText>
           )
         </SizableText>
@@ -1452,69 +1529,180 @@ function TxFeeInfo(props: IProps) {
       </SizableText>
     );
   }, [
-    isResourceRentalEnabled,
-    isResourceRentalNeeded,
-    isSwapTrxEnabled,
-    payTokenInfo,
-    payType,
+    megafuelEligible.sponsorable,
     selectedFee?.totalFiatMinForDisplay,
+    isResourceRentalNeeded,
+    isResourceRentalEnabled,
+    payTokenInfo,
     settings.currencyInfo.symbol,
+    payType,
+    isSwapTrxEnabled,
   ]);
 
   const renderOriginalFeeInfo = useCallback(() => {
-    if (!isResourceRentalNeeded || !isResourceRentalEnabled) {
+    if (
+      (!isResourceRentalNeeded || !isResourceRentalEnabled) &&
+      !transferPayload?.isTronResourceAutoClaimed &&
+      !megafuelEligible.sponsorable
+    ) {
       return null;
     }
 
+    const textColor = megafuelEligible.sponsorable ? '$text' : '$textSubdued';
+
+    let totalNative = megafuelEligible.sponsorable
+      ? selectedFee?.originalTotalNative
+      : selectedFee?.totalNativeMinForDisplay;
+
+    let totalFiat = megafuelEligible.sponsorable
+      ? selectedFee?.originalTotalFiat
+      : selectedFee?.totalFiatMinForDisplay;
+
+    if (
+      transferPayload?.isTronResourceAutoClaimed &&
+      transferPayload?.txOriginalFee
+    ) {
+      totalNative = transferPayload?.txOriginalFee.totalNative;
+      totalFiat = transferPayload?.txOriginalFee.totalFiat;
+    }
+
     return (
-      <SizableText
-        size="$bodyMd"
-        color="$textSubdued"
-        textDecorationLine="line-through"
-        textDecorationColor="$textSubdued"
-        textDecorationStyle="solid"
-      >
-        <NumberSizeableText
+      <XStack alignItems="center">
+        <SizableText
           size="$bodyMd"
-          color="$textSubdued"
-          formatter="balance"
-          formatterOptions={{
-            tokenSymbol: txFeeCommon?.nativeSymbol,
-          }}
+          color={textColor}
+          textDecorationLine="line-through"
+          textDecorationColor={textColor}
+          textDecorationStyle="solid"
         >
-          {selectedFee?.totalNativeMinForDisplay ?? '-'}
-        </NumberSizeableText>
-        (
-        <NumberSizeableText
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="value"
-          formatterOptions={{
-            currency: settings.currencyInfo.symbol,
-          }}
-        >
-          {selectedFee?.totalFiatMinForDisplay ?? '-'}
-        </NumberSizeableText>
-        )
-      </SizableText>
+          <NumberSizeableText
+            size="$bodyMd"
+            color={textColor}
+            formatter="balance"
+            formatterOptions={{
+              tokenSymbol: txFeeCommon?.nativeSymbol,
+              keepLeadingZero: true,
+            }}
+          >
+            {totalNative ?? '-'}
+          </NumberSizeableText>
+          (
+          <NumberSizeableText
+            size="$bodyMd"
+            color={textColor}
+            formatter="value"
+            formatterOptions={{
+              currency: settings.currencyInfo.symbol,
+            }}
+          >
+            {totalFiat ?? '-'}
+          </NumberSizeableText>
+          )
+        </SizableText>
+        {megafuelEligible.sponsorable ? (
+          <Badge badgeSize="sm" badgeType="success">
+            <Badge.Text>
+              {intl.formatMessage({
+                id: ETranslations.prime_status_free,
+              })}
+            </Badge.Text>
+          </Badge>
+        ) : null}
+        {sendFeeStatus.discountPercent && sendFeeStatus.discountPercent > 0 ? (
+          <Badge badgeSize="sm" badgeType="success">
+            <Badge.Text>
+              {sendFeeStatus.discountPercent === 100
+                ? intl.formatMessage({
+                    id: ETranslations.prime_status_free,
+                  })
+                : intl.formatMessage(
+                    {
+                      id: ETranslations.wallet_discount_number,
+                    },
+                    { number: `${sendFeeStatus.discountPercent}%` },
+                  )}
+            </Badge.Text>
+          </Badge>
+        ) : null}
+      </XStack>
     );
   }, [
-    isResourceRentalEnabled,
     isResourceRentalNeeded,
-    selectedFee?.totalFiatMinForDisplay,
+    isResourceRentalEnabled,
+    transferPayload?.isTronResourceAutoClaimed,
+    transferPayload?.txOriginalFee,
+    megafuelEligible.sponsorable,
+    selectedFee?.originalTotalNative,
     selectedFee?.totalNativeMinForDisplay,
-    settings.currencyInfo.symbol,
+    selectedFee?.originalTotalFiat,
+    selectedFee?.totalFiatMinForDisplay,
     txFeeCommon?.nativeSymbol,
+    settings.currencyInfo.symbol,
+    intl,
+    sendFeeStatus.discountPercent,
   ]);
 
   useEffect(() => {
     if (txAdvancedSettings.dataChanged) {
-      setTxFeeInit(false);
+      updateTxFeeInfoInit(false);
     }
   }, [
     txAdvancedSettings.dataChanged,
     updateSendSelectedFee,
     updateTxAdvancedSettings,
+    updateTxFeeInfoInit,
+  ]);
+
+  useEffect(() => {
+    let originalTotalFiat = selectedFee?.totalFiatMinForDisplay;
+    let totalFiat = selectedFee?.totalFiatMinForDisplay;
+
+    if (
+      transferPayload?.isTronResourceAutoClaimed &&
+      transferPayload?.txOriginalFee
+    ) {
+      originalTotalFiat = transferPayload?.txOriginalFee.totalFiat;
+    }
+
+    if (isResourceRentalNeeded && isResourceRentalEnabled && payTokenInfo) {
+      let payTokenAmount = payTokenInfo.totalAmount;
+
+      if (payType === ETronResourceRentalPayType.Token && !isSwapTrxEnabled) {
+        payTokenAmount = payTokenInfo.payTxFeeAmount;
+      }
+
+      totalFiat = new BigNumber(payTokenAmount ?? 0)
+        .times(payTokenInfo.price ?? 0)
+        .toFixed();
+    }
+
+    if (
+      !isNil(originalTotalFiat) &&
+      !isNil(totalFiat) &&
+      new BigNumber(originalTotalFiat ?? 0).gt(0)
+    ) {
+      const discountPercent = new BigNumber(originalTotalFiat ?? 0)
+        .minus(totalFiat ?? 0)
+        .dividedBy(originalTotalFiat ?? 0)
+        .multipliedBy(100)
+        .dp(0)
+        .toNumber();
+
+      updateSendFeeStatus({
+        discountPercent,
+      });
+    }
+  }, [
+    isResourceRentalEnabled,
+    isResourceRentalNeeded,
+    isSwapTrxEnabled,
+    megafuelEligible.sponsorable,
+    payTokenInfo,
+    payType,
+    selectedFee?.totalFiatMinForDisplay,
+    transferPayload?.isTronResourceAutoClaimed,
+    transferPayload?.txOriginalFee,
+    updateSendFeeStatus,
   ]);
 
   return (
@@ -1527,7 +1715,8 @@ function TxFeeInfo(props: IProps) {
         </SizableText>
         {vaultSettings?.editFeeEnabled &&
         feeInfoEditable &&
-        !sendFeeStatus.errMessage ? (
+        !sendFeeStatus.errMessage &&
+        !megafuelEligible.sponsorable ? (
           <SizableText size="$bodyMd" color="$textSubdued">
             •
           </SizableText>
@@ -1536,14 +1725,14 @@ function TxFeeInfo(props: IProps) {
       </XStack>
       {renderOriginalFeeInfo()}
       <XStack gap="$1" alignItems="center">
-        {txFeeInit ? (
+        {txFeeInfoInit ? (
           renderTotalNative()
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit && !isNil(selectedFee?.totalFiatMinForDisplay)
+        {txFeeInfoInit && !isNil(selectedFee?.totalFiatMinForDisplay)
           ? renderTotalFiat()
           : ''}
       </XStack>

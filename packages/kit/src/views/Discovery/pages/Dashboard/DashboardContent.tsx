@@ -4,6 +4,7 @@ import pRetry from 'p-retry';
 
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -134,10 +135,12 @@ function DashboardContent({
               ) : null}
 
               <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$4">
-                <TrendingSection
-                  data={homePageData?.trending || []}
-                  isLoading={!!isLoading}
-                />
+                <ReviewControl>
+                  <TrendingSection
+                    data={homePageData?.trending || []}
+                    isLoading={!!isLoading}
+                  />
+                </ReviewControl>
               </Stack>
             </>
           )}

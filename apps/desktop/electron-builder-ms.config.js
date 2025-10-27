@@ -3,6 +3,11 @@ const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  asarUnpack: [
+    '**/node_modules/@stoprocent/noble/**/*',
+    '**/node_modules/@stoprocent/bluetooth-hci-socket/**',
+  ],
+
   'nsis': {
     'oneClick': false,
     'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
@@ -15,7 +20,7 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
-    'extraFiles': [...DLLs],
+    'extraFiles': DLLs,
     'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-store-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,

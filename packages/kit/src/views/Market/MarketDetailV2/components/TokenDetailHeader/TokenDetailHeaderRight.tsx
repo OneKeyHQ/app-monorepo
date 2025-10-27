@@ -10,11 +10,8 @@ import { MarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/Mark
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
-import { clampPercentage } from '@onekeyhq/shared/src/utils/numberUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
-
-import { MarketStarV2 } from '../../../components/MarketStarV2';
 
 import { ShareButton } from './ShareButton';
 
@@ -39,12 +36,14 @@ function StatItem({ label, value }: IStatItemProps) {
 interface ITokenDetailHeaderRightProps {
   tokenDetail?: IMarketTokenDetail;
   networkId?: string;
+  isNative?: boolean;
   showStats: boolean;
 }
 
 export function TokenDetailHeaderRight({
   tokenDetail,
   networkId,
+  isNative,
   showStats,
 }: ITokenDetailHeaderRightProps) {
   const intl = useIntl();
@@ -55,33 +54,22 @@ export function TokenDetailHeaderRight({
     price: currentPrice = '--',
     priceChange24hPercent = '--',
     marketCap = '0',
-    tvl = '0',
+    liquidity = '0',
     holders = 0,
     address = '',
   } = tokenDetail || {};
 
-  const marketStar =
-    networkId && address ? (
-      <MarketStarV2
-        chainId={networkId}
-        contractAddress={address}
-        size="medium"
-        from={EWatchlistFrom.details}
+  const shareButton =
+    networkId && platformEnv.isNative ? (
+      <ShareButton
+        networkId={networkId}
+        address={address}
+        isNative={isNative}
       />
     ) : null;
 
-  const shareButton =
-    networkId && address ? (
-      <ShareButton networkId={networkId} address={address} />
-    ) : null;
-
   if (!showStats) {
-    return (
-      <XStack gap="$3" ai="center">
-        {shareButton}
-        {marketStar}
-      </XStack>
-    );
+    return shareButton ? <XStack gap="$3">{shareButton}</XStack> : null;
   }
 
   return (
@@ -93,9 +81,10 @@ export function TokenDetailHeaderRight({
           price={currentPrice}
           tokenName={name}
           tokenSymbol={symbol}
+          lastUpdated={tokenDetail?.lastUpdated?.toString()}
         />
         <PriceChangePercentage size="$bodySm">
-          {clampPercentage(priceChange24hPercent)}
+          {priceChange24hPercent}
         </PriceChangePercentage>
       </YStack>
 
@@ -127,7 +116,7 @@ export function TokenDetailHeaderRight({
               currency: settingsPersistAtom.currencyInfo.symbol,
             }}
           >
-            {tvl === '0' ? '--' : tvl}
+            {liquidity === '0' ? '--' : liquidity}
           </NumberSizeableText>
         }
       />
@@ -145,7 +134,6 @@ export function TokenDetailHeaderRight({
         }
       />
 
-      {marketStar}
       {shareButton}
     </XStack>
   );

@@ -2,6 +2,7 @@ import { Stack } from '@onekeyhq/components';
 
 import { HomeTokenListProviderMirror } from '../components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { WalletActions } from '../components/WalletActions';
+import WalletBanner from '../components/WalletBanner';
 
 import { HomeOverviewContainer } from './HomeOverviewContainer';
 
@@ -18,7 +19,7 @@ function HomeHeaderContainer() {
           justifyContent: 'space-between',
         }}
       >
-        <Stack gap="$2.5">
+        <Stack gap="$2.5" flex={1}>
           <HomeOverviewContainer />
         </Stack>
         <WalletActions
@@ -27,6 +28,7 @@ function HomeHeaderContainer() {
           }}
         />
       </Stack>
+      <WalletBanner />
     </HomeTokenListProviderMirror>
   );
 }

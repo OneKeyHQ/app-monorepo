@@ -10,6 +10,10 @@ const DeriveTypesAddressSelector = LazyLoadPage(
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
 );
 
+const AggregateTokenSelector = LazyLoadPage(
+  () => import('../pages/AggregateTokenSelector'),
+);
+
 export const AssetSelectorRouter: IModalFlowNavigatorConfig<
   EAssetSelectorRoutes,
   IAssetSelectorParamList
@@ -21,5 +25,9 @@ export const AssetSelectorRouter: IModalFlowNavigatorConfig<
   {
     name: EAssetSelectorRoutes.DeriveTypesAddressSelector,
     component: DeriveTypesAddressSelector,
+  },
+  {
+    name: EAssetSelectorRoutes.AggregateTokenSelector,
+    component: AggregateTokenSelector,
   },
 ];

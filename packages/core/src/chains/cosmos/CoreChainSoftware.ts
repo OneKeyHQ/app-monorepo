@@ -161,6 +161,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         [networkInfo.networkId]: address,
       },
       publicKey,
+      __hwExtraInfo__: undefined,
     });
   }
 

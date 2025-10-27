@@ -17,7 +17,9 @@ export function TabPageHeader({
   sceneName,
   tabRoute,
   customHeaderRightItems,
+  renderCustomHeaderRightItems,
   customHeaderLeftItems,
+  hideSearch = false,
 }: ITabPageHeaderProp) {
   const { top } = useSafeAreaInsets();
 
@@ -28,10 +30,16 @@ export function TabPageHeader({
           sceneName={sceneName}
           tabRoute={tabRoute}
           customHeaderRightItems={customHeaderRightItems}
+          renderCustomHeaderRightItems={renderCustomHeaderRightItems}
         />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, tabRoute, customHeaderRightItems]);
+  }, [
+    sceneName,
+    tabRoute,
+    customHeaderRightItems,
+    renderCustomHeaderRightItems,
+  ]);
 
   return (
     <>
@@ -55,7 +63,11 @@ export function TabPageHeader({
         </View>
         {headerRight}
       </XStack>
-      <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+
+      {!hideSearch ? (
+        <HeaderMDSearch tabRoute={tabRoute} sceneName={sceneName} />
+      ) : null}
+
       <PageHeaderDivider mt="$3" />
     </>
   );

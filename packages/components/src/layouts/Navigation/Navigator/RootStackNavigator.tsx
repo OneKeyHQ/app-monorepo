@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useMedia } from 'tamagui';
-
+import { useMedia } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useThemeValue } from '../../../hooks';
@@ -36,6 +35,15 @@ interface IRootStackNavigatorProps<
 
 const RootStack = createStackNavigator<ParamListBase>();
 
+/**
+ * Renders a stack navigator with configurable routes, screen options, and initial route selection.
+ *
+ * Filters out disabled routes, applies route-specific and type-based screen options, and wraps the navigator in a context provider with a fixed page type.
+ *
+ * @param config - Array of route configurations for the stack navigator
+ * @param screenOptions - Optional default screen options to apply to all screens
+ * @returns A memoized React element containing the configured stack navigator
+ */
 export function RootStackNavigator<
   RouteName extends string,
   P extends ParamListBase,

@@ -218,7 +218,7 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
-    navigation.dispatch(
+    rootNavigationRef.current?.dispatch(
       StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
         address: params.address,
         networkId: networkSegment,
@@ -238,25 +238,18 @@ export const urlAccountNavigation = {
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
-
-    if (isCurrentlyInUrlAccountPage()) {
-      // If already in URL account page, use replace
-      navigation.dispatch(
-        StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, {
-          address: params.address,
-          networkId: networkSegment,
-        }),
-      );
-    } else {
-      // If not in URL account page, switch to Home tab and push
-      navigation.switchTab(ETabRoutes.Home);
-      navigation.dispatch(
-        StackActions.push(ETabHomeRoutes.TabHomeUrlAccountPage, {
-          address: params.address,
-          networkId: networkSegment,
-        }),
-      );
-    }
+    // If not in URL account page, switch to Home tab and push
+    navigation.switchTab(ETabRoutes.Home);
+    rootNavigationRef.current?.navigate(ETabRoutes.Home, {
+      screen: ETabHomeRoutes.TabHome,
+    });
+    await timerUtils.wait(100);
+    rootNavigationRef.current?.dispatch(
+      StackActions.replace(ETabHomeRoutes.TabHomeUrlAccountPage, {
+        address: params.address,
+        networkId: networkSegment,
+      }),
+    );
   },
   pushUrlAccountPageLanding(
     navigation: IAppNavigation,

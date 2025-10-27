@@ -2,6 +2,7 @@ import type { CompositionEvent } from 'react';
 import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,6 +13,7 @@ import type { IInputProps } from '../../forms/Input';
 
 export type ISearchBarProps = IInputProps & {
   onSearchTextChange?: (text: string) => void;
+  debounceInterval?: number; // debounce works only if value is undefined
 };
 
 const NATIVE_COMPOSITION_SPACE = String.fromCharCode(8198);
@@ -22,6 +24,7 @@ export function SearchBar({
   onSearchTextChange,
   testID,
   containerProps,
+  debounceInterval = 300, // debounce works only if value is undefined
   ...rest
 }: ISearchBarProps) {
   const [internalValue, setInternalValue] = useState('');
@@ -31,12 +34,8 @@ export function SearchBar({
   // Use controlled value if provided, otherwise use internal state
   const value = controlledValue !== undefined ? controlledValue : internalValue;
 
-  const handleChange = useCallback(
+  const onChangeTextCallback = useCallback(
     (text: string) => {
-      // Only update internal state if not controlled
-      if (controlledValue === undefined) {
-        setInternalValue(text);
-      }
       onChangeText?.(text);
       // This is a simple solution to support pinyin composition on iOS.
       if (platformEnv.isNative) {
@@ -61,7 +60,33 @@ export function SearchBar({
         onSearchTextChange?.(text);
       }
     },
-    [controlledValue, onChangeText, onSearchTextChange],
+    [onChangeText, onSearchTextChange],
+  );
+  const onChangeTextDebounced = useDebouncedCallback(
+    onChangeTextCallback,
+    debounceInterval,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  const handleChange = useCallback(
+    (text: string) => {
+      // Only update internal state if not controlled
+      if (controlledValue === undefined) {
+        setInternalValue(text);
+        if (!text) {
+          // onChangeTextCallback('');
+          onChangeTextDebounced('');
+        } else {
+          onChangeTextDebounced(text);
+        }
+      } else {
+        onChangeTextCallback(text);
+      }
+    },
+    [controlledValue, onChangeTextCallback, onChangeTextDebounced],
   );
 
   const handleClearValue = useCallback(() => {
@@ -85,15 +110,6 @@ export function SearchBar({
       value={value}
       onChangeText={handleChange}
       leftIconName="SearchOutline"
-      {...(value?.length && {
-        addOns: [
-          {
-            iconName: 'XCircleOutline',
-            onPress: handleClearValue,
-            testID: `${testID || ''}-clear`,
-          },
-        ],
-      })}
       returnKeyType="search"
       returnKeyLabel="Search"
       testID={testID ? `nav-header-search-${testID}` : 'nav-header-search'}
@@ -101,6 +117,16 @@ export function SearchBar({
         id: ETranslations.global_search,
       })}
       {...rest}
+      {...(value?.length &&
+        !rest.addOns?.length && {
+          addOns: [
+            {
+              iconName: 'XCircleOutline',
+              onPress: handleClearValue,
+              testID: `${testID || ''}-clear`,
+            },
+          ],
+        })}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
       containerProps={{
@@ -108,6 +134,7 @@ export function SearchBar({
         borderRadius: '$full',
         bg: '$bgStrong',
         borderColor: '$transparent',
+        overflow: 'hidden',
         ...containerProps,
       }}
     />

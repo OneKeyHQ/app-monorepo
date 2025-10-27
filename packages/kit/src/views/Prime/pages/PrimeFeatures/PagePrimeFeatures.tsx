@@ -1,19 +1,18 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 
 import type {
   IKeyOfIcons,
   IRenderPaginationParams,
 } from '@onekeyhq/components';
 import {
+  Button,
   Divider,
-  Icon,
-  IconButton,
   Image,
-  NavBackButton,
   Page,
+  Portal,
   SizableText,
   Stack,
   Swiper,
@@ -23,17 +22,19 @@ import {
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import CloseButton from '@onekeyhq/components/src/composite/Banner/CloseButton';
 import { PaginationButton } from '@onekeyhq/components/src/composite/Banner/PaginationButton';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import type { IPrimeParamList } from '@onekeyhq/shared/src/routes/prime';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -50,6 +51,7 @@ type IFeatureItemInfo = {
     description: string;
     onPress?: () => void;
   }[];
+  children?: React.ReactNode;
 };
 
 function FeaturesItem({
@@ -57,45 +59,51 @@ function FeaturesItem({
   title,
   description,
   details,
+  children,
 }: IFeatureItemInfo) {
   return (
-    <Stack pb="$5" alignItems="center" justifyContent="center">
+    <Stack alignItems="center" justifyContent="center">
       <Stack maxWidth={432} width="100%">
         <Stack alignItems="center" justifyContent="center">
           {banner}
         </Stack>
-        <Stack pt="$4" px="$5">
+        <YStack pt="$4" px="$5" gap="$0.5">
           <SizableText textAlign="center" size="$headingXl">
             {title}
           </SizableText>
           <SizableText textAlign="center" size="$bodyLg" color="$textSubdued">
             {description}
           </SizableText>
-        </Stack>
+        </YStack>
         <Divider my="$6" borderColor="$neutral3" />
-        {details.map((detail, index) => {
-          return (
-            <ListItem
-              key={index}
-              drillIn={!!detail.onPress}
-              onPress={detail.onPress}
-              icon={detail.icon}
-            >
-              <ListItem.Text
-                userSelect="none"
-                flex={1}
-                primary={
-                  <XStack>
-                    <SizableText textAlign="left" size="$bodyMdMedium">
-                      {detail.title}
-                    </SizableText>
-                  </XStack>
-                }
-                secondary={detail.description}
-              />
-            </ListItem>
-          );
-        })}
+        <YStack gap="$1.5" pb="$4">
+          {details.map((detail, index) => {
+            return (
+              <>
+                <ListItem
+                  key={index}
+                  drillIn={!!detail.onPress}
+                  onPress={detail.onPress}
+                  icon={detail.icon}
+                >
+                  <ListItem.Text
+                    userSelect="none"
+                    flex={1}
+                    primary={
+                      <XStack>
+                        <SizableText textAlign="left" size="$bodyMdMedium">
+                          {detail.title}
+                        </SizableText>
+                      </XStack>
+                    }
+                    secondary={detail.description}
+                  />
+                </ListItem>
+              </>
+            );
+          })}
+        </YStack>
+        {children}
       </Stack>
     </Stack>
   );
@@ -105,7 +113,6 @@ export default function PagePrimeFeatures() {
   const navigation = useAppNavigation();
   const keyExtractor = useCallback((item: IFeatureItemInfo) => item.title, []);
   const renderItem = useCallback(({ item }: { item: IFeatureItemInfo }) => {
-    // return null;
     return <FeaturesItem {...item} />;
   }, []);
 
@@ -113,8 +120,28 @@ export default function PagePrimeFeatures() {
   const selectedFeature = route.params?.selectedFeature;
   const showAllFeatures = route.params?.showAllFeatures;
   const selectedSubscriptionPeriod = route.params?.selectedSubscriptionPeriod;
+  const serverUserInfo = route.params?.serverUserInfo;
   const intl = useIntl();
   const { gtMd } = useMedia();
+
+  // const [primePersistData] = usePrimePersistAtom();
+  // const [primeMasterPasswordPersistData] = usePrimeMasterPasswordPersistAtom();
+  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const [primeCloudSyncPersistData] = usePrimeCloudSyncPersistAtom();
+
+  const { result: isServerMasterPasswordSet } = usePromiseResult(() => {
+    return backgroundApiProxy.serviceMasterPassword.IsServerMasterPasswordSet({
+      serverUserInfo,
+    });
+  }, [serverUserInfo]);
+
+  useEffect(() => {
+    if (selectedFeature && !showAllFeatures) {
+      defaultLogger.prime.subscription.primeUpsellShow({
+        featureName: selectedFeature,
+      });
+    }
+  }, [selectedFeature, showAllFeatures]);
 
   const bannerHeight = useMemo(() => {
     if (gtMd) {
@@ -134,6 +161,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/onekey_cloud_banner.png')}
           />
         ),
@@ -163,6 +191,26 @@ export default function PagePrimeFeatures() {
             }),
           },
         ],
+        children:
+          isServerMasterPasswordSet ||
+          primeCloudSyncPersistData?.isCloudSyncEnabled ||
+          isPrimeSubscriptionActive ? (
+            <Stack>
+              <Button
+                mt="$2"
+                variant="tertiary"
+                onPress={() => {
+                  navigation.navigate(EPrimePages.PrimeCloudSync, {
+                    serverUserInfo,
+                  });
+                }}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.prime_manage_service,
+                })}
+              </Button>
+            </Stack>
+          ) : null,
       },
 
       {
@@ -171,6 +219,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_copy_banner.png')}
           />
         ),
@@ -217,6 +266,7 @@ export default function PagePrimeFeatures() {
           <Image
             w="100%"
             h={bannerHeight}
+            maxWidth={393}
             source={require('@onekeyhq/kit/assets/prime/bulk_revoke_banner.png')}
           />
         ),
@@ -228,6 +278,15 @@ export default function PagePrimeFeatures() {
         }),
         details: [
           {
+            icon: 'GasOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+            }),
+          },
+          {
             icon: 'WalletCryptoOutline',
             title: intl.formatMessage({
               id: ETranslations.prime_features_bulk_revoke_detail_one_title,
@@ -236,13 +295,80 @@ export default function PagePrimeFeatures() {
               id: ETranslations.prime_features_bulk_revoke_detail_one_desc,
             }),
           },
+        ],
+      },
+
+      {
+        id: EPrimeFeatures.Notifications,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/increase_notification_limit_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_multi_account_notification,
+        }),
+        description: intl.formatMessage(
           {
-            icon: 'Filter1Outline',
+            id: ETranslations.global_on_chain_notifications_description,
+          },
+          {
+            number: 100,
+          },
+        ),
+        details: [
+          {
+            icon: 'EyeOutline',
             title: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_title,
+              id: ETranslations.prime_features_increase_notification_limit_one_title,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_features_bulk_revoke_detail_two_desc,
+              id: ETranslations.prime_features_increase_notification_limit_one_desc,
+            }),
+          },
+        ],
+      },
+      {
+        id: EPrimeFeatures.HistoryExport,
+        banner: (
+          <Image
+            w="100%"
+            h={bannerHeight}
+            maxWidth={393}
+            source={require('@onekeyhq/kit/assets/prime/export_transactions_banner.png')}
+          />
+        ),
+        title: intl.formatMessage({
+          id: ETranslations.global_export_transaction_history,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.wallet_export_on_chain_transactions_description,
+          },
+          {
+            networkCount: 12,
+          },
+        ),
+        details: [
+          {
+            icon: 'ArchiveBoxOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_export_transactions_one_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_export_transactions_one_desc,
+            }),
+          },
+          {
+            icon: 'BillOutline',
+            title: intl.formatMessage({
+              id: ETranslations.prime_features_export_transactions_two_title,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.prime_features_export_transactions_two_desc,
             }),
           },
         ],
@@ -257,16 +383,31 @@ export default function PagePrimeFeatures() {
       ? allFeatures
       : [selectedFeatureItem].filter(Boolean);
     const index = data.findIndex((item) => item.id === selectedFeature);
+    const safeIndex = index >= 0 ? index : 0;
     return {
       data,
-      index: index ?? 0,
+      index: safeIndex,
     };
-  }, [bannerHeight, intl, selectedFeature, showAllFeatures]);
+  }, [
+    bannerHeight,
+    intl,
+    isServerMasterPasswordSet,
+    primeCloudSyncPersistData?.isCloudSyncEnabled,
+    isPrimeSubscriptionActive,
+    showAllFeatures,
+    navigation,
+    serverUserInfo,
+    selectedFeature,
+  ]);
 
   // PaginationButton will cause native crash
   const showPaginationButton = !platformEnv.isNative;
   const isHovering = true;
   const showCloseButton = false;
+
+  const portalContainerName = useMemo(() => {
+    return `prime-features-swiper-controls--${stringUtils.generateUUID()}`;
+  }, []);
 
   const renderPagination = useCallback(
     ({
@@ -274,77 +415,75 @@ export default function PagePrimeFeatures() {
       goToNextIndex,
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
-      <>
-        {dataInfo.data.length > 1 ? (
-          <XStack
-            testID="prime-features-pagination"
-            gap="$1"
-            // position="absolute"
-            // right={0}
-            // bottom="$10"
-            width="100%"
-            jc="center"
-            // {...hoverOpacity}
-            // {...indicatorContainerStyle}
-          >
-            {dataInfo.data.map((_, index) => (
-              <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$textSubdued"
-                opacity={currentIndex === index ? 1 : 0.5}
+      <Portal.Body container={portalContainerName as any}>
+        <Theme name="dark">
+          {dataInfo.data.length > 1 ? (
+            <XStack
+              testID="prime-features-pagination"
+              gap="$1"
+              position="absolute"
+              right={0}
+              left={0}
+              bottom={0}
+              width="100%"
+              jc="center"
+              // pt="$1"
+              // pb="$2"
+              zIndex={1}
+              // {...hoverOpacity}
+              // {...indicatorContainerStyle}
+            >
+              {dataInfo.data.map((_, index) => (
+                <Stack
+                  key={index}
+                  w="$3"
+                  $gtMd={{
+                    w: '$4',
+                  }}
+                  h="$1"
+                  borderRadius="$full"
+                  bg="$textSubdued"
+                  opacity={currentIndex === index ? 1 : 0.5}
+                />
+              ))}
+            </XStack>
+          ) : null}
+
+          {showPaginationButton ? (
+            <>
+              <PaginationButton
+                isVisible={currentIndex !== 0 ? isHovering : false}
+                direction="previous"
+                onPress={gotToPrevIndex}
+                variant="tertiary"
+                zIndex={1}
+                theme="dark"
+                iconSize="small"
+                positionOffset={16}
               />
-            ))}
-          </XStack>
-        ) : null}
 
-        {showPaginationButton ? (
-          <>
-            <PaginationButton
-              isVisible={currentIndex !== 0 ? isHovering : false}
-              direction="previous"
-              onPress={gotToPrevIndex}
-              variant="tertiary"
-            />
-
-            <PaginationButton
-              isVisible={
-                currentIndex !== dataInfo.data.length - 1 ? isHovering : false
-              }
-              direction="next"
-              onPress={goToNextIndex}
-              variant="tertiary"
-            />
-          </>
-        ) : null}
-
-        {showCloseButton ? (
-          <CloseButton
-            onPress={() => {
-              //
-            }}
-            isHovering={isHovering}
-          />
-        ) : null}
-      </>
+              <PaginationButton
+                isVisible={
+                  currentIndex !== dataInfo.data.length - 1 ? isHovering : false
+                }
+                direction="next"
+                onPress={goToNextIndex}
+                variant="tertiary"
+                zIndex={1}
+                theme="dark"
+                iconSize="small"
+                positionOffset={16}
+              />
+            </>
+          ) : null}
+        </Theme>
+      </Portal.Body>
     ),
-    [dataInfo.data, isHovering, showCloseButton, showPaginationButton],
+    [dataInfo.data, isHovering, portalContainerName, showPaginationButton],
   );
 
   const [index, setIndex] = useState(dataInfo.index);
-  const onIndexChange = useCallback(
-    ({ index: newIndex }: { index: number }) => {
-      setIndex(newIndex);
-    },
-    [],
-  );
 
-  const { isPrimeSubscriptionActive } = usePrimeAuthV2();
   const shouldShowConfirmButton = !showAllFeatures
     ? true
     : !isPrimeSubscriptionActive;
@@ -380,9 +519,12 @@ export default function PagePrimeFeatures() {
 
   const subscribe = useCallback(async () => {
     if (!showAllFeatures) {
-      navigation.pushModal(EModalRoutes.PrimeModal, {
-        screen: EPrimePages.PrimeDashboard,
-      });
+      if (selectedFeature) {
+        defaultLogger.prime.subscription.primeUpsellActionClick({
+          featureName: selectedFeature,
+        });
+      }
+      navigation.push(EPrimePages.PrimeDashboard);
       return;
     }
     if (isPackagesLoading) {
@@ -407,6 +549,7 @@ export default function PagePrimeFeatures() {
     ensurePrimeSubscriptionActive,
     isPackagesLoading,
     navigation,
+    selectedFeature,
     selectedSubscriptionPeriod,
     showAllFeatures,
   ]);
@@ -423,8 +566,8 @@ export default function PagePrimeFeatures() {
 
   const page = (
     <>
-      <Page.BackButton />
-      <Page scrollEnabled>
+      {showAllFeatures ? <Page.BackButton /> : <Page.CloseButton />}
+      <Page>
         <Theme name="dark">
           <Page.Header
             headerShown={false}
@@ -435,30 +578,26 @@ export default function PagePrimeFeatures() {
         </Theme>
 
         <Page.Body>
-          <Stack h={60} />
-          <Swiper
-            height={height}
-            position="relative"
-            index={index}
-            initialNumToRender={3}
-            onChangeIndex={onIndexChange}
-            // autoplay
-            // autoplayLoop
-            // autoplayLoopKeepAnimation
-            // autoplayDelayMs={3000}
-            keyExtractor={keyExtractor}
-            data={dataInfo.data}
-            renderItem={renderItem}
-            renderPagination={renderPagination}
-            overflow="hidden"
-            borderRadius="$3"
-            onPointerEnter={() => {
-              // setIsHoveringThrottled(true);
-            }}
-            onPointerLeave={() => {
-              // setIsHoveringThrottled(false);
-            }}
-          />
+          <View style={{ flex: 1 }}>
+            <Portal.Container name={portalContainerName} />
+            <ScrollView>
+              <Stack h={gtMd ? 48 : 60} />
+              <Swiper
+                // height={height}
+                height="100%"
+                position="relative"
+                index={index}
+                initialNumToRender={3}
+                onChangeIndex={({ index: newIndex }) => setIndex(newIndex)}
+                keyExtractor={keyExtractor}
+                data={dataInfo.data}
+                renderItem={renderItem}
+                renderPagination={renderPagination}
+                overflow="hidden"
+                borderRadius="$3"
+              />
+            </ScrollView>
+          </View>
         </Page.Body>
         <Page.Footer
           confirmButtonProps={

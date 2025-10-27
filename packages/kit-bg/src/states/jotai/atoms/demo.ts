@@ -13,6 +13,19 @@ export const { target: demoPriceAtom, use: useDemoPriceAtom } = globalAtom({
   persist: true,
 });
 
+export const { target: demoPriceInfoAtom, use: useDemoPriceInfoAtom } =
+  globalAtom<{
+    price: number;
+    info: string;
+  }>({
+    initialValue: {
+      price: 10,
+      info: 'info',
+    },
+    name: EAtomNames.demoPriceInfoAtom,
+    persist: true,
+  });
+
 export const {
   target: demoPriceNotPersistAtom,
   use: useDemoPriceNotPersistAtom,

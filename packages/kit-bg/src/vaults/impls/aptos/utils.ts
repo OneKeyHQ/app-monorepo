@@ -41,8 +41,6 @@ import type {
   EntryFunctionPayloadResponse,
   InputGenerateTransactionPayloadData,
   MoveResource,
-  MultiAgentTransaction,
-  SimpleTransaction,
   TransactionResponse,
   TypeTag,
 } from '@aptos-labs/ts-sdk';

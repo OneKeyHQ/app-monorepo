@@ -13,6 +13,7 @@ export function TimeRangeSelector({
   options,
   value,
   onChange,
+  isLoading,
 }: ITimeRangeSelectorProps) {
   return (
     <Stack
@@ -47,8 +48,11 @@ export function TimeRangeSelector({
             >
               {opt.label}
             </SizableText>
-            <SizableText size="$bodySm" color={getPercentageColor(opt)}>
-              {opt.percentageChange}
+            <SizableText
+              size="$bodySm"
+              color={isLoading ? '$textSubdued' : getPercentageColor(opt)}
+            >
+              {isLoading ? '--' : opt.percentageChange}
             </SizableText>
           </YStack>
         </ButtonFrame>

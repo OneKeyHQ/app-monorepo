@@ -275,15 +275,40 @@ index d1bcd88..1c3702b 100644
  
  #pragma mark - Layout
 diff --git a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
-index e1cad8a..16d1fd4 100644
+index e1cad8a..37dff0e 100644
 --- a/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
 +++ b/node_modules/react-native/React/Fabric/Mounting/ComponentViews/TextInput/RCTTextInputComponentView.mm
-@@ -348,6 +348,13 @@ - (void)prepareForRecycle
+@@ -348,6 +348,38 @@ - (void)prepareForRecycle
    [_backedTextInputView resignFirstResponder];
  }
  
++BOOL checkIsBlankString(NSString *string) {
++  if (!string) {
++    return YES;
++  }
++  if ([string isKindOfClass: [NSNull class]]) {
++    return YES;
++  }
++
++  if (!string.length) {
++    return YES;
++  }
++
++  NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
++  NSString *trimmed = [string stringByTrimmingCharactersInSet:whitespace];
++  if (!trimmed.length) {
++    return YES;
++  }
++
++  return NO;
++}
++
++
 +- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
 +{
++  if (checkIsBlankString(type) || checkIsBlankString(data)) {
++    return;
++  }
 +  if (_eventEmitter) {
 +    static_cast<const TextInputEventEmitter &>(*_eventEmitter).onPaste(std::string([type UTF8String]), std::string([data UTF8String]));
 +  }

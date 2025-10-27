@@ -2,19 +2,18 @@ import type { PropsWithChildren } from 'react';
 import { memo, useMemo } from 'react';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { TamaguiProvider } from 'tamagui';
 
 import type { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import config from '../../../tamagui.config';
-
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
 import { SettingConfigContext } from './hooks/useProviderValue';
-import SidebarStateProvider from './SidebarStateProvider';
+import { TamaguiProvider } from './TamaguiProvider';
+
+import type { TamaguiConfig } from 'tamagui';
 
 export type IUIProviderProps = PropsWithChildren<{
   /**
@@ -60,18 +59,26 @@ export function ConfigProvider({
     [theme, locale, HyperlinkText],
   );
 
+  const config = useMemo(
+    () =>
+      (
+        require('../../../tamagui.config') as {
+          default: TamaguiConfig;
+        }
+      ).default,
+    [],
+  );
+
   useAppearanceTheme(theme);
   return (
     <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
       <FontProvider>
         <SettingConfigContext.Provider value={providerValue}>
-          <SidebarStateProvider>
-            <SafeAreaProvider>
-              <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
-                {children}
-              </MemoizedTamaguiProvider>
-            </SafeAreaProvider>
-          </SidebarStateProvider>
+          <SafeAreaProvider>
+            <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
+              {children}
+            </MemoizedTamaguiProvider>
+          </SafeAreaProvider>
         </SettingConfigContext.Provider>
       </FontProvider>
     </AppIntlProvider>

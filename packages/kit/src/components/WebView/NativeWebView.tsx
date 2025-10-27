@@ -54,6 +54,7 @@ const NativeWebView = forwardRef(
       pullToRefreshEnabled = true,
       webviewDebuggingEnabled,
       useGeckoView,
+      allowsBackForwardNavigationGestures = true,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -193,7 +194,9 @@ const NativeWebView = forwardRef(
           cacheEnabled={false}
           style={styles.container}
           originWhitelist={['*']}
-          allowsBackForwardNavigationGestures
+          allowsBackForwardNavigationGestures={
+            allowsBackForwardNavigationGestures
+          }
           fraudulentWebsiteWarningEnabled={false}
           onLoadProgress={onLoadProgress}
           ref={webviewRef}
@@ -256,6 +259,7 @@ const NativeWebView = forwardRef(
       useGeckoView,
       webViewOnLoadStart,
       webviewOnMessage,
+      allowsBackForwardNavigationGestures,
     ]);
 
     return platformEnv.isNativeAndroid && pullToRefreshEnabled ? (

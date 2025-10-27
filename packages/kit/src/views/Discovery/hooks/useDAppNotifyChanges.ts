@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { throttle } from 'lodash';
+import { noop, throttle } from 'lodash';
 
 import { useIsMounted } from '@onekeyhq/components/src/hocs/Provider/hooks/useIsMounted';
 import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type {
   IConnectionAccountInfo,
   IConnectionStorageType,
@@ -21,10 +22,11 @@ import { useWebTabDataById } from './useWebTabs';
 
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
 const notifyChanges = throttle((url: string, fromScene?: string) => {
   console.log('webview notify changed events: ', url, fromScene);
-  const targetOrigin = new URL(url).origin;
+  const targetOrigin = uriUtils.getOriginFromUrl({ url });
   if (fromScene === 'domReady') {
     return;
   }
@@ -37,8 +39,98 @@ const notifyChanges = throttle((url: string, fromScene?: string) => {
   }
 }, 800);
 
-export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
+export function useDAppNotifyChangesBase({
+  getWebviewRef,
+  isFocused,
+  url,
+  shouldSkipNotify,
+}: {
+  getWebviewRef: () => IWebViewWrapperRef | null;
+  isFocused: boolean; // isFocusedInDiscoveryTab
+  url: string | undefined;
+  shouldSkipNotify?: () => boolean;
+}) {
   const isMountedRef = useIsMounted();
+
+  const getWebviewRefFn = useRef(getWebviewRef);
+  getWebviewRefFn.current = getWebviewRef;
+
+  const shouldSkipNotifyFn = useRef(shouldSkipNotify);
+  shouldSkipNotifyFn.current = shouldSkipNotify;
+
+  // reconnect jsBridge
+  useEffect(() => {
+    noop(isFocused);
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      return;
+    }
+    const webviewRef = getWebviewRefFn.current();
+    const jsBridge = webviewRef?.jsBridge;
+    if (!jsBridge) {
+      return;
+    }
+    backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
+  }, [isFocused]);
+
+  // sent accountChanged notification
+  useEffect(() => {
+    if (shouldSkipNotifyFn.current?.() === true) {
+      return;
+    }
+
+    if (!platformEnv.isNative && !platformEnv.isDesktop) {
+      console.log('not native or not desktop');
+      return;
+    }
+
+    if (!isMountedRef.current) {
+      console.log('not mounted');
+      return;
+    }
+
+    if (!url || !isFocused) {
+      console.log('no url or not focused');
+      return;
+    }
+
+    const webviewRef = getWebviewRefFn.current();
+    if (!webviewRef) {
+      console.log('no webviewRef');
+      return;
+    }
+
+    console.log('webview isFocused and notifyChanges: ', url);
+    if (platformEnv.isDesktop) {
+      const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
+
+      if (!innerRef) {
+        return;
+      }
+      // @ts-expect-error
+      if (innerRef.__dy) {
+        notifyChanges(url, 'immediately');
+      } else {
+        const timer = setTimeout(() => {
+          notifyChanges(url, 'setTimeout');
+        }, 1000);
+        const onDomReady = () => {
+          notifyChanges(url, 'domReady');
+          clearTimeout(timer);
+        };
+        innerRef.addEventListener('dom-ready', onDomReady);
+
+        return () => {
+          clearTimeout(timer);
+          innerRef.removeEventListener('dom-ready', onDomReady);
+        };
+      }
+    } else if (platformEnv.isNative) {
+      notifyChanges(url, 'immediately');
+    }
+  }, [isFocused, url, isMountedRef]);
+}
+
+export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   const { tab } = useWebTabDataById(tabId ?? '');
 
   const webviewRef = getWebviewWrapperRef(tabId ?? '');
@@ -53,83 +145,27 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   });
   const previousUrl = usePrevious(tab?.url);
 
-  // reconnect jsBridge
-  useEffect(() => {
-    if (!platformEnv.isNative && !platformEnv.isDesktop) {
-      return;
-    }
-    const jsBridge = webviewRef?.jsBridge;
-    if (!jsBridge) {
-      return;
-    }
-    backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
-  }, [webviewRef, isFocusedInDiscoveryTab]);
-
-  // sent accountChanged notification
-  useEffect(() => {
-    if (!platformEnv.isNative && !platformEnv.isDesktop) {
-      console.log('not native or not desktop');
-      return;
-    }
-
-    if (!isMountedRef.current) {
-      console.log('not mounted');
-      return;
-    }
-
+  const shouldSkipNotify = useCallback(() => {
     if (!tab?.url || !isFocusedInDiscoveryTab) {
-      console.log('no url or not focused');
-      return;
+      return true;
     }
-
-    if (!webviewRef) {
-      console.log('no webviewRef');
-      return;
-    }
-
     if (previousUrl && previousUrl !== tab.url) {
-      const preUrl = new URL(previousUrl);
-      const curUrl = new URL(tab.url);
-      if (preUrl.origin === curUrl.origin) {
-        return;
+      const preUrlOrigin = uriUtils.getOriginFromUrl({ url: previousUrl });
+      const curUrlOrigin = uriUtils.getOriginFromUrl({ url: tab.url });
+      if (preUrlOrigin === curUrlOrigin) {
+        return true;
       }
     }
+    return false;
+  }, [tab?.url, isFocusedInDiscoveryTab, previousUrl]);
 
-    console.log('webview isFocused and notifyChanges: ', tab.url);
-    if (platformEnv.isDesktop) {
-      const innerRef = webviewRef?.innerRef as IElectronWebView | undefined;
-
-      if (!innerRef) {
-        return;
-      }
-      // @ts-expect-error
-      if (innerRef.__dy) {
-        notifyChanges(tab.url, 'immediately');
-      } else {
-        const timer = setTimeout(() => {
-          notifyChanges(tab.url, 'setTimeout');
-        }, 1000);
-        const onDomReady = () => {
-          notifyChanges(tab.url, 'domReady');
-          clearTimeout(timer);
-        };
-        innerRef.addEventListener('dom-ready', onDomReady);
-
-        return () => {
-          clearTimeout(timer);
-          innerRef.removeEventListener('dom-ready', onDomReady);
-        };
-      }
-    } else if (platformEnv.isNative) {
-      notifyChanges(tab?.url, 'immediately');
-    }
-  }, [
-    isFocusedInDiscoveryTab,
-    tab?.url,
-    webviewRef,
-    isMountedRef,
-    previousUrl,
-  ]);
+  const getWebviewRef = useCallback(() => webviewRef, [webviewRef]);
+  useDAppNotifyChangesBase({
+    getWebviewRef,
+    url: tab?.url,
+    isFocused: isFocusedInDiscoveryTab,
+    shouldSkipNotify,
+  });
 }
 
 export function useShouldUpdateConnectedAccount() {

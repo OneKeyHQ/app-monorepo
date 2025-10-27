@@ -29,13 +29,7 @@ function CalculationListItemLabel({
   ...rest
 }: ISizableTextProps & { tooltip?: string }) {
   const content = (
-    <SizableText
-      color="$textSubdued"
-      maxWidth="50%"
-      flex={1}
-      flexWrap="wrap"
-      {...rest}
-    >
+    <SizableText color="$textSubdued" flex={1} flexWrap="wrap" {...rest}>
       {children}
     </SizableText>
   );
@@ -56,6 +50,11 @@ function CalculationListItemLabel({
   );
 }
 
+/**
+ * @deprecated Use XStack or YStack with SizableText instead.
+ * Text components cannot render non-text elements as children,
+ * as nesting may cause rendering failures on native platforms.
+ */
 function CalculationListItemValue({ children, ...rest }: ISizableTextProps) {
   return (
     <SizableText size="$bodyLgMedium" {...rest}>

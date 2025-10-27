@@ -38,6 +38,11 @@ export function useImage(
     return resolveSource(source);
   }, [source]);
   const cachedImage: ImageSource | null = useMemo(() => {
+    if (resolvedSource?.uri && !/^https?:\/\//.test(resolvedSource.uri)) {
+      return {
+        uri: resolvedSource.uri,
+      };
+    }
     if (platformEnv.isNativeAndroid) {
       return null;
     }
@@ -62,6 +67,7 @@ export function useImage(
 
   const loadImage = useCallback(() => {
     if (!resolvedSource || isEmptyResolvedSource(resolvedSource)) {
+      setImage(null);
       return;
     }
     Image.loadAsync(resolvedSource, optionsRef.current)
@@ -83,6 +89,7 @@ export function useImage(
         if (!isEffectValid.current) {
           return;
         }
+        setImage(null);
         if (optionsRef.current.onError) {
           optionsRef.current.onError(error, loadImage);
         } else {
@@ -100,9 +107,6 @@ export function useImage(
   const fetchImageTimesLimit = useRef(0);
   const reFetchImage = useCallback(() => {
     if (!resolvedSource) {
-      return;
-    }
-    if (fetchImageTimesLimit.current > 3) {
       return;
     }
     if (resolvedSource?.uri) {

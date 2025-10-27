@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -15,13 +15,16 @@ import {
   XStack,
   usePopoverContext,
 } from '@onekeyhq/components';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
+import {
+  EAppUpdateStatus,
+  displayAppUpdateVersion,
+} from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DownloadProgress } from './DownloadProgress';
-import { useAppUpdateInfo } from './hooks';
+import { isShowAppUpdateUIWhenUpdating, useAppUpdateInfo } from './hooks';
 
 function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   const intl = useIntl();
@@ -39,7 +42,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_update_app_available },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
           },
@@ -139,7 +142,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             return intl.formatMessage(
               { id: ETranslations.update_app_version_ready_for_update },
               {
-                version: appUpdateInfo.latestVersion || '',
+                version: displayAppUpdateVersion(appUpdateInfo),
               },
             );
           },
@@ -292,8 +295,19 @@ function BasicUpdateReminder() {
     await closePopover?.();
     onUpdateAction?.();
   }, [closePopover, onUpdateAction]);
+
+  const showUpdateUI = useMemo(() => {
+    return isShowAppUpdateUIWhenUpdating({
+      updateStrategy: appUpdateInfo.data.updateStrategy,
+      updateStatus: data.status,
+    });
+  }, [appUpdateInfo.data.updateStrategy, data.status]);
   const style = UPDATE_REMINDER_BAR_STYLE[data.status];
   if (!appUpdateInfo.isNeedUpdate || !style) {
+    return null;
+  }
+
+  if (!showUpdateUI) {
     return null;
   }
 

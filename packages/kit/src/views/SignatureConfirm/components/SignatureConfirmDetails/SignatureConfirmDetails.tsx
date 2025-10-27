@@ -11,6 +11,7 @@ import {
   Default,
   Divider,
   Network,
+  Simulation,
 } from '../SignatureConfirmComponents';
 
 interface IProps {
@@ -114,6 +115,8 @@ function SignatureConfirmDetails(props: IProps) {
             showAddressLocalTags
           />
         );
+      case EParseTxComponentType.Simulation:
+        return <Simulation component={component} />;
       default:
         return null;
     }

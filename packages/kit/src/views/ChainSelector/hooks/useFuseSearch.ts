@@ -29,7 +29,6 @@ export const useFuseSearch = (networks: IServerNetwork[]) => {
         '$or': [
           { name: `^${searchText}` }, // Starts with
           { name: `'${searchText}` }, // Contains
-          { name: searchText }, // Fuzzy match for abbreviations
         ],
       };
       if (implArr.includes(lowerSearchText)) {

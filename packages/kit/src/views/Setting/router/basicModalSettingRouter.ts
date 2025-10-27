@@ -67,6 +67,20 @@ const DesktopApiProxyTestDevSettings = LazyLoadPage(
     ),
 );
 
+const PerpGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PerpGallery'
+    ),
+);
+
+const CryptoGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/CryptoGallery'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -92,6 +106,17 @@ const AlignPrimaryAccountModal = LazyLoadPage(
 
 const CustomTransactionModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/CustomTransaction'),
+);
+
+const PerpUserConfigModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/PerpUserConfig'),
+);
+
+const DevAppUpdateModalSettingModal = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/DevAppUpdateModalSettingModal'
+    ),
 );
 
 export const BasicModalSettingStack: IModalFlowNavigatorConfig<
@@ -140,6 +165,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
     component: FirmwareUpdateDevSettings,
   },
   {
+    name: EModalSettingRoutes.SettingDevAppUpdateModal,
+    component: DevAppUpdateModalSettingModal,
+  },
+  {
     name: EModalSettingRoutes.SettingDevV4MigrationModal,
     component: V4MigrationDevSettings,
   },
@@ -150,6 +179,14 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevDesktopApiProxyTestModal,
     component: DesktopApiProxyTestDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevPerpGalleryModal,
+    component: PerpGallery,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevCryptoGalleryModal,
+    component: CryptoGallery,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,
@@ -174,6 +211,10 @@ export const BasicModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingFloatingIconModal,
     component: FloatingIconModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingPerpUserConfig,
+    component: PerpUserConfigModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

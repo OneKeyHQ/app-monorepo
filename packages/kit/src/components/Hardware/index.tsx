@@ -98,6 +98,7 @@ export const confirmByPin = async () => {
     dismissOnOverlayPress: false,
     renderContent: (
       <EnterPin
+        title="Enter PIN"
         onConfirm={async () => {
           event.confirm();
           await dialog.close();

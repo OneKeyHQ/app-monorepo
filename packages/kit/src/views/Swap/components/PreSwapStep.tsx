@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Divider,
-  Icon,
   Image,
   LottieView,
   SizableText,

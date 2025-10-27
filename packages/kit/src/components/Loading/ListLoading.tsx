@@ -159,7 +159,7 @@ function ListLoading({
 
 function NFTListLoadingView() {
   return (
-    <XStack p="$2.5" flexWrap="wrap">
+    <XStack flexWrap="wrap">
       {[...Array(6)].map((_, index) => (
         <Stack
           key={index}

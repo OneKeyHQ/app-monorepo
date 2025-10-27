@@ -4,9 +4,25 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 export class PageScene extends BaseScene {
   @LogToServer()
   @LogToLocal({ level: 'info' })
-  public enterReferralGuide(referralCode: string | undefined | null) {
+  public enterReferralGuide(
+    referralCode: string | undefined | null,
+    utmSource: string | undefined | null,
+  ) {
     return {
       referralCode: referralCode ?? '',
+      utmSource: utmSource ?? '',
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public enterReferralGuideFromDeepLink(
+    referralCode: string | undefined | null,
+    utmSource: string | undefined | null,
+  ) {
+    return {
+      referralCode: referralCode ?? '',
+      utmSource: utmSource ?? '',
     };
   }
 

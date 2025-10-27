@@ -31,7 +31,8 @@ const jsRules = {
   'react-hooks/exhaustive-deps': [
     'error',
     {
-      'additionalHooks': '(usePromiseResult|useAsyncCall)',
+      'additionalHooks':
+        '(usePromiseResult|useAsyncCall|useUpdateEffect|useDeepCompareEffect)',
     },
   ],
   'global-require': 'off',
@@ -51,6 +52,11 @@ const jsRules = {
       'name': ['*', 'toLocaleLowerCase'],
       'message': 'Prefer use toLowerCase',
     },
+    {
+      'name': ['InteractionManager', 'runAfterInteractions'],
+      'message':
+        'Use timerUtils.setTimeoutPromised instead of InteractionManager.runAfterInteractions',
+    },
   ],
   // 'no-console': [isDev ? 'warn' : 'off'],
   'radix': 'error',
@@ -69,6 +75,10 @@ const restrictedImportsPatterns = [
       'import localDbInstance directly is not allowd, use localDb instead',
   },
   {
+    group: ['@onekeyhq/desktop/app/i18n'],
+    message: 'import ETranslations from "@onekeyhq/shared/src/locale" instead',
+  },
+  {
     group: ['**/v4localDbInstance.native'],
     message:
       'import v4localDbInstance.native directly is not allowd, use v4localDbInstance instead',
@@ -84,6 +94,12 @@ const restrictedImportsPatterns = [
   {
     group: ['**/v4localDBStoreNames.native'],
     message: 'import v4localDBStoreNames instead ',
+  },
+  {
+    group: ['jotai'],
+    importNames: ['useAtom', 'useSetAtom', 'atom'],
+    message:
+      'Direct import of useAtom/useSetAtom from jotai is not allowed. Use contextAtom or globalAtom instead.',
   },
   //
 ];
@@ -246,39 +262,42 @@ module.exports = {
         },
       ],
     ],
-    'spellcheck/spell-checker': [
-      1,
-      {
-        'comments': true,
-        'strings': false,
-        'identifiers': true,
-        'lang': 'en_US',
-        'skipWords': require('./development/spellCheckerSkipWords.js'),
-        'skipWordIfMatch': [
-          /(\w|\d){50,}/i, // length>50
-          /bip32/i,
-          /pbkdf2/i,
-          /Secp256k1/i,
-          /googleapis/i,
-          /Erc20/i,
-          /Erc721/i,
-          /Erc1155/i,
-          /protobufjs/i,
-          /boc/i,
-          /seqno/i,
-          /jetton/i,
-          /Nano/i,
-          /Bounceable/i,
-          /scdo/i,
-          /faq/i,
-          /atto/i,
-          /alephium/i,
-          /Preauthorized/i,
-        ],
-        'skipIfMatch': ['http://[^s]*'],
-        'minLength': 4,
-      },
-    ],
+    'spellcheck/spell-checker':
+      typeof process.env.CI !== 'undefined'
+        ? 'off'
+        : [
+            1,
+            {
+              'comments': true,
+              'strings': false,
+              'identifiers': true,
+              'lang': 'en_US',
+              'skipWords': require('./development/spellCheckerSkipWords.js'),
+              'skipWordIfMatch': [
+                /(\w|\d){50,}/i, // length>50
+                /bip32/i,
+                /pbkdf2/i,
+                /Secp256k1/i,
+                /googleapis/i,
+                /Erc20/i,
+                /Erc721/i,
+                /Erc1155/i,
+                /protobufjs/i,
+                /boc/i,
+                /seqno/i,
+                /jetton/i,
+                /Nano/i,
+                /Bounceable/i,
+                /scdo/i,
+                /faq/i,
+                /atto/i,
+                /alephium/i,
+                /Preauthorized/i,
+              ],
+              'skipIfMatch': ['http://[^s]*'],
+              'minLength': 4,
+            },
+          ],
     'props-checker/validator': [
       'error',
       {

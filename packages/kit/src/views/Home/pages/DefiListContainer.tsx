@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
 
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
-import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { DefiListView } from '../components/DefiListView';
 
-function DefiListContainer(_props: ITabPageProps) {
+function DefiListContainer() {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 

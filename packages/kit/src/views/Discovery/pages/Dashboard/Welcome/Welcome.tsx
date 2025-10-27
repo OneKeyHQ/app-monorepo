@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { Stack, XStack, useMedia } from '@onekeyhq/components';
+import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DefaultTitle } from './DefaultTitle';
@@ -148,11 +149,13 @@ export function Welcome({
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
       {/* Left side with logo items */}
       {!platformEnv.isNativeAndroid ? (
-        <DappSideDisplay
-          items={LEFT_SIDE_ITEMS}
-          shuffledDapps={shuffledDapps}
-          sideStackProps={sideStackProps}
-        />
+        <ReviewControl>
+          <DappSideDisplay
+            items={LEFT_SIDE_ITEMS}
+            shuffledDapps={shuffledDapps}
+            sideStackProps={sideStackProps}
+          />
+        </ReviewControl>
       ) : null}
 
       {/* Center content */}
@@ -176,11 +179,13 @@ export function Welcome({
       </Stack>
 
       {/* Right side with logo items */}
-      <DappSideDisplay
-        items={RIGHT_SIDE_ITEMS}
-        shuffledDapps={shuffledDapps}
-        sideStackProps={sideStackProps}
-      />
+      <ReviewControl>
+        <DappSideDisplay
+          items={RIGHT_SIDE_ITEMS}
+          shuffledDapps={shuffledDapps}
+          sideStackProps={sideStackProps}
+        />
+      </ReviewControl>
     </XStack>
   );
 }

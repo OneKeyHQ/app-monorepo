@@ -2,6 +2,7 @@ import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
+  toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
@@ -66,6 +67,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountAddress,
           unsignedTx,
           isMultiTxs,
+          sourceInfo: params.sourceInfo,
         }),
       ),
     );
@@ -119,6 +121,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       transferPayload,
       saveToLocalHistory,
       isMultiTxs,
+      sourceInfo,
     } = params;
 
     let parsedTx: IParseTransactionResp | null = null;
@@ -159,6 +162,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           accountId,
           accountAddress,
           encodedTx: unsignedTx.encodedTx,
+          origin: sourceInfo?.origin,
         });
       } catch (e) {
         console.log('parse tx through api failed', e);
@@ -191,6 +195,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (parsedTx) {
       decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+      decodedTx.txParseType = parsedTx.type;
     }
 
     if (parsedTx && parsedTx.parsedTx?.data) {
@@ -221,12 +226,16 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.isLocalParsed = true;
     }
 
+    if (transferPayload?.isCustomHexData) {
+      decodedTx.isCustomHexData = true;
+    }
+
     return decodedTx;
   }
 
   @backgroundMethod()
   async parseTransaction(params: IParseTransactionParams) {
-    const { accountId, networkId, encodedTx } = params;
+    const { accountId, networkId, encodedTx, origin } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -254,6 +263,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
+        origin,
       },
       {
         headers:
@@ -331,6 +341,7 @@ class ServiceSignatureConfirm extends ServiceBase {
     }
   }
 
+  @toastIfError()
   @backgroundMethod()
   async preActionsBeforeSending(params: {
     accountId: string;
@@ -344,9 +355,22 @@ class ServiceSignatureConfirm extends ServiceBase {
       networkId,
       accountId,
     });
-    await vault.preActionsBeforeSending({
+    return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
+    });
+  }
+
+  @backgroundMethod()
+  async preActionsBeforeConfirm(params: {
+    accountId: string;
+    networkId: string;
+    unsignedTxs: IUnsignedTxPro[];
+  }) {
+    const { accountId, networkId, unsignedTxs } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    return vault.preActionsBeforeConfirm({
+      unsignedTxs,
     });
   }
 

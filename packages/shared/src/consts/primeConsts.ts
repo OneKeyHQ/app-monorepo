@@ -1,5 +1,7 @@
 import platformEnv from '../platformEnv';
 
+import { EOneKeyDeepLinkPath, ONEKEY_APP_DEEP_LINK } from './deeplinkConsts';
+
 // Privy
 export const PRIVY_APP_ID = 'cm6c9xup40017zyrnnp8zh0bt';
 export const PRIVY_MOBILE_CLIENT_ID =
@@ -44,3 +46,8 @@ export const ENCRYPTED_SECURITY_PASSWORD_SPLITTER = '@';
 export const ENCRYPTED_SECURITY_PASSWORD_R1_PREFIX = `L_SP_R1${ENCRYPTED_SECURITY_PASSWORD_SPLITTER}`;
 // server security password r1
 export const ENCRYPTED_SECURITY_PASSWORD_R1_FOR_SERVER_PREFIX = `S_SP_R1${ENCRYPTED_SECURITY_PASSWORD_SPLITTER}`;
+
+export const TRANSFER_PAIRING_CODE_LENGTH = 59;
+export const TRANSFER_ROOM_ID_LENGTH = 11;
+export const TRANSFER_VERIFY_STRING = 'OneKeyPrimeTransfer';
+export const TRANSFER_DEEPLINK_URL = `${ONEKEY_APP_DEEP_LINK}${EOneKeyDeepLinkPath.cross_device_transfer}/?`;

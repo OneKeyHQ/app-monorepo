@@ -25,6 +25,7 @@ import {
   checkRequestIsOneKeyDomain,
   getRequestHeaders,
 } from './Interceptor';
+import { REQUEST_TIMEOUT } from './requestConst';
 
 import type { IAxiosResponse } from '../appApiClient/appApiClient';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
@@ -166,6 +167,20 @@ axios.interceptors.response.use(
           code: 403,
           requestId: description,
         });
+      } else if (
+        isOneKeyDomain &&
+        Number(response.status) >= 500 &&
+        Number(response.status) < 600
+      ) {
+        const title = appLocale.intl.formatMessage({
+          id: ETranslations.global_server_error,
+        });
+        throw new OneKeyServerApiError({
+          autoToast: true,
+          message: title,
+          code: Number(response.status),
+          requestId: config.headers[HEADER_REQUEST_ID_KEY],
+        });
       }
     }
     if (
@@ -179,6 +194,9 @@ axios.interceptors.response.use(
       const title = appLocale.intl.formatMessage({
         id: ETranslations.global_network_error,
       });
+      // if (process.env.NODE_ENV !== 'production') {
+      //   title += error?.config?.url || '';
+      // }
       throw new OneKeyError({
         name: error.name,
         message: title,
@@ -193,7 +211,7 @@ axios.interceptors.response.use(
 const orgCreate = axios.create;
 axios.create = function (config?: AxiosRequestConfig): AxiosInstance {
   const defaultConfig: AxiosRequestConfig = {
-    timeout: 30_000,
+    timeout: REQUEST_TIMEOUT,
   };
   const mergedConfig = {
     ...defaultConfig,

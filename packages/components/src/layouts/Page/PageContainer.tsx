@@ -11,14 +11,14 @@ import { BasicPageFooter } from './PageFooter';
 
 import type { IPageProps } from './type';
 
-export function PageContainer({ children, skipLoading, fullPage }: IPageProps) {
+export function PageContainer({ children, lazyLoad, fullPage }: IPageProps) {
   const { scrollEnabled, scrollProps } = useContext(PageContext);
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
 
   return useMemo(
     () => (
-      <BasicPage skipLoading={skipLoading} fullPage={fullPage}>
+      <BasicPage lazyLoad={lazyLoad} fullPage={fullPage}>
         {scrollEnabled ? (
           <ScrollView {...scrollProps}>
             <Animated.View style={safeKeyboardAnimationStyle}>
@@ -32,7 +32,7 @@ export function PageContainer({ children, skipLoading, fullPage }: IPageProps) {
       </BasicPage>
     ),
     [
-      skipLoading,
+      lazyLoad,
       fullPage,
       scrollEnabled,
       scrollProps,

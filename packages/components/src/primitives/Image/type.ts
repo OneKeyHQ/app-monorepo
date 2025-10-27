@@ -1,7 +1,8 @@
 import type { PropsWithChildren } from 'react';
 
+import type { StackStyle } from '@onekeyhq/components/src/shared/tamagui';
+
 import type { IStackStyle } from '../Stack';
-import type { StackStyle } from '@tamagui/web';
 import type {
   ImageErrorEventData,
   ImageLoadEventData,
@@ -83,6 +84,10 @@ export type IImageV2Props = Omit<
     resizeMode?: ImageProps['resizeMode'];
     tintColor?: ImageProps['tintColor'];
     onProgress?: (event: ImageProgressEventData) => void;
+    /** Whether the image can be retried
+     * @default true
+     */
+    canRetry?: boolean;
   };
 
 export type IImageProps = IImageV2Props;

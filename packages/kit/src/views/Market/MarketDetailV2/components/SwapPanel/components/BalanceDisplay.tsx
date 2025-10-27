@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, XStack } from '@onekeyhq/components';
+import { NumberSizeableText, Skeleton, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { InfoItemLabel } from './InfoItemLabel';
@@ -23,26 +23,32 @@ export function BalanceDisplay({
 }: IBalanceDisplayProps) {
   const intl = useIntl();
   return (
-    <XStack justifyContent="space-between" alignItems="center" minHeight="$6">
+    <XStack justifyContent="space-between" alignItems="center" height="$6">
       <InfoItemLabel
         title={intl.formatMessage({ id: ETranslations.global_balance })}
       />
 
       {isLoading ? (
-        <Skeleton height="$5" width="$24" />
+        <Skeleton height="$6" width="$24" />
       ) : (
-        <SizableText
+        <NumberSizeableText
           size="$bodyMdMedium"
           onPress={onBalanceClick}
           userSelect="none"
           hoverStyle={{ bg: '$bgHover' }}
           pressStyle={{ bg: '$bgActive' }}
           borderRadius="$2"
-          px="$1"
-          py="$0.5"
+          formatter="balance"
+          formatterOptions={{
+            tokenSymbol: token?.symbol,
+          }}
+          contentStyle={{
+            px: '$1',
+            py: '$0.5',
+          }}
         >
-          {balance?.toFixed() || '-'} {token?.symbol || ''}
-        </SizableText>
+          {balance?.toFixed()}
+        </NumberSizeableText>
       )}
     </XStack>
   );

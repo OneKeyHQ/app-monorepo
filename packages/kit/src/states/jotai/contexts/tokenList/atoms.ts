@@ -117,6 +117,23 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
   });
 
 export const {
+  atom: aggregateTokensListMapAtom,
+  use: useAggregateTokensListMapAtom,
+} = contextAtom<
+  Record<
+    string,
+    {
+      tokens: IAccountToken[];
+    }
+  >
+>({});
+
+export const { atom: aggregateTokensMapAtom, use: useAggregateTokensMapAtom } =
+  contextAtom<{
+    [key: string]: ITokenFiat;
+  }>({});
+
+export const {
   atom: activeAccountTokenListStateAtom,
   use: useActiveAccountTokenListStateAtom,
 } = contextAtom<{

@@ -26,11 +26,12 @@ export default function ChainSelectorPage({
     networkIds,
     disableNetworkIds,
     grouped = true,
+    excludeAllNetworkItem = true,
     title = intl.formatMessage({ id: ETranslations.global_networks }),
   } = route.params ?? {};
   const { result } = usePromiseResult(async () => {
     const resp = await backgroundApiProxy.serviceNetwork.getAllNetworks({
-      excludeAllNetworkItem: true,
+      excludeAllNetworkItem,
     });
     let networks: IServerNetwork[] = resp.networks;
     let disableNetwork: IServerNetwork[] | undefined;
@@ -52,7 +53,7 @@ export default function ChainSelectorPage({
       networks.sort((a, b) => networkIdIndex[a.id] - networkIdIndex[b.id]);
     }
     return { networks, disableNetwork };
-  }, [networkIds, disableNetworkIds]);
+  }, [networkIds, disableNetworkIds, excludeAllNetworkItem]);
 
   return (
     <PureChainSelector

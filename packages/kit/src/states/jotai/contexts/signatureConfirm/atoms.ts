@@ -6,6 +6,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import {
   EFeeType,
+  ESendFeeDiscountStatus,
   ESendFeeStatus,
   ETronResourceRentalPayType,
 } from '@onekeyhq/shared/types/fee';
@@ -28,6 +29,9 @@ export {
 export const { atom: unsignedTxsAtom, use: useUnsignedTxsAtom } = contextAtom<
   IUnsignedTxPro[]
 >([]);
+
+export const { atom: unsignedTxQueueAtom, use: useUnsignedTxQueueAtom } =
+  contextAtom<IUnsignedTxPro[]>([]);
 
 export const { atom: decodedTxsAtom, use: useDecodedTxsAtom } = contextAtom<{
   decodedTxs: IDecodedTx[];
@@ -63,6 +67,8 @@ export const {
       totalFiat: string;
       totalNativeForDisplay: string;
       totalFiatForDisplay: string;
+      originalTotalNative?: string;
+      originalTotalFiat?: string;
     }
   | undefined
 >(undefined);
@@ -71,9 +77,11 @@ export const { atom: sendFeeStatusAtom, use: useSendFeeStatusAtom } =
   contextAtom<{
     status: ESendFeeStatus;
     errMessage?: string;
+    discountPercent?: number;
   }>({
     status: ESendFeeStatus.Idle,
     errMessage: '',
+    discountPercent: 0,
   });
 
 export const {
@@ -175,6 +183,15 @@ export const {
   isResourceClaimed: false,
 });
 
+export const { atom: megafuelEligibleAtom, use: useMegafuelEligibleAtom } =
+  contextAtom<{
+    sponsorable: boolean;
+    sponsorName: string;
+  }>({
+    sponsorable: false,
+    sponsorName: '',
+  });
+
 export const { atom: payWithTokenInfoAtom, use: usePayWithTokenInfoAtom } =
   contextAtom<{
     enabled: boolean;
@@ -196,3 +213,14 @@ export const {
   atom: tokenTransferAmountAtom,
   use: useTokenTransferAmountAtom,
 } = contextAtom<string>('0');
+
+export const { atom: decodedTxsInitAtom, use: useDecodedTxsInitAtom } =
+  contextAtom<boolean>(false);
+
+export const { atom: txFeeInfoInitAtom, use: useTxFeeInfoInitAtom } =
+  contextAtom<boolean>(false);
+
+export const {
+  atom: txConfirmParamsInitAtom,
+  use: useTxConfirmParamsInitAtom,
+} = contextAtom<boolean>(false);

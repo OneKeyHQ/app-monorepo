@@ -1,8 +1,17 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
+
+export interface IApiEndpointConfig {
+  id: string;
+  name: string;
+  api: string;
+  serviceModule: EServiceEndpointEnum;
+  enabled: boolean;
+}
 
 export interface IDevSettings {
   // enable test endpoint
@@ -20,6 +29,7 @@ export interface IDevSettings {
   showDevExportPrivateKey?: boolean;
   // disable Solana priority fee
   disableSolanaPriorityFee?: boolean;
+  enableMockHighTxFee?: boolean;
   disableAllShortcuts?: boolean;
   disableWebEmbedApi?: boolean; // Do not render webembedApi Webview
   webviewDebuggingEnabled?: boolean;
@@ -27,6 +37,7 @@ export interface IDevSettings {
 
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  showWebviewDevTools?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
   // enable analytics requests in dev environment
@@ -35,8 +46,15 @@ export interface IDevSettings {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
   };
-  // enable desktop bluetooth functionality
-  enableDesktopBluetooth?: boolean;
+  // custom API endpoints
+  customApiEndpoints?: IApiEndpointConfig[];
+  // show performance monitor
+  showPerformanceMonitor?: boolean;
+  // use local trading view URL for development
+  useLocalTradingViewUrl?: boolean;
+  showPerpsRenderStats?: boolean;
+
+  usbCommunicationMode?: 'webusb' | 'bridge';
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -57,18 +75,20 @@ export const {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
       showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       disableSolanaPriorityFee: false,
+      enableMockHighTxFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       strictSignatureAlert: false,
       enableAnalyticsRequest: false,
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-
+      showPerformanceMonitor: true,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
       },
-      enableDesktopBluetooth: false,
+      useLocalTradingViewUrl: false,
+      usbCommunicationMode: 'webusb',
     },
   },
 });

@@ -10,10 +10,12 @@ import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
 } from '@onekeyhq/shared/src/routes';
-import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
+import {
+  EHardwareCallContext,
+  type ICheckAllFirmwareReleaseResult,
+} from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useAppRoute } from '../../../hooks/useAppRoute';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { FirmwareChangeLogView } from '../components/FirmwareChangeLogView';
@@ -38,8 +40,6 @@ function PageFirmwareUpdateChangeLog() {
   >();
   const connectId = route?.params?.connectId;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const navigation = useAppNavigation();
   const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
 
   const confirmUpdateResult = useRef<ICheckAllFirmwareReleaseResult>(undefined);
@@ -60,10 +60,15 @@ function PageFirmwareUpdateChangeLog() {
   const { result, run, isLoading } = usePromiseResult(
     async () => {
       try {
+        const compatibleConnectId =
+          await backgroundApiProxy.serviceHardware.getCompatibleConnectId({
+            connectId,
+            hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
+          });
         const r =
           await backgroundApiProxy.serviceFirmwareUpdate.checkAllFirmwareRelease(
             {
-              connectId,
+              connectId: compatibleConnectId,
             },
           );
         if (r?.hasUpgrade) {

@@ -1,3 +1,4 @@
+import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -329,6 +330,33 @@ class ServiceReferralCode extends ServiceBase {
       walletId,
       referralCodeInfo,
     });
+  }
+
+  @backgroundMethod()
+  async autoSignBoundReferralCodeMessageByHDWallet({
+    unsignedMessage,
+    networkId,
+    accountId,
+  }: {
+    unsignedMessage: IUnsignedMessage;
+    networkId: string;
+    accountId: string;
+  }) {
+    if (!accountUtils.isHdAccount({ accountId })) {
+      return null;
+    }
+    const cachedPassword =
+      await this.backgroundApi.servicePassword.getCachedPassword();
+    if (!cachedPassword) {
+      return null;
+    }
+
+    const result = await this.backgroundApi.serviceSend.signMessage({
+      unsignedMessage,
+      networkId,
+      accountId,
+    });
+    return result;
   }
 }
 

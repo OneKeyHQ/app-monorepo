@@ -16,12 +16,9 @@ import type {
 } from 'expo-local-authentication';
 
 const isSupportBiologyAuthFn = () =>
-  new Promise<boolean>((resolve) => {
-    const result = platformEnv.isE2E
-      ? false
-      : globalThis?.desktopApiProxy?.security?.canPromptTouchID();
-    resolve(!!result);
-  });
+  platformEnv.isE2E
+    ? Promise.resolve(false)
+    : globalThis?.desktopApiProxy?.security?.canPromptTouchID();
 
 export const isSupportBiologyAuth = memoizee(isSupportBiologyAuthFn, {
   promise: true,
@@ -53,14 +50,23 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
       const result = await globalThis?.desktopApiProxy?.security?.promptTouchID(
         messages[ETranslations.global_unlock],
       );
-      return result.success
-        ? ({ success: true } as LocalAuthenticationResult)
-        : {
-            success: false,
-            error: (result.error ||
-              'biologyAuthenticate failed') as unknown as LocalAuthenticationError,
-            warning: result.error,
-          };
+      if (result.success) {
+        return {
+          success: true,
+        } as LocalAuthenticationResult;
+      }
+      if (result.isSupport) {
+        return {
+          success: false,
+          error: (result.error ||
+            'biologyAuthenticate failed') as unknown as LocalAuthenticationError,
+          warning: result.error,
+        };
+      }
+      return {
+        success: false,
+        error: 'not_available',
+      };
     } catch (e: unknown) {
       const authError = e as { message: string };
       return {

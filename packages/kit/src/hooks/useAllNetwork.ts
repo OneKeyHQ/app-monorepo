@@ -3,8 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityCustomTokens';
-import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -65,13 +63,11 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     dbAccount,
     allNetworkDataInit,
-    customTokensRawData,
   }: {
     accountId: string;
     networkId: string;
     dbAccount?: IDBAccount;
     allNetworkDataInit?: boolean;
-    customTokensRawData: ICustomTokenDBStruct | undefined;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
     dbAccount,
@@ -79,14 +75,12 @@ function useAllNetworkRequests<T>(params: {
     networkId,
     accountAddress,
     xpub,
-    simpleDbLocalTokensRawData,
   }: {
     dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
     accountAddress: string;
     xpub?: string;
-    simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
   }) => Promise<any>;
   allNetworkCacheData?: ({
     data,
@@ -96,7 +90,7 @@ function useAllNetworkRequests<T>(params: {
     data: any;
     accountId: string;
     networkId: string;
-  }) => void;
+  }) => Promise<void>;
   allNetworkAccountsData?: ({
     accounts,
     allAccounts,
@@ -118,14 +112,14 @@ function useAllNetworkRequests<T>(params: {
     accountId?: string;
     networkId?: string;
     allNetworkDataInit?: boolean;
-  }) => void;
+  }) => Promise<void>;
   onFinished?: ({
     accountId,
     networkId,
   }: {
     accountId?: string;
     networkId?: string;
-  }) => void;
+  }) => Promise<void>;
 }) {
   const {
     accountId: currentAccountId,
@@ -225,23 +219,14 @@ function useAllNetworkRequests<T>(params: {
         isFetching.current = false;
       }
 
-      onStarted?.({
+      await onStarted?.({
         accountId: currentAccountId,
         networkId: currentNetworkId,
       });
 
       if (!allNetworkDataInit.current) {
         try {
-          perf.markStart('localTokens_getRawData');
-          const simpleDbLocalTokensRawData =
-            (await backgroundApiProxy.simpleDb.localTokens.getRawData()) ??
-            undefined;
-          perf.markEnd('localTokens_getRawData');
-
-          perf.markStart('allNetworkCacheRequests', {
-            localTokensExists: Boolean(simpleDbLocalTokensRawData),
-          });
-
+          perf.markStart('allNetworkCacheRequests');
           const cachedData = (
             await Promise.all(
               Array.from(accountsInfo).map(
@@ -259,7 +244,6 @@ function useAllNetworkRequests<T>(params: {
                     networkId,
                     xpub: accountXpub,
                     accountAddress: apiAddress,
-                    simpleDbLocalTokensRawData,
                   });
                   return cachedDataResult as unknown;
                 },
@@ -275,7 +259,7 @@ function useAllNetworkRequests<T>(params: {
               'useAllNetworkRequestsRun',
               '执行时间明细请查看 EPerformanceTimerLogNames.allNetwork__useAllNetworkRequests',
             );
-            allNetworkCacheData?.({
+            await allNetworkCacheData?.({
               data: cachedData,
               accountId: currentAccountId,
               networkId: currentNetworkId,
@@ -292,16 +276,11 @@ function useAllNetworkRequests<T>(params: {
       //   'currentRequestsUUID set: =====>>>>>: ',
       //   currentRequestsUUID.current,
       // );
-      const customTokensRawData =
-        (await backgroundApiProxy.simpleDb.customTokens.getRawData()) ??
-        undefined;
-
       if (allNetworkDataInit.current) {
         const allNetworks = accountsInfo;
         const requests = allNetworks.map((networkDataString) => {
           const { accountId, networkId, dbAccount } = networkDataString;
           return allNetworkRequests({
-            customTokensRawData,
             accountId,
             networkId,
             dbAccount,
@@ -330,7 +309,6 @@ function useAllNetworkRequests<T>(params: {
                 accountId,
                 networkId,
                 allNetworkDataInit: allNetworkDataInit.current,
-                customTokensRawData,
               });
             },
           );
@@ -351,7 +329,6 @@ function useAllNetworkRequests<T>(params: {
                 accountId,
                 networkId,
                 allNetworkDataInit: allNetworkDataInit.current,
-                customTokensRawData,
               });
             },
           );
@@ -398,7 +375,7 @@ function useAllNetworkRequests<T>(params: {
         allNetworkDataInit.current = true;
       }
       isFetching.current = false;
-      onFinished?.({
+      await onFinished?.({
         accountId: currentAccountId,
         networkId: currentNetworkId,
       });
@@ -499,12 +476,18 @@ function useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
           {} as Record<string, IServerNetwork[]>,
         );
 
+        const { accounts: allDbAccounts } =
+          await backgroundApiProxy.serviceAccount.getAllAccounts();
+
         // Process networks by implementation group
         for (const [_, networksInGroup] of Object.entries(networksByImpl)) {
           const firstNetwork = networksInGroup[0];
+
           const [{ networkAccounts }, vaultSettings] = await Promise.all([
             backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
+                allDbAccounts,
+                skipDbQueryIfNotFoundFromAllDbAccounts: true,
                 indexedAccountId,
                 networkId: firstNetwork.id,
                 excludeEmptyAccount: true,

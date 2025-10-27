@@ -17,6 +17,7 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
@@ -61,8 +62,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     const compatibleConnectId =
       await this.serviceHardware.getCompatibleConnectId({
         connectId,
+        hardwareCallContext: EHardwareCallContext.USER_INTERACTION,
       });
-    const hardwareSDK = await this.getSDKInstance();
+    const hardwareSDK = await this.getSDKInstance({
+      connectId: compatibleConnectId,
+    });
     return convertDeviceResponse(() =>
       hardwareSDK?.deviceVerify(compatibleConnectId, { dataHex }),
     );

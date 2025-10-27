@@ -10,6 +10,7 @@ import {
   accountOverviewStateAtom,
   accountWorthAtom,
   allNetworksStateAtom,
+  approvalsInfoAtom,
   contextAtomMethod,
 } from './atoms';
 
@@ -71,6 +72,15 @@ class ContextJotaiActionsAccountOverview extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateApprovalsInfo = contextAtomMethod(
+    (get, set, payload: { hasRiskApprovals?: boolean }) => {
+      set(approvalsInfoAtom(), {
+        ...get(approvalsInfoAtom()),
+        ...payload,
+      });
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -84,10 +94,12 @@ export function useAccountOverviewActions() {
   const updateAccountWorth = actions.updateAccountWorth.use();
   const updateAccountOverviewState = actions.updateAccountOverviewState.use();
   const updateAllNetworksState = actions.updateAllNetworksState.use();
+  const updateApprovalsInfo = actions.updateApprovalsInfo.use();
 
   return useRef({
     updateAllNetworksState,
     updateAccountWorth,
     updateAccountOverviewState,
+    updateApprovalsInfo,
   });
 }

@@ -2,6 +2,7 @@ import {
   Children,
   isValidElement,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useMemo,
@@ -30,26 +31,34 @@ import type { WindowScrollerChildProps } from 'react-virtualized';
 export function ContainerChild({
   children,
   listContainerRef,
+  containerWidth,
   ...props
 }: PropsWithChildren<WindowScrollerChildProps> & {
   listContainerRef: RefObject<Element>;
+  containerWidth: number | string | undefined;
 }) {
   return (
     <TabsScrollContext.Provider value={props}>
       <XStack
         ref={listContainerRef as any}
-        maxWidth={props.width}
+        width={containerWidth || props.width}
         overflow="hidden"
+        style={{ scrollSnapType: 'x' }}
       >
-        <XStack w={props.width * Children.count(children)}>
-          {Children.map(children, (child, index) => {
-            return (
-              <div style={{ flex: 1 }} key={index}>
-                {child}
-              </div>
-            );
-          })}
-        </XStack>
+        {Children.map(children, (child, index) => {
+          return (
+            <div
+              style={{
+                width: '100%',
+                flexShrink: 0,
+                scrollSnapAlign: 'center',
+              }}
+              key={index}
+            >
+              {child}
+            </div>
+          );
+        })}
       </XStack>
     </TabsScrollContext.Provider>
   );
@@ -59,11 +68,14 @@ const renderDefaultTabBar = (props: TabBarProps<string>) => {
   return <TabBar {...props} />;
 };
 
-interface IRefProps {
-  ref: React.RefObject<{
-    switchTab: (tabName: string) => void;
-    switchTabWithIndex: (index: number) => void;
-  }>;
+export interface ITabContainerRef {
+  jumpToTab: (tabName: string) => void;
+  setIndex: (index: number) => void;
+  getFocusedTab: () => string;
+  getCurrentIndex: () => number;
+}
+interface ITabContainerRefProps {
+  ref: React.RefObject<ITabContainerRef>;
 }
 
 export function Container({
@@ -72,9 +84,11 @@ export function Container({
   renderTabBar = renderDefaultTabBar,
   onIndexChange,
   onTabChange,
+  width: containerWidth,
   ref: containerRef,
+  initialTabName,
   ...props
-}: PropsWithChildren<CollapsibleProps> & IRefProps) {
+}: PropsWithChildren<CollapsibleProps> & ITabContainerRefProps) {
   // Get tab names from children props
   const scrollTopRef = useRef<{ [key: string]: number }>({});
   const tabNames = useMemo(() => {
@@ -89,7 +103,9 @@ export function Container({
     }).filter(Boolean);
   }, [children]);
   const sharedTabNames = useSharedValue<string[]>(tabNames);
-  const focusedTab = useSharedValue<string>(tabNames[0] || '');
+  const focusedTab = useSharedValue<string>(
+    initialTabName || tabNames[0] || '',
+  );
   const scrollTabElementDict = useMemo(() => {
     return tabNames.reduce((acc, name) => {
       acc[name] = {
@@ -130,6 +146,13 @@ export function Container({
       if (times > 100) {
         return;
       }
+
+      const retryNext = () => {
+        updateListContainerHeightTimerId.current = setTimeout(() => {
+          updateListContainerHeight(times + 1);
+        }, 250);
+      };
+
       if (listContainerRef.current) {
         if (resizeObserverRef.current) {
           resizeObserverRef.current.disconnect();
@@ -149,6 +172,10 @@ export function Container({
                 (
                   listContainerRef.current as HTMLElement
                 ).style.maxHeight = `${entry.contentRect.height}px`;
+              } else {
+                // When quickly removing and adding observer nodes, ResizeObserver API has a delay
+                // and there's a chance it won't get the current node height, so we need delayed retries
+                retryNext();
               }
             });
             const element =
@@ -163,9 +190,7 @@ export function Container({
               height || 0
             }`,
           );
-          updateListContainerHeightTimerId.current = setTimeout(() => {
-            updateListContainerHeight(times + 1);
-          }, 250);
+          retryNext();
         }
       }
     },
@@ -194,13 +219,13 @@ export function Container({
         );
         listContainerRef.current.scrollTo({
           left: (scrollElement?.clientWidth || 0) * tabIndex,
-          behavior: 'smooth',
+          behavior: 'instant',
         });
         setTimeout(() => {
           updateListContainerHeight();
         });
       }
-    }, 150);
+    }, 350);
     window.addEventListener('resize', callback);
     return () => {
       window.removeEventListener('resize', callback);
@@ -237,8 +262,24 @@ export function Container({
     },
   );
 
+  useEffect(() => {
+    setTimeout(() => {
+      if (initialTabName) {
+        const index = tabNames.findIndex((name) => name === initialTabName);
+        if (index !== -1) {
+          const width = ref.current?.clientWidth || 0;
+          listContainerRef.current?.scrollTo({
+            left: width * index,
+            behavior: 'instant',
+          });
+        }
+      }
+    }, 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onTabPress = useCallback(
-    (tabName: string) => {
+    (tabName: string, emitEvents = true) => {
       if (!isEffectValid.current) {
         return;
       }
@@ -251,21 +292,29 @@ export function Container({
         prevTabName,
         tabName,
       };
-      setTimeout(() => {
-        onIndexChange?.(index);
-        onTabChange?.(onTabChangeData);
-      }, 100);
+      if (emitEvents) {
+        setTimeout(() => {
+          onIndexChange?.(index);
+          onTabChange?.(onTabChangeData);
+        }, 100);
+      }
       focusedTab.set(tabName);
     },
     [focusedTab, onIndexChange, onTabChange, tabNames],
   );
 
   useImperativeHandle(containerRef, () => ({
-    switchTab: (tabName: string) => {
+    jumpToTab: (tabName: string) => {
       onTabPress(tabName);
     },
-    switchTabWithIndex: (index: number) => {
+    setIndex: (index: number) => {
       onTabPress(tabNames[index]);
+    },
+    getFocusedTab: () => {
+      return focusedTab.value;
+    },
+    getCurrentIndex: () => {
+      return tabNames.findIndex((name) => name === focusedTab.value);
     },
   }));
 
@@ -302,6 +351,14 @@ export function Container({
                 <>
                   <YStack
                     position="relative"
+                    width={containerWidth ? undefined : width}
+                    style={
+                      containerWidth
+                        ? {
+                            width: containerWidth,
+                          }
+                        : undefined
+                    }
                     onLayout={handlerStickyHeaderLayout}
                   >
                     {renderHeader?.({
@@ -314,8 +371,10 @@ export function Container({
                     focusedTab,
                     tabNames,
                     onTabPress,
+                    containerWidth,
                   } as any)}
                   <ContainerChild
+                    containerWidth={containerWidth}
                     height={height}
                     isScrolling={isScrolling}
                     scrollLeft={scrollLeft}

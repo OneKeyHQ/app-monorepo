@@ -1,6 +1,5 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
@@ -11,6 +10,7 @@ import type {
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareHdAccountsParams,
+  ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
 
@@ -38,8 +38,8 @@ export class KeyringHd extends KeyringHdBase {
     return this.baseSignTransaction(params);
   }
 
-  override async signMessage(): Promise<string[]> {
-    throw new NotImplemented();
+  override async signMessage(params: ISignMessageParams): Promise<string[]> {
+    return this.baseSignMessage(params);
   }
 
   override async exportAccountSecretKeys(

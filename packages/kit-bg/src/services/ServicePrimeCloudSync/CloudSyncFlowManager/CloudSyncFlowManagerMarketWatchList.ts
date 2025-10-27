@@ -1,7 +1,13 @@
+import { Semaphore } from 'async-mutex';
 import { cloneDeep } from 'lodash';
 
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import type { IMarketWatchListItem } from '@onekeyhq/shared/types/market';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  equalTokenNoCaseSensitive,
+  normalizeTokenContractAddress,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 import type {
   ICloudSyncPayloadMarketWatchList,
   ICloudSyncTargetMarketWatchList,
@@ -11,9 +17,19 @@ import { CloudSyncFlowManagerBase } from './CloudSyncFlowManagerBase';
 
 import type { IDBCloudSyncItem, IDBDevice } from '../../../dbs/local/types';
 
+function buildItemKey(item: IMarketWatchListItemV2) {
+  return [
+    item.chainId,
+    normalizeTokenContractAddress({
+      networkId: item.chainId,
+      contractAddress: item.contractAddress,
+    }) || '',
+  ].join('_');
+}
+
 export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBase<
   EPrimeCloudSyncDataType.MarketWatchList,
-  IMarketWatchListItem
+  IMarketWatchListItemV2
 > {
   override dataType = EPrimeCloudSyncDataType.MarketWatchList as any;
 
@@ -22,7 +38,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetMarketWatchList;
   }): Promise<string> {
-    return Promise.resolve(params.target.watchListItem.coingeckoId);
+    return Promise.resolve(buildItemKey(params.target.watchListItem));
   }
 
   override async buildSyncPayload({
@@ -42,53 +58,90 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     return true;
   }
 
+  syncToSceneMutex = new Semaphore(1);
+
   override async syncToSceneEachItem(params: {
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMarketWatchList;
     payload: ICloudSyncPayloadMarketWatchList;
   }): Promise<boolean> {
-    const { payload, item } = params;
+    return this.syncToSceneMutex.runExclusive(async () => {
+      const { payload, item } = params;
 
-    const watchListItem: IMarketWatchListItem = {
-      coingeckoId: payload.coingeckoId,
-      sortIndex: payload.sortIndex,
-    };
-    if (item.isDeleted) {
-      await this.backgroundApi.serviceMarket.removeMarketWatchList({
+      const contractAddress =
+        normalizeTokenContractAddress({
+          networkId: payload.chainId,
+          contractAddress: payload.contractAddress,
+        }) || '';
+
+      const watchListItem: IMarketWatchListItemV2 = {
+        chainId: payload.chainId,
+        contractAddress,
+        isNative: payload.isNative,
+        sortIndex: payload.sortIndex,
+      };
+      if (item.isDeleted) {
+        defaultLogger.cloudSync.market.removeWatchList(watchListItem);
+        // await this.backgroundApi.serviceMarket.removeMarketWatchList({
+        await this.backgroundApi.serviceMarketV2.removeMarketWatchListV2({
+          items: [watchListItem],
+          // avoid infinite loop sync
+          skipSaveLocalSyncItem: true,
+          skipEventEmit: true,
+          callerName: 'cloudSync_syncToSceneEachItem',
+        });
+        const removedItemExists =
+          await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
+            chainId: payload.chainId,
+            contractAddress,
+          });
+        return !removedItemExists;
+      }
+      defaultLogger.cloudSync.market.addWatchList(watchListItem);
+      // await this.backgroundApi.serviceMarket.addMarketWatchList({
+      await this.backgroundApi.serviceMarketV2.addMarketWatchListV2({
         watchList: [watchListItem],
         // avoid infinite loop sync
         skipSaveLocalSyncItem: true,
         skipEventEmit: true,
+        callerName: 'cloudSync_syncToSceneEachItem',
       });
-    } else {
-      await this.backgroundApi.serviceMarket.addMarketWatchList({
-        watchList: [watchListItem],
-        // avoid infinite loop sync
-        skipSaveLocalSyncItem: true,
-        skipEventEmit: true,
-      });
-    }
-    return true;
+      const addedItemExists =
+        await this.backgroundApi.serviceMarketV2.getMarketWatchListItemV2({
+          chainId: payload.chainId,
+          contractAddress,
+        });
+      return !!addedItemExists;
+    });
   }
 
   override async getDBRecordBySyncPayload(params: {
     payload: ICloudSyncPayloadMarketWatchList;
-  }): Promise<IMarketWatchListItem | undefined> {
+  }): Promise<IMarketWatchListItemV2 | undefined> {
     const { payload } = params;
     const watchList =
-      await this.backgroundApi.serviceMarket.getMarketWatchList();
-    const result = watchList.data.find(
-      (i) => i.coingeckoId === payload.coingeckoId,
+      await this.backgroundApi.serviceMarketV2.getMarketWatchListV2();
+    const result = watchList.data.find((i) =>
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: i.chainId,
+          contractAddress: i.contractAddress,
+        },
+        token2: {
+          networkId: payload.chainId,
+          contractAddress: payload.contractAddress,
+        },
+      }),
     );
     return cloneDeep(result);
   }
 
   override async buildSyncTargetByDBQuery(params: {
-    dbRecord: IMarketWatchListItem;
+    dbRecord: IMarketWatchListItemV2;
     allDevices?: IDBDevice[];
   }): Promise<ICloudSyncTargetMarketWatchList> {
     return {
-      targetId: params.dbRecord.coingeckoId,
+      targetId: buildItemKey(params.dbRecord),
       dataType: EPrimeCloudSyncDataType.MarketWatchList,
       watchListItem: cloneDeep(params.dbRecord),
     };
@@ -99,7 +152,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
   }): Promise<ICloudSyncTargetMarketWatchList | undefined> {
     const { payload } = params;
     return {
-      targetId: payload.coingeckoId,
+      targetId: buildItemKey(payload),
       dataType: EPrimeCloudSyncDataType.MarketWatchList,
       watchListItem: cloneDeep(payload),
     };

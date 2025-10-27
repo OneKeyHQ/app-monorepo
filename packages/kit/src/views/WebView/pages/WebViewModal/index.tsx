@@ -5,6 +5,7 @@ import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Share } from 'react-native';
 
+import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   ActionList,
   Dialog,
@@ -59,21 +60,25 @@ export default function WebViewModal() {
                   webviewRef?.current?.reload?.();
                 },
               },
-              {
-                label: intl.formatMessage({ id: ETranslations.explore_share }),
-                icon: 'ShareOutline',
-                onPress: () => {
-                  Share.share(
-                    platformEnv.isNativeIOS
-                      ? {
-                          url: currentUrl,
-                        }
-                      : {
-                          message: currentUrl,
-                        },
-                  ).catch(() => {});
-                },
-              },
+              platformEnv.isNative
+                ? {
+                    label: intl.formatMessage({
+                      id: ETranslations.explore_share,
+                    }),
+                    icon: 'ShareOutline',
+                    onPress: () => {
+                      Share.share(
+                        platformEnv.isNativeIOS
+                          ? {
+                              url: currentUrl,
+                            }
+                          : {
+                              message: currentUrl,
+                            },
+                      ).catch(() => {});
+                    },
+                  }
+                : undefined,
               {
                 // 'Copy URL'
                 label: intl.formatMessage({
@@ -93,7 +98,7 @@ export default function WebViewModal() {
                   openUrlExternal(currentUrl);
                 },
               },
-            ],
+            ].filter(Boolean) as IActionListItemProps[],
           },
         ]}
       />

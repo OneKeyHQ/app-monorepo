@@ -1,8 +1,7 @@
 import type { PropsWithChildren, ReactElement } from 'react';
 import { Children, createContext, useContext, useMemo } from 'react';
 
-import { withStaticProperties } from 'tamagui';
-
+import { withStaticProperties } from '@onekeyhq/components/src/shared/tamagui';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { Badge } from '../../content';
@@ -15,7 +14,7 @@ import {
   YStack,
 } from '../../primitives';
 
-import type { IStackStyle, IYStackProps } from '../../primitives';
+import type { IYStackProps } from '../../primitives';
 
 export enum EStepItemStatus {
   Done = 'done',

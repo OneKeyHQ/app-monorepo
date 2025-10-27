@@ -1,3 +1,5 @@
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+
 export enum EEarnProviderEnum {
   Lido = 'Lido',
   Everstake = 'Everstake',
@@ -5,6 +7,9 @@ export enum EEarnProviderEnum {
   Morpho = 'Morpho',
   Falcon = 'Falcon',
   Ethena = 'Ethena',
+  Momentum = 'Momentum',
+  Lista = 'Lista',
+  Stakefish = 'Stakefish',
 }
 
 export type ISupportedSymbol =
@@ -74,13 +79,36 @@ export enum EAvailableAssetsTypeEnum {
   All = 'all',
   StableCoins = 'stableCoins',
   NativeTokens = 'nativeTokens',
-  Recommend = 'recommend',
 }
 
 export interface IEarnAvailableAssetProtocol {
   networkId: string;
   provider: string;
   vault?: string;
+}
+
+export interface IEarnAvailableAssetAprInfo {
+  highlight?: {
+    text: string;
+    color?: ColorTokens;
+    icon?: {
+      icon: IKeyOfIcons;
+      color?: ColorTokens;
+    };
+  };
+  normal?: {
+    text: string;
+    color?: ColorTokens;
+  };
+  deprecated?: {
+    text: string;
+    color?: ColorTokens;
+  };
+}
+
+export interface IEarnAvailableAssetBadge {
+  tag: string;
+  badgeType: string;
 }
 
 export interface IEarnAvailableAsset {
@@ -92,4 +120,7 @@ export interface IEarnAvailableAsset {
   tags: string[];
   rewardUnit: string;
   protocols: IEarnAvailableAssetProtocol[];
+  badges?: IEarnAvailableAssetBadge[];
+  aprInfo?: IEarnAvailableAssetAprInfo;
+  bgColor?: string;
 }

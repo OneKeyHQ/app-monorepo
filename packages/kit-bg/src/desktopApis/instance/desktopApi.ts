@@ -4,6 +4,9 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { DESKTOP_API_MESSAGE_TYPE } from '../base/consts';
 import { JsBridgeDesktopApiOfMain } from '../base/JsBridgeDesktopApiOfMain';
+import DesktopApiAppUpdate from '../DesktopApiAppUpdate';
+import DesktopApiBluetooth from '../DesktopApiBluetooth';
+import DesktopApiBundleUpdate from '../DesktopApiBundleUpdate';
 import DesktopApiDev from '../DesktopApiDev';
 import DesktopApiInAppPurchase from '../DesktopApiInAppPurchase';
 import DesktopApiNotification from '../DesktopApiNotification';
@@ -44,6 +47,18 @@ class DesktopApi implements IDesktopApi {
   });
 
   dev: DesktopApiDev = new DesktopApiDev({
+    desktopApi: this,
+  });
+
+  bluetooth: DesktopApiBluetooth = new DesktopApiBluetooth({
+    desktopApi: this,
+  });
+
+  appUpdate: DesktopApiAppUpdate = new DesktopApiAppUpdate({
+    desktopApi: this,
+  });
+
+  bundleUpdate: DesktopApiBundleUpdate = new DesktopApiBundleUpdate({
     desktopApi: this,
   });
 }

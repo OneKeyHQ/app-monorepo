@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ECopyFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { IMarketDetailPlatform } from '@onekeyhq/shared/types/market';
 
 import { MarketTokenAddress } from './MarketTokenAddress';
@@ -48,6 +49,7 @@ export function MarketDetailOverviewContract({
             addressSize="$bodyMdMedium"
             networkId={platform.onekeyNetworkId}
             address={platform.contract_address}
+            copyFrom={ECopyFrom.Detail}
           />
         );
       })}
