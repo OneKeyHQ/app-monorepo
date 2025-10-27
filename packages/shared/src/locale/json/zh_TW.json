@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "已暫停",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "此授權因網路費用過高而被跳過。如需移除，請嘗試單獨撤銷。",
   "wallet.approval_bulk_revoke_status_skipped": "已跳過",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "同一網路上的前序任務因 {symbol} 不足而失敗，導致此任務被跳過。",
   "wallet.approval_bulk_revoke_status_succeeded": "成功",
   "wallet.approval_bulk_revoke_total_gas": "總 Gas",
   "wallet.approval_cancel": "退出",

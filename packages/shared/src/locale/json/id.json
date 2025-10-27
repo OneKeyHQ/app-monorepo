@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "Dijeda",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Persetujuan ini dilewati karena biaya jaringan terlalu tinggi. Coba cabut secara individual jika Anda masih ingin menghapusnya.",
   "wallet.approval_bulk_revoke_status_skipped": "Dilewati",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Tugas sebelumnya di jaringan yang sama gagal karena {symbol} tidak memadai, sehingga tugas ini dilewati.",
   "wallet.approval_bulk_revoke_status_succeeded": "Berhasil",
   "wallet.approval_bulk_revoke_total_gas": "Total gas",
   "wallet.approval_cancel": "Batalkan",

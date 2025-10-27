@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "หยุดชั่วคราว",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "การอนุมัตินี้ถูกข้ามไปเนื่องจากค่าธรรมเนียมเครือข่ายสูงเกินไป ลองเพิกถอนทีละรายการหากคุณยังต้องการลบออก",
   "wallet.approval_bulk_revoke_status_skipped": "ข้ามไปแล้ว",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "ทาสก์ก่อนหน้านี้ในเครือข่ายเดียวกันล้มเหลว เนื่องจาก {symbol} ไม่เพียงพอ จึงทำให้ทาสก์นี้ถูกข้ามไป",
   "wallet.approval_bulk_revoke_status_succeeded": "สำเร็จ",
   "wallet.approval_bulk_revoke_total_gas": "ค่าแก๊สทั้งหมด",
   "wallet.approval_cancel": "ยกเลิก",

@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "На паузе",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Это одобрение было пропущено, так как сетевая комиссия слишком высока. Попробуйте отозвать его индивидуально, если вы все еще хотите его удалить.",
   "wallet.approval_bulk_revoke_status_skipped": "Пропущено",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Предыдущая операция в этой же сети не выполнена из-за нехватки {symbol}, поэтому эта операция была пропущена.",
   "wallet.approval_bulk_revoke_status_succeeded": "Успешно",
   "wallet.approval_bulk_revoke_total_gas": "Всего газа",
   "wallet.approval_cancel": "Отмена",

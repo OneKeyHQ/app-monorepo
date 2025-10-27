@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "일시 중지",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "네트워크 수수료가 너무 높아 이 승인이 건너뛰어졌습니다. 그래도 제거하려면 개별적으로 철회해 보십시오.",
   "wallet.approval_bulk_revoke_status_skipped": "건너뜀",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "동일한 네트워크의 이전 작업이 {symbol} 부족으로 실패하여 이 작업은 건너뛰었습니다.",
   "wallet.approval_bulk_revoke_status_succeeded": "성공",
   "wallet.approval_bulk_revoke_total_gas": "총 가스",
   "wallet.approval_cancel": "취소",

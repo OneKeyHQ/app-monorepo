@@ -24,6 +24,7 @@ export enum ERevokeProgressState {
 
 export type IRevokeTxStatus = {
   status: ERevokeTxStatus;
+  isInsufficientFunds?: boolean;
   txId?: string;
   feeBalance?: string;
   feeSymbol?: string;

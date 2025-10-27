@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "পজ করা হয়েছে",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "এই অনুমোদনটি এড়িয়ে যাওয়া হয়েছে কারণ নেটওয়ার্ক ফি অনেক বেশি। আপনি যদি এখনও এটি সরাতে চান তবে পৃথকভাবে এটি প্রত্যাহার করার চেষ্টা করুন।",
   "wallet.approval_bulk_revoke_status_skipped": "এড়িয়ে যাওয়া হয়েছে",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "একই নেটওয়ার্কে পর্যাপ্ত {symbol} না থাকার কারণে আগের কাজটি ব্যর্থ হওয়ায় এই কাজটি স্কিপ করা হয়েছে।",
   "wallet.approval_bulk_revoke_status_succeeded": "সফল হয়েছে",
   "wallet.approval_bulk_revoke_total_gas": "মোট গ্যাস",
   "wallet.approval_cancel": "বাতিল করুন",

@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "Đã tạm dừng",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Phê duyệt này đã bị bỏ qua vì phí mạng quá cao. Hãy thử thu hồi riêng lẻ nếu bạn vẫn muốn xóa nó.",
   "wallet.approval_bulk_revoke_status_skipped": "Đã bỏ qua",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Một tác vụ trước đó trên cùng mạng đã thất bại do không đủ {symbol}, khiến tác vụ này bị bỏ qua.",
   "wallet.approval_bulk_revoke_status_succeeded": "Thành công",
   "wallet.approval_bulk_revoke_total_gas": "Tổng gas",
   "wallet.approval_cancel": "Hủy",

@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "Pausiert",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Diese Genehmigung wurde übersprungen, da die Netzwerkgebühr zu hoch ist. Versuchen Sie, sie einzeln zu widerrufen, wenn Sie sie dennoch entfernen möchten.",
   "wallet.approval_bulk_revoke_status_skipped": "Übersprungen",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Eine vorherige Aufgabe im selben Netzwerk ist wegen unzureichendem {symbol} fehlgeschlagen, weshalb diese Aufgabe übersprungen wurde.",
   "wallet.approval_bulk_revoke_status_succeeded": "Erfolgreich",
   "wallet.approval_bulk_revoke_total_gas": "Gas insgesamt",
   "wallet.approval_cancel": "Abbrechen",

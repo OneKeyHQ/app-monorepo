@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "En pausa",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Esta aprobación se omitió porque la tarifa de red es demasiado alta. Intente revocarla individualmente si aún desea eliminarla.",
   "wallet.approval_bulk_revoke_status_skipped": "Omitido",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Una tarea anterior en la misma red falló por falta de {symbol}, lo que provocó que esta tarea se omitiera.",
   "wallet.approval_bulk_revoke_status_succeeded": "Éxito",
   "wallet.approval_bulk_revoke_total_gas": "Gas total",
   "wallet.approval_cancel": "Cancelar",

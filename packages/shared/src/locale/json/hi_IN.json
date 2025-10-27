@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "रुका हुआ",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "यह अनुमोदन छोड़ दिया गया क्योंकि नेटवर्क शुल्क बहुत अधिक है। यदि आप अभी भी इसे हटाना चाहते हैं तो इसे व्यक्तिगत रूप से रद्द करने का प्रयास करें।",
   "wallet.approval_bulk_revoke_status_skipped": "छोड़ दिया गया",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "इसी नेटवर्क पर पिछला टास्क, {symbol} की कमी के कारण फेल हो गया, इसलिए यह टास्क स्किप कर दिया गया।",
   "wallet.approval_bulk_revoke_status_succeeded": "सफल रहा",
   "wallet.approval_bulk_revoke_total_gas": "कुल गैस",
   "wallet.approval_cancel": "रद्द करें",

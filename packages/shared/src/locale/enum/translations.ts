@@ -3486,6 +3486,7 @@
   wallet_approval_bulk_revoke_status_paused = 'wallet.approval_bulk_revoke_status_paused',
   wallet_approval_bulk_revoke_status_paused_reason_excessive_gas = 'wallet.approval_bulk_revoke_status_paused_reason_excessive_gas',
   wallet_approval_bulk_revoke_status_skipped = 'wallet.approval_bulk_revoke_status_skipped',
+  wallet_approval_bulk_revoke_status_skipped_reason_insufficient_gas = 'wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas',
   wallet_approval_bulk_revoke_status_succeeded = 'wallet.approval_bulk_revoke_status_succeeded',
   wallet_approval_bulk_revoke_total_gas = 'wallet.approval_bulk_revoke_total_gas',
   wallet_approval_cancel = 'wallet.approval_cancel',

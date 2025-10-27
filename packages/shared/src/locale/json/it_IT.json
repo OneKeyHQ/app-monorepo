@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "In pausa",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Questa approvazione è stata saltata perché la commissione di rete è troppo alta. Prova a revocarla individualmente se desideri comunque rimuoverla.",
   "wallet.approval_bulk_revoke_status_skipped": "Saltato",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Un'operazione precedente sulla stessa rete non è riuscita per {symbol} insufficienti, perciò questa operazione è stata saltata.",
   "wallet.approval_bulk_revoke_status_succeeded": "Riuscito",
   "wallet.approval_bulk_revoke_total_gas": "Gas totale",
   "wallet.approval_cancel": "Annulla",

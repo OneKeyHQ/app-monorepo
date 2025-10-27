@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "Paused",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "This approval was skipped because the network fee is too high. Try revoking it individually if you still want to remove it.",
   "wallet.approval_bulk_revoke_status_skipped": "Skipped",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "A preceding task on the same network failed due to insufficient {symbol}, causing this task to be skipped.",
   "wallet.approval_bulk_revoke_status_succeeded": "Succeeded",
   "wallet.approval_bulk_revoke_total_gas": "Total gas",
   "wallet.approval_cancel": "Cancel",

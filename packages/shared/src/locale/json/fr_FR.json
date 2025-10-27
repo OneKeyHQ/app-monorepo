@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "En pause",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Cette approbation a été ignorée car les frais de réseau sont trop élevés. Essayez de la révoquer individuellement si vous souhaitez toujours la supprimer.",
   "wallet.approval_bulk_revoke_status_skipped": "Ignoré",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Une tâche précédente sur ce réseau a échoué par manque de {symbol}, entraînant l'omission de cette tâche.",
   "wallet.approval_bulk_revoke_status_succeeded": "Opération réussie",
   "wallet.approval_bulk_revoke_total_gas": "Gaz total",
   "wallet.approval_cancel": "Annuler",

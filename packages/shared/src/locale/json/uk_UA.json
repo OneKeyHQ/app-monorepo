@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "Призупинено",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "Це схвалення було пропущено, оскільки плата за мережу занадто висока. Спробуйте відкликати його окремо, якщо ви все ще хочете його видалити.",
   "wallet.approval_bulk_revoke_status_skipped": "Пропущено",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "Попереднє завдання в цій мережі не виконано через нестачу {symbol}, тому це завдання було пропущено.",
   "wallet.approval_bulk_revoke_status_succeeded": "Успішно",
   "wallet.approval_bulk_revoke_total_gas": "Загальний газ",
   "wallet.approval_cancel": "Скасувати",

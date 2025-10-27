@@ -3481,6 +3481,7 @@
   "wallet.approval_bulk_revoke_status_paused": "一時停止",
   "wallet.approval_bulk_revoke_status_paused_reason_excessive_gas": "ネットワーク手数料が高すぎるため、この承認はスキップされました。それでも削除したい場合は、個別に失効させてみてください。",
   "wallet.approval_bulk_revoke_status_skipped": "スキ���プ",
+  "wallet.approval_bulk_revoke_status_skipped_reason_insufficient_gas": "同じネットワーク上の先行タスクが {symbol} 不足により失敗したたため、このタスクはスキップされました。",
   "wallet.approval_bulk_revoke_status_succeeded": "成功",
   "wallet.approval_bulk_revoke_total_gas": "��計ガス",
   "wallet.approval_cancel": "キャンセル",
