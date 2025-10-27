@@ -816,6 +816,10 @@ async function createMainWindow() {
             const filePath = path.join(bundleDirPath, key);
             const sha512 = metadata[key];
             if (!checkFileSha512(filePath, sha512)) {
+              logger.info(
+                'checkFileHash error:',
+                `${key}:  ${filePath} not matched ${sha512}`,
+              );
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
             }
             callback(filePath);
