@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 
@@ -12,7 +12,7 @@ import type {
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import {
-  useIsShowMyOneKeyOnTabbar,
+  useIsGtMdNonNative,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import {
@@ -87,7 +87,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
 
   const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
   const toReferFriendsPage = useToReferFriendsModalByRootNavigation();
-  const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
+  const isGtMdNonNative = useIsGtMdNonNative();
   const shouldShowMarketTab = !(
     platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
   );
@@ -156,39 +156,33 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     };
   }, []);
 
-  // ReferFriends tab configuration factory
-  const getReferFriendsConfig = useCallback(
-    (inMoreAction: boolean) => ({
+  const referFriendsTabConfig = useMemo(() => {
+    return {
       name: ETabRoutes.ReferFriends,
       tabBarIcon: () => 'GiftOutline',
       translationId: ETranslations.sidebar_refer_a_friend,
       tabbarOnPress: toReferFriendsPage,
       children: null,
       trackId: 'global-referral',
-      ...(inMoreAction && { inMoreAction: true }),
-    }),
-    [toReferFriendsPage],
-  );
+    };
+  }, [toReferFriendsPage]);
 
   return useMemo(
     () =>
       [
-        // In Web DAPP mode, show ReferFriends first instead of Home
-        isWebDappMode ? getReferFriendsConfig(false) : undefined,
-        // Show Home tab only in non-DAPP mode
-        !isWebDappMode
-          ? {
-              name: ETabRoutes.Home,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'WalletSolid' : 'WalletOutline',
-              translationId: ETranslations.global_wallet,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/',
-              exact: true,
-              children: homeRouters,
-              trackId: 'global-wallet',
-            }
-          : undefined,
+        isWebDappMode ? referFriendsTabConfig : undefined,
+        {
+          name: ETabRoutes.Home,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'WalletSolid' : 'WalletOutline',
+          translationId: ETranslations.global_wallet,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/',
+          exact: true,
+          children: homeRouters,
+          trackId: 'global-wallet',
+          hidden: isWebDappMode,
+        },
         shouldShowMarketTab
           ? {
               name: ETabRoutes.Market,
@@ -233,10 +227,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           trackId: 'global-earn',
         },
         // In non-DAPP mode, show ReferFriends in more actions
-        !isWebDappMode && isShowMyOneKeyOnTabbar
-          ? getReferFriendsConfig(true)
+        !isWebDappMode && isGtMdNonNative
+          ? {
+              ...referFriendsTabConfig,
+              inMoreAction: true,
+            }
           : undefined,
-        isShowMyOneKeyOnTabbar
+        isGtMdNonNative
           ? {
               name: ETabRoutes.DeviceManagement,
               tabBarIcon: () => 'OnekeyDeviceCustom',
@@ -280,16 +277,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           : undefined,
       ].filter((i) => !!i),
     [
+      isWebDappMode,
+      isGtMdNonNative,
+      referFriendsTabConfig,
       params,
+      shouldShowMarketTab,
       handleMarketTabPress,
       perpTabShowRes,
-      isShowMyOneKeyOnTabbar,
       toMyOneKeyModal,
       isShowMDDiscover,
       isShowDesktopDiscover,
-      shouldShowMarketTab,
-      isWebDappMode,
-      getReferFriendsConfig,
     ],
   ) as ITabNavigatorConfig<ETabRoutes>[];
 };
