@@ -36,6 +36,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   children: ITabSubNavigatorConfig<any, any>[];
   freezeOnBlur?: boolean;
   disable?: boolean;
+  hidden?: boolean;
   rewrite?: string;
   /** with exact property set to true, current screen will ignore the parent screen's path config */
   exact?: boolean;
