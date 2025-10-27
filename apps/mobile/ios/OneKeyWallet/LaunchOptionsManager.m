@@ -15,7 +15,7 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
 static LaunchOptionsManager *sharedInstance = nil;
 
-+ (instancetype)sharedInstance {
+(instancetype)sharedInstance {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         sharedInstance = [[self alloc] init];
@@ -116,20 +116,20 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
                 NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
                 userInfo[@"extras"] = remoteNotification ?: [NSNull null];
                 id aps = remoteNotification[@"aps"];
-                if ( [aps isKindOfClass:[NSDictionary class]]) {
+                if ([aps isKindOfClass:[NSDictionary class]]) {
                     id alert = ((NSDictionary *)aps)[@"alert"];
                     if ( [alert isKindOfClass:[NSDictionary class]]) {
                         NSDictionary *alertDict = (NSDictionary *)alert;
                         userInfo[@"title"] = alertDict[@"title"] ?: @"";
                         userInfo[@"content"] = alertDict[@"body"] ?: @"";
                     } else if ([alert isKindOfClass:[NSString class]]) {
-+                       userInfo[@"content"] = (NSString *)alert;
-+                    }
+                        userInfo[@"content"] = (NSString *)alert;
+                    }
 
                     id badge = ((NSDictionary *)aps)[@"badge"];
-+                   if ([badge isKindOfClass:[NSNumber class]]) {
-+                       userInfo[@"badge"] = (NSNumber *)badge;
-+                   }
+                    if ([badge isKindOfClass:[NSNumber class]]) {
+                        userInfo[@"badge"] = (NSNumber *)badge;
+                    }
                 }
                 NSMutableDictionary *notificationInfo = [NSMutableDictionary dictionary];
                 notificationInfo[@"userInfo"] = userInfo;
