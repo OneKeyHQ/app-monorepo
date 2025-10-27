@@ -27,7 +27,7 @@ export const getResourcesPath = () => {
   const staticPath = getJsBundleStaticPath();
   if (staticPath) {
     const dir = path.dirname(staticPath);
-    return dir.replace(/\\/g, '/');
+    return dir;
   }
   return getAppStaticResourcesPath();
 };
