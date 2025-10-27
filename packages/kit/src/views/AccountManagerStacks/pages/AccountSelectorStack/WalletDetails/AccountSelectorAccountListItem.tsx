@@ -279,6 +279,7 @@ export function AccountSelectorAccountListItem({
     return (
       <>
         <AccountValueWithSpotlight
+          walletId={focusedWalletInfo?.wallet?.id ?? ''}
           isOthersUniversal={isOthersUniversal}
           index={index}
           accountValue={accountValue}
@@ -292,6 +293,7 @@ export function AccountSelectorAccountListItem({
   }, [
     linkNetwork,
     subTitleInfo.address,
+    focusedWalletInfo?.wallet?.id,
     isOthersUniversal,
     index,
     accountValue,
