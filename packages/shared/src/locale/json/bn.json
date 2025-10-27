@@ -1258,6 +1258,7 @@
   "global.fcc_id": "FCC আইডি",
   "global.fdv": "FDV",
   "global.fetching_addresses": "ঠিকানাগুলি আনা হচ্ছে {current}/{total}",
+  "global.fill_up": "পূরণ করুন",
   "global.filter": "ফিল্টার",
   "global.filter_by": "ফিল্টার করুন",
   "global.finish": "শেষ",

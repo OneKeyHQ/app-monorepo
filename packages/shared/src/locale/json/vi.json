@@ -1258,6 +1258,7 @@
   "global.fcc_id": "FCC ID",
   "global.fdv": "FDV",
   "global.fetching_addresses": "Đang lấy địa chỉ {current}/{total}",
+  "global.fill_up": "Lấp đầy",
   "global.filter": "Bộ lọc",
   "global.filter_by": "Lọc theo",
   "global.finish": "Hoàn thành",

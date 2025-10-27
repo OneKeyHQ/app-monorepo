@@ -1258,6 +1258,7 @@
   "global.fcc_id": "FCC ID",
   "global.fdv": "FDV",
   "global.fetching_addresses": "पते लाए जा रहे हैं {current}/{total}",
+  "global.fill_up": "पूरा भरें",
   "global.filter": "फ़िल्टर",
   "global.filter_by": "फिल्टर के द्वारा",
   "global.finish": "समाप्त करें",

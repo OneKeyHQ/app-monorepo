@@ -1258,6 +1258,7 @@
   "global.fcc_id": "FCC ID",
   "global.fdv": "FDV",
   "global.fetching_addresses": "Mengambil alamat {current}/{total}",
+  "global.fill_up": "Isi penuh",
   "global.filter": "Filter",
   "global.filter_by": "Filter berdasarkan",
   "global.finish": "Selesai",

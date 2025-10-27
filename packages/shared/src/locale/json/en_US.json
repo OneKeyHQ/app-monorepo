@@ -1258,6 +1258,7 @@
   "global.fcc_id": "FCC ID",
   "global.fdv": "FDV",
   "global.fetching_addresses": "Fetching addresses {current}/{total}",
+  "global.fill_up": "Fill up",
   "global.filter": "Filter",
   "global.filter_by": "Filter by",
   "global.finish": "Finish",

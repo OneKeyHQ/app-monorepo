@@ -1258,6 +1258,7 @@
   "global.fcc_id": "FCC ID",
   "global.fdv": "FDV",
   "global.fetching_addresses": "Recupero indirizzi {current}/{total}",
+  "global.fill_up": "Riempire",
   "global.filter": "Filtro",
   "global.filter_by": "Filtra per",
   "global.finish": "Fine",
