@@ -843,23 +843,26 @@ export default function HardwareHomeScreenModal({
               isUserUpload,
             });
 
-            await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
-              dbDeviceId: device?.id,
-              screenItem: {
-                ...selectedItem,
-                screenHex: finallyScreenHex,
-                thumbnailHex: finallyThumbnailHex,
-                blurScreenHex: finallyBlurScreenHex,
-              },
-            });
+            const response =
+              await backgroundApiProxy.serviceHardware.setDeviceHomeScreen({
+                dbDeviceId: device?.id,
+                screenItem: {
+                  ...selectedItem,
+                  screenHex: finallyScreenHex,
+                  thumbnailHex: finallyThumbnailHex,
+                  blurScreenHex: finallyBlurScreenHex,
+                },
+              });
             // setSelectedItem(undefined);
             Toast.success({
               title: appLocale.intl.formatMessage({
                 id: ETranslations.hardware_wallpaper_add_success,
               }),
-              message: appLocale.intl.formatMessage({
-                id: ETranslations.hardware_wallpaper_add_success_information,
-              }),
+              message: response.applyScreen
+                ? undefined
+                : appLocale.intl.formatMessage({
+                    id: ETranslations.hardware_wallpaper_add_success_information,
+                  }),
             });
             // Do not close the current page, let the user switch wallpapers and preview them on the device
             // close();

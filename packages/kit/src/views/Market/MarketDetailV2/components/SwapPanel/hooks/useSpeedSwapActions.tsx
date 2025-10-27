@@ -110,13 +110,17 @@ export function useSpeedSwapActions(props: {
 
   const netAccountRes = usePromiseResult(async () => {
     try {
+      const defaultDeriveType =
+        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+          networkId: marketToken?.networkId ?? '',
+        });
       const res = await backgroundApiProxy.serviceAccount.getNetworkAccount({
         accountId: account?.indexedAccount?.id
           ? undefined
           : account?.account?.id,
         indexedAccountId: account?.indexedAccount?.id ?? '',
         networkId: marketToken?.networkId,
-        deriveType: account?.deriveType ?? 'default',
+        deriveType: defaultDeriveType ?? 'default',
       });
       return res;
     } catch (e) {
@@ -137,6 +141,7 @@ export function useSpeedSwapActions(props: {
   useEffect(() => {
     void (async () => {
       if (tradeType === ESwapDirection.BUY) {
+        if (!tradeToken?.networkId) return;
         const tokenDetail =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: tradeToken?.networkId ?? '',
@@ -160,6 +165,7 @@ export function useSpeedSwapActions(props: {
           symbol: tradeToken?.symbol,
           logoURI: tradeToken?.logoURI,
         };
+        if (!sellTradeToken?.networkId) return;
         const tokenDetail =
           await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
             networkId: sellTradeToken?.networkId ?? '',
@@ -332,7 +338,7 @@ export function useSpeedSwapActions(props: {
 
   const speedSwapBuildTx = useCallback(async () => {
     setSpeedSwapBuildTxLoading(true);
-    const userAddress = netAccountRes.result?.address ?? '';
+    const userAddress = netAccountRes.result?.addressDetail.address ?? '';
     const buildParams = {
       fromToken,
       toToken,
@@ -460,7 +466,7 @@ export function useSpeedSwapActions(props: {
       });
     }
   }, [
-    netAccountRes.result?.address,
+    netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
     fromToken,
     toToken,
@@ -477,12 +483,12 @@ export function useSpeedSwapActions(props: {
   ]);
 
   const speedSwapWrappedTx = useCallback(async () => {
-    if (netAccountRes.result?.address) {
+    if (netAccountRes.result?.addressDetail.address) {
       const wrappedType = fromToken.isNative
         ? EWrappedType.DEPOSIT
         : EWrappedType.WITHDRAW;
       const wrappedInfo: IWrappedInfo = {
-        from: netAccountRes.result?.address,
+        from: netAccountRes.result?.addressDetail.address,
         type: wrappedType,
         contract:
           wrappedType === EWrappedType.WITHDRAW
@@ -508,8 +514,8 @@ export function useSpeedSwapActions(props: {
             networkId: toToken.networkId,
           },
         },
-        accountAddress: netAccountRes.result?.address,
-        receivingAddress: netAccountRes.result?.address,
+        accountAddress: netAccountRes.result?.addressDetail.address,
+        receivingAddress: netAccountRes.result?.addressDetail.address,
         swapBuildResData: {
           orderId: stringUtils.generateUUID(),
           result: {
@@ -538,7 +544,7 @@ export function useSpeedSwapActions(props: {
       });
     }
   }, [
-    netAccountRes.result?.address,
+    netAccountRes.result?.addressDetail.address,
     netAccountRes.result?.id,
     fromToken,
     toToken,
@@ -617,7 +623,7 @@ export function useSpeedSwapActions(props: {
           !spenderAddress ||
           netAccountRes.result?.addressDetail.networkId !==
             fromToken.networkId ||
-          !netAccountRes.result?.address ||
+          !netAccountRes.result?.addressDetail.address ||
           amountBN.isZero() ||
           amountBN.isNaN() ||
           fromToken.isNative ||
@@ -627,7 +633,7 @@ export function useSpeedSwapActions(props: {
         }
         setCheckTokenAllowanceLoading(true);
 
-        const userAddress = netAccountRes.result?.address ?? '';
+        const userAddress = netAccountRes.result?.addressDetail.address ?? '';
 
         const fetchApproveAllowanceParams = {
           networkId: fromToken.networkId,
@@ -656,7 +662,7 @@ export function useSpeedSwapActions(props: {
       fromToken.isNative,
       fromToken.contractAddress,
       fromToken.networkId,
-      netAccountRes.result?.address,
+      netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.addressDetail.networkId,
       spenderAddress,
       isWrapped,
@@ -681,7 +687,7 @@ export function useSpeedSwapActions(props: {
           ...pre,
           speedSwapApprovingLoading: true,
         }));
-        const userAddress = netAccountRes.result?.address ?? '';
+        const userAddress = netAccountRes.result?.addressDetail.address ?? '';
         const approveInfo: IApproveInfo = {
           owner: userAddress,
           spender: spenderAddress,
@@ -731,7 +737,7 @@ export function useSpeedSwapActions(props: {
     },
     [
       setInAppNotificationAtom,
-      netAccountRes.result?.address,
+      netAccountRes.result?.addressDetail.address,
       spenderAddress,
       navigationToTxConfirm,
       handleSpeedSwapApproveTxSuccess,
@@ -834,7 +840,7 @@ export function useSpeedSwapActions(props: {
     }) => {
       if (
         netAccountRes.result?.id &&
-        netAccountRes.result?.address &&
+        netAccountRes.result?.addressDetail.address &&
         orderFromToken?.networkId ===
           netAccountRes.result?.addressDetail.networkId &&
         (equalTokenNoCaseSensitive({
@@ -852,6 +858,7 @@ export function useSpeedSwapActions(props: {
             },
           }))
       ) {
+        if (!balanceToken?.networkId) return;
         setFetchBalanceLoading(true);
         try {
           const tokenDetail =
@@ -859,7 +866,7 @@ export function useSpeedSwapActions(props: {
               networkId: balanceToken?.networkId ?? '',
               contractAddress: balanceToken?.contractAddress ?? '',
               accountId: netAccountRes.result?.id ?? '',
-              accountAddress: netAccountRes.result?.address ?? '',
+              accountAddress: netAccountRes.result?.addressDetail.address ?? '',
             });
           if (tokenDetail?.length) {
             setBalance(new BigNumber(tokenDetail[0].balanceParsed ?? 0));
@@ -875,7 +882,7 @@ export function useSpeedSwapActions(props: {
     [
       balanceToken?.networkId,
       balanceToken?.contractAddress,
-      netAccountRes.result?.address,
+      netAccountRes.result?.addressDetail.address,
       netAccountRes.result?.id,
       netAccountRes.result?.addressDetail.networkId,
     ],
@@ -898,6 +905,7 @@ export function useSpeedSwapActions(props: {
         loading: false,
       });
     } else {
+      if (!fromToken?.networkId || !toToken?.networkId) return;
       const [fromTokenPrice, toTokenPrice] = await Promise.all([
         backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
           networkId: fromToken.networkId ?? '',
@@ -1005,7 +1013,7 @@ export function useSpeedSwapActions(props: {
         !fromToken.isNative &&
         !isWrapped &&
         spenderAddress &&
-        netAccountRes?.result?.address &&
+        netAccountRes?.result?.addressDetail.address &&
         balance?.gt(0)) ||
       inAppNotificationAtom.speedSwapApprovingTransaction?.status ===
         ESwapApproveTransactionStatus.SUCCESS
@@ -1023,7 +1031,7 @@ export function useSpeedSwapActions(props: {
     spenderAddress,
     checkTokenApproveAllowance,
     inAppNotificationAtom.speedSwapApprovingTransaction?.status,
-    netAccountRes?.result?.address,
+    netAccountRes?.result?.addressDetail.address,
   ]);
 
   useEffect(() => {
@@ -1046,7 +1054,7 @@ export function useSpeedSwapActions(props: {
     balanceToken?.name,
     balanceToken?.networkId,
     balanceToken?.symbol,
-    netAccountRes.result?.address,
+    netAccountRes.result?.addressDetail.address,
     syncTokensBalance,
   ]);
 

@@ -37,6 +37,7 @@ import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perps
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 import { useShowDepositWithdrawModal } from '../../../hooks/useShowDepositWithdrawModal';
+import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import {
   type ITradeSide,
   getTradingSideTextColor,
@@ -85,6 +86,7 @@ function PerpTradingForm({
   const actions = useHyperliquidActions();
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
+  const { midPrice, midPriceBN } = useTradingPrice();
   const currentTokenName = activeAsset?.coin;
   const [{ activePositions: perpsPositions }] = usePerpsActivePositionAtom();
   const [perpsSelectedSymbol] = usePerpsActiveAssetAtom();
@@ -107,27 +109,18 @@ function PerpTradingForm({
     const prevType = prevTypeRef.current;
     const currentType = formData.type;
 
-    if (
-      prevType !== 'limit' &&
-      currentType === 'limit' &&
-      activeAssetCtx?.ctx?.markPrice
-    ) {
+    if (prevType !== 'limit' && currentType === 'limit' && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+        price: formatPriceToSignificantDigits(midPrice),
       });
     }
 
     prevTypeRef.current = currentType;
-  }, [
-    formData.type,
-    formData.price,
-    activeAssetCtx?.ctx?.markPrice,
-    updateForm,
-  ]);
+  }, [formData.type, formData.price, midPrice, updateForm]);
 
   useEffect(() => {
     const nextEnv = {
-      markPrice: activeAssetCtx?.ctx?.markPrice,
+      markPrice: midPrice,
       availableToTrade: activeAssetData?.availableToTrade,
       leverageValue: activeAssetData?.leverage?.value,
       fallbackLeverage: activeAsset?.universe?.maxLeverage,
@@ -154,7 +147,7 @@ function PerpTradingForm({
       });
     }
   }, [
-    activeAssetCtx?.ctx?.markPrice,
+    midPrice,
     activeAssetData?.availableToTrade,
     activeAssetData?.leverage?.value,
     activeAsset?.universe?.maxLeverage,
@@ -175,20 +168,20 @@ function PerpTradingForm({
       tokenSwitchingRef.current === currentTokenName &&
       formData.type === 'limit' &&
       currentTokenName &&
-      activeAssetCtx?.ctx?.markPrice &&
+      midPrice &&
       isDataSynced;
 
     // Step 1: Detect token switch and mark switching state
     if (hasTokenChanged) {
       tokenSwitchingRef.current = currentTokenName;
       prevTokenRef.current = currentTokenName;
-      return; // Early return to avoid price update with stale data
+      return;
     }
 
     // Step 2: Update price after token data is synchronized (prevents stale price)
-    if (shouldUpdatePrice && activeAssetCtx?.ctx?.markPrice) {
+    if (shouldUpdatePrice && midPrice) {
       updateForm({
-        price: formatPriceToSignificantDigits(activeAssetCtx?.ctx?.markPrice),
+        price: formatPriceToSignificantDigits(midPrice),
       });
       tokenSwitchingRef.current = false;
     }
@@ -197,12 +190,7 @@ function PerpTradingForm({
     if (!prevToken && currentTokenName) {
       prevTokenRef.current = currentTokenName;
     }
-  }, [
-    currentTokenName,
-    activeAssetCtx?.ctx?.markPrice,
-    formData.type,
-    updateForm,
-  ]);
+  }, [currentTokenName, midPrice, formData.type, updateForm]);
 
   // Reference Price: Get the effective trading price (limit price or market price)
   const [, referencePriceString] = useMemo(() => {
@@ -210,8 +198,8 @@ function PerpTradingForm({
     if (formData.type === 'limit' && formData.price) {
       price = new BigNumber(formData.price);
     }
-    if (formData.type === 'market' && activeAssetCtx?.ctx?.markPrice) {
-      price = new BigNumber(activeAssetCtx?.ctx?.markPrice);
+    if (formData.type === 'market') {
+      price = midPriceBN;
     }
     return [
       price,
@@ -223,7 +211,7 @@ function PerpTradingForm({
   }, [
     formData.type,
     formData.price,
-    activeAssetCtx?.ctx?.markPrice,
+    midPriceBN,
     activeAsset?.universe?.szDecimals,
   ]);
 
@@ -465,12 +453,10 @@ function PerpTradingForm({
 
       {formData.type === 'limit' || isMobile ? (
         <PriceInput
-          onUseMarketPrice={() => {
-            if (activeAssetCtx?.ctx?.markPrice) {
+          onUseMidPrice={() => {
+            if (midPrice) {
               updateForm({
-                price: formatPriceToSignificantDigits(
-                  activeAssetCtx?.ctx?.markPrice,
-                ),
+                price: formatPriceToSignificantDigits(midPrice),
               });
             }
           }}

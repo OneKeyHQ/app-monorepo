@@ -60,6 +60,7 @@ export const BundleUpdate: IBundleUpdate = {
   getFallbackBundles: () => Promise.resolve([]),
   switchBundle: () => Promise.resolve(),
   getNativeAppVersion: () => Promise.resolve(''),
+  getSha256FromFilePath: () => Promise.resolve(''),
   getNativeBuildNumber: () => Promise.resolve(''),
   getJsBundlePath: () => Promise.resolve(''),
 };

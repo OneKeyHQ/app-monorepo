@@ -109,10 +109,26 @@ const SwapAccountAddressContainer = ({
               ? fromToken?.networkId ?? ''
               : toToken?.networkId ?? ''
           }
-          indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
-          walletId={activeAccount.wallet?.id ?? ''}
-          activeDeriveType={activeAccount.deriveType}
-          activeDeriveInfo={activeAccount.deriveInfo}
+          indexedAccountId={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.indexedAccount?.id ?? ''
+              : activeToAccount.indexedAccount?.id ?? ''
+          }
+          walletId={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.wallet?.id ?? ''
+              : activeToAccount.wallet?.id ?? ''
+          }
+          activeDeriveType={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.deriveType
+              : activeToAccount.deriveType
+          }
+          activeDeriveInfo={
+            type === ESwapDirectionType.FROM
+              ? activeAccount.deriveInfo
+              : activeToAccount.deriveInfo
+          }
           renderSelectorTrigger={
             <DeriveTypeSelectorTriggerIconRenderer
               autoShowLabel={false}

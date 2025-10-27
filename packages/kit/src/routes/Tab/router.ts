@@ -206,6 +206,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
             focused ? 'CoinsSolid' : 'CoinsOutline',
           translationId: ETranslations.global_earn,
           freezeOnBlur: Boolean(params?.freezeOnBlur),
+          inMoreAction: true,
           rewrite: '/defi',
           exact: true,
           children: earnRouters,
@@ -219,15 +220,14 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               tabbarOnPress: toReferFriendsPage,
               children: null,
               trackId: 'global-referral',
+              inMoreAction: true,
             }
           : undefined,
         isShowMyOneKeyOnTabbar
           ? {
               name: ETabRoutes.DeviceManagement,
               tabBarIcon: () => 'OnekeyDeviceCustom',
-              translationId: ETranslations.global_my_onekey,
-              collapseSideBarTranslationId:
-                ETranslations.prime_cloud_data_found_sync_device,
+              translationId: ETranslations.global_device,
               tabbarOnPress: toMyOneKeyModal,
               children: null,
               trackId: 'global-my-onekey',
