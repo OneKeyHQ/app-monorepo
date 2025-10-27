@@ -34,6 +34,7 @@ import type ServiceE2E from '../services/ServiceE2E';
 import type ServiceExplorer from '../services/ServiceExplorer';
 import type ServiceFiatCrypto from '../services/ServiceFiatCrypto';
 import type ServiceFirmwareUpdate from '../services/ServiceFirmwareUpdate';
+import type ServiceFreshAddress from '../services/ServiceFreshAddress';
 import type ServiceGas from '../services/ServiceGas';
 import type ServiceHardware from '../services/ServiceHardware';
 import type ServiceHardwareUI from '../services/ServiceHardwareUI';
@@ -218,6 +219,10 @@ class BackgroundApiProxy
   serviceAccountProfile = this._createProxyService(
     'serviceAccountProfile',
   ) as ServiceAccountProfile;
+
+  serviceFreshAddress = this._createProxyService(
+    'serviceFreshAddress',
+  ) as ServiceFreshAddress;
 
   serviceBatchCreateAccount = this._createProxyService(
     'serviceBatchCreateAccount',
