@@ -14,6 +14,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -43,11 +44,23 @@ export function BTCFreshAddressProvider() {
 
   useEffect(() => {
     const fn = () => {
+      defaultLogger.wallet.btcFreshAddress.debugLog({
+        stage: 'ui:event:received',
+        detail: {
+          hasDialogInstance: !!dialogRef.current,
+        },
+      });
       if (dialogRef.current) {
+        defaultLogger.wallet.btcFreshAddress.debugLog({
+          stage: 'ui:event:skip',
+        });
         return;
       }
       const resetRef = () => {
         dialogRef.current = null;
+        defaultLogger.wallet.btcFreshAddress.debugLog({
+          stage: 'ui:dialog:resetRef',
+        });
       };
       dialogRef.current = Dialog.show({
         icon: 'SwitchHorOutline',
@@ -86,9 +99,21 @@ export function BTCFreshAddressProvider() {
         onCancel: resetRef,
         onClose: resetRef,
       });
+      defaultLogger.wallet.btcFreshAddress.debugLog({
+        stage: 'ui:dialog:opened',
+      });
     };
+    defaultLogger.wallet.btcFreshAddress.debugLog({
+      stage: 'ui:listener:register',
+    });
     appEventBus.on(EAppEventBusNames.BtcFreshAddressConnectDappRejected, fn);
     return () => {
+      defaultLogger.wallet.btcFreshAddress.debugLog({
+        stage: 'ui:listener:cleanup',
+        detail: {
+          hasDialogInstance: !!dialogRef.current,
+        },
+      });
       void dialogRef.current?.close?.();
       dialogRef.current = null;
       appEventBus.off(EAppEventBusNames.BtcFreshAddressConnectDappRejected, fn);

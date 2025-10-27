@@ -117,21 +117,45 @@ class ProviderApiBtc extends ProviderApiBase {
   }
 
   private resetFreshAddressConnectDialogDebounceTimer() {
+    defaultLogger.wallet.btcFreshAddress.debugLog({
+      stage: 'bg:resetDebounce:start',
+      detail: {
+        cooling: this.btcFreshAddressConnectDialogCooling,
+      },
+    });
     if (this.btcFreshAddressConnectDialogCooldownTimer) {
       clearTimeout(this.btcFreshAddressConnectDialogCooldownTimer);
     }
     this.btcFreshAddressConnectDialogCooldownTimer = setTimeout(() => {
       this.btcFreshAddressConnectDialogCooling = false;
       this.btcFreshAddressConnectDialogCooldownTimer = undefined;
+      defaultLogger.wallet.btcFreshAddress.debugLog({
+        stage: 'bg:resetDebounce:complete',
+      });
     }, this.BTC_FRESH_ADDRESS_DIALOG_DEBOUNCE_MS);
   }
 
   private emitBtcFreshAddressConnectDappRejectedWithDebounce() {
+    defaultLogger.wallet.btcFreshAddress.debugLog({
+      stage: 'bg:emit:called',
+      detail: {
+        cooling: this.btcFreshAddressConnectDialogCooling,
+      },
+    });
     if (this.btcFreshAddressConnectDialogCooling) {
+      defaultLogger.wallet.btcFreshAddress.debugLog({
+        stage: 'bg:emit:cooling',
+        detail: {
+          action: 'skipEmit',
+        },
+      });
       this.resetFreshAddressConnectDialogDebounceTimer();
       return;
     }
     this.btcFreshAddressConnectDialogCooling = true;
+    defaultLogger.wallet.btcFreshAddress.debugLog({
+      stage: 'bg:emit:dispatch',
+    });
     appEventBus.emit(
       EAppEventBusNames.BtcFreshAddressConnectDappRejected,
       undefined,
