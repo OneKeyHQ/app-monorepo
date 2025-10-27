@@ -293,7 +293,7 @@ export const checkFileHash = ({
 
     // Remove leading slash if present
     if (key.startsWith('/')) {
-      key = key.substring(1);
+      key = key.replace(/^\/+/, '').trim();
     }
   }
   if (!metadata[key]) {
