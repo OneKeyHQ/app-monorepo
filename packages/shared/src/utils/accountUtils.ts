@@ -869,6 +869,32 @@ function getBTCFreshAddressKey({
   return `${networkId}__${xpubSegwit}`;
 }
 
+function isEnabledBtcFreshAddress({
+  accountId,
+  walletId,
+  networkId,
+  enableBTCFreshAddress,
+}: {
+  accountId?: string | undefined;
+  walletId?: string | undefined;
+  networkId?: string | undefined;
+  enableBTCFreshAddress?: boolean | undefined;
+}) {
+  if (!networkUtils.isBTCNetwork(networkId)) {
+    return false;
+  }
+  if (!enableBTCFreshAddress) {
+    return false;
+  }
+  if (accountId) {
+    return isHdAccount({ accountId }) || isHwAccount({ accountId });
+  }
+  if (walletId) {
+    return isHdWallet({ walletId }) || isHwWallet({ walletId });
+  }
+  return false;
+}
+
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
@@ -938,4 +964,5 @@ export default {
   buildFullXfp,
   getShortXfp,
   getBTCFreshAddressKey,
+  isEnabledBtcFreshAddress,
 };

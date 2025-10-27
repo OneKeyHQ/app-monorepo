@@ -30,7 +30,7 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { RouteProp } from '@react-navigation/core';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 type IBtcAddressRow = {
   key: string;
@@ -215,7 +215,7 @@ function BtcAddresses() {
               {hasRows ? (
                 <Table
                   dataSource={rows}
-                  contentContainerStyle={{ gap: '$3', px: '$0', pb: '$12' }}
+                  contentContainerStyle={{ gap: '$2', px: '$0' }}
                   columns={[
                     {
                       title: intl.formatMessage({
@@ -255,7 +255,7 @@ function BtcAddresses() {
                         alignItems: 'center',
                         justifyContent: 'flex-end',
                         gap: '$2',
-                        minWidth: 140,
+                        minWidth: 180,
                         overflow: 'visible',
                       },
                       render: (text, record) => (
@@ -272,25 +272,31 @@ function BtcAddresses() {
                             variant="tertiary"
                             size="small"
                             icon="Copy3Outline"
-                            onPress={() => handleCopy(record)}
+                            onPress={(e) => {
+                              e?.stopPropagation?.();
+                              handleCopy(record);
+                            }}
                           />
                         </>
                       ),
                     },
                   ]}
                   keyExtractor={(item) => item.key}
+                  onRow={(record) => ({
+                    onPress: () => handleCopy(record),
+                  })}
                   rowProps={{
-                    mx: '$0',
-                    px: '$5',
-                    py: '$1',
-                    minHeight: 28,
+                    mx: '$2',
+                    px: '$3',
+                    py: '$2.5',
+                    minHeight: 44,
                     alignItems: 'center',
-                    borderRadius: 0,
+                    borderRadius: '$3',
                     overflow: 'visible',
                   }}
                   headerRowProps={{
-                    mx: '$0',
-                    px: '$5',
+                    mx: '$2',
+                    px: '$3',
                     py: '$2',
                     minHeight: 36,
                     alignItems: 'center',
@@ -313,19 +319,21 @@ function BtcAddresses() {
           )}
         </YStack>
       </Page.Body>
-      <Page.Footer>
-        <XStack justifyContent="flex-end" py="$6" px="$5">
-          <Pagination
-            current={currentPage}
-            total={totalPages}
-            onChange={setCurrentPage}
-            showControls={false}
-            siblingCount={0}
-            maxPages={3}
-            pageButtonSize="small"
-          />
-        </XStack>
-      </Page.Footer>
+      {totalPages > 1 ? (
+        <Page.Footer>
+          <XStack justifyContent="flex-end" py="$6" px="$5">
+            <Pagination
+              current={currentPage}
+              total={totalPages}
+              onChange={setCurrentPage}
+              showControls={false}
+              siblingCount={0}
+              maxPages={3}
+              pageButtonSize="small"
+            />
+          </XStack>
+        </Page.Footer>
+      ) : null}
     </Page>
   );
 }
