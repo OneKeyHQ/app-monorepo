@@ -850,7 +850,15 @@ async function createMainWindow() {
             decodedUrl,
             decodedUrl.includes(bundleDirPath),
           );
-          if (!decodedUrl.includes(bundleDirPath)) {
+          if (decodedUrl.includes(bundleDirPath)) {
+            const filePath = checkFileHash({
+              bundleDirPath,
+              metadata,
+              driveLetter,
+              url: decodedUrl.replace(bundleDirPath, ''),
+            });
+            callback(filePath);
+          } else {
             const filePath = checkFileHash({
               bundleDirPath,
               metadata,
@@ -858,9 +866,7 @@ async function createMainWindow() {
               url: decodedUrl,
             });
             callback(filePath);
-            return;
           }
-          callback(indexHtmlPath);
         } else {
           callback(path.join(__dirname, '..', 'build', url));
         }
