@@ -845,6 +845,11 @@ async function createMainWindow() {
         const url = request.url.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
+          logger.info(
+            'decodedUrl',
+            decodedUrl,
+            decodedUrl.includes(bundleDirPath),
+          );
           if (!decodedUrl.includes(bundleDirPath)) {
             const filePath = checkFileHash({
               bundleDirPath,
