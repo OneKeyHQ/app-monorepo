@@ -32,7 +32,7 @@ export function BTCFreshAddressProvider() {
       return;
     }
     if (network?.id) {
-      void backgroundApiProxy.serviceAccountProfile.syncBTCFreshAddressByIndexedAccountId(
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByIndexedAccountId(
         {
           indexedAccountId: indexedAccount.id,
           networkId: network.id,
