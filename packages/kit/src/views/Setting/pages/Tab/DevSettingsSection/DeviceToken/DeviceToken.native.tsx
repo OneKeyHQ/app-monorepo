@@ -10,7 +10,6 @@ export function DeviceToken() {
     void LaunchOptionsManager.getDeviceToken().then((token) => {
       if (token) {
         setDeviceToken(token);
-        void LaunchOptionsManager.registerDeviceToken();
       }
     });
   }, []);
@@ -18,6 +17,9 @@ export function DeviceToken() {
     <SectionPressItem
       icon="CodeOutline"
       copyable
+      onPress={() => {
+        void LaunchOptionsManager.registerDeviceToken();
+      }}
       title={deviceToken}
       subtitle="iOS DeviceToken"
     />

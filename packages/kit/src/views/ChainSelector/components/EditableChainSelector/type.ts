@@ -8,6 +8,8 @@ export type IEditableChainSelectorContext = {
   setFrequentlyUsedItems?: (networks: IServerNetwork[]) => void;
 
   isEditMode?: boolean;
+  walletId: string;
+  indexedAccountId?: string;
   networkId?: string;
   searchText?: string;
   onPressItem?: (item: IServerNetwork) => void;
@@ -15,6 +17,8 @@ export type IEditableChainSelectorContext = {
 
   allNetworkItem?: IServerNetwork;
   setRecentNetworksHeight?: (height: number) => void;
+  accountNetworkValues: Record<string, string>;
+  accountNetworkValueCurrency?: string;
 };
 
 export type IEditableChainSelectorSection = {
