@@ -127,6 +127,7 @@ export type IUnsignedTxPro = IUnsignedTx & {
 
   accountId?: string;
   networkId?: string;
+  indexedAccountId?: string;
 };
 export type ISignedTx = {
   txid: string;
