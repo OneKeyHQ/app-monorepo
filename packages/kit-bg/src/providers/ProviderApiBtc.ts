@@ -59,6 +59,15 @@ class ProviderApiBtc extends ProviderApiBase {
 
   private semaphore = new Semaphore(1);
 
+  private readonly BTC_FRESH_ADDRESS_DIALOG_DEBOUNCE_MS =
+    timerUtils.getTimeDurationMs({ seconds: 1 });
+
+  private btcFreshAddressConnectDialogCooling = false;
+
+  private btcFreshAddressConnectDialogCooldownTimer?: ReturnType<
+    typeof setTimeout
+  >;
+
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
@@ -107,14 +116,34 @@ class ProviderApiBtc extends ProviderApiBase {
     };
   }
 
+  private resetFreshAddressConnectDialogDebounceTimer() {
+    if (this.btcFreshAddressConnectDialogCooldownTimer) {
+      clearTimeout(this.btcFreshAddressConnectDialogCooldownTimer);
+    }
+    this.btcFreshAddressConnectDialogCooldownTimer = setTimeout(() => {
+      this.btcFreshAddressConnectDialogCooling = false;
+      this.btcFreshAddressConnectDialogCooldownTimer = undefined;
+    }, this.BTC_FRESH_ADDRESS_DIALOG_DEBOUNCE_MS);
+  }
+
+  private emitBtcFreshAddressConnectDappRejectedWithDebounce() {
+    if (this.btcFreshAddressConnectDialogCooling) {
+      this.resetFreshAddressConnectDialogDebounceTimer();
+      return;
+    }
+    this.btcFreshAddressConnectDialogCooling = true;
+    appEventBus.emit(
+      EAppEventBusNames.BtcFreshAddressConnectDappRejected,
+      undefined,
+    );
+    this.resetFreshAddressConnectDialogDebounceTimer();
+  }
+
   private async checkIfEnableConnect() {
     const enabledBTCFreshAddress =
       await this.backgroundApi.serviceSetting.getEnableBTCFreshAddress();
     if (enabledBTCFreshAddress) {
-      appEventBus.emit(
-        EAppEventBusNames.BtcFreshAddressConnectDappRejected,
-        undefined,
-      );
+      this.emitBtcFreshAddressConnectDappRejectedWithDebounce();
       throw new BTCFreshAddressCanNotConnectDappError();
     }
   }

@@ -12,7 +12,6 @@ import type {
 } from '@onekeyhq/core/src/types';
 import type { IPerpsDepositToken } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
-  IAccountDeriveTypes,
   IApproveInfo,
   IBuildUnsignedTxParams,
   ITransferInfo,
@@ -104,7 +103,7 @@ const usePerpDeposit = (
           });
         const perpAccount =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
-            accountId: undefined,
+            accountId: indexedAccountId ? undefined : selectedAccountId ?? '',
             indexedAccountId,
             deriveType: perpAccountDefaultDeriveType ?? 'default',
             networkId: PERPS_NETWORK_ID,
@@ -131,65 +130,66 @@ const usePerpDeposit = (
   const accountId = useMemo(() => {
     return result?.accountId ?? '';
   }, [result?.accountId]);
-  useEffect(() => {
-    void (async () => {
-      const amountBN = new BigNumber(amount ?? '0');
+
+  const perpDepositQuoteAction = useCallback(async () => {
+    const amountBN = new BigNumber(amount ?? '0');
+    if (
+      selectedAction !== 'deposit' ||
+      !token ||
+      isArbitrumUsdcToken ||
+      !checkFromTokenFiatValue
+    ) {
+      await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
+      setPerpDepositQuoteLoading(false);
+      setPerpDepositQuote(undefined);
+      return;
+    }
+    try {
       if (
-        selectedAction !== 'deposit' ||
-        !token ||
-        isArbitrumUsdcToken ||
-        !checkFromTokenFiatValue
+        result?.fromUserAddress &&
+        result?.perpReceiverAddress &&
+        !amountBN.isZero() &&
+        !amountBN.isNaN()
       ) {
+        setPerpDepositQuoteLoading(true);
+        const quoteRes =
+          await backgroundApiProxy.serviceSwap.fetchPerpDepositQuote({
+            fromNetworkId: token.networkId,
+            fromTokenAmount: amountBN.toFixed(),
+            fromTokenAddress: token.contractAddress,
+            userAddress: result.fromUserAddress,
+            receivingAddress: result.perpReceiverAddress,
+          });
+        if (quoteRes) {
+          setPerpDepositQuote(quoteRes);
+        }
+        setPerpDepositQuoteLoading(false);
+      } else {
         await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
         setPerpDepositQuoteLoading(false);
         setPerpDepositQuote(undefined);
-        return;
       }
-      try {
-        if (
-          result?.fromUserAddress &&
-          result?.perpReceiverAddress &&
-          !amountBN.isZero() &&
-          !amountBN.isNaN()
-        ) {
-          setPerpDepositQuoteLoading(true);
-          const quoteRes =
-            await backgroundApiProxy.serviceSwap.fetchPerpDepositQuote({
-              fromNetworkId: token.networkId,
-              fromTokenAmount: amountBN.toFixed(),
-              fromTokenAddress: token.contractAddress,
-              userAddress: result.fromUserAddress,
-              receivingAddress: result.perpReceiverAddress,
-            });
-          if (quoteRes) {
-            setPerpDepositQuote(quoteRes);
-          }
-          setPerpDepositQuoteLoading(false);
-        } else {
-          await backgroundApiProxy.serviceSwap.cancelFetchPerpDepositQuote();
-          setPerpDepositQuoteLoading(false);
-          setPerpDepositQuote(undefined);
-        }
-      } catch (e: any) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (e?.cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
-          setPerpDepositQuoteLoading(false);
-          setPerpDepositQuote(undefined);
-          throw e;
-        }
+    } catch (e: any) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (e?.cause !== ESwapFetchCancelCause.SWAP_PERP_DEPOSIT_QUOTE_CANCEL) {
+        setPerpDepositQuoteLoading(false);
+        setPerpDepositQuote(undefined);
+        throw e;
       }
-    })();
+    }
   }, [
-    isArbitrumUsdcToken,
-    selectedAction,
     amount,
+    selectedAction,
+    isArbitrumUsdcToken,
+    checkFromTokenFiatValue,
     result?.fromUserAddress,
     result?.perpReceiverAddress,
-    token?.contractAddress,
-    token?.networkId,
     token,
-    checkFromTokenFiatValue,
   ]);
+
+  useEffect(() => {
+    void perpDepositQuoteAction();
+  }, [perpDepositQuoteAction]);
 
   const buildQuoteRes = useCallback(
     async (buildSwapResponse: IPerpDepositQuoteResponse) => {
@@ -949,6 +949,9 @@ const usePerpDeposit = (
         title: intl.formatMessage({
           id: ETranslations.feedback_transaction_submitted,
         }),
+        message: intl.formatMessage({
+          id: ETranslations.perp_toast_deposit_success_msg,
+        }),
       });
     }
   }, [
@@ -984,6 +987,28 @@ const usePerpDeposit = (
     });
   }, [perpDepositQuote?.result?.allowanceResult, intl, shouldSignEveryTime]);
 
+  const checkRefreshQuote = useMemo(() => {
+    if (
+      selectedAction === 'deposit' &&
+      checkFromTokenFiatValue &&
+      !perpDepositQuoteLoading &&
+      !isArbitrumUsdcToken
+    ) {
+      const quoteAmount = perpDepositQuote?.result?.toAmount;
+      const quoteAmountBN = new BigNumber(quoteAmount || '0');
+      if (quoteAmountBN.isNaN() || quoteAmountBN.lte(0)) {
+        return true;
+      }
+    }
+    return false;
+  }, [
+    perpDepositQuoteLoading,
+    selectedAction,
+    checkFromTokenFiatValue,
+    perpDepositQuote?.result?.toAmount,
+    isArbitrumUsdcToken,
+  ]);
+
   return {
     perpDepositQuote,
     perpDepositQuoteLoading,
@@ -991,6 +1016,8 @@ const usePerpDeposit = (
     multipleStepText,
     buildPerpDepositTx,
     isArbitrumUsdcToken,
+    checkRefreshQuote,
+    perpDepositQuoteAction,
   };
 };
 
