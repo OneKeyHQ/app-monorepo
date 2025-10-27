@@ -23,7 +23,10 @@ export function SectionPressItem({
   const { copyText } = useClipboard();
   const handleCopy = useCallback(() => {
     copyText(title);
-  }, [copyText, title]);
+    setTimeout(() => {
+      onPress?.();
+    });
+  }, [copyText, title, onPress]);
   return (
     <ListItem
       drillIn
