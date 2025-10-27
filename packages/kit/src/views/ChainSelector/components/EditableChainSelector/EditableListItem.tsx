@@ -188,7 +188,7 @@ export const EditableListItem = ({
       )}
       onPress={onPress}
       disabled={isDisabled}
-      backgroundColor={networkId === item.id ? '$bg-active' : undefined}
+      bg={networkId === item.id ? '$bgActive' : undefined}
     >
       <XStack gap="$5">
         {isCustomNetworkEditable && isEditMode && !isDisabled ? (
