@@ -115,22 +115,22 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
             if ([remoteNotification isKindOfClass:[NSDictionary class]]) {
                 NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
                 userInfo[@"extras"] = remoteNotification ?: [NSNull null];
+                id aps = remoteNotification[@"aps"];
+                if ( [aps isKindOfClass:[NSDictionary class]]) {
+                    id alert = ((NSDictionary *)aps)[@"alert"];
+                    if ( [alert isKindOfClass:[NSDictionary class]]) {
+                        NSDictionary *alertDict = (NSDictionary *)alert;
+                        userInfo[@"title"] = alertDict[@"title"] ?: @"";
+                        userInfo[@"content"] = alertDict[@"body"] ?: @"";
+                    } else if ([alert isKindOfClass:[NSString class]]) {
++                       userInfo[@"content"] = (NSString *)alert;
++                    }
 
-                NSDictionary *aps = remoteNotification[@"aps"];
-                if (aps) {
-                    NSDictionary *alert = aps[@"alert"];
-                    if (alert) {
-                        userInfo[@"title"] = alert[@"title"] ?: @"";
-                        userInfo[@"content"] = alert[@"body"] ?: @"";
-                    }
-
-                    NSNumber *badge = aps[@"badge"];
-                    if (badge) {
-                        userInfo[@"badge"] = badge ?: @"";
-                    }
-
+                    id badge = ((NSDictionary *)aps)[@"badge"];
++                   if ([badge isKindOfClass:[NSNumber class]]) {
++                       userInfo[@"badge"] = (NSNumber *)badge;
++                   }
                 }
-
                 NSMutableDictionary *notificationInfo = [NSMutableDictionary dictionary];
                 notificationInfo[@"userInfo"] = userInfo;
                 result[@"remoteNotification"] = notificationInfo;
