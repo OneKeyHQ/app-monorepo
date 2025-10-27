@@ -9,6 +9,7 @@ import { type IntlShape, useIntl } from 'react-intl';
 import {
   Accordion,
   Alert,
+  Button,
   Dialog,
   NumberSizeableText,
   Page,
@@ -19,6 +20,7 @@ import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
 } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EResponseCode } from '@onekeyhq/shared/src/consts/requestConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -86,7 +88,11 @@ function BulkRevoke() {
       >
     >();
 
-  const { unsignedTxs, contractMap } = route.params;
+  const { contractMap } = route.params;
+
+  const [unsignedTxs, setUnsignedTxs] = useState<IUnsignedTxPro[]>(
+    route.params.unsignedTxs,
+  );
 
   const networkStatusRef = useRef<
     Record<
@@ -208,6 +214,7 @@ function BulkRevoke() {
             networkStatusRef.current[tx.networkId ?? ''] = {
               ...networkStatusRef.current[tx.networkId ?? ''],
               nativeBalance: resp[0].balanceParsed,
+              nativeSymbol: resp[0].info?.symbol,
             };
           }
         }
@@ -215,10 +222,14 @@ function BulkRevoke() {
         console.error('=====>>>>>> fetchAccountNativeBalance error', error);
       }
 
+      if (isAborted.current) {
+        break;
+      }
+
+      await waitUntilInProgress();
+
       try {
         if (networkStatusRef.current[tx.networkId ?? '']?.isInsufficientFunds) {
-          const fillUpAmount =
-            networkStatusRef.current[tx.networkId ?? '']?.fillUpAmount;
           const nativeSymbol =
             networkStatusRef.current[tx.networkId ?? '']?.nativeSymbol;
           setRevokeTxsStatusMap((prev) => ({
@@ -226,20 +237,14 @@ function BulkRevoke() {
             [uuid]: {
               isInsufficientFunds: true,
               status: ERevokeTxStatus.Skipped,
-              skippedReason:
-                fillUpAmount && nativeSymbol
-                  ? intl.formatMessage(
-                      {
-                        id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
-                      },
-                      {
-                        symbol: nativeSymbol,
-                        amount: fillUpAmount,
-                      },
-                    )
-                  : intl.formatMessage({
-                      id: ETranslations.swap_page_button_no_enough_fee,
-                    }),
+              skippedReason: intl.formatMessage(
+                {
+                  id: ETranslations.wallet_approval_bulk_revoke_status_skipped_reason_insufficient_gas,
+                },
+                {
+                  symbol: nativeSymbol,
+                },
+              ),
             },
           }));
           continue;
@@ -618,6 +623,25 @@ function BulkRevoke() {
     }
   }, [progressState, navigation, currentProcessIndex, unsignedTxs]);
 
+  const handleOnCancel = useCallback(() => {
+    if (skippedTxCount === 0 && failedTxCount === 0) {
+      isAborted.current = true;
+      setProgressState(ERevokeProgressState.Aborted);
+      navigation.popStack();
+      return;
+    }
+    setProgressState(ERevokeProgressState.InProgress);
+    networkStatusRef.current = {};
+    setUnsignedTxs((prev) =>
+      prev.filter(
+        (tx) =>
+          revokeTxsStatusMap[tx.uuid ?? '']?.status !==
+          ERevokeTxStatus.Succeeded,
+      ),
+    );
+    setRevokeTxsStatusMap({});
+  }, [skippedTxCount, failedTxCount, navigation, revokeTxsStatusMap]);
+
   return (
     <Page
       scrollEnabled
@@ -639,20 +663,36 @@ function BulkRevoke() {
       </Page.Body>
       <Page.Footer>
         <Page.FooterActions
-          onCancel={
-            progressState === ERevokeProgressState.Finished
-              ? undefined
-              : () => {
-                  isAborted.current = true;
-                  setProgressState(ERevokeProgressState.Aborted);
-                  navigation.popStack();
-                }
-          }
           onConfirm={handleOnConfirm}
           onConfirmText={getConfirmText({
             intl,
             progressState,
           })}
+          cancelButton={
+            progressState === ERevokeProgressState.Finished &&
+            skippedTxCount === 0 &&
+            failedTxCount === 0 ? undefined : (
+              <Button
+                $md={
+                  {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                    size: 'large',
+                  } as any
+                }
+                onPress={handleOnCancel}
+              >
+                {progressState === ERevokeProgressState.Finished &&
+                (failedTxCount !== 0 || skippedTxCount !== 0)
+                  ? `${intl.formatMessage({
+                      id: ETranslations.global_retry,
+                    })} (${failedTxCount + skippedTxCount})`
+                  : intl.formatMessage({
+                      id: ETranslations.global_cancel,
+                    })}
+              </Button>
+            )
+          }
         >
           <YStack
             gap="$1"
