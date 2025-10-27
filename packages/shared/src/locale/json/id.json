@@ -2083,6 +2083,7 @@
   "perp.cost": "Biaya",
   "perp.cross_mode_desc": "Margin dan PnL dibagi di seluruh posisi. Anda dapat kehilangan semua posisi Anda jika terjadi likuidasi.",
   "perp.deposit_chain": "Rantai Deposit",
+  "perp.deposit_direct": "Setoran Langsung",
   "perp.deposit_on": "Pada {chain}",
   "perp.deposit_try_to": "Cobalah untuk ",
   "perp.enable_trading_desc": "Mengaktifkan trading membuka kanal khusus untuk pesanan instan tanpa Gas. Tidak diperlukan biaya Gas untuk mengaktifkannya.",

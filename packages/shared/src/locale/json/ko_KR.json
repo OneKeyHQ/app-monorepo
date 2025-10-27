@@ -2083,6 +2083,7 @@
   "perp.cost": "비용",
   "perp.cross_mode_desc": "마진과 PnL은 모든 포지션에 걸쳐 공유됩니다. 강제청산이 발생하면 모든 포지션을 잃을 수 있습니다.",
   "perp.deposit_chain": "입금 체인",
+  "perp.deposit_direct": "직접 입금",
   "perp.deposit_on": "{chain} 에",
   "perp.deposit_try_to": "시도하다",
   "perp.enable_trading_desc": "거래를 활성화하면 즉시 실행되는 Gas-무료 주문을 위한 전용 채널이 열립니다. 활성화에는 Gas 수수료가 필요하지 않습니다.",

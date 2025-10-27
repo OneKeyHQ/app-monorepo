@@ -2083,6 +2083,7 @@
   "perp.cost": "Kosten",
   "perp.cross_mode_desc": "Marge und PnL werden über alle Positionen hinweg geteilt. Wenn eine Liquidation erfolgt, können Sie alle Ihre Positionen verlieren.",
   "perp.deposit_chain": "Einzahlungs-Chain",
+  "perp.deposit_direct": "Direkteinzahlung",
   "perp.deposit_on": "Auf {chain}",
   "perp.deposit_try_to": "Versuchen Sie ",
   "perp.enable_trading_desc": "Das Aktivieren des Handels eröffnet einen eigenen Kanal für sofortige, Gas-freie Orders. Für das Aktivieren fallen keine Gas-Gebühren an.",
