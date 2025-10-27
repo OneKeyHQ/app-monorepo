@@ -387,7 +387,7 @@ function ReceiveToken() {
 
   useEffect(() => {
     void fetchAccount();
-  }, [fetchAccount]);
+  }, [fetchAccount, currentDeriveType, onDeriveTypeChange]);
 
   const throttledRefreshOnEvent = useThrottledCallback(
     () => {
