@@ -1242,9 +1242,10 @@ class ServiceHistory extends ServiceBase {
     });
 
     // refresh BTC fresh address for HD or HW accounts if needed
-    void this.backgroundApi.serviceFreshAddress.syncBTCFreshAddressByAccountId(
-      { accountId, networkId },
-    );
+    void this.backgroundApi.serviceFreshAddress.syncBTCFreshAddressByAccountId({
+      accountId,
+      networkId,
+    });
   }
 
   @backgroundMethod()
