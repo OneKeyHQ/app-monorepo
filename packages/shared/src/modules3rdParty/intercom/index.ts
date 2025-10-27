@@ -6,7 +6,7 @@ import { getCustomerJWT } from './utils';
 
 import type { InitType } from '@intercom/messenger-js-sdk/dist/types';
 
-export const initIntercom = async (settings?: InitType) => {
+export const initIntercom = async (settings?: Partial<InitType>) => {
   const APP_ID = settings?.app_id || process.env.INTERCOM_APP_ID || 'vbbj4ssb';
 
   Intercom({
@@ -30,3 +30,6 @@ export const showIntercom = async () => {
 
   show();
 };
+
+// Export update for dynamic launcher visibility control
+export { update };

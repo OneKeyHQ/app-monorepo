@@ -23,7 +23,7 @@ export abstract class BaseScene {
   @LogToServer()
   registerRid(rid: string) {
     return {
-      rid,
+      jpush_rid: rid,
     };
   }
 
