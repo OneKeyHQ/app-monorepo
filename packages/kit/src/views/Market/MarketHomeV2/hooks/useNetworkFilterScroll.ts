@@ -30,9 +30,9 @@ interface IUseNetworkFilterScrollReturn {
 
   // Refs
   scrollViewRef: React.RefObject<ScrollViewType | null>;
-  itemLayoutsRef: React.MutableRefObject<
-    Record<string, { x: number; width: number }>
-  >;
+  itemLayoutsRef: {
+    current: Record<string, { x: number; width: number }>;
+  };
 
   // Computed
   shouldShowLeftGradient: boolean;
