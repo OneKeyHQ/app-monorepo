@@ -5142,7 +5142,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     indexedAccountId: string | undefined;
     deriveType: IAccountDeriveTypes;
-    customReceiveAddressPath?: string | undefined;
+    customReceiveAddressPath: string | undefined;
   }): Promise<IPrepareHDOrHWAccountChainExtraParams | undefined> {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return undefined;
