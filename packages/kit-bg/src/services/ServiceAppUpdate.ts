@@ -95,7 +95,10 @@ class ServiceAppUpdate extends ServiceBase {
   async isNeedSyncAppUpdateInfo(forceUpdate = false) {
     const { status, updateAt } = await appUpdatePersistAtom.get();
     clearTimeout(syncTimerId);
-    if (status === EAppUpdateStatus.downloadPackage) {
+    if (
+      status === EAppUpdateStatus.downloadPackage ||
+      status === EAppUpdateStatus.ready
+    ) {
       return false;
     }
 
