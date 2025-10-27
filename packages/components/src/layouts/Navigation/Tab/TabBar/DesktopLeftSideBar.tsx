@@ -458,7 +458,8 @@ export function DesktopLeftSideBar({
       ...prev,
       isCollapsed: !prev.isCollapsed,
     }));
-  }, [setAppSideBarStatus]);
+    setIsHovering(false);
+  }, [setAppSideBarStatus, setIsHovering]);
 
   useShortcuts(EShortcutEvents.SideBar, handleToggleCollapse);
 
@@ -542,10 +543,10 @@ export function DesktopLeftSideBar({
           setIsHovering(false);
         }}
         zIndex={1000}
-        right={-3}
+        right={-5}
         top={0}
         bottom={0}
-        width={6}
+        width={10}
         pb="$20"
         ai="center"
         jc="center"
@@ -595,7 +596,9 @@ export function DesktopLeftSideBar({
               renderContent={
                 <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
                   {intl.formatMessage({
-                    id: ETranslations.shortcut_expand_sidebar,
+                    id: isCollapse
+                      ? ETranslations.shortcut_expand_sidebar
+                      : ETranslations.shortcut_collapse_sidebar,
                   })}
                 </Tooltip.Text>
               }

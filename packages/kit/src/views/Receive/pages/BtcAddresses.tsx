@@ -92,7 +92,7 @@ function BtcAddresses() {
           return { total: 0, items: [] };
         }
         try {
-          return await backgroundApiProxy.serviceAccountProfile.getBtcUsedAddressesByPage(
+          return await backgroundApiProxy.serviceFreshAddress.getBtcUsedAddressesByPage(
             {
               accountId,
               networkId,
