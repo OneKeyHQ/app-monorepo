@@ -211,17 +211,14 @@ function TxHistoryListViewSectionHeader(
     isTabFocused,
   } = props;
   const intl = useIntl();
-  const recomputeLayoutRef = useRef(false);
   const titleText = title || intl.formatMessage({ id: titleKey }) || '';
 
   useEffect(() => {
     if (
       data[0] &&
       data[0].decodedTx.status === EDecodedTxStatus.Pending &&
-      ((inTabList && isTabFocused) || !inTabList) &&
-      !recomputeLayoutRef.current
+      ((inTabList && isTabFocused) || !inTabList)
     ) {
-      recomputeLayoutRef.current = true;
       setTimeout(() => {
         recomputeLayout();
       }, 350);

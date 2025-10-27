@@ -1,8 +1,9 @@
+/* eslint-disable no-continue */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
-import { isUndefined } from 'lodash';
+import { isNil, isUndefined } from 'lodash';
 import { type IntlShape, useIntl } from 'react-intl';
 
 import {
@@ -19,6 +20,7 @@ import {
   onVisibilityStateChange,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EResponseCode } from '@onekeyhq/shared/src/consts/requestConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type {
@@ -85,6 +87,18 @@ function BulkRevoke() {
     >();
 
   const { unsignedTxs, contractMap } = route.params;
+
+  const networkStatusRef = useRef<
+    Record<
+      string,
+      {
+        isInsufficientFunds: boolean;
+        nativeBalance: string;
+        fillUpAmount: string;
+        nativeSymbol: string;
+      }
+    >
+  >({});
 
   const navigation = useAppNavigation();
 
@@ -166,13 +180,69 @@ function BulkRevoke() {
       await waitUntilInProgress();
       const uuid = tx.uuid ?? '';
 
+      if (!uuid || !tx.networkId || !tx.accountId) {
+        throw new OneKeyLocalError(
+          `params missing: uuid: ${uuid}, networkId: ${
+            tx.networkId ?? ''
+          }, accountId: ${tx.accountId ?? ''}`,
+        );
+      }
+
       try {
-        if (!uuid || !tx.networkId || !tx.accountId) {
-          throw new OneKeyLocalError(
-            `params missing: uuid: ${uuid}, networkId: ${
-              tx.networkId ?? ''
-            }, accountId: ${tx.accountId ?? ''}`,
+        if (
+          isNil(networkStatusRef.current[tx.networkId ?? '']?.nativeBalance)
+        ) {
+          const nativeTokenAddress =
+            await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+              networkId: tx.networkId,
+            });
+          const resp = await backgroundApiProxy.serviceToken.fetchTokensDetails(
+            {
+              accountId: tx.accountId,
+              networkId: tx.networkId,
+              contractList: [nativeTokenAddress],
+            },
           );
+
+          if (resp && resp[0] && !isNil(resp[0].balanceParsed)) {
+            networkStatusRef.current[tx.networkId ?? ''] = {
+              ...networkStatusRef.current[tx.networkId ?? ''],
+              nativeBalance: resp[0].balanceParsed,
+            };
+          }
+        }
+      } catch (error) {
+        console.error('=====>>>>>> fetchAccountNativeBalance error', error);
+      }
+
+      try {
+        if (networkStatusRef.current[tx.networkId ?? '']?.isInsufficientFunds) {
+          const fillUpAmount =
+            networkStatusRef.current[tx.networkId ?? '']?.fillUpAmount;
+          const nativeSymbol =
+            networkStatusRef.current[tx.networkId ?? '']?.nativeSymbol;
+          setRevokeTxsStatusMap((prev) => ({
+            ...prev,
+            [uuid]: {
+              isInsufficientFunds: true,
+              status: ERevokeTxStatus.Skipped,
+              skippedReason:
+                fillUpAmount && nativeSymbol
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+                      },
+                      {
+                        symbol: nativeSymbol,
+                        amount: fillUpAmount,
+                      },
+                    )
+                  : intl.formatMessage({
+                      id: ETranslations.swap_page_button_no_enough_fee,
+                    }),
+            },
+          }));
+          continue;
         }
 
         setRevokeTxsStatusMap((prev) => ({
@@ -227,6 +297,45 @@ function BulkRevoke() {
           txSize: tx.txSize,
           estimateFeeParams,
         });
+
+        if (
+          !isNil(networkStatusRef.current[tx.networkId ?? '']?.nativeBalance) &&
+          new BigNumber(
+            networkStatusRef.current[tx.networkId ?? '']?.nativeBalance,
+          ).lt(feeResult.totalNativeForDisplay ?? feeResult.totalNative)
+        ) {
+          const fillUpAmount = new BigNumber(
+            feeResult.totalNativeForDisplay ?? feeResult.totalNative,
+          )
+            .minus(networkStatusRef.current[tx.networkId ?? '']?.nativeBalance)
+            .sd(4, BigNumber.ROUND_UP)
+            .toFixed();
+
+          networkStatusRef.current[tx.networkId ?? ''].isInsufficientFunds =
+            true;
+          networkStatusRef.current[tx.networkId ?? ''].fillUpAmount =
+            fillUpAmount;
+          networkStatusRef.current[tx.networkId ?? ''].nativeSymbol =
+            feeInfo.common.nativeSymbol;
+          setRevokeTxsStatusMap((prev) => ({
+            ...prev,
+            [uuid]: {
+              isInsufficientFunds: true,
+              status: ERevokeTxStatus.Failed,
+              skippedReason: intl.formatMessage(
+                {
+                  id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+                },
+                {
+                  symbol: feeInfo.common.nativeSymbol,
+                  amount: fillUpAmount,
+                },
+              ),
+            },
+          }));
+          continue;
+        }
+
         if (isAborted.current) {
           break;
         }
@@ -299,6 +408,16 @@ function BulkRevoke() {
             transferPayload: undefined,
           });
 
+        if (
+          !isNil(networkStatusRef.current[tx.networkId ?? '']?.nativeBalance)
+        ) {
+          networkStatusRef.current[tx.networkId ?? ''].nativeBalance =
+            new BigNumber(
+              networkStatusRef.current[tx.networkId ?? '']?.nativeBalance,
+            )
+              .minus(feeResult.totalNativeForDisplay ?? feeResult.totalNative)
+              .toFixed();
+        }
         if (isAborted.current) {
           break;
         }
@@ -317,7 +436,6 @@ function BulkRevoke() {
       } catch (error: unknown) {
         let passphraseEnabled;
         let deviceCommunicationError;
-
         if (
           isHardwareInterruptErrorByCode({
             error: error as IOneKeyError,
@@ -383,9 +501,22 @@ function BulkRevoke() {
         }
 
         if (!passphraseEnabled && !deviceCommunicationError) {
+          if (
+            (error as { code: number }).code ===
+            EResponseCode.insufficient_funds_for_tx_fee
+          ) {
+            networkStatusRef.current[tx.networkId ?? ''] = {
+              ...networkStatusRef.current[tx.networkId ?? ''],
+              isInsufficientFunds: true,
+            };
+          }
+
           setRevokeTxsStatusMap((prev) => ({
             ...prev,
             [uuid]: {
+              isInsufficientFunds:
+                (error as { code: number }).code ===
+                EResponseCode.insufficient_funds_for_tx_fee,
               status: ERevokeTxStatus.Failed,
               skippedReason:
                 (error as { data: { data: IOneKeyRpcError } }).data?.data?.res
