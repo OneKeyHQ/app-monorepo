@@ -95,6 +95,8 @@ export function useSpeedSwapActions(props: {
     ISwapNativeTokenReserveGas[]
   >([]);
   const [{ isFirstTimeSwap }] = useSettingsPersistAtom();
+  const [speedSwapApproveActionLoading, setSpeedSwapApproveActionLoading] =
+    useState(false);
   const [priceRate, setPriceRate] = useState<
     | {
         rate?: number;
@@ -205,6 +207,32 @@ export function useSpeedSwapActions(props: {
       balanceToken: marketToken,
     };
   }, [tradeType, marketToken, tradeTokenDetail]);
+
+  const speedSwapApproveTransactionLoading = useMemo(() => {
+    const speedSwapApproveTransaction =
+      inAppNotificationAtom.speedSwapApprovingTransaction;
+    const fromTokenAmountDebouncedBN = new BigNumber(
+      fromTokenAmountDebounced ?? 0,
+    );
+    if (
+      speedSwapApproveTransaction &&
+      inAppNotificationAtom.speedSwapApprovingLoading &&
+      equalTokenNoCaseSensitive({
+        token1: speedSwapApproveTransaction.fromToken,
+        token2: fromToken,
+      }) &&
+      speedSwapApproveTransaction.amount ===
+        fromTokenAmountDebouncedBN.toFixed()
+    ) {
+      return true;
+    }
+    return false;
+  }, [
+    inAppNotificationAtom.speedSwapApprovingLoading,
+    inAppNotificationAtom.speedSwapApprovingTransaction,
+    fromToken,
+    fromTokenAmountDebounced,
+  ]);
 
   // --- build tx
 
@@ -687,6 +715,7 @@ export function useSpeedSwapActions(props: {
           ...pre,
           speedSwapApprovingLoading: true,
         }));
+        setSpeedSwapApproveActionLoading(true);
         const userAddress = netAccountRes.result?.addressDetail.address ?? '';
         const approveInfo: IApproveInfo = {
           owner: userAddress,
@@ -728,11 +757,13 @@ export function useSpeedSwapActions(props: {
             resetApproveIsMax: !isReset,
           },
         }));
+        setSpeedSwapApproveActionLoading(false);
       } catch (e) {
         setInAppNotificationAtom((pre) => ({
           ...pre,
           speedSwapApprovingLoading: false,
         }));
+        setSpeedSwapApproveActionLoading(false);
       }
     },
     [
@@ -749,7 +780,7 @@ export function useSpeedSwapActions(props: {
 
   const speedSwapApproveHandler = useCallback(async () => {
     if (shouldResetApprove) {
-      Dialog.confirm({
+      Dialog.show({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue,
         }),
@@ -788,31 +819,6 @@ export function useSpeedSwapActions(props: {
     shouldResetApprove,
     spenderAddress,
     toToken,
-  ]);
-  const speedSwapApproveLoading = useMemo(() => {
-    const speedSwapApproveTransaction =
-      inAppNotificationAtom.speedSwapApprovingTransaction;
-    const fromTokenAmountDebouncedBN = new BigNumber(
-      fromTokenAmountDebounced ?? 0,
-    );
-    if (
-      speedSwapApproveTransaction &&
-      inAppNotificationAtom.speedSwapApprovingLoading &&
-      equalTokenNoCaseSensitive({
-        token1: speedSwapApproveTransaction.fromToken,
-        token2: fromToken,
-      }) &&
-      speedSwapApproveTransaction.amount ===
-        fromTokenAmountDebouncedBN.toFixed()
-    ) {
-      return true;
-    }
-    return false;
-  }, [
-    inAppNotificationAtom.speedSwapApprovingLoading,
-    inAppNotificationAtom.speedSwapApprovingTransaction,
-    fromToken,
-    fromTokenAmountDebounced,
   ]);
 
   const handleSwapSpeedApprovingReset = useCallback(
@@ -1065,7 +1071,8 @@ export function useSpeedSwapActions(props: {
     checkTokenApproveAllowance,
     checkTokenAllowanceLoading,
     speedSwapApproveHandler,
-    speedSwapApproveLoading,
+    speedSwapApproveActionLoading,
+    speedSwapApproveTransactionLoading,
     shouldApprove,
     balance,
     balanceToken,
