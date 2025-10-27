@@ -18,7 +18,7 @@ const getJsBundleStaticPath = () => {
 };
 
 export const getAppStaticResourcesPath = () => {
-  return !isDev
+  return isDev
     ? path.join(__dirname, '../../public/static')
     : process.resourcesPath;
 };
@@ -34,7 +34,7 @@ export const getResourcesPath = () => {
 
 export const getStaticPath = () => {
   const resourcesPath = getResourcesPath();
-  return !isDev
+  return isDev
     ? path.join(__dirname, '../../public/static')
     : path.join(resourcesPath, 'static');
 };
