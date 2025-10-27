@@ -114,7 +114,7 @@ const generateMetadataJson = async (dirPath) => {
   }
 };
 
-const generateFileInfo = async (filePath, outputFilePath) => {
+const generateFileInfo = async (filePath, outputFilePath, appType) => {
   if (!fs.existsSync(filePath)) {
     console.warn(`File not found: ${filePath}`);
     return;
@@ -135,6 +135,13 @@ const generateFileInfo = async (filePath, outputFilePath) => {
     size,
     generatedAt: new Date().toISOString(),
   };
+
+  if (appType) {
+    fileInfo.appType = appType;
+    fileInfo.appVersion = process.env.BUILD_APP_VERSION;
+    fileInfo.buildNumber = process.env.BUILD_NUMBER;
+    fileInfo.bundleVersion = process.env.BUILD_BUNDLE_VERSION;
+  }
 
   fs.writeFileSync(infoFilePath, JSON.stringify(fileInfo, null, 2));
   log(`Generated info file: ${infoFilePath}`);
@@ -275,6 +282,7 @@ const buildIOSBundle = async () => {
   generateFileInfo(
     buildIOSOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('ios.metadata.json.info'),
+    'ios',
   );
   log('build ios bundle compress dist to zip done');
   log('build ios bundle done');
@@ -403,6 +411,7 @@ const buildAndroidBundle = async () => {
   generateFileInfo(
     buildAndroidOutputAssetPath('dist/metadata.json'),
     buildZipOutputAssetPath('android.metadata.json.info'),
+    'android',
   );
   log('build android bundle compress dist to zip done');
   log('build android bundle done');
