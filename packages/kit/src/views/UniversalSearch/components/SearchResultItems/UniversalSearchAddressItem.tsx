@@ -175,6 +175,7 @@ export function UniversalSearchAddressItem({
     return (
       <>
         <AccountValueWithSpotlight
+          walletId={item.payload.wallet?.id ?? ''}
           isOthersUniversal={accountUtils.isOthersAccount({
             accountId: item.payload.account?.id,
           })}
