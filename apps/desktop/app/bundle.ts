@@ -285,7 +285,7 @@ export const checkFileHash = ({
   let key = replacedKey || 'index.html';
   // Handle Windows path separators
   if (isWin) {
-    key = key.replace(driveLetter, '').replace('C:/', '');
+    key = key.replace(bundleDirPath, '').replace(/\\/g, '/');
   }
   if (!metadata[key]) {
     logger.info(`${key}: File ${url} not found in metadata.json`);
