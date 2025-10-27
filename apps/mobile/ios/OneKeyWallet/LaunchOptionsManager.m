@@ -76,10 +76,13 @@ static LaunchOptionsManager *sharedInstance = nil;
     if (!deviceToken) {
         return @"";
     }
-    return [[[[deviceToken description]
-                         stringByReplacingOccurrencesOfString: @"<" withString: @""] 
-                        stringByReplacingOccurrencesOfString: @">" withString: @""] 
-                       stringByReplacingOccurrencesOfString: @" " withString: @""];
+    NSUInteger len = [deviceToken length];
+    char *chars = (char *)[deviceToken bytes];
+    NSMutableString *hexString = [[NSMutableString alloc] init];
+    for (NSUInteger i = 0; i < len; i ++) {
+        [hexString appendString:[NSString stringWithFormat:@"%0.2hhx", chars[i]]];
+    }
+    return hexString;
 }
 
 // MARK: - RCTBridgeModule
