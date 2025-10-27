@@ -18,7 +18,7 @@ const getJsBundleStaticPath = () => {
 };
 
 export const getAppStaticResourcesPath = () => {
-  return isDev
+  return !isDev
     ? path.join(__dirname, '../../public/static')
     : process.resourcesPath;
 };
