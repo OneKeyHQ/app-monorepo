@@ -114,8 +114,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         if (remoteNotification) {
             if ([remoteNotification isKindOfClass:[NSDictionary class]]) {
                 NSMutableDictionary *notificationInfo = [NSMutableDictionary dictionary];
-                notificationInfo[@"fireDate"] = remoteNotification[@"fireDate"] ? @([remoteNotification[@"fireDate"] timeIntervalSince1970]) : [NSNull null];
-                notificationInfo[@"userInfo"] = remoteNotification[@"userInfo"] ?: [NSNull null];
+                notificationInfo[@"userInfo"] = remoteNotification ?: [NSNull null];
                 result[@"remoteNotification"] = notificationInfo;
             }
         }
@@ -132,7 +131,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         else {
             result[@"launchType"] = @"normal";
         }
-        DDLogDebug(@"getLaunchOptions: %@", result);
+        DDLogDebug(@"getLaunchOptions result: %@", result);
         resolve(result);
     } else {
         resolve(@{});
