@@ -6,6 +6,9 @@ export type IBtcFreshAddressMetaRecord = {
   lastUpdateTime?: number;
   txCount?: number;
   localUsedAddressesHash?: string;
+  lastUsedAccountId?: string;
+  lastUsedWalletName?: string;
+  lastUsedAccountName?: string;
 };
 
 export interface IBtcFreshAddressMetaDb {

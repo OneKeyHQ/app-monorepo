@@ -1014,6 +1014,35 @@ class ServiceAccountProfile extends ServiceBase {
     }
     const xpubForMeta =
       deriveType === 'BIP86' ? account.xpubSegwit : account.xpub;
+    let lastUsedAccountId: string | undefined;
+    let lastUsedWalletName: string | undefined;
+    let lastUsedAccountName: string | undefined;
+    try {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      let walletName: string | undefined;
+      if (walletId) {
+        const wallet = await this.backgroundApi.serviceAccount.getWallet({
+          walletId,
+        });
+        walletName = wallet?.name;
+      }
+      const accountIdentifier = account.id ?? accountId;
+      if (walletName && account.name && accountIdentifier) {
+        lastUsedAccountId = accountIdentifier;
+        lastUsedWalletName = walletName;
+        lastUsedAccountName = account.name;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    const lastUsedAccountMetaPatch =
+      lastUsedAccountId && lastUsedWalletName && lastUsedAccountName
+        ? {
+            lastUsedAccountId,
+            lastUsedWalletName,
+            lastUsedAccountName,
+          }
+        : undefined;
     const btcFreshAddressMetaRecord =
       (await this.backgroundApi.simpleDb.btcFreshAddressMeta.getRecord({
         networkId,
@@ -1058,6 +1087,7 @@ class ServiceAccountProfile extends ServiceBase {
           xpubSegwit: xpubForMeta,
           patch: {
             lastUpdateTime: Date.now(),
+            ...(lastUsedAccountMetaPatch ?? {}),
           },
         });
         return;
@@ -1079,6 +1109,7 @@ class ServiceAccountProfile extends ServiceBase {
         xpubSegwit: xpubForMeta,
         patch: {
           lastUpdateTime: Date.now(),
+          ...(lastUsedAccountMetaPatch ?? {}),
         },
       });
       return;
@@ -1116,6 +1147,7 @@ class ServiceAccountProfile extends ServiceBase {
       networkId,
       xpubSegwit: xpubForMeta,
       patch: {
+        ...(lastUsedAccountMetaPatch ?? {}),
         txCount: accountDetailsWithXpubDerivedTokens.transactionCount || 0,
         lastUpdateTime: Date.now(),
         localUsedAddressesHash,
