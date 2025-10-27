@@ -991,7 +991,8 @@ const usePerpDeposit = (
     if (
       selectedAction === 'deposit' &&
       checkFromTokenFiatValue &&
-      !perpDepositQuoteLoading
+      !perpDepositQuoteLoading &&
+      !isArbitrumUsdcToken
     ) {
       const quoteAmount = perpDepositQuote?.result?.toAmount;
       const quoteAmountBN = new BigNumber(quoteAmount || '0');
@@ -1005,6 +1006,7 @@ const usePerpDeposit = (
     selectedAction,
     checkFromTokenFiatValue,
     perpDepositQuote?.result?.toAmount,
+    isArbitrumUsdcToken,
   ]);
 
   return {
