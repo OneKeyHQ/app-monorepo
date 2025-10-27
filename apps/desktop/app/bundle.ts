@@ -297,7 +297,9 @@ export const checkFileHash = ({
     }
   }
   if (!metadata[key]) {
-    logger.info(`${key}: File ${url} not found in metadata.json`);
+    logger.info(
+      `${key}: File ${url} ${bundleDirPath} not found in metadata.json`,
+    );
     key = 'index.html';
   }
   const sha512 = metadata[key];
