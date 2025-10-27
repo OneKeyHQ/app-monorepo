@@ -287,7 +287,7 @@ export const checkFileHash = ({
   if (isWin) {
     key = key
       .replace(/\\/g, '/')
-      .replace(bundleDirPath, '')
+      .replace(bundleDirPath.replace(/\\/g, '/'), '')
       .replace(driveLetter, '')
       .replace('C:/', '');
 
