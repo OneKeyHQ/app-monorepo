@@ -219,7 +219,7 @@ function ReceiveToken() {
 
   const throttledSyncBTCFreshAddress = useThrottledCallback(
     (params: { networkId: string; accountId: string }) => {
-      void backgroundApiProxy.serviceAccountProfile.syncBTCFreshAddressByAccountId(
+      void backgroundApiProxy.serviceFreshAddress.syncBTCFreshAddressByAccountId(
         params,
       );
     },
@@ -387,7 +387,7 @@ function ReceiveToken() {
 
   useEffect(() => {
     void fetchAccount();
-  }, [fetchAccount]);
+  }, [fetchAccount, currentDeriveType, onDeriveTypeChange]);
 
   const throttledRefreshOnEvent = useThrottledCallback(
     () => {
