@@ -85,7 +85,7 @@ export function useToMyOneKeyModalByRootNavigation() {
   }, []);
 }
 
-export const useIsShowMyOneKeyOnTabbar = () => {
+export const useIsGtMdNonNative = () => {
   const { gtMd } = useMedia();
   return useMemo(() => gtMd && !platformEnv.isNative, [gtMd]);
 };

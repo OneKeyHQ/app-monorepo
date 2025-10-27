@@ -167,7 +167,6 @@ function HomeOverviewContainer() {
             accountId: accountValueId,
             value: accountWorth.worth,
             currency: settings.currencyInfo.id,
-            updateAll: accountWorth.updateAll,
           },
         );
       }
