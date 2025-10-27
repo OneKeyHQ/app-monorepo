@@ -102,7 +102,9 @@ const resourcesPath = getResourcesPath();
 // const preloadJsUrl = path.join(staticPath, 'preload.js');
 // const preloadJsUrl = path.join(staticPath, 'preload-webview-test.js');
 
-const sdkConnectSrc = `file://${path.join(staticPath, 'js-sdk/')}`;
+const sdkConnectSrc = isDev
+  ? `file://${path.join(staticPath, 'js-sdk/')}`
+  : path.join('/static', 'js-sdk/');
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -540,7 +542,7 @@ async function createMainWindow() {
     browserWindow.webContents.openDevTools();
   }
 
-  const src = !bundleIndexHtmlPath
+  const src = isDev
     ? 'http://localhost:3001/'
     : formatUrl({
         pathname: bundleIndexHtmlPath || 'index.html',
@@ -765,7 +767,7 @@ async function createMainWindow() {
   );
 
   const PROTOCOL = 'file';
-  if (!isDev) {
+  if (isDev) {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -820,7 +822,7 @@ async function createMainWindow() {
             const sha512 = metadata[key];
             if (!checkFileSha512(filePath, sha512)) {
               logger.info(
-                'checkFileHash error:',
+                'checkFileHash error in js-sdk:',
                 `${key}:  ${filePath} not matched ${sha512}`,
               );
               throw new OneKeyLocalError(`File ${key} sha512 mismatch`);
@@ -845,11 +847,6 @@ async function createMainWindow() {
         const url = request.url.substring(PROTOCOL.length + 1);
         if (useJsBundle && indexHtmlPath && bundleDirPath) {
           const decodedUrl = decodeURIComponent(url);
-          logger.info(
-            'decodedUrl',
-            decodedUrl,
-            decodedUrl.includes(bundleDirPath),
-          );
           if (decodedUrl.includes(bundleDirPath)) {
             const filePath = checkFileHash({
               bundleDirPath,
