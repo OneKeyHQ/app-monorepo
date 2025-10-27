@@ -765,7 +765,7 @@ async function createMainWindow() {
   );
 
   const PROTOCOL = 'file';
-  if (isDev) {
+  if (!isDev) {
     session.defaultSession.protocol.interceptFileProtocol(
       PROTOCOL,
       (request, callback) => {
@@ -956,7 +956,7 @@ app.on('window-all-closed', () => {
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096
 app.commandLine.appendSwitch('disable-features', 'CrossOriginOpenerPolicy');
 
-if (isDev) {
+if (!isDev) {
   app.commandLine.appendSwitch('ignore-certificate-errors');
   app.commandLine.appendSwitch('allow-insecure-localhost', 'true');
   app.commandLine.appendSwitch('disable-site-isolation-trials');
