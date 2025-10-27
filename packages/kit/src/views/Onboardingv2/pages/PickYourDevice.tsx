@@ -10,6 +10,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes';
@@ -20,6 +21,7 @@ import { OnboardingLayout } from '../components/OnboardingLayout';
 export default function PickYourDevice() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { gtMd } = useMedia();
   const DEVICES = useMemo(() => {
     return [
       {
@@ -49,20 +51,39 @@ export default function PickYourDevice() {
     <Page>
       <OnboardingLayout>
         <OnboardingLayout.Header title="Pick your device" />
-        <OnboardingLayout.Body scrollable={false} constrained={false}>
-          <XStack h="100%" flexWrap="wrap" gap="$px" bg="$neutral3">
+        <OnboardingLayout.Body scrollable={!gtMd} constrained={false}>
+          <YStack
+            gap="$5"
+            $gtMd={{
+              height: '100%',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: '$px',
+              bg: '$neutral3',
+            }}
+          >
             {DEVICES.map(({ name, tags, image, deviceType }) => (
               <YStack
                 key={name}
                 animateOnly={['backgroundColor']}
                 animation="quick"
-                flexGrow={1}
-                flexBasis={0}
-                minWidth="45%"
+                p="$5"
+                borderWidth={1}
+                borderColor="$borderSubdued"
+                borderRadius="$5"
+                borderCurve="continuous"
+                minHeight="$48"
+                $gtMd={{
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  minWidth: '45%',
+                  p: '$10',
+                  borderWidth: 0,
+                  borderRadius: 0,
+                }}
                 bg="$bgApp"
                 hoverStyle={{ bg: '$bgSubdued' }}
                 userSelect="none"
-                p="$10"
                 gap="$3"
                 group
                 onPress={() => {
@@ -71,7 +92,9 @@ export default function PickYourDevice() {
                   });
                 }}
               >
-                <SizableText size="$heading2xl">{name}</SizableText>
+                <SizableText size="$headingXl" $gtMd={{ size: '$heading2xl' }}>
+                  {name}
+                </SizableText>
                 {tags?.length ? (
                   <XStack gap="$2">
                     {tags.map((tag) => (
@@ -120,13 +143,14 @@ export default function PickYourDevice() {
                 </YStack>
               </YStack>
             ))}
-          </XStack>
+          </YStack>
         </OnboardingLayout.Body>
         <OnboardingLayout.Footer>
           <XStack
             px="$5"
             py="$0.5"
             mt="auto"
+            gap="$1"
             justifyContent="center"
             alignItems="center"
           >
@@ -145,8 +169,12 @@ export default function PickYourDevice() {
               href="https://bit.ly/3YsKilK"
               target="_blank"
               size="$bodySm"
-              p="$2"
-              pl="$0"
+              hitSlop={{
+                top: 8,
+                left: 8,
+                right: 8,
+                bottom: 8,
+              }}
               style={{
                 textDecoration: 'none',
               }}

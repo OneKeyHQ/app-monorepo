@@ -11,6 +11,8 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +22,7 @@ import { useLanguageSelector } from '../../Setting/hooks';
 const OnboardingLayoutBack = () => {
   const navigation = useAppNavigation();
   const reactNavigation = useNavigation();
+  const { gtMd } = useMedia();
 
   const canGoBack = reactNavigation.canGoBack();
   const icon = canGoBack ? 'ArrowLeftOutline' : 'CrossedLargeOutline';
@@ -30,10 +33,11 @@ const OnboardingLayoutBack = () => {
 
   return (
     <IconButton
-      size="small"
+      size={gtMd ? 'small' : 'medium'}
       icon={icon}
       variant="tertiary"
       onPress={handleBack}
+      zIndex={1}
     />
   );
 };
@@ -41,6 +45,7 @@ const OnboardingLayoutBack = () => {
 function OnboardingLayoutLanguageSelector() {
   const intl = useIntl();
   const { options, value, onChange } = useLanguageSelector();
+  const { gtMd } = useMedia();
 
   return (
     <YStack ml="auto">
@@ -54,14 +59,20 @@ function OnboardingLayoutLanguageSelector() {
         floatingPanelProps={{ maxHeight: 280 }}
         sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
         renderTrigger={({ label }) => (
-          <Button
-            size="small"
-            icon="GlobusOutline"
-            variant="tertiary"
-            ml="auto"
-          >
-            {label}
-          </Button>
+          <>
+            {gtMd ? (
+              <Button
+                size="small"
+                icon="GlobusOutline"
+                variant="tertiary"
+                ml="auto"
+              >
+                {label}
+              </Button>
+            ) : (
+              <IconButton icon="GlobusOutline" variant="tertiary" ml="auto" />
+            )}
+          </>
         )}
       />
     </YStack>
@@ -69,15 +80,17 @@ function OnboardingLayoutLanguageSelector() {
 }
 
 const OnboardingLayoutTitle = ({ children }: { children: React.ReactNode }) => (
-  <SizableText
-    size="$headingLg"
-    textAlign="center"
+  <YStack
     position="absolute"
-    left="50%"
-    style={{ transform: [{ translateX: '-50%' }] }}
+    inset={0}
+    zIndex={0}
+    justifyContent="center"
+    alignItems="center"
   >
-    {children}
-  </SizableText>
+    <SizableText size="$headingLg" textAlign="center">
+      {children}
+    </SizableText>
+  </YStack>
 );
 
 const OnboardingLayoutHeader = ({
@@ -94,7 +107,10 @@ const OnboardingLayoutHeader = ({
 } & IXStackProps) => (
   <XStack
     h="$6"
-    px={56}
+    px="$5"
+    $gtMd={{
+      px: 56,
+    }}
     borderWidth={0}
     borderTopWidth={1}
     borderBottomWidth={1}
@@ -154,7 +170,10 @@ const OnboardingLayoutBody = ({
 
   return (
     <YStack
-      px="$10"
+      px="$5"
+      $gtMd={{
+        px: '$10',
+      }}
       flex={1}
       borderWidth={0}
       borderTopWidth={1}
@@ -165,7 +184,7 @@ const OnboardingLayoutBody = ({
       {...rest}
     >
       {scrollable ? <ScrollView>{content}</ScrollView> : content}
-      {scrollable ? (
+      {/* {scrollable ? (
         <LinearGradient
           position="absolute"
           left={41}
@@ -174,15 +193,19 @@ const OnboardingLayoutBody = ({
           h="$10"
           colors={['$transparent', '$bgApp']}
         />
-      ) : null}
+      ) : null} */}
     </YStack>
   );
 };
 
 function OnboardingLayoutFooter({ children }: { children?: React.ReactNode }) {
   return (
-    <YStack
-      h="$6"
+    <XStack
+      px="$5"
+      $gtMd={{
+        px: '$10',
+      }}
+      minHeight="$6"
       borderWidth={0}
       borderTopWidth={1}
       borderBottomWidth={1}
@@ -192,53 +215,71 @@ function OnboardingLayoutFooter({ children }: { children?: React.ReactNode }) {
       alignItems="center"
     >
       {children}
-    </YStack>
+    </XStack>
   );
 }
 
-const OnboardingLayoutRoot = ({ children }: { children: React.ReactNode }) => (
-  <YStack
-    h="100%"
-    alignItems="center"
-    justifyContent="center"
-    bg="$neutral2"
-    $gt2xl={{
-      p: '$10',
-      pb: '$20',
-    }}
-  >
+function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
+  const { top, bottom } = useSafeAreaInsets();
+  return (
     <YStack
       h="100%"
-      w="100%"
-      px="$10"
-      bg="$bg"
+      alignItems="center"
+      justifyContent="center"
+      bg="$neutral2"
       $gt2xl={{
-        maxWidth: 1600,
-        maxHeight: 1024,
-        borderRadius: 40,
-        borderCurve: 'continuous',
-        '$platform-web': {
-          boxShadow:
-            '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-        },
+        p: '$10',
+        pb: '$20',
       }}
     >
       <YStack
-        py="$10"
         h="100%"
-        borderWidth={0}
-        borderLeftWidth={1}
-        borderRightWidth={1}
-        borderStyle="dashed"
-        borderColor="$neutral4"
+        w="100%"
+        px="$5"
+        $gtMd={{
+          px: '$10',
+        }}
+        bg="$bg"
+        $gt2xl={{
+          maxWidth: 1600,
+          maxHeight: 1024,
+          borderRadius: 40,
+          borderCurve: 'continuous',
+          '$platform-web': {
+            boxShadow:
+              '0 0 0 1px rgba(0, 0, 0, 0.04), 0 0 2px 0 rgba(0, 0, 0, 0.08), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+          },
+        }}
       >
-        <YStack h="100%" gap="$10" mx="$-10">
-          {children}
+        <YStack
+          py="$10"
+          h="100%"
+          borderWidth={0}
+          borderLeftWidth={1}
+          borderRightWidth={1}
+          borderStyle="dashed"
+          borderColor="$neutral4"
+          $platform-native={{
+            pt: top,
+            pb: bottom,
+          }}
+        >
+          <YStack
+            h="100%"
+            gap="$5"
+            mx="$-5"
+            $gtMd={{
+              mx: '$-10',
+              gap: '$10',
+            }}
+          >
+            {children}
+          </YStack>
         </YStack>
       </YStack>
     </YStack>
-  </YStack>
-);
+  );
+}
 
 export const OnboardingLayout = Object.assign(OnboardingLayoutRoot, {
   Header: OnboardingLayoutHeader,

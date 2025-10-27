@@ -61,6 +61,7 @@ export function TermsAndPrivacy(props?: ITermsAndPrivacyProps) {
 
   return (
     <SizableText
+      alignSelf="center"
       size="$bodySm"
       color="$textDisabled"
       textAlign="center"

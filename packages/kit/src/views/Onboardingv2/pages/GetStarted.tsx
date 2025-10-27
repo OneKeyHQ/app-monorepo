@@ -22,6 +22,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useMedia,
   useThemeValue,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -44,6 +45,7 @@ function GridItem({
   gridSize = 40,
   unitSize = 2,
   children,
+  scale = 1,
   blur = false,
 }: {
   gridX: number; // Grid unit X coordinate relative to center (negative = left, positive = right)
@@ -52,6 +54,7 @@ function GridItem({
   unitSize?: number; // Number of cells per unit side (default 2, means 2x2=4 cells)
   children: React.ReactNode;
   blur?: boolean;
+  scale?: number;
 }) {
   // Calculate the pixel size of one unit
   // unitSize=2, gridSize=40 => 2 * 40 = 80px (2x2 cells = 4 cells total)
@@ -76,6 +79,7 @@ function GridItem({
         transform: [
           { translateX: offsetX - unitPixelSize / 2 },
           { translateY: offsetY - unitPixelSize / 2 },
+          { scale },
         ],
       }}
       alignItems="center"
@@ -92,10 +96,21 @@ function GridItem({
         w="$14"
         h="$14"
         bg="$bg"
-        borderRadius="$2"
+        borderRadius="$3"
         borderCurve="continuous"
         alignItems="center"
         justifyContent="center"
+        $platform-native={{
+          borderWidth: 1,
+          borderColor: '$neutral3',
+        }}
+        $platform-android={{ elevation: 0.5 }}
+        $platform-ios={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 0.5 },
+          shadowOpacity: 0.2,
+          shadowRadius: 0.5,
+        }}
         $platform-web={{
           boxShadow:
             '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 12px 34px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
@@ -180,6 +195,7 @@ export default function GetStarted() {
   const handleGetStarted = () => {
     navigation.push(EOnboardingPagesV2.PickYourDevice);
   };
+  const { gtMd } = useMedia();
 
   const handleCreateOrImportWallet = () => {
     navigation.push(EOnboardingPagesV2.CreateOrImportWallet);
@@ -204,8 +220,8 @@ export default function GetStarted() {
           <YStack flex={1} justifyContent="center" alignItems="center">
             <YStack
               position="absolute"
-              left={40}
-              right={40}
+              left={0}
+              right={0}
               top={0}
               bottom={0}
               overflow="hidden"
@@ -227,7 +243,13 @@ export default function GetStarted() {
                 }}
               >
                 <Defs>
-                  <RadialGradient id="grad" cx="50%" cy="50%" rx="90%" ry="30%">
+                  <RadialGradient
+                    id="grad"
+                    cx="50%"
+                    cy="50%"
+                    rx={gtMd ? '90%' : '50%'}
+                    ry={gtMd ? '30%' : '50%'}
+                  >
                     <Stop
                       offset="0%"
                       stopColor={useThemeValue('$bgApp')}
@@ -262,37 +284,41 @@ export default function GetStarted() {
                   opacity: 0,
                 }}
               >
-                <GridItem gridX={-6} gridY={-2} blur>
+                <GridItem gridX={gtMd ? -6 : -0.5} gridY={gtMd ? -2 : 4} blur>
                   <Icon name="OpCircleIllus" size="$8" />
                 </GridItem>
-                <GridItem gridX={-3} gridY={-1.5}>
+                <GridItem gridX={gtMd ? -3 : -1.5} gridY={-2}>
                   <Icon name="BtcCircleIllus" size="$8" />
                 </GridItem>
-                <GridItem gridX={-4.5} gridY={-0.5}>
+                <GridItem
+                  gridX={gtMd ? -4.5 : -1}
+                  gridY={gtMd ? -0.5 : -3.5}
+                  // scale={gtMd ? 1 : 0.75}
+                >
                   <Icon name="TrxCircleIllus" size="$8" />
                 </GridItem>
                 <GridItem gridX={-3.5} gridY={2}>
                   <Icon name="SuiCircleIllus" size="$8" />
                 </GridItem>
-                <GridItem gridX={1} gridY={-3.5} blur>
+                <GridItem gridX={1} gridY={gtMd ? -3.5 : -4} blur>
                   <Icon name="SolCircleIllus" size="$8" />
                 </GridItem>
                 <GridItem gridX={1} gridY={3}>
                   <Icon name="ArbCircleIllus" size="$8" />
                 </GridItem>
-                <GridItem gridX={3.5} gridY={0}>
+                <GridItem gridX={gtMd ? 3.5 : 1.5} gridY={gtMd ? 0 : -2.5}>
                   <Icon name="EthCircleIllus" size="$8" />
                 </GridItem>
                 <GridItem gridX={4.5} gridY={-2}>
                   <Icon name="MaticCircleIllus" size="$8" />
                 </GridItem>
-                <GridItem gridX={5} gridY={2}>
+                <GridItem gridX={gtMd ? 5 : -1} gridY={gtMd ? 2 : 2.5}>
                   <Icon name="BnbCircleIllus" size="$8" />
                 </GridItem>
               </YStack>
             </YStack>
             <YStack
-              gap={53}
+              gap={44}
               justifyContent="center"
               alignItems="center"
               animation="quick"
@@ -326,6 +352,7 @@ export default function GetStarted() {
                   size="large"
                   variant="primary"
                   alignSelf="stretch"
+                  childrenAsText={false}
                   onPress={handleGetStarted}
                 >
                   <XStack alignItems="center" gap="$2">
