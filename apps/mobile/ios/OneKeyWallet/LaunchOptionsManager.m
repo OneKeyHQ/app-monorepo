@@ -15,7 +15,7 @@ static const DDLogLevel ddLogLevel = DDLogLevelVerbose;
 
 static LaunchOptionsManager *sharedInstance = nil;
 
-(instancetype)sharedInstance {
++ (instancetype)sharedInstance {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         sharedInstance = [[self alloc] init];
