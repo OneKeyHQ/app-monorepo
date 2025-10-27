@@ -746,11 +746,17 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
         }
-
+        log("installBundle", "appVersion: " + appVersion);
+        log("installBundle", "bundleVersion: " + bundleVersion);
+        log("installBundle", "filePath: " + filePath);
+        log("installBundle", "signature: " + signature);
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
+        log("installBundle", "currentFolderName: " + currentFolderName);
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
-        setNativeVersion(reactContext, getAppVersion(reactContext));
+        String nativeVersion = getAppVersion(reactContext);
+        log("installBundle", "nativeVersion: " + nativeVersion);
+        setNativeVersion(reactContext, nativeVersion);
         List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
         log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
         if (currentFolderName != null && !currentFolderName.isEmpty()) {
