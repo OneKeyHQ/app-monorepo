@@ -109,6 +109,19 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         return downloadDir.getAbsolutePath();
     }
 
+    public static String getBundleVersion(ReadableMap params) {
+        String key = "bundleVersion";
+        String stringBundleVersion = "";
+        try {
+            stringBundleVersion = params.getString(key);
+        } catch (Exception e) {
+            staticLog("getBundleVersion error", e.getMessage());
+            Double doubleBundleVersion = params.getDouble(key);
+            stringBundleVersion = String.valueOf(doubleBundleVersion.intValue());
+        }
+        return stringBundleVersion;
+    }
+
     public static String getBundleDir(Context context) {
         File bundleDir = new File(context.getFilesDir(), "onekey-bundle");
         if (!bundleDir.exists()) {
@@ -504,10 +517,10 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == 0 || sha256 == null) {
+        if (downloadUrl == null || filePath == null || signature == null || appVersion == null || bundleVersion == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "downloadUrl, filePath, signature, appVersion, bundleVersion and sha256 are required");
             return;
         }
@@ -525,7 +538,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String signature = params.getString("signature");
 
         if (filePath == null || sha256 == null) {
@@ -573,7 +586,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String filePath = params.getString("downloadedFile");
         String sha256 = params.getString("sha256");
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
 
         if (filePath == null || sha256 == null) {
             promise.reject("INVALID_PARAMS", "filePath and sha256 are required");
@@ -617,14 +630,14 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         isDownloading = true;
-
         String appVersion = params.getString("latestVersion");
-        long bundleVersion = params.getLong("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String downloadUrl = params.getString("downloadUrl");
-        long fileSize = params.getLong("fileSize");
+        Double doubleFileSize = params.getDouble("fileSize");
+        long fileSize = Double.valueOf(doubleFileSize).longValue();
         String sha256 = params.getString("sha256");
 
-        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == 0) {
+        if (downloadUrl == null || sha256 == null || appVersion == null || bundleVersion == null) {
             isDownloading = false;
             promise.reject("INVALID_PARAMS", "downloadUrl, fileSize, sha256, appVersion and bundleVersion are required");
             return;
@@ -637,7 +650,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         result.putString("downloadedFile", filePath);
         result.putString("downloadUrl", downloadUrl);
         result.putString("latestVersion", appVersion);
-        result.putLong("bundleVersion", bundleVersion);
+        result.putString("bundleVersion", bundleVersion);
         result.putString("sha256", sha256);
 
         log("downloadBundle", "filePath: " + filePath);
@@ -725,11 +738,11 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void installBundle(ReadableMap params, Promise promise) {
         String appVersion = params.getString("latestVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String filePath = params.getString("downloadedFile");
         String signature = params.getString("signature");
         
-        if (filePath == null || appVersion == null || bundleVersion == 0) {
+        if (filePath == null || appVersion == null || bundleVersion == null) {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
         }
@@ -776,7 +789,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void setCurrentUpdateBundleData(ReadableMap params, Promise promise) {
         String appVersion = params.getString("appVersion");
-        int bundleVersion = params.getInt("bundleVersion");
+        String bundleVersion = getBundleVersion(params);
         String signature = params.getString("signature");
         String folderName = appVersion + "-" + bundleVersion;
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
@@ -892,7 +905,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testDeleteJsBundle(String appVersion, int bundleVersion, Promise promise) {
+    public void testDeleteJsBundle(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsBundlePath = new File(new File(bundleDir, folderName), "main.jsbundle.hbc").getAbsolutePath();
@@ -920,7 +933,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testDeleteJsRuntimeDir(String appVersion, int bundleVersion, Promise promise) {
+    public void testDeleteJsRuntimeDir(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
@@ -949,7 +962,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testDeleteMetadataJson(String appVersion, int bundleVersion, Promise promise) {
+    public void testDeleteMetadataJson(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String metadataPath = new File(new File(bundleDir, folderName), "metadata.json").getAbsolutePath();
@@ -977,7 +990,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void testWriteEmptyMetadataJson(String appVersion, int bundleVersion, Promise promise) {
+    public void testWriteEmptyMetadataJson(String appVersion, String bundleVersion, Promise promise) {
         String folderName = appVersion + "-" + bundleVersion;
         String bundleDir = getBundleDir(reactContext);
         String jsRuntimeDir = new File(bundleDir, folderName).getAbsolutePath();
