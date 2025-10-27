@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
@@ -343,12 +343,23 @@ export function DesktopLeftSideBar({
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
 
+  const routesNotHidden = useMemo(() => {
+    return routes.filter((route) => {
+      const { options } = descriptors[route.key] as {
+        options: {
+          hidden?: boolean;
+        };
+      };
+      return !options.hidden;
+    });
+  }, [routes, descriptors]);
+
   const tabs = useMemo(() => {
     const inMoreActionRoutes: NavigationRoute<ParamListBase, string>[] = [];
     let filteredRoutes: NavigationRoute<ParamListBase, string>[] = [];
     if (isCollapse) {
-      for (let index = 0; index < routes.length; index += 1) {
-        const route = routes[index];
+      for (let index = 0; index < routesNotHidden.length; index += 1) {
+        const route = routesNotHidden[index];
         const { options } = descriptors[route.key] as {
           options: {
             inMoreAction?: boolean;
@@ -361,7 +372,7 @@ export function DesktopLeftSideBar({
         }
       }
     } else {
-      filteredRoutes = routes;
+      filteredRoutes = routesNotHidden;
     }
 
     const newRoutes = filteredRoutes.map((route) => {
@@ -433,7 +444,7 @@ export function DesktopLeftSideBar({
     return newRoutes;
   }, [
     isCollapse,
-    routes,
+    routesNotHidden,
     descriptors,
     state,
     isShowWebTabBar,
