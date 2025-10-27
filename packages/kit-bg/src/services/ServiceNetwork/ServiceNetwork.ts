@@ -551,16 +551,23 @@ class ServiceNetwork extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getNetworkSelectorPinnedNetworkIds() {
-    const pinnedNetworkIds =
-      await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
-    const networkIds = pinnedNetworkIds ?? defaultPinnedNetworkIds;
-    return networkIds;
+  async getNetworkSelectorPinnedNetworkIds(useDefaultPinnedNetworks?: boolean) {
+    const pinnedNetworkIds = useDefaultPinnedNetworks
+      ? defaultPinnedNetworkIds
+      : await this.backgroundApi.simpleDb.networkSelector.getPinnedNetworkIds();
+    const networkIds = pinnedNetworkIds;
+    return networkIds ?? defaultPinnedNetworkIds;
   }
 
   @backgroundMethod()
-  async getNetworkSelectorPinnedNetworks(): Promise<IServerNetwork[]> {
-    let networkIds = await this.getNetworkSelectorPinnedNetworkIds();
+  async getNetworkSelectorPinnedNetworks({
+    useDefaultPinnedNetworks,
+  }: {
+    useDefaultPinnedNetworks?: boolean;
+  }): Promise<IServerNetwork[]> {
+    let networkIds = await this.getNetworkSelectorPinnedNetworkIds(
+      useDefaultPinnedNetworks,
+    );
     networkIds = networkIds.filter((id) => id !== getNetworkIdsMap().onekeyall);
     const networkIdsIndex = networkIds.reduce((result, item, index) => {
       result[item] = index;
@@ -1048,12 +1055,14 @@ class ServiceNetwork extends ServiceBase {
     networkIds?: string[];
     clearCache?: boolean;
     excludeTestNetwork?: boolean;
+    useDefaultPinnedNetworks?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
     unavailableItems: IServerNetwork[];
     frequentlyUsedItems: IServerNetwork[];
     allNetworkItem?: IServerNetwork;
+    useDefaultPinnedNetworks?: boolean;
   }> {
     if (clearCache) {
       await this._getNetworkVaultSettings.clear();
@@ -1115,7 +1124,9 @@ class ServiceNetwork extends ServiceBase {
     const _networks = networkVaultSettings.map((o) => o.network);
 
     const _frequentlyUsed =
-      await this.backgroundApi.serviceNetwork.getNetworkSelectorPinnedNetworks();
+      await this.backgroundApi.serviceNetwork.getNetworkSelectorPinnedNetworks({
+        useDefaultPinnedNetworks: true,
+      });
 
     const allNetworkItem =
       await this.backgroundApi.serviceNetwork.getNetworkSafe({

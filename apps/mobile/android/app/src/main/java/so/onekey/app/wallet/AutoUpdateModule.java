@@ -270,7 +270,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String url = map.getString("downloadUrl");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
-        long fileSize = map.getLong("fileSize");
+        double doubleFileSize = map.getDouble("fileSize");
+        long fileSize = Double.valueOf(doubleFileSize).longValue();
         if (this.isDownloading) {
             return;
         }

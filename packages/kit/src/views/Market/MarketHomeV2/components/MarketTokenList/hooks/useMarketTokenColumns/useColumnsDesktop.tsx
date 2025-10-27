@@ -34,6 +34,7 @@ const TOKEN_AGE_TRANSLATION_MAP = {
 
 export const useColumnsDesktop = (
   networkId?: string,
+  isWatchlistMode?: boolean,
 ): ITableColumn<IMarketToken>[] => {
   const { gtLg, gtXl } = useMedia();
   const [settings] = useSettingsPersistAtom();
@@ -76,6 +77,7 @@ export const useColumnsDesktop = (
           address={record.address}
           showCopyButton
           copyFrom={ECopyFrom.Homepage}
+          communityRecognized={record.communityRecognized}
         />
       ),
       renderSkeleton: () => (
@@ -217,7 +219,7 @@ export const useColumnsDesktop = (
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
       : undefined,
-    gtXl
+    gtXl && !isWatchlistMode
       ? {
           title: intl.formatMessage({ id: ETranslations.dexmarket_token_age }),
           dataIndex: 'tokenAge',
@@ -226,11 +228,7 @@ export const useColumnsDesktop = (
             const ageInfo = getTokenAgeInfo(record.firstTradeTime);
 
             if (!ageInfo) {
-              return (
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  --
-                </SizableText>
-              );
+              return <SizableText size="$bodyMd">--</SizableText>;
             }
 
             const ageLabel = intl.formatMessage(
@@ -238,11 +236,7 @@ export const useColumnsDesktop = (
               { amount: ageInfo.amount },
             );
 
-            return (
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {ageLabel}
-              </SizableText>
-            );
+            return <SizableText size="$bodyMd">{ageLabel}</SizableText>;
           },
           renderSkeleton: () => <Skeleton width={60} height={16} />,
         }
