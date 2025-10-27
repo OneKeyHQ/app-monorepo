@@ -752,7 +752,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         setNativeVersion(reactContext, getAppVersion(reactContext));
         List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
-       
+        log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
         if (currentFolderName != null && !currentFolderName.isEmpty()) {
             String currentAppVersion = currentFolderName.split("-")[0];
             String currentBundleVersion = currentFolderName.split("-")[1];
@@ -761,6 +761,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
         }
 
+        log("installBundle", "fallbackUpdateBundleData size: " + fallbackUpdateBundleData.size());
         if (fallbackUpdateBundleData.size() > 3) {
             Map<String, String> shiftUpdateBundleData = fallbackUpdateBundleData.remove(0);
             String shiftAppVersion = shiftUpdateBundleData.get("appVersion");
@@ -776,6 +777,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 }
             }
         }
+        log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
         writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
         promise.resolve(null);
     }
