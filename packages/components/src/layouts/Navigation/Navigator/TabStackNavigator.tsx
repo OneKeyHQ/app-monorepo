@@ -26,7 +26,7 @@ function BasicTabSubStackNavigator({
   return (
     <Stack.Navigator>
       {config
-        .filter(({ disable }) => !disable)
+        ?.filter(({ disable }) => !disable)
         .map(({ name, component, translationId, headerShown = true }) => (
           <Stack.Screen
             key={name}

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { ColorTokens } from '@onekeyhq/components';
 import {
   Accordion,
+  Button,
   Icon,
   IconButton,
   NumberSizeableText,
@@ -27,8 +28,12 @@ import {
   ERevokeTxStatus,
   type IRevokeTxStatus,
 } from '@onekeyhq/shared/types/approval';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { Token } from '../../../components/Token';
+import { usePromiseResult } from '../../../hooks/usePromiseResult';
+import { useReceiveToken } from '../../../hooks/useReceiveToken';
 import { openTransactionDetailsUrl } from '../../../utils/explorerUtils';
 
 import type { IntlShape } from 'react-intl';
@@ -110,6 +115,31 @@ function BulkRevokeItem(props: IProps) {
 
   const approveInfo = unsignedTx.approveInfo;
 
+  const { handleOnReceive } = useReceiveToken({
+    accountId: unsignedTx.accountId ?? '',
+    networkId: unsignedTx.networkId ?? '',
+    walletId: accountUtils.getWalletIdFromAccountId({
+      accountId: unsignedTx.accountId ?? '',
+    }),
+    indexedAccountId: unsignedTx.indexedAccountId ?? '',
+  });
+
+  const { result: nativeToken } = usePromiseResult(async () => {
+    return backgroundApiProxy.serviceToken.getNativeToken({
+      accountId: '',
+      networkId: unsignedTx.networkId ?? '',
+    });
+  }, [unsignedTx.networkId]);
+
+  const handleFillUp = useCallback(
+    (token: IToken) => {
+      void handleOnReceive({
+        token,
+      });
+    },
+    [handleOnReceive],
+  );
+
   const contract = contractMap[
     approvalUtils.buildContractMapKey({
       networkId: unsignedTx?.networkId ?? '',
@@ -185,19 +215,32 @@ function BulkRevokeItem(props: IProps) {
                   variant="tertiary"
                 />
               }
-              renderContent={
-                <Stack p="$5">
+              renderContent={({ closePopover }) => (
+                <XStack p="$5" alignItems="center" gap="$1">
                   <SizableText size="$bodyLg">
                     {status.skippedReason}
                   </SizableText>
-                </Stack>
-              }
+                  {status.isInsufficientFunds && nativeToken ? (
+                    <Button
+                      variant="tertiary"
+                      size="large"
+                      color="$textInfo"
+                      onPress={() => {
+                        handleFillUp(nativeToken);
+                        closePopover();
+                      }}
+                    >
+                      {intl.formatMessage({ id: ETranslations.global_fill_up })}
+                    </Button>
+                  ) : null}
+                </XStack>
+              )}
             />
           ) : null}
         </XStack>
       </YStack>
     );
-  }, [status, settings.currencyInfo.symbol, intl]);
+  }, [status, settings.currencyInfo.symbol, intl, nativeToken, handleFillUp]);
 
   if (!approveInfo) {
     return null;

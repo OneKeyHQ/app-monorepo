@@ -93,7 +93,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSDictionary *launchOptions = [self getLaunchOptions];
 
-    DDLogDebug(@"getLaunchOptions: has launch options %@", launchOptions ? @"YES" : @"NO");
+    DDLogDebug(@"getLaunchOptions: launch options %@", launchOptions);
     if (launchOptions) {
         NSMutableDictionary *result = [NSMutableDictionary dictionary];
         
@@ -113,9 +113,26 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         id remoteNotification = launchOptions[UIApplicationLaunchOptionsRemoteNotificationKey];
         if (remoteNotification) {
             if ([remoteNotification isKindOfClass:[NSDictionary class]]) {
+                NSMutableDictionary *userInfo = [NSMutableDictionary dictionary];
+                userInfo[@"extras"] = remoteNotification ?: [NSNull null];
+                id aps = remoteNotification[@"aps"];
+                if ([aps isKindOfClass:[NSDictionary class]]) {
+                    id alert = ((NSDictionary *)aps)[@"alert"];
+                    if ( [alert isKindOfClass:[NSDictionary class]]) {
+                        NSDictionary *alertDict = (NSDictionary *)alert;
+                        userInfo[@"title"] = alertDict[@"title"] ?: @"";
+                        userInfo[@"content"] = alertDict[@"body"] ?: @"";
+                    } else if ([alert isKindOfClass:[NSString class]]) {
+                        userInfo[@"content"] = (NSString *)alert;
+                    }
+
+                    id badge = ((NSDictionary *)aps)[@"badge"];
+                    if ([badge isKindOfClass:[NSNumber class]]) {
+                        userInfo[@"badge"] = (NSNumber *)badge;
+                    }
+                }
                 NSMutableDictionary *notificationInfo = [NSMutableDictionary dictionary];
-                notificationInfo[@"fireDate"] = remoteNotification[@"fireDate"] ? @([remoteNotification[@"fireDate"] timeIntervalSince1970]) : [NSNull null];
-                notificationInfo[@"userInfo"] = remoteNotification[@"userInfo"] ?: [NSNull null];
+                notificationInfo[@"userInfo"] = userInfo;
                 result[@"remoteNotification"] = notificationInfo;
             }
         }
@@ -132,7 +149,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
         else {
             result[@"launchType"] = @"normal";
         }
-        DDLogDebug(@"getLaunchOptions: %@", result);
+        DDLogDebug(@"getLaunchOptions result: %@", result);
         resolve(result);
     } else {
         resolve(@{});
