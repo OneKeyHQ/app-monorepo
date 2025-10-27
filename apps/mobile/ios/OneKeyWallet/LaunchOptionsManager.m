@@ -93,7 +93,7 @@ RCT_EXPORT_METHOD(getLaunchOptions:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject) {
     NSDictionary *launchOptions = [self getLaunchOptions];
 
-    DDLogDebug(@"getLaunchOptions: has launch options %@", launchOptions ? @"YES" : @"NO");
+    DDLogDebug(@"getLaunchOptions: launch options %@", launchOptions);
     if (launchOptions) {
         NSMutableDictionary *result = [NSMutableDictionary dictionary];
         
