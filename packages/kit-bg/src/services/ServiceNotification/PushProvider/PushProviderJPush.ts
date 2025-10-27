@@ -2,6 +2,7 @@ import JPush from 'jpush-react-native';
 import { isString } from 'lodash';
 
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IJPushNotificationLocalEvent,
@@ -13,7 +14,6 @@ import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
 import { PushProviderBase } from './PushProviderBase';
 
 import type { IPushProviderBaseProps } from './PushProviderBase';
-import LaunchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 
 // notifee
 // expo-notifications

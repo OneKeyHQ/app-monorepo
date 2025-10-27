@@ -1,12 +1,12 @@
-import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, memo, useImperativeHandle } from 'react';
 
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
 import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { NetworksFilterItem } from './NetworksFilterItem';
+import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
 
-import type { ScrollView as ScrollViewType } from 'react-native';
+import { NetworksFilterItem } from './NetworksFilterItem';
 
 interface IMarketNetworkFilterMobileProps {
   networks: IServerNetwork[];
@@ -18,12 +18,9 @@ interface IMarketNetworkFilterMobileProps {
   containerStyle?: IListViewProps<any>['contentContainerStyle'];
 }
 
-// Layout constants for mobile network filter scrolling calculations
+// Layout constants for mobile network filter scrolling
 const MOBILE_LAYOUT_CONSTANTS = {
-  ITEM_GAP: 8, // gap between items
-  CONTAINER_PADDING: 12, // mobile padding
-  SCROLL_OFFSET_ADJUSTMENT: 20,
-  ITEM_WIDTH: 100, // estimated mobile item width
+  SCROLL_OFFSET_ADJUSTMENT: 4,
   LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
 } as const;
 
@@ -35,47 +32,27 @@ const MarketNetworkFilterMobile = forwardRef<
   IMarketNetworkFilterMobileRef,
   IMarketNetworkFilterMobileProps
 >(({ networks, selectedNetwork, onSelectNetwork, containerStyle }, ref) => {
-  const [scrollX, setScrollX] = useState(0);
-  const [scrollViewWidth, setScrollViewWidth] = useState(0);
-  const [contentWidth, setContentWidth] = useState(0);
-  const scrollViewRef = useRef<ScrollViewType>(null);
-
-  const shouldShowLeftGradient =
-    scrollX > MOBILE_LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
-  const shouldShowRightGradient =
-    contentWidth > scrollViewWidth &&
-    scrollX <
-      contentWidth -
-        scrollViewWidth -
-        MOBILE_LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
+  const {
+    scrollViewRef,
+    shouldShowLeftGradient,
+    shouldShowRightGradient,
+    handleLayout,
+    handleContentSizeChange,
+    handleItemLayout,
+    handleScroll,
+    scrollToNetwork,
+  } = useNetworkFilterScroll({
+    layoutConstants: MOBILE_LAYOUT_CONSTANTS,
+    enableMoreButton: false,
+    moreButtonWidth: 0,
+  });
 
   useImperativeHandle(
     ref,
     () => ({
-      scrollToNetwork: (networkId: string) => {
-        const networkIndex = networks.findIndex(
-          (network) => network.id === networkId,
-        );
-        if (networkIndex !== -1 && scrollViewRef.current) {
-          const itemWidth = MOBILE_LAYOUT_CONSTANTS.ITEM_WIDTH;
-          const gap = MOBILE_LAYOUT_CONSTANTS.ITEM_GAP;
-          const containerPadding = MOBILE_LAYOUT_CONSTANTS.CONTAINER_PADDING;
-
-          const scrollToX = Math.max(
-            0,
-            networkIndex * (itemWidth + gap) -
-              containerPadding -
-              MOBILE_LAYOUT_CONSTANTS.SCROLL_OFFSET_ADJUSTMENT,
-          );
-
-          scrollViewRef.current.scrollTo({
-            x: scrollToX,
-            animated: true,
-          });
-        }
-      },
+      scrollToNetwork,
     }),
-    [networks],
+    [scrollToNetwork],
   );
 
   return (
@@ -86,18 +63,10 @@ const MarketNetworkFilterMobile = forwardRef<
           horizontal
           contentContainerStyle={containerStyle}
           showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
           scrollEventThrottle={16}
-          onScroll={(event) => {
-            const currentScrollX = event.nativeEvent.contentOffset.x;
-            setScrollX(currentScrollX);
-          }}
-          onLayout={(event) => {
-            const width = event.nativeEvent.layout.width;
-            setScrollViewWidth(width);
-          }}
-          onContentSizeChange={(width) => {
-            setContentWidth(width);
-          }}
+          onLayout={handleLayout}
+          onContentSizeChange={handleContentSizeChange}
         >
           <XStack gap="$2" pr="$3">
             {networks.map((network) => (
@@ -107,6 +76,7 @@ const MarketNetworkFilterMobile = forwardRef<
                 networkImageUri={network.logoURI}
                 isSelected={network?.id === selectedNetwork?.id}
                 onPress={() => onSelectNetwork(network)}
+                onLayout={(event) => handleItemLayout(network.id, event)}
               />
             ))}
           </XStack>
