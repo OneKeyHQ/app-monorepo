@@ -29,6 +29,8 @@ type IEditableChainSelectorProps = {
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
   recentNetworksEnabled?: boolean;
+  accountNetworkValues: Record<string, string>;
+  accountNetworkValueCurrency?: string;
 };
 
 // function getHeaderRightComponent(
@@ -43,6 +45,8 @@ type IEditableChainSelectorProps = {
 // }
 
 export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
+  accountNetworkValues,
+  accountNetworkValueCurrency,
   mainnetItems,
   testnetItems,
   unavailableItems,
@@ -105,6 +109,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
           setAllNetworksChanged={setAllNetworksChanged}
           recentNetworksEnabled={recentNetworksEnabled}
+          accountNetworkValues={accountNetworkValues}
+          accountNetworkValueCurrency={accountNetworkValueCurrency}
         />
       </Page.Body>
     </Page>

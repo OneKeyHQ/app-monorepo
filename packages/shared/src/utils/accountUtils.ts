@@ -815,6 +815,14 @@ function buildAccountValueKey({
   return `${accountId}_${networkId}`;
 }
 
+function parseAccountValueKey({ key }: { key: string }) {
+  const [accountId, networkId] = key.split('_');
+  return {
+    accountId,
+    networkId,
+  };
+}
+
 function isAllNetworkMockAddress({ address }: { address?: string }) {
   return address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS;
 }
@@ -872,6 +880,7 @@ function getBTCFreshAddressKey({
 export default {
   URL_ACCOUNT_ID,
   buildAccountValueKey,
+  parseAccountValueKey,
   buildUtxoAddressRelPath,
   buildBaseAccountName,
   buildHDAccountName,
