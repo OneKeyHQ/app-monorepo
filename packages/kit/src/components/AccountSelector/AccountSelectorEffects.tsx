@@ -30,6 +30,7 @@ import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSe
 import { useAutoSelectAccount } from './hooks/useAutoSelectAccount';
 import { useAutoSelectDeriveType } from './hooks/useAutoSelectDeriveType';
 import { useAutoSelectNetwork } from './hooks/useAutoSelectNetwork';
+import { useAutoSwitchNetworkForHwQrWallet } from './hooks/useAutoSwitchNetworkForHwQrWallet';
 
 function useExternalAccountActivate({ num }: { num: number }) {
   const { activeAccount } = useActiveAccount({ num });
@@ -108,6 +109,7 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
   useAutoSelectAccount({ num });
   useAutoSelectNetwork({ num });
   useAutoSelectDeriveType({ num });
+  useAutoSwitchNetworkForHwQrWallet({ num });
   useExternalAccountActivate({ num });
 
   const activeAccountReloadDeps = useMemo(
