@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 import {
   getLocalUsedAddressFromLocalPendingTxs,
   transformAddress,
@@ -18,15 +20,15 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isNil } from 'lodash';
 
-import type { IDBUtxoAccount } from '../dbs/local/types';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { vaultFactory } from '../vaults/factory';
-import type VaultBtc from '../vaults/impls/btc/Vault';
-import type { IAccountDeriveTypes } from '../vaults/types';
 
 import ServiceBase from './ServiceBase';
+
+import type { IDBUtxoAccount } from '../dbs/local/types';
+import type VaultBtc from '../vaults/impls/btc/Vault';
+import type { IAccountDeriveTypes } from '../vaults/types';
 
 @backgroundClass()
 class ServiceFreshAddress extends ServiceBase {
@@ -286,35 +288,6 @@ class ServiceFreshAddress extends ServiceBase {
     }
     const xpubForMeta =
       deriveType === 'BIP86' ? account.xpubSegwit : account.xpub;
-    let lastUsedAccountId: string | undefined;
-    let lastUsedWalletName: string | undefined;
-    let lastUsedAccountName: string | undefined;
-    try {
-      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
-      let walletName: string | undefined;
-      if (walletId) {
-        const wallet = await this.backgroundApi.serviceAccount.getWallet({
-          walletId,
-        });
-        walletName = wallet?.name;
-      }
-      const accountIdentifier = account.indexedAccountId ?? account.id ?? accountId;
-      if (walletName && account.name && accountIdentifier) {
-        lastUsedAccountId = accountIdentifier;
-        lastUsedWalletName = walletName;
-        lastUsedAccountName = account.name;
-      }
-    } catch (error) {
-      console.error(error);
-    }
-    const lastUsedAccountMetaPatch =
-      lastUsedAccountId && lastUsedWalletName && lastUsedAccountName
-        ? {
-            lastUsedAccountId,
-            lastUsedWalletName,
-            lastUsedAccountName,
-          }
-        : undefined;
     const btcFreshAddressMetaRecord =
       (await this.backgroundApi.simpleDb.btcFreshAddressMeta.getRecord({
         networkId,
@@ -343,6 +316,37 @@ class ServiceFreshAddress extends ServiceBase {
     const isSameLocalUsedAddressesHash =
       lastLocalUsedAddressesHash &&
       lastLocalUsedAddressesHash === localUsedAddressesHash;
+
+    let lastUsedAccountId: string | undefined;
+    let lastUsedWalletName: string | undefined;
+    let lastUsedAccountName: string | undefined;
+    try {
+      const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+      let walletName: string | undefined;
+      if (walletId) {
+        const wallet = await this.backgroundApi.serviceAccount.getWallet({
+          walletId,
+        });
+        walletName = wallet?.name;
+      }
+      const accountIdentifier =
+        account.indexedAccountId ?? account.id ?? accountId;
+      if (walletName && account.name && accountIdentifier) {
+        lastUsedAccountId = accountIdentifier;
+        lastUsedWalletName = walletName;
+        lastUsedAccountName = account.name;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    const lastUsedAccountMetaPatch =
+      lastUsedAccountId && lastUsedWalletName && lastUsedAccountName
+        ? {
+            lastUsedAccountId,
+            lastUsedWalletName,
+            lastUsedAccountName,
+          }
+        : undefined;
 
     if (!isNil(currentTxCount)) {
       const accountDetailsWithTxCount =
