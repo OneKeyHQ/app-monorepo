@@ -120,8 +120,20 @@ export default function MobileBottomTabBar({
           return null;
         }
 
+        // Hide tab if hidden property is set to true
+        if ((options as { hidden?: boolean })?.hidden) {
+          return null;
+        }
+
         const onPress = () => {
-          handleRoutePress(route, isActive, options);
+          // Check if custom tabbarOnPress exists, use it instead of default navigation
+          const customPress = (options as { tabbarOnPress?: () => void })
+            ?.tabbarOnPress;
+          if (customPress) {
+            customPress();
+          } else {
+            handleRoutePress(route, isActive, options);
+          }
         };
 
         const renderItemContent = (renderActive: boolean) => (
