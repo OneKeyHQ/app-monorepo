@@ -286,9 +286,9 @@ export const checkFileHash = ({
   // Handle Windows path separators
   if (isWin) {
     key = key
+      .replace(bundleDirPath, '')
       .replace(driveLetter, '')
       .replace('C:/', '')
-      .replace(bundleDirPath, '')
       .replace(/\\/g, '/');
 
     // Remove leading slash if present
