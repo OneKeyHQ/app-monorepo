@@ -746,10 +746,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             promise.reject("INVALID_PARAMS", "filePath, appVersion and bundleVersion are required");
             return;
         }
-        log("installBundle", "appVersion: " + appVersion);
-        log("installBundle", "bundleVersion: " + bundleVersion);
-        log("installBundle", "filePath: " + filePath);
-        log("installBundle", "signature: " + signature);
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
         log("installBundle", "currentFolderName: " + currentFolderName);
@@ -757,34 +753,39 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String nativeVersion = getAppVersion(reactContext);
         log("installBundle", "nativeVersion: " + nativeVersion);
         setNativeVersion(reactContext, nativeVersion);
-        List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
-        log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
-        if (currentFolderName != null && !currentFolderName.isEmpty()) {
-            String currentAppVersion = currentFolderName.split("-")[0];
-            String currentBundleVersion = currentFolderName.split("-")[1];
-            SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            signature = prefs.getString(currentBundleVersion, "");
-            fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
-        }
-
-        log("installBundle", "fallbackUpdateBundleData size: " + fallbackUpdateBundleData.size());
-        if (fallbackUpdateBundleData.size() > 3) {
-            Map<String, String> shiftUpdateBundleData = fallbackUpdateBundleData.remove(0);
-            String shiftAppVersion = shiftUpdateBundleData.get("appVersion");
-            String shiftBundleVersion = shiftUpdateBundleData.get("bundleVersion");
-            if (shiftAppVersion != null && shiftBundleVersion != null) {
-                String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
+        try {
+            List<Map<String, String>> fallbackUpdateBundleData = readFallbackUpdateBundleDataFile(reactContext);
+            log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
+            if (currentFolderName != null && !currentFolderName.isEmpty()) {
+                String currentAppVersion = currentFolderName.split("-")[0];
+                String currentBundleVersion = currentFolderName.split("-")[1];
                 SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                prefs.edit().remove(shiftFolderName).apply();
-                String bundleDir = getBundleDir(reactContext);
-                String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
-                if (new File(bundleDirPath).exists()) {
-                    deleteDirectory(new File(bundleDirPath));
+                signature = prefs.getString(currentBundleVersion, "");
+                fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
+                prefs.edit().remove(currentBundleVersion).apply();
+            }
+
+            log("installBundle", "fallbackUpdateBundleData size: " + fallbackUpdateBundleData.size());
+            if (fallbackUpdateBundleData.size() > 3) {
+                Map<String, String> shiftUpdateBundleData = fallbackUpdateBundleData.remove(0);
+                String shiftAppVersion = shiftUpdateBundleData.get("appVersion");
+                String shiftBundleVersion = shiftUpdateBundleData.get("bundleVersion");
+                if (shiftAppVersion != null && shiftBundleVersion != null) {
+                    String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
+                    SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                    prefs.edit().remove(shiftFolderName).apply();
+                    String bundleDir = getBundleDir(reactContext);
+                    String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
+                    if (new File(bundleDirPath).exists()) {
+                        deleteDirectory(new File(bundleDirPath));
+                    }
                 }
             }
+            log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
+            writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
+        } catch (Exception e) {
+            staticLog(TAG, "installBundle:" + e.getMessage());
         }
-        log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
-        writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
         promise.resolve(null);
     }
 
