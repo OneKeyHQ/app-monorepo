@@ -2529,26 +2529,6 @@ const astar: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
-const kusama: IServerNetwork = {
-  'chainId': 'kusama',
-  'code': 'ksm',
-  'decimals': 12,
-  'id': 'dot--kusama',
-  'impl': 'dot',
-  'isTestnet': false,
-  'logoURI': 'https://uni.onekey-asset.com/static/chain/kusama.png',
-  'name': 'Kusama',
-  'shortcode': 'ksm',
-  'shortname': 'KSM',
-  'symbol': 'KSM',
-  'feeMeta': {
-    'decimals': 12,
-    'symbol': 'KSM',
-  },
-  'defaultEnabled': true,
-  'status': ENetworkStatus.LISTED,
-};
-
 const manta: IServerNetwork = {
   'chainId': 'manta',
   'code': 'manta',
@@ -3030,7 +3010,6 @@ export const presetNetworksMap = {
   // polkadot
   polkadot,
   astar,
-  kusama,
   manta,
   joystream,
   hydradx,
@@ -3230,7 +3209,6 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     // polkadot
     polkadot,
     astar,
-    kusama,
     manta,
     joystream,
     hydradx,
