@@ -145,7 +145,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String version = getCurrentBundleVersion(context);
         if (version != null) {
-            prefs.edit().remove(version).remove(CURRENT_BUNDLE_VERSION_KEY).apply();
+            prefs.edit().clear().apply();
         }
     }
 
