@@ -285,10 +285,21 @@ export const checkFileHash = ({
   let key = replacedKey || 'index.html';
   // Handle Windows path separators
   if (isWin) {
-    key = key.replace(driveLetter, '').replace('C:/', '');
+    key = key
+      .replace(/\\/g, '/')
+      .replace(bundleDirPath.replace(/\\/g, '/'), '')
+      .replace(driveLetter, '')
+      .replace('C:/', '');
+
+    // Remove leading slash if present
+    if (key.startsWith('/')) {
+      key = key.replace(/^\/+/, '').trim();
+    }
   }
   if (!metadata[key]) {
-    logger.info(`${key}: File ${url} not found in metadata.json`);
+    logger.info(
+      `${key}: File ${url} ${bundleDirPath} not found in metadata.json`,
+    );
     key = 'index.html';
   }
   const sha512 = metadata[key];
