@@ -58,8 +58,8 @@ const basicFontVariants = {
     heading5xl: 40,
   },
   lineHeight: {
-    bodyXs: 12,
-    bodyXsMedium: 12,
+    bodyXs: 14,
+    bodyXsMedium: 14,
     bodySm: 16,
     bodySmMedium: 16,
     bodyMd: 20,
