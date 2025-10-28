@@ -257,8 +257,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             staticLog(TAG, "currentAppVersion: " + currentAppVersion + ", currentBundleVersion: " + currentBundleVersion);
             
             String prevNativeVersion = getNativeVersion(context);
-            if (prevNativeVersion == null) {
-                return null;
+            if (prevNativeVersion == null || prevNativeVersion.isEmpty()) {
+                return "";
             }
             
             if (!currentAppVersion.equals(prevNativeVersion)) {
@@ -275,7 +275,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String signature = null;
             if (currentBundleVersion != null) {
                 SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                signature = prefs.getString(currentBundleVersion, null);
+                signature = prefs.getString(currentBundleVersion, "");
                 staticLog(TAG, "Retrieved signature for key: " + currentBundleVersion + ", signature: " + signature);
             }
             if (!validateMetadataFileSha256(context, currentBundleVersion, signature)) {
@@ -484,7 +484,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     public static String getNativeVersion(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        return prefs.getString("nativeVersion", null);
+        return prefs.getString("nativeVersion", "");
     }
 
     public static void setNativeVersion(Context context, String nativeVersion) {
@@ -763,7 +763,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             String currentAppVersion = currentFolderName.split("-")[0];
             String currentBundleVersion = currentFolderName.split("-")[1];
             SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            signature = prefs.getString(currentBundleVersion, null);
+            signature = prefs.getString(currentBundleVersion, "");
             fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
         }
 
