@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { OneKeyLogo, XStack, useOnRouterChange } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePerpTabConfig } from '@onekeyhq/kit/src/hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -59,6 +60,8 @@ function useWebHeaderNavigation({
     }
   }, [controlledActiveKey, currentTab]);
 
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
+
   const handleNavigationChange = useCallback(
     (key: string) => {
       onNavigationChange?.(key);
@@ -68,7 +71,11 @@ function useWebHeaderNavigation({
           navigation.switchTab(ETabRoutes.Market);
           break;
         case 'perps':
-          navigation.switchTab(ETabRoutes.Perp);
+          if (perpTabShowWeb) {
+            navigation.switchTab(ETabRoutes.WebviewPerpTrade);
+          } else {
+            navigation.switchTab(ETabRoutes.Perp);
+          }
           break;
         case 'defi':
           navigation.switchTab(ETabRoutes.Earn);
@@ -83,7 +90,7 @@ function useWebHeaderNavigation({
           break;
       }
     },
-    [navigation, onNavigationChange, toReferFriendsModal],
+    [navigation, onNavigationChange, perpTabShowWeb, toReferFriendsModal],
   );
 
   const navigationItems: IHeaderNavigationItem[] = useMemo(
@@ -92,10 +99,14 @@ function useWebHeaderNavigation({
         key: 'market',
         label: intl.formatMessage({ id: ETranslations.global_market }),
       },
-      {
-        key: 'perps',
-        label: intl.formatMessage({ id: ETranslations.global_perp }),
-      },
+      ...(!perpDisabled
+        ? [
+            {
+              key: 'perps',
+              label: intl.formatMessage({ id: ETranslations.global_perp }),
+            },
+          ]
+        : []),
       {
         key: 'defi',
         label: intl.formatMessage({ id: ETranslations.global_earn }),
@@ -111,7 +122,7 @@ function useWebHeaderNavigation({
         }),
       },
     ],
-    [intl],
+    [intl, perpDisabled],
   );
 
   return {
