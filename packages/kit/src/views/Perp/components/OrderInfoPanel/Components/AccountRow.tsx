@@ -5,6 +5,8 @@ import BigNumber from 'bignumber.js';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -30,86 +32,173 @@ interface IAccountRowProps {
 }
 
 // Type display config map - TODO: Replace with i18n
-const TYPE_CONFIG = new Map([
-  [
-    'deposit',
-    { text: 'Deposit', icon: 'ArrowBottomOutline', isIncrease: true },
-  ],
-  [
-    'withdraw',
-    { text: 'Withdraw', icon: 'ArrowTopOutline', isIncrease: false },
-  ],
-  [
-    'internalTransferIn',
-    { text: 'Transfer In', icon: 'ArrowBottomOutline', isIncrease: true },
-  ],
-  [
-    'internalTransferOut',
-    { text: 'Transfer Out', icon: 'ArrowTopOutline', isIncrease: false },
-  ],
-  [
-    'accountClassTransfer',
-    {
-      text: 'Account Transfer',
-      icon: 'ArrowsRightLeftOutline',
-      isIncrease: null,
-    },
-  ],
-  [
-    'rewardsClaim',
-    { text: 'Rewards Claim', icon: 'GiftOutline', isIncrease: true },
-  ],
-  [
-    'subAccountTransferIn',
-    {
-      text: 'Sub-account Transfer In',
-      icon: 'FolderUserOutline',
-      isIncrease: true,
-    },
-  ],
-  [
-    'subAccountTransferOut',
-    {
-      text: 'Sub-account Transfer Out',
-      icon: 'FolderUserOutline',
-      isIncrease: false,
-    },
-  ],
-  [
-    'vaultDeposit',
-    { text: 'Vault Deposit', icon: 'BankOutline', isIncrease: false },
-  ],
-  [
-    'vaultWithdraw',
-    { text: 'Vault Withdraw', icon: 'BankOutline', isIncrease: true },
-  ],
-  [
-    'vaultCreate',
-    { text: 'Vault Create', icon: 'BankOutline', isIncrease: false },
-  ],
-  [
-    'vaultDistribution',
-    {
-      text: 'Vault Distribution',
-      icon: 'HandCoinsOutline',
-      isIncrease: true,
-    },
-  ],
-  [
-    'spotTransferIn',
-    { text: 'Spot Transfer In', icon: 'SendOutline', isIncrease: true },
-  ],
-  [
-    'spotTransferOut',
-    { text: 'Spot Transfer Out', icon: 'SendOutline', isIncrease: false },
-  ],
-  ['sendIn', { text: 'Send In', icon: 'SendOutline', isIncrease: true }],
-  ['sendOut', { text: 'Send Out', icon: 'SendOutline', isIncrease: false }],
-  [
-    'liquidation',
-    { text: 'Liquidation', icon: 'ClockAlertOutline', isIncrease: false },
-  ],
-]);
+const getTypeConfig = () =>
+  new Map([
+    [
+      'deposit',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_trade_deposit,
+        }),
+        icon: 'ArrowBottomOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'withdraw',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_trade_withdraw,
+        }),
+        icon: 'ArrowTopOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'internalTransferIn',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.global_receive,
+        }),
+        icon: 'ArrowBottomOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'internalTransferOut',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.global_send,
+        }),
+        icon: 'ArrowTopOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'accountClassTransfer',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_tranfer,
+        }),
+        icon: 'ArrowExpandHoutline',
+        isIncrease: null,
+      },
+    ],
+    [
+      'rewardsClaim',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_rewards,
+        }),
+        icon: 'GiftOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'subAccountTransferIn',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_sub_transfer,
+        }),
+        icon: 'PeopleShadowOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'subAccountTransferOut',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_sub_transfer,
+        }),
+        icon: 'PeopleShadowOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'vaultDeposit',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_vault_transfer_deposit,
+        }),
+        icon: 'CourtOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'vaultWithdraw',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_vault_transfer_withdraw,
+        }),
+        icon: 'CourtOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'vaultCreate',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_action_vault_transfer_create,
+        }),
+        icon: 'CourtOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'vaultDistribution',
+      {
+        text: 'Vault Distribution',
+        icon: 'HandCoinsOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'spotTransferIn',
+      {
+        text: 'Spot Transfer In',
+        icon: 'ArrowBottomOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'spotTransferOut',
+      {
+        text: 'Spot Transfer Out',
+        icon: 'ArrowTopOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'sendIn',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.global_receive,
+        }),
+        icon: 'ArrowBottomOutline',
+        isIncrease: true,
+      },
+    ],
+    [
+      'sendOut',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.global_send,
+        }),
+        icon: 'ArrowTopOutline',
+        isIncrease: false,
+      },
+    ],
+    [
+      'liquidation',
+      {
+        text: appLocale.intl.formatMessage({
+          id: ETranslations.perp_account_history_liquidation,
+        }),
+        icon: 'MoneyOutline',
+        isIncrease: false,
+      },
+    ],
+  ]);
 
 const AccountRow = memo(
   ({
@@ -152,11 +241,16 @@ const AccountRow = memo(
       return delta.type;
     }, [delta, currentUser?.accountAddress]);
 
-    const typeConfig = TYPE_CONFIG.get(displayType) || {
-      text: delta.type,
-      icon: 'QuestionMarkCircleOutline',
-      isIncrease: null,
-    };
+    const typeConfig = useMemo(() => {
+      const TYPE_CONFIG = getTypeConfig();
+      return (
+        TYPE_CONFIG.get(displayType) || {
+          text: delta.type,
+          icon: 'QuestionMarkCircleOutline',
+          isIncrease: null,
+        }
+      );
+    }, [displayType, delta.type]);
 
     const actionText = typeConfig.text;
 
@@ -215,7 +309,9 @@ const AccountRow = memo(
       return amount;
     }, [amount, fee, isMobile, typeConfig.isIncrease]);
 
-    const status = 'Completed';
+    const status = appLocale.intl.formatMessage({
+      id: ETranslations.perp_status_comlete,
+    });
 
     const dateInfo = useMemo(() => {
       const timeDate = new Date(time);
@@ -228,11 +324,7 @@ const AccountRow = memo(
       return { date, time: timeStr };
     }, [time]);
 
-    const iconColor = useMemo(() => {
-      if (typeConfig.isIncrease === true) return '$iconSuccess';
-      if (typeConfig.isIncrease === false) return '$iconCritical';
-      return '$icon';
-    }, [typeConfig.isIncrease]);
+    const iconColor = '$icon';
 
     const textColor = useMemo(() => {
       if (typeConfig.isIncrease === true) return '$textSuccess';
