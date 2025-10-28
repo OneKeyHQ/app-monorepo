@@ -482,7 +482,7 @@ export const EditableChainSelectorContent = ({
           {sections.length > 0 ? (
             <SortableSectionList
               ref={listRef}
-              enabled={isEditMode}
+              enabled={false}
               stickySectionHeadersEnabled
               sections={sections}
               renderItem={renderItem}
