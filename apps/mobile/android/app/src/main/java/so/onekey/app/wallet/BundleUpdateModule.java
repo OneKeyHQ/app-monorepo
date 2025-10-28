@@ -784,7 +784,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             log("installBundle", "fallbackUpdateBundleData: " + fallbackUpdateBundleData);
             writeFallbackUpdateBundleDataFile(fallbackUpdateBundleData, reactContext);
         } catch (Exception e) {
-            staticLog(TAG, "installBundle:" + e.getMessage());
+            staticLog(TAG, "installBundle fallbackUpdateBundleData error:" + e.getMessage());
         }
         promise.resolve(null);
     }
