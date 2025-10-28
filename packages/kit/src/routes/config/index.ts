@@ -30,7 +30,7 @@ interface IScreenRouterConfig {
   name: string;
   rewrite?: string;
   exact?: boolean;
-  children?: IScreenRouterConfig[];
+  children?: IScreenRouterConfig[] | null;
 }
 
 const resolveScreens = (routes: IScreenRouterConfig[]) =>
