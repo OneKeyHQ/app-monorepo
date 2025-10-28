@@ -167,6 +167,18 @@ export const {
   }, {} as { [coin: string]: number[] });
 });
 
+export type IPerpsLedgerUpdatesAtom = {
+  accountAddress: string | undefined;
+  updates: HL.IUserNonFundingLedgerUpdate[];
+  isSubscribed: boolean;
+};
+export const { atom: perpsLedgerUpdatesAtom, use: usePerpsLedgerUpdatesAtom } =
+  contextAtom<IPerpsLedgerUpdatesAtom>({
+    accountAddress: undefined,
+    updates: [],
+    isSubscribed: false,
+  });
+
 export interface ITradingFormEnv {
   markPrice?: string;
   availableToTrade?: Array<number | string>;
