@@ -53,6 +53,7 @@ import okhttp3.Response;
 public class BundleUpdateModule extends ReactContextBaseJavaModule {
     private static final String TAG = "BundleUpdateModule";
     private static final String PREFS_NAME = "BundleUpdatePrefs";
+    private static final String NATIVE_VERSION_PREFS_NAME = "NativeVersionPrefs";
     private static final String CURRENT_BUNDLE_VERSION_KEY = "currentBundleVersion";
     private static FileLoggerModule staticFileLogger;
     private ReactApplicationContext reactContext;
@@ -483,12 +484,12 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
     }
 
     public static String getNativeVersion(Context context) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs = context.getSharedPreferences(NATIVE_VERSION_PREFS_NAME, Context.MODE_PRIVATE);
         return prefs.getString("nativeVersion", "");
     }
 
     public static void setNativeVersion(Context context, String nativeVersion) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs = context.getSharedPreferences(NATIVE_VERSION_PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString("nativeVersion", nativeVersion).apply();
     }
 
@@ -526,10 +527,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
 
         String storageKey = appVersion + "-" + bundleVersion;
-        SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(storageKey, signature).apply();
-
-        log("downloadASC", "Stored signature for key: " + storageKey);
         promise.resolve(null);
     }
 
@@ -749,8 +746,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
         SharedPreferences readPrefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String currentSignature = readPrefs.getString(currentBundleVersion, "");
         log("installBundle", "currentFolderName: " + currentFolderName);
+        String currentSignature = readPrefs.getString(currentFolderName, "");
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         String nativeVersion = getAppVersion(reactContext);
         log("installBundle", "nativeVersion: " + nativeVersion);
