@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "{mode}槓桿已成功設定為 {leverage} 倍",
   "perp.toast_withdraw_loading": "處理提款中...",
   "perp.toast_withdraw_success": "提取已啟動",
-  "perp.toast_withdraw_success_msg": "{amount} USD 提現已提交，預估在5分鐘內到賬",
+  "perp.toast_withdraw_success_msg": "{amount} USDC 提現已提交，預估在5分鐘內到賬",
   "perp.token_bar_24h_Volume": "24小時成交量",
   "perp.token_bar_Funding": "資金費率 / 倒數計時",
   "perp.token_bar_open_Interest": "合約持倉量",

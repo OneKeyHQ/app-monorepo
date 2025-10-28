@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "{mode} लीवरेज सफलतापूर्वक {leverage}x पर सेट किया गया",
   "perp.toast_withdraw_loading": "निकासी संसाधित की जा रही है...",
   "perp.toast_withdraw_success": "निकासी शुरू हो गई",
-  "perp.toast_withdraw_success_msg": "{amount} USD निकासी सबमिट कर दी गई है। निकासी 5 मिनट के भीतर आ जानी चाहिए।",
+  "perp.toast_withdraw_success_msg": "{amount} USDC निकासी सबमिट कर दी गई है। निकासी 5 मिनट के भीतर आ जानी चाहिए।",
   "perp.token_bar_24h_Volume": "24 घंटे का वॉल्यूम",
   "perp.token_bar_Funding": "फंडिंग / काउंटडाउन",
   "perp.token_bar_open_Interest": "ओपन इंटरेस्ट",

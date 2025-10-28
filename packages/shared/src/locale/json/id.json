@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "{mode} leverage disetel ke {leverage}x berhasil",
   "perp.toast_withdraw_loading": "Memproses penarikan...",
   "perp.toast_withdraw_success": "Penarikan Dimulai",
-  "perp.toast_withdraw_success_msg": "Penarikan {amount} USD telah diajukan. Penarikan seharusnya tiba dalam 5 menit.",
+  "perp.toast_withdraw_success_msg": "Penarikan {amount} USDC telah diajukan. Penarikan seharusnya tiba dalam 5 menit.",
   "perp.token_bar_24h_Volume": "Volume 24j",
   "perp.token_bar_Funding": "Pendanaan / Hitung Mundur",
   "perp.token_bar_open_Interest": "Open Interest",
