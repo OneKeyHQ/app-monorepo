@@ -215,7 +215,11 @@ function BtcAddresses() {
               {hasRows ? (
                 <Table
                   dataSource={rows}
-                  contentContainerStyle={{ gap: '$2', px: '$0' }}
+                  contentContainerStyle={{
+                    gap: '$2',
+                    px: '$0',
+                    $gtMd: { gap: '$1' },
+                  }}
                   columns={[
                     {
                       title: intl.formatMessage({
@@ -293,6 +297,10 @@ function BtcAddresses() {
                     alignItems: 'center',
                     borderRadius: '$3',
                     overflow: 'visible',
+                    $gtMd: {
+                      py: '$2',
+                      minHeight: 40,
+                    },
                   }}
                   headerRowProps={{
                     mx: '$2',
