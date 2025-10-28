@@ -3,6 +3,7 @@ import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
 
+import type { ITabNavigatorConfig } from '@onekeyhq/components';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -10,6 +11,7 @@ import {
   TabStackNavigator,
   useMedia,
 } from '@onekeyhq/components';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -132,6 +134,22 @@ function InPageTabContainer() {
   );
 }
 
+const useCheckTabsChangedInDev = platformEnv.isDev
+  ? (config: ITabNavigatorConfig<ETabRoutes>[]) => {
+      const previousConfig = useRef(config.map((item) => item.name));
+      useEffect(() => {
+        const keys = config.map((item) => item.name);
+        if (
+          keys.length !== previousConfig.current.length ||
+          keys.every((item) => previousConfig.current.includes(item))
+        ) {
+          throw new OneKeyLocalError('tabs changed, please check the config');
+        }
+        previousConfig.current = keys;
+      }, [config]);
+    }
+  : () => {};
+
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
@@ -140,6 +158,7 @@ export function TabNavigator() {
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
 
+  useCheckTabsChangedInDev(config);
   usePreloadTabs();
 
   return (
