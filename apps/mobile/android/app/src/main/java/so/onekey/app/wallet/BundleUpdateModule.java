@@ -138,6 +138,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
 
     public static void setCurrentBundleVersionAndSignature(Context context, String version, String signature) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().clear().apply();
         prefs.edit().putString(CURRENT_BUNDLE_VERSION_KEY, version).putString(version, signature).apply();
     }
 
