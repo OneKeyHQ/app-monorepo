@@ -949,12 +949,20 @@ const usePerpDeposit = (
         title: intl.formatMessage({
           id: ETranslations.feedback_transaction_submitted,
         }),
-        message: intl.formatMessage({
-          id: ETranslations.perp_toast_deposit_success_msg,
-        }),
+        message: intl.formatMessage(
+          {
+            id: ETranslations.perp_toast_deposit_success_msg,
+          },
+          {
+            amount,
+            token: token?.symbol,
+          },
+        ),
       });
     }
   }, [
+    amount,
+    token?.symbol,
     perpDepositQuote,
     buildQuoteRes,
     getApproveUnSignedTxArr,
