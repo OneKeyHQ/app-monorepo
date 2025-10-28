@@ -131,8 +131,6 @@ export function usePerpTradesHistory() {
     }, 300);
   }, [refreshHook]);
 
-  console.log('usePerpTradesHistory__render', tradesHistory, refreshHook);
-
   return {
     trades: tradesHistory,
     currentListPage,

@@ -35,6 +35,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBook,
   IWsAllMids,
+  IWsUserNonFundingLedgerUpdates,
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { EPerpsSubscriptionCategory } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -132,6 +133,12 @@ function useHyperliquidEventBusListener() {
 
           case ESubscriptionType.L2_BOOK:
             void actions.current.updateL2Book(data as IBook);
+            break;
+
+          case ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES:
+            void actions.current.updateLedgerUpdates(
+              data as IWsUserNonFundingLedgerUpdates,
+            );
             break;
 
           case ESubscriptionType.ACTIVE_ASSET_CTX:

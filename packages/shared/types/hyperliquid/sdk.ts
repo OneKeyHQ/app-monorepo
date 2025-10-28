@@ -9,12 +9,38 @@ export type IWsAllMids = HL.WsAllMids;
 export type IWsActiveAssetCtx = HL.WsActiveAssetCtx;
 export type IWsUserEvent = HL.WsUserEvent;
 export type IWsUserFills = HL.WsUserFills;
+export type IWsUserNonFundingLedgerUpdates = HL.WsUserNonFundingLedgerUpdates;
 export type IWsBbo = HL.WsBbo;
 export type IHyperliquidEventTarget = EventTarget; // HL.HyperliquidEventTarget;
 // export type IWebSocketAsyncRequest = WebSocketAsyncRequest; // HL.WebSocketAsyncRequest;
 
 export type IWsNotification = HL.WsNotification;
 export type IWsTrade = HL.WsTrade;
+
+// Custom Send type (not in SDK)
+export interface ISendUpdate {
+  type: 'send';
+  user: string;
+  amount: string;
+  destination: string;
+  destinationDex: string;
+  fee: string;
+  feeToken: string;
+  nativeTokenFee: string;
+  nonce: number;
+  sourceDex: string;
+  token: string;
+  usdcValue: string;
+}
+
+// Extend delta types to include custom send type
+type IExtendedDelta = HL.UserNonFundingLedgerUpdate['delta'] | ISendUpdate;
+
+export type IUserNonFundingLedgerUpdate = {
+  time: number;
+  hash: string;
+  delta: IExtendedDelta;
+};
 export type IApiRequestError = HL.ApiRequestError;
 export type IApiRequestResult = HL.SuccessResponse;
 export type IApiErrorResponse = HL.ErrorResponse;
@@ -94,6 +120,8 @@ export type IEventTradesParameters = HL.EventTradesParameters;
 export type IEventUserEventsParameters = HL.EventUserEventsParameters;
 export type IEventWebData2Parameters = HL.EventWebData2Parameters;
 export type IEventUserFillsParameters = HL.EventUserFillsParameters;
+export type IEventUserNonFundingLedgerUpdatesParameters =
+  HL.EventUserNonFundingLedgerUpdatesParameters;
 
 // Response types
 export type ISuccessResponse = HL.SuccessResponse;
@@ -106,6 +134,7 @@ export type ISignature = HL.Signature;
 export type IPerpsSubscriptionParams = {
   [ESubscriptionType.L2_BOOK]: IEventL2BookParameters;
   [ESubscriptionType.USER_FILLS]: IEventUserFillsParameters;
+  [ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES]: IEventUserNonFundingLedgerUpdatesParameters;
 
   [ESubscriptionType.ACTIVE_ASSET_DATA]: IEventActiveAssetDataParameters;
   [ESubscriptionType.WEB_DATA2]: IEventWebData2Parameters;
