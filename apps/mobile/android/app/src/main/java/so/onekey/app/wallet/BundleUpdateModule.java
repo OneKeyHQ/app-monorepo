@@ -748,6 +748,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         }
         String folderName = appVersion + "-" + bundleVersion;
         String currentFolderName = getCurrentBundleVersion(reactContext);
+        SharedPreferences readPrefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String currentSignature = readPrefs.getString(currentBundleVersion, "");
         log("installBundle", "currentFolderName: " + currentFolderName);
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         String nativeVersion = getAppVersion(reactContext);
@@ -760,9 +762,8 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 String currentAppVersion = currentFolderName.split("-")[0];
                 String currentBundleVersion = currentFolderName.split("-")[1];
                 SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-                signature = prefs.getString(currentBundleVersion, "");
-                log("installBundle", "fallbackUpdateBundleData signature: " + signature);
-                fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
+                log("installBundle", "fallbackUpdateBundleData signature: " + currentSignature);
+                fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", currentSignature));
                 prefs.edit().remove(currentBundleVersion).apply();
             }
 
