@@ -769,7 +769,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 String shiftBundleVersion = shiftUpdateBundleData.get("bundleVersion");
                 if (shiftAppVersion != null && shiftBundleVersion != null) {
                     String shiftFolderName = shiftAppVersion + "-" + shiftBundleVersion;
-                    SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                     String bundleDir = getBundleDir(reactContext);
                     String bundleDirPath = new File(bundleDir, shiftFolderName).getAbsolutePath();
                     if (new File(bundleDirPath).exists()) {
