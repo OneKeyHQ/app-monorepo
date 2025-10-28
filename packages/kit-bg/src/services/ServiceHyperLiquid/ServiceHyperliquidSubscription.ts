@@ -99,6 +99,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     currentSymbol: '',
     isConnected: false,
     l2BookOptions: undefined,
+    enableLedgerUpdates: false,
   };
 
   private _networkTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
@@ -160,6 +161,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       l2BookOptions,
       currentSymbol: activeAsset?.coin,
       currentUser: activeAccount?.accountAddress,
+      enableLedgerUpdates: this._currentState.enableLedgerUpdates,
     };
 
     const requiredSubSpecsMap = calculateRequiredSubscriptionsMap(params);
@@ -315,6 +317,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         refreshHook: Date.now(),
       });
     }
+  }
+
+  @backgroundMethod()
+  async enableLedgerUpdatesSubscription(): Promise<void> {
+    if (this._currentState.enableLedgerUpdates) {
+      return;
+    }
+    this._currentState.enableLedgerUpdates = true;
+    await this.updateSubscriptions();
   }
 
   @backgroundMethod()
@@ -505,6 +516,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         ESubscriptionType.ACTIVE_ASSET_DATA,
         ESubscriptionType.WEB_DATA2,
         ESubscriptionType.USER_FILLS,
+        ESubscriptionType.USER_NON_FUNDING_LEDGER_UPDATES,
       ];
       const removeAllSubscriptionHandlers = () => {
         allTypes.forEach((type) => {

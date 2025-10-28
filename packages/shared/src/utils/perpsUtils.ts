@@ -818,6 +818,8 @@ function calculateLiquidationPrice(
 
   if (hasExistingPosition) {
     // Calculate existing position metrics
+    // IMPORTANT: Use current mark price for maintenance margin calculation, not entry price
+    // Maintenance margin is based on position's current market value, not entry value
     const existingPositionValue = existingPositionSize
       .abs()
       .multipliedBy(effectivePrice);
