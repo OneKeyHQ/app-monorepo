@@ -336,6 +336,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           builder(oldSelectedAccount),
         );
 
+        if (platformEnv.isWebDappMode) {
+          const oldIsNotAllNetwork =
+            oldSelectedAccount.networkId &&
+            oldSelectedAccount.networkId !== getNetworkIdsMap().onekeyall;
+          const newIsNotAllNetwork =
+            newSelectedAccount.networkId &&
+            newSelectedAccount.networkId !== getNetworkIdsMap().onekeyall;
+          if (newIsNotAllNetwork || oldIsNotAllNetwork) {
+            newSelectedAccount.networkId = getNetworkIdsMap().onekeyall;
+            newSelectedAccount.deriveType = 'default';
+          }
+        }
+
         if (
           isEqual(
             omitBy(oldSelectedAccount, isUndefined),
