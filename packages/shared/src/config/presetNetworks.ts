@@ -2617,7 +2617,7 @@ const assethubPolkadot: IServerNetwork = {
   'impl': 'dot',
   'isTestnet': false,
   'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-assethub.png',
-  'name': 'Assethub Polkadot',
+  'name': 'Polkadot AssetHub',
   'shortcode': 'assetHub',
   'shortname': 'DOT',
   'symbol': 'DOT',
@@ -2627,6 +2627,26 @@ const assethubPolkadot: IServerNetwork = {
   },
   'defaultEnabled': true,
   'status': ENetworkStatus.LISTED,
+};
+
+const assethubKusama: IServerNetwork = {
+  'impl': 'dot',
+  'chainId': 'dot--kusama-assethub',
+  'id': 'dot--kusama-assethub',
+  'name': 'Kusama AssetHub',
+  'symbol': 'KSM',
+  'code': 'ksmAssetHub',
+  'shortcode': 'ksmAssetHub',
+  'shortname': 'KsmAssetHub',
+  'decimals': 12,
+  'feeMeta': {
+    'decimals': 12,
+    'symbol': 'KSM',
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dot-ksm-assethub.png',
+  'defaultEnabled': false,
 };
 
 const bifrost: IServerNetwork = {
@@ -3016,6 +3036,7 @@ export const presetNetworksMap = {
   hydradx,
   bifrost,
   assethubPolkadot,
+  assethubKusama,
 
   aptos,
   lightning,
@@ -3215,6 +3236,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     hydradx,
     bifrost,
     assethubPolkadot,
+    assethubKusama,
 
     aptos,
     lightning,
