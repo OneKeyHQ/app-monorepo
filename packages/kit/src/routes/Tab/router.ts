@@ -25,6 +25,7 @@ import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
@@ -73,8 +74,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const { md } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
-  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
-  const [{ perpUserConfig }] = usePerpsUserConfigPersistAtom();
   const isWebDappMode = platformEnv.isWebDappMode;
   const isShowMDDiscover = useMemo(
     () =>
@@ -91,18 +90,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
   const shouldShowMarketTab = !(
     platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel
   );
-  const perpTabShowRes = useMemo(() => {
-    if (perpConfigCommon?.disablePerp) {
-      return null;
-    }
 
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+  const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
+  const perpTabShowRes = useMemo(() => {
+    if (perpDisabled) {
       return null;
     }
-    if (
-      perpConfigCommon?.usePerpWeb ||
-      perpUserConfig.currentUserType === EPerpUserType.PERP_WEB
-    ) {
+    if (perpTabShowWeb) {
       return {
         name: ETabRoutes.WebviewPerpTrade,
         tabBarIcon: (focused?: boolean) =>
@@ -130,12 +124,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       exact: true,
       // tabbarOnPress,
     };
-  }, [
-    perpConfigCommon?.disablePerp,
-    perpConfigCommon?.usePerpWeb,
-    perpUserConfig.currentUserType,
-    params?.freezeOnBlur,
-  ]);
+  }, [perpDisabled, perpTabShowWeb, params?.freezeOnBlur]);
   // Custom Market tab press handler - only for non-mobile platforms
   const handleMarketTabPress = useMemo(() => {
     return () => {

@@ -7,7 +7,6 @@ import { StyleSheet } from 'react-native';
 
 import { Tooltip } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
-import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -517,8 +516,50 @@ export function DesktopLeftSideBar({
         >
           <YStack flex={1}>
             {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
-              <XStack ai="center" pr="$3">
-                <OneKeyLogo />
+              <XStack
+                ai="center"
+                jc={isCollapse ? 'center' : 'flex-start'}
+                px="$4"
+                py="$3"
+              >
+                <Icon
+                  name="OnekeyLogoIllus"
+                  width={28}
+                  height={28}
+                  color="$text"
+                />
+                <MotiView
+                  animate={{
+                    opacity: isCollapse ? 0 : 1,
+                    width: isCollapse ? 0 : 62,
+                    marginLeft: isCollapse ? 0 : 12,
+                  }}
+                  transition={{
+                    opacity: {
+                      duration: isCollapse ? 0 : 200,
+                      type: 'timing',
+                      delay: isCollapse ? 0 : 100,
+                    },
+                    width: {
+                      duration: isCollapse ? 0 : 200,
+                      type: 'timing',
+                    },
+                    marginLeft: {
+                      duration: isCollapse ? 0 : 200,
+                      type: 'timing',
+                    },
+                  }}
+                  style={{
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Icon
+                    name="OnekeyTextOnlyIllus"
+                    width={62}
+                    height={28}
+                    color="$text"
+                  />
+                </MotiView>
               </XStack>
             ) : null}
             <YStack
@@ -543,11 +584,10 @@ export function DesktopLeftSideBar({
           setIsHovering(false);
         }}
         zIndex={1000}
-        right={-5}
+        right={-8}
         top={0}
         bottom={0}
-        width={10}
-        pb="$20"
+        width={16}
         ai="center"
         jc="center"
       >
@@ -566,6 +606,7 @@ export function DesktopLeftSideBar({
               alignItems: 'center',
               justifyContent: 'center',
               width: '100%',
+              paddingBottom: 96,
             }}
           >
             <Tooltip
@@ -574,24 +615,24 @@ export function DesktopLeftSideBar({
                 <YStack
                   aria-label="Toggle sidebar"
                   role="button"
-                  height="$12"
-                  width="$2"
-                  bg="$neutral6"
-                  hoverStyle={{
-                    bg: '$neutral8',
-                  }}
-                  borderRadius="$full"
+                  height="$20"
+                  width="$5"
+                  ai="center"
+                  jc="center"
                   cursor={isCollapse ? 'e-resize' : 'w-resize'}
-                  pressStyle={{
-                    bg: '$neutral7',
-                  }}
-                  focusVisibleStyle={{
-                    outlineWidth: 2,
-                    outlineColor: '$focusRing',
-                    outlineStyle: 'solid',
-                  }}
                   onPress={handleToggleCollapse}
-                />
+                >
+                  <YStack
+                    height="$16"
+                    width="$2"
+                    bg="$neutral6"
+                    hoverStyle={{
+                      bg: '$neutral8',
+                    }}
+                    borderRadius="$full"
+                    pointerEvents="none"
+                  />
+                </YStack>
               }
               renderContent={
                 <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
