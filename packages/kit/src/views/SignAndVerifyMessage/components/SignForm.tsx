@@ -637,132 +637,129 @@ export const SignForm = ({
         </Form.Field>
       ) : (
         <YStack gap="$3">
-          <XStack justifyContent="space-between" alignItems="center">
-            <SizableText size="$bodyLgMedium">
-              {intl.formatMessage({
-                id: ETranslations.message_signing_signature_label,
-              })}
-            </SizableText>
-            <Button onPress={onCopySignature} size="small" variant="tertiary">
-              {intl.formatMessage({ id: ETranslations.global_copy })}
-            </Button>
-          </XStack>
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage({
+              id: ETranslations.message_signing_signature_label,
+            })}
+          </SizableText>
 
-          {/* Message Section */}
-          <XStack
-            gap="$3"
-            p="$3"
-            borderWidth="$px"
-            borderColor="$borderStrong"
+          <YStack
             borderRadius="$2"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
             borderCurve="continuous"
-            alignItems="flex-start"
           >
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodySm" color="$textSubdued">
+            {/* Message Section */}
+            <YStack gap="$1" p="$3">
+              <SizableText size="$bodyMd">
                 {intl.formatMessage({ id: ETranslations.global_hex_data })}
               </SizableText>
-              <SizableText
-                size="$bodyMd"
-                wordWrap="break-word"
-                style={{ overflowWrap: 'break-word' }}
-              >
-                {rawMessage}
-              </SizableText>
+              <XStack gap="$4" pr="$1" alignItems="flex-start">
+                <SizableText
+                  flex={1}
+                  color="$textSubdued"
+                  wordWrap="break-word"
+                  style={{ overflowWrap: 'break-word' }}
+                >
+                  {rawMessage}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={() => {
+                    copyText(rawMessage);
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.global_copied,
+                      }),
+                    });
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+              </XStack>
             </YStack>
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={() => {
-                copyText(rawMessage);
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_copied,
-                  }),
-                });
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_copy })}
-            </Button>
-          </XStack>
 
-          {/* Address Section */}
-          <XStack
-            gap="$3"
-            p="$3"
-            borderWidth="$px"
-            borderColor="$borderStrong"
-            borderRadius="$2"
-            borderCurve="continuous"
-            alignItems="flex-start"
-          >
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodySm" color="$textSubdued">
+            {/* Address Section */}
+            <YStack gap="$1" p="$3">
+              <SizableText size="$bodyMd">
                 {intl.formatMessage({ id: ETranslations.global_address })}
               </SizableText>
-              <SizableText
-                size="$bodyMd"
-                wordWrap="break-word"
-                style={{ overflowWrap: 'break-word' }}
-              >
-                {selectedAddress}
-              </SizableText>
+              <XStack gap="$4" pr="$1" alignItems="flex-start">
+                <SizableText
+                  flex={1}
+                  color="$textSubdued"
+                  wordWrap="break-word"
+                  style={{
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {selectedAddress}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  flexShrink={0}
+                  onPress={() => {
+                    copyText(selectedAddress);
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.global_copied,
+                      }),
+                    });
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+              </XStack>
             </YStack>
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={() => {
-                copyText(selectedAddress);
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_copied,
-                  }),
-                });
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_copy })}
-            </Button>
-          </XStack>
 
-          {/* Signature Section */}
-          <XStack
-            gap="$3"
-            p="$3"
-            borderWidth="$px"
-            borderColor="$borderStrong"
-            borderRadius="$2"
-            borderCurve="continuous"
-            alignItems="flex-start"
-          >
-            <YStack flex={1} gap="$1">
-              <SizableText size="$bodySm" color="$textSubdued">
+            {/* Signature Section */}
+
+            <YStack gap="$1" p="$3">
+              <SizableText size="$bodyMd">
                 {intl.formatMessage({
                   id: ETranslations.message_signing_signature_label,
                 })}
               </SizableText>
-              <SizableText
-                size="$bodyMd"
-                wordWrap="break-word"
-                style={{ overflowWrap: 'break-word' }}
-              >
-                {signature}
-              </SizableText>
+              <XStack gap="$4" pr="$1" alignItems="flex-start">
+                <SizableText
+                  flex={1}
+                  color="$textSubdued"
+                  wordWrap="break-word"
+                  style={{
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {signature}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={() => {
+                    copyText(signature);
+                    Toast.success({
+                      title: intl.formatMessage({
+                        id: ETranslations.global_copied,
+                      }),
+                    });
+                  }}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+              </XStack>
             </YStack>
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={() => {
-                copyText(signature);
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.global_copied,
-                  }),
-                });
-              }}
-            >
-              {intl.formatMessage({ id: ETranslations.global_copy })}
-            </Button>
-          </XStack>
+
+            <Divider />
+
+            <YStack py="$2" px="$3">
+              <Button onPress={onCopySignature} size="small" variant="tertiary">
+                {intl.formatMessage({ id: ETranslations.global_copy_all })}
+              </Button>
+            </YStack>
+          </YStack>
         </YStack>
       )}
     </Form>
