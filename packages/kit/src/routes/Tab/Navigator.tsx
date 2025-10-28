@@ -11,13 +11,13 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import {
   ERootRoutes,
   ETabDiscoveryRoutes,
   ETabEarnRoutes,
   ETabHomeRoutes,
   ETabMarketRoutes,
-  ETabRoutes,
   ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 
@@ -55,57 +55,57 @@ const preloadTab = (
   }, timeout);
 };
 
-const preloadTabs = (navigation: NavigationProp<any>) => {
-  let timeout = 100;
-  const gap = 150;
-  preloadTab(
-    navigation,
-    ETabRoutes.Market,
-    ETabMarketRoutes.TabMarket,
-    timeout,
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Earn,
-    ETabEarnRoutes.EarnHome,
-    (timeout += gap),
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Swap,
-    ETabSwapRoutes.TabSwap,
-    (timeout += gap),
-  );
-  preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
-  preloadTab(
-    navigation,
-    ETabRoutes.Discovery,
-    ETabDiscoveryRoutes.TabDiscovery,
-    (timeout += gap),
-  );
-  preloadTab(
-    navigation,
-    ETabRoutes.Home,
-    ETabHomeRoutes.TabHome,
-    (timeout += 2500),
-  );
-};
+// const preloadTabs = (navigation: NavigationProp<any>) => {
+//   let timeout = 100;
+//   const gap = 150;
+//   preloadTab(
+//     navigation,
+//     ETabRoutes.Market,
+//     ETabMarketRoutes.TabMarket,
+//     timeout,
+//   );
+//   preloadTab(
+//     navigation,
+//     ETabRoutes.Earn,
+//     ETabEarnRoutes.EarnHome,
+//     (timeout += gap),
+//   );
+//   preloadTab(
+//     navigation,
+//     ETabRoutes.Swap,
+//     ETabSwapRoutes.TabSwap,
+//     (timeout += gap),
+//   );
+//   preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
+//   preloadTab(
+//     navigation,
+//     ETabRoutes.Discovery,
+//     ETabDiscoveryRoutes.TabDiscovery,
+//     (timeout += gap),
+//   );
+//   preloadTab(
+//     navigation,
+//     ETabRoutes.Home,
+//     ETabHomeRoutes.TabHome,
+//     (timeout += 2500),
+//   );
+// };
 
-const usePreloadTabs =
-  platformEnv.isDev || platformEnv.isNative
-    ? () => {}
-    : () => {
-        const navigation = useNavigation();
-        useEffect(() => {
-          setTimeout(async () => {
-            await Promise.race([
-              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-              whenAppUnlocked(),
-            ]);
-            preloadTabs(navigation as NavigationProp<any>);
-          });
-        }, [navigation]);
-      };
+// const usePreloadTabs =
+//   platformEnv.isDev || platformEnv.isNative
+//     ? () => {}
+//     : () => {
+//         const navigation = useNavigation();
+//         useEffect(() => {
+//           setTimeout(async () => {
+//             await Promise.race([
+//               new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+//               whenAppUnlocked(),
+//             ]);
+//             preloadTabs(navigation as NavigationProp<any>);
+//           });
+//         }, [navigation]);
+//       };
 
 // When using navigation.preload, the web layer will re-render the interface with sidebar,
 // which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
@@ -131,7 +131,7 @@ export function TabNavigator() {
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
 
-  usePreloadTabs();
+  // usePreloadTabs();
 
   return (
     <>
