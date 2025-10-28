@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "{mode} leverage set to {leverage}x successfully",
   "perp.toast_withdraw_loading": "Processing withdrawal...",
   "perp.toast_withdraw_success": "Withdraw Initiated",
-  "perp.toast_withdraw_success_msg": "{amount} USD withdrawal has been submitted. Withdrawals should arrive within 5 minutes.",
+  "perp.toast_withdraw_success_msg": "{amount} USDC withdrawal has been submitted. Withdrawals should arrive within 5 minutes.",
   "perp.token_bar_24h_Volume": "24h Volume",
   "perp.token_bar_Funding": "Funding / Countdown",
   "perp.token_bar_open_Interest": "Open Interest",

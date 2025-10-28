@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "{mode}-Hebel erfolgreich auf {leverage}x gesetzt",
   "perp.toast_withdraw_loading": "Abhebung wird verarbeitet...",
   "perp.toast_withdraw_success": "Auszahlung eingeleitet",
-  "perp.toast_withdraw_success_msg": "{amount} USD-Auszahlung wurde eingereicht. Auszahlungen sollten innerhalb von 5 Minuten eintreffen.",
+  "perp.toast_withdraw_success_msg": "{amount} USDC-Auszahlung wurde eingereicht. Auszahlungen sollten innerhalb von 5 Minuten eintreffen.",
   "perp.token_bar_24h_Volume": "24h-Volumen",
   "perp.token_bar_Funding": "Finanzierung / Countdown",
   "perp.token_bar_open_Interest": "Offenes Interesse",

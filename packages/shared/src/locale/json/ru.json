@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "Успешно установлено кредитное плечо {mode} на {leverage}x",
   "perp.toast_withdraw_loading": "Обрабатываем вывод средств...",
   "perp.toast_withdraw_success": "Вывод средств инициирован",
-  "perp.toast_withdraw_success_msg": "{amount} USD вывод средств отправлен. Вывод должен поступить в течение 5 минут.",
+  "perp.toast_withdraw_success_msg": "{amount} USDC вывод средств отправлен. Вывод должен поступить в течение 5 минут.",
   "perp.token_bar_24h_Volume": "24ч объем",
   "perp.token_bar_Funding": "Funding / Countdown",
   "perp.token_bar_open_Interest": "Открытый интерес",

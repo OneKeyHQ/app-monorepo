@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "ตั้งค่าเลเวอเรจ {mode} เป็น {leverage}x สำเร็จแล้ว",
   "perp.toast_withdraw_loading": "กำลังดำเนินการถอนเงิน...",
   "perp.toast_withdraw_success": "เริ่มดำเนินการถอนเงินแล้ว",
-  "perp.toast_withdraw_success_msg": "{amount} USD ได้ส่งคำขอถอนเงินแล้ว การถอนเงินควรจะมาถึงภายใน 5 นาที",
+  "perp.toast_withdraw_success_msg": "{amount} USDC ได้ส่งคำขอถอนเงินแล้ว การถอนเงินควรจะมาถึงภายใน 5 นาที",
   "perp.token_bar_24h_Volume": "ปริมาณการซื้อขาย 24 ชั่วโมง",
   "perp.token_bar_Funding": "Funding / Countdown",
   "perp.token_bar_open_Interest": "โอเพ่นอินเทอเรสต์",

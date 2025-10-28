@@ -52,14 +52,16 @@ function PerpAccountList({
       },
       {
         key: 'action',
-        title: 'Action',
+        title: intl.formatMessage({ id: ETranslations.perp_account_action }),
         minWidth: 120,
         align: 'left',
         flex: 1,
       },
       {
         key: 'amount',
-        title: 'Amount',
+        title: intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_amount,
+        }),
         minWidth: 140,
         align: 'left',
         flex: 1,

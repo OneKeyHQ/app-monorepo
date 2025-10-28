@@ -25,7 +25,7 @@ const tabNameToTranslationKey: Record<string, string> = {
   'Positions': ETranslations.perp_position_title,
   'Open Orders': ETranslations.perp_open_orders_title,
   'Trades History': ETranslations.perp_trades_history_title,
-  'Account': 'Account',
+  'Account': ETranslations.perp_account_history,
 };
 
 function TabBarItem({

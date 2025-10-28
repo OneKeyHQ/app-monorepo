@@ -2236,7 +2236,7 @@
   "perp.toast_upadating_leverage_sucess_msg": "{mode} alavancagem definida para {leverage}x com sucesso",
   "perp.toast_withdraw_loading": "Processando saque...",
   "perp.toast_withdraw_success": "Saque Iniciado",
-  "perp.toast_withdraw_success_msg": "{amount} USD de saque foi enviado. Os saques devem chegar em até 5 minutos.",
+  "perp.toast_withdraw_success_msg": "{amount} USDC de saque foi enviado. Os saques devem chegar em até 5 minutos.",
   "perp.token_bar_24h_Volume": "Volume 24h",
   "perp.token_bar_Funding": "Funding / Countdown",
   "perp.token_bar_open_Interest": "Interesse em Aberto",
