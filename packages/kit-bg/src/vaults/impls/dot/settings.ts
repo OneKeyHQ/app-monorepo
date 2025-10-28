@@ -117,6 +117,13 @@ const settings: IVaultSettings = {
       genesisHash:
         '0x9f28c6a68e0fc9646eff64935684f6eeeece527e37bbe1f213d22caa1d9d6bed',
     },
+    'dot--kusama-assethub': {
+      curve: 'ed25519',
+      addressPrefix: '2',
+      nativeTokenAddress: 'KSM',
+      genesisHash:
+        '0x48239ef607d7928874027a43a67689209727dfb3d3dc5e5b03a39bdc2eda771a',
+    },
   },
 };
 
