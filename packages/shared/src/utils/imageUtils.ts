@@ -141,16 +141,38 @@ async function resizeImage(params: {
   isMonochrome?: boolean;
   compress?: number;
 }): Promise<IResizeImageResult> {
-  const { uri, width, height, isMonochrome, compress } = params;
+  const { uri, width, height, isMonochrome, compress, originW, originH } =
+    params;
   if (!uri) return { hex: '', uri: '', width: 0, height: 0 };
-  const actions: ExpoImageManipulatorAction[] = [
+  const actions: ExpoImageManipulatorAction[] = [];
+
+  if (originW < width && originH < height) {
+    // Enlarging the image may result in the loss of width
+    // Slightly enlarge the picture and then precisely crop it
+    actions.push(
+      {
+        resize: {
+          height: height * 1.02,
+        },
+      },
+      {
+        crop: {
+          height,
+          width,
+          originX: 0,
+          originY: 0,
+        },
+      },
+    );
+  } else {
     // resize first
-    {
+    actions.push({
       resize: {
         height,
       },
-    },
-  ];
+    });
+  }
+
   //   const originX = getOriginX(originW, originH, width, height);
   const originX = null;
   if (originX !== null) {
