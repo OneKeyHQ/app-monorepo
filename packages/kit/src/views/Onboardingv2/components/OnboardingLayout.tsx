@@ -5,7 +5,6 @@ import type { IXStackProps, IYStackProps } from '@onekeyhq/components';
 import {
   Button,
   IconButton,
-  LinearGradient,
   ScrollView,
   Select,
   SizableText,
@@ -132,11 +131,13 @@ function OnboardingLayoutConstrainedContent({
 }: { children: React.ReactNode } & IYStackProps) {
   return (
     <YStack
-      animation="quick"
-      animateOnly={['opacity', 'transform']}
-      enterStyle={{
-        opacity: 0,
-        x: 24,
+      $platform-web={{
+        animation: 'quick',
+        animateOnly: ['opacity', 'transform'],
+        enterStyle: {
+          opacity: 0,
+          x: 24,
+        },
       }}
       w="100%"
       maxWidth={400}
@@ -170,20 +171,31 @@ const OnboardingLayoutBody = ({
 
   return (
     <YStack
-      px="$5"
-      $gtMd={{
-        px: '$10',
-      }}
       flex={1}
+      minHeight={0}
       borderWidth={0}
       borderTopWidth={1}
       borderBottomWidth={1}
       borderStyle="dashed"
       borderColor="$neutral4"
       overflow="hidden"
+      {...(!scrollable ? { px: '$5', $gtMd: { px: '$10' } } : {})}
       {...rest}
     >
-      {scrollable ? <ScrollView>{content}</ScrollView> : content}
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={{
+            px: '$5',
+            $gtMd: {
+              px: '$10',
+            },
+          }}
+        >
+          {content}
+        </ScrollView>
+      ) : (
+        content
+      )}
       {/* {scrollable ? (
         <LinearGradient
           position="absolute"
@@ -224,6 +236,9 @@ function OnboardingLayoutRoot({ children }: { children: React.ReactNode }) {
   return (
     <YStack
       h="100%"
+      $platform-web={{
+        height: '100vh',
+      }}
       alignItems="center"
       justifyContent="center"
       bg="$neutral2"

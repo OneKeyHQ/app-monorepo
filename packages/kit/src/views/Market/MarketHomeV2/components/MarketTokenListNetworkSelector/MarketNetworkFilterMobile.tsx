@@ -1,10 +1,9 @@
 import { forwardRef, memo, useImperativeHandle, useRef, useState } from 'react';
 
-import { ScrollView, XStack } from '@onekeyhq/components';
 import type { IListViewProps, IPopoverProps } from '@onekeyhq/components';
+import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
-import { GradientMask } from '@onekeyhq/components';
 import { NetworksFilterItem } from './NetworksFilterItem';
 
 import type { ScrollView as ScrollViewType } from 'react-native';

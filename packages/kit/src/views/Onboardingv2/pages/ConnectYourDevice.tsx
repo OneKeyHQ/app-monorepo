@@ -43,6 +43,13 @@ function ConnectionIndicatorCard({ children }: { children: React.ReactNode }) {
       $platform-web={{
         boxShadow: '0 1px 1px 0 rgba(0, 0, 0, 0.20)',
       }}
+      $platform-android={{ elevation: 0.5 }}
+      $platform-ios={{
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 0.5 },
+        shadowOpacity: 0.2,
+        shadowRadius: 0.5,
+      }}
       bg="$bg"
     >
       {children}
@@ -80,7 +87,9 @@ function ConnectionIndicatorContent({
       borderWidth={0}
       borderTopWidth={StyleSheet.hairlineWidth}
       borderTopColor="$borderSubdued"
-      borderStyle="dashed"
+      $platform-web={{
+        borderStyle: 'dashed',
+      }}
       {...rest}
     >
       {children}
@@ -108,18 +117,20 @@ function connectionIndicatorFooter({
         opacity: 0,
       }}
     >
-      <Image
-        source={require('@onekeyhq/kit/assets/onboarding/radial-gradient.png')}
-        position="absolute"
-        left="50%"
-        bottom="0"
-        style={{
-          transform: [{ translateX: '-50%' }, { translateY: '50%' }],
-        }}
-        width={520}
-        height={226}
-        zIndex={0}
-      />
+      {platformEnv.isWeb ? (
+        <Image
+          source={require('@onekeyhq/kit/assets/onboarding/radial-gradient.png')}
+          position="absolute"
+          left="50%"
+          bottom="0"
+          style={{
+            transform: [{ translateX: '-50%' }, { translateY: '50%' }],
+          }}
+          width={520}
+          height={226}
+          zIndex={0}
+        />
+      ) : null}
       {children}
     </YStack>
   );
@@ -211,11 +222,11 @@ function ConnectionIndicatorRoot({ children }: { children: React.ReactNode }) {
       $theme-dark={{
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '$neutral3',
-        bg: '$neutral3',
+        bg: '$neutral4',
       }}
       $platform-native={{
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$neutral3',
+        borderColor: '$neutral4',
       }}
       overflow="hidden"
       borderRadius={10}
@@ -252,6 +263,7 @@ function USBConnectionIndicator() {
           <ConnectionIndicator.Animation>
             <Video
               w="100%"
+              h="100%" // required for native
               resizeMode={EVideoResizeMode.COVER}
               controls={false}
               playInBackground={false}
@@ -489,20 +501,26 @@ export default function ConnectYourDevice() {
     <Page>
       <OnboardingLayout>
         <OnboardingLayout.Header title="Connect your device" />
-        <OnboardingLayout.Body>
-          <SegmentControl
-            fullWidth
-            value={value}
-            onChange={(v) => setValue(v as string)}
-            options={[
-              { label: 'USB', value: 'usb' },
-              { label: 'Bluetooth', value: 'bluetooth' },
-              { label: 'QR Code', value: 'qr' },
-            ]}
-          />
-          {value === 'usb' ? <USBConnectionIndicator /> : null}
-          {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
-          {value === 'qr' ? <QRCodeConnectionIndicator /> : null}
+        <OnboardingLayout.Body constrained={false}>
+          <OnboardingLayout.ConstrainedContent
+            $platform-native={{
+              py: 0,
+            }}
+          >
+            <SegmentControl
+              fullWidth
+              value={value}
+              onChange={(v) => setValue(v as string)}
+              options={[
+                { label: 'USB', value: 'usb' },
+                { label: 'Bluetooth', value: 'bluetooth' },
+                { label: 'QR Code', value: 'qr' },
+              ]}
+            />
+            {value === 'usb' ? <USBConnectionIndicator /> : null}
+            {value === 'bluetooth' ? <BluetoothConnectionIndicator /> : null}
+            {value === 'qr' ? <QRCodeConnectionIndicator /> : null}
+          </OnboardingLayout.ConstrainedContent>
         </OnboardingLayout.Body>
       </OnboardingLayout>
     </Page>

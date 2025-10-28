@@ -210,7 +210,12 @@ export default function CheckAndUpdate() {
       <OnboardingLayout>
         <OnboardingLayout.Header title="Check & Update" />
         <OnboardingLayout.Body constrained={false}>
-          <OnboardingLayout.ConstrainedContent gap="$10">
+          <OnboardingLayout.ConstrainedContent
+            gap="$10"
+            $platform-native={{
+              py: '$5',
+            }}
+          >
             {steps.map((step, index) => {
               // Don't show setup-on-device until firmware-check is completed
               if (
@@ -239,10 +244,16 @@ export default function CheckAndUpdate() {
                           scale: 0.97,
                         }}
                         position="absolute"
-                        left={-16}
-                        top={-16}
-                        right={-16}
-                        bottom={-16}
+                        left={-10}
+                        top={-10}
+                        right={-10}
+                        bottom={-10}
+                        $gtMd={{
+                          left: -16,
+                          top: -16,
+                          right: -16,
+                          bottom: -16,
+                        }}
                         bg="$bgSubdued"
                         borderRadius="$4"
                         borderCurve="continuous"
@@ -262,15 +273,23 @@ export default function CheckAndUpdate() {
                   ) ? (
                     <YStack
                       w={2}
-                      borderWidth={0}
-                      borderLeftWidth={2}
-                      borderStyle="dashed"
-                      borderColor="$neutral3"
                       position="absolute"
                       left={31}
                       top={64}
                       bottom={-40}
-                    />
+                      gap="$1"
+                      overflow="hidden"
+                    >
+                      {Array.from({ length: 20 }).map((_, i) => (
+                        <YStack
+                          key={i}
+                          w="100%"
+                          h="$1"
+                          bg="$neutral3"
+                          borderRadius="$full"
+                        />
+                      ))}
+                    </YStack>
                   ) : null}
                   <XStack alignItems="center" gap="$5">
                     <YStack
@@ -289,9 +308,16 @@ export default function CheckAndUpdate() {
                         borderColor: '$neutral3',
                       }}
                       $platform-native={{
-                        borderWidth: 1,
+                        borderWidth: StyleSheet.hairlineWidth,
                         borderColor: '$neutral3',
                       }}
+                      $platform-ios={{
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 0.5 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 0.5,
+                      }}
+                      $platform-android={{ elevation: 0.5 }}
                       alignItems="center"
                       justifyContent="center"
                     >
@@ -436,6 +462,9 @@ export default function CheckAndUpdate() {
                         ))}
                         <Button
                           variant="primary"
+                          $platform-native={{
+                            size: 'large',
+                          }}
                           onPress={handleDeviceSetupDone}
                         >
                           Done

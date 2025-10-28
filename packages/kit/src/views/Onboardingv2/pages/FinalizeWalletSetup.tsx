@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
 import Animated, {
   Easing,
+  cancelAnimation,
   runOnJS,
   useAnimatedProps,
   useSharedValue,
@@ -19,6 +20,7 @@ import {
   YStack,
   useThemeValue,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { OnboardingLayout } from '../components/OnboardingLayout';
 
@@ -94,7 +96,21 @@ export default function FinalizeWalletSetup() {
   const progress = useSharedValue(0);
   const pathLength = 150;
 
+  const goToNextStep = useCallback(() => {
+    setCurrentStep((prev) => {
+      const nextStep = prev + 1;
+      if (nextStep < STEPS_DATA.length) {
+        return nextStep;
+      }
+      return prev;
+    });
+  }, []);
+
   useEffect(() => {
+    // Cancel any ongoing animation
+    cancelAnimation(progress);
+
+    // Reset and start animation
     progress.value = 0;
     progress.value = withTiming(
       1,
@@ -104,16 +120,17 @@ export default function FinalizeWalletSetup() {
       },
       (finished) => {
         if (finished) {
-          runOnJS(setCurrentStep)((prev) => {
-            if (prev < STEPS_DATA.length - 1) {
-              return prev + 1;
-            }
-            return prev;
-          });
+          runOnJS(goToNextStep)();
         }
       },
     );
-  }, [currentStep, progress]);
+
+    // Cleanup function
+    return () => {
+      cancelAnimation(progress);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep]);
 
   const animatedProps = useAnimatedProps(() => {
     // eslint-disable-next-line spellcheck/spell-checker
@@ -127,7 +144,7 @@ export default function FinalizeWalletSetup() {
     };
   });
 
-  const currentStepData = STEPS_DATA[currentStep];
+  const currentStepData = STEPS_DATA[currentStep] || STEPS_DATA[0];
 
   return (
     <Page>
@@ -137,163 +154,186 @@ export default function FinalizeWalletSetup() {
           showLanguageSelector={false}
         />
         <OnboardingLayout.Body constrained={false} scrollable={false}>
-          <YStack
-            position="absolute"
-            left="50%"
-            top="50%"
-            transform={[{ translateX: '-50%' }, { translateY: '-50%' }]}
-            opacity={0.15}
-          >
-            <MatrixBackground />
-            <Svg
-              height="100%"
-              width="100%"
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: 0,
-              }}
+          <YStack w="100%" h="100%">
+            <YStack
+              position="absolute"
+              left="50%"
+              top="50%"
+              x="-50%"
+              y="-50%"
+              opacity={0.15}
             >
-              <Defs>
-                <RadialGradient id="grad" cx="50%" cy="50%">
-                  <Stop
-                    offset="0%"
-                    stopColor={useThemeValue('$bgApp')}
-                    stopOpacity="0"
-                  />
-                  <Stop
-                    offset="50%"
-                    stopColor={useThemeValue('$bgApp')}
-                    stopOpacity="0.5"
-                  />
-                  <Stop
-                    offset="100%"
-                    stopColor={useThemeValue('$bgApp')}
-                    stopOpacity="1"
-                  />
-                </RadialGradient>
-              </Defs>
-              <Rect x="0" y="0" width="100%" height="100%" fill="url(#grad)" />
-            </Svg>
-          </YStack>
-          <YStack
-            animation="quick"
-            animateOnly={['opacity']}
-            enterStyle={{
-              opacity: 0,
-            }}
-            flex={1}
-            alignItems="center"
-            justifyContent="center"
-            gap="$6"
-          >
-            <YStack>
-              <Image
-                position="absolute"
-                $theme-dark={{
-                  opacity: 0.5,
-                }}
-                bottom={0}
-                left="50%"
+              <MatrixBackground />
+              <Svg
+                height="100%"
+                width="100%"
                 style={{
-                  transform: [{ translateX: '-50%' }, { translateY: '50%' }],
-                }}
-                source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
-                w={87}
-                h={49}
-              />
-              <YStack
-                w="$16"
-                h="$16"
-                bg="$bg"
-                borderRadius="$2"
-                borderCurve="continuous"
-                alignItems="center"
-                justifyContent="center"
-                $platform-web={{
-                  boxShadow:
-                    '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
-                }}
-                $theme-dark={{
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: '$borderSubdued',
-                }}
-                $platform-native={{
-                  borderWidth: StyleSheet.hairlineWidth,
-                  borderColor: '$borderSubdued',
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
                 }}
               >
-                <LinearGradient
-                  colors={['$neutral1', '$neutral4']}
-                  start={{ x: 1, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  w="$14"
-                  h="$14"
-                  borderRadius="$1"
+                <Defs>
+                  <RadialGradient
+                    id="grad"
+                    cx="50%"
+                    cy="50%"
+                    {...(platformEnv.isNative && {
+                      rx: '60%',
+                      ry: '30%',
+                    })}
+                  >
+                    <Stop
+                      offset="0%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="0"
+                    />
+                    <Stop
+                      offset="50%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="0.5"
+                    />
+                    <Stop
+                      offset="100%"
+                      stopColor={useThemeValue('$bgApp')}
+                      stopOpacity="1"
+                    />
+                  </RadialGradient>
+                </Defs>
+                <Rect
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  fill="url(#grad)"
+                />
+              </Svg>
+            </YStack>
+            <YStack
+              animation="quick"
+              animateOnly={['opacity']}
+              enterStyle={{
+                opacity: 0,
+              }}
+              flex={1}
+              alignItems="center"
+              justifyContent="center"
+              gap="$6"
+            >
+              <YStack w="$16" h="$16">
+                <Image
+                  position="absolute"
+                  $theme-dark={{
+                    opacity: 0.5,
+                  }}
+                  bottom={0}
+                  left="50%"
+                  x="-50%"
+                  y="50%"
+                  source={require('@onekeyhq/kit/assets/onboarding/tiny-shadow-illus.png')}
+                  w={87}
+                  h={49}
+                />
+                <YStack
+                  w="100%"
+                  h="100%"
+                  bg="$bg"
+                  borderRadius="$2"
                   borderCurve="continuous"
                   alignItems="center"
                   justifyContent="center"
-                  borderWidth={1}
-                  borderColor="$borderSubdued"
+                  $platform-web={{
+                    boxShadow:
+                      '0 1px 1px 0 rgba(0, 0, 0, 0.05), 0 0 0 2px rgba(0, 0, 0, 0.10), 0 4px 6px 0 rgba(0, 0, 0, 0.04), 0 24px 68px 0 rgba(0, 0, 0, 0.05), 0 2px 3px 0 rgba(0, 0, 0, 0.04)',
+                  }}
+                  $theme-dark={{
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$borderSubdued',
+                  }}
+                  $platform-native={{
+                    borderWidth: StyleSheet.hairlineWidth,
+                    borderColor: '$borderSubdued',
+                  }}
+                  $platform-android={{ elevation: 1 }}
+                  $platform-ios={{
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 1,
+                  }}
                 >
-                  <AnimatePresence exitBeforeEnter initial={false}>
-                    <YStack
-                      key={`icon-${currentStep}`}
-                      animation="quick"
-                      animateOnly={['transform', 'opacity']}
-                      enterStyle={{
-                        y: 4,
-                        opacity: 0,
-                      }}
-                      exitStyle={{
-                        y: -4,
-                        opacity: 0,
-                      }}
-                    >
-                      <Svg width="48" height="48" viewBox="0 0 48 48">
-                        <Path
-                          d={currentStepData.pathData}
-                          stroke={useThemeValue('$borderDisabled')}
-                          strokeWidth="2"
-                          fill="none"
-                        />
+                  <LinearGradient
+                    colors={['$neutral1', '$neutral4']}
+                    start={{ x: 1, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    w="$14"
+                    h="$14"
+                    borderRadius="$1"
+                    borderCurve="continuous"
+                    alignItems="center"
+                    justifyContent="center"
+                    borderWidth={1}
+                    borderColor="$borderSubdued"
+                  >
+                    <AnimatePresence exitBeforeEnter initial={false}>
+                      <YStack
+                        key={`icon-${currentStep}`}
+                        animation="quick"
+                        animateOnly={['transform', 'opacity']}
+                        enterStyle={{
+                          y: 4,
+                          opacity: 0,
+                        }}
+                        exitStyle={{
+                          y: -4,
+                          opacity: 0,
+                        }}
+                      >
+                        <Svg width="48" height="48" viewBox="0 0 48 48">
+                          <Path
+                            d={currentStepData.pathData}
+                            stroke={useThemeValue('$borderDisabled')}
+                            strokeWidth="2"
+                            fill="none"
+                          />
 
-                        <AnimatedPath
-                          d={currentStepData.pathData}
-                          stroke={useThemeValue('$borderActive')}
-                          fill="none"
-                          stroke-width="2"
-                          stroke-linecap="square"
-                          stroke-linejoin="round"
-                          animatedProps={animatedProps}
-                        />
-                      </Svg>
-                    </YStack>
-                  </AnimatePresence>
-                </LinearGradient>
+                          <AnimatedPath
+                            d={currentStepData.pathData}
+                            stroke={useThemeValue('$borderActive')}
+                            fill="none"
+                            stroke-width="2"
+                            stroke-linecap="square"
+                            stroke-linejoin="round"
+                            animatedProps={animatedProps}
+                          />
+                        </Svg>
+                      </YStack>
+                    </AnimatePresence>
+                  </LinearGradient>
+                </YStack>
               </YStack>
+              <AnimatePresence exitBeforeEnter initial={false}>
+                <SizableText
+                  key={`title-${currentStep}`}
+                  size="$heading2xl"
+                  textAlign="center"
+                  animation="quick"
+                  animateOnly={['transform', 'opacity']}
+                  enterStyle={{
+                    y: 8,
+                    opacity: 0,
+                  }}
+                  exitStyle={{
+                    y: -8,
+                    opacity: 0,
+                  }}
+                >
+                  {currentStepData.title}
+                </SizableText>
+              </AnimatePresence>
             </YStack>
-            <AnimatePresence exitBeforeEnter initial={false}>
-              <SizableText
-                key={`title-${currentStep}`}
-                size="$heading2xl"
-                textAlign="center"
-                animation="quick"
-                animateOnly={['transform', 'opacity']}
-                enterStyle={{
-                  y: 8,
-                  opacity: 0,
-                }}
-                exitStyle={{
-                  y: -8,
-                  opacity: 0,
-                }}
-              >
-                {currentStepData.title}
-              </SizableText>
-            </AnimatePresence>
           </YStack>
         </OnboardingLayout.Body>
       </OnboardingLayout>

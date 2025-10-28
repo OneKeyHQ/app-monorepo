@@ -83,6 +83,7 @@ export default function PickYourDevice() {
                 }}
                 bg="$bgApp"
                 hoverStyle={{ bg: '$bgSubdued' }}
+                pressStyle={{ bg: '$bgActive' }}
                 userSelect="none"
                 gap="$3"
                 group
