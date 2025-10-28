@@ -1,24 +1,13 @@
-import {
-  forwardRef,
-  memo,
-  useCallback,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { forwardRef, memo, useImperativeHandle } from 'react';
 
 import type { IPopoverProps } from '@onekeyhq/components';
 import { GradientMask, ScrollView, XStack } from '@onekeyhq/components';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
+import { useNetworkFilterScroll } from '../../hooks/useNetworkFilterScroll';
+
 import { MoreButton } from './MoreButton';
 import { NetworksFilterItem } from './NetworksFilterItem';
-
-import type {
-  LayoutChangeEvent,
-  ScrollView as ScrollViewType,
-} from 'react-native';
 
 interface ISwapNetworkToggleGroupProps {
   networks: IServerNetwork[];
@@ -28,8 +17,8 @@ interface ISwapNetworkToggleGroupProps {
   placement?: IPopoverProps['placement'];
 }
 
-const LAYOUT_CONSTANTS = {
-  CONTAINER_PADDING: 4, // p="$1" = 4px
+// Layout constants for desktop network filter scrolling
+const DESKTOP_LAYOUT_CONSTANTS = {
   SCROLL_OFFSET_ADJUSTMENT: 20, // Additional offset for scroll positioning
   LEFT_GRADIENT_THRESHOLD: 2, // Minimum scroll distance to show left gradient
 } as const;
@@ -54,91 +43,28 @@ const MarketNetworkFilter = forwardRef<
     },
     ref,
   ) => {
-    const [scrollX, setScrollX] = useState(0);
-    const [scrollViewWidth, setScrollViewWidth] = useState(0);
-    const [contentWidth, setContentWidth] = useState(0);
-    const scrollViewRef = useRef<ScrollViewType>(null);
-    const itemLayoutsRef = useRef<Record<string, { x: number; width: number }>>(
-      {},
-    );
-
-    const shouldShowLeftGradient = useMemo(() => {
-      return scrollX > LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD;
-    }, [scrollX]);
-
-    const allowMoreButton = useMemo(() => {
-      return contentWidth > scrollViewWidth;
-    }, [contentWidth, scrollViewWidth]);
-
-    const adjustedContentWidth = useMemo(() => {
-      return allowMoreButton
-        ? contentWidth + EXTRA_MORE_BUTTON_WIDTH
-        : contentWidth;
-    }, [allowMoreButton, contentWidth]);
-
-    const shouldShowRightGradient = useMemo(() => {
-      return (
-        adjustedContentWidth > scrollViewWidth &&
-        scrollX <
-          adjustedContentWidth -
-            scrollViewWidth -
-            LAYOUT_CONSTANTS.LEFT_GRADIENT_THRESHOLD
-      );
-    }, [adjustedContentWidth, scrollViewWidth, scrollX]);
-
-    const handleLayout = useCallback(
-      (event: LayoutChangeEvent) => {
-        const width = event.nativeEvent.layout.width;
-        setScrollViewWidth((prevWidth) =>
-          prevWidth === width ? prevWidth : width,
-        );
-      },
-      [setScrollViewWidth],
-    );
-
-    const handleContentSizeChange = useCallback(
-      (width: number) => {
-        setContentWidth((prevWidth) =>
-          prevWidth === width ? prevWidth : width,
-        );
-      },
-      [setContentWidth],
-    );
-
-    const handleItemLayout = useCallback(
-      (networkId: string, event: LayoutChangeEvent) => {
-        const { x, width } = event.nativeEvent.layout;
-        itemLayoutsRef.current[networkId] = { x, width };
-      },
-      [],
-    );
+    const {
+      scrollViewRef,
+      shouldShowLeftGradient,
+      shouldShowRightGradient,
+      allowMoreButton,
+      handleLayout,
+      handleContentSizeChange,
+      handleItemLayout,
+      handleScroll,
+      scrollToNetwork,
+    } = useNetworkFilterScroll({
+      layoutConstants: DESKTOP_LAYOUT_CONSTANTS,
+      enableMoreButton: true,
+      moreButtonWidth: EXTRA_MORE_BUTTON_WIDTH,
+    });
 
     useImperativeHandle(
       ref,
       () => ({
-        scrollToNetwork: (networkId: string) => {
-          const layout = itemLayoutsRef.current[networkId];
-          if (!layout || !scrollViewRef.current || scrollViewWidth === 0) {
-            return;
-          }
-
-          const maxScrollX = Math.max(
-            0,
-            adjustedContentWidth - scrollViewWidth,
-          );
-          const itemStart = Math.max(
-            0,
-            layout.x - LAYOUT_CONSTANTS.SCROLL_OFFSET_ADJUSTMENT,
-          );
-          const targetX = Math.max(0, Math.min(itemStart, maxScrollX));
-
-          scrollViewRef.current.scrollTo({
-            x: targetX,
-            animated: true,
-          });
-        },
+        scrollToNetwork,
       }),
-      [adjustedContentWidth, scrollViewWidth],
+      [scrollToNetwork],
     );
 
     return (
@@ -159,10 +85,7 @@ const MarketNetworkFilter = forwardRef<
             ref={scrollViewRef}
             horizontal
             showsHorizontalScrollIndicator={false}
-            onScroll={(event) => {
-              const currentScrollX = event.nativeEvent.contentOffset.x;
-              setScrollX(currentScrollX);
-            }}
+            onScroll={handleScroll}
             scrollEventThrottle={16}
             onLayout={handleLayout}
             onContentSizeChange={handleContentSizeChange}
