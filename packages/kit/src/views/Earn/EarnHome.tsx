@@ -11,7 +11,6 @@ import type {
 } from '@onekeyhq/components';
 import {
   Badge,
-  Banner,
   Button,
   Empty,
   Icon,
@@ -51,6 +50,7 @@ import {
 } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 import { EAvailableAssetsTypeEnum } from '@onekeyhq/shared/types/earn';
 import type { IRecommendAsset } from '@onekeyhq/shared/types/staking';
@@ -71,18 +71,14 @@ import {
   AvailableAssetsTabViewList,
   AvailableAssetsTabViewListMobile,
 } from './components/AvailableAssetsTabViewList';
+import { BannerV2 } from './components/BannerV2';
 import { FAQPanel } from './components/FAQPanel';
 import { showProtocolListDialog } from './components/showProtocolListDialog';
-import { EARN_PAGE_MAX_WIDTH, EARN_RIGHT_PANEL_WIDTH } from './EarnConfig';
+import { EARN_PAGE_MAX_WIDTH } from './EarnConfig';
 import { EarnProviderMirror } from './EarnProviderMirror';
 import { EarnNavigation } from './earnUtils';
 
 import type { LayoutChangeEvent } from 'react-native';
-
-const BANNER_TITLE_OFFSET = {
-  desktop: '$5',
-  mobile: '$10',
-};
 
 const useAllNetworkId = () => useMemo(() => getNetworkIdsMap().onekeyall, []);
 const getNumberColor = (
@@ -287,7 +283,7 @@ function RecommendedContainer({ children }: PropsWithChildren) {
   return (
     <YStack
       gap="$3"
-      px="$0"
+      px="$5"
       $md={
         platformEnv.isNative
           ? {
@@ -503,13 +499,6 @@ function Overview({
         flexWrap: 'wrap',
         flex: 1,
         gap: '$8',
-        p: '$8',
-        bg: '$bg',
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: '$borderSubdued',
-        borderRadius: '$3',
-        borderCurve: 'continuous',
-        elevation: 0.5,
       }}
     >
       {/* total value */}
@@ -673,6 +662,180 @@ function EarnBlockedOverview(props: {
         />
       </Page.Body>
     </Page>
+  );
+}
+
+const renderEarnTabBar = (props: any, containerStyle?: any) => (
+  <Tabs.TabBar {...props} containerStyle={containerStyle} />
+);
+
+const PortfolioTabContent = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const onPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.StakingModal, {
+      screen: EModalStakingRoutes.InvestmentDetails,
+    });
+  }, [navigation]);
+
+  return (
+    <YStack gap="$4" py="$4">
+      <YStack
+        gap="$4"
+        p="$5"
+        borderRadius="$3"
+        bg="$bg"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderCurve="continuous"
+        alignItems="center"
+      >
+        <SizableText size="$bodyLg" color="$textSubdued" textAlign="center">
+          {intl.formatMessage({ id: ETranslations.earn_portfolio_details })}
+        </SizableText>
+        <Button onPress={onPress} variant="primary">
+          {intl.formatMessage({ id: ETranslations.global_details })}
+        </Button>
+      </YStack>
+    </YStack>
+  );
+};
+
+function ProtocolsTabContentMobile({
+  assetTabData,
+  handleTokenPress,
+}: {
+  assetTabData: Array<{ title: string; type: EAvailableAssetsTypeEnum }>;
+  handleTokenPress: (params: {
+    networkId: string;
+    accountId: string;
+    indexedAccountId?: string;
+    symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
+  }) => Promise<void>;
+}) {
+  return (
+    <>
+      <YStack px="$5" pt="$6" gap="$8">
+        <Recommended />
+      </YStack>
+      <Tabs.Container
+        renderTabBar={(subProps) =>
+          renderEarnTabBar(subProps, { px: '$5', pt: '$4' })
+        }
+      >
+        {assetTabData.map((item) => (
+          <Tabs.Tab name={item.title} key={item.type}>
+            <Tabs.ScrollView>
+              <AvailableAssetsTabViewListMobile
+                onTokenPress={handleTokenPress}
+                assetType={item.type}
+              />
+            </Tabs.ScrollView>
+          </Tabs.Tab>
+        ))}
+      </Tabs.Container>
+    </>
+  );
+}
+
+// Protocols Tab Content for Desktop
+function ProtocolsTabContentDesktop({
+  handleTokenPress,
+}: {
+  handleTokenPress: (params: {
+    networkId: string;
+    accountId: string;
+    indexedAccountId?: string;
+    symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
+  }) => Promise<void>;
+}) {
+  return (
+    <YStack pt="$6" gap="$8">
+      <Recommended />
+      <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
+    </YStack>
+  );
+}
+
+function EarnMainTabs({
+  isMobile,
+  assetTabData,
+  handleTokenPress,
+  faqList,
+  isFaqLoading = false,
+  isLoading,
+  refreshOverViewData,
+  containerProps,
+}: {
+  isMobile: boolean;
+  assetTabData: Array<{ title: string; type: EAvailableAssetsTypeEnum }>;
+  handleTokenPress: (params: {
+    networkId: string;
+    accountId: string;
+    indexedAccountId?: string;
+    symbol: string;
+    protocols: IEarnAvailableAssetProtocol[];
+  }) => Promise<void>;
+  faqList: Array<{ question: string; answer: string }>;
+  isFaqLoading?: boolean;
+  isLoading?: boolean;
+  refreshOverViewData?: () => void;
+  containerProps?: any;
+}) {
+  const intl = useIntl();
+
+  const refreshControl =
+    isMobile && refreshOverViewData && isLoading !== undefined ? (
+      <RefreshControl refreshing={isLoading} onRefresh={refreshOverViewData} />
+    ) : undefined;
+
+  const WrapperComponent = isMobile ? Tabs.ScrollView : YStack;
+  const wrapperProps = isMobile
+    ? { refreshControl }
+    : { pt: '$6' as const, gap: '$8' as const };
+
+  return (
+    <Tabs.Container
+      renderTabBar={(props) => renderEarnTabBar(props)}
+      {...containerProps}
+    >
+      <Tabs.Tab
+        name={intl.formatMessage({
+          id: ETranslations.earn_available_assets,
+        })}
+      >
+        {isMobile ? (
+          <Tabs.ScrollView refreshControl={refreshControl}>
+            <ProtocolsTabContentMobile
+              assetTabData={assetTabData}
+              handleTokenPress={handleTokenPress}
+            />
+          </Tabs.ScrollView>
+        ) : (
+          <ProtocolsTabContentDesktop handleTokenPress={handleTokenPress} />
+        )}
+      </Tabs.Tab>
+      <Tabs.Tab
+        name={intl.formatMessage({
+          id: ETranslations.earn_portfolio,
+        })}
+      >
+        <WrapperComponent {...wrapperProps}>
+          <YStack px="$5">
+            <PortfolioTabContent />
+          </YStack>
+        </WrapperComponent>
+      </Tabs.Tab>
+      <Tabs.Tab name={intl.formatMessage({ id: ETranslations.global_faqs })}>
+        <WrapperComponent {...wrapperProps}>
+          <YStack px="$5">
+            <FAQPanel faqList={faqList} isLoading={isFaqLoading} />
+          </YStack>
+        </WrapperComponent>
+      </Tabs.Tab>
+    </Tabs.Container>
   );
 }
 
@@ -848,20 +1011,7 @@ function BasicEarnHome() {
   );
 
   const onBannerPress = useCallback(
-    async ({
-      hrefType,
-      href,
-    }: {
-      imgUrl: string;
-      title: string;
-      bannerId: string;
-      src: string;
-      href: string;
-      hrefType: string;
-      rank: number;
-      useSystemBrowser: boolean;
-      theme?: 'light' | 'dark';
-    }) => {
+    async ({ hrefType, href }: IDiscoveryBanner) => {
       if (account || indexedAccount) {
         if (href.includes('/defi/staking')) {
           const [path, query] = href.split('?');
@@ -920,78 +1070,15 @@ function BasicEarnHome() {
     [account, accountSelectorActions, indexedAccount, navigation],
   );
 
-  const banners = useMemo(() => {
-    // Only show skeleton if earnBanners is undefined
-    const shouldShowSkeleton = earnBanners === undefined;
-
-    if (earnBanners) {
-      return earnBanners.length ? (
-        <Banner
-          height="$36"
-          $md={{
-            height: '$28',
-          }}
-          data={earnBanners}
-          onItemPress={onBannerPress}
-          isLoading={false}
-          itemTitleContainerStyle={{
-            top: 0,
-            bottom: 0,
-            right: '$5',
-            left: media.gtLg
-              ? BANNER_TITLE_OFFSET.desktop
-              : BANNER_TITLE_OFFSET.mobile,
-            justifyContent: 'center',
-          }}
-        />
-      ) : null;
-    }
-
-    if (shouldShowSkeleton) {
-      return (
-        <Skeleton
-          height="$36"
-          $md={{
-            height: '$28',
-          }}
-          width="100%"
-        />
-      );
-    }
-
-    return null;
-  }, [earnBanners, media.gtLg, onBannerPress]);
+  const banners = useMemo(
+    () => <BannerV2 data={earnBanners} onBannerPress={onBannerPress} />,
+    [earnBanners, onBannerPress],
+  );
 
   const isLoading = !!isFetchingAccounts;
-
-  const faqPanel = useMemo(() => {
-    // Only show loading if we have no data
-    const shouldShowLoading =
-      isFaqLoading && (!faqList || faqList.length === 0);
-    return <FAQPanel faqList={faqList || []} isLoading={shouldShowLoading} />;
-  }, [faqList, isFaqLoading]);
-
-  const gtLgFaqPanel = useMemo(() => {
-    return media.gtLg && (isFaqLoading || faqList.length > 0) ? (
-      <YStack
-        gap="$6"
-        py="$4"
-        px="$5"
-        borderRadius="$3"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        borderCurve="continuous"
-        $gtMd={{
-          w: EARN_RIGHT_PANEL_WIDTH,
-        }}
-      >
-        {faqPanel}
-      </YStack>
-    ) : null;
-  }, [media.gtLg, isFaqLoading, faqList.length, faqPanel]);
   const intl = useIntl();
 
-  const tabData = useMemo(
+  const assetTabData = useMemo(
     () => [
       {
         title: intl.formatMessage({ id: ETranslations.global_all }),
@@ -1036,105 +1123,42 @@ function BasicEarnHome() {
       <Page fullPage>
         <Page.Body>
           <Stack h={tabPageHeight} />
-          <Tabs.Container
-            allowHeaderOverscroll
-            renderHeader={() => (
-              <YStack
-                flex={1}
-                gap="$4"
-                pt="$5"
-                bg="$bgApp"
-                pointerEvents="box-none"
-              >
-                {/* overview and banner */}
-                <YStack gap="$8">
-                  <Overview
-                    onRefresh={refreshOverViewData}
-                    isLoading={isLoading}
-                  />
-                  {banners ? (
-                    <YStack
-                      px="$5"
-                      minHeight="$36"
-                      $md={{
-                        minHeight: '$28',
-                      }}
-                      borderRadius="$3"
-                      width="100%"
-                      borderCurve="continuous"
-                    >
-                      {banners}
+          <EarnMainTabs
+            isMobile
+            assetTabData={assetTabData}
+            handleTokenPress={handleTokenPress}
+            faqList={faqList || []}
+            isFaqLoading={isFaqLoading}
+            isLoading={isLoading}
+            refreshOverViewData={refreshOverViewData}
+            containerProps={{
+              // eslint-disable-next-line spellcheck/spell-checker
+              allowHeaderOverscroll: true,
+              renderHeader: () => (
+                <YStack gap="$4" pt="$6" bg="$bgApp" pointerEvents="box-none">
+                  <YStack gap="$7.5">
+                    <YStack px="$5">
+                      <Overview
+                        onRefresh={refreshOverViewData}
+                        isLoading={isLoading}
+                      />
                     </YStack>
-                  ) : null}
-                </YStack>
-                {/* Recommended, available assets and introduction */}
-                <YStack px="$5" gap="$8">
-                  <YStack pt="$3.5" gap="$8">
-                    <Recommended />
+                    {banners ? (
+                      <YStack
+                        minHeight="$36"
+                        $md={{
+                          minHeight: '$28',
+                        }}
+                        width="100%"
+                      >
+                        {banners}
+                      </YStack>
+                    ) : null}
                   </YStack>
-                  {/* FAQ Panel */}
-                  {banners ? gtLgFaqPanel : null}
                 </YStack>
-                <SizableText
-                  mx="$5"
-                  pb="$4"
-                  size="$headingLg"
-                  pointerEvents="box-none"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.earn_available_assets,
-                  })}
-                </SizableText>
-              </YStack>
-            )}
-            renderTabBar={(props) => (
-              <Tabs.TabBar
-                {...props}
-                containerStyle={{
-                  px: '$5',
-                }}
-                divider={false}
-                renderItem={({ name, isFocused, onPress }) => (
-                  <XStack
-                    px="$2"
-                    py="$1.5"
-                    mr="$1"
-                    bg={isFocused ? '$bgActive' : '$bg'}
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                    onPress={() => onPress(name)}
-                  >
-                    <SizableText
-                      size="$bodyMdMedium"
-                      color={isFocused ? '$text' : '$textSubdued'}
-                      letterSpacing={-0.15}
-                    >
-                      {name}
-                    </SizableText>
-                  </XStack>
-                )}
-              />
-            )}
-          >
-            {tabData.map((item) => (
-              <Tabs.Tab name={item.title} key={item.type}>
-                <Tabs.ScrollView
-                  refreshControl={
-                    <RefreshControl
-                      refreshing={isLoading}
-                      onRefresh={refreshOverViewData}
-                    />
-                  }
-                >
-                  <AvailableAssetsTabViewListMobile
-                    onTokenPress={handleTokenPress}
-                    assetType={item.type}
-                    faqList={faqList}
-                  />
-                </Tabs.ScrollView>
-              </Tabs.Tab>
-            ))}
-          </Tabs.Container>
+              ),
+            }}
+          />
           {platformEnv.isNative ? (
             <YStack
               position="absolute"
@@ -1166,7 +1190,7 @@ function BasicEarnHome() {
       </TabPageHeader>
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ py: '$5' }}
+          contentContainerStyle={{ py: '$6' }}
           refreshControl={
             <RefreshControl
               refreshing={isLoading}
@@ -1183,20 +1207,19 @@ function BasicEarnHome() {
           >
             <YStack flex={1} gap="$4">
               {/* overview and banner */}
-              <YStack
-                gap="$8"
-                $gtLg={{
-                  px: '$5',
-                  flexDirection: 'row',
-                }}
-              >
-                <Overview
-                  onRefresh={refreshOverViewData}
-                  isLoading={isLoading}
-                />
+              <YStack gap="$8">
+                <YStack
+                  $gtLg={{
+                    px: '$5',
+                  }}
+                >
+                  <Overview
+                    onRefresh={refreshOverViewData}
+                    isLoading={isLoading}
+                  />
+                </YStack>
                 {banners ? (
                   <YStack
-                    px="$5"
                     minHeight="$36"
                     $md={{
                       minHeight: '$28',
@@ -1204,47 +1227,21 @@ function BasicEarnHome() {
                     borderRadius="$3"
                     width="100%"
                     borderCurve="continuous"
-                    $gtLg={{
-                      px: '$0',
-                      w: EARN_RIGHT_PANEL_WIDTH,
-                    }}
                   >
                     {banners}
                   </YStack>
                 ) : null}
               </YStack>
-              {/* Recommended, available assets and introduction */}
-              <YStack
-                px="$5"
-                gap="$8"
-                $gtLg={{
-                  flexDirection: 'row',
-                  alignItems: 'flex-start',
-                }}
-              >
-                <YStack
-                  pt="$3.5"
-                  gap="$8"
-                  $gtLg={{
-                    flex: 1,
-                  }}
-                >
-                  <Recommended />
-                  <AvailableAssetsTabViewList onTokenPress={handleTokenPress} />
-                </YStack>
-                {/* FAQ Panel */}
-                {banners ? gtLgFaqPanel : null}
+              <YStack pt="$3.5">
+                <EarnMainTabs
+                  isMobile={false}
+                  assetTabData={assetTabData}
+                  handleTokenPress={handleTokenPress}
+                  faqList={faqList || []}
+                  isFaqLoading={isFaqLoading}
+                />
               </YStack>
-              {banners &&
-              (media.gtLg || (faqList.length === 0 && !isFaqLoading)) ? null : (
-                <YStack mt="$1" px="$4" py="$4">
-                  {faqPanel}
-                </YStack>
-              )}
             </YStack>
-            {media.gtLg && !banners ? (
-              <YStack mr="$5">{gtLgFaqPanel}</YStack>
-            ) : null}
           </YStack>
         </ScrollView>
       </Page.Body>
