@@ -75,13 +75,6 @@ const settings: IVaultSettings = {
       genesisHash:
         '0x9eb76c5184c4ab8679d2d5d819fdf90b9c001403e9e17da2e14b6d8aec4029c6',
     },
-    'dot--kusama': {
-      curve: 'ed25519',
-      addressPrefix: '2',
-      nativeTokenAddress: 'KSM',
-      genesisHash:
-        '0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe',
-    },
     'dot--manta': {
       curve: 'ed25519',
       addressPrefix: '77',
