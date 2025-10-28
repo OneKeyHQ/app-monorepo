@@ -99,13 +99,10 @@ ipcRenderer.on(
   (
     _,
     globals: {
-      preloadJsUrl: string;
+      sdkConnectSrc: string;
     },
   ) => {
-    // for DesktopWebView:
-    //    const { preloadJsUrl } = window.ONEKEY_DESKTOP_GLOBALS;
     globalThis.ONEKEY_DESKTOP_GLOBALS = globals;
-    // contextBridge.exposeInMainWorld('ONEKEY_DESKTOP_GLOBALS', globals);
   },
 );
 

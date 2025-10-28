@@ -5,8 +5,8 @@ import RNRestart from 'react-native-restart';
 import { useThrottledCallback } from 'use-debounce';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { defaultLogger } from '../../logger/logger';
 import RNFS from '../react-native-fs';
 
 import type {
@@ -292,6 +292,7 @@ export const BundleUpdate: IBundleUpdate = {
   downloadBundleASC: (params) => BundleUpdateModule.downloadBundleASC(params),
   installBundle: async (params) => {
     await BundleUpdateModule.installBundle(params);
+    defaultLogger.app.appUpdate.restartRNApp();
     setTimeout(() => {
       RNRestart.restart();
     }, 2500);

@@ -3,7 +3,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Tabs, YStack } from '@onekeyhq/components';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -41,7 +40,6 @@ function DesktopInformationTabsHeader(props: TabBarProps<string>) {
 export function DesktopInformationTabs() {
   const intl = useIntl();
   const { tokenAddress, networkId, tokenDetail } = useTokenDetail();
-  const networkIdsMap = getNetworkIdsMap();
   const { handleTabChange } = useBottomTabAnalytics();
 
   const holdersTabName = useMemo(() => {
@@ -79,11 +77,9 @@ export function DesktopInformationTabs() {
         />
       </Tabs.Tab>
 
-      {networkId === networkIdsMap.sol ? (
-        <Tabs.Tab name={holdersTabName}>
-          <Holders tokenAddress={tokenAddress} networkId={networkId} />
-        </Tabs.Tab>
-      ) : null}
+      <Tabs.Tab name={holdersTabName}>
+        <Holders tokenAddress={tokenAddress} networkId={networkId} />
+      </Tabs.Tab>
     </Tabs.Container>
   );
 }
