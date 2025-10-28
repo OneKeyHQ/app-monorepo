@@ -758,7 +758,6 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
             if (currentFolderName != null && !currentFolderName.isEmpty()) {
                 String currentAppVersion = currentFolderName.split("-")[0];
                 String currentBundleVersion = currentFolderName.split("-")[1];
-                SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 log("installBundle", "fallbackUpdateBundleData signature: " + currentSignature);
                 fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", currentSignature));
             }
