@@ -18,13 +18,13 @@ import {
   EChainSelectorPages,
   type IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
 import { PureChainSelector } from '../components/PureChainSelector';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
