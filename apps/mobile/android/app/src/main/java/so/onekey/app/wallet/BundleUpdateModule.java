@@ -761,6 +761,7 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
                 String currentBundleVersion = currentFolderName.split("-")[1];
                 SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 signature = prefs.getString(currentBundleVersion, "");
+                log("installBundle", "fallbackUpdateBundleData signature: " + signature);
                 fallbackUpdateBundleData.add(Map.of("appVersion", currentAppVersion, "bundleVersion", currentBundleVersion, "signature", signature));
                 prefs.edit().remove(currentBundleVersion).apply();
             }
