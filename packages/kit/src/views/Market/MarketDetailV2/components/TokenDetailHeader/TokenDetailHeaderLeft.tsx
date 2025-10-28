@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/marketV2';
 
@@ -64,9 +65,20 @@ export function TokenDetailHeaderLeft({
     />
   ) : null;
 
+  const shareButton =
+    networkId && isNative && platformEnv.isWeb ? (
+      <ShareButton
+        networkId={networkId}
+        address={address}
+        isNative={isNative}
+        useIconButton
+      />
+    ) : null;
+
   return (
-    <XStack ai="center" gap="$2">
+    <XStack ai="center" gap="$3">
       {marketStar}
+      {shareButton}
 
       <Token
         size="md"
