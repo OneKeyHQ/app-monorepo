@@ -98,24 +98,25 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
 };
 
 let runOnce = false;
-const usePreloadTabs = false
-  ? () => {}
-  : () => {
-      const navigation = useNavigation();
-      useEffect(() => {
-        if (runOnce) {
-          return;
-        }
-        runOnce = true;
-        setTimeout(async () => {
-          await Promise.race([
-            new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-            whenAppUnlocked(),
-          ]);
-          preloadTabs(navigation as NavigationProp<any>);
-        });
-      }, [navigation]);
-    };
+const usePreloadTabs =
+  platformEnv.isDev || platformEnv.isNative
+    ? () => {}
+    : () => {
+        const navigation = useNavigation();
+        useEffect(() => {
+          if (runOnce) {
+            return;
+          }
+          runOnce = true;
+          setTimeout(async () => {
+            await Promise.race([
+              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+              whenAppUnlocked(),
+            ]);
+            preloadTabs(navigation as NavigationProp<any>);
+          });
+        }, [navigation]);
+      };
 
 // When using navigation.preload, the web layer will re-render the interface with sidebar,
 // which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.
