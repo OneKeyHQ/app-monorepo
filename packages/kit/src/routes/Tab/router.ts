@@ -240,6 +240,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
               translationId: ETranslations.global_device,
               tabbarOnPress: toMyOneKeyModal,
               children: null,
+              inMoreAction: true,
               trackId: 'global-my-onekey',
             }
           : undefined,
