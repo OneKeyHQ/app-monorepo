@@ -19,14 +19,20 @@ const Stack = createStackNavigator();
 function BasicTabSubStackNavigator({
   config,
 }: {
-  config: ITabSubNavigatorConfig<string, any>[];
+  config: ITabSubNavigatorConfig<string, any>[] | null;
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
+
+  // Handle null config case - return null to avoid creating empty Stack.Navigator
+  if (!config || config.length === 0) {
+    return null;
+  }
+
   return (
     <Stack.Navigator>
       {config
-        ?.filter(({ disable }) => !disable)
+        .filter(({ disable }) => !disable)
         .map(({ name, component, translationId, headerShown = true }) => (
           <Stack.Screen
             key={name}
