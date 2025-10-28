@@ -302,7 +302,7 @@ function SelectTokenPopoverContent({
       >
         <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
           {intl.formatMessage({ id: ETranslations.dexmarket_switch_to_trade })}
-          <SizableText fontWeight="bold">
+          <SizableText fontWeight="bold" color="$textSuccess">
             {intl.formatMessage({ id: ETranslations.global_trade })}
           </SizableText>
         </SizableText>
