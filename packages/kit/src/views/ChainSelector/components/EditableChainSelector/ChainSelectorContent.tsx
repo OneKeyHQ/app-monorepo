@@ -424,7 +424,9 @@ export const EditableChainSelectorContent = ({
 
       let offset = 0;
 
-      if (initialScrollIndex.sectionIndex !== 0) {
+      if (initialScrollIndex.sectionIndex === 0) {
+        offset = CELL_HEIGHT * (initialScrollIndex.itemIndex ?? 0);
+      } else {
         const index = layoutList.findIndex(
           (item) => item.sectionIndex === initialScrollIndex.sectionIndex,
         );
