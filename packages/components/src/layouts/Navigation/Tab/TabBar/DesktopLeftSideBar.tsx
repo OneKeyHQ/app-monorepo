@@ -72,6 +72,7 @@ function TabItemView({
     onPressWhenSelected?: () => void;
     trackId?: string;
     collapseTabBarLabel?: string;
+    hideOnTabBar?: boolean;
   };
   isCollapse?: boolean;
 }) {
@@ -97,56 +98,57 @@ function TabItemView({
   );
 
   const contentMemo = useMemo(
-    () => (
-      <YStack
-        ai={isCollapse ? 'center' : undefined}
-        gap={isCollapse ? '$0.5' : undefined}
-        pt={isCollapse ? 6 : undefined}
-        pb={isCollapse ? 6 : undefined}
-        onPress={handlePress}
-        onHoverIn={() => {
-          if (isCollapse) {
-            setIsContainerHovered(true);
-          }
-        }}
-        onHoverOut={() => {
-          if (isCollapse) {
-            setIsContainerHovered(false);
-          }
-        }}
-      >
-        <DesktopTabItem
-          isContainerHovered={isCollapse ? isContainerHovered : false}
+    () =>
+      options.hideOnTabBar ? null : (
+        <YStack
+          ai={isCollapse ? 'center' : undefined}
+          gap={isCollapse ? '$0.5' : undefined}
+          pt={isCollapse ? 6 : undefined}
+          pb={isCollapse ? 6 : undefined}
           onPress={handlePress}
-          onPressWhenSelected={options.onPressWhenSelected}
-          trackId={options.trackId}
-          aria-current={isActive ? 'page' : undefined}
-          selected={isActive}
-          shortcutKey={options.shortcutKey}
-          tabBarStyle={[
-            options.tabBarStyle,
-            isCollapse ? { width: 36 } : undefined,
-          ]}
-          // @ts-expect-error
-          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-          label={
-            (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
-          }
-          actionList={options.actionList}
-          testID={route.name.toLowerCase()}
-        />
-        {isCollapse ? (
-          <SizableText
-            size="$bodyXsMedium"
-            cursor="default"
-            color="$text"
-            textAlign="center"
-          >
-            {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
-          </SizableText>
-        ) : null}
-      </YStack>
-    ),
+          onHoverIn={() => {
+            if (isCollapse) {
+              setIsContainerHovered(true);
+            }
+          }}
+          onHoverOut={() => {
+            if (isCollapse) {
+              setIsContainerHovered(false);
+            }
+          }}
+        >
+          <DesktopTabItem
+            isContainerHovered={isCollapse ? isContainerHovered : false}
+            onPress={handlePress}
+            onPressWhenSelected={options.onPressWhenSelected}
+            trackId={options.trackId}
+            aria-current={isActive ? 'page' : undefined}
+            selected={isActive}
+            shortcutKey={options.shortcutKey}
+            tabBarStyle={[
+              options.tabBarStyle,
+              isCollapse ? { width: 36 } : undefined,
+            ]}
+            // @ts-expect-error
+            icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+            label={
+              (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
+            }
+            actionList={options.actionList}
+            testID={route.name.toLowerCase()}
+          />
+          {isCollapse ? (
+            <SizableText
+              size="$bodyXsMedium"
+              cursor="default"
+              color="$text"
+              textAlign="center"
+            >
+              {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
+            </SizableText>
+          ) : null}
+        </YStack>
+      ),
     [
       handlePress,
       isActive,

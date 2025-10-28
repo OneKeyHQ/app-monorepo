@@ -109,6 +109,7 @@ export function TabStackNavigator<RouteName extends string>({
           collapseTabBarLabel: options.collapseSideBarTranslationId
             ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
             : undefined,
+          hideOnTabBar: options.hideOnTabBar,
           tabbarOnPress: options.tabbarOnPress,
         }}
       >

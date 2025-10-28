@@ -122,6 +122,7 @@ function MarketHome() {
 }
 
 export function MarketHomeV2() {
+  console.log('MarketHomeV2', 3333);
   return (
     <AccountSelectorProviderMirror
       config={{

@@ -41,17 +41,21 @@ const useIsIOSTabNavigatorFocused =
 
 const preloadTab = (
   navigation: NavigationProp<any>,
-  route: string,
-  screen: string,
+  route: string | undefined,
+  screen: string | undefined,
   timeout: number,
 ) => {
   setTimeout(() => {
-    navigation.preload(ERootRoutes.Main, {
-      screen: route,
-      params: {
-        screen,
-      },
-    });
+    if (route && screen) {
+      navigation.preload(ERootRoutes.Main, {
+        screen: route,
+        params: {
+          screen,
+        },
+      });
+    } else {
+      navigation.preload(ERootRoutes.Main);
+    }
   }, timeout);
 };
 
@@ -76,7 +80,7 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
     ETabSwapRoutes.TabSwap,
     (timeout += gap),
   );
-  preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
+  // preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
   preloadTab(
     navigation,
     ETabRoutes.Discovery,
@@ -87,25 +91,30 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
     navigation,
     ETabRoutes.Home,
     ETabHomeRoutes.TabHome,
-    (timeout += 2500),
+    (timeout += gap),
   );
+  preloadTab(navigation, undefined, undefined, (timeout += gap));
 };
 
-const usePreloadTabs =
-  platformEnv.isDev || platformEnv.isNative
-    ? () => {}
-    : () => {
-        const navigation = useNavigation();
-        useEffect(() => {
-          setTimeout(async () => {
-            await Promise.race([
-              new Promise<void>((resolve) => setTimeout(resolve, 1200)),
-              whenAppUnlocked(),
-            ]);
-            preloadTabs(navigation as NavigationProp<any>);
-          });
-        }, [navigation]);
-      };
+let runOnce = false;
+const usePreloadTabs = false
+  ? () => {}
+  : () => {
+      const navigation = useNavigation();
+      useEffect(() => {
+        if (runOnce) {
+          return;
+        }
+        runOnce = true;
+        setTimeout(async () => {
+          await Promise.race([
+            new Promise<void>((resolve) => setTimeout(resolve, 1200)),
+            whenAppUnlocked(),
+          ]);
+          preloadTabs(navigation as NavigationProp<any>);
+        });
+      }, [navigation]);
+    };
 
 // When using navigation.preload, the web layer will re-render the interface with sidebar,
 // which may cause duplicate Portal rendering. Use isRendered to prevent duplicate Portal rendering.

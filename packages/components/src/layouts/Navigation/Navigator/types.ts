@@ -47,6 +47,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   tabbarOnPress?: () => void;
   onPressWhenSelected?: () => void;
   trackId?: string;
+  hideOnTabBar?: boolean;
 }
 
 export interface ICommonNavigatorConfig<

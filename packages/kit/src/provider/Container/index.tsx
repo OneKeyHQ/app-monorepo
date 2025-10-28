@@ -1,3 +1,4 @@
+import { useRoute } from '@react-navigation/core';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
@@ -42,11 +43,17 @@ function GlobalRootAppNavigationUpdate() {
   return null;
 }
 
+function TestContainer() {
+  console.log('TestContainer', 1111);
+  return null;
+}
+
 export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
         <NavigationContainer>
+          <TestContainer />
           <InAppNotification />
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />

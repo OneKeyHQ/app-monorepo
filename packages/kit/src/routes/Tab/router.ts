@@ -15,16 +15,10 @@ import {
   useIsGtMdNonNative,
   useToMyOneKeyModalByRootNavigation,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
-import {
-  usePerpsCommonConfigPersistAtom,
-  usePerpsUserConfigPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
-import { EPerpUserType } from '@onekeyhq/shared/types/hyperliquid';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { useToReferFriendsModalByRootNavigation } from '../../hooks/useReferFriends';
 import { developerRouters } from '../../views/Developer/router';
@@ -216,22 +210,20 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           trackId: 'global-earn',
         },
         // In non-DAPP mode, show ReferFriends in more actions
-        !isWebDappMode && isGtMdNonNative
-          ? {
-              ...referFriendsTabConfig,
-              inMoreAction: true,
-            }
-          : undefined,
-        isGtMdNonNative
-          ? {
-              name: ETabRoutes.DeviceManagement,
-              tabBarIcon: () => 'OnekeyDeviceCustom',
-              translationId: ETranslations.global_device,
-              tabbarOnPress: toMyOneKeyModal,
-              children: null,
-              trackId: 'global-my-onekey',
-            }
-          : undefined,
+        !isWebDappMode && {
+          ...referFriendsTabConfig,
+          inMoreAction: true,
+          hideOnTabBar: !isGtMdNonNative,
+        },
+        {
+          name: ETabRoutes.DeviceManagement,
+          tabBarIcon: () => 'OnekeyDeviceCustom',
+          translationId: ETranslations.global_device,
+          tabbarOnPress: toMyOneKeyModal,
+          children: null,
+          trackId: 'global-my-onekey',
+          hideOnTabBar: !isGtMdNonNative,
+        },
         isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev
           ? {
@@ -267,12 +259,12 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       ].filter((i) => !!i),
     [
       isWebDappMode,
-      isGtMdNonNative,
       referFriendsTabConfig,
       params,
       shouldShowMarketTab,
       handleMarketTabPress,
       perpTabShowRes,
+      isGtMdNonNative,
       toMyOneKeyModal,
       isShowMDDiscover,
       isShowDesktopDiscover,
