@@ -11,7 +11,6 @@ import {
   TabStackNavigator,
   useMedia,
 } from '@onekeyhq/components';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   ERootRoutes,
@@ -139,11 +138,14 @@ const useCheckTabsChangedInDev = platformEnv.isDev
       const previousConfig = useRef(config.map((item) => item.name));
       useEffect(() => {
         const keys = config.map((item) => item.name);
+        console.log('keys', keys);
+        console.log('previousConfig.current', previousConfig.current);
         if (
           keys.length !== previousConfig.current.length ||
-          keys.every((item) => previousConfig.current.includes(item))
+          keys.every((item) => !previousConfig.current.includes(item))
         ) {
-          throw new OneKeyLocalError('tabs changed, please check the config');
+          // eslint-disable-next-line no-restricted-syntax
+          throw new Error('tabs changed, please check the config');
         }
         previousConfig.current = keys;
       }, [config]);
