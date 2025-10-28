@@ -132,11 +132,12 @@ function HomeOverviewContainer() {
       (account.id === accountWorth.accountId ||
         account.indexedAccountId === accountWorth.accountId)
     ) {
+      let accountValueId = '';
       if (accountUtils.isOthersAccount({ accountId: account.id })) {
         if (!network.isAllNetworks && account.createAtNetwork !== network.id)
           return;
 
-        const accountValueId = account.id;
+        accountValueId = account.id;
 
         void backgroundApiProxy.serviceAccountProfile.updateAccountValue({
           accountId: accountValueId,
@@ -145,34 +146,36 @@ function HomeOverviewContainer() {
           shouldUpdateActiveAccountValue: true,
         });
       } else {
-        const accountValueId = account.indexedAccountId as string;
-        if (!network.isAllNetworks) {
-          void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
-            {
-              accountId: accountValueId,
-              value:
-                accountWorth.worth[
-                  accountUtils.buildAccountValueKey({
-                    accountId: account.id,
-                    networkId: network.id,
-                  })
-                ],
-              currency: settings.currencyInfo.id,
-            },
-          );
-        }
+        accountValueId = account.indexedAccountId as string;
+      }
 
-        void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+      if (!network.isAllNetworks) {
+        void backgroundApiProxy.serviceAccountProfile.updateAccountValueForSingleNetwork(
           {
             accountId: accountValueId,
-            value: accountWorth.worth,
+            value:
+              accountWorth.worth[
+                accountUtils.buildAccountValueKey({
+                  accountId: account.id,
+                  networkId: network.id,
+                })
+              ],
             currency: settings.currencyInfo.id,
           },
         );
       }
+
+      void backgroundApiProxy.serviceAccountProfile.updateAllNetworkAccountValue(
+        {
+          accountId: accountValueId,
+          value: accountWorth.worth,
+          currency: settings.currencyInfo.id,
+        },
+      );
     }
   }, [
     account,
+    accountWorth,
     accountWorth.accountId,
     accountWorth.createAtNetworkWorth,
     accountWorth.initialized,

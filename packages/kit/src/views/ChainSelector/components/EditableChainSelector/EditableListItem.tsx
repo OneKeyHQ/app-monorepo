@@ -8,7 +8,7 @@ import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
-import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
+import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EditableChainSelectorContext } from './context';
@@ -93,21 +93,12 @@ export const EditableListItem = ({
   const intl = useIntl();
   const {
     isEditMode,
-    walletId,
     networkId,
-    indexedAccountId,
     onPressItem,
     onEditCustomNetwork,
     accountNetworkValues,
     accountNetworkValueCurrency,
   } = useContext(EditableChainSelectorContext);
-
-  const { enabledNetworksCompatibleWithWalletId } =
-    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
-      walletId,
-      networkId: item.id,
-      indexedAccountId,
-    });
 
   const onPress = useMemo(() => {
     if (!isEditMode) {
@@ -118,20 +109,15 @@ export const EditableListItem = ({
 
   const networkValue = useMemo(() => {
     if (item.isAllNetworks) {
-      return enabledNetworksCompatibleWithWalletId
+      return Object.values(accountNetworkValues)
         .reduce((acc, curr) => {
-          return acc.plus(accountNetworkValues[curr.id] ?? '0');
+          return acc.plus(curr ?? '0');
         }, new BigNumber(0))
         .toFixed();
     }
 
     return accountNetworkValues[item.id];
-  }, [
-    item.isAllNetworks,
-    item.id,
-    accountNetworkValues,
-    enabledNetworksCompatibleWithWalletId,
-  ]);
+  }, [item.isAllNetworks, item.id, accountNetworkValues]);
 
   return (
     <ListItem
@@ -214,7 +200,9 @@ export const EditableListItem = ({
           </>
         ) : null}
 
-        {new BigNumber(networkValue || 0).gt(0) ? (
+        {new BigNumber(networkValue || 0).gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        ) ? (
           <Currency
             hideValue
             numberOfLines={1}
