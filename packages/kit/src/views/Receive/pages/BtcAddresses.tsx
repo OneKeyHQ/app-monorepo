@@ -328,7 +328,6 @@ function BtcAddresses() {
               onChange={setCurrentPage}
               showControls={false}
               siblingCount={0}
-              maxPages={3}
               pageButtonSize="small"
             />
           </XStack>
