@@ -69,6 +69,16 @@ export const SignForm = ({
   const signAccountsRef = useRef<ISignAccount[]>([]);
   const { copyText } = useClipboard();
 
+  const handleCopyWithStopPropagation = useCallback(
+    (text: string) => (e?: { stopPropagation?: () => void }) => {
+      if (e?.stopPropagation) {
+        e.stopPropagation();
+      }
+      copyText(text);
+    },
+    [copyText],
+  );
+
   const signature = form.watch('signature');
   const rawMessage = form.watch('message');
   const selectedAddress = form.watch('address');
@@ -666,14 +676,7 @@ export const SignForm = ({
                 <Button
                   size="small"
                   variant="tertiary"
-                  onPress={() => {
-                    copyText(rawMessage);
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.global_copied,
-                      }),
-                    });
-                  }}
+                  onPress={handleCopyWithStopPropagation(rawMessage)}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
                 </Button>
@@ -701,14 +704,7 @@ export const SignForm = ({
                   size="small"
                   variant="tertiary"
                   flexShrink={0}
-                  onPress={() => {
-                    copyText(selectedAddress);
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.global_copied,
-                      }),
-                    });
-                  }}
+                  onPress={handleCopyWithStopPropagation(selectedAddress)}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
                 </Button>
@@ -738,14 +734,7 @@ export const SignForm = ({
                 <Button
                   size="small"
                   variant="tertiary"
-                  onPress={() => {
-                    copyText(signature);
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.global_copied,
-                      }),
-                    });
-                  }}
+                  onPress={handleCopyWithStopPropagation(signature)}
                 >
                   {intl.formatMessage({ id: ETranslations.global_copy })}
                 </Button>
