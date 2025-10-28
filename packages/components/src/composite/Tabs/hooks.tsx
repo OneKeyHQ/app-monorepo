@@ -12,7 +12,7 @@ import { useWindowDimensions } from 'react-native';
 import { useAppSideBarStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useIsHorizontalLayout } from '../../hooks';
+import { useIsHorizontalLayout, useMedia } from '../../hooks';
 import { MAX_SIDEBAR_WIDTH, MIN_SIDEBAR_WIDTH } from '../../utils/sidebar';
 
 import { useTabNameContext as useNativeTabNameContext } from './TabNameContext';
@@ -91,14 +91,17 @@ export const useTabContainerWidth = platformEnv.isNative
   : () => {
       const [{ isCollapsed: leftSidebarCollapsed = false }] =
         useAppSideBarStatusAtom();
+      const { md } = useMedia();
       return useMemo(() => {
-        if (platformEnv.isWebDappMode) {
+        // Small screen or WebDappMode: no sidebar, use full width
+        if (platformEnv.isWebDappMode || md) {
           return `calc(100vw)`;
         }
 
+        // Large screen: subtract sidebar width
         const sideBarWidth = leftSidebarCollapsed
           ? MIN_SIDEBAR_WIDTH
           : MAX_SIDEBAR_WIDTH;
         return `calc(100vw - ${sideBarWidth}px)`;
-      }, [leftSidebarCollapsed]);
+      }, [leftSidebarCollapsed, md]);
     };
