@@ -15,6 +15,7 @@ import { EditableChainSelectorContext } from './context';
 import { CELL_HEIGHT } from './type';
 
 import type { IServerNetworkMatch } from '../../types';
+import { NETWORK_SHOW_VALUE_THRESHOLD_USD } from '@onekeyhq/shared/src/consts/networkConsts';
 
 type IEditableListItemProps = {
   item: IServerNetworkMatch;
@@ -214,7 +215,9 @@ export const EditableListItem = ({
           </>
         ) : null}
 
-        {new BigNumber(networkValue || 0).gt(0) ? (
+        {new BigNumber(networkValue || 0).gt(
+          NETWORK_SHOW_VALUE_THRESHOLD_USD,
+        ) ? (
           <Currency
             hideValue
             numberOfLines={1}

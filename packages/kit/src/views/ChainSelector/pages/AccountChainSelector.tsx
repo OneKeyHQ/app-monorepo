@@ -24,6 +24,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { EditableChainSelector } from '../components/EditableChainSelector';
 import { PureChainSelector } from '../components/PureChainSelector';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 const defaultChainSelectorNetworks: {
   mainnetItems: IServerNetwork[];
@@ -97,9 +98,13 @@ const EditableAccountChainSelector = ({
           chainSelectorNetworks: sortedChainSelectorNetworks,
           formattedAccountNetworkValues,
         } = networkUtils.sortChainSelectorNetworksByValue({
+          walletId: accountUtils.getWalletIdFromAccountId({
+            accountId: _accountsValue[0].accountId,
+          }),
           chainSelectorNetworks: _chainSelectorNetworks,
           accountNetworkValues: _accountsValue[0].value ?? {},
         });
+
         return {
           chainSelectorNetworks: sortedChainSelectorNetworks,
           accountNetworkValues: formattedAccountNetworkValues,

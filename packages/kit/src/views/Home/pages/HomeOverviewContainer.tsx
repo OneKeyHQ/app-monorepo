@@ -173,6 +173,7 @@ function HomeOverviewContainer() {
     }
   }, [
     account,
+    accountWorth,
     accountWorth.accountId,
     accountWorth.createAtNetworkWorth,
     accountWorth.initialized,
