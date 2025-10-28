@@ -239,7 +239,10 @@ export const {
 } = globalAtom<IPerpTokenSortConfig | null>({
   name: EAtomNames.perpTokenSortConfigPersistAtom,
   persist: true,
-  initialValue: null,
+  initialValue: {
+    field: 'volume24h',
+    direction: 'desc',
+  },
 });
 
 export type IPerpsActiveOrderBookOptionsAtom =
