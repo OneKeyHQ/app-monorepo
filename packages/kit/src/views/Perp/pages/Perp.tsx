@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 
@@ -93,11 +93,13 @@ function PerpContent() {
 export function PerpView() {
   const isFocused = useIsFocused();
   const [isMounted, setIsMounted] = useState(false);
+  const isMountedRef = useRef(false);
   useEffect(() => {
-    if (isMounted) {
+    if (isMountedRef.current) {
       return;
     }
     if (isFocused) {
+      isMountedRef.current = true;
       setIsMounted(true);
     }
   }, [isFocused, isMounted]);
