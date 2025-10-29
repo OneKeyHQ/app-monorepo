@@ -26,7 +26,7 @@ type IMarketSubscription = {
   networkId: string;
   tokenAddress: string;
   chartType?: string;
-  currency?: string;
+  currencyCode?: string;
   dataSource?: string;
 };
 
@@ -123,7 +123,7 @@ class ServiceMarketWS extends ServiceBase {
       channel: EChannel.tokenTxs,
       networkId,
       tokenAddress,
-      currency,
+      currencyCode: currency,
       dataSource: 'okx',
     };
 
@@ -180,7 +180,7 @@ class ServiceMarketWS extends ServiceBase {
       networkId,
       tokenAddress,
       chartType,
-      currency,
+      currencyCode: currency,
       dataSource: 'okx',
     };
 
@@ -222,7 +222,7 @@ class ServiceMarketWS extends ServiceBase {
       networkId,
       tokenAddress,
       chartType,
-      currency,
+      currencyCode: currency,
       dataSource: 'okx',
     };
 
