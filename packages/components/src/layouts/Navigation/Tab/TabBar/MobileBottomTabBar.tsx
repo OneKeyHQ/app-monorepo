@@ -120,8 +120,8 @@ export default function MobileBottomTabBar({
           return null;
         }
 
-        // Hide tab if hidden property is set to true
-        if ((options as { hidden?: boolean })?.hidden) {
+        // Hide tab icon if hiddenIcon property is set to true
+        if ((options as { hiddenIcon?: boolean })?.hiddenIcon) {
           return null;
         }
 
