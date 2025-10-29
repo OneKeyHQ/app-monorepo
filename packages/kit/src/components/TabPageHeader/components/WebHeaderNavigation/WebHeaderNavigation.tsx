@@ -50,6 +50,7 @@ function useWebHeaderNavigation({
       case ETabRoutes.Market:
         return 'market';
       case ETabRoutes.Perp:
+      case ETabRoutes.WebviewPerpTrade:
         return 'perps';
       case ETabRoutes.Earn:
         return 'defi';
