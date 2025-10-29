@@ -7,6 +7,8 @@ import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '@onekeyhq/kit/src/hooks/useAllNetwork';
 import { useActiveAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
@@ -41,11 +43,12 @@ function AccountValue(accountValue: {
     return accountValue;
   }, [accountValue, activeAccountValue, isActiveAccount]);
 
-  const { enabledNetworksCompatibleWithWalletId } =
+  const { enabledNetworksCompatibleWithWalletId, networkInfoMap } =
     useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
       walletId,
       networkId: linkedNetworkId,
       indexedAccountId,
+      withNetworksInfo: true,
     });
 
   const accountValueString = useMemo(() => {
@@ -95,9 +98,21 @@ function AccountValue(accountValue: {
 
     return Object.entries(value).reduce((acc, [k, v]) => {
       const keyArray = k.split('_');
-      const networkId = keyArray[keyArray.length - 1];
+      const networkId = keyArray.pop() as string;
+      const accountId = keyArray.join('_');
+      const [_walletId, _path, _deriveType] = accountId.split(SEPERATOR) as [
+        string,
+        string,
+        string,
+      ];
+      const deriveType: IAccountDeriveTypes =
+        (_deriveType as IAccountDeriveTypes) || 'default';
       if (
-        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId)
+        enabledNetworksCompatibleWithWalletId.some((n) => n.id === networkId) &&
+        networkInfoMap[networkId] &&
+        (networkInfoMap[networkId].mergeDeriveAssetsEnabled ||
+          networkInfoMap[networkId].deriveType.toLowerCase() ===
+            deriveType.toLowerCase())
       ) {
         return new BigNumber(acc ?? '0').plus(v ?? '0').toFixed();
       }
@@ -110,6 +125,7 @@ function AccountValue(accountValue: {
     isSingleAddress,
     linkedAccountId,
     enabledNetworksCompatibleWithWalletId,
+    networkInfoMap,
   ]);
 
   return accountValueString ? (
