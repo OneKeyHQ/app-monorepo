@@ -1,28 +1,11 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
+import TxConfirmFromDApp from '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp';
+import TxConfirmFromSwap from '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap';
+import MessageConfirmFromDApp from '@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirmFromDapp';
 import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-
-const TxConfirmFromDApp = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'
-    ),
-);
-
-const MessageConfirmFromDApp = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirmFromDapp'
-    ),
-);
-const TxConfirmFromSwap = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap'
-    ),
-);
 
 const TxTokenSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
