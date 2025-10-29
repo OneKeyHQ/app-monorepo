@@ -1,4 +1,3 @@
-import { useRoute } from '@react-navigation/core';
 import { RootSiblingParent } from 'react-native-root-siblings';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
