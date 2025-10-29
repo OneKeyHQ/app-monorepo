@@ -139,14 +139,15 @@ const useCheckTabsChangedInDev = platformEnv.isDev
       const previousConfig = useRef(config.map((item) => item.name));
       useEffect(() => {
         const keys = config.map((item) => item.name);
-        console.log('keys', keys);
-        console.log('previousConfig.current', previousConfig.current);
         if (
           keys.length !== previousConfig.current.length ||
           keys.every((item) => !previousConfig.current.includes(item))
         ) {
+          // @react-navigation/core/src/useNavigationBuilder.tsx 532L
           // eslint-disable-next-line no-restricted-syntax
-          throw new Error('tabs changed, please check the config');
+          throw new Error(
+            'tabs changed, please check the config. This may cause infinite loops in react navigation tab navigator',
+          );
         }
         previousConfig.current = keys;
       }, [config]);
