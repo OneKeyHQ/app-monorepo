@@ -186,17 +186,9 @@ export const convertOkxTxsDataToWsTxsData = (
     toTransfer = temp;
   }
 
-  // Fix price fields after swap: OKX data often has price in 'to' field
-  // We need to ensure 'from.price' is populated for value calculation (value = from.amount * from.price)
-  // The 'to.price' represents the price of the 'from' token (e.g., 1 MET = 0.4689 USDC)
   const tokenPrice = toNumber(okxData.price);
-  if (fromTransfer.price === 0 && toTransfer.price !== 0) {
-    // If from.price is 0 but to.price has value, use to.price for from
-    fromTransfer = { ...fromTransfer, price: toTransfer.price };
-  } else if (fromTransfer.price === 0 && tokenPrice !== 0) {
-    // If from.price is still 0, use the top-level price field
-    fromTransfer = { ...fromTransfer, price: tokenPrice };
-  }
+  fromTransfer = { ...fromTransfer, price: tokenPrice };
+  toTransfer = { ...toTransfer, price: tokenPrice };
 
   const blockUnixTime = normalizeTimestamp(
     okxData.blockUnixTime ?? okxData.time,
