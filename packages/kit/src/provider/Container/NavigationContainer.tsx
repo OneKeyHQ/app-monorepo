@@ -13,7 +13,6 @@ import { TabFreezeOnBlurContainer } from './TabFreezeOnBlurContainer';
 
 function BasicNavigation({ children }: PropsWithChildren) {
   const { containerProps, routerConfig } = useRouterConfig();
-  console.log('NavigationContainer', 2222);
   return useMemo(() => {
     return (
       <NavigationContainerComponent {...containerProps}>
