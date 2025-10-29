@@ -3,11 +3,16 @@ import {
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type { IEarnAvailableAssetProtocol } from '@onekeyhq/shared/types/earn';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
+import { showProtocolListDialog } from './components/showProtocolListDialog';
+
+import type useAppNavigation from '../../hooks/useAppNavigation';
 import type { IAppNavigation } from '../../hooks/useAppNavigation';
 
 const NetworkNameToIdMap: Record<string, string> = {
@@ -141,5 +146,60 @@ export const EarnNavigation = {
     return queryString
       ? `${origin}${baseUrl}?${queryString}`
       : `${origin}${baseUrl}`;
+  },
+
+  toTokenProviderListPage: async (
+    navigation: ReturnType<typeof useAppNavigation>,
+    {
+      networkId,
+      accountId,
+      indexedAccountId,
+      symbol,
+      protocols,
+    }: {
+      networkId: string;
+      accountId: string;
+      indexedAccountId?: string;
+      symbol: string;
+      protocols: IEarnAvailableAssetProtocol[];
+    },
+  ) => {
+    defaultLogger.staking.page.selectAsset({ tokenSymbol: symbol });
+    const earnAccount = await backgroundApiProxy.serviceStaking.getEarnAccount({
+      accountId,
+      indexedAccountId,
+      networkId,
+    });
+
+    if (protocols.length === 1) {
+      const protocol = protocols[0];
+      navigation.pushModal(EModalRoutes.StakingModal, {
+        screen: EModalStakingRoutes.ProtocolDetailsV2,
+        params: {
+          networkId: protocol.networkId,
+          accountId: earnAccount?.accountId || accountId,
+          indexedAccountId:
+            earnAccount?.account.indexedAccountId || indexedAccountId,
+          symbol,
+          provider: protocol.provider,
+          vault: protocol.vault,
+        },
+      });
+      return;
+    }
+
+    // Show dialog for multiple protocols instead of navigating to modal
+    showProtocolListDialog({
+      symbol,
+      accountId: earnAccount?.accountId || accountId,
+      indexedAccountId:
+        earnAccount?.account.indexedAccountId || indexedAccountId,
+      onProtocolSelect: async (params) => {
+        navigation.pushModal(EModalRoutes.StakingModal, {
+          screen: EModalStakingRoutes.ProtocolDetailsV2,
+          params,
+        });
+      },
+    });
   },
 };

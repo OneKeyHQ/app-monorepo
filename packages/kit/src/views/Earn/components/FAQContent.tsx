@@ -8,7 +8,6 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function FAQPanelSkeleton() {
   return (
@@ -25,7 +24,7 @@ function FAQPanelSkeleton() {
   );
 }
 
-export function FAQPanel({
+export function FAQContent({
   faqList,
   isLoading = false,
 }: {

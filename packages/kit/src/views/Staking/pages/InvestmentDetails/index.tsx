@@ -174,6 +174,7 @@ function BasicInvestmentDetails() {
             })),
           );
         const evmAccount = list.find((item) => item.networkId === evmNetworkId);
+        // XXX
         if (evmAccount) {
           const earnSummary =
             await backgroundApiProxy.serviceStaking.getEarnSummary(evmAccount);

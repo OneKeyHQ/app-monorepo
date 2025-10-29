@@ -15,6 +15,20 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
     // Only show skeleton if data is undefined
     const shouldShowSkeleton = data === undefined;
 
+    if (shouldShowSkeleton) {
+      return (
+        <Stack px="$5">
+          <Skeleton
+            height={88}
+            width={440}
+            $md={{
+              width: '100%',
+            }}
+          />
+        </Stack>
+      );
+    }
+
     if (data) {
       return data.length ? (
         <Carousel
@@ -33,18 +47,6 @@ export function BannerV2({ data, onBannerPress }: IBannerV2Props) {
           showPagination
         />
       ) : null;
-    }
-
-    if (shouldShowSkeleton) {
-      return (
-        <Skeleton
-          height="$36"
-          $md={{
-            height: '$28',
-          }}
-          width="100%"
-        />
-      );
     }
 
     return null;
