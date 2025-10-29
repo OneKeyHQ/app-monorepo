@@ -216,8 +216,8 @@ function BulkRevokeItem(props: IProps) {
                 />
               }
               renderContent={({ closePopover }) => (
-                <XStack p="$5" alignItems="center" gap="$1">
-                  <SizableText size="$bodyLg">
+                <XStack p="$5" alignItems="center" gap="$1" flex={1}>
+                  <SizableText size="$bodyLg" flex={1}>
                     {status.skippedReason}
                   </SizableText>
                   {status.isInsufficientFunds && nativeToken ? (
