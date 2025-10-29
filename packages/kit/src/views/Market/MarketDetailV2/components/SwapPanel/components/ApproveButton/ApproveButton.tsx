@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Button } from '@onekeyhq/components';
+import { Button, useMedia } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -10,9 +10,15 @@ export interface IApproveButtonProps extends IButtonProps {
 
 export function ApproveButton({ onApprove, ...props }: IApproveButtonProps) {
   const intl = useIntl();
+  const { gtMd } = useMedia();
 
   return (
-    <Button variant="primary" size="large" {...props} onPress={onApprove}>
+    <Button
+      variant="primary"
+      size={gtMd ? 'medium' : 'large'}
+      {...props}
+      onPress={onApprove}
+    >
       {intl.formatMessage({ id: ETranslations.global_approve })}
     </Button>
   );
