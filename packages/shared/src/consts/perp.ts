@@ -57,3 +57,23 @@ export const PERPS_USER_FILLS_TIME_RANGE = timerUtils.getTimeDurationMs({
 });
 
 export const PERPS_HISTORY_FILLS_URL = 'https://hypurrscan.io/address/';
+
+/**
+ * Filtered transaction types in account ledger history
+ *
+ * These types are not displayed in the Account tab because:
+ * - spotTransfer: Spot account transfers, not relevant to Perp account balance
+ * - vaultDeposit/vaultWithdraw/vaultDistribution: Vault operations, not direct user actions
+ * - vaultLeaderCommission: Vault leader commission, automatic distribution
+ * - spotGenesis: System initialization, not user operations
+ * - cStakingTransfer: C-Staking transfers, not Perp account operations
+ */
+export const PERPS_FILTERED_LEDGER_TYPES = new Set<string>([
+  'spotTransfer',
+  'vaultDistribution',
+  'vaultWithdraw',
+  'vaultDeposit',
+  'spotGenesis',
+  'cStakingTransfer',
+  'vaultLeaderCommission',
+]);
