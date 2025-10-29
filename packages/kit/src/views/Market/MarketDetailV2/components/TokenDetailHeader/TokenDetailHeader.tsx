@@ -7,6 +7,7 @@ import {
   XStack,
   useMedia,
 } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetail } from '../../hooks/useTokenDetail';
@@ -32,7 +33,7 @@ export function TokenDetailHeader({
   showMediaAndSecurity?: boolean;
   containerProps?: ComponentProps<typeof XStack>;
 }) {
-  const { lg } = useMedia();
+  const { lg, md } = useMedia();
   const { tokenDetail, networkId, isNative } = useTokenDetail();
   const [containerWidth, setContainerWidth] = useState(0);
   const [scrollX, setScrollX] = useState(0);
@@ -113,7 +114,7 @@ export function TokenDetailHeader({
 
   return (
     <XStack position="relative" onLayout={handleContainerLayout}>
-      {shouldScroll ? (
+      {shouldScroll && !platformEnv.isNative && !md ? (
         <>
           <ScrollView
             horizontal
