@@ -58,18 +58,30 @@ export function useDAppNotifyChangesBase({
   const shouldSkipNotifyFn = useRef(shouldSkipNotify);
   shouldSkipNotifyFn.current = shouldSkipNotify;
 
+  const retryConnectBridgeTimes = useRef(0);
+
   // reconnect jsBridge
   useEffect(() => {
     noop(isFocused);
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;
     }
-    const webviewRef = getWebviewRefFn.current();
-    const jsBridge = webviewRef?.jsBridge;
-    if (!jsBridge) {
-      return;
-    }
-    backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
+    const handleConnectBridge = () => {
+      const webviewRef = getWebviewRefFn.current();
+      if (!webviewRef) {
+        if (retryConnectBridgeTimes.current > 10) {
+          return;
+        }
+        retryConnectBridgeTimes.current += 1;
+        setTimeout(handleConnectBridge, 50);
+      }
+      const jsBridge = webviewRef?.jsBridge;
+      if (!jsBridge) {
+        return;
+      }
+      backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
+    };
+    handleConnectBridge();
   }, [isFocused]);
 
   // sent accountChanged notification
@@ -133,7 +145,6 @@ export function useDAppNotifyChangesBase({
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
   const { tab } = useWebTabDataById(tabId ?? '');
 
-  const webviewRef = getWebviewWrapperRef(tabId ?? '');
   const [isFocusedInDiscoveryTab, setIsFocusedInDiscoveryTab] = useState(false);
   useListenTabFocusState([ETabRoutes.MultiTabBrowser], (isFocus) => {
     setIsFocusedInDiscoveryTab(isFocus);
@@ -159,7 +170,9 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
     return false;
   }, [tab?.url, isFocusedInDiscoveryTab, previousUrl]);
 
-  const getWebviewRef = useCallback(() => webviewRef, [webviewRef]);
+  const getWebviewRef = useCallback(() => {
+    return getWebviewWrapperRef(tabId ?? '');
+  }, [tabId]);
   useDAppNotifyChangesBase({
     getWebviewRef,
     url: tab?.url,
