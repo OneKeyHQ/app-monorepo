@@ -220,6 +220,7 @@ export interface IMarketTokenTransaction {
   from: IMarketTokenTransactionToken;
   to: IMarketTokenTransactionToken;
   poolLogoUrl?: string;
+  volumeUSD?: number;
 }
 
 export interface IMarketTokenTransactionsResponse {

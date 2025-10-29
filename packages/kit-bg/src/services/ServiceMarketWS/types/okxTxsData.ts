@@ -173,8 +173,22 @@ export const convertOkxTxsDataToWsTxsData = (
 ): IWsTxsData => {
   const tokenAddressMap = createTokenAddressMap(okxData.changedTokenInfo);
 
-  const fromTransfer = mapTransferInfo(okxData.from, 'from', tokenAddressMap);
-  const toTransfer = mapTransferInfo(okxData.to, 'to', tokenAddressMap);
+  let fromTransfer = mapTransferInfo(okxData.from, 'from', tokenAddressMap);
+  let toTransfer = mapTransferInfo(okxData.to, 'to', tokenAddressMap);
+
+  // OKX data structure: the current token (being viewed) is always in 'from' position
+  // But our UI expects: buy = current token in 'to', sell = current token in 'from'
+  // So we need to swap from/to for buy transactions
+  if (okxData.side === 'buy') {
+    // Swap from and to for buy transactions
+    const temp = fromTransfer;
+    fromTransfer = toTransfer;
+    toTransfer = temp;
+  }
+
+  const tokenPrice = toNumber(okxData.price);
+  fromTransfer = { ...fromTransfer, price: tokenPrice };
+  toTransfer = { ...toTransfer, price: tokenPrice };
 
   const blockUnixTime = normalizeTimestamp(
     okxData.blockUnixTime ?? okxData.time,
@@ -189,7 +203,7 @@ export const convertOkxTxsDataToWsTxsData = (
     alias: okxData.alias ?? null,
     isTradeOnBe: false,
     platform: okxData.platform ?? '',
-    volumeUSD: toNumber(okxData.volume ?? okxData.price),
+    volumeUSD: toNumber(okxData.volume),
     from: fromTransfer,
     to: toTransfer,
     poolId: okxData.poolId ?? '',
