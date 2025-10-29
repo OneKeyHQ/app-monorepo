@@ -129,7 +129,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         exact: true,
         children: homeRouters,
         trackId: 'global-wallet',
-        hidden: isWebDappMode,
+        hiddenIcon: isWebDappMode,
       },
       shouldShowMarketTab
         ? {
