@@ -33,7 +33,6 @@ function Simulation(props: IProps) {
         boxShadow:
           '0 8px 12px -4px rgba(0, 0, 0, 0.08), 0 0 2px 0 rgba(0, 0, 0, 0.10), 0 1px 2px 0 rgba(0, 0, 0, 0.10)',
       }}
-      elevation={0.5}
       gap={6}
     >
       <SizableText size="$headingXs" color="$textSubdued">
