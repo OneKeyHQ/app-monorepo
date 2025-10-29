@@ -123,13 +123,9 @@ class ServiceMarketWS extends ServiceBase {
       channel: EChannel.tokenTxs,
       networkId,
       tokenAddress,
+      currency,
       dataSource: 'okx',
     };
-
-    // Add optional currency parameter if provided
-    if (currency) {
-      subscriptionArgs.currency = currency;
-    }
 
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
@@ -183,16 +179,10 @@ class ServiceMarketWS extends ServiceBase {
       channel: EChannel.ohlcv,
       networkId,
       tokenAddress,
+      chartType,
+      currency,
       dataSource: 'okx',
     };
-
-    // Add optional parameters if provided
-    if (chartType) {
-      subscriptionArgs.chartType = chartType;
-    }
-    if (currency) {
-      subscriptionArgs.currency = currency;
-    }
 
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
@@ -231,16 +221,10 @@ class ServiceMarketWS extends ServiceBase {
       channel,
       networkId,
       tokenAddress,
+      chartType,
+      currency,
       dataSource: 'okx',
     };
-
-    // Add optional parameters if provided
-    if (chartType) {
-      subscriptionArgs.chartType = chartType;
-    }
-    if (currency) {
-      subscriptionArgs.currency = currency;
-    }
 
     const message: IMarketMessage = {
       operation: EOperation.unsubscribe,
