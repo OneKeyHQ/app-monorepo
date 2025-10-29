@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import {
@@ -295,6 +295,24 @@ function WebviewPerpTradeView() {
   );
 }
 
+function PageWebviewPerpTradeView() {
+  const isFocused = useIsFocused();
+  console.log('PageWebviewPerpTradeView isFocused', isFocused);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    if (isMounted) {
+      return;
+    }
+    if (isFocused) {
+      setIsMounted(true);
+    }
+  }, [isFocused, isMounted]);
+  if (!isMounted) {
+    return null;
+  }
+  return <WebviewPerpTradeView />;
+}
+
 const PageWebviewPerpTrade = () => {
   useDebugComponentRemountLog({ name: 'PageWebviewPerpTrade' });
   useFocusEffect(() => {
@@ -308,7 +326,7 @@ const PageWebviewPerpTrade = () => {
       }}
       enabledNum={[0]}
     >
-      {shouldOpenExpandExtPerp() ? <ExtPerp /> : <WebviewPerpTradeView />}
+      {shouldOpenExpandExtPerp() ? <ExtPerp /> : <PageWebviewPerpTradeView />}
     </AccountSelectorProviderMirror>
   );
 };
