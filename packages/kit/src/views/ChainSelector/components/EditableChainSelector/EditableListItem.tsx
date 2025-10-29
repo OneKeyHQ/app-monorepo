@@ -208,6 +208,7 @@ export const EditableListItem = ({
             numberOfLines={1}
             flexShrink={1}
             size="$bodyLgMedium"
+            userSelect="none"
             sourceCurrency={accountNetworkValueCurrency}
           >
             {networkValue}
