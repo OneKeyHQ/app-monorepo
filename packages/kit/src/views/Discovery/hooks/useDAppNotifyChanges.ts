@@ -44,11 +44,13 @@ export function useDAppNotifyChangesBase({
   isFocused,
   url,
   shouldSkipNotify,
+  tabId,
 }: {
   getWebviewRef: () => IWebViewWrapperRef | null;
   isFocused: boolean; // isFocusedInDiscoveryTab
   url: string | undefined;
   shouldSkipNotify?: () => boolean;
+  tabId?: string;
 }) {
   const isMountedRef = useIsMounted();
 
@@ -60,7 +62,7 @@ export function useDAppNotifyChangesBase({
 
   // reconnect jsBridge
   useEffect(() => {
-    noop(isFocused);
+    noop(isFocused, tabId);
     if (!platformEnv.isNative && !platformEnv.isDesktop) {
       return;
     }
@@ -70,7 +72,7 @@ export function useDAppNotifyChangesBase({
       return;
     }
     backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
-  }, [isFocused]);
+  }, [isFocused, tabId]);
 
   // sent accountChanged notification
   useEffect(() => {
@@ -165,6 +167,7 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
     url: tab?.url,
     isFocused: isFocusedInDiscoveryTab,
     shouldSkipNotify,
+    tabId,
   });
 }
 
