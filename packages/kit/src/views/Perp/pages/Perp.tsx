@@ -102,7 +102,7 @@ export function PerpView() {
       isMountedRef.current = true;
       setIsMounted(true);
     }
-  }, [isFocused, isMounted]);
+  }, [isFocused]);
   if (!isMounted) {
     return null;
   }

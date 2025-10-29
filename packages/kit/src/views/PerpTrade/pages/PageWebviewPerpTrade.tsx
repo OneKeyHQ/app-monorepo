@@ -298,14 +298,16 @@ function WebviewPerpTradeView() {
 function PageWebviewPerpTradeView() {
   const isFocused = useIsFocused();
   const [isMounted, setIsMounted] = useState(false);
+  const isMountedRef = useRef(false);
   useEffect(() => {
-    if (isMounted) {
+    if (isMountedRef.current) {
       return;
     }
     if (isFocused) {
+      isMountedRef.current = true;
       setIsMounted(true);
     }
-  }, [isFocused, isMounted]);
+  }, [isFocused]);
   if (!isMounted) {
     return null;
   }
