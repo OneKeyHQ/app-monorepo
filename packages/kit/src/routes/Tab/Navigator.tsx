@@ -3,6 +3,7 @@ import { useContext, useEffect, useMemo, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { noop } from 'lodash';
 
+import type { ITabNavigatorConfig } from '@onekeyhq/components';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -41,17 +42,21 @@ const useIsIOSTabNavigatorFocused =
 
 const preloadTab = (
   navigation: NavigationProp<any>,
-  route: string,
-  screen: string,
+  route: string | undefined,
+  screen: string | undefined,
   timeout: number,
 ) => {
   setTimeout(() => {
-    navigation.preload(ERootRoutes.Main, {
-      screen: route,
-      params: {
-        screen,
-      },
-    });
+    if (route && screen) {
+      navigation.preload(ERootRoutes.Main, {
+        screen: route,
+        params: {
+          screen,
+        },
+      });
+    } else {
+      navigation.preload(ERootRoutes.Main);
+    }
   }, timeout);
 };
 
@@ -87,16 +92,22 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
     navigation,
     ETabRoutes.Home,
     ETabHomeRoutes.TabHome,
-    (timeout += 2500),
+    (timeout += gap),
   );
+  preloadTab(navigation, undefined, undefined, (timeout += gap));
 };
 
+let runOnce = false;
 const usePreloadTabs =
   platformEnv.isDev || platformEnv.isNative
     ? () => {}
     : () => {
         const navigation = useNavigation();
         useEffect(() => {
+          if (runOnce) {
+            return;
+          }
+          runOnce = true;
           setTimeout(async () => {
             await Promise.race([
               new Promise<void>((resolve) => setTimeout(resolve, 1200)),
@@ -123,6 +134,26 @@ function InPageTabContainer() {
   );
 }
 
+const useCheckTabsChangedInDev = platformEnv.isDev
+  ? (config: ITabNavigatorConfig<ETabRoutes>[]) => {
+      const previousConfig = useRef(config.map((item) => item.name));
+      useEffect(() => {
+        const keys = config.map((item) => item.name);
+        if (
+          keys.length !== previousConfig.current.length ||
+          keys.every((item) => !previousConfig.current.includes(item))
+        ) {
+          // @react-navigation/core/src/useNavigationBuilder.tsx 532L
+          // eslint-disable-next-line no-restricted-syntax
+          throw new Error(
+            'tabs changed, please check the config. This may cause infinite rendering loops in react navigation tab navigator',
+          );
+        }
+        previousConfig.current = keys;
+      }, [config]);
+    }
+  : () => {};
+
 export function TabNavigator() {
   const { freezeOnBlur } = useContext(TabFreezeOnBlurContext);
   const routerConfigParams = useMemo(() => ({ freezeOnBlur }), [freezeOnBlur]);
@@ -131,6 +162,7 @@ export function TabNavigator() {
   const isFocused = useIsIOSTabNavigatorFocused();
   const { gtMd } = useMedia();
 
+  useCheckTabsChangedInDev(config);
   usePreloadTabs();
 
   return (
