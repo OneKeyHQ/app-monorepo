@@ -115,6 +115,49 @@ export interface INavigateToNotificationDetailParams {
   mode?: ENotificationPushMessageMode;
   payload?: string;
 }
+
+export function parseNotificationPayload(
+  mode: ENotificationPushMessageMode,
+  payload: string | undefined,
+  fallbackHandler: () => void,
+) {
+  switch (mode) {
+    case ENotificationPushMessageMode.page:
+      try {
+        const payloadObj = JSON.parse(payload || '');
+        appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
+          payload: payloadObj,
+        });
+      } catch (error) {
+        fallbackHandler();
+      }
+      break;
+    case ENotificationPushMessageMode.dialog:
+      try {
+        const payloadObj = JSON.parse(payload || '');
+        appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
+          payload: payloadObj,
+        });
+      } catch (error) {
+        fallbackHandler();
+      }
+
+      break;
+    case ENotificationPushMessageMode.openInBrowser:
+      if (payload) {
+        openUrlExternal(payload);
+      }
+      break;
+    case ENotificationPushMessageMode.openInApp:
+      if (payload) {
+        openUrlInApp(payload);
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 async function navigateToNotificationDetail({
   notificationId,
   notificationAccountId,
@@ -193,41 +236,7 @@ async function navigateToNotificationDetail({
   }
 
   if (mode) {
-    switch (mode) {
-      case ENotificationPushMessageMode.page:
-        try {
-          const payloadObj = JSON.parse(payload || '');
-          appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, {
-            payload: payloadObj,
-          });
-        } catch (error) {
-          showFallbackUpdateDialog();
-        }
-        break;
-      case ENotificationPushMessageMode.dialog:
-        try {
-          const payloadObj = JSON.parse(payload || '');
-          appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
-            payload: payloadObj,
-          });
-        } catch (error) {
-          showFallbackUpdateDialog();
-        }
-
-        break;
-      case ENotificationPushMessageMode.openInBrowser:
-        if (payload) {
-          openUrlExternal(payload);
-        }
-        break;
-      case ENotificationPushMessageMode.openInApp:
-        if (payload) {
-          openUrlInApp(payload);
-        }
-        break;
-      default:
-        break;
-    }
+    parseNotificationPayload(mode, payload, showFallbackUpdateDialog);
     return;
   }
 
