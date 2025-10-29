@@ -106,7 +106,6 @@ jobs:
           yarn
 
       - name: Build on EAS And Auto Submit
-        if: ${{ github.event.workflow_run }}
         run: |
           cd apps/mobile
 
@@ -116,14 +115,7 @@ jobs:
           # else
           #   # eas build --profile=production --platform ios --non-interactive --no-wait
           #   # replace APP STORE provision
-          #   echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
-          #   echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
-
+          echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
+          echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
           eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
           # fi
-
-      - name: Build on EAS
-        if: ${{ !github.event.workflow_run }}
-        run: |
-          cd apps/mobile
-          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
