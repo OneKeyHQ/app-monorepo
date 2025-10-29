@@ -2,7 +2,6 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 
 import { OneKeyLocalError } from '../errors/errors/localError';
 import { defaultLogger } from '../logger/logger';
-
 import platformEnv from '../platformEnv';
 
 import imageUtils from './imageUtils';

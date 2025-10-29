@@ -164,6 +164,8 @@ type IAddressInputProps = Omit<
 export type IAddressQueryResult = {
   input?: string;
   validStatus?: IAddressValidateStatus;
+  walletName?: string;
+  accountName?: string;
   walletAccountName?: string;
   walletAccountId?: string; // accountId or indexedAccountId
   addressBookId?: string;

@@ -482,6 +482,8 @@ class ServiceAccountProfile extends ServiceBase {
           console.error(e);
           // pass
         }
+        result.walletName = item.walletName;
+        result.accountName = item.accountName;
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
         if (enableAddressDeriveInfo) {

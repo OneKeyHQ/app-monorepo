@@ -98,6 +98,7 @@ export const EditableListItem = ({
     onEditCustomNetwork,
     accountNetworkValues,
     accountNetworkValueCurrency,
+    frequentlyUsedItemsIds,
   } = useContext(EditableChainSelectorContext);
 
   const onPress = useMemo(() => {
@@ -211,7 +212,7 @@ export const EditableListItem = ({
             userSelect="none"
             sourceCurrency={accountNetworkValueCurrency}
           >
-            {networkValue}
+            {networkValue || '0'}
           </Currency>
         ) : null}
       </XStack>
