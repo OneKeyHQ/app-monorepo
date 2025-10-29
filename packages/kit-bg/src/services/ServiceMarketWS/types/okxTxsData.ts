@@ -173,8 +173,19 @@ export const convertOkxTxsDataToWsTxsData = (
 ): IWsTxsData => {
   const tokenAddressMap = createTokenAddressMap(okxData.changedTokenInfo);
 
-  const fromTransfer = mapTransferInfo(okxData.from, 'from', tokenAddressMap);
+  let fromTransfer = mapTransferInfo(okxData.from, 'from', tokenAddressMap);
   const toTransfer = mapTransferInfo(okxData.to, 'to', tokenAddressMap);
+
+  // Fix price fields: OKX data often has price in 'to' field for sell transactions
+  // We need to ensure 'from.price' is populated for value calculation (value = from.amount * from.price)
+  const tokenPrice = toNumber(okxData.price);
+  if (fromTransfer.price === 0 && toTransfer.price !== 0) {
+    // If from.price is 0 but to.price has value, use to.price for from
+    fromTransfer = { ...fromTransfer, price: toTransfer.price };
+  } else if (fromTransfer.price === 0 && tokenPrice !== 0) {
+    // If from.price is still 0, use the top-level price field
+    fromTransfer = { ...fromTransfer, price: tokenPrice };
+  }
 
   const blockUnixTime = normalizeTimestamp(
     okxData.blockUnixTime ?? okxData.time,
