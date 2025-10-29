@@ -49,9 +49,14 @@ export function HeaderLeft({
         </XStack>
       );
     };
+
     if (customHeaderLeftItems) {
+      if (tabRoute === ETabRoutes.WebviewPerpTrade) {
+        return withWebNavigation(customHeaderLeftItems);
+      }
       return customHeaderLeftItems;
     }
+
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       if (platformEnv.isWebDappMode) {
         return withWebNavigation(null);
