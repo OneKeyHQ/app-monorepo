@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Tabs, YStack } from '@onekeyhq/components';
+import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -60,6 +61,9 @@ export function MobileInformationTabs({
   }, [intl, tokenDetail?.holders]);
 
   const tabs = useMemo(() => {
+    // Check if current network supports holders tab
+    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
+
     const items = [
       <Tabs.Tab
         key="transactions"
@@ -73,10 +77,12 @@ export function MobileInformationTabs({
           onScrollEnd={onScrollEnd}
         />
       </Tabs.Tab>,
-      <Tabs.Tab key="holders" name={holdersTabName}>
-        <Holders tokenAddress={tokenAddress} networkId={networkId} />
-      </Tabs.Tab>,
-    ];
+      shouldShowHoldersTab && (
+        <Tabs.Tab key="holders" name={holdersTabName}>
+          <Holders tokenAddress={tokenAddress} networkId={networkId} />
+        </Tabs.Tab>
+      ),
+    ].filter(Boolean);
     return items;
   }, [intl, tokenAddress, networkId, onScrollEnd, holdersTabName]);
 
