@@ -75,73 +75,78 @@ const onGetStateFromPath = platformEnv.isExtension
 const useBuildLinking = (): LinkingOptions<any> => {
   const routes = useRootRouter();
   const { perpDisabled, perpTabShowWeb } = usePerpTabConfig();
-  const screenHierarchyConfig = resolveScreens(routes);
-  if (!screenHierarchyConfig) {
-    return { prefixes: [routerPrefix] };
-  }
-  const allowList = buildAllowList(
-    screenHierarchyConfig,
-    perpDisabled,
-    perpTabShowWeb,
-  );
-  const allowListKeys = Object.keys(allowList);
-  return {
-    enabled: true,
+  return useMemo(() => {
+    const screenHierarchyConfig = resolveScreens(routes);
+    if (!screenHierarchyConfig) {
+      return { prefixes: [routerPrefix] };
+    }
+    const allowList = buildAllowList(
+      screenHierarchyConfig || {},
+      perpDisabled,
+      perpTabShowWeb,
+    );
+    const allowListKeys = Object.keys(allowList);
+    return {
+      enabled: true,
 
-    // ****** Dangerously, DO NOT add any prefix here, it will expose all route url to deeplink ******
-    // prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
-    prefixes: [],
+      // ****** Dangerously, DO NOT add any prefix here, it will expose all route url to deeplink ******
+      // prefixes: [routerPrefix, ONEKEY_APP_DEEP_LINK, WALLET_CONNECT_DEEP_LINK],
+      prefixes: [],
 
-    getStateFromPath: onGetStateFromPath,
-    /**
-     * Only change url at whitelist routes, or return home page
-     */
-    getPathFromState(state, options) {
-      const defaultPath = getPathFromStateDefault(state, options);
-      const defaultPathWithoutQuery = (defaultPath.split('?')[0] || '').replace(
-        FULL_SCREEN_MODAL_PATH,
-        MODAL_PATH,
-      );
+      getStateFromPath: onGetStateFromPath,
+      /**
+       * Only change url at whitelist routes, or return home page
+       */
+      getPathFromState(state, options) {
+        const defaultPath = getPathFromStateDefault(state, options);
+        const defaultPathWithoutQuery = (
+          defaultPath.split('?')[0] || ''
+        ).replace(FULL_SCREEN_MODAL_PATH, MODAL_PATH);
 
-      let rule = allowList[defaultPathWithoutQuery];
+        let rule = allowList[defaultPathWithoutQuery];
 
-      if (!rule) {
-        const key = allowListKeys.find((k) => new RegExp(k).test(defaultPath));
-        if (key) {
-          rule = allowList[key];
+        if (!rule) {
+          const key = allowListKeys.find((k) =>
+            new RegExp(k).test(defaultPath),
+          );
+          if (key) {
+            rule = allowList[key];
+          }
         }
-      }
 
-      if (!rule?.showUrl) {
-        return ROOT_PATH;
-      }
-
-      const newPath = rule?.showParams ? defaultPath : defaultPathWithoutQuery;
-      // keep manifest url with html file
-      if (platformEnv.isExtension) {
-        /*
-        check chrome.webRequest.onBeforeRequest
-         /ui-expand-tab.html/#/   not working for Windows Chrome
-         /ui-expand-tab.html#/    works fine
-        */
-        if (newPath === '/' && globalThis.location.href.endsWith('#/')) {
-          // fix the scenarios of /#, #/, and /#/
-          return extHtmlFileUrl;
+        if (!rule?.showUrl) {
+          return ROOT_PATH;
         }
-        return `${extHtmlFileUrl}#${newPath}`;
-      }
 
-      return newPath;
-    },
-    config: {
-      initialRouteName: ERootRoutes.Main,
-      screens: {
-        ...screenHierarchyConfig,
-        // custom route with path params needs to be defined at last
-        NotFound: '*',
+        const newPath = rule?.showParams
+          ? defaultPath
+          : defaultPathWithoutQuery;
+        // keep manifest url with html file
+        if (platformEnv.isExtension) {
+          /*
+          check chrome.webRequest.onBeforeRequest
+           /ui-expand-tab.html/#/   not working for Windows Chrome
+           /ui-expand-tab.html#/    works fine
+          */
+          if (newPath === '/' && globalThis.location.href.endsWith('#/')) {
+            // fix the scenarios of /#, #/, and /#/
+            return extHtmlFileUrl;
+          }
+          return `${extHtmlFileUrl}#${newPath}`;
+        }
+
+        return newPath;
       },
-    },
-  };
+      config: {
+        initialRouteName: ERootRoutes.Main,
+        screens: {
+          ...screenHierarchyConfig,
+          // custom route with path params needs to be defined at last
+          NotFound: '*',
+        },
+      },
+    };
+  }, [perpDisabled, perpTabShowWeb, routes]);
 };
 
 const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
