@@ -297,7 +297,6 @@ function WebviewPerpTradeView() {
 
 function PageWebviewPerpTradeView() {
   const isFocused = useIsFocused();
-  console.log('PageWebviewPerpTradeView isFocused', isFocused);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
     if (isMounted) {
