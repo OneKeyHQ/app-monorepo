@@ -149,7 +149,8 @@ export const {
   use: usePerpsActiveOpenOrdersLengthAtom,
 } = contextAtomComputed((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  return openOrders.length ?? 0;
+  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  return filteredOpenOrders.length ?? 0;
 });
 
 export const {
@@ -161,7 +162,8 @@ export const {
   }>
 >((get) => {
   const { openOrders } = get(perpsActiveOpenOrdersAtom());
-  return openOrders.reduce((acc, order, index) => {
+  const filteredOpenOrders = openOrders.filter((o) => !o.coin.startsWith('@'));
+  return filteredOpenOrders.reduce((acc, order, index) => {
     acc[order.coin] = [...(acc[order.coin] || []), index];
     return acc;
   }, {} as { [coin: string]: number[] });
