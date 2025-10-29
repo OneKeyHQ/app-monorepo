@@ -156,128 +156,140 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     };
   }, [toReferFriendsPage]);
 
-  return useMemo(
-    () =>
-      [
-        isWebDappMode ? referFriendsTabConfig : undefined,
-        {
-          name: ETabRoutes.Home,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'WalletSolid' : 'WalletOutline',
-          translationId: ETranslations.global_wallet,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/',
-          exact: true,
-          children: homeRouters,
-          trackId: 'global-wallet',
-          hidden: isWebDappMode,
-        },
-        shouldShowMarketTab
-          ? {
-              name: ETabRoutes.Market,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
-              translationId: ETranslations.global_market,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/market',
-              exact: true,
-              children: marketRouters,
-              trackId: 'global-market',
-              // Only apply custom tab press handler for non-mobile platforms
-              ...(platformEnv.isDesktop ||
-              platformEnv.isWeb ||
-              platformEnv.isExtension
-                ? { onPressWhenSelected: handleMarketTabPress }
-                : {}),
-            }
-          : undefined,
-        {
-          name: ETabRoutes.Swap,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'SwapHorSolid' : 'SwapHorOutline',
-          translationId: ETranslations.global_trade,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/swap',
-          exact: true,
-          children: swapRouters,
-          trackId: 'global-trade',
-        },
-        perpTabShowRes,
-        {
-          name: ETabRoutes.Earn,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'CoinsSolid' : 'CoinsOutline',
-          translationId: ETranslations.global_earn,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          inMoreAction: true,
-          rewrite: '/defi',
-          exact: true,
-          children: earnRouters,
-          trackId: 'global-earn',
-        },
-        // In non-DAPP mode, show ReferFriends in more actions
-        !isWebDappMode && isGtMdNonNative
-          ? {
-              ...referFriendsTabConfig,
-              inMoreAction: true,
-            }
-          : undefined,
-        isGtMdNonNative
-          ? {
-              name: ETabRoutes.DeviceManagement,
-              tabBarIcon: () => 'OnekeyDeviceCustom',
-              translationId: ETranslations.global_device,
-              tabbarOnPress: toMyOneKeyModal,
-              children: null,
-              trackId: 'global-my-onekey',
-            }
-          : undefined,
-        isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
-        platformEnv.isDev
-          ? {
-              name: ETabRoutes.Me,
-              rewrite: '/me',
-              exact: true,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
-              translationId: ETranslations.global_more,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              children: meRouters,
-              trackId: 'global-me',
-            }
-          : undefined,
-        platformEnv.isDev
-          ? {
-              name: ETabRoutes.Developer,
-              tabBarIcon: (focused?: boolean) =>
-                focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
-              translationId: ETranslations.global_dev_mode,
-              freezeOnBlur: Boolean(params?.freezeOnBlur),
-              rewrite: '/dev',
-              exact: true,
-              children: developerRouters,
-              trackId: 'global-dev',
-            }
-          : undefined,
-        isShowDesktopDiscover
-          ? getDiscoverRouterConfig(params, {
-              marginTop: getTokenValue('$4', 'size'),
-            })
-          : undefined,
-      ].filter((i) => !!i),
-    [
-      isWebDappMode,
-      isGtMdNonNative,
-      referFriendsTabConfig,
-      params,
-      shouldShowMarketTab,
-      handleMarketTabPress,
+  return useMemo(() => {
+    const tabs = [
+      {
+        name: ETabRoutes.Home,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'WalletSolid' : 'WalletOutline',
+        translationId: ETranslations.global_wallet,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        rewrite: '/',
+        exact: true,
+        children: homeRouters,
+        trackId: 'global-wallet',
+        hiddenIcon: isWebDappMode,
+      },
+      shouldShowMarketTab
+        ? {
+            name: ETabRoutes.Market,
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'ChartTrendingUp2Solid' : 'ChartTrendingUp2Outline',
+            translationId: ETranslations.global_market,
+            freezeOnBlur: Boolean(params?.freezeOnBlur),
+            rewrite: '/market',
+            exact: true,
+            children: marketRouters,
+            trackId: 'global-market',
+            // Only apply custom tab press handler for non-mobile platforms
+            ...(platformEnv.isDesktop ||
+            platformEnv.isWeb ||
+            platformEnv.isExtension
+              ? { onPressWhenSelected: handleMarketTabPress }
+              : {}),
+          }
+        : undefined,
+      {
+        name: ETabRoutes.Swap,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'SwapHorSolid' : 'SwapHorOutline',
+        translationId: ETranslations.global_trade,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        rewrite: '/swap',
+        exact: true,
+        children: swapRouters,
+        trackId: 'global-trade',
+      },
       perpTabShowRes,
-      toMyOneKeyModal,
-      isShowMDDiscover,
-      isShowDesktopDiscover,
-    ],
-  ) as ITabNavigatorConfig<ETabRoutes>[];
+      {
+        name: ETabRoutes.Earn,
+        tabBarIcon: (focused?: boolean) =>
+          focused ? 'CoinsSolid' : 'CoinsOutline',
+        translationId: ETranslations.global_earn,
+        freezeOnBlur: Boolean(params?.freezeOnBlur),
+        inMoreAction: true,
+        rewrite: '/defi',
+        exact: true,
+        children: earnRouters,
+        trackId: 'global-earn',
+      },
+      isWebDappMode ? referFriendsTabConfig : undefined,
+      // In non-DAPP mode, show ReferFriends in more actions
+      !isWebDappMode && isGtMdNonNative
+        ? {
+            ...referFriendsTabConfig,
+            inMoreAction: true,
+          }
+        : undefined,
+      isGtMdNonNative
+        ? {
+            name: ETabRoutes.DeviceManagement,
+            tabBarIcon: () => 'OnekeyDeviceCustom',
+            translationId: ETranslations.global_device,
+            tabbarOnPress: toMyOneKeyModal,
+            children: null,
+            trackId: 'global-my-onekey',
+          }
+        : undefined,
+      isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
+      platformEnv.isDev
+        ? {
+            name: ETabRoutes.Me,
+            rewrite: '/me',
+            exact: true,
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'LayoutGrid2Solid' : 'LayoutGrid2Outline',
+            translationId: ETranslations.global_more,
+            freezeOnBlur: Boolean(params?.freezeOnBlur),
+            children: meRouters,
+            trackId: 'global-me',
+          }
+        : undefined,
+      platformEnv.isDev
+        ? {
+            name: ETabRoutes.Developer,
+            tabBarIcon: (focused?: boolean) =>
+              focused ? 'CodeBracketsSolid' : 'CodeBracketsOutline',
+            translationId: ETranslations.global_dev_mode,
+            freezeOnBlur: Boolean(params?.freezeOnBlur),
+            rewrite: '/dev',
+            exact: true,
+            children: developerRouters,
+            trackId: 'global-dev',
+          }
+        : undefined,
+      isShowDesktopDiscover
+        ? getDiscoverRouterConfig(params, {
+            marginTop: getTokenValue('$4', 'size'),
+          })
+        : undefined,
+    ].filter((i) => !!i) as ITabNavigatorConfig<ETabRoutes>[];
+
+    // In WebDappMode, move Market tab to first position for initial route
+    if (isWebDappMode && tabs.length >= 2) {
+      const marketTabIndex = tabs.findIndex(
+        (tab) => tab.name === ETabRoutes.Market,
+      );
+      if (marketTabIndex > 0) {
+        const marketTab = tabs[marketTabIndex];
+        tabs.splice(marketTabIndex, 1);
+        tabs.unshift(marketTab);
+      }
+    }
+
+    return tabs;
+  }, [
+    isWebDappMode,
+    isGtMdNonNative,
+    referFriendsTabConfig,
+    params,
+    shouldShowMarketTab,
+    handleMarketTabPress,
+    perpTabShowRes,
+    toMyOneKeyModal,
+    isShowMDDiscover,
+    isShowDesktopDiscover,
+  ]);
 };
 
 export const tabExtraConfig: ITabNavigatorExtraConfig<ETabRoutes> | undefined =

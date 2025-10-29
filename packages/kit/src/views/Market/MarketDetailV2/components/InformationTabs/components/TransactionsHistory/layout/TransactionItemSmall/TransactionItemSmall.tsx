@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import {
+  Image,
   NumberSizeableText,
   SizableText,
   XStack,
@@ -35,15 +36,25 @@ function TransactionItemSmallBase({ item }: ITransactionItemSmallProps) {
 
   return (
     <XStack py="$2.5" px="$5" alignItems="center">
-      <YStack {...styles.time}>
-        <SizableText size="$bodyMdMedium" color={typeColor}>
-          {typeText}
-        </SizableText>
+      <XStack {...styles.time} gap="$2" alignItems="center">
+        {item.poolLogoUrl ? (
+          <Image
+            width="$5"
+            height="$5"
+            borderRadius="$full"
+            source={{ uri: item.poolLogoUrl }}
+          />
+        ) : null}
+        <YStack>
+          <SizableText size="$bodyMdMedium" color={typeColor}>
+            {typeText}
+          </SizableText>
 
-        <SizableText size="$bodySm" color="$textSubdued">
-          {formattedTime}
-        </SizableText>
-      </YStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {formattedTime}
+          </SizableText>
+        </YStack>
+      </XStack>
 
       <TransactionAmount
         baseToken={baseToken}
