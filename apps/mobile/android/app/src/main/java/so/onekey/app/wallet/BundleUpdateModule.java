@@ -751,7 +751,9 @@ public class BundleUpdateModule extends ReactContextBaseJavaModule {
         String currentFolderName = getCurrentBundleVersion(reactContext);
         SharedPreferences readPrefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         log("installBundle", "currentFolderName: " + currentFolderName);
-        String currentSignature = readPrefs.getString(currentFolderName, "");
+        String currentSignature = currentFolderName != null 
+            ? readPrefs.getString(currentFolderName, "") 
+            : "";
         setCurrentBundleVersionAndSignature(reactContext, folderName, signature);
         String nativeVersion = getAppVersion(reactContext);
         log("installBundle", "nativeVersion: " + nativeVersion);
