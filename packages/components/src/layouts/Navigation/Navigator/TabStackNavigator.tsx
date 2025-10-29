@@ -21,12 +21,15 @@ function BasicTabSubStackNavigator({
   delay,
 }: {
   config: ITabSubNavigatorConfig<string, any>[] | null;
-  delay: number;
+  delay?: number;
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
-  const [isMounted, setIsMounted] = useState(delay > 0);
+  const [isMounted, setIsMounted] = useState(!(delay && delay > 0));
   useEffect(() => {
+    if (!delay) {
+      return;
+    }
     setTimeout(() => {
       setIsMounted(true);
     }, delay + 100);
