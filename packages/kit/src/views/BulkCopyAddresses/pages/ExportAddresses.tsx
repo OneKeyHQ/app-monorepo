@@ -25,8 +25,8 @@ import type {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import csvExporterUtils from '@onekeyhq/shared/src/utils/csvExporterUtils';
 
-import { useAccountData } from '../../../hooks/useAccountData';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useAccountData } from '../../../hooks/useAccountData';
 
 function ExportAddresses({
   route,
