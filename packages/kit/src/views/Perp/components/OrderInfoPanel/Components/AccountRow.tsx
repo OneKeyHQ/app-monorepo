@@ -309,11 +309,11 @@ const AccountRow = memo(
       return amount;
     }, [amount, fee, isMobile, typeConfig.isIncrease]);
 
-    // Determine icon based on totalAmount sign
     const iconName = useMemo(() => {
-      const amountNum = new BigNumber(totalAmount).toNumber();
-      return amountNum >= 0 ? 'ArrowBottomOutline' : 'ArrowTopOutline';
-    }, [totalAmount]);
+      if (typeConfig.isIncrease === true) return 'ArrowBottomOutline';
+      if (typeConfig.isIncrease === false) return 'ArrowTopOutline';
+      return 'QuestionmarkOutline';
+    }, [typeConfig.isIncrease]);
 
     const status = appLocale.intl.formatMessage({
       id: ETranslations.perp_status_comlete,
