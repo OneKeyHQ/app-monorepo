@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Tabs, YStack } from '@onekeyhq/components';
+import { isHoldersTabSupported } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   NUMBER_FORMATTER,
@@ -56,6 +57,31 @@ export function DesktopInformationTabs() {
     return baseTitle;
   }, [intl, tokenDetail?.holders]);
 
+  const tabs = useMemo(() => {
+    // Check if current network supports holders tab
+    const shouldShowHoldersTab = isHoldersTabSupported(networkId);
+
+    const items = [
+      <Tabs.Tab
+        key="transactions"
+        name={intl.formatMessage({
+          id: ETranslations.dexmarket_details_transactions,
+        })}
+      >
+        <TransactionsHistory
+          tokenAddress={tokenAddress}
+          networkId={networkId}
+        />
+      </Tabs.Tab>,
+      shouldShowHoldersTab && (
+        <Tabs.Tab key="holders" name={holdersTabName}>
+          <Holders tokenAddress={tokenAddress} networkId={networkId} />
+        </Tabs.Tab>
+      ),
+    ].filter(Boolean);
+    return items;
+  }, [intl, tokenAddress, networkId, holdersTabName]);
+
   const renderTabBar = useCallback(({ ...props }: any) => {
     return <DesktopInformationTabsHeader {...props} />;
   }, []);
@@ -66,20 +92,7 @@ export function DesktopInformationTabs() {
 
   return (
     <Tabs.Container renderTabBar={renderTabBar} onTabChange={handleTabChange}>
-      <Tabs.Tab
-        name={intl.formatMessage({
-          id: ETranslations.dexmarket_details_transactions,
-        })}
-      >
-        <TransactionsHistory
-          tokenAddress={tokenAddress}
-          networkId={networkId}
-        />
-      </Tabs.Tab>
-
-      <Tabs.Tab name={holdersTabName}>
-        <Holders tokenAddress={tokenAddress} networkId={networkId} />
-      </Tabs.Tab>
+      {tabs}
     </Tabs.Container>
   );
 }

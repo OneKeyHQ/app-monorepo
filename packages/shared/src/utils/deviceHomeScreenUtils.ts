@@ -3,6 +3,8 @@ import { EDeviceType } from '@onekeyfe/hd-shared';
 import { OneKeyLocalError } from '../errors/errors/localError';
 import { defaultLogger } from '../logger/logger';
 
+import platformEnv from '../platformEnv';
+
 import imageUtils from './imageUtils';
 
 import type { IResizeImageResult } from './imageUtils';
@@ -217,6 +219,7 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      cornerRadius: config.thumbnailSize?.radius ?? config.size?.radius ?? 0,
     });
   }
 
@@ -232,9 +235,13 @@ async function buildCustomScreenHex(
       originW: config.size?.width,
       originH: config.size?.height,
       isMonochrome: false,
+      cornerRadius: config.size?.radius ?? 0,
     });
     screenHex = imgScreen.hex;
-    screenBase64 = imageUtils.prefixBase64Uri(imgUri, 'image/jpeg');
+    screenBase64 = imageUtils.prefixBase64Uri(
+      imgScreen.base64 || imgUri,
+      'image/jpeg',
+    );
   } else {
     screenHex = Buffer.from(
       imageUtils.stripBase64UriPrefix(imgUri),
