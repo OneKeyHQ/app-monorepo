@@ -226,49 +226,66 @@ const AccountRow = memo(
 
     const typeConfig = useMemo(() => {
       const TYPE_CONFIG = getTypeConfig();
-      return (
-        TYPE_CONFIG.get(displayType) || {
-          text: delta.type,
-          icon: 'QuestionMarkCircleOutline',
-          isIncrease: null,
-        }
-      );
-    }, [displayType, delta.type]);
+      const config = TYPE_CONFIG.get(displayType) || {
+        text: delta.type,
+        icon: 'QuestionMarkCircleOutline',
+        isIncrease: null,
+      };
+
+      // Dynamic isIncrease for accountClassTransfer based on toPerp
+      if (delta.type === 'accountClassTransfer' && 'toPerp' in delta) {
+        return {
+          ...config,
+          isIncrease: delta.toPerp,
+        };
+      }
+
+      return config;
+    }, [displayType, delta]);
 
     const actionText = typeConfig.text;
 
     const amount = useMemo(() => {
+      let rawAmount = '0';
+
       if (
         (delta.type === 'spotTransfer' || delta.type === 'send') &&
         'usdcValue' in delta
       ) {
-        return delta.usdcValue;
-      }
-      if (
+        rawAmount = delta.usdcValue;
+      } else if (
         delta.type === 'vaultWithdraw' &&
         'netWithdrawnUsd' in delta &&
         delta.netWithdrawnUsd
       ) {
-        return delta.netWithdrawnUsd;
-      }
-      if (
+        rawAmount = delta.netWithdrawnUsd;
+      } else if (
         delta.type === 'vaultWithdraw' &&
         'requestedUsd' in delta &&
         delta.requestedUsd
       ) {
-        return delta.requestedUsd;
+        rawAmount = delta.requestedUsd;
+      } else if (delta.type === 'liquidation' && 'accountValue' in delta) {
+        rawAmount = delta.accountValue;
+      } else if ('usdc' in delta) {
+        rawAmount = delta.usdc;
+      } else if ('amount' in delta) {
+        rawAmount = delta.amount;
       }
-      if (delta.type === 'liquidation' && 'liquidatedNtlPos' in delta) {
-        return delta.liquidatedNtlPos;
+
+      const isRecipient =
+        (delta.type === 'internalTransfer' ||
+          delta.type === 'subAccountTransfer' ||
+          delta.type === 'spotTransfer' ||
+          delta.type === 'send') &&
+        displayType.endsWith('In');
+
+      if (isRecipient && 'fee' in delta && delta.fee) {
+        return new BigNumber(rawAmount).minus(delta.fee).toFixed();
       }
-      if ('usdc' in delta) {
-        return delta.usdc;
-      }
-      if ('amount' in delta) {
-        return delta.amount;
-      }
-      return '0';
-    }, [delta]);
+
+      return rawAmount;
+    }, [delta, displayType]);
 
     const fee = useMemo(() => {
       if (delta.type === 'vaultWithdraw') {
@@ -284,7 +301,7 @@ const AccountRow = memo(
       return null;
     }, [delta]);
 
-    // Mobile: show total amount (including fee for withdrawals/transfers out)
+    // Mobile: show total amount
     const totalAmount = useMemo(() => {
       if (isMobile && fee && typeConfig.isIncrease === false) {
         return new BigNumber(amount).plus(fee).toFixed();
@@ -456,9 +473,11 @@ const AccountRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-            color={fee ? '$textCritical' : undefined}
+            color={fee && Number(fee) !== 0 ? '$textCritical' : undefined}
           >
-            {fee ? numberFormat(fee, balanceFormatter) : '-'}
+            {fee && Number(fee) !== 0
+              ? numberFormat(fee, balanceFormatter)
+              : '-'}
           </SizableText>
         </XStack>
       </XStack>
