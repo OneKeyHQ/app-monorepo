@@ -81,7 +81,7 @@ const preloadTabs = (navigation: NavigationProp<any>) => {
     ETabSwapRoutes.TabSwap,
     (timeout += gap),
   );
-  // preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
+  preloadTab(navigation, ETabRoutes.Perp, ETabRoutes.Perp, (timeout += gap));
   preloadTab(
     navigation,
     ETabRoutes.Discovery,
