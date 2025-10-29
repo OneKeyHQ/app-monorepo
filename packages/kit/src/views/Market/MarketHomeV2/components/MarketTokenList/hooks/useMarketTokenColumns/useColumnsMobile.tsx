@@ -23,7 +23,7 @@ export const useColumnsMobile = (): ITableColumn<IMarketToken>[] => {
       title: `${intl.formatMessage({
         id: ETranslations.global_name,
       })} / ${intl.formatMessage({
-        id: ETranslations.dexmarket_mobiletitle_mcap,
+        id: ETranslations.dexmarket_turnover,
       })}`,
       titleProps: { paddingBottom: '$2', paddingLeft: '$3' },
       dataIndex: 'tokenInfo',
