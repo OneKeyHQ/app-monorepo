@@ -74,14 +74,20 @@ export function useAutoRedirectToMarket() {
   const shouldRedirectToMarket = platformEnv.isWebDappMode;
 
   useEffect(() => {
-    // Only redirect if currently on Wallet tab
-    if (!isCurrentlyOnWalletTab()) {
-      return;
-    }
+    // Add a delay to ensure any ongoing navigation completes first
+    // This prevents interfering with pushOrReplaceUrlAccountPage navigation
+    const timer = setTimeout(() => {
+      // Only redirect if currently on Wallet tab
+      if (!isCurrentlyOnWalletTab()) {
+        return;
+      }
 
-    if (shouldRedirectToMarket && !hasRedirectedRef.current) {
-      hasRedirectedRef.current = true;
-      navigation.switchTab(ETabRoutes.Market);
-    }
+      if (shouldRedirectToMarket && !hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        navigation.switchTab(ETabRoutes.Market);
+      }
+    }, 200); // Wait longer than the 100ms in pushOrReplaceUrlAccountPage
+
+    return () => clearTimeout(timer);
   }, [navigation, shouldRedirectToMarket]);
 }

@@ -4,6 +4,7 @@ import { random, range } from 'lodash';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import {
   backgroundClass,
+  backgroundMethod,
   backgroundMethodForDev,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -20,6 +21,7 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -871,6 +873,14 @@ class ServiceDemo extends ServiceBase {
   async demoRemoveAllBrowserHistoryRecords() {
     await this.backgroundApi.simpleDb.browserHistory.setRawData({ data: [] });
     return 'Done';
+  }
+
+  @backgroundMethod()
+  async demoGetPlatformEnv() {
+    return {
+      $$isBg: true,
+      isWebDappMode: platformEnv.isWebDappMode,
+    };
   }
 }
 
