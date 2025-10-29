@@ -46,6 +46,14 @@ function BaseSortableHeaderCell({
   }, [field, setSortConfig]);
 
   const isActive = sortConfig?.field === field;
+  let iconName: string;
+  if (isActive && sortConfig?.direction === 'asc') {
+    iconName = 'ChevronTopOutline';
+  } else if (isActive) {
+    iconName = 'ChevronBottomOutline';
+  } else {
+    iconName = 'ChevronGrabberVerOutline';
+  }
 
   return (
     <XStack
@@ -68,15 +76,10 @@ function BaseSortableHeaderCell({
         {label}
       </SizableText>
       <Icon
-        name={
-          isActive && sortConfig?.direction === 'asc'
-            ? 'ChevronTopOutline'
-            : 'ChevronBottomOutline'
-        }
+        name={iconName as any}
         size="$3"
         color={isActive ? '$icon' : '$iconSubdued'}
         flexShrink={0}
-        opacity={isActive ? 1 : 0}
         $group-card-hover={{
           opacity: isActive ? 1 : 0.6,
         }}

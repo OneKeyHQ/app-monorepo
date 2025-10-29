@@ -116,12 +116,27 @@ export default function MobileBottomTabBar({
         const isActive = index === state.index;
         const { options } = descriptors[route.key];
 
-        if (route.name === extraConfig?.name) {
+        if (
+          route.name === extraConfig?.name ||
+          (options as { hideOnTabBar?: boolean })?.hideOnTabBar
+        ) {
+          return null;
+        }
+
+        // Hide tab icon if hiddenIcon property is set to true
+        if ((options as { hiddenIcon?: boolean })?.hiddenIcon) {
           return null;
         }
 
         const onPress = () => {
-          handleRoutePress(route, isActive, options);
+          // Check if custom tabbarOnPress exists, use it instead of default navigation
+          const customPress = (options as { tabbarOnPress?: () => void })
+            ?.tabbarOnPress;
+          if (customPress) {
+            customPress();
+          } else {
+            handleRoutePress(route, isActive, options);
+          }
         };
 
         const renderItemContent = (renderActive: boolean) => (

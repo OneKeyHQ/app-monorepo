@@ -89,4 +89,49 @@ export class SimpleDbEntityBTCFreshAddress extends SimpleDbEntityBase<IBTCFreshA
       return oldData;
     });
   }
+
+  async getKeyByAddress({
+    networkId,
+    address,
+  }: {
+    networkId: string;
+    address: string;
+  }): Promise<string | undefined> {
+    if (!networkId) {
+      return undefined;
+    }
+    const trimmedAddress = address?.trim();
+    if (!trimmedAddress) {
+      return undefined;
+    }
+    const raw = await this.getRawData();
+    const entries = Object.entries(raw?.data ?? {});
+    const networkKeyPrefix = `${networkId}__`;
+    for (const [key, record] of entries) {
+      if (!key.startsWith(networkKeyPrefix)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      if (!record) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const groups = [
+        record.change?.used,
+        record.change?.unused,
+        record.fresh?.used,
+        record.fresh?.unused,
+      ];
+      const found = groups.some((items) =>
+        items?.some(
+          (item) =>
+            item.address === trimmedAddress || item.name === trimmedAddress,
+        ),
+      );
+      if (found) {
+        return key;
+      }
+    }
+    return undefined;
+  }
 }

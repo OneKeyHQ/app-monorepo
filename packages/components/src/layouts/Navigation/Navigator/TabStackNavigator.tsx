@@ -19,10 +19,16 @@ const Stack = createStackNavigator();
 function BasicTabSubStackNavigator({
   config,
 }: {
-  config: ITabSubNavigatorConfig<string, any>[];
+  config: ITabSubNavigatorConfig<string, any>[] | null;
 }) {
   const [bgColor, titleColor] = useThemeValue(['bgApp', 'text']);
   const intl = useIntl();
+
+  // Handle null config case - return null to avoid creating empty Stack.Navigator
+  if (!config || config.length === 0) {
+    return null;
+  }
+
   return (
     <Stack.Navigator>
       {config
@@ -103,6 +109,7 @@ export function TabStackNavigator<RouteName extends string>({
           collapseTabBarLabel: options.collapseSideBarTranslationId
             ? intl.formatMessage({ id: options.collapseSideBarTranslationId })
             : undefined,
+          hideOnTabBar: options.hideOnTabBar,
           tabbarOnPress: options.tabbarOnPress,
         }}
       >

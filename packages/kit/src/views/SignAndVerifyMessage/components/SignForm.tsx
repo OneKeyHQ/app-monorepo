@@ -16,8 +16,10 @@ import {
   Skeleton,
   Switch,
   TextAreaInput,
+  Toast,
   XStack,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
 import type { ISelectSection, UseFormReturn } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -65,7 +67,20 @@ export const SignForm = ({
 }: ISignFormProps) => {
   const intl = useIntl();
   const signAccountsRef = useRef<ISignAccount[]>([]);
+  const { copyText } = useClipboard();
 
+  const handleCopyWithStopPropagation = useCallback(
+    (text: string) => (e?: { stopPropagation?: () => void }) => {
+      if (e?.stopPropagation) {
+        e.stopPropagation();
+      }
+      copyText(text);
+    },
+    [copyText],
+  );
+
+  const signature = form.watch('signature');
+  const rawMessage = form.watch('message');
   const selectedAddress = form.watch('address');
   const currentSignAccount = useMemo(() => {
     if (!selectedAddress) {
@@ -251,7 +266,6 @@ export const SignForm = ({
 
   const currentFormat = form.watch('format');
   const currentMessage = form.watch('message');
-  const currentSignature = form.watch('signature');
   const accountKey = `${currentSignAccount?.network.id ?? ''}-${
     currentSignAccount?.deriveType ?? ''
   }`;
@@ -614,29 +628,129 @@ export const SignForm = ({
       ) : null}
       <Divider />
 
-      <Form.Field
-        label={intl.formatMessage({
-          id: ETranslations.message_signing_signature_label,
-        })}
-        name="signature"
-        {...(currentSignature && {
-          labelAddon: (
-            <Button onPress={onCopySignature} size="small" variant="tertiary">
-              {intl.formatMessage({ id: ETranslations.global_copy })}
-            </Button>
-          ),
-        })}
-      >
-        <TextAreaInput
-          placeholder={intl.formatMessage({
-            id: ETranslations.message_signing_signature_desc,
+      {!signature ? (
+        <Form.Field
+          label={intl.formatMessage({
+            id: ETranslations.message_signing_signature_label,
           })}
-          editable={false}
-          containerProps={{
-            borderStyle: 'dashed',
-          }}
-        />
-      </Form.Field>
+          name="signature"
+        >
+          <TextAreaInput
+            placeholder={intl.formatMessage({
+              id: ETranslations.message_signing_signature_desc,
+            })}
+            editable={false}
+            containerProps={{
+              borderStyle: 'dashed',
+            }}
+          />
+        </Form.Field>
+      ) : (
+        <YStack gap="$3">
+          <SizableText size="$bodyMdMedium">
+            {intl.formatMessage({
+              id: ETranslations.message_signing_signature_label,
+            })}
+          </SizableText>
+
+          <YStack
+            borderRadius="$2"
+            borderWidth="$px"
+            borderColor="$borderSubdued"
+            borderCurve="continuous"
+          >
+            {/* Message Section */}
+            <YStack gap="$1" p="$3">
+              <SizableText size="$bodyMd">
+                {intl.formatMessage({ id: ETranslations.global_hex_data })}
+              </SizableText>
+              <XStack gap="$4" pr="$1" alignItems="flex-start">
+                <SizableText
+                  flex={1}
+                  color="$textSubdued"
+                  wordWrap="break-word"
+                  style={{ overflowWrap: 'break-word' }}
+                >
+                  {rawMessage}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={handleCopyWithStopPropagation(rawMessage)}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+              </XStack>
+            </YStack>
+
+            {/* Address Section */}
+            <YStack gap="$1" p="$3">
+              <SizableText size="$bodyMd">
+                {intl.formatMessage({ id: ETranslations.global_address })}
+              </SizableText>
+              <XStack gap="$4" pr="$1" alignItems="flex-start">
+                <SizableText
+                  flex={1}
+                  color="$textSubdued"
+                  wordWrap="break-word"
+                  style={{
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {selectedAddress}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  flexShrink={0}
+                  onPress={handleCopyWithStopPropagation(selectedAddress)}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+              </XStack>
+            </YStack>
+
+            {/* Signature Section */}
+
+            <YStack gap="$1" p="$3">
+              <SizableText size="$bodyMd">
+                {intl.formatMessage({
+                  id: ETranslations.message_signing_signature_label,
+                })}
+              </SizableText>
+              <XStack gap="$4" pr="$1" alignItems="flex-start">
+                <SizableText
+                  flex={1}
+                  color="$textSubdued"
+                  wordWrap="break-word"
+                  style={{
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {signature}
+                </SizableText>
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={handleCopyWithStopPropagation(signature)}
+                >
+                  {intl.formatMessage({ id: ETranslations.global_copy })}
+                </Button>
+              </XStack>
+            </YStack>
+
+            <Divider />
+
+            <YStack py="$2" px="$3">
+              <Button onPress={onCopySignature} size="small" variant="tertiary">
+                {intl.formatMessage({ id: ETranslations.global_copy_all })}
+              </Button>
+            </YStack>
+          </YStack>
+        </YStack>
+      )}
     </Form>
   );
 };

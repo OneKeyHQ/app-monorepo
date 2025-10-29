@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
@@ -7,7 +7,6 @@ import { StyleSheet } from 'react-native';
 
 import { Tooltip } from '@onekeyhq/components/src/actions';
 import type { IActionListSection } from '@onekeyhq/components/src/actions';
-import { OneKeyLogo } from '@onekeyhq/components/src/content';
 import {
   EPortalContainerConstantName,
   Portal,
@@ -73,6 +72,7 @@ function TabItemView({
     onPressWhenSelected?: () => void;
     trackId?: string;
     collapseTabBarLabel?: string;
+    hideOnTabBar?: boolean;
   };
   isCollapse?: boolean;
 }) {
@@ -98,56 +98,57 @@ function TabItemView({
   );
 
   const contentMemo = useMemo(
-    () => (
-      <YStack
-        ai={isCollapse ? 'center' : undefined}
-        gap={isCollapse ? '$0.5' : undefined}
-        pt={isCollapse ? 6 : undefined}
-        pb={isCollapse ? 6 : undefined}
-        onPress={handlePress}
-        onHoverIn={() => {
-          if (isCollapse) {
-            setIsContainerHovered(true);
-          }
-        }}
-        onHoverOut={() => {
-          if (isCollapse) {
-            setIsContainerHovered(false);
-          }
-        }}
-      >
-        <DesktopTabItem
-          isContainerHovered={isCollapse ? isContainerHovered : false}
+    () =>
+      options.hideOnTabBar ? null : (
+        <YStack
+          ai={isCollapse ? 'center' : undefined}
+          gap={isCollapse ? '$0.5' : undefined}
+          pt={isCollapse ? 6 : undefined}
+          pb={isCollapse ? 6 : undefined}
           onPress={handlePress}
-          onPressWhenSelected={options.onPressWhenSelected}
-          trackId={options.trackId}
-          aria-current={isActive ? 'page' : undefined}
-          selected={isActive}
-          shortcutKey={options.shortcutKey}
-          tabBarStyle={[
-            options.tabBarStyle,
-            isCollapse ? { width: 36 } : undefined,
-          ]}
-          // @ts-expect-error
-          icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
-          label={
-            (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
-          }
-          actionList={options.actionList}
-          testID={route.name.toLowerCase()}
-        />
-        {isCollapse ? (
-          <SizableText
-            size="$bodyXsMedium"
-            cursor="default"
-            color="$text"
-            textAlign="center"
-          >
-            {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
-          </SizableText>
-        ) : null}
-      </YStack>
-    ),
+          onHoverIn={() => {
+            if (isCollapse) {
+              setIsContainerHovered(true);
+            }
+          }}
+          onHoverOut={() => {
+            if (isCollapse) {
+              setIsContainerHovered(false);
+            }
+          }}
+        >
+          <DesktopTabItem
+            isContainerHovered={isCollapse ? isContainerHovered : false}
+            onPress={handlePress}
+            onPressWhenSelected={options.onPressWhenSelected}
+            trackId={options.trackId}
+            aria-current={isActive ? 'page' : undefined}
+            selected={isActive}
+            shortcutKey={options.shortcutKey}
+            tabBarStyle={[
+              options.tabBarStyle,
+              isCollapse ? { width: 36 } : undefined,
+            ]}
+            // @ts-expect-error
+            icon={options?.tabBarIcon?.(isActive) as IKeyOfIcons}
+            label={
+              (isCollapse ? '' : options.tabBarLabel ?? route.name) as string
+            }
+            actionList={options.actionList}
+            testID={route.name.toLowerCase()}
+          />
+          {isCollapse ? (
+            <SizableText
+              size="$bodyXsMedium"
+              cursor="default"
+              color="$text"
+              textAlign="center"
+            >
+              {options.collapseTabBarLabel ?? options.tabBarLabel ?? route.name}
+            </SizableText>
+          ) : null}
+        </YStack>
+      ),
     [
       handlePress,
       isActive,
@@ -343,12 +344,23 @@ export function DesktopLeftSideBar({
 
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
 
+  const routesNotHidden = useMemo(() => {
+    return routes.filter((route) => {
+      const { options } = descriptors[route.key] as {
+        options: {
+          hiddenIcon?: boolean;
+        };
+      };
+      return !options.hiddenIcon;
+    });
+  }, [routes, descriptors]);
+
   const tabs = useMemo(() => {
     const inMoreActionRoutes: NavigationRoute<ParamListBase, string>[] = [];
     let filteredRoutes: NavigationRoute<ParamListBase, string>[] = [];
     if (isCollapse) {
-      for (let index = 0; index < routes.length; index += 1) {
-        const route = routes[index];
+      for (let index = 0; index < routesNotHidden.length; index += 1) {
+        const route = routesNotHidden[index];
         const { options } = descriptors[route.key] as {
           options: {
             inMoreAction?: boolean;
@@ -361,7 +373,7 @@ export function DesktopLeftSideBar({
         }
       }
     } else {
-      filteredRoutes = routes;
+      filteredRoutes = routesNotHidden;
     }
 
     const newRoutes = filteredRoutes.map((route) => {
@@ -433,7 +445,7 @@ export function DesktopLeftSideBar({
     return newRoutes;
   }, [
     isCollapse,
-    routes,
+    routesNotHidden,
     descriptors,
     state,
     isShowWebTabBar,
@@ -447,7 +459,8 @@ export function DesktopLeftSideBar({
       ...prev,
       isCollapsed: !prev.isCollapsed,
     }));
-  }, [setAppSideBarStatus]);
+    setIsHovering(false);
+  }, [setAppSideBarStatus, setIsHovering]);
 
   useShortcuts(EShortcutEvents.SideBar, handleToggleCollapse);
 
@@ -505,8 +518,50 @@ export function DesktopLeftSideBar({
         >
           <YStack flex={1}>
             {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
-              <XStack ai="center" pr="$3">
-                <OneKeyLogo />
+              <XStack
+                ai="center"
+                jc={isCollapse ? 'center' : 'flex-start'}
+                px="$4"
+                py="$3"
+              >
+                <Icon
+                  name="OnekeyLogoIllus"
+                  width={28}
+                  height={28}
+                  color="$text"
+                />
+                <MotiView
+                  animate={{
+                    opacity: isCollapse ? 0 : 1,
+                    width: isCollapse ? 0 : 62,
+                    marginLeft: isCollapse ? 0 : 12,
+                  }}
+                  transition={{
+                    opacity: {
+                      duration: isCollapse ? 0 : 200,
+                      type: 'timing',
+                      delay: isCollapse ? 0 : 100,
+                    },
+                    width: {
+                      duration: isCollapse ? 0 : 200,
+                      type: 'timing',
+                    },
+                    marginLeft: {
+                      duration: isCollapse ? 0 : 200,
+                      type: 'timing',
+                    },
+                  }}
+                  style={{
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Icon
+                    name="OnekeyTextOnlyIllus"
+                    width={62}
+                    height={28}
+                    color="$text"
+                  />
+                </MotiView>
               </XStack>
             ) : null}
             <YStack
@@ -531,11 +586,10 @@ export function DesktopLeftSideBar({
           setIsHovering(false);
         }}
         zIndex={1000}
-        right={-3}
+        right={-8}
         top={0}
         bottom={0}
-        width={6}
-        pb="$20"
+        width={16}
         ai="center"
         jc="center"
       >
@@ -554,6 +608,7 @@ export function DesktopLeftSideBar({
               alignItems: 'center',
               justifyContent: 'center',
               width: '100%',
+              paddingBottom: 96,
             }}
           >
             <Tooltip
@@ -562,29 +617,31 @@ export function DesktopLeftSideBar({
                 <YStack
                   aria-label="Toggle sidebar"
                   role="button"
-                  height="$12"
-                  width="$2"
-                  bg="$neutral6"
-                  hoverStyle={{
-                    bg: '$neutral8',
-                  }}
-                  borderRadius="$full"
+                  height="$20"
+                  width="$5"
+                  ai="center"
+                  jc="center"
                   cursor={isCollapse ? 'e-resize' : 'w-resize'}
-                  pressStyle={{
-                    bg: '$neutral7',
-                  }}
-                  focusVisibleStyle={{
-                    outlineWidth: 2,
-                    outlineColor: '$focusRing',
-                    outlineStyle: 'solid',
-                  }}
                   onPress={handleToggleCollapse}
-                />
+                >
+                  <YStack
+                    height="$16"
+                    width="$2"
+                    bg="$neutral6"
+                    hoverStyle={{
+                      bg: '$neutral8',
+                    }}
+                    borderRadius="$full"
+                    pointerEvents="none"
+                  />
+                </YStack>
               }
               renderContent={
                 <Tooltip.Text shortcutKey={EShortcutEvents.SideBar}>
                   {intl.formatMessage({
-                    id: ETranslations.shortcut_expand_sidebar,
+                    id: isCollapse
+                      ? ETranslations.shortcut_expand_sidebar
+                      : ETranslations.shortcut_collapse_sidebar,
                   })}
                 </Tooltip.Text>
               }
