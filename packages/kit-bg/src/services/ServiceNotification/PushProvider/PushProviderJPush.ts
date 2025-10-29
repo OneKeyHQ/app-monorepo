@@ -32,7 +32,6 @@ export class PushProviderJPush extends PushProviderBase {
       channel: process.env.JPUSH_CHANNEL || 'prod',
       production: true,
     };
-    JPush.setLoggerEnable(true);
     defaultLogger.notification.jpush.consoleLog('JPush setLoggerEnable', true);
     void LaunchOptionsManager.registerDeviceToken();
     JPush.init(options);
