@@ -119,7 +119,7 @@ jobs:
           #   echo ${{ secrets.APPSTORE_PROFILE }} | base64 -d > ./ios/certs/profile.mobileprovision
           #   echo ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }} | base64 -d > ./ios/certs/serviceextension-profile.mobileprovision
 
-            eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
+          eas build --profile=production-store --platform ios --non-interactive --no-wait --auto-submit
           # fi
 
       - name: Build on EAS
