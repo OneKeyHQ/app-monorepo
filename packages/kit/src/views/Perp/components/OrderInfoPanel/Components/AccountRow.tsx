@@ -40,7 +40,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_trade_deposit,
         }),
-        icon: 'ArrowBottomOutline',
         isIncrease: true,
       },
     ],
@@ -50,7 +49,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_trade_withdraw,
         }),
-        icon: 'ArrowTopOutline',
         isIncrease: false,
       },
     ],
@@ -60,7 +58,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.global_receive,
         }),
-        icon: 'ArrowBottomOutline',
         isIncrease: true,
       },
     ],
@@ -70,7 +67,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.global_send,
         }),
-        icon: 'ArrowTopOutline',
         isIncrease: false,
       },
     ],
@@ -80,7 +76,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_tranfer,
         }),
-        icon: 'ArrowExpandHoutline',
         isIncrease: null,
       },
     ],
@@ -90,7 +85,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_rewards,
         }),
-        icon: 'GiftOutline',
         isIncrease: true,
       },
     ],
@@ -100,7 +94,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_sub_transfer,
         }),
-        icon: 'PeopleShadowOutline',
         isIncrease: true,
       },
     ],
@@ -110,7 +103,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_sub_transfer,
         }),
-        icon: 'PeopleShadowOutline',
         isIncrease: false,
       },
     ],
@@ -120,7 +112,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_vault_transfer_deposit,
         }),
-        icon: 'CourtOutline',
         isIncrease: false,
       },
     ],
@@ -130,7 +121,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_vault_transfer_withdraw,
         }),
-        icon: 'CourtOutline',
         isIncrease: true,
       },
     ],
@@ -140,7 +130,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_action_vault_transfer_create,
         }),
-        icon: 'CourtOutline',
         isIncrease: false,
       },
     ],
@@ -148,7 +137,6 @@ const getTypeConfig = () =>
       'vaultDistribution',
       {
         text: 'Vault Distribution',
-        icon: 'HandCoinsOutline',
         isIncrease: true,
       },
     ],
@@ -156,7 +144,6 @@ const getTypeConfig = () =>
       'spotTransferIn',
       {
         text: 'Spot Transfer In',
-        icon: 'ArrowBottomOutline',
         isIncrease: true,
       },
     ],
@@ -164,7 +151,6 @@ const getTypeConfig = () =>
       'spotTransferOut',
       {
         text: 'Spot Transfer Out',
-        icon: 'ArrowTopOutline',
         isIncrease: false,
       },
     ],
@@ -174,7 +160,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.global_receive,
         }),
-        icon: 'ArrowBottomOutline',
         isIncrease: true,
       },
     ],
@@ -184,7 +169,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.global_send,
         }),
-        icon: 'ArrowTopOutline',
         isIncrease: false,
       },
     ],
@@ -194,7 +178,6 @@ const getTypeConfig = () =>
         text: appLocale.intl.formatMessage({
           id: ETranslations.perp_account_history_liquidation,
         }),
-        icon: 'MoneyOutline',
         isIncrease: false,
       },
     ],
@@ -309,6 +292,12 @@ const AccountRow = memo(
       return amount;
     }, [amount, fee, isMobile, typeConfig.isIncrease]);
 
+    // Determine icon based on totalAmount sign
+    const iconName = useMemo(() => {
+      const amountNum = new BigNumber(totalAmount).toNumber();
+      return amountNum >= 0 ? 'ArrowBottomOutline' : 'ArrowTopOutline';
+    }, [totalAmount]);
+
     const status = appLocale.intl.formatMessage({
       id: ETranslations.perp_status_comlete,
     });
@@ -327,8 +316,8 @@ const AccountRow = memo(
     const iconColor = '$icon';
 
     const textColor = useMemo(() => {
-      if (typeConfig.isIncrease === true) return '$textSuccess';
-      if (typeConfig.isIncrease === false) return '$textCritical';
+      if (typeConfig.isIncrease === true) return '$green11';
+      if (typeConfig.isIncrease === false) return '$red11';
       return '$text';
     }, [typeConfig.isIncrease]);
 
@@ -358,18 +347,18 @@ const AccountRow = memo(
             alignItems="center"
             justifyContent="center"
           >
-            <Icon name={typeConfig.icon as any} size="$6" color={iconColor} />
+            <Icon name={iconName as any} size="$6" color={iconColor} />
           </XStack>
           <YStack flex={1} gap="$1">
             <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodyLgMedium">{actionText}</SizableText>
-              <SizableText size="$bodyLgMedium" color={textColor}>
+              <SizableText size="$bodyMdMedium">{actionText}</SizableText>
+              <SizableText size="$bodyMdMedium" color={textColor}>
                 {signPrefix}
                 {numberFormat(totalAmount, balanceFormatter)}
               </SizableText>
             </XStack>
             <XStack justifyContent="space-between" alignItems="center">
-              <SizableText size="$bodySm" color="$textSuccess">
+              <SizableText size="$bodySm" color="$green11">
                 {status}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
@@ -423,7 +412,7 @@ const AccountRow = memo(
             numberOfLines={1}
             ellipsizeMode="tail"
             size="$bodySm"
-            color="$textSuccess"
+            color="$green11"
           >
             {status}
           </SizableText>
