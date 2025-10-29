@@ -735,7 +735,7 @@ async function createMainWindow() {
     if (details.deviceType === 'usb') {
       return true;
     }
-    return true;
+    return false;
   });
 
   session.defaultSession.webRequest.onBeforeSendHeaders(
