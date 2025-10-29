@@ -174,7 +174,7 @@ export const convertOkxTxsDataToWsTxsData = (
   const tokenAddressMap = createTokenAddressMap(okxData.changedTokenInfo);
 
   let fromTransfer = mapTransferInfo(okxData.from, 'from', tokenAddressMap);
-  const toTransfer = mapTransferInfo(okxData.to, 'to', tokenAddressMap);
+  let toTransfer = mapTransferInfo(okxData.to, 'to', tokenAddressMap);
 
   // Fix price fields: OKX data often has price in 'to' field for sell transactions
   // We need to ensure 'from.price' is populated for value calculation (value = from.amount * from.price)
@@ -185,6 +185,16 @@ export const convertOkxTxsDataToWsTxsData = (
   } else if (fromTransfer.price === 0 && tokenPrice !== 0) {
     // If from.price is still 0, use the top-level price field
     fromTransfer = { ...fromTransfer, price: tokenPrice };
+  }
+
+  // OKX data structure: the current token (being viewed) is always in 'from' position
+  // But our UI expects: buy = current token in 'to', sell = current token in 'from'
+  // So we need to swap from/to for buy transactions
+  if (okxData.side === 'buy') {
+    // Swap from and to for buy transactions
+    const temp = fromTransfer;
+    fromTransfer = toTransfer;
+    toTransfer = temp;
   }
 
   const blockUnixTime = normalizeTimestamp(
