@@ -14,6 +14,7 @@ interface IUseTransactionsWebSocketProps {
   networkId: string;
   tokenAddress: string;
   enabled?: boolean;
+  currency?: string;
   onNewTransaction?: (transaction: IMarketTokenTransaction) => void;
 }
 
@@ -21,6 +22,7 @@ export function useTransactionsWebSocket({
   networkId,
   tokenAddress,
   enabled = true,
+  currency = 'usd',
   onNewTransaction,
 }: IUseTransactionsWebSocketProps) {
   // Subscribe to token transactions using existing WebSocket connection
@@ -37,6 +39,7 @@ export function useTransactionsWebSocket({
         await backgroundApiProxy.serviceMarketWS.subscribeTokenTxs({
           networkId,
           tokenAddress,
+          currency,
         });
       } catch (error) {
         console.error('Failed to subscribe to token transactions:', error);
@@ -52,6 +55,7 @@ export function useTransactionsWebSocket({
           await backgroundApiProxy.serviceMarketWS.unsubscribeTokenTxs({
             networkId,
             tokenAddress,
+            currency,
           });
         } catch (error) {
           console.error(
@@ -63,7 +67,7 @@ export function useTransactionsWebSocket({
 
       void cleanup();
     };
-  }, [networkId, tokenAddress, enabled]);
+  }, [networkId, tokenAddress, enabled, currency]);
 
   // Listen for transaction data updates via the app event bus
   useEffect(() => {

@@ -97,9 +97,11 @@ class ServiceMarketWS extends ServiceBase {
   async subscribeTokenTxs({
     networkId,
     tokenAddress,
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
+    currency?: string;
   }) {
     // Check if already subscribed
     if (
@@ -112,20 +114,26 @@ class ServiceMarketWS extends ServiceBase {
         address: tokenAddress,
         type: EChannel.tokenTxs,
         networkId,
+        currency,
       });
       return;
     }
 
+    const subscriptionArgs: IMarketSubscription = {
+      channel: EChannel.tokenTxs,
+      networkId,
+      tokenAddress,
+      dataSource: 'okx',
+    };
+
+    // Add optional currency parameter if provided
+    if (currency) {
+      subscriptionArgs.currency = currency;
+    }
+
     const message: IMarketMessage = {
       operation: EOperation.subscribe,
-      args: [
-        {
-          channel: EChannel.tokenTxs,
-          networkId,
-          tokenAddress,
-          dataSource: 'okx',
-        },
-      ],
+      args: [subscriptionArgs],
     };
 
     if (!this.socket?.connected) {
@@ -138,6 +146,7 @@ class ServiceMarketWS extends ServiceBase {
       address: tokenAddress,
       type: EChannel.tokenTxs,
       networkId,
+      currency,
     });
   }
 
@@ -249,14 +258,17 @@ class ServiceMarketWS extends ServiceBase {
   async unsubscribeTokenTxs({
     networkId,
     tokenAddress,
+    currency = 'usd',
   }: {
     networkId: string;
     tokenAddress: string;
+    currency?: string;
   }) {
     this.subscriptionTracker.removeSubscription({
       address: tokenAddress,
       type: EChannel.tokenTxs,
       networkId,
+      currency,
     });
 
     // Only unsubscribe from WebSocket if no more connections
@@ -270,6 +282,7 @@ class ServiceMarketWS extends ServiceBase {
         channel: EChannel.tokenTxs,
         networkId,
         tokenAddress,
+        currency,
       });
     }
   }
@@ -458,6 +471,7 @@ class ServiceMarketWS extends ServiceBase {
           void this.unsubscribeTokenTxs({
             networkId: subscription.networkId,
             tokenAddress: subscription.address,
+            currency: subscription.currency,
           });
         } else if (channel === EChannel.ohlcv) {
           void this.unsubscribeOHLCV({
