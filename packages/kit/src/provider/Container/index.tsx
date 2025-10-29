@@ -43,17 +43,11 @@ function GlobalRootAppNavigationUpdate() {
   return null;
 }
 
-function TestContainer() {
-  console.log('TestContainer', 1111);
-  return null;
-}
-
 export function Container() {
   return (
     <RootSiblingParent>
       <AppStateLockContainer>
         <NavigationContainer>
-          <TestContainer />
           <InAppNotification />
           <GlobalRootAppNavigationUpdate />
           <JotaiContextRootProvidersAutoMount />
